@@ -1,0 +1,13 @@
+{
+  "formatter": {
+    "external": {
+      "command": "mise",
+      "arguments": ["exec", "--", "prettier", "--stdin-filepath", "{buffer_path}"]
+    }
+  },
+  "format_on_save": "on",
+  "ensure_final_newline_on_save": true,
+  "file_types": {
+    "Markdown": ["*.md.tpl", "*.mdx.tpl"]
+  }
+}

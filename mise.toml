@@ -1,0 +1,10 @@
+[tools]
+"npm:prettier" = "latest"
+
+[tasks."check:knowledge"]
+description = "Check knowledge Markdown files with Prettier"
+run = 'prettier --check "README.md" "AGENTS.md" "knowledge/**/*.md" "knowledge/**/*.mdx" "knowledge/**/*.md.tpl" "knowledge/**/*.mdx.tpl" --no-error-on-unmatched-pattern --log-level warn'
+
+[tasks."format:knowledge"]
+description = "Format knowledge Markdown files with Prettier"
+run = 'prettier --write "README.md" "AGENTS.md" "knowledge/**/*.md" "knowledge/**/*.mdx" "knowledge/**/*.md.tpl" "knowledge/**/*.mdx.tpl" --no-error-on-unmatched-pattern --log-level warn'

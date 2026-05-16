@@ -1,0 +1,63 @@
+---
+name: task-metadata-audit
+description: Audit task item metadata and Kanban consistency without writing. Use for task readiness, dependency, issue, acceptance, and board-link checks.
+---
+
+# Task Metadata Audit
+
+Use this skill to inspect task metadata and report issues. This skill is read-only.
+
+## Workflow
+
+1. Read `knowledge/schemas/common.md`.
+2. Read `knowledge/schemas/tasks.md`.
+3. Read `knowledge/tasks/WORKFLOW.md`.
+4. Read `knowledge/planning/KANBAN.md`.
+5. Scan `knowledge/tasks/items/**/*.md`, excluding localized files.
+6. Parse frontmatter and task body sections.
+7. Check task relationships against existing task ids and Kanban card ids.
+8. Report issues and dry-run fixes without editing files.
+
+## Checks
+
+- Missing or invalid `type`, `priority`, `value`, `effort`, `readiness`, or `module`.
+- Missing or invalid `severity` only when `type` is `issue`, `bug`, or `defect` and impact is needed for triage.
+- Missing `owners` in new or actively maintained task items.
+- `owners`, `assignees`, or `reviewers` values that reference member or group documents without wikilinks, or tool-written values that should be path-qualified.
+- Group values in `assignees`; report these as team-pool assignments, not direct assignment to the current member.
+- Missing `assignees` only when the task appears scheduled or actively assigned.
+- Missing `reviewers` only when review responsibility is expected.
+- `blocked_by`, `related_to`, or `unblocks` entries that point to missing or ambiguous task references.
+- Missing `## Sources` section or sources that point only to local workspace notes or localized files.
+- Tasks with `readiness: ready` but missing acceptance criteria.
+- Issue, bug, or defect tasks with `readiness: ready` but missing `Problem`, `Impact`, or `Triage` context.
+- Reproducible bug or defect tasks with `readiness: ready` but missing `Reproduction`, `Expected`, or `Actual`.
+- Tasks with `readiness: ready` whose task item or required source materials are uncommitted.
+- Tasks with `readiness: ready` whose task item or required source materials are not pushed to the default remote when one exists.
+- Tasks in `Ready` with unresolved `blocked_by` entries.
+- Tasks in `Ready` with `readiness` other than `ready`.
+- Tasks in `Blocked` without `readiness: blocked` or unresolved `blocked_by` entries.
+- Tasks outside `Blocked` with unresolved `blocked_by` entries.
+- Tasks in `Backlog` that appear ready but have not been promoted to `Ready`.
+- Localized task files used as planning inputs.
+
+## Output
+
+- Summary counts.
+- Findings grouped by severity.
+- Dry-run metadata fixes with confidence and auto-fixability.
+- Candidate tasks that are safe for `next-task-selection`.
+- Questions for the maintainer when metadata cannot be inferred safely.
+
+## Guardrails
+
+- Do not edit task items.
+- Do not move Kanban cards.
+- Do not infer sensitive information.
+- Do not treat `assignees` as Kanban status.
+- Treat source stability as a readiness audit and Ready-column maintenance check. Do not require `next-task-selection` to run the full audit for every candidate unless the user asks for strict verification or automatic start.
+- Require maintainer approval before any suggested fix is applied by another skill.
+
+## References
+
+- For audit output examples, read `references/report.md`.

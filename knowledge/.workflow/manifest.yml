@@ -1,0 +1,87 @@
+template_id: knowledge-workflow
+template_version: 1
+manifest_version: 1
+knowledge_dir: knowledge
+agent_skills_dir: ".agents/skills"
+agent_local_dir: ".agents/.local"
+canonical_language: en
+default_group_id: default-team
+installed_at: "2026-05-16T15:26:58Z"
+updated_at: "2026-05-17T04:25:47Z"
+append_blocks:
+  - path: AGENTS.md
+    block: knowledge-workflow
+    version: 1
+managed:
+  version: 1
+  paths:
+    - knowledge/.gitignore
+    - knowledge/README.md
+    - knowledge/planning/WORKFLOW.md
+    - knowledge/schemas/README.md
+    - knowledge/schemas/architecture.md
+    - knowledge/schemas/common.md
+    - knowledge/schemas/concepts.md
+    - knowledge/schemas/decisions.md
+    - knowledge/schemas/design.md
+    - knowledge/schemas/discovery.md
+    - knowledge/schemas/groups.md
+    - knowledge/schemas/guidelines.md
+    - knowledge/schemas/members.md
+    - knowledge/schemas/planning.md
+    - knowledge/schemas/product.md
+    - knowledge/schemas/proposals.md
+    - knowledge/schemas/sprints.md
+    - knowledge/schemas/tasks.md
+    - knowledge/schemas/workspace.md
+    - knowledge/proposals/templates/proposal.md.tpl
+    - knowledge/tasks/WORKFLOW.md
+    - knowledge/workspace/templates/worklist.md.tpl
+    - knowledge/workspace/templates/handoff.md.tpl
+    - knowledge/tasks/templates/task-item.md.tpl
+    - ".agents/skills/delivery-planning/**"
+    - ".agents/skills/delivery-review/**"
+    - ".agents/skills/delivery-implementation/**"
+    - ".agents/skills/kanban-maintenance/**"
+    - ".agents/skills/knowledge-capture/**"
+    - ".agents/skills/knowledge-schema-audit/**"
+    - ".agents/skills/knowledge-intake/**"
+    - ".agents/skills/knowledge-status-report/**"
+    - ".agents/skills/next-task-selection/**"
+    - ".agents/skills/task-metadata-audit/**"
+    - ".agents/skills/workspace-worklist/**"
+    - knowledge/groups/templates/group.md.tpl
+    - knowledge/members/templates/member.md.tpl
+protected:
+  - knowledge/planning/KANBAN.md
+  - path: knowledge/planning/**
+    except:
+      - knowledge/planning/WORKFLOW.md
+  - path: knowledge/tasks/**
+    except:
+      - knowledge/tasks/WORKFLOW.md
+      - knowledge/tasks/templates/task-item.md.tpl
+  - path: knowledge/workspace/**
+    except:
+      - knowledge/workspace/templates/worklist.md.tpl
+      - knowledge/workspace/templates/handoff.md.tpl
+  - knowledge/workspace/*/local/**
+  - path: knowledge/members/**
+    except:
+      - knowledge/members/templates/member.md.tpl
+  - path: knowledge/groups/**
+    except:
+      - knowledge/groups/templates/group.md.tpl
+  - path: knowledge/proposals/**
+    except:
+      - knowledge/proposals/templates/proposal.md.tpl
+  - knowledge/discovery/**
+  - knowledge/product/**
+  - knowledge/design/**
+  - knowledge/architecture/**
+  - knowledge/concepts/**
+  - knowledge/decisions/**
+  - knowledge/guidelines/**
+local_overrides: []
+skipped_patterns: []
+applied_migrations: []

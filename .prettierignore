@@ -1,0 +1,4 @@
+.git/
+.agents/.local/
+knowledge/workspace/*/local/
+knowledge/.obsidian/

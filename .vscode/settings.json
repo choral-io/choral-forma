@@ -1,0 +1,11 @@
+{
+  "files.insertFinalNewline": true,
+  "files.autoSave": "onWindowChange",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "files.associations": {
+    "*.md.tpl": "markdown",
+    "*.mdx.tpl": "markdown"
+  },
+  "foam.files.include": ["knowledge/**/*"],
+  "foam.files.exclude": ["knowledge/**/*.tpl"]
+}
