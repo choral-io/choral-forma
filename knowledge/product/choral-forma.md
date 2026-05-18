@@ -13,18 +13,19 @@ tags:
 
 ## Goal
 
-Choral Forma explores a lightweight, editor-independent team knowledge application
-that treats repository Markdown as the source of truth.
+Choral Forma explores a lightweight, editor-independent team knowledge
+application that treats repository Markdown as the source of truth.
 
-The product should help a team capture product context, concepts, decisions,
-planning, and delivery status in explicit files and schemas instead of hiding
-knowledge in a proprietary application store.
+The product should help teams and individuals maintain structured, normalized,
+versioned knowledge in explicit Markdown files and workspace configuration
+instead of hiding knowledge in a proprietary application store.
 
 ## Users
 
-- Team members who want readable project knowledge that works in normal editors.
-- Agents that need stable file paths, schemas, and workflow rules to collaborate
-  safely with human maintainers.
+- Teams and individuals doing complex, process-heavy work.
+- Human maintainers who want readable knowledge that works in normal editors.
+- Agents that need stable file paths, schemas, views, and health checks to
+  collaborate safely with human maintainers.
 - Future application users who need a focused interface over repository-backed
   knowledge without losing direct file access.
 
@@ -32,7 +33,13 @@ knowledge in a proprietary application store.
 
 Choral Forma should preserve the repository as the durable system of record.
 Application behavior, when introduced, should read from and write to explicit
-Markdown files, schemas, and supporting assets under `knowledge/`.
+Markdown files, Forma configuration under `.forma/`, and user-defined content
+directories such as `notes/`, `daily/`, `todos/`, or `users/`.
+
+This repository's current `knowledge/` directory is the development knowledge
+base for Choral Forma, not the required structure of a future user workspace.
+It is useful dogfooding evidence, but product workspaces should be configurable
+rather than forced to copy this repository layout.
 
 The application should support editor-independent workflows: a person can use
 the app, Foam, Obsidian, another Markdown editor, or direct repository review
@@ -40,10 +47,9 @@ without changing the underlying project facts.
 
 ## In Scope
 
-- Markdown-first project knowledge.
-- Explicit schemas for knowledge areas, task items, planning, and member
-  workspaces.
-- Lightweight navigation across product facts, concepts, decisions, and tasks.
+- Markdown-first knowledge workspaces.
+- Thin configurable collections, semantic types, schemas, templates, and views.
+- Lightweight navigation across user-defined knowledge entries.
 - Agent-assisted maintenance that respects repository workflow rules and local
   privacy boundaries.
 
@@ -58,8 +64,12 @@ without changing the underlying project facts.
 ## Related Concepts
 
 - [[repository-backed-knowledge]]
-- [[editor-independent-notes]]
+- [[editor-independent-knowledge]]
 - [[agent-assisted-knowledge-maintenance]]
+
+## Related Product
+
+- [[product-direction]]
 
 ## Open Questions
 
