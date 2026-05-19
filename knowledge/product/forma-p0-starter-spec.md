@@ -127,9 +127,23 @@ definition itself. Runtime values such as `currentDate` and `currentDateTime`
 should use the effective workspace timezone when deriving workspace-local
 values.
 
+Persisted `date` values use `YYYY-MM-DD`. Persisted `datetime` values must be
+RFC3339 timestamps with explicit timezone information, either `Z` or a numeric
+offset such as `+08:00`. CLI and GUI input surfaces may accept local datetime
+input without an offset, but must interpret it with `workspace.timezone` and
+write an explicit RFC3339 timestamp. Offset-less persisted datetime strings
+such as `2026-05-19T10:30:00` are invalid.
+
 `forma init` may default `workspace.timezone` from the current environment's
 timezone, but the generated workspace should still store the resolved timezone
 explicitly in `.forma/workspace.yml`.
+
+`forma init` is a write-heavy operation and should require explicit
+confirmation. Unless the user passes `-y` or `--yes`, interactive shells should
+show the resolved workspace name, language, timezone, and a summary of the
+starter files and directories that will be created before asking for
+confirmation. Non-interactive shells such as CI should fail without writing
+files unless `-y` or `--yes` is provided.
 
 ## `.forma/types.yml`
 
@@ -608,11 +622,12 @@ view:
 `forma init` should:
 
 1. Fail if `.forma/` already exists.
-2. Create the starter file tree.
-3. Render concrete `workspace.yml` values from init inputs.
-4. Create no sample entries.
-5. Create no `.forma/local/` or `.forma/overrides/local.yml`.
-6. Run `forma index rebuild`.
+2. Require confirmation in CLI adapters unless `-y` or `--yes` is provided.
+3. Create the starter file tree.
+4. Render concrete `workspace.yml` values from init inputs.
+5. Create no sample entries.
+6. Create no `.forma/local/` or `.forma/overrides/local.yml`.
+7. Run `forma index rebuild`.
 
 `forma create <collection>` should use the target collection's create inputs,
 create filename rule, and template. It should fail on path conflicts and report
@@ -622,9 +637,3 @@ that `.forma/index.summary.json` is stale after writing the new entry.
 read-only local WebApp. The P0 WebApp may inspect and render entries,
 collections, views, diagnostics, and index status, but it must not edit files or
 configuration.
-
-## Open Questions
-
-- Exact `date` and `datetime` lexical formats should be finalized during
-  implementation. ISO 8601-compatible strings are the expected baseline; field
-  type declarations should not embed timezone metadata.

@@ -16,7 +16,7 @@ severity:
 value: H
 module: app
 effort: L
-readiness: blocked
+readiness: ready
 sprint:
 blocked_by:
   - "[[tasks/items/implement-schema-dsl-runtime-values]]"
@@ -52,12 +52,16 @@ summary index.
 
 ## In Scope
 
-- Implement `forma init [--name <name>] [--language <tag>]`.
+- Implement
+  `forma init --name <name> [--language <tag>] [--timezone <iana>] [-y|--yes]`.
 - Generate the P0 starter `.forma/` files, templates, views, content
   directories, `.forma/.gitignore`, and initial summary index.
 - Store explicit `workspace.timezone`, defaulting from the current environment
   when no timezone input is provided.
-- Implement `forma create <collection> [--json]`.
+- Require explicit confirmation before `init` writes files unless `-y` or
+  `--yes` is provided; non-interactive shells should fail without writing files
+  unless confirmation is bypassed explicitly.
+- Implement `forma create <collection> [--input <name=value>]... [--json]`.
 - Implement `forma inspect <path> [--json]` and
   `forma inspect --collection <collection> <entry> [--json]`.
 - Implement `forma list --collection <collection> [--json]`.
@@ -78,6 +82,8 @@ summary index.
 
 - `forma init` creates the exact P0 starter shape and fails when `.forma/`
   already exists.
+- `forma init` shows resolved init parameters and requires confirmation before
+  writing in interactive shells; non-interactive usage requires `-y` or `--yes`.
 - `forma create` writes one file from collection inputs and template, then
   reports stale index without rebuilding automatically.
 - Inspect and list commands return stable JSON and useful human output.
@@ -86,10 +92,11 @@ summary index.
 
 ## Relationship Notes
 
-Blocked by Schema DSL/runtime values, check/index diagnostics, and operation
-dispatch foundation.
+Previously blocked by Schema DSL/runtime values, check/index diagnostics, and
+operation dispatch foundation; all prerequisites are now done.
 
-## Open Questions
+## Follow-up Notes
 
-- Whether `forma init` should expose a timezone flag can be decided during CLI
-  implementation.
+`forma init` exposes `--timezone` as an optional override. When omitted, the
+implementation detects the current environment timezone once and writes the
+resolved value into `.forma/workspace.yml`.

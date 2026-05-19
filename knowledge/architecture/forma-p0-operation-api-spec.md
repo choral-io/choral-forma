@@ -51,20 +51,20 @@ the same JSON-compatible operation result shapes.
 P0 operations are product-semantic actions exposed through adapters. Operation
 names use stable lower camel case in JSON-facing APIs.
 
-| Operation     | JSON method       | Primary CLI command                                      | Writes files |
-| ------------- | ----------------- | -------------------------------------------------------- | ------------ |
-| Init          | `init`            | `forma init [--name <name>] [--language <tag>]`          | Yes          |
-| ConfigInspect | `config.inspect`  | `forma config inspect [--path <path>] [--json]`          | No           |
-| IndexRebuild  | `index.rebuild`   | `forma index rebuild [--json]`                           | Yes          |
-| IndexCheck    | `index.check`     | `forma index check [--json]`                             | No           |
-| Check         | `check`           | `forma check [--json]`                                   | No           |
-| Inspect       | `inspect`         | `forma inspect <path> [--json]`                          | No           |
-| Inspect       | `inspect`         | `forma inspect --collection <collection> <entry> --json` | No           |
-| List          | `list`            | `forma list --collection <collection> [--json]`          | No           |
-| Create        | `create`          | `forma create <collection> [--json]`                     | Yes          |
-| ViewRender    | `view.render`     | No required P0 CLI command                               | No           |
-| EntryRender   | `entry.render`    | No required P0 CLI command                               | No           |
-| Serve         | Local server mode | `forma serve`                                            | No           |
+| Operation     | JSON method       | Primary CLI command                                                           | Writes files |
+| ------------- | ----------------- | ----------------------------------------------------------------------------- | ------------ |
+| Init          | `init`            | `forma init --name <name> [--language <tag>] [--timezone <iana>] [-y\|--yes]` | Yes          |
+| ConfigInspect | `config.inspect`  | `forma config inspect [--path <path>] [--json]`                               | No           |
+| IndexRebuild  | `index.rebuild`   | `forma index rebuild [--json]`                                                | Yes          |
+| IndexCheck    | `index.check`     | `forma index check [--json]`                                                  | No           |
+| Check         | `check`           | `forma check [--json]`                                                        | No           |
+| Inspect       | `inspect`         | `forma inspect <path> [--json]`                                               | No           |
+| Inspect       | `inspect`         | `forma inspect --collection <collection> <entry> --json`                      | No           |
+| List          | `list`            | `forma list --collection <collection> [--json]`                               | No           |
+| Create        | `create`          | `forma create <collection> [--input <name=value>]... [--json]`                | Yes          |
+| ViewRender    | `view.render`     | No required P0 CLI command                                                    | No           |
+| EntryRender   | `entry.render`    | No required P0 CLI command                                                    | No           |
+| Serve         | Local server mode | `forma serve`                                                                 | No           |
 
 `Serve` is a CLI mode, not a domain operation. The server exposes operation
 methods through `POST /rpc` and serves static WebApp assets. It may compute
@@ -113,6 +113,47 @@ path. Public paths inside results must be workspace-relative POSIX paths.
 
 Human-oriented CLI output can be concise and non-JSON. JSON output is the
 contract surface.
+
+## CLI Confirmation Policy
+
+CLI adapters should gate write operations by risk and predictability.
+
+- Read-only commands never require confirmation.
+- Single-file, predictable, non-destructive writes do not require confirmation
+  when they already fail on path conflicts or invalid inputs.
+- Initialization, physical deletion, path moves or renames that change
+  references, automatic fixes, batch updates, and operations that write multiple
+  files or update references require confirmation.
+- Confirmation-required commands must fail without writing in non-interactive
+  shells unless the caller passes `-y` or `--yes`.
+- Confirmation-required commands should provide a dry-run or plan mode when the
+  operation can produce a meaningful plan before writing.
+
+P0 command classification:
+
+- `forma init` requires confirmation because it creates the workspace structure,
+  starter configuration, starter templates, starter views, and the initial
+  summary index. `-y` or `--yes` bypasses the prompt for scripts and CI.
+- `forma create` does not require confirmation in P0 because it writes one new
+  entry, uses collection-defined inputs and templates, and fails on path
+  conflicts.
+- `forma index rebuild` does not require confirmation in P0 because it writes
+  only the deterministic, rebuildable `.forma/index.summary.json` file.
+- `forma check`, `forma index check`, `forma config inspect`, `forma inspect`,
+  `forma list`, and `forma serve` do not require confirmation because they are
+  read-only in P0.
+
+Future command classification:
+
+- `forma delete`, `forma move`, multi-file `rename`, batch metadata updates,
+  automatic `fix` apply operations, and commands that rewrite references should
+  require confirmation.
+- `forma set`, `forma add`, `forma remove`, and `forma unset` can avoid
+  confirmation for one-file field edits, but should require confirmation for
+  batch, multi-file, or reference-changing modes.
+- `forma deprecate` can avoid confirmation when it only adds or updates an
+  explicit frontmatter marker on one file, but should require confirmation for
+  batch, multi-file, view-changing, or reference-changing modes.
 
 ## JSON-RPC HTTP Shape
 
@@ -315,9 +356,20 @@ Params:
 ```json
 {
   "name": "Acme Knowledge",
-  "language": "en"
+  "language": "en",
+  "timezone": "Asia/Shanghai"
 }
 ```
+
+`timezone` is optional. When omitted, CLI initialization may detect the current
+environment timezone once, then write the resolved value into
+`.forma/workspace.yml`.
+
+The CLI adapter should require explicit confirmation before running `init`.
+Without `-y` or `--yes`, interactive shells should display the resolved init
+parameters, summarize the files and directories that will be created, and ask
+the user to confirm. Non-interactive shells, including CI, should fail without
+writing files unless `-y` or `--yes` is provided.
 
 Result outline:
 

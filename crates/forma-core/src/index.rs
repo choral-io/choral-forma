@@ -462,10 +462,13 @@ fn discover_views(
             );
             continue;
         };
-        let surface = required_string(&value, "surface");
-        let mode = required_string(&value, "mode");
-        let collection = required_string(&value, "collection");
-        let title = optional_string(&value, "title");
+        let surface =
+            required_string(&value, "view.surface").or_else(|| required_string(&value, "surface"));
+        let mode = required_string(&value, "view.mode").or_else(|| required_string(&value, "mode"));
+        let collection = required_string(&value, "view.collection")
+            .or_else(|| required_string(&value, "collection"));
+        let title =
+            optional_string(&value, "view.title").or_else(|| optional_string(&value, "title"));
         let valid_collection = collection
             .as_ref()
             .is_some_and(|collection| config.collections.contains_key(collection));
@@ -935,7 +938,7 @@ fn index_freshness_diagnostics(root: &Path, index: &SummaryIndex) -> Vec<Diagnos
     Vec::new()
 }
 
-fn config_error_diagnostic(error: ConfigError) -> Diagnostic {
+pub(crate) fn config_error_diagnostic(error: ConfigError) -> Diagnostic {
     match error {
         ConfigError::MissingFormaDirectory => Diagnostic::error(
             "workspace.missingForma",

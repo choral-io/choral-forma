@@ -302,6 +302,7 @@ dependencies = [
  "clap",
  "forma-core",
  "forma-rpc",
+ "serde_yml",
  "tokio",
  "tower",
 ]
@@ -328,6 +329,7 @@ dependencies = [
  "forma-core",
  "serde",
  "serde_json",
+ "serde_yml",
  "thiserror",
 ]
 

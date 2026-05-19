@@ -1,3 +1,4 @@
+use std::io::{self, IsTerminal, Write};
 use std::net::SocketAddr;
 
 use axum::Router;
@@ -9,8 +10,10 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::post;
 use clap::{Parser, Subcommand};
 use forma_rpc::{
-    CheckRequest, Dispatcher, IndexCheckRequest, IndexRebuildRequest, OperationRequest,
+    CheckRequest, CreateRequest, Dispatcher, IndexCheckRequest, IndexRebuildRequest, InitRequest,
+    InspectRequest, ListRequest, Operation, OperationRequest,
 };
+use serde_yml::Value;
 
 #[derive(Debug, Parser)]
 #[command(name = "forma", disable_version_flag = true)]
@@ -21,7 +24,39 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    Init {
+        #[arg(long)]
+        name: String,
+        #[arg(long, default_value = "en")]
+        language: String,
+        #[arg(long)]
+        timezone: Option<String>,
+        #[arg(short = 'y', long)]
+        yes: bool,
+        #[arg(long)]
+        json: bool,
+    },
     Check {
+        #[arg(long)]
+        json: bool,
+    },
+    Create {
+        collection: String,
+        #[arg(long = "input", value_parser = parse_input_pair)]
+        inputs: Vec<(String, Value)>,
+        #[arg(long)]
+        json: bool,
+    },
+    Inspect {
+        #[arg(long)]
+        collection: Option<String>,
+        locator: String,
+        #[arg(long)]
+        json: bool,
+    },
+    List {
+        #[arg(long)]
+        collection: String,
         #[arg(long)]
         json: bool,
     },
@@ -60,13 +95,75 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             println!("forma {}", forma_core::version());
             Ok(())
         }
+        Some(Command::Init {
+            name,
+            language,
+            timezone,
+            yes,
+            json,
+        }) => {
+            if !yes
+                && let Some(result) =
+                    init_confirmation_result(&name, &language, timezone.as_deref())?
+            {
+                print_result(&result, json, "init");
+                exit_if_failed(&result);
+                return Ok(());
+            }
+            let result = dispatcher.dispatch(OperationRequest::Init(InitRequest {
+                name,
+                language,
+                timezone,
+            }))?;
+            print_result(&result, json, "init");
+            exit_if_failed(&result);
+            Ok(())
+        }
         Some(Command::Check { json }) => {
             let result = dispatcher.dispatch(OperationRequest::Check(CheckRequest::default()))?;
-            if json {
-                println!("{}", result.to_json_string());
+            print_result(&result, json, "check");
+            exit_if_failed(&result);
+            Ok(())
+        }
+        Some(Command::Create {
+            collection,
+            inputs,
+            json,
+        }) => {
+            let result = dispatcher.dispatch(OperationRequest::Create(CreateRequest {
+                collection,
+                inputs: inputs.into_iter().collect(),
+            }))?;
+            print_result(&result, json, "create");
+            exit_if_failed(&result);
+            Ok(())
+        }
+        Some(Command::Inspect {
+            collection,
+            locator,
+            json,
+        }) => {
+            let request = if let Some(collection) = collection {
+                InspectRequest {
+                    path: None,
+                    collection: Some(collection),
+                    entry: Some(locator),
+                }
             } else {
-                println!("check {}", result.status_label());
-            }
+                InspectRequest {
+                    path: Some(locator),
+                    collection: None,
+                    entry: None,
+                }
+            };
+            let result = dispatcher.dispatch(OperationRequest::Inspect(request))?;
+            print_result(&result, json, "inspect");
+            exit_if_failed(&result);
+            Ok(())
+        }
+        Some(Command::List { collection, json }) => {
+            let result = dispatcher.dispatch(OperationRequest::List(ListRequest { collection }))?;
+            print_result(&result, json, "list");
             exit_if_failed(&result);
             Ok(())
         }
@@ -74,11 +171,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             IndexCommand::Check { json } => {
                 let result = dispatcher
                     .dispatch(OperationRequest::IndexCheck(IndexCheckRequest::default()))?;
-                if json {
-                    println!("{}", result.to_json_string());
-                } else {
-                    println!("index check {}", result.status_label());
-                }
+                print_result(&result, json, "index check");
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -86,11 +179,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 let result = dispatcher.dispatch(OperationRequest::IndexRebuild(
                     IndexRebuildRequest::default(),
                 ))?;
-                if json {
-                    println!("{}", result.to_json_string());
-                } else {
-                    println!("index rebuild {}", result.status_label());
-                }
+                print_result(&result, json, "index rebuild");
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -99,10 +188,81 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+fn print_result(result: &forma_rpc::OperationResult, json: bool, label: &str) {
+    if json {
+        println!("{}", result.to_json_string());
+    } else {
+        println!("{label} {}", result.status_label());
+        if result.status == forma_core::OperationStatus::Warning {
+            for diagnostic in &result.diagnostics {
+                if diagnostic.code == "index.stale" {
+                    println!("run `forma index rebuild` to refresh the summary index");
+                    break;
+                }
+            }
+        }
+    }
+}
+
+fn init_confirmation_result(
+    name: &str,
+    language: &str,
+    timezone: Option<&str>,
+) -> Result<Option<forma_rpc::OperationResult>, Box<dyn std::error::Error>> {
+    let resolved_timezone = timezone
+        .map(ToString::to_string)
+        .unwrap_or_else(forma_core::detect_environment_timezone);
+
+    if !io::stdin().is_terminal() || !io::stderr().is_terminal() {
+        return Ok(Some(forma_rpc::OperationResult::failed(
+            Operation::Init,
+            forma_core::Diagnostic::error(
+                "init.confirmationRequired",
+                "Init requires confirmation in interactive shells; pass --yes in non-interactive environments.",
+            ),
+        )));
+    }
+
+    let mut stderr = io::stderr();
+    writeln!(stderr, "Forma will initialize a workspace with:")?;
+    writeln!(stderr, "  root: .")?;
+    writeln!(stderr, "  name: {name}")?;
+    writeln!(stderr, "  language: {language}")?;
+    writeln!(stderr, "  timezone: {resolved_timezone}")?;
+    writeln!(
+        stderr,
+        "It will create .forma/ configuration, starter templates, starter views, content directories, and .forma/index.summary.json."
+    )?;
+    write!(stderr, "Continue? [y/N] ")?;
+    stderr.flush()?;
+
+    let mut answer = String::new();
+    io::stdin().read_line(&mut answer)?;
+    let confirmed = matches!(answer.trim(), "y" | "Y" | "yes" | "YES" | "Yes");
+    if confirmed {
+        Ok(None)
+    } else {
+        Ok(Some(forma_rpc::OperationResult::failed(
+            Operation::Init,
+            forma_core::Diagnostic::error("init.cancelled", "Init was cancelled by the user."),
+        )))
+    }
+}
+
 fn exit_if_failed(result: &forma_rpc::OperationResult) {
     if matches!(result.status, forma_core::OperationStatus::Failed) {
         std::process::exit(1);
     }
+}
+
+fn parse_input_pair(value: &str) -> Result<(String, Value), String> {
+    let Some((key, raw_value)) = value.split_once('=') else {
+        return Err("expected KEY=VALUE".to_string());
+    };
+    if key.trim().is_empty() {
+        return Err("input key is empty".to_string());
+    }
+    Ok((key.to_string(), Value::String(raw_value.to_string())))
 }
 
 pub async fn serve(bind: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {

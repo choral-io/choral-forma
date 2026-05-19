@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
 
-use chrono::{SecondsFormat, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use serde_yml::{Number, Value};
@@ -203,6 +203,27 @@ pub struct ResolvedCreateInputs {
 pub struct PlaceholderContext {
     pub input: BTreeMap<String, Value>,
     pub runtime_values: BTreeMap<String, Value>,
+}
+
+pub fn render_placeholder_template(
+    template: &str,
+    context: &PlaceholderContext,
+) -> RenderedTemplate {
+    let mut renderer = PlaceholderRenderer {
+        context,
+        diagnostics: Vec::new(),
+    };
+    let rendered = renderer.render_template(template);
+    RenderedTemplate {
+        value: rendered,
+        diagnostics: renderer.diagnostics,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RenderedTemplate {
+    pub value: Option<String>,
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 pub fn validate_collection_schemas(config: &WorkspaceConfig) -> Vec<Diagnostic> {
@@ -438,6 +459,67 @@ impl TemplateValueResolver<'_> {
         }
         None
     }
+}
+
+struct PlaceholderRenderer<'a> {
+    context: &'a PlaceholderContext,
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl PlaceholderRenderer<'_> {
+    fn render_template(&mut self, template: &str) -> Option<String> {
+        render_template_with(
+            template,
+            &mut self.diagnostics,
+            |expression, diagnostics| {
+                let value = if let Some(name) = expression.strip_prefix("input.") {
+                    self.context.input.get(name)
+                } else if let Some(name) = expression.strip_prefix("runtime.values.") {
+                    self.context.runtime_values.get(name)
+                } else {
+                    None
+                };
+
+                value.and_then(value_to_string).or_else(|| {
+                    diagnostics.push(Diagnostic::error(
+                        "placeholder.unresolved",
+                        format!("Placeholder `{{{{ {expression} }}}}` could not be resolved."),
+                    ));
+                    None
+                })
+            },
+        )
+    }
+}
+
+fn render_template_with(
+    template: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+    mut resolve: impl FnMut(&str, &mut Vec<Diagnostic>) -> Option<String>,
+) -> Option<String> {
+    let mut output = String::new();
+    let mut cursor = 0;
+
+    while let Some(start_relative) = template[cursor..].find("{{") {
+        let start = cursor + start_relative;
+        output.push_str(&template[cursor..start]);
+        let expression_start = start + 2;
+        let Some(end_relative) = template[expression_start..].find("}}") else {
+            diagnostics.push(Diagnostic::error(
+                "placeholder.unclosed",
+                "Placeholder is missing a closing `}}`.",
+            ));
+            return None;
+        };
+        let end = expression_start + end_relative;
+        let expression = template[expression_start..end].trim();
+        let value = resolve(expression, diagnostics)?;
+        output.push_str(&value);
+        cursor = end + 2;
+    }
+
+    output.push_str(&template[cursor..]);
+    Some(output)
 }
 
 fn validate_schema_node(
@@ -788,10 +870,7 @@ fn is_iso_date(value: &str) -> bool {
 }
 
 fn is_iso_datetime(value: &str) -> bool {
-    value.len() >= 20
-        && is_iso_date(&value[..10])
-        && value.as_bytes()[10] == b'T'
-        && value.ends_with('Z')
+    DateTime::parse_from_rfc3339(value).is_ok()
 }
 
 #[cfg(test)]
@@ -991,6 +1070,8 @@ fields:
     type: date
   createdAt:
     type: datetime
+  scheduledAt:
+    type: datetime
 "#,
         );
         let schema = parse_collection_schema(&config.collections["todos"]).unwrap();
@@ -1000,7 +1081,8 @@ estimate: 1.5
 count: 3
 active: true
 dueDate: "2026-05-19"
-createdAt: "2026-05-19T10:30:00Z"
+createdAt: "2026-05-19T10:30:00+08:00"
+scheduledAt: "2026-05-19T02:30:00Z"
 "#,
         )
         .unwrap();
@@ -1011,6 +1093,7 @@ count: 1.5
 active: yes
 dueDate: "2026/05/19"
 createdAt: "2026-05-19 10:30"
+scheduledAt: "2026-05-19T10:30:00"
 "#,
         )
         .unwrap();
@@ -1019,7 +1102,7 @@ createdAt: "2026-05-19 10:30"
 
         let diagnostics = validate_schema_value(&config, &schema, &invalid, "todos/invalid.md");
 
-        assert_eq!(diagnostics.len(), 5);
+        assert_eq!(diagnostics.len(), 6);
         assert_eq!(
             diagnostics
                 .iter()
@@ -1032,7 +1115,7 @@ createdAt: "2026-05-19 10:30"
                 .iter()
                 .filter(|diagnostic| diagnostic.code == "schema.format.invalid")
                 .count(),
-            2
+            3
         );
     }
 

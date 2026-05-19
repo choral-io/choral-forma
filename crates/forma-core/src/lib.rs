@@ -2,6 +2,7 @@ pub mod config;
 pub mod diagnostics;
 pub mod index;
 pub mod markdown;
+pub mod operations;
 pub mod path;
 pub mod schema;
 
@@ -20,11 +21,22 @@ pub use markdown::{
     FormaMarkdownDocument, FormaReference, FormaReferenceIntent, FormaReferenceSource,
     FormaReferenceSyntax, ParsedFrontmatter, SourceSpan, split_frontmatter,
 };
-pub use path::{PathError, WorkspacePath, normalize_cli_path, slugify_path_segment};
+pub use operations::{
+    CreateIndexStatus, CreateInputResult, CreateInputSource, CreateResult, CreatedEntry,
+    InitResult, InspectEntry, InspectResult, ListEntry, ListResult, ListedCollection,
+    OperationError, WorkspaceSummary, create_entry, detect_environment_timezone, init_workspace,
+    inspect_entry_by_collection, inspect_entry_by_path, list_collection,
+    operation_error_diagnostic,
+};
+pub use path::{
+    FORMA_COLLECTIONS_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH,
+    FORMA_LOCAL_OVERRIDES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR,
+    FORMA_WORKSPACE_PATH, PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,
+};
 pub use schema::{
-    PlaceholderContext, ResolvedCreateInputs, RuntimeValues, SchemaNode, TemplateValueResolver,
-    Transform, resolve_create_inputs, resolve_runtime_values, validate_collection_schemas,
-    validate_schema_value,
+    PlaceholderContext, RenderedTemplate, ResolvedCreateInputs, RuntimeValues, SchemaNode,
+    TemplateValueResolver, Transform, render_placeholder_template, resolve_create_inputs,
+    resolve_runtime_values, validate_collection_schemas, validate_schema_value,
 };
 
 /// Returns the current Forma core crate version.

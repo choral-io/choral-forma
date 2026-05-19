@@ -1264,7 +1264,7 @@ write operations, while still including initialization and minimal create so the
 starter can be used end to end. Required P0 commands:
 
 ```text
-- forma init [--name <name>] [--language <tag>]
+- forma init --name <name> [--language <tag>] [--timezone <iana>] [-y|--yes]
 - forma config inspect [--json]
 - forma config inspect --path <path> [--json]
 - forma index rebuild
@@ -1273,7 +1273,7 @@ starter can be used end to end. Required P0 commands:
 - forma inspect <path> [--json]
 - forma inspect --collection <collection> <entry> [--json]
 - forma list --collection <collection> [--json]
-- forma create <collection> [--json]
+- forma create <collection> [--input <name=value>]... [--json]
 - forma serve
 
 P1:
@@ -1299,6 +1299,20 @@ rebuild, and fail if `.forma/` already exists. `forma create` should use
 collection create inputs, defaults, transforms, and templates, fail on path
 conflicts, and report that the summary index is stale without rebuilding it
 automatically.
+
+CLI confirmation should be based on operation risk. Read-only commands should
+not ask for confirmation. Single-file, predictable, non-destructive writes can
+avoid confirmation when they fail on conflicts or invalid inputs. Initialization,
+physical deletion, path moves or renames that change references, automatic
+fixes, batch updates, and multi-file or reference-changing writes should require
+confirmation.
+
+In P0, only `forma init` requires confirmation because it creates the starter
+workspace structure and initial index. Interactive shells should show the
+resolved initialization parameters and planned starter writes before asking for
+confirmation. Non-interactive shells such as CI should fail without writing
+unless `-y` or `--yes` is provided. `forma create` does not require confirmation
+in P0 because it writes one new entry and fails on path conflicts.
 
 ### Lifecycle And Deletion
 

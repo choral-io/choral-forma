@@ -82,7 +82,8 @@ modeled as a normal runtime value.
 
 Blocked by config/path model. Unblocks check/index and starter create flows.
 
-## Open Questions
+## Follow-up Notes
 
-- Exact accepted lexical formats for `date` and `datetime` remain to be fixed
-  in implementation.
+`date` and `datetime` lexical formats were fixed during implementation:
+persisted `date` values use `YYYY-MM-DD`, and persisted `datetime` values use
+RFC3339 with explicit `Z` or numeric offset.

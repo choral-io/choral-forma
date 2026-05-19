@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -11,6 +13,8 @@ pub fn core_version() -> &'static str {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Operation {
+    #[serde(rename = "init")]
+    Init,
     #[serde(rename = "check")]
     Check,
     #[serde(rename = "config.inspect")]
@@ -19,25 +23,50 @@ pub enum Operation {
     IndexCheck,
     #[serde(rename = "index.rebuild")]
     IndexRebuild,
+    #[serde(rename = "inspect")]
+    Inspect,
+    #[serde(rename = "list")]
+    List,
+    #[serde(rename = "create")]
+    Create,
 }
 
 impl Operation {
     pub fn method(self) -> &'static str {
         match self {
+            Self::Init => "init",
             Self::Check => "check",
             Self::ConfigInspect => "config.inspect",
             Self::IndexCheck => "index.check",
             Self::IndexRebuild => "index.rebuild",
+            Self::Inspect => "inspect",
+            Self::List => "list",
+            Self::Create => "create",
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OperationRequest {
+    Init(InitRequest),
     Check(CheckRequest),
     ConfigInspect(ConfigInspectRequest),
     IndexCheck(IndexCheckRequest),
     IndexRebuild(IndexRebuildRequest),
+    Inspect(InspectRequest),
+    List(ListRequest),
+    Create(CreateRequest),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct InitRequest {
+    pub name: String,
+    #[serde(default = "default_language")]
+    pub language: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +93,34 @@ pub struct ConfigInspectRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct InspectRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entry: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct ListRequest {
+    pub collection: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateRequest {
+    pub collection: String,
+    #[serde(default)]
+    pub inputs: BTreeMap<String, serde_yml::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OperationResult {
     pub schema_version: u16,
@@ -75,6 +132,8 @@ pub struct OperationResult {
     pub diagnostics: Vec<forma_core::Diagnostic>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
+    #[serde(flatten)]
+    pub data: BTreeMap<String, Value>,
 }
 
 impl OperationResult {
@@ -86,11 +145,26 @@ impl OperationResult {
             summary: Some(forma_core::DiagnosticSummary::default()),
             diagnostics: Vec::new(),
             path: None,
+            data: BTreeMap::new(),
         }
     }
 
     pub fn to_json_string(&self) -> String {
         serde_json::to_string(self).expect("operation results should serialize")
+    }
+
+    pub fn failed(operation: Operation, diagnostic: forma_core::Diagnostic) -> Self {
+        let diagnostics = vec![diagnostic];
+        let summary = forma_core::DiagnosticSummary::from_diagnostics(&diagnostics);
+        Self {
+            schema_version: SCHEMA_VERSION,
+            operation: operation.method().to_string(),
+            status: summary.status(),
+            summary: Some(summary),
+            diagnostics,
+            path: None,
+            data: BTreeMap::new(),
+        }
     }
 }
 
@@ -108,6 +182,14 @@ pub struct Dispatcher;
 impl Dispatcher {
     pub fn dispatch(&self, request: OperationRequest) -> Result<OperationResult, OperationError> {
         match request {
+            OperationRequest::Init(request) => forma_core::init_workspace(
+                ".",
+                &request.name,
+                &request.language,
+                request.timezone.as_deref(),
+            )
+            .map(OperationResult::from)
+            .or_else(|error| Ok(core_error_result(Operation::Init, error))),
             OperationRequest::Check(_) => {
                 Ok(OperationResult::from(forma_core::check_workspace(".")))
             }
@@ -120,6 +202,29 @@ impl Dispatcher {
             OperationRequest::IndexRebuild(_) => forma_core::index_rebuild(".")
                 .map(OperationResult::from)
                 .map_err(|_| OperationError::Failed),
+            OperationRequest::Inspect(request) => {
+                match (request.path, request.collection, request.entry) {
+                    (Some(path), None, None) => forma_core::inspect_entry_by_path(".", &path)
+                        .map(OperationResult::from)
+                        .or_else(|error| Ok(core_error_result(Operation::Inspect, error))),
+                    (None, Some(collection), Some(entry)) => {
+                        forma_core::inspect_entry_by_collection(".", &collection, &entry)
+                            .map(OperationResult::from)
+                            .or_else(|error| Ok(core_error_result(Operation::Inspect, error)))
+                    }
+                    _ => Err(OperationError::InvalidParams),
+                }
+            }
+            OperationRequest::List(request) => {
+                forma_core::list_collection(".", &request.collection)
+                    .map(OperationResult::from)
+                    .or_else(|error| Ok(core_error_result(Operation::List, error)))
+            }
+            OperationRequest::Create(request) => {
+                forma_core::create_entry(".", &request.collection, request.inputs)
+                    .map(OperationResult::from)
+                    .or_else(|error| Ok(core_error_result(Operation::Create, error)))
+            }
         }
     }
 
@@ -173,6 +278,10 @@ impl Dispatcher {
     pub fn handle_json_rpc_text(&self, body: &[u8]) -> String {
         self.handle_json_rpc(body).to_string()
     }
+}
+
+fn core_error_result(operation: Operation, error: forma_core::OperationError) -> OperationResult {
+    OperationResult::failed(operation, forma_core::operation_error_diagnostic(error))
 }
 
 #[derive(Debug, Clone)]
@@ -286,6 +395,42 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "init" => serde_json::from_value::<InitRequest>(params)
+            .map(OperationRequest::Init)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "inspect" => serde_json::from_value::<InspectRequest>(params)
+            .map(OperationRequest::Inspect)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "list" => serde_json::from_value::<ListRequest>(params)
+            .map(OperationRequest::List)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "create" => serde_json::from_value::<CreateRequest>(params)
+            .map(OperationRequest::Create)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         "config.inspect" => match serde_json::from_value::<ConfigInspectRequest>(params) {
             Ok(request) => {
                 if let Some(path) = request.path.as_deref()
@@ -322,6 +467,7 @@ impl From<forma_core::CheckResult> for OperationResult {
             summary: Some(result.summary),
             diagnostics: result.diagnostics,
             path: None,
+            data: BTreeMap::new(),
         }
     }
 }
@@ -335,8 +481,84 @@ impl From<forma_core::IndexRebuildResult> for OperationResult {
             summary: Some(result.summary),
             diagnostics: result.diagnostics,
             path: Some(result.path),
+            data: BTreeMap::new(),
         }
     }
+}
+
+impl From<forma_core::InitResult> for OperationResult {
+    fn from(result: forma_core::InitResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("created".to_string(), json!(result.created));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::CreateResult> for OperationResult {
+    fn from(result: forma_core::CreateResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("created".to_string(), json!(result.created));
+        data.insert("inputs".to_string(), json!(result.inputs));
+        data.insert("index".to_string(), json!(result.index));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::InspectResult> for OperationResult {
+    fn from(result: forma_core::InspectResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("entry".to_string(), json!(result.entry));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::ListResult> for OperationResult {
+    fn from(result: forma_core::ListResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("collection".to_string(), json!(result.collection));
+        data.insert("entries".to_string(), json!(result.entries));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+fn default_language() -> String {
+    "en".to_string()
 }
 
 #[derive(Debug, Clone)]
@@ -540,6 +762,10 @@ mod tests {
     #[test]
     fn operation_names_are_json_facing_method_names() {
         assert_eq!(
+            serde_json::to_value(super::Operation::Init).unwrap(),
+            "init"
+        );
+        assert_eq!(
             serde_json::to_value(super::Operation::Check).unwrap(),
             "check"
         );
@@ -554,6 +780,18 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::Operation::IndexRebuild).unwrap(),
             "index.rebuild"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::Inspect).unwrap(),
+            "inspect"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::List).unwrap(),
+            "list"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::Create).unwrap(),
+            "create"
         );
     }
 }

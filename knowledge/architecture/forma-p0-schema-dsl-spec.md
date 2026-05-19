@@ -102,7 +102,7 @@ schema:
     dueDate:
       type: date
     createdAt:
-      type: date
+      type: datetime
       readonly: true
 ```
 
@@ -216,7 +216,7 @@ collections:
         dueDate:
           type: date
         createdAt:
-          type: date
+          type: datetime
           readonly: true
 ```
 
@@ -289,6 +289,13 @@ not carry timezone metadata in field definitions. Workspace timezone belongs in
 explicit workspace configuration, and time-derived runtime providers such as
 `currentDate` and `currentDateTime` should derive values from that effective
 workspace configuration.
+
+`date` values are persisted as `YYYY-MM-DD`. `datetime` values are persisted as
+RFC3339 timestamps with explicit timezone information, either `Z` or a numeric
+offset such as `+08:00`. Forma-controlled inputs may accept looser local
+datetime input, but must normalize it through the effective `workspace.timezone`
+before writing a persisted `datetime`. Persisted offset-less datetime strings
+such as `2026-05-19T10:30:00` are invalid.
 
 `transform` is allowed on runtime value providers. If a required runtime value
 cannot be resolved, operations that only need a warning should continue with a
@@ -368,10 +375,6 @@ DSL.
 
 ## Non-blocking Questions
 
-- Exact `date` and `datetime` lexical formats should be fixed during
-  implementation. ISO 8601-compatible strings are the expected baseline, with
-  timezone behavior supplied by workspace configuration rather than field type
-  declarations.
 - Enum values may later need labels, icons, colors, ordering, or descriptions,
   but P0 should keep enum values as plain strings.
 - Future map/object composition, union references, and group/member assignment
