@@ -21,12 +21,11 @@ Rules: [[tasks/WORKFLOW]]
 
 ## Reviewing
 
-- [ ] [[tasks/items/implement-starter-init-create-inspect-list|Implement Starter Init Create Inspect List]]
-
 ## Blocked
 
 ## Done
 
+- [ ] [[tasks/items/implement-starter-init-create-inspect-list|Implement Starter Init Create Inspect List]]
 - [ ] [[tasks/items/implement-check-index-diagnostics|Implement Check Index Diagnostics]]
 - [ ] [[tasks/items/scaffold-forma-workspace|Scaffold Forma Workspace]]
 - [ ] [[tasks/items/implement-forma-config-and-path-model|Implement Forma Config And Path Model]]
