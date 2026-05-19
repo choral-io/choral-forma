@@ -100,6 +100,8 @@ Choral Flows = business collaboration runtime.
 
 Choral Forma should not be treated only as a companion tool for Choral Flows. It can serve software teams, research teams, consulting teams, operations teams, one-person companies, and Agent workflow maintainers that need durable, reviewable, repository-backed knowledge. Choral Flows may later use Choral Forma-style capabilities to maintain Starter Kits, Agent Definitions, Skills, Workflow Definitions, and Knowledge Promotion materials, but the two products should keep separate user models and product surfaces.
 
+A Choral Forma repository may also be consumed by Choral Flows as a Git-backed knowledge source. In that model, Forma remains the professional authoring and governance source, while Flows installs the repository as a Workspace Data Source and governs operational use through Workspace, Project, Matter, Agent, Skill, and permission policies. This should be treated as integration, not full migration from Forma into Flows.
+
 Choral Flows does not face the same direct-file inconsistency problem because
 users operate through product surfaces and knowledge documents are handled by
 the server. Choral Forma has a larger inconsistency surface because repository
@@ -1653,6 +1655,9 @@ those operations when they are needed.
   syntax should be implemented first?
 - When should loaders or integrations become necessary beyond declarative
   collection configuration?
+- How should Forma package or expose repository-backed knowledge so operational
+  systems such as Choral Flows can consume it as a Git-backed knowledge source
+  without turning Forma into a Flows backend or losing repository authorship?
 - How should the product model promotion workflows from personal content to
   shared content?
 - How should shared content be split into personal work material without losing
