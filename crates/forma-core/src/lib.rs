@@ -4,6 +4,7 @@ pub mod index;
 pub mod markdown;
 pub mod operations;
 pub mod path;
+pub mod render;
 pub mod schema;
 
 pub use config::{
@@ -32,6 +33,10 @@ pub use path::{
     FORMA_COLLECTIONS_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH,
     FORMA_LOCAL_OVERRIDES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR,
     FORMA_WORKSPACE_PATH, PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,
+};
+pub use render::{
+    EntryRenderOutput, EntryRenderResult, KanbanRenderColumn, RenderedEntry, RenderedView,
+    ViewRenderItem, ViewRenderOutput, ViewRenderResult, render_entry, render_view,
 };
 pub use schema::{
     PlaceholderContext, RenderedTemplate, ResolvedCreateInputs, RuntimeValues, SchemaNode,

@@ -29,6 +29,10 @@ pub enum Operation {
     List,
     #[serde(rename = "create")]
     Create,
+    #[serde(rename = "view.render")]
+    ViewRender,
+    #[serde(rename = "entry.render")]
+    EntryRender,
 }
 
 impl Operation {
@@ -42,6 +46,8 @@ impl Operation {
             Self::Inspect => "inspect",
             Self::List => "list",
             Self::Create => "create",
+            Self::ViewRender => "view.render",
+            Self::EntryRender => "entry.render",
         }
     }
 }
@@ -56,6 +62,8 @@ pub enum OperationRequest {
     Inspect(InspectRequest),
     List(ListRequest),
     Create(CreateRequest),
+    ViewRender(ViewRenderRequest),
+    EntryRender(EntryRenderRequest),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -118,6 +126,24 @@ pub struct CreateRequest {
     pub collection: String,
     #[serde(default)]
     pub inputs: BTreeMap<String, serde_yml::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewRenderRequest {
+    pub view: String,
+    #[serde(default)]
+    pub params: BTreeMap<String, serde_yml::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct EntryRenderRequest {
+    pub path: String,
+    #[serde(default = "default_render_format")]
+    pub format: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -224,6 +250,16 @@ impl Dispatcher {
                 forma_core::create_entry(".", &request.collection, request.inputs)
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::Create, error)))
+            }
+            OperationRequest::ViewRender(request) => {
+                forma_core::render_view(".", &request.view, request.params)
+                    .map(OperationResult::from)
+                    .or_else(|error| Ok(core_error_result(Operation::ViewRender, error)))
+            }
+            OperationRequest::EntryRender(request) => {
+                forma_core::render_entry(".", &request.path, &request.format)
+                    .map(OperationResult::from)
+                    .or_else(|error| Ok(core_error_result(Operation::EntryRender, error)))
             }
         }
     }
@@ -431,6 +467,24 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "view.render" => serde_json::from_value::<ViewRenderRequest>(params)
+            .map(OperationRequest::ViewRender)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "entry.render" => serde_json::from_value::<EntryRenderRequest>(params)
+            .map(OperationRequest::EntryRender)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         "config.inspect" => match serde_json::from_value::<ConfigInspectRequest>(params) {
             Ok(request) => {
                 if let Some(path) = request.path.as_deref()
@@ -557,8 +611,52 @@ impl From<forma_core::ListResult> for OperationResult {
     }
 }
 
+impl From<forma_core::ViewRenderResult> for OperationResult {
+    fn from(result: forma_core::ViewRenderResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        if let Some(view) = result.view {
+            data.insert("view".to_string(), json!(view));
+        }
+        if let Some(render) = result.render {
+            data.insert("render".to_string(), json!(render));
+        }
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::EntryRenderResult> for OperationResult {
+    fn from(result: forma_core::EntryRenderResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("entry".to_string(), json!(result.entry));
+        data.insert("render".to_string(), json!(result.render));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
 fn default_language() -> String {
     "en".to_string()
+}
+
+fn default_render_format() -> String {
+    "html".to_string()
 }
 
 #[derive(Debug, Clone)]
@@ -792,6 +890,14 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::Operation::Create).unwrap(),
             "create"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::ViewRender).unwrap(),
+            "view.render"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::EntryRender).unwrap(),
+            "entry.render"
         );
     }
 }

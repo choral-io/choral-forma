@@ -172,6 +172,8 @@ pub enum OperationError {
     EntryNotFound,
     #[error("entry locator matched multiple files")]
     EntryAmbiguous,
+    #[error("view `{0}` was not found")]
+    ViewNotFound(String),
     #[error("path already exists: {0}")]
     PathConflict(String),
     #[error("file operation failed for {path}: {source}")]
@@ -674,6 +676,9 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
         }
         OperationError::EntryAmbiguous => {
             Diagnostic::error("entry.ambiguous", "Entry locator matched multiple files.")
+        }
+        OperationError::ViewNotFound(view) => {
+            Diagnostic::error("view.notFound", "View was not found.").with_actual(view)
         }
         OperationError::PathConflict(path) => {
             Diagnostic::error("create.pathConflict", "Target path already exists.").with_path(path)
