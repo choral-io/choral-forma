@@ -24,27 +24,27 @@ If no manifest exists, give pre-install help only. Recommend defaults such as `k
 
 Use this first. Check that the recommended installed skill path exists before saying it is available.
 
-| User asks about                              | Recommend                                                      | Boundary                                       |
-| -------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------- |
-| Workflow usage or onboarding                 | `knowledge-workflow:help`                                      | Explain only.                                  |
-| New installation                             | `knowledge-workflow:init`                                      | Ask for canonical language; dry-run first.     |
-| Where information belongs                    | `knowledge-intake`                                             | Write only after capture approval.             |
-| Approved knowledge write or promotion        | `knowledge-capture`                                            | Use schemas before writing.                    |
-| Add a project member                         | `knowledge-capture`                                            | Confirm member id, public profile, and groups. |
-| Add a group, team, board, or working group   | `knowledge-capture`                                            | Confirm group id, scope, owners, and members.  |
-| Non-task knowledge quality                   | `knowledge-schema-audit`                                       | Read-only findings.                            |
-| Task metadata or readiness                   | `task-metadata-audit`                                          | Read-only findings.                            |
-| Project, delivery, decisions, or risk status | `knowledge-status-report`                                      | Read-only report with sources.                 |
-| Delivery planning                            | `delivery-planning`                                            | Dry-run Kanban changes only.                   |
-| Pick next accepted task                      | `next-task-selection`                                          | Recommend; do not start by default.            |
-| Approved board edit                          | `kanban-maintenance`                                           | Requires explicit maintainer approval.         |
-| Take a card into personal work               | `workspace-worklist:intake-task`                               | Current member local workspace only.           |
-| Continue one local item                      | `workspace-worklist:run-next`                                  | One executable item.                           |
-| Run several local items                      | `workspace-worklist:run-loop`                                  | Needs explicit budget; parallel needs budget.  |
-| Advance accepted tasks toward review         | `workspace-worklist:run-goal`                                  | Stop at review readiness by default.           |
-| Implement selected delivery work             | `delivery-implementation`                                      | Code, tests, and knowledge together.           |
-| Review before Done                           | `delivery-review`                                              | Required before Done when delivery changed.    |
-| Scope or source conflict                     | `knowledge-workflow:help`, then owning skill after user choice | Report conflicts; do not silently choose.      |
+| User asks about                              | Recommend                                                      | Boundary                                                         |
+| -------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Workflow usage or onboarding                 | `knowledge-workflow:help`                                      | Explain only.                                                    |
+| New installation                             | `knowledge-workflow:init`                                      | Ask for canonical language; dry-run first.                       |
+| Where information belongs                    | `knowledge-intake`                                             | Write only after capture approval.                               |
+| Approved knowledge write or promotion        | `knowledge-capture`                                            | Use schemas before writing.                                      |
+| Add a project member                         | `knowledge-capture`                                            | Confirm member id, public profile, and group membership updates. |
+| Add a group, team, board, or working group   | `knowledge-capture`                                            | Confirm group id, scope, owners, and members.                    |
+| Non-task knowledge quality                   | `knowledge-schema-audit`                                       | Read-only findings.                                              |
+| Task metadata or readiness                   | `task-metadata-audit`                                          | Read-only findings.                                              |
+| Project, delivery, decisions, or risk status | `knowledge-status-report`                                      | Read-only report with sources.                                   |
+| Delivery planning                            | `delivery-planning`                                            | Dry-run Kanban changes only.                                     |
+| Pick next accepted task                      | `next-task-selection`                                          | Recommend; do not start by default.                              |
+| Approved board edit                          | `kanban-maintenance`                                           | Requires explicit maintainer approval.                           |
+| Take a card into personal work               | `workspace-worklist:intake-task`                               | Current member local workspace only.                             |
+| Continue one local item                      | `workspace-worklist:run-next`                                  | One executable item.                                             |
+| Run several local items                      | `workspace-worklist:run-loop`                                  | Needs explicit budget; parallel needs budget.                    |
+| Advance accepted tasks toward review         | `workspace-worklist:run-goal`                                  | Stop at review readiness by default.                             |
+| Implement selected delivery work             | `delivery-implementation`                                      | Code, tests, and knowledge together.                             |
+| Review before Done                           | `delivery-review`                                              | Required before Done when delivery changed.                      |
+| Scope or source conflict                     | `knowledge-workflow:help`, then owning skill after user choice | Report conflicts; do not silently choose.                        |
 
 ## Placement
 
@@ -56,7 +56,7 @@ Use this table when the user asks where something should live.
 | Structured personal draft                   | current member `local/drafts/`                                  | promote only after user approval               |
 | Personal executable action                  | current member `local/WORKLIST.md`                              | `workspace-worklist`                           |
 | Public member summary, handoff, or research | `workspace/<member-id>/summaries/`, `handoffs/`, or `research/` | `knowledge-capture` when writing shared files  |
-| Project member profile                      | `members/<member-id>.md`                                        | confirm groups before writing                  |
+| Project member profile                      | `members/<member-id>.md`                                        | update group `members` when membership applies |
 | Group, team, review board, or working group | `groups/<group-id>.md`                                          | confirm members before writing                 |
 | Discovery, market, customer, or assumption  | `discovery/`                                                    | `knowledge-capture`                            |
 | Product behavior or requirement             | `product/`                                                      | `knowledge-capture`                            |
@@ -74,8 +74,9 @@ Use `knowledge-capture` for approved member and group creation.
 
 - Member profiles live in `members/<member-id>.md` and should use `members/templates/member.md.tpl`.
 - Group documents live in `groups/<group-id>.md` and should use `groups/templates/group.md.tpl`.
-- When creating a member, ask the user to choose groups manually or infer candidate groups from public responsibilities and ask for confirmation.
+- When creating a member, ask the user to choose groups manually or infer likely target groups from public responsibilities and ask for confirmation; record confirmed membership in the selected group documents' `members` lists.
 - When creating a group, ask the user to choose members manually or infer candidate members from public responsibilities and ask for confirmation.
+- `groups/*.md` frontmatter `members` is the structured membership source of truth. Do not write group membership into member profile frontmatter.
 - Keep private personal information out of both member and group documents.
 
 ## Core Flow

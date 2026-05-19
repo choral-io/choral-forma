@@ -29,6 +29,8 @@ Use this skill to inspect non-task knowledge schema quality. This skill is read-
 - Decision files with missing supersession metadata when a replacement is obvious.
 - Proposal files with missing or invalid `proposal_type`, `proposal_status`, `sources`, or target metadata.
 - Member files missing `member_id` or `display_name`.
+- Member files that still use legacy `groups` frontmatter instead of group documents' `members` lists.
+- Group `members` entries that point to missing or ambiguous member profiles.
 - Workspace notes that appear to contain project facts that should be promoted.
 - Shared workspace files created under deprecated `daily/`, `inbox/`, `scratch/`, or `drafts/` directories.
 - Possible secrets, credentials, private customer data, or private personal notes.

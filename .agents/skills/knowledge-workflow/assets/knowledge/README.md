@@ -175,6 +175,6 @@ When member context matters, prefer section-scoped reads from `{{knowledge_dir}}
 
 Use `default_group_id` in `{{knowledge_dir}}/.workflow/manifest.yml` as the default responsibility group. This repository currently records `default_group_id: {{default_group_id}}`, which resolves to `{{knowledge_dir}}/groups/{{default_group_id}}.md`.
 
-Use `{{knowledge_dir}}/members/templates/member.md.tpl` when adding a project-visible member profile. Confirm the member's groups manually or by matching responsibilities to existing groups before writing `groups`.
+Use `{{knowledge_dir}}/members/templates/member.md.tpl` when adding a project-visible member profile. Confirm membership manually or by matching responsibilities to existing groups, then update the confirmed group documents' `members` lists.
 
-Use `{{knowledge_dir}}/groups/templates/group.md.tpl` when adding a project-visible group, team, review board, or working group. Confirm members manually or by matching group responsibilities to existing member profiles before writing `members`.
+Use `{{knowledge_dir}}/groups/templates/group.md.tpl` when adding a project-visible group, team, review board, or working group. Confirm members manually or by matching group responsibilities to existing member profiles before writing `members`. Treat `groups/*.md` frontmatter `members` as the structured membership source of truth.

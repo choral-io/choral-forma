@@ -5,7 +5,6 @@ member_id: <member-id>
 display_name: <Display Name>
 owners:
   - "[[members/<member-id>]]"
-groups: []
 tags:
   - member
 ---
@@ -18,8 +17,8 @@ Create this file as {{knowledge_dir}}/members/<member-id>.md.
 Before writing:
 - Ask the user for the member id, or use `git config user.name` when creating the current member.
 - Ask for display name, public responsibilities, focus areas, and collaboration context.
-- Ask which groups this member should join, or infer candidate groups from responsibilities and ask the user to confirm.
-- Use wikilinks in `groups`, preferring path-qualified values such as "[[groups/{{default_group_id}}]]".
+- Ask which groups this member should join, or infer likely target groups from responsibilities and ask the user to confirm.
+- Record confirmed membership by updating `{{knowledge_dir}}/groups/<group-id>.md` frontmatter `members`, not by writing a `groups` field here.
 - Do not store private personal information.
 -->
 

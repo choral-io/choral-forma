@@ -34,9 +34,9 @@ Use this skill to write approved knowledge changes and move information from loc
 13. Store cross-area writing, terminology, language, documentation, and process guidelines in `knowledge/guidelines/`.
 14. Store design images and exports in `knowledge/assets/design/<feature-name>/` and link to them from Markdown files.
 15. Use `knowledge/proposals/` only for valuable but unconfirmed candidates that need review before becoming canonical knowledge, task items, or accepted decisions.
-16. Create member profiles in `knowledge/members/` when the user approves a project-visible member record. Use `knowledge/members/templates/member.md.tpl`, ask for or confirm `member_id`, `display_name`, public responsibilities, focus areas, collaboration context, and groups.
+16. Create member profiles in `knowledge/members/` when the user approves a project-visible member record. Use `knowledge/members/templates/member.md.tpl`, ask for or confirm `member_id`, `display_name`, public responsibilities, focus areas, and collaboration context.
 17. Create group documents in `knowledge/groups/` when the user approves a project-visible team, review board, maintainer group, or working group. Use `knowledge/groups/templates/group.md.tpl`, ask for or confirm `group_id`, `display_name`, purpose, responsibility scope, owners, and members.
-18. For member creation, ask the user to manually choose groups or infer candidate groups from responsibilities and ask the user to confirm before writing `groups`.
+18. For member creation, ask the user to manually choose groups or infer likely target groups from responsibilities and ask the user to confirm before updating those group documents' `members` lists. Do not write a `groups` field to the member profile.
 19. For group creation, ask the user to manually choose members or infer candidate members from responsibilities and ask the user to confirm before writing `members`.
 20. Keep canonical-language files as the source of truth.
 21. Keep localized files as translations only.
@@ -57,6 +57,7 @@ If the user has not decided whether the content belongs in knowledge, use `knowl
 - Do not create or move Kanban cards with this skill.
 - Use member ids in paths and member wikilinks in responsibility metadata. Do not use display names as ids.
 - Use group ids in paths and group wikilinks in responsibility metadata. Do not use display names as ids.
+- Treat `knowledge/groups/*.md` frontmatter `members` as the structured membership source of truth.
 - Use `owners` as the ownership field in frontmatter.
 
 ## References
