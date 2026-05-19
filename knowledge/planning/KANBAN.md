@@ -11,9 +11,6 @@ Rules: [[tasks/WORKFLOW]]
 
 ## Backlog
 
-- [ ] [[tasks/items/implement-forma-config-and-path-model|Implement Forma Config And Path Model]]
-- [ ] [[tasks/items/implement-operation-rpc-cli-foundation|Implement Operation RPC CLI Foundation]]
-- [ ] [[tasks/items/implement-markdown-forma-ast-parser|Implement Markdown FormaAST Parser]]
 - [ ] [[tasks/items/implement-schema-dsl-runtime-values|Implement Schema DSL Runtime Values]]
 - [ ] [[tasks/items/implement-check-index-diagnostics|Implement Check Index Diagnostics]]
 - [ ] [[tasks/items/implement-starter-init-create-inspect-list|Implement Starter Init Create Inspect List]]
@@ -32,5 +29,8 @@ Rules: [[tasks/WORKFLOW]]
 ## Done
 
 - [ ] [[tasks/items/scaffold-forma-workspace|Scaffold Forma Workspace]]
+- [ ] [[tasks/items/implement-forma-config-and-path-model|Implement Forma Config And Path Model]]
+- [ ] [[tasks/items/implement-operation-rpc-cli-foundation|Implement Operation RPC CLI Foundation]]
+- [ ] [[tasks/items/implement-markdown-forma-ast-parser|Implement Markdown FormaAST Parser]]
 
 ## Cancelled

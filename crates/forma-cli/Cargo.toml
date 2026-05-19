@@ -11,5 +11,11 @@ name = "forma"
 path = "src/main.rs"
 
 [dependencies]
+axum = "0.8.9"
+clap = { version = "4.6.1", features = ["derive"] }
 forma-core = { path = "../forma-core" }
 forma-rpc = { path = "../forma-rpc" }
+tokio = { version = "1.52.3", features = ["full"] }
+
+[dev-dependencies]
+tower = "0.5.3"

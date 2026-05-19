@@ -16,10 +16,9 @@ severity:
 value: H
 module: api
 effort: M
-readiness: blocked
+readiness: ready
 sprint:
-blocked_by:
-  - "[[tasks/items/scaffold-forma-workspace]]"
+blocked_by: []
 related_to:
   - "[[architecture/forma-p0-schema-dsl-spec]]"
   - "[[product/forma-p0-starter-spec]]"

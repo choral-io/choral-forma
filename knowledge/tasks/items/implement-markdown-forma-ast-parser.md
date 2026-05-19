@@ -16,10 +16,9 @@ severity:
 value: H
 module: api
 effort: M
-readiness: blocked
+readiness: ready
 sprint:
-blocked_by:
-  - "[[tasks/items/scaffold-forma-workspace]]"
+blocked_by: []
 related_to:
   - "[[architecture/forma-core-technical-direction]]"
   - "[[workspace/Tiscs/research/forma-markdown-parser-spike-report]]"

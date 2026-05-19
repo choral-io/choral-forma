@@ -1,3 +1,4 @@
-fn main() {
-    println!("forma {}", forma_core::version());
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    forma_cli::run().await
 }
