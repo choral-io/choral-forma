@@ -23,9 +23,9 @@ Rules: [[tasks/WORKFLOW]]
 
 ## Ready
 
-- [ ] [[tasks/items/scaffold-forma-workspace|Scaffold Forma Workspace]]
-
 ## Doing
+
+- [ ] [[tasks/items/scaffold-forma-workspace|Scaffold Forma Workspace]]
 
 ## Reviewing
 
