@@ -25,9 +25,9 @@ Rules: [[tasks/WORKFLOW]]
 
 ## Doing
 
-- [ ] [[tasks/items/scaffold-forma-workspace|Scaffold Forma Workspace]]
-
 ## Reviewing
+
+- [ ] [[tasks/items/scaffold-forma-workspace|Scaffold Forma Workspace]]
 
 ## Blocked
 
