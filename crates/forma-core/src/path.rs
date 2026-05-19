@@ -4,6 +4,21 @@ use std::path::{Component, Path};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+macro_rules! forma_path {
+    ($suffix:literal) => {
+        concat!(".forma", $suffix)
+    };
+}
+
+pub const FORMA_DIR: &str = forma_path!("");
+pub const FORMA_COLLECTIONS_PATH: &str = forma_path!("/collections.yml");
+pub const FORMA_INDEX_SUMMARY_PATH: &str = forma_path!("/index.summary.json");
+pub const FORMA_LOCAL_OVERRIDES_PATH: &str = forma_path!("/overrides/local.yml");
+pub const FORMA_TEMPLATES_DIR: &str = forma_path!("/templates");
+pub const FORMA_TYPES_PATH: &str = forma_path!("/types.yml");
+pub const FORMA_VIEWS_DIR: &str = forma_path!("/views");
+pub const FORMA_WORKSPACE_PATH: &str = forma_path!("/workspace.yml");
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct WorkspacePath(String);

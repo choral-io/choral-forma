@@ -1,5 +1,6 @@
 pub mod config;
 pub mod diagnostics;
+pub mod index;
 pub mod markdown;
 pub mod path;
 pub mod schema;
@@ -9,6 +10,11 @@ pub use config::{
 };
 pub use diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
+};
+pub use index::{
+    CheckResult, Discovery, IndexCollection, IndexEntry, IndexRebuildResult, IndexReference,
+    IndexView, IndexWorkspace, ReferenceIntent, ReferenceSource, SummaryIndex, check_workspace,
+    discover_workspace, index_check, index_rebuild, summary_index_json,
 };
 pub use markdown::{
     FormaMarkdownDocument, FormaReference, FormaReferenceIntent, FormaReferenceSource,

@@ -359,17 +359,6 @@ fn line_column(source: &str, offset: usize) -> (usize, usize) {
     (line, column)
 }
 
-trait DiagnosticActual {
-    fn with_actual(self, actual: impl Into<String>) -> Self;
-}
-
-impl DiagnosticActual for Diagnostic {
-    fn with_actual(mut self, actual: impl Into<String>) -> Self {
-        self.actual = Some(actual.into());
-        self
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{

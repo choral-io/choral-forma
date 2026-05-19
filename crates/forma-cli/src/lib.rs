@@ -8,7 +8,9 @@ use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::post;
 use clap::{Parser, Subcommand};
-use forma_rpc::{CheckRequest, Dispatcher, OperationRequest};
+use forma_rpc::{
+    CheckRequest, Dispatcher, IndexCheckRequest, IndexRebuildRequest, OperationRequest,
+};
 
 #[derive(Debug, Parser)]
 #[command(name = "forma", disable_version_flag = true)]
@@ -23,9 +25,25 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    Index {
+        #[command(subcommand)]
+        command: IndexCommand,
+    },
     Serve {
         #[arg(long, default_value = "127.0.0.1:0")]
         bind: SocketAddr,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum IndexCommand {
+    Check {
+        #[arg(long)]
+        json: bool,
+    },
+    Rebuild {
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -49,9 +67,41 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 println!("check {}", result.status_label());
             }
+            exit_if_failed(&result);
             Ok(())
         }
+        Some(Command::Index { command }) => match command {
+            IndexCommand::Check { json } => {
+                let result = dispatcher
+                    .dispatch(OperationRequest::IndexCheck(IndexCheckRequest::default()))?;
+                if json {
+                    println!("{}", result.to_json_string());
+                } else {
+                    println!("index check {}", result.status_label());
+                }
+                exit_if_failed(&result);
+                Ok(())
+            }
+            IndexCommand::Rebuild { json } => {
+                let result = dispatcher.dispatch(OperationRequest::IndexRebuild(
+                    IndexRebuildRequest::default(),
+                ))?;
+                if json {
+                    println!("{}", result.to_json_string());
+                } else {
+                    println!("index rebuild {}", result.status_label());
+                }
+                exit_if_failed(&result);
+                Ok(())
+            }
+        },
         Some(Command::Serve { bind }) => serve(bind).await,
+    }
+}
+
+fn exit_if_failed(result: &forma_rpc::OperationResult) {
+    if matches!(result.status, forma_core::OperationStatus::Failed) {
+        std::process::exit(1);
     }
 }
 

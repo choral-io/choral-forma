@@ -16,7 +16,7 @@ severity:
 value: H
 module: api
 effort: L
-readiness: blocked
+readiness: ready
 sprint:
 blocked_by:
   - "[[tasks/items/implement-schema-dsl-runtime-values]]"
@@ -79,7 +79,8 @@ Diagnostics are runtime operation results and must not be persisted.
 
 ## Relationship Notes
 
-Blocked by Schema DSL/runtime values and Markdown FormaAST parser.
+Previously blocked by Schema DSL/runtime values and Markdown FormaAST parser;
+both prerequisites are now done.
 
 ## Open Questions
 

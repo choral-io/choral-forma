@@ -15,6 +15,10 @@ pub enum Operation {
     Check,
     #[serde(rename = "config.inspect")]
     ConfigInspect,
+    #[serde(rename = "index.check")]
+    IndexCheck,
+    #[serde(rename = "index.rebuild")]
+    IndexRebuild,
 }
 
 impl Operation {
@@ -22,6 +26,8 @@ impl Operation {
         match self {
             Self::Check => "check",
             Self::ConfigInspect => "config.inspect",
+            Self::IndexCheck => "index.check",
+            Self::IndexRebuild => "index.rebuild",
         }
     }
 }
@@ -30,12 +36,24 @@ impl Operation {
 pub enum OperationRequest {
     Check(CheckRequest),
     ConfigInspect(ConfigInspectRequest),
+    IndexCheck(IndexCheckRequest),
+    IndexRebuild(IndexRebuildRequest),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckRequest {}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexCheckRequest {}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexRebuildRequest {}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -55,6 +73,8 @@ pub struct OperationResult {
     pub summary: Option<forma_core::DiagnosticSummary>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<forma_core::Diagnostic>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
 }
 
 impl OperationResult {
@@ -65,6 +85,7 @@ impl OperationResult {
             status: forma_core::OperationStatus::Passed,
             summary: Some(forma_core::DiagnosticSummary::default()),
             diagnostics: Vec::new(),
+            path: None,
         }
     }
 
@@ -87,10 +108,18 @@ pub struct Dispatcher;
 impl Dispatcher {
     pub fn dispatch(&self, request: OperationRequest) -> Result<OperationResult, OperationError> {
         match request {
-            OperationRequest::Check(_) => Ok(OperationResult::passed(Operation::Check)),
+            OperationRequest::Check(_) => {
+                Ok(OperationResult::from(forma_core::check_workspace(".")))
+            }
             OperationRequest::ConfigInspect(_) => {
                 Ok(OperationResult::passed(Operation::ConfigInspect))
             }
+            OperationRequest::IndexCheck(_) => {
+                Ok(OperationResult::from(forma_core::index_check(".")))
+            }
+            OperationRequest::IndexRebuild(_) => forma_core::index_rebuild(".")
+                .map(OperationResult::from)
+                .map_err(|_| OperationError::Failed),
         }
     }
 
@@ -239,6 +268,24 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "index.check" => serde_json::from_value::<IndexCheckRequest>(params)
+            .map(OperationRequest::IndexCheck)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "index.rebuild" => serde_json::from_value::<IndexRebuildRequest>(params)
+            .map(OperationRequest::IndexRebuild)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         "config.inspect" => match serde_json::from_value::<ConfigInspectRequest>(params) {
             Ok(request) => {
                 if let Some(path) = request.path.as_deref()
@@ -263,6 +310,32 @@ fn operation_from_method(
             "Method not found.",
             "method.notFound",
         )),
+    }
+}
+
+impl From<forma_core::CheckResult> for OperationResult {
+    fn from(result: forma_core::CheckResult) -> Self {
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+        }
+    }
+}
+
+impl From<forma_core::IndexRebuildResult> for OperationResult {
+    fn from(result: forma_core::IndexRebuildResult) -> Self {
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: Some(result.path),
+        }
     }
 }
 
@@ -457,10 +530,10 @@ mod tests {
         assert_eq!(response["id"], "1");
         assert_eq!(response["result"]["schemaVersion"], 1);
         assert_eq!(response["result"]["operation"], "check");
-        assert_eq!(response["result"]["status"], "passed");
+        assert_eq!(response["result"]["status"], "failed");
         assert_eq!(
             response["result"]["summary"],
-            json!({"errors":0,"warnings":0,"infos":0})
+            json!({"errors":1,"warnings":0,"infos":0})
         );
     }
 
@@ -473,6 +546,14 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::Operation::ConfigInspect).unwrap(),
             "config.inspect"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::IndexCheck).unwrap(),
+            "index.check"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::IndexRebuild).unwrap(),
+            "index.rebuild"
         );
     }
 }

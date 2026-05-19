@@ -86,6 +86,16 @@ impl Diagnostic {
         self.location = Some(location);
         self
     }
+
+    pub fn with_actual(mut self, actual: impl Into<String>) -> Self {
+        self.actual = Some(actual.into());
+        self
+    }
+
+    pub fn with_expected(mut self, expected: impl Into<String>) -> Self {
+        self.expected = Some(expected.into());
+        self
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

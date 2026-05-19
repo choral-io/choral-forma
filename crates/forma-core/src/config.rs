@@ -7,7 +7,10 @@ use serde_yml::Value;
 use thiserror::Error;
 
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
-use crate::path::{PathError, WorkspacePath};
+use crate::path::{
+    FORMA_COLLECTIONS_PATH, FORMA_DIR, FORMA_LOCAL_OVERRIDES_PATH, FORMA_TYPES_PATH,
+    FORMA_WORKSPACE_PATH, PathError, WorkspacePath,
+};
 use crate::schema::validate_collection_schemas;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -155,6 +158,12 @@ pub enum ConfigError {
         #[source]
         source: std::io::Error,
     },
+    #[error("failed to write {path}: {source}")]
+    Write {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
     #[error("failed to parse {path}: {source}")]
     Parse {
         path: String,
@@ -195,31 +204,31 @@ pub fn load_workspace(
     mode: LoadMode,
 ) -> Result<FormaWorkspace, ConfigError> {
     let root = root.as_ref();
-    let forma_dir = root.join(".forma");
+    let forma_dir = root.join(FORMA_DIR);
     if !forma_dir.is_dir() {
         return Err(ConfigError::MissingFormaDirectory);
     }
 
-    let workspace_path = forma_dir.join("workspace.yml");
-    let types_path = forma_dir.join("types.yml");
-    let collections_path = forma_dir.join("collections.yml");
+    let workspace_path = root.join(FORMA_WORKSPACE_PATH);
+    let types_path = root.join(FORMA_TYPES_PATH);
+    let collections_path = root.join(FORMA_COLLECTIONS_PATH);
 
-    let mut workspace_value = read_yaml_value(&workspace_path)?;
+    let mut workspace_value = read_yaml_value(&workspace_path, FORMA_WORKSPACE_PATH)?;
     if mode == LoadMode::WithLocalOverrides {
-        let local_override_path = forma_dir.join("overrides").join("local.yml");
+        let local_override_path = root.join(FORMA_LOCAL_OVERRIDES_PATH);
         if local_override_path.exists() {
-            let local_value = read_yaml_value(&local_override_path)?;
+            let local_value = read_yaml_value(&local_override_path, FORMA_LOCAL_OVERRIDES_PATH)?;
             deep_merge(&mut workspace_value, local_value);
         }
     }
 
     let workspace_file: WorkspaceFile =
         serde_yml::from_value(workspace_value).map_err(|source| ConfigError::Parse {
-            path: ".forma/workspace.yml".to_string(),
+            path: FORMA_WORKSPACE_PATH.to_string(),
             source,
         })?;
-    let types_file: TypesFile = read_yaml(&types_path)?;
-    let collections_file: CollectionsFile = read_yaml(&collections_path)?;
+    let types_file: TypesFile = read_yaml(&types_path, FORMA_TYPES_PATH)?;
+    let collections_file: CollectionsFile = read_yaml(&collections_path, FORMA_COLLECTIONS_PATH)?;
 
     let config = WorkspaceConfig {
         schema_version: workspace_file.schema_version,
@@ -238,19 +247,22 @@ pub fn load_workspace(
     })
 }
 
-fn read_yaml<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, ConfigError> {
+fn read_yaml<T: for<'de> Deserialize<'de>>(
+    path: &Path,
+    public_path: &str,
+) -> Result<T, ConfigError> {
     let contents = fs::read_to_string(path).map_err(|source| ConfigError::Read {
-        path: display_path(path),
+        path: public_path.to_string(),
         source,
     })?;
     serde_yml::from_str(&contents).map_err(|source| ConfigError::Parse {
-        path: display_path(path),
+        path: public_path.to_string(),
         source,
     })
 }
 
-fn read_yaml_value(path: &Path) -> Result<Value, ConfigError> {
-    read_yaml(path)
+fn read_yaml_value(path: &Path, public_path: &str) -> Result<Value, ConfigError> {
+    read_yaml(path, public_path)
 }
 
 fn deep_merge(base: &mut Value, overlay: Value) {
@@ -315,27 +327,12 @@ fn push_path_diagnostic(
                 "config.pathInvalid",
                 format!("Collection `{collection_id}` has invalid `{field}` path: {error}."),
             )
-            .with_path(".forma/collections.yml")
+            .with_path(FORMA_COLLECTIONS_PATH)
             .with_location(DiagnosticLocation::Config {
                 field: format!("collections.{collection_id}.{field}"),
             })
             .with_actual(value.to_string()),
         );
-    }
-}
-
-fn display_path(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
-}
-
-trait DiagnosticActual {
-    fn with_actual(self, actual: String) -> Self;
-}
-
-impl DiagnosticActual for Diagnostic {
-    fn with_actual(mut self, actual: String) -> Self {
-        self.actual = Some(actual);
-        self
     }
 }
 
@@ -346,6 +343,10 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{LoadMode, load_workspace};
+    use crate::path::{
+        FORMA_COLLECTIONS_PATH, FORMA_LOCAL_OVERRIDES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH,
+        FORMA_WORKSPACE_PATH,
+    };
 
     #[test]
     fn loads_starter_style_config() {
@@ -370,9 +371,9 @@ mod tests {
     fn applies_local_overrides_when_requested() {
         let root = fixture_root("local-overrides");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
-        fs::create_dir_all(root.join(".forma/overrides")).unwrap();
+        fs::create_dir_all(root.join(FORMA_LOCAL_OVERRIDES_PATH).parent().unwrap()).unwrap();
         fs::write(
-            root.join(".forma/overrides/local.yml"),
+            root.join(FORMA_LOCAL_OVERRIDES_PATH),
             "workspace:\n  timezone: Europe/Paris\nruntime:\n  values:\n    currentUserId:\n      kind: const\n      value: tiscs\n",
         )
         .unwrap();
@@ -404,30 +405,30 @@ mod tests {
         assert_eq!(workspace.diagnostics[0].code, "config.pathInvalid");
         assert_eq!(
             workspace.diagnostics[0].path.as_deref(),
-            Some(".forma/collections.yml")
+            Some(FORMA_COLLECTIONS_PATH)
         );
 
         fs::remove_dir_all(root).unwrap();
     }
 
     fn write_minimal_config(root: &Path, timezone: &str, include: &str) {
-        fs::create_dir_all(root.join(".forma/templates")).unwrap();
+        fs::create_dir_all(root.join(FORMA_TEMPLATES_DIR)).unwrap();
         fs::write(
-            root.join(".forma/workspace.yml"),
+            root.join(FORMA_WORKSPACE_PATH),
             format!(
                 "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: {timezone}\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n"
             ),
         )
         .unwrap();
         fs::write(
-            root.join(".forma/types.yml"),
+            root.join(FORMA_TYPES_PATH),
             "schemaVersion: 1\ntypes:\n  note:\n    kind: collection\n    collection: notes\n",
         )
         .unwrap();
         fs::write(
-            root.join(".forma/collections.yml"),
+            root.join(FORMA_COLLECTIONS_PATH),
             format!(
-                "schemaVersion: 1\ncollections:\n  notes:\n    title: Notes\n    include: {include}\n    template: .forma/templates/note.md\n    create:\n      directory: notes\n      filename: \"{{{{ input.slug }}}}.md\"\n    schema:\n      type: object\n      fields:\n        title:\n          type: string\n"
+                "schemaVersion: 1\ncollections:\n  notes:\n    title: Notes\n    include: {include}\n    template: {FORMA_TEMPLATES_DIR}/note.md\n    create:\n      directory: notes\n      filename: \"{{{{ input.slug }}}}.md\"\n    schema:\n      type: object\n      fields:\n        title:\n          type: string\n"
             ),
         )
         .unwrap();

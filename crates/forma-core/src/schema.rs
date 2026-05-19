@@ -10,7 +10,7 @@ use crate::config::{
     CollectionDefinition, CreateInput, RuntimeValueProvider, SemanticType, WorkspaceConfig,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
-use crate::path::slugify_path_segment;
+use crate::path::{FORMA_COLLECTIONS_PATH, FORMA_WORKSPACE_PATH, slugify_path_segment};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -214,13 +214,13 @@ pub fn validate_collection_schemas(config: &WorkspaceConfig) -> Vec<Diagnostic> 
             Ok(schema) => validate_schema_node(
                 config,
                 &schema,
-                ".forma/collections.yml",
+                FORMA_COLLECTIONS_PATH,
                 &field_path,
                 &mut diagnostics,
             ),
             Err(error) => diagnostics.push(
                 Diagnostic::error("schema.invalid", "Collection schema is invalid.")
-                    .with_path(".forma/collections.yml")
+                    .with_path(FORMA_COLLECTIONS_PATH)
                     .with_location(DiagnosticLocation::Config { field: field_path })
                     .with_actual(error),
             ),
@@ -259,7 +259,7 @@ pub fn resolve_runtime_values(config: &WorkspaceConfig, workspace_root: &str) ->
                     "runtime.value.unresolved",
                     format!("Runtime value `{name}` could not be resolved."),
                 )
-                .with_path(".forma/workspace.yml")
+                .with_path(FORMA_WORKSPACE_PATH)
                 .with_location(DiagnosticLocation::Config {
                     field: format!("runtime.values.{name}"),
                 })
@@ -272,7 +272,7 @@ pub fn resolve_runtime_values(config: &WorkspaceConfig, workspace_root: &str) ->
                             "runtime.value.unresolved",
                             format!("Required runtime value `{name}` could not be resolved."),
                         )
-                        .with_path(".forma/workspace.yml")
+                        .with_path(FORMA_WORKSPACE_PATH)
                         .with_location(DiagnosticLocation::Config {
                             field: format!("runtime.values.{name}"),
                         }),
@@ -794,27 +794,11 @@ fn is_iso_datetime(value: &str) -> bool {
         && value.ends_with('Z')
 }
 
-trait DiagnosticExt {
-    fn with_actual(self, actual: String) -> Self;
-    fn with_expected(self, expected: String) -> Self;
-}
-
-impl DiagnosticExt for Diagnostic {
-    fn with_actual(mut self, actual: String) -> Self {
-        self.actual = Some(actual);
-        self
-    }
-
-    fn with_expected(mut self, expected: String) -> Self {
-        self.expected = Some(expected);
-        self
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{CollectionConventions, RuntimeConfig, TypeInput, WorkspaceSettings};
+    use crate::path::FORMA_TEMPLATES_DIR;
 
     fn config_with_todo_schema(schema: &str) -> WorkspaceConfig {
         let schema: Value = serde_yml::from_str(schema).unwrap();
@@ -850,7 +834,7 @@ mod tests {
                     title: "Todos".to_string(),
                     description: None,
                     include: "todos/**/*.md".to_string(),
-                    template: ".forma/templates/todo.md".to_string(),
+                    template: format!("{FORMA_TEMPLATES_DIR}/todo.md"),
                     create: None,
                     conventions: CollectionConventions::default(),
                     schema,

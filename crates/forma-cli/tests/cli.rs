@@ -18,12 +18,13 @@ fn check_json_prints_direct_operation_result() {
         .output()
         .expect("forma check --json should run");
 
-    assert!(output.status.success());
+    assert!(!output.status.success());
     assert!(output.stderr.is_empty());
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains(r#""schemaVersion":1"#));
     assert!(stdout.contains(r#""operation":"check""#));
-    assert!(stdout.contains(r#""status":"passed""#));
+    assert!(stdout.contains(r#""status":"failed""#));
+    assert!(stdout.contains(r#""code":"workspace.missingForma""#));
     assert!(!stdout.contains(r#""jsonrpc""#));
 }
