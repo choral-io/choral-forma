@@ -18,7 +18,8 @@ module: api
 effort: M
 readiness: ready
 sprint:
-blocked_by: []
+blocked_by:
+  - "[[tasks/items/scaffold-forma-workspace]]"
 related_to:
   - "[[architecture/forma-core-technical-direction]]"
   - "[[workspace/Tiscs/research/forma-markdown-parser-spike-report]]"

@@ -18,7 +18,8 @@ module: api
 effort: M
 readiness: ready
 sprint:
-blocked_by: []
+blocked_by:
+  - "[[tasks/items/implement-forma-config-and-path-model]]"
 related_to:
   - "[[architecture/forma-p0-schema-dsl-spec]]"
 reported_by:
