@@ -74,6 +74,4 @@ blocked_by:
   - "[[tasks/items/example-upstream-task]]"
 related_to:
   - "[[tasks/items/example-related-task]]"
-unblocks:
-  - "[[tasks/items/example-downstream-task]]"
 ```

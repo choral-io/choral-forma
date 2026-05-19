@@ -24,7 +24,6 @@ blocked_by:
 related_to:
   - "[[decisions/forma-p0-core-architecture]]"
   - "[[architecture/forma-core-technical-direction]]"
-unblocks: []
 reported_by:
 affected_area: CI and release distribution
 ---

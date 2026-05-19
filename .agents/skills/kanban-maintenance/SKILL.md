@@ -21,7 +21,8 @@ Use this skill to apply approved changes to `knowledge/planning/KANBAN.md`.
 4. Apply only the approved board changes.
 5. Keep cards thin and linked.
 6. Preserve the column order.
-7. Report exact cards moved, added, changed, or removed.
+7. For `Reviewing -> Done`, report whether dependency follow-up was approved, deferred, or not applicable.
+8. Report exact cards moved, added, changed, or removed.
 
 ## Guardrails
 
@@ -30,6 +31,7 @@ Use this skill to apply approved changes to `knowledge/planning/KANBAN.md`.
 - Do not duplicate acceptance criteria or long discussion in the board.
 - Stop and report ambiguity if a card link can match multiple canonical files.
 - When moving a card to `Blocked`, keep the board card thin and ensure blocker details live in the linked task item.
+- Do not move `Reviewing -> Done` while known dependency follow-up is unresolved unless the maintainer explicitly defers it.
 - Stop if the requested change conflicts with the Kanban workflow.
 
 ## References

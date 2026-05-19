@@ -23,9 +23,6 @@ blocked_by:
   - "[[tasks/items/implement-markdown-forma-ast-parser]]"
 related_to:
   - "[[architecture/forma-p0-check-index-spec]]"
-unblocks:
-  - "[[tasks/items/implement-starter-init-create-inspect-list]]"
-  - "[[tasks/items/implement-view-entry-render]]"
 reported_by:
 affected_area: Summary index and workspace diagnostics
 ---

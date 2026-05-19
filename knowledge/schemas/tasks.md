@@ -36,8 +36,6 @@ sprint: Sprint 1
 blocked_by: []
 related_to:
   - "[[tasks/items/example-related-task]]"
-unblocks:
-  - "[[tasks/items/example-downstream-task]]"
 ---
 ```
 
@@ -53,9 +51,8 @@ unblocks:
 - `sprint`: sprint label when scheduled.
 - `assignees`: member wikilinks for people currently responsible for moving the task forward. Group assignees mean a team or group pool, not assignment to the current member.
 - `reviewers`: member or group wikilinks for expected reviewers for delivery acceptance.
-- `blocked_by`: hard blockers that prevent work from starting.
+- `blocked_by`: hard blocker relationships. Entries may remain after blockers are resolved; a task is blocked only when one or more entries are unresolved.
 - `related_to`: context links that do not block work.
-- `unblocks`: downstream task ids that become easier or possible after this task is done.
 - `reported_by`: optional source, member id, role, channel, or anonymized reporter for issue, bug, or defect tasks.
 - `affected_area`: optional product, module, user journey, integration, customer segment, or environment affected by an issue, bug, or defect.
 
@@ -89,9 +86,11 @@ Use task knowledge-reference wikilinks in relationship fields. Manual short task
 - Use `readiness: ready` only when the task has a clear goal, explicit `Sources`, enough source context, clear scope, observable acceptance criteria, no unresolved blockers, no required local-only or localized-only context, no sensitive information requirement, a rough `module` and `effort`, and stable source material.
 - Stable source material means the task item and all required referenced task, product, design, architecture, decision, planning, and asset files are committed. If the repository has a default remote, those commits must also be pushed to that remote. External stable sources are allowed only when the task records the URL, access condition, and relevant version or date.
 - Use `readiness: blocked` when work cannot start because a `blocked_by` task, decision, external condition, or required access is unresolved.
+- `readiness` is execution readiness, not delivery completion state. Do not use it to mirror `Done` or `Cancelled`; delivery status belongs in the Kanban board.
+- A `blocked_by` task reference is resolved when the referenced task is in `Done`, or when the task item records that the blocker was resolved by another approved path. Missing, ambiguous, or unresolved references remain blockers.
 - Agents may propose `readiness` changes in dry-run output. Writing `readiness: ready` should happen only after maintainer approval or as part of an approved metadata dry-run.
 - Agents may conservatively set or propose `needs-refinement` or `blocked` when evidence is clear, but should explain the reason.
-- Use `blocked_by`, `related_to`, and `unblocks` instead of a generic `dependencies` field when possible.
+- Use `blocked_by` and `related_to` instead of a generic `dependencies` field when possible.
 - Do not duplicate delivery status in every task item.
 - Do not use `assignees` as a replacement for moving a card between Kanban columns.
 - Keep localized files out of planning inputs unless explicitly requested.

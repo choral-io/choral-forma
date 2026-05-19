@@ -22,8 +22,6 @@ blocked_by: []
 related_to:
   - "[[architecture/forma-p0-operation-api-spec]]"
   - "[[product/forma-p0-starter-spec]]"
-unblocks:
-  - "[[tasks/items/implement-read-only-webapp]]"
 reported_by:
 affected_area: Entry rendering and declarative views
 ---

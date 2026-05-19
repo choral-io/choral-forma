@@ -22,9 +22,6 @@ blocked_by: []
 related_to:
   - "[[architecture/forma-p0-schema-dsl-spec]]"
   - "[[product/forma-p0-starter-spec]]"
-unblocks:
-  - "[[tasks/items/implement-schema-dsl-runtime-values]]"
-  - "[[tasks/items/implement-check-index-diagnostics]]"
 reported_by:
 affected_area: Forma configuration loading and path identity
 ---
@@ -82,8 +79,7 @@ time-derived runtime values.
 
 ## Relationship Notes
 
-Blocked by workspace scaffold. Unblocks Schema DSL/runtime values and the
-check/index pipeline.
+Blocked by workspace scaffold. Downstream work can be derived from task items whose `blocked_by` references this task, including Schema DSL/runtime values and the check/index pipeline.
 
 ## Open Questions
 

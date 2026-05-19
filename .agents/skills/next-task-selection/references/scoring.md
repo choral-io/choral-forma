@@ -12,7 +12,7 @@ Default Kanban scan order:
 
 Do not select cards from `Doing`, `Reviewing`, `Done`, or `Cancelled` unless the user asks for recovery or review work.
 
-Do not select cards from `Blocked` for implementation. Use blocked cards only when the user asks for unblock or recovery work.
+Do not select cards from `Blocked` for implementation. Use blocked cards only when the user asks for blocker-resolution or recovery work.
 
 Do not select loose task items from `knowledge/tasks/items/**` unless they are linked from a candidate Kanban card. If the user asks to rank task items that are not on the board, route to `delivery-planning`.
 
@@ -36,8 +36,6 @@ blocked_by:
   - "[[tasks/items/example-upstream-task]]"
 related_to:
   - "[[tasks/items/example-related-task]]"
-unblocks:
-  - "[[tasks/items/example-downstream-task]]"
 ```
 
 Use task knowledge-reference wikilinks in relationship fields, not display titles. Tool-written values should prefer path-qualified task wikilinks.
@@ -52,7 +50,7 @@ Use task knowledge-reference wikilinks in relationship fields, not display title
 - `reviewers`: member wikilinks for expected reviewers for delivery acceptance.
 - `blocked_by`: hard blockers that prevent work from starting.
 - `related_to`: useful context or adjacent work, not a blocker.
-- `unblocks`: tasks that become easier or possible after this task is done.
+- Downstream unlocks are derived by reverse-looking up other tasks whose `blocked_by` references the candidate.
 
 ## Assignment Priority
 
@@ -86,7 +84,7 @@ Rank candidates higher when they:
 - Are in `Ready`.
 - Have `readiness: ready`.
 - Have no unresolved `blocked_by` entries.
-- Unblock high-priority or multiple downstream tasks.
+- Release high-priority or multiple downstream tasks, derived from other tasks' `blocked_by` entries.
 - Reduce product, technical, or delivery risk early.
 - Fit the requested module.
 - Have lower effort when value and priority are similar.
@@ -96,7 +94,7 @@ Rank candidates lower or exclude them when they:
 - Have unresolved `blocked_by` entries.
 - Have missing acceptance criteria.
 - Have `readiness: needs-refinement` or `readiness: blocked`.
-- Are in the `Blocked` column, unless the user asked for unblock work.
+- Are in the `Blocked` column, unless the user asked for blocker-resolution work.
 - Depend on localized files or local workspace notes as their only source.
 - Have unclear scope or sensitive information.
 
@@ -108,7 +106,7 @@ Recommended next task: Example delivery task
 Reason:
 - P1 with high product value.
 - No unresolved `blocked_by` entries.
-- Unblocks downstream delivery work.
+- Releases downstream delivery work through referenced `blocked_by` relationships.
 - Small enough for a focused implementation pass.
 
 Alternatives:

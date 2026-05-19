@@ -22,9 +22,6 @@ blocked_by: []
 related_to:
   - "[[architecture/forma-core-technical-direction]]"
   - "[[workspace/Tiscs/research/forma-markdown-parser-spike-report]]"
-unblocks:
-  - "[[tasks/items/implement-check-index-diagnostics]]"
-  - "[[tasks/items/implement-view-entry-render]]"
 reported_by:
 affected_area: Markdown parsing and FormaAST enrichment
 ---

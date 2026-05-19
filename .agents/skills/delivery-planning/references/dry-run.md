@@ -26,8 +26,6 @@ sprint: Sprint 1
 blocked_by: []
 related_to:
   - "[[example-related-task]]"
-unblocks:
-  - "[[example-downstream-task]]"
 reported_by:
 affected_area:
 ```

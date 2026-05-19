@@ -21,9 +21,6 @@ sprint:
 blocked_by: []
 related_to:
   - "[[architecture/forma-p0-schema-dsl-spec]]"
-unblocks:
-  - "[[tasks/items/implement-check-index-diagnostics]]"
-  - "[[tasks/items/implement-starter-init-create-inspect-list]]"
 reported_by:
 affected_area: Schema validation and create input resolution
 ---
@@ -80,7 +77,7 @@ modeled as a normal runtime value.
 
 ## Relationship Notes
 
-Blocked by config/path model. Unblocks check/index and starter create flows.
+Blocked by config/path model. Downstream work can be derived from task items whose `blocked_by` references this task, including check/index and starter create flows.
 
 ## Follow-up Notes
 

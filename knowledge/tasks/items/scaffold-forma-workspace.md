@@ -21,10 +21,6 @@ blocked_by: []
 related_to:
   - "[[decisions/forma-p0-core-architecture]]"
   - "[[architecture/forma-core-technical-direction]]"
-unblocks:
-  - "[[tasks/items/implement-forma-config-and-path-model]]"
-  - "[[tasks/items/implement-operation-rpc-cli-foundation]]"
-  - "[[tasks/items/implement-markdown-forma-ast-parser]]"
 reported_by:
 affected_area: P0 workspace foundation
 ---
@@ -73,7 +69,7 @@ module boundaries without implementing product behavior yet.
 
 ## Relationship Notes
 
-This is the first implementation task. It unblocks core engine, parser, RPC,
+This is the first implementation task. It enables core engine, parser, RPC,
 and later WebApp work.
 
 ## Open Questions

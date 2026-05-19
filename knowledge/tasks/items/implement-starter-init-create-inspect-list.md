@@ -25,8 +25,6 @@ blocked_by:
 related_to:
   - "[[product/forma-p0-starter-spec]]"
   - "[[architecture/forma-p0-operation-api-spec]]"
-unblocks:
-  - "[[tasks/items/implement-read-only-webapp]]"
 reported_by:
 affected_area: P0 CLI user flows
 ---

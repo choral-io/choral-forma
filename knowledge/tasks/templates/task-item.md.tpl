@@ -16,7 +16,6 @@ readiness: needs-refinement
 sprint:
 blocked_by: []
 related_to: []
-unblocks: []
 reported_by:
 affected_area:
 ---

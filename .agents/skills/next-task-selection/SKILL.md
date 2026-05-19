@@ -22,8 +22,8 @@ Use this skill to recommend the next accepted delivery task from `knowledge/plan
     - tasks where `assignees` includes the current member id
     - tasks with missing or empty `assignees`
     - tasks assigned only to other members
-11. Build a lightweight dependency view from `blocked_by`, `related_to`, and `unblocks`.
-12. Rank candidates inside each partition by priority, value, readiness, unblocking effect, risk reduction, effort fit, owners fit, member profile fit, personal preferences when loaded, and current Kanban state.
+11. Build a lightweight dependency view from `blocked_by` and `related_to`; derive downstream unlock potential by reverse-looking up tasks blocked by each candidate.
+12. Rank candidates inside each partition by priority, value, readiness, downstream unlock effect, risk reduction, effort fit, owners fit, member profile fit, personal preferences when loaded, and current Kanban state.
 13. Recommend one next task from the first non-empty partition.
 14. Report blockers, missing metadata, and any task that looks ready but is not in `Ready`.
 
@@ -42,9 +42,9 @@ Normalize member and group wikilinks in `owners`, `assignees`, and `reviewers` b
 - For the top recommendation, automatic start, or a proposed move to `Doing`, run the full source stability check: the task item and required local source files must be committed; if a default remote exists, their commits must be pushed to that remote.
 - Check required source material from the task item, `## Sources`, `blocked_by`, design links, product requirements, architecture decisions, acceptance criteria, and linked assets. Treat `related_to` as optional context unless the task body says it is required.
 - Allow external stable sources only when the task records the URL, access condition, and relevant version or date.
-- Do not select cards from `Blocked`, `Doing`, `Reviewing`, `Done`, or `Cancelled` unless the user explicitly asks for recovery, unblock, review, or cleanup work.
+- Do not select cards from `Blocked`, `Doing`, `Reviewing`, `Done`, or `Cancelled` unless the user explicitly asks for recovery, blocker-resolution, review, or cleanup work.
 - Treat `related_to` as context only, not a blocker.
-- Treat `unblocks` as a value signal, especially when referenced tasks are high priority.
+- Treat downstream tasks whose `blocked_by` references the candidate as a value signal, especially when those downstream tasks are high priority.
 - Prefer smaller ready tasks when two candidates have similar value and priority.
 - First search tasks assigned to the current member id in `assignees`.
 - If none are eligible, search unassigned tasks with missing or empty `assignees`.

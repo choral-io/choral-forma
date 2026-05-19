@@ -106,7 +106,7 @@ Use these rules for `WORKLIST.md`, "continue", "run next", "run loop", local log
 - Default to `run-next` for one item unless the user authorizes `run-loop` or `run-goal`.
 - `run-loop` needs `max-items`; parallel execution also needs `parallel-work-items` and independent items.
 - `run-goal` coordinates accepted Kanban/worklist tasks toward review readiness; it is not open-ended discovery.
-- Before execution, validate that the selected item is still relevant, unblocked, scoped, current, and safe under the requested approval mode.
+- Before execution, validate that the selected item is still relevant, not blocked, scoped, current, and safe under the requested approval mode.
 - Stop or switch skills before crossing into Kanban edits, task metadata changes, shared knowledge writes, another member's workspace, commits, publishing, deletion, dependency installation, or elevated execution.
 - Keep Agent runtime worktrees under `<agent_local_dir>/worktrees/`; keep `<agent_local_dir>/` out of git.
 - Use formal shared handoff files only for cross-member, long-lived, complex, or explicitly requested handoffs.
@@ -125,6 +125,8 @@ Use these rules for task items, `KANBAN.md`, Ready, Doing, Reviewing, Blocked, D
 - Move to `Doing`, `Reviewing`, `Blocked`, `Done`, or `Cancelled` only through approved board maintenance.
 - `delivery-review` is the gate before `Done` when implementation, acceptance criteria, source knowledge, or required checks changed.
 - `Done` requires delivered work, relevant checks or documented skips, updated durable knowledge when needed, completed local log, review acceptance, and approved board movement.
+- `readiness` is execution readiness, not delivery completion state; Kanban records `Doing`, `Reviewing`, `Blocked`, `Done`, and `Cancelled`.
+- Before `Reviewing -> Done`, reverse-look up tasks blocked by the completed task and propose downstream readiness or board follow-up when blockers are resolved.
 
 ## Optional Superpowers Guidance
 

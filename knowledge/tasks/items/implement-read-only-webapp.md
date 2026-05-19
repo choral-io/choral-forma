@@ -24,8 +24,6 @@ blocked_by:
 related_to:
   - "[[architecture/forma-p0-operation-api-spec]]"
   - "[[decisions/forma-p0-core-architecture]]"
-unblocks:
-  - "[[tasks/items/implement-ci-release-baseline]]"
 reported_by:
 affected_area: Local read-only Forma WebApp
 ---

@@ -67,12 +67,11 @@ effort: M # S | M | L
 readiness: ready # ready | needs-refinement | blocked
 blocked_by: []
 related_to: []
-unblocks: []
 reported_by:
 affected_area:
 ```
 
-Use `blocked_by`, `related_to`, and `unblocks` with task knowledge-reference wikilinks instead of a generic dependency field when the relationship is known. Tool-written values should prefer path-qualified wikilinks such as `[[tasks/items/example-task]]`; manual short task wikilinks are valid only when they resolve uniquely. A missing or unclear blocker is a metadata issue; do not silently ignore it.
+Use `blocked_by` and `related_to` with task knowledge-reference wikilinks instead of a generic dependency field when the relationship is known. Tool-written values should prefer path-qualified wikilinks such as `[[tasks/items/example-task]]`; manual short task wikilinks are valid only when they resolve uniquely. A missing or unclear blocker is a metadata issue; do not silently ignore it.
 
 ## Readiness
 
@@ -90,6 +89,13 @@ Use `readiness: ready` only when all are true:
 - execution does not depend on local-only, localized-only, secret, or private context.
 
 Agents may propose readiness changes in dry-run output. Writing `readiness: ready` should happen only after maintainer approval or as part of an approved metadata dry run.
+
+Readiness is not delivery status:
+
+- `readiness: needs-refinement` usually belongs in `Backlog`, not `Ready`.
+- `readiness: ready` can appear in `Backlog` or `Ready`; `Ready` is the preferred candidate pool.
+- `readiness: blocked` should normally match a `Blocked` card unless the blocker was just found and the board has not been maintained yet.
+- `Done` and `Cancelled` do not require changing `readiness`; Kanban records completion or cancellation.
 
 ## Board
 
@@ -112,6 +118,13 @@ Cards stay thin:
 ```
 
 The linked task item holds context and acceptance criteria. Prefer path-qualified task wikilinks in tool-written links and metadata. If a short manual link is ambiguous, report it instead of guessing.
+
+Kanban and task metadata must stay coherent:
+
+- Moving `Ready -> Doing` should confirm or set `assignees` when the current handler is known.
+- Moving to `Reviewing` should confirm `reviewers` when review responsibility is expected.
+- Do not clear `assignees` or `reviewers` just because the task is `Done`; update them only when responsibility changes or metadata was wrong.
+- Do not use `assignees`, `reviewers`, or `readiness` as substitutes for Kanban status.
 
 ## Planning And Selection
 
@@ -147,8 +160,8 @@ Review order:
 
 1. Move or propose `Doing -> Reviewing` through approved `kanban-maintenance`.
 2. Run `delivery-review` while the card is in `Reviewing`.
-3. If accepted, move or propose `Reviewing -> Done` through approved `kanban-maintenance`.
-4. Keep the card in `Reviewing` for small fixes, move back to `Doing` for substantial rework, or move to `Blocked` for unresolved external blockers.
+3. If accepted, check downstream dependency follow-up needs, then move or propose `Reviewing -> Done` through approved `kanban-maintenance`.
+4. Keep the card in `Reviewing` for small fixes, move back to `Doing` for substantial rework, move to `Blocked` for unresolved external blockers, or move to `Cancelled` when the task should not continue.
 
 Definition of Done:
 
@@ -159,6 +172,23 @@ Definition of Done:
 - durable product, discovery, design, architecture, decision, guideline, or task knowledge was updated when the work changed it;
 - local WORKLIST item and local log are closed;
 - approved Kanban maintenance moved the card to `Done`.
+
+Done tasks may still receive metadata, link, or wording cleanup, but do not silently change delivered scope after completion. If new work is discovered after Done, create a follow-up task or proposal unless the maintainer explicitly reopens or revises the original task.
+
+## Dependency Follow-Up
+
+When a task reaches `Done`, scan task items for downstream tasks whose `blocked_by` entries reference the completed task before closing the delivery update.
+
+For each downstream task:
+
+- keep `blocked_by` unless it is inaccurate, obsolete, or too weak and should become `related_to`;
+- treat a `blocked_by` reference to the completed task as resolved;
+- if all blockers are resolved and readiness criteria are met, propose `readiness: ready` and the appropriate Kanban move;
+- if another blocker, decision, external condition, or required access still blocks work, keep or propose `readiness: blocked`;
+- if scope, sources, acceptance criteria, or metadata remain unclear, use `readiness: needs-refinement` and keep or move the card to `Backlog`;
+- record an explanation when a blocker is resolved by an alternative approved path instead of by the referenced task reaching `Done`.
+
+Do not mechanically remove resolved `blocked_by` entries. They record dependency history and let Agents derive downstream unlocks by reverse lookup.
 
 When available, `superpowers:verification-before-completion` may support validation before completion, commit, PR, or Done-readiness claims. It does not replace `.agents/skills/delivery-review/SKILL.md` or approved Kanban maintenance.
 
@@ -189,9 +219,17 @@ Use `.agents/skills/delivery-review/SKILL.md` before Done for:
 
 ## Blocked Or Cancelled Work
 
-When blocked, move or propose the card to `Blocked`, set or propose `readiness: blocked`, and record the blocker in the linked task item. Move out of `Blocked` only when the blocker is resolved and the next state is clear.
+When blocked, move or propose the card to `Blocked`, set or propose `readiness: blocked`, and record the blocker in the linked task item.
+
+Move out of `Blocked` only when the blocker is resolved and the next state is clear:
+
+- use `Blocked -> Ready` when the task satisfies readiness criteria and is not actively being handled;
+- use `Blocked -> Doing` when the task was already in progress and the current handler is ready to continue;
+- use `Blocked -> Backlog` with `readiness: needs-refinement` when blocker removal exposes missing scope, sources, design, or acceptance criteria.
 
 When cancelled, move or propose the card to `Cancelled` and add a short cancellation reason if context would otherwise be unclear. Do not delete source knowledge unless it is wrong or obsolete and the user approves correction.
+
+`Cancelled` means intentionally dropped, replaced, duplicated, invalid, or no longer valuable. It is not `Done` and should not be treated as delivered. When a task is superseded, link the replacement task, proposal, or decision with `related_to`.
 
 ## Safety Rules
 

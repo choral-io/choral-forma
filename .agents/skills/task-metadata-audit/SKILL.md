@@ -27,7 +27,7 @@ Use this skill to inspect task metadata and report issues. This skill is read-on
 - Group values in `assignees`; report these as team-pool assignments, not direct assignment to the current member.
 - Missing `assignees` only when the task appears scheduled or actively assigned.
 - Missing `reviewers` only when review responsibility is expected.
-- `blocked_by`, `related_to`, or `unblocks` entries that point to missing or ambiguous task references.
+- `blocked_by` or `related_to` entries that point to missing or ambiguous task references.
 - Missing `## Sources` section or sources that point only to local workspace notes or localized files.
 - Tasks with `readiness: ready` but missing acceptance criteria.
 - Issue, bug, or defect tasks with `readiness: ready` but missing `Problem`, `Impact`, or `Triage` context.
@@ -38,6 +38,7 @@ Use this skill to inspect task metadata and report issues. This skill is read-on
 - Tasks in `Ready` with `readiness` other than `ready`.
 - Tasks in `Blocked` without `readiness: blocked` or unresolved `blocked_by` entries.
 - Tasks outside `Blocked` with unresolved `blocked_by` entries.
+- Downstream tasks whose `blocked_by` references are all resolved but still have `readiness: blocked` or remain in `Blocked`.
 - Tasks in `Backlog` that appear ready but have not been promoted to `Ready`.
 - Localized task files used as planning inputs.
 

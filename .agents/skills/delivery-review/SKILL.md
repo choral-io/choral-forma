@@ -33,6 +33,7 @@ When available, `superpowers:verification-before-completion` output can be used 
 - If review finds small issues, recommend keeping the card in `Reviewing` while fixes are applied.
 - If review finds substantial rework, recommend moving the card back to `Doing` through `kanban-maintenance`.
 - If review finds an unresolved external blocker, recommend moving the card to `Blocked` and recording blocker details in the linked task item.
+- Before recommending `Reviewing -> Done`, reverse-look up downstream tasks whose `blocked_by` entries reference the completed task and check whether they require readiness or Kanban follow-up proposals.
 
 ## Handoff Summary
 

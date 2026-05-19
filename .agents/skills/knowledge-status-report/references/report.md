@@ -100,7 +100,7 @@ Ownership:
 
 Risks:
 
-- blocked work with no clear unblock path
+- blocked work with no clear blocker-resolution path
 - Ready work with missing source material
 - stale Kanban links
 - tasks pointing to local-only sources
@@ -125,7 +125,7 @@ Concise summary:
 | Area              | Count | Basis       | Notes                                                  |
 | ----------------- | ----- | ----------- | ------------------------------------------------------ |
 | Ready cards       | 4     | board-based | From `knowledge/planning/KANBAN.md`.                   |
-| Blocked cards     | 1     | board-based | One card has no linked unblock owner.                  |
+| Blocked cards     | 1     | board-based | One card has no linked blocker-resolution owner.       |
 | Pending decisions | 3     | inferred    | Based on headings/prose; schema support is incomplete. |
 
 ## Risks And Gaps

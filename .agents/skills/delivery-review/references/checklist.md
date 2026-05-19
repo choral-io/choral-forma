@@ -12,6 +12,7 @@
 - Verify the implementation satisfies each acceptance criterion.
 - Confirm out-of-scope items were not accidentally included.
 - Confirm `blocked_by` entries are resolved or documented.
+- Confirm downstream dependency follow-up was reviewed or explicitly deferred by reverse-looking up tasks blocked by the completed task.
 - Confirm user-visible behavior matches product knowledge.
 
 ## Code And Test Review

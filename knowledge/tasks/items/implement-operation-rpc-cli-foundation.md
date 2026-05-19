@@ -21,10 +21,6 @@ sprint:
 blocked_by: []
 related_to:
   - "[[architecture/forma-p0-operation-api-spec]]"
-unblocks:
-  - "[[tasks/items/implement-starter-init-create-inspect-list]]"
-  - "[[tasks/items/implement-view-entry-render]]"
-  - "[[tasks/items/implement-read-only-webapp]]"
 reported_by:
 affected_area: Operation dispatch, CLI, and local HTTP RPC
 ---

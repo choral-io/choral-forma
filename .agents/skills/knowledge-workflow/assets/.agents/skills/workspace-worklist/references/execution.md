@@ -107,7 +107,7 @@ Use isolated `.agents/.local/worktrees/slot-XX/` worktrees for parallel workers.
 
 Parallel eligibility requires:
 
-- valid, current, unblocked item;
+- valid, current, not-blocked item;
 - no dependency on another batch item;
 - no likely overlap in files, schemas, APIs, migrations, lockfiles, fixtures, global styles, or shared resources;
 - clear allowed paths, forbidden paths, validation, and success criteria;
@@ -120,7 +120,7 @@ If eligibility is uncertain, keep the work serial or use a read-only planner fir
 
 Dependency layers:
 
-- Kanban/task: `blocked_by` is hard, `related_to` is context, `unblocks` is value, shared module/source/resource is a conflict signal.
+- Kanban/task: `blocked_by` is hard, `related_to` is context, downstream unlocks are derived by reverse lookup, and shared module/source/resource is a conflict signal.
 - WORKLIST: explicit "after", "depends on", or "requires" is hard; item order is only a weak default.
 
 Keep implementation and its validation/review follow-up serial unless the dependency is clearly absent.
