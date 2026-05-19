@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Choral Forma is a new project for exploring a lightweight, editor-independent team knowledge application. The initial repository state is intentionally knowledge-first: product direction, concepts, decisions, task planning, and delivery workflow should be captured in `knowledge/` before code structure is introduced.
+Choral Forma is a new project for exploring a lightweight, editor-independent team knowledge application. The repository remains intentionally knowledge-first: product direction, concepts, decisions, task planning, and delivery workflow should be captured in `knowledge/`, while current application code is still only a minimal scaffold.
 
 The long-term product should treat repository Markdown as the source of truth. Application code, when added, should read from and write to explicit files and schemas rather than creating a hidden proprietary knowledge store.
 
@@ -15,6 +15,8 @@ The current `knowledge/` directory is the development knowledge base for this re
 - `.agents/.local/`: local-only Agent runtime state; ignored by git.
 - `.claude/skills`: symlink to `.agents/skills` for Claude Code compatibility.
 - `CLAUDE.md`: symlink to `AGENTS.md` for Claude Code compatibility.
+- `crates/`: Rust workspace crates for the future Forma core, RPC model, and CLI.
+- `packages/`: pnpm workspace packages for shared TypeScript code and the future WebApp.
 - `.vscode/` and `.zed/`: editor integration for Markdown, Foam, and Prettier.
 - `mise.toml`: project tool and task configuration.
 
@@ -24,17 +26,24 @@ Use mise for project tools and tasks:
 
 ```sh
 mise install
+pnpm install
 mise run check:knowledge
 mise run format:knowledge
+mise run check:rust
+mise run test:rust
+mise run check:web
+mise run build:web
+mise run check
 ```
 
-`mise.toml` currently manages `npm:prettier` only. Do not add a package manager, runtime, build system, or application framework until the project actually needs one.
+Tool versions are declared in the idiomatic project files: Node.js and pnpm in root `package.json`, and Rust in `rust-toolchain.toml` plus `Cargo.toml` `rust-version`. `mise.toml` enables mise to read those files and provides project tasks. Prettier is a project-local dev dependency in root `package.json`, installed through pnpm.
 
 ## Coding And Product Work
 
 - Prefer small, explicit files and schemas over hidden application state.
 - Keep product assumptions, requirements, design notes, and decisions in `knowledge/` before implementation.
-- If code is introduced later, document the intended architecture in `knowledge/architecture/` and update this file with concrete build/test commands.
+- Keep Rust crates aligned with the accepted architecture in `knowledge/decisions/forma-p0-core-architecture.md`.
+- Keep Web packages aligned with the accepted architecture in `knowledge/architecture/forma-core-technical-direction.md`.
 - Do not commit secrets, local worklists, local Agent state, or personal editor caches.
 - Keep `knowledge/` Foam-compatible and Obsidian-readable, but do not rely on editor-specific plugin syntax for project facts.
 

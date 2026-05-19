@@ -1,0 +1,13 @@
+[package]
+name = "forma-rpc"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+forma-core = { path = "../forma-core" }
+
+[lib]
+path = "src/lib.rs"

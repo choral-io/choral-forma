@@ -1,0 +1,15 @@
+[package]
+name = "forma-cli"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "forma"
+path = "src/main.rs"
+
+[dependencies]
+forma-core = { path = "../forma-core" }
+forma-rpc = { path = "../forma-rpc" }

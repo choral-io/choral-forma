@@ -1,10 +1,34 @@
-[tools]
-"npm:prettier" = "latest"
+[settings]
+idiomatic_version_file_enable_tools = ["node", "pnpm", "rust"]
 
 [tasks."check:knowledge"]
 description = "Check knowledge Markdown files with Prettier"
-run = 'prettier --check "README.md" "AGENTS.md" "knowledge/**/*.md" "knowledge/**/*.mdx" "knowledge/**/*.md.tpl" "knowledge/**/*.mdx.tpl" --no-error-on-unmatched-pattern --log-level warn'
+run = 'pnpm exec prettier --check "knowledge/**/*.{md,mdx,md.tpl,mdx.tpl}" --no-error-on-unmatched-pattern --log-level warn'
 
 [tasks."format:knowledge"]
 description = "Format knowledge Markdown files with Prettier"
-run = 'prettier --write "README.md" "AGENTS.md" "knowledge/**/*.md" "knowledge/**/*.mdx" "knowledge/**/*.md.tpl" "knowledge/**/*.mdx.tpl" --no-error-on-unmatched-pattern --log-level warn'
+run = 'pnpm exec prettier --write "knowledge/**/*.{md,mdx,md.tpl,mdx.tpl}" --no-error-on-unmatched-pattern --log-level warn'
+
+[tasks."check:rust"]
+description = "Check Rust workspace"
+run = "cargo fmt --all -- --check && cargo check --workspace"
+
+[tasks."format:rust"]
+description = "Format Rust workspace"
+run = "cargo fmt --all"
+
+[tasks."test:rust"]
+description = "Test Rust workspace"
+run = "cargo test --workspace"
+
+[tasks."check:web"]
+description = "Typecheck web workspace"
+run = "pnpm check"
+
+[tasks."build:web"]
+description = "Build web workspace"
+run = "pnpm build"
+
+[tasks.check]
+description = "Run all project checks"
+depends = ["check:knowledge", "check:rust", "test:rust", "check:web", "build:web"]
