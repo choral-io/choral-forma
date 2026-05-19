@@ -64,7 +64,7 @@ pub fn slugify_path_segment(value: &str) -> Result<String, PathError> {
     let mut last_was_dash = false;
 
     for ch in value.trim().chars().flat_map(char::to_lowercase) {
-        let keep = ch.is_ascii_alphanumeric() || ch == '_' || ch == '-';
+        let keep = ch.is_alphanumeric() || ch == '_' || ch == '-';
         if keep {
             output.push(ch);
             last_was_dash = false;
@@ -220,6 +220,7 @@ mod tests {
             slugify_path_segment("User Registration").unwrap(),
             "user-registration"
         );
+        assert_eq!(slugify_path_segment("研究 计划").unwrap(), "研究-计划");
         assert_eq!(
             slugify_path_segment("CON"),
             Err(PathError::InvalidSegment("con".to_string()))

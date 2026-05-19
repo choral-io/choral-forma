@@ -8,6 +8,7 @@ use thiserror::Error;
 
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::path::{PathError, WorkspacePath};
+use crate::schema::validate_collection_schemas;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LoadMode {
@@ -227,7 +228,8 @@ pub fn load_workspace(
         types: types_file.types,
         collections: collections_file.collections,
     };
-    let diagnostics = validate_config_paths(&config);
+    let mut diagnostics = validate_config_paths(&config);
+    diagnostics.extend(validate_collection_schemas(&config));
 
     Ok(FormaWorkspace {
         root: root.to_path_buf(),

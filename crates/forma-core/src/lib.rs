@@ -2,6 +2,7 @@ pub mod config;
 pub mod diagnostics;
 pub mod markdown;
 pub mod path;
+pub mod schema;
 
 pub use config::{
     CollectionDefinition, ConfigError, FormaWorkspace, LoadMode, WorkspaceConfig, load_workspace,
@@ -14,6 +15,11 @@ pub use markdown::{
     FormaReferenceSyntax, ParsedFrontmatter, SourceSpan, split_frontmatter,
 };
 pub use path::{PathError, WorkspacePath, normalize_cli_path, slugify_path_segment};
+pub use schema::{
+    PlaceholderContext, ResolvedCreateInputs, RuntimeValues, SchemaNode, TemplateValueResolver,
+    Transform, resolve_create_inputs, resolve_runtime_values, validate_collection_schemas,
+    validate_schema_value,
+};
 
 /// Returns the current Forma core crate version.
 pub fn version() -> &'static str {

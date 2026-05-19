@@ -16,10 +16,9 @@ severity:
 value: H
 module: api
 effort: M
-readiness: blocked
+readiness: ready
 sprint:
-blocked_by:
-  - "[[tasks/items/implement-forma-config-and-path-model]]"
+blocked_by: []
 related_to:
   - "[[architecture/forma-p0-schema-dsl-spec]]"
 unblocks:
