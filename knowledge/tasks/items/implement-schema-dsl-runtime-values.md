@@ -1,0 +1,89 @@
+---
+scope: project
+type: task
+owners:
+  - "[[groups/default-team]]"
+assignees: []
+reviewers:
+  - "[[groups/default-team]]"
+tags:
+  - forma
+  - p0
+  - schema
+  - runtime-values
+priority: P0
+severity:
+value: H
+module: api
+effort: M
+readiness: blocked
+sprint:
+blocked_by:
+  - "[[tasks/items/implement-forma-config-and-path-model]]"
+related_to:
+  - "[[architecture/forma-p0-schema-dsl-spec]]"
+unblocks:
+  - "[[tasks/items/implement-check-index-diagnostics]]"
+  - "[[tasks/items/implement-starter-init-create-inspect-list]]"
+reported_by:
+affected_area: Schema validation and create input resolution
+---
+
+# Implement Schema DSL Runtime Values
+
+## Goal
+
+Implement the P0 Forma Schema DSL, semantic types, placeholder resolution,
+`slugify`, and runtime value providers.
+
+## Sources
+
+- [[architecture/forma-p0-schema-dsl-spec]]
+- [[product/forma-p0-starter-spec]]
+- [[product/product-direction]]
+
+## Context
+
+The Schema DSL is the P0 user-authored object constraint language. Runtime
+values are explicit `runtime.values.*` definitions, and current-user behavior is
+modeled as a normal runtime value.
+
+## In Scope
+
+- Implement Schema DSL node types: `object`, `string`, `number`, `integer`,
+  `boolean`, `date`, `datetime`, `const`, `enum`, `ref`, and `list`.
+- Implement field-local `required: true`, `readonly`, and `hidden` hints.
+- Implement semantic types for static enums and collection-backed references.
+- Implement simple `{{ path.to.value }}` placeholder resolution with cycle
+  detection.
+- Implement `slugify` transform.
+- Implement runtime providers: `const`, `gitConfig`, `currentDate`,
+  `currentDateTime`, and `workspaceRoot`.
+- Make `currentDate` and `currentDateTime` use effective `workspace.timezone`.
+- Add tests for defaults, transforms, dependency resolution, cycles, and
+  unresolved required runtime values.
+
+## Out Of Scope
+
+- JSON Schema authoring files.
+- Custom validators, executable plugins, or script hooks.
+- Union reference types, groups, lifecycle/deprecation, maps, or polymorphic
+  object schemas.
+
+## Acceptance Criteria
+
+- Valid P0 starter collection schemas parse and validate.
+- Invalid enum, ref, required, and type cases produce structured diagnostics.
+- Runtime values can be resolved from shared config and local overrides.
+- Placeholder cycles and missing required dependencies produce diagnostics.
+- `slugify` handles whitespace, reserved path characters, empty output, and
+  Windows reserved names.
+
+## Relationship Notes
+
+Blocked by config/path model. Unblocks check/index and starter create flows.
+
+## Open Questions
+
+- Exact accepted lexical formats for `date` and `datetime` remain to be fixed
+  in implementation.
