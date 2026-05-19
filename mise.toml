@@ -3,11 +3,11 @@ idiomatic_version_file_enable_tools = ["node", "pnpm", "rust"]
 
 [tasks."check:knowledge"]
 description = "Check knowledge Markdown files with Prettier"
-run = 'pnpm exec prettier --check "knowledge/**/*.{md,mdx,md.tpl,mdx.tpl}" --no-error-on-unmatched-pattern --log-level warn'
+run = "pnpm check:knowledge"
 
 [tasks."format:knowledge"]
 description = "Format knowledge Markdown files with Prettier"
-run = 'pnpm exec prettier --write "knowledge/**/*.{md,mdx,md.tpl,mdx.tpl}" --no-error-on-unmatched-pattern --log-level warn'
+run = "pnpm format:knowledge"
 
 [tasks."check:rust"]
 description = "Check Rust workspace"
