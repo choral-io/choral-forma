@@ -19,9 +19,9 @@ Rules: [[tasks/WORKFLOW]]
 
 ## Doing
 
-- [ ] [[tasks/items/implement-starter-init-create-inspect-list|Implement Starter Init Create Inspect List]]
-
 ## Reviewing
+
+- [ ] [[tasks/items/implement-starter-init-create-inspect-list|Implement Starter Init Create Inspect List]]
 
 ## Blocked
 
