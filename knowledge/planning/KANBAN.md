@@ -18,9 +18,9 @@ Rules: [[tasks/WORKFLOW]]
 
 ## Doing
 
-- [ ] [[tasks/items/implement-view-entry-render|Implement View Entry Render]]
-
 ## Reviewing
+
+- [ ] [[tasks/items/implement-view-entry-render|Implement View Entry Render]]
 
 ## Blocked
 
