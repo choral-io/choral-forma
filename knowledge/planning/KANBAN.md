@@ -27,10 +27,10 @@ Rules: [[tasks/WORKFLOW]]
 
 ## Reviewing
 
-- [ ] [[tasks/items/scaffold-forma-workspace|Scaffold Forma Workspace]]
-
 ## Blocked
 
 ## Done
+
+- [ ] [[tasks/items/scaffold-forma-workspace|Scaffold Forma Workspace]]
 
 ## Cancelled
