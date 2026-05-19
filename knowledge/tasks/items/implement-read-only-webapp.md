@@ -15,7 +15,7 @@ severity:
 value: M
 module: app
 effort: L
-readiness: blocked
+readiness: ready
 sprint:
 blocked_by:
   - "[[tasks/items/implement-operation-rpc-cli-foundation]]"

@@ -11,21 +11,21 @@ Rules: [[tasks/WORKFLOW]]
 
 ## Backlog
 
-- [ ] [[tasks/items/implement-read-only-webapp|Implement Read Only WebApp]]
 - [ ] [[tasks/items/implement-ci-release-baseline|Implement CI Release Baseline]]
 
 ## Ready
+
+- [ ] [[tasks/items/implement-read-only-webapp|Implement Read Only WebApp]]
 
 ## Doing
 
 ## Reviewing
 
-- [ ] [[tasks/items/implement-view-entry-render|Implement View Entry Render]]
-
 ## Blocked
 
 ## Done
 
+- [ ] [[tasks/items/implement-view-entry-render|Implement View Entry Render]]
 - [ ] [[tasks/items/implement-starter-init-create-inspect-list|Implement Starter Init Create Inspect List]]
 - [ ] [[tasks/items/implement-check-index-diagnostics|Implement Check Index Diagnostics]]
 - [ ] [[tasks/items/scaffold-forma-workspace|Scaffold Forma Workspace]]
