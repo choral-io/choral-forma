@@ -11,13 +11,14 @@ Rules: [[tasks/WORKFLOW]]
 
 ## Backlog
 
-- [ ] [[tasks/items/implement-view-entry-render|Implement View Entry Render]]
 - [ ] [[tasks/items/implement-read-only-webapp|Implement Read Only WebApp]]
 - [ ] [[tasks/items/implement-ci-release-baseline|Implement CI Release Baseline]]
 
 ## Ready
 
 ## Doing
+
+- [ ] [[tasks/items/implement-view-entry-render|Implement View Entry Render]]
 
 ## Reviewing
 

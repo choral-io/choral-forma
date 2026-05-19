@@ -16,12 +16,9 @@ severity:
 value: H
 module: app
 effort: L
-readiness: blocked
+readiness: ready
 sprint:
-blocked_by:
-  - "[[tasks/items/implement-markdown-forma-ast-parser]]"
-  - "[[tasks/items/implement-check-index-diagnostics]]"
-  - "[[tasks/items/implement-operation-rpc-cli-foundation]]"
+blocked_by: []
 related_to:
   - "[[architecture/forma-p0-operation-api-spec]]"
   - "[[product/forma-p0-starter-spec]]"
