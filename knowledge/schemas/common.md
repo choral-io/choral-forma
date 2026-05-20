@@ -89,6 +89,7 @@ tags:
 - `assignees`: member wikilinks for people currently responsible for moving the work forward; use only when a document represents active work.
 - `reviewers`: member wikilinks for current or expected reviewers; use only when review responsibility matters.
 - `tags`: searchable keywords; use lowercase kebab-case.
+- `sources`: evidence or origin links for knowledge derived from external documents, shared workspace material, handoffs, research, proposals, task items, decisions, or other canonical pages. Use a list even for one source.
 
 Use `owners` consistently as the durable ownership field.
 
@@ -105,6 +106,23 @@ Do not use `assignees` to mirror Kanban status. Delivery status belongs in `know
 Frontmatter exists for filtering, routing, ownership, planning, and Agent automation. The Markdown body exists for context, reasoning, product intent, design intent, decisions, and acceptance criteria.
 
 Do not use metadata as a substitute for durable explanation. Complex blockers, product behavior, design rationale, architectural consequences, and acceptance criteria belong in the body even when related metadata exists.
+
+## Source Traceability
+
+Use `sources` frontmatter for evidence or origin, not for loose topical relationships. Use `related_to` or body links for contextual references that are not evidence.
+
+Source-derived documents should record structured source traceability in frontmatter `sources`. A `## Source Notes` section explains evidence boundaries; it does not replace frontmatter `sources`.
+
+Add or preserve source traceability when a document is derived from:
+
+- external URLs, uploaded documents, market research, customer feedback, QA reports, support notes, or meeting notes;
+- shared workspace `summaries/`, `handoffs/`, or `research/`;
+- proposals converted into canonical knowledge, decisions, or task items;
+- task items, decisions, architecture notes, product requirements, or design resources that justify downstream work.
+
+Do not invent sources. If source material is private, sensitive, unavailable, or local-only, summarize only safe public context and record the safe source boundary instead of copying private content.
+
+When source evidence is complex, add a short `## Source Notes` or equivalent body section explaining what the source supports, what remains inferred, and any conflict with existing canonical knowledge.
 
 ## Knowledge Scope
 

@@ -6,12 +6,13 @@ agent_local_dir: ".agents/.local"
 canonical_language: en
 default_group_id: default-team
 installed_at: "2026-05-16T15:26:58Z"
-updated_at: "2026-05-17T04:25:47Z"
+updated_at: "2026-05-20T16:38:09Z"
 
 agent_skills:
   mode: project
   dir: .agents/skills
   required:
+    - knowledge-assistant
     - knowledge-intake
     - knowledge-capture
     - knowledge-schema-audit
@@ -33,6 +34,8 @@ managed:
   paths:
     - knowledge/.gitignore
     - knowledge/README.md
+    - knowledge/groups/templates/group.md.tpl
+    - knowledge/members/templates/member.md.tpl
     - knowledge/planning/WORKFLOW.md
     - knowledge/schemas/README.md
     - knowledge/schemas/architecture.md
@@ -52,22 +55,22 @@ managed:
     - knowledge/schemas/workspace.md
     - knowledge/proposals/templates/proposal.md.tpl
     - knowledge/tasks/WORKFLOW.md
+    - knowledge/tasks/templates/task-item.md.tpl
     - knowledge/workspace/templates/worklist.md.tpl
     - knowledge/workspace/templates/handoff.md.tpl
-    - knowledge/tasks/templates/task-item.md.tpl
-    - ".agents/skills/delivery-planning/**"
-    - ".agents/skills/delivery-review/**"
-    - ".agents/skills/delivery-implementation/**"
-    - ".agents/skills/kanban-maintenance/**"
-    - ".agents/skills/knowledge-capture/**"
-    - ".agents/skills/knowledge-schema-audit/**"
-    - ".agents/skills/knowledge-intake/**"
-    - ".agents/skills/knowledge-status-report/**"
-    - ".agents/skills/next-task-selection/**"
-    - ".agents/skills/task-metadata-audit/**"
-    - ".agents/skills/workspace-worklist/**"
-    - knowledge/groups/templates/group.md.tpl
-    - knowledge/members/templates/member.md.tpl
+    - .agents/skills/delivery-implementation/**
+    - .agents/skills/delivery-planning/**
+    - .agents/skills/delivery-review/**
+    - .agents/skills/kanban-maintenance/**
+    - .agents/skills/knowledge-assistant/**
+    - .agents/skills/knowledge-capture/**
+    - .agents/skills/knowledge-intake/**
+    - .agents/skills/knowledge-schema-audit/**
+    - .agents/skills/knowledge-status-report/**
+    - .agents/skills/knowledge-workflow-admin/**
+    - .agents/skills/next-task-selection/**
+    - .agents/skills/task-metadata-audit/**
+    - .agents/skills/workspace-worklist/**
 protected:
   - knowledge/planning/KANBAN.md
   - path: knowledge/planning/**

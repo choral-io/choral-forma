@@ -59,52 +59,34 @@ Tool versions are declared in the idiomatic project files: Node.js and pnpm in r
 ### Required Context
 
 - Knowledge directory: `knowledge/`.
-- Treat `knowledge/` and code as project facts; treat `knowledge/planning/KANBAN.md` as delivery status.
-- Read `knowledge/.workflow/manifest.yml` before using workflow skills; use its `knowledge_dir`, `agent_skills`, `agent_local_dir`, `canonical_language: en`, and `default_group_id: default-team` values for workflow paths.
+- Read `knowledge/.workflow/manifest.yml` before workflow work; use its `knowledge_dir`, `agent_skills`, `agent_local_dir`, `canonical_language: en`, and `default_group_id: default-team` values.
 - Determine the current member id with `git config user.name`; do not infer it from OS, machine, shell, or chat names.
-- Before writing knowledge, read `knowledge/schemas/common.md` and the relevant `knowledge/schemas/*.md`.
-- Before changing delivery cards, read `knowledge/tasks/WORKFLOW.md`.
-- When member context matters, prefer section-scoped reads from `knowledge/members/<member-id>.md`; read the full file only when editing, auditing, or resolving ambiguity.
-- If a workflow acts on the current member's workspace, worklist, or personal execution style, read `knowledge/workspace/<member-id>/local/AGENTS.md` when it exists.
+- Before writing knowledge, read `knowledge/schemas/common.md` and the relevant `knowledge/schemas/*.md`; before changing delivery cards, read `knowledge/tasks/WORKFLOW.md`.
+- When member context matters, prefer section-scoped reads from `knowledge/members/<member-id>.md`; read `knowledge/workspace/<member-id>/local/AGENTS.md` when acting on that member's local workspace, worklist, or personal execution style.
 
-### Source And Privacy Boundaries
+### Boundaries
 
+- Treat `knowledge/` and code as project facts; treat `knowledge/planning/KANBAN.md` as delivery status.
 - Apply scope precedence from `knowledge/schemas/common.md`; stop and report conflicts that affect facts, delivery scope, permissions, review, ownership, or another member.
-- Keep localized files as translations only; do not store secrets or private notes in `knowledge/`.
-- Treat `knowledge/proposals/` as a review buffer, not as project facts, accepted decisions, task items, or delivery commitments until converted.
+- Treat `knowledge/proposals/` as a review buffer, not as facts, decisions, task items, or delivery commitments until converted.
+- Keep localized files as translations only; never store secrets or private notes in `knowledge/`.
 - Treat `knowledge/workspace/<member-id>/local/` and `.agents/.local/` as local-only state; never stage or commit them.
-- Use member workspace sharing paths deliberately: `summaries/` for edited summaries, `handoffs/` for handoffs, and `research/` for shareable investigations. Keep raw captures and personal drafts under `local/`.
-- Do not assign work by writing into another member's workspace. Use task items with `assignees` and approved Kanban updates for delegated team work.
+- Share member workspace material through `summaries/`, `handoffs/`, and `research/`; keep raw captures and personal drafts under `local/`.
+- Do not assign work by writing into another member's workspace. Use task items with `assignees` and approved Kanban updates.
 
-### Skill Routing
+### Skill Usage
 
-Use the platform's skill loader when available. If the manifest records `agent_skills.mode: project`, project-local collaboration skills are installed under the manifest `agent_skills.dir`.
-
-| Need                                               | Skill                     |
-| -------------------------------------------------- | ------------------------- |
-| Workflow help, setup, or project policy            | `knowledge-workflow`      |
-| Knowledge intake or routing                        | `knowledge-intake`        |
-| Approved knowledge write                           | `knowledge-capture`       |
-| Schema audit                                       | `knowledge-schema-audit`  |
-| Task metadata audit                                | `task-metadata-audit`     |
-| Status report                                      | `knowledge-status-report` |
-| Personal worklist, run-next, run-loop, or run-goal | `workspace-worklist`      |
-| Planning dry-run                                   | `delivery-planning`       |
-| Pick next accepted task                            | `next-task-selection`     |
-| Board update                                       | `kanban-maintenance`      |
-| Implementation                                     | `delivery-implementation` |
-| Review before Done                                 | `delivery-review`         |
-
-Start with intake when the user only mentions a possible knowledge change; use capture only after the user asks to write. Audit skills are read-only. Use `knowledge-workflow:policy` to explain, audit, design, or update project-specific Agent policy.
+- Use the platform skill loader; when `agent_skills.mode: project`, load collaboration skills from manifest `agent_skills.dir`.
+- Use `knowledge-assistant` for workflow help, routing, recovery, and policy explanation; otherwise use the specific Skill whose description matches the request.
+- Use `knowledge-intake` before unapproved knowledge writes, `knowledge-capture` only after approval, audit skills read-only, and `knowledge-workflow-admin` only by explicit maintainer choice.
 
 ### Delivery And Local Execution
 
 - Accepted delivery work is tracked by thin cards in `knowledge/planning/KANBAN.md` linked to task items under `knowledge/tasks/items/`.
-- Use `delivery-planning` for proposed task/card changes and `kanban-maintenance` only after approval.
+- Use `delivery-planning` for proposed task/card changes, `kanban-maintenance` only after approval, and `delivery-review` before moving changed delivery work to Done.
 - Use `workspace-worklist:intake-task` when taking a Kanban card into the current member's local execution flow.
 - `run-goal` coordinates accepted Kanban/worklist tasks toward review readiness; it is not open-ended product discovery.
-- `auto-review` is a workflow approval mode, not a sandbox or host-permission mode. If project policy is missing or partial, keep vague auto-review to low-risk actions and suggest `knowledge-workflow:policy auto-review` for stable policy.
-- `delivery-review` is required before moving changed delivery work to Done.
+- `auto-review` is a workflow approval mode, not a sandbox or host-permission mode. If project policy is missing or partial, keep vague auto-review to low-risk actions and ask a maintainer to define stable policy.
 - Optional execution-method tools, including Superpowers, may help with planning, TDD, debugging, verification, worktrees, or authorized parallel agents, but they do not replace Knowledge Workflow ownership, gates, or review.
 
 ### Formatting, Git, And Safety
@@ -119,7 +101,7 @@ Start with intake when the user only mentions a possible knowledge change; use c
 
 - This protected local subsection must remain the final `###` heading inside the `Knowledge Workflow` block.
 - Project-specific rules may specialize workflow behavior, but they must not weaken core safety, ownership, privacy, local-only, approval, or review rules.
-- Use `knowledge-workflow:policy` to explain, audit, or update project-specific Agent policy; policy mode is read-only unless the user asks to update or save policy.
+- Use `knowledge-assistant` to explain or audit project-specific Agent policy. Maintainers must manually choose the workflow administration skill when the user asks to update or save policy.
 - Choral Forma is a lightweight, editor-independent team knowledge application concept. Keep repository knowledge Markdown-first so the future app can treat files as the source of truth.
 - Use `mise run format:knowledge` for knowledge Markdown formatting and `mise run check:knowledge` for check-only validation.
 - Foam is the recommended short-term editor integration; do not make project knowledge depend on Foam-only or Obsidian-plugin-only syntax.

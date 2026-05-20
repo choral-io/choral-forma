@@ -1,6 +1,0 @@
-interface:
-  display_name: "Knowledge Workflow"
-  short_description: "Install, explain, or manage workflow policy"
-  default_prompt: "Use $knowledge-workflow to answer workflow questions, initialize this knowledge workflow, or manage project-specific Agent policy."
-policy:
-  allow_implicit_invocation: true

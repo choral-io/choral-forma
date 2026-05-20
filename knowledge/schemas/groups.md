@@ -19,8 +19,8 @@ Group documents describe non-person responsibility subjects such as teams, revie
 ---
 scope: project
 type: team
-group_id: default-team
-display_name: Default Team
+group_id: "default-team"
+display_name: Default Group
 owners:
     - "[[groups/default-team]]"
 members: []

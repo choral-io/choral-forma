@@ -58,5 +58,5 @@ Use sections that fit the document:
 - Store product intent, requirements, user journeys, and feature behavior in `knowledge/product/`.
 - Store accepted tradeoffs or commitments in `knowledge/decisions/`.
 - Store raw or personal research in `knowledge/workspace/<member-id>/research/` until it is promoted into shared discovery knowledge.
-- Keep public facts, field observations, and Choral Flows-specific inferences clearly separated when possible.
+- Keep public facts, field observations, and project-specific inferences clearly separated when possible.
 - Link discovery documents from product requirements or decisions that depend on them.

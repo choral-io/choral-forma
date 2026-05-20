@@ -15,7 +15,7 @@ Read [schemas/common.md](schemas/common.md) before writing or reorganizing knowl
 
 ## Where To Start
 
-Use `knowledge-workflow:help` when the next process step is unclear.
+Use `knowledge-assistant` when the next process step is unclear.
 
 - New idea, feedback, or observation: use `knowledge-intake` before writing shared knowledge.
 - Approved knowledge update: use `knowledge-capture`.
