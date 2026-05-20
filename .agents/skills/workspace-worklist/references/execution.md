@@ -315,4 +315,4 @@ If a worker is blocked, fails, leaves dirty state, or reports unusable state, ma
 
 Default run handoffs belong in the final response, local log, or current worklist item. Create a shared handoff file only when team-relevant, cross-member, long-lived, complex enough to survive chat, or explicitly requested.
 
-Use `<knowledge_dir>/workspace/<member-id>/local/agent/` only for temporary loop coordination. Rebuild stale scratch from `WORKLIST.md`, copy important unlogged information to today's log, and clean scratch after durable logs and worklist updates are written.
+Use `<agent_local_dir>/runs/<work-id>/` only for temporary loop coordination. Rebuild stale scratch from `WORKLIST.md`, copy important unlogged information to today's log, and clean scratch after durable logs and worklist updates are written.

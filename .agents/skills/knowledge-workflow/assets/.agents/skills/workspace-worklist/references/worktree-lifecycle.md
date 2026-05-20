@@ -106,7 +106,7 @@ Worker must:
 Worker must not:
 
 - edit the main worktree
-- edit `WORKLIST.md`, `local/logs/`, `local/agent/`, `KANBAN.md`, or other member workspaces
+- edit `WORKLIST.md`, `local/logs/`, `<agent_local_dir>/runs/`, `KANBAN.md`, or other member workspaces
 - create final project commits
 - spawn subagents
 - reset or clean the shared worktree unless the main Agent explicitly assigned that maintenance task

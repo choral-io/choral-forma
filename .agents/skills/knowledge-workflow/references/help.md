@@ -49,6 +49,7 @@ Use this first. Check that the recommended skill is loadable by the current Agen
 | Implement selected delivery work                                                                    | `delivery-implementation`                                      | Code, tests, and knowledge together.                                   |
 | Review before Done                                                                                  | `delivery-review`                                              | Required before Done when delivery changed.                            |
 | Scope or source conflict                                                                            | `knowledge-workflow:help`, then owning skill after user choice | Report conflicts; do not silently choose.                              |
+| Stuck, failed, obsolete, or unclear current work                                                    | `knowledge-workflow:help`, then owning skill after diagnosis   | Diagnose state first; do not retry, move cards, or rewrite facts yet.  |
 
 ## Placement
 
@@ -123,6 +124,33 @@ Use these rules for `WORKLIST.md`, "continue", "run next", "run loop", local log
 - Use formal shared handoff files only for cross-member, long-lived, complex, or explicitly requested handoffs.
 
 Failure classes for local execution: `needs-user`, `blocked`, `out-of-scope`, `failed`, `done-with-warnings`. Do not recommend silent retry, unlimited retry, or continuing after high-risk or unclear failures.
+
+## Recovery Questions
+
+Use this when the user asks what to do after a workflow stalls, fails, becomes stale, or appears inconsistent.
+
+Start by identifying the state boundary:
+
+| Situation                                               | First response                                                                  | Next owner after diagnosis                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| WORKLIST item may be obsolete, already done, or unclear | Validate against current knowledge, Kanban, git state, and linked sources.      | `workspace-worklist:groom`, `run-next`, or `knowledge-capture` after approval |
+| Local execution failed or partially completed           | Classify as `needs-user`, `blocked`, `out-of-scope`, `failed`, or warning.      | `workspace-worklist:log`, `delivery-implementation`, or `delivery-review`     |
+| Kanban card appears in the wrong column                 | Compare card state, linked task metadata, blockers, and review evidence.        | `task-metadata-audit` then approved maintenance                               |
+| Task readiness conflicts with current facts             | Audit `readiness`, `blocked_by`, Sources, acceptance criteria, and board state. | `task-metadata-audit`; write fixes only after route                           |
+| Proposal, decision, or requirement seems superseded     | Treat the newer source as a candidate update, not an automatic replacement.     | `knowledge-intake` or `knowledge-capture`                                     |
+| Handoff is missing context or no longer actionable      | Ask for the missing receiver, source task, current state, and expected action.  | `knowledge-capture` for shared handoff update                                 |
+| Auto-review or run-goal policy is missing during a run  | Continue only under conservative low-risk boundaries or ask for confirmation.   | `knowledge-workflow:policy` if stable policy is wanted                        |
+| Required skill, manifest, or workflow file is missing   | Report the missing runtime context; do not guess paths as facts.                | `knowledge-workflow:help`, `init`, or `install-skills`                        |
+
+Recovery answer shape:
+
+1. State what is known and which source proves it.
+2. State what is uncertain or conflicting.
+3. Pick the narrowest safe next skill.
+4. Name the actions that should not happen yet.
+5. Give a concrete next prompt.
+
+Do not hide recovery work inside normal execution. If the recovery changes shared facts, task metadata, Kanban state, another member's handoff, or policy, switch to the owning skill and require the same approval gate as a normal change.
 
 ## Delivery Gates
 
@@ -348,6 +376,96 @@ Knowledge Workflow owns item selection, dependency checks, WORKLIST updates, app
 ## Do Not Do Yet
 
 Do not dispatch parallel work before checking independence, file/resource conflicts, approval needs, and whether the items are accepted workflow work.
+```
+
+Question:
+
+```text
+The next WORKLIST item may already be obsolete. What should I do?
+```
+
+Answer:
+
+```md
+## Recommended Path
+
+Use `knowledge-workflow:help` for diagnosis, then `workspace-worklist:groom` if the item should be updated locally.
+
+## Why
+
+An obsolete WORKLIST item is personal execution state until it affects shared task metadata, Kanban state, or canonical knowledge.
+
+## Example
+
+Known: the item is in the current member's WORKLIST.
+Uncertain: whether linked task, Kanban card, source requirement, or code state already resolved it.
+Check: linked sources, current Kanban card, relevant task item, and likely git/code state.
+
+## Do Not Do Yet
+
+Do not run the item, rewrite shared facts, or move Kanban before confirming whether the work is still valid.
+
+## Next Prompt
+
+"Use workspace-worklist:groom to validate this WORKLIST item against its linked task, Kanban card, and current repo state, then propose whether to keep, update, move, or close it."
+```
+
+Question:
+
+```text
+This Kanban card seems to be in the wrong column.
+```
+
+Answer:
+
+```md
+## Recommended Path
+
+Use `task-metadata-audit` first, then `kanban-maintenance` only after an approved board-change plan.
+
+## Why
+
+Column drift can come from task metadata, blockers, review evidence, or an incomplete previous maintenance step. Audit is read-only; board movement is a separate approved action.
+
+## Example
+
+Known: the card's current column.
+Uncertain: whether the linked task is ready, blocked, reviewing-ready, accepted, or cancelled.
+Check: linked task item, `readiness`, `blocked_by`, acceptance evidence, review status, and current Kanban card.
+
+## Do Not Do Yet
+
+Do not move the card directly from help or audit output.
+
+## Next Prompt
+
+"Use task-metadata-audit to compare this card's column with the linked task metadata, blockers, and review evidence. If a board change is needed, prepare a kanban-maintenance dry run."
+```
+
+Question:
+
+```text
+Auto-review was requested, but this project has no stable auto-review policy.
+```
+
+Answer:
+
+```md
+## Recommended Path
+
+Use conservative `workspace-worklist:run-goal` or `run-loop` behavior for this run, or use `knowledge-workflow:policy auto-review` if the team wants stable reusable policy.
+
+## Why
+
+`auto-review` is a Knowledge Workflow approval mode. Without project policy, vague auto-review is limited to low-risk actions such as local logs, local WORKLIST updates, read-only checks, and formatting already-approved files.
+
+## Do Not Do Yet
+
+Do not treat broad sandbox access as workflow approval, and do not auto-approve medium-risk edits without project policy or explicit task-level prompt policy.
+
+## Next Prompt
+
+"Use knowledge-workflow:policy auto-review to audit the current Project-Specific Knowledge Workflow and propose a concise auto-review policy dry run."
 ```
 
 Question:
