@@ -1,10 +1,12 @@
 # Delivery Planning Dry Run
 
-Use this table before changing `knowledge/planning/KANBAN.md`:
+Use this table before changing `<knowledge_dir>/planning/KANBAN.md`:
 
-| Title                 | Sources                                          | Module | Priority | Sprint   | Owners   | Blockers | Target Column |
-| --------------------- | ------------------------------------------------ | ------ | -------- | -------- | -------- | -------- | ------------- |
-| Example delivery task | `knowledge/tasks/items/example-delivery-task.md` | app    | P1       | Sprint 1 | Gavroche | None     | Ready         |
+| Title                 | Sources                                                | Module | Priority | Sprint   | Owners   | Blockers | Target Column |
+| --------------------- | ------------------------------------------------------ | ------ | -------- | -------- | -------- | -------- | ------------- |
+| Example delivery task | `<knowledge_dir>/tasks/items/example-delivery-task.md` | app    | P1       | Sprint 1 | Gavroche | None     | Ready         |
+
+For newly decomposed dependent work, use `Backlog` as the target column unless the task is ready for immediate selection. Do not target `Blocked` only because `blocked_by` is present.
 
 Task item metadata may include:
 
@@ -15,17 +17,17 @@ severity:
 value: H
 module: app
 owners:
-  - "[[Gavroche]]"
+    - "[[Gavroche]]"
 assignees:
-  - "[[Gavroche]]"
+    - "[[Gavroche]]"
 reviewers:
-  - "[[Éponine]]"
+    - "[[Éponine]]"
 effort: M
 readiness: ready
 sprint: Sprint 1
 blocked_by: []
 related_to:
-  - "[[example-related-task]]"
+    - "[[example-related-task]]"
 reported_by:
 affected_area:
 ```
@@ -39,6 +41,6 @@ Suggested values:
 - `module`: `app`, `api`, `docs`, `infra`, `knowledge`
 - `effort`: `S`, `M`, `L`
 - `readiness`: `ready`, `needs-refinement`, `blocked`
-- `owners`: member or group wikilinks, preferring path-qualified values such as `[[groups/{{default_group_id}}]]`; do not use display names
+- `owners`: member or group wikilinks, preferring path-qualified values such as `[[groups/<default_group_id>]]`; do not use display names
 - `assignees`: member or group wikilinks for people or pools currently responsible for moving the task forward
 - `reviewers`: member or group wikilinks for expected reviewers for delivery acceptance

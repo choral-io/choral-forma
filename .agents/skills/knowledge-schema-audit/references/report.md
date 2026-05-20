@@ -23,7 +23,7 @@ Apply approved documentation fixes with `knowledge-capture` unless the fix is a 
 - Add missing `tags` when they can be derived from the directory and filename.
 - Add localized metadata when the canonical file is unambiguous.
 - Normalize BCP 47 localized suffix casing.
-- Move or relink design assets when the target feature directory is obvious.
+- Move or relink design assets when exactly one target feature directory is named or linked.
 - Normalize links that uniquely match existing canonical files.
 
 ## Requires Maintainer Judgment
@@ -50,14 +50,33 @@ Summary
 
 Findings
 - [P1] concepts/agent.zh-CN.md missing canonical.
-- [P2] design/example-ui.md references image outside knowledge/assets/design.
+- [P2] design/example-ui.md references image outside <knowledge_dir>/assets/design.
 - [P3] product/example-note.md missing tags.
 
 Dry-run fixes
 - Add canonical: ./agent.md to concepts/agent.zh-CN.md. Confidence: high. Auto-fixable: yes.
-- Move referenced image to knowledge/assets/design/chat/. Confidence: medium. Auto-fixable: confirm.
+- Move referenced image to <knowledge_dir>/assets/design/chat/. Confidence: medium. Auto-fixable: confirm.
 - Add tags: [product]. Confidence: high. Auto-fixable: yes.
 
 Requires judgment
 - workspace/Gavroche/research/example-research-note.md appears to contain project facts; maintainer should decide whether to promote it.
+
+Safe after approval
+- product/example-note.md tags normalization.
+
+Sources
+- <knowledge_dir>/schemas/product.md
+```
+
+## Finding Format
+
+Each finding must include these fields:
+
+```text
+- [P1] Short title
+  File: <knowledge_dir>/path/example.md
+  Evidence: exact field, link, or section
+  Issue: deterministic rule that failed
+  Proposed fix: concrete dry-run change or "requires maintainer judgment"
+  Owner skill: knowledge-capture | kanban-maintenance | knowledge-schema-audit
 ```

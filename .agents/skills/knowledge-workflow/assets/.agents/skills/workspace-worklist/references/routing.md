@@ -29,34 +29,48 @@ Before executing a selected `Active` item, do a lightweight validity check:
 - Check whether linked task items, decisions, requirements, or Kanban cards still exist and are not cancelled, archived, superseded, or contradicted.
 - Check whether the requested change already appears implemented in the code or knowledge base.
 - Check whether the item depends on another member, an unresolved blocker, or a withdrawn requirement.
-- If the item is stale, move it to `Done` if already completed elsewhere, or to `Waiting` if it needs confirmation. Log the reason.
-- If validity is unclear and the work could cause meaningful changes, ask the user before implementing.
+- Classify the item using the Validity Classification table below.
 
 Keep this check proportional. Do not run a full repository audit for every small local item unless the user asks for strict verification.
+
+## Validity Classification
+
+Use exactly one validity value before implementation:
+
+| Validity       | Conditions                                                               | Default action                                              |
+| -------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `valid`        | Current, not blocked, not contradicted, and still useful                 | Implement or continue according to mode                     |
+| `already-done` | The requested result already exists in code, knowledge, or board state   | Move local item to `Done`; log evidence; do not implement   |
+| `superseded`   | A newer task, decision, requirement, or implementation replaces it       | Move local item to `Waiting`; log replacement link          |
+| `blocked`      | Unresolved dependency, access, environment, decision, or upstream task   | Move local item to `Waiting`; log blocker; do not implement |
+| `withdrawn`    | Linked requirement, task, decision, or maintainer instruction cancels it | Move local item to `Done`; log withdrawal source            |
+| `unclear`      | Evidence is insufficient or conflicting                                  | Stop and ask the user before changing project files         |
+
+Use `valid` only when no other row matches. Do not treat `unclear` as permission to proceed.
 
 ## Promote Or Summarize
 
 Suggest promotion when work becomes useful to the team:
 
-| Signal                          | Target                                                              |
-| ------------------------------- | ------------------------------------------------------------------- |
-| Edited personal work summary    | `{{knowledge_dir}}/workspace/<member-id>/summaries/`                |
-| Handoff for another member      | `{{knowledge_dir}}/workspace/<member-id>/handoffs/`                 |
-| Shareable investigation         | `{{knowledge_dir}}/workspace/<member-id>/research/`                 |
-| Product requirement or behavior | `{{knowledge_dir}}/product/`                                        |
-| UI or interaction guidance      | `{{knowledge_dir}}/design/`                                         |
-| Domain term                     | `{{knowledge_dir}}/concepts/`                                       |
-| Technical structure             | `{{knowledge_dir}}/architecture/`                                   |
-| Decision or tradeoff            | `{{knowledge_dir}}/decisions/`                                      |
-| Cross-area writing or language  | `{{knowledge_dir}}/guidelines/`                                     |
-| Executable team work            | `{{knowledge_dir}}/tasks/items/`                                    |
-| Delivery status                 | `{{knowledge_dir}}/planning/KANBAN.md` through `kanban-maintenance` |
+| Signal                          | Target                                                            |
+| ------------------------------- | ----------------------------------------------------------------- |
+| Edited personal work summary    | `<knowledge_dir>/workspace/<member-id>/summaries/`                |
+| Handoff for another member      | `<knowledge_dir>/workspace/<member-id>/handoffs/`                 |
+| Shareable investigation         | `<knowledge_dir>/workspace/<member-id>/research/`                 |
+| Product requirement or behavior | `<knowledge_dir>/product/`                                        |
+| UI or interaction guidance      | `<knowledge_dir>/design/`                                         |
+| Domain term                     | `<knowledge_dir>/concepts/`                                       |
+| Technical structure             | `<knowledge_dir>/architecture/`                                   |
+| Decision or tradeoff            | `<knowledge_dir>/decisions/`                                      |
+| Cross-area writing or language  | `<knowledge_dir>/guidelines/`                                     |
+| Executable team work            | `<knowledge_dir>/tasks/items/`                                    |
+| Delivery status                 | `<knowledge_dir>/planning/KANBAN.md` through `kanban-maintenance` |
 
 Summary extraction is flexible. Use daily summaries for routine reporting, weekly summaries for trend and planning review, and ad hoc summaries for milestones, interrupted work, investigations, or handoffs. Ask the user to adjust scope when the intended audience or period is unclear.
 
 ## Task Intake
 
-Use `intake-task` when a developer receives, selects, or starts an accepted team task from `{{knowledge_dir}}/planning/KANBAN.md`.
+Use `intake-task` when a developer receives, selects, or starts an accepted team task from `<knowledge_dir>/planning/KANBAN.md`.
 
 Intake is a bridge from team planning to personal execution. It writes only the current member's local `WORKLIST.md` and `logs/YYYY-MM-DD.md` unless the user explicitly asks to update team planning.
 

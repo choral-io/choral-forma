@@ -63,6 +63,23 @@ Dry-run fixes
 Safe for next-task-selection
 - example-documentation-task
 - example-implementation-task
+
+Sources
+- <knowledge_dir>/schemas/tasks.md
+- <knowledge_dir>/tasks/WORKFLOW.md
+```
+
+## Finding Format
+
+Each finding must include these fields:
+
+```text
+- [P1] Short title
+  File: <knowledge_dir>/tasks/items/example-task.md
+  Evidence: exact field, Kanban card, or section
+  Issue: deterministic rule that failed
+  Proposed fix: concrete dry-run metadata or board change, or "requires maintainer judgment"
+  Owner skill: knowledge-capture | kanban-maintenance | task-metadata-audit
 ```
 
 ## Metadata Fix Format
@@ -71,7 +88,7 @@ Use task knowledge-reference wikilinks:
 
 ```yaml
 blocked_by:
-  - "[[tasks/items/example-upstream-task]]"
+    - "[[tasks/items/example-upstream-task]]"
 related_to:
-  - "[[tasks/items/example-related-task]]"
+    - "[[tasks/items/example-related-task]]"
 ```

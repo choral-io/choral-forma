@@ -5,17 +5,21 @@ description: Review delivery work before completion. Use for Reviewing cards, PR
 
 # Delivery Review
 
+## Runtime Context
+
+Before acting, use the repository Knowledge Workflow runtime context from root `AGENTS.md` and its manifest; do not assume workflow paths or default ids.
+
 Use this skill to independently review delivery work after implementation and before completion. Review normally happens while the Kanban card is in `Reviewing`.
 
 ## Workflow
 
-1. Read the selected card in `knowledge/planning/KANBAN.md`.
+1. Read the selected card in `<knowledge_dir>/planning/KANBAN.md`.
 2. Read the linked task item and source knowledge.
-3. Read `knowledge/schemas/common.md` and relevant area schemas under `knowledge/schemas/` for changed knowledge.
+3. Read `<knowledge_dir>/schemas/common.md` and relevant area schemas under `<knowledge_dir>/schemas/` for changed knowledge.
 4. Inspect the local diff or pull request changes.
 5. Compare implementation against acceptance criteria, out-of-scope notes, and related decisions.
 6. Check that tests cover meaningful behavior changes.
-7. When reviewer assignment, handoff expectations, or member responsibilities matter, read only the relevant sections from `knowledge/members/<member-id>.md`.
+7. When reviewer assignment, handoff expectations, or member responsibilities matter, read only the relevant sections from `<knowledge_dir>/members/<member-id>.md`.
 8. Check that canonical knowledge was updated when product, architecture, configuration, or decisions changed.
 9. Run focused checks when practical, or report which checks were not run.
 10. Report findings first, ordered by severity.
@@ -30,8 +34,8 @@ When available, `superpowers:verification-before-completion` output can be used 
 
 - Preferred flow: implementation complete -> approved `Doing` to `Reviewing` move -> `delivery-review` -> approved `Reviewing` to `Done` move.
 - If the card is still in `Doing`, this skill may run a pre-review, but pre-review does not replace the `Reviewing -> Done` acceptance gate.
-- If review finds small issues, recommend keeping the card in `Reviewing` while fixes are applied.
-- If review finds substantial rework, recommend moving the card back to `Doing` through `kanban-maintenance`.
+- If review result is `minor-fix`, recommend keeping the card in `Reviewing` while fixes are applied.
+- If review result is `rework-required`, recommend moving the card back to `Doing` through `kanban-maintenance`.
 - If review finds an unresolved external blocker, recommend moving the card to `Blocked` and recording blocker details in the linked task item.
 - Before recommending `Reviewing -> Done`, reverse-look up downstream tasks whose `blocked_by` entries reference the completed task and check whether they require readiness or Kanban follow-up proposals.
 
@@ -59,7 +63,21 @@ Use this structure when review needs follow-up:
 ## Review Request
 ```
 
-Create a formal shared handoff under `knowledge/workspace/<member-id>/handoffs/` only when the review handoff is cross-member, long-lived, complex enough to survive the chat, or explicitly requested. Use `knowledge/workspace/templates/handoff.md.tpl` as a reference template. Do not write into another member's workspace.
+## Review Result Classification
+
+Use exactly one result class before recommending Kanban movement:
+
+| Result            | Conditions                                                                                  | Default recommendation             |
+| ----------------- | ------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `accepted`        | Acceptance criteria satisfied; required checks pass or skips are documented; no P0/P1 issue | Propose `Reviewing -> Done`        |
+| `minor-fix`       | Only localized fixes remain; no acceptance, API, data, permission, or architecture change   | Keep in `Reviewing`                |
+| `rework-required` | Acceptance gap, broad regression, API/data/permission change, or multi-area redesign needed | Propose `Reviewing -> Doing`       |
+| `blocked`         | External dependency, access, decision, environment, or unresolved blocker prevents review   | Propose `Reviewing -> Blocked`     |
+| `invalid-review`  | Missing linked task, missing diff, wrong card state, or insufficient source context         | Stop and request missing materials |
+
+Classify P0/P1 findings as `rework-required` unless they are external blockers. Classify P2/P3-only findings as `minor-fix` when they can be fixed without changing scope or acceptance criteria.
+
+Create a formal shared handoff under `<knowledge_dir>/workspace/<member-id>/handoffs/` only when the review handoff is cross-member, long-lived, complex enough to survive the chat, or explicitly requested. Use `<knowledge_dir>/workspace/templates/handoff.md.tpl` as a reference template. Do not write into another member's workspace.
 
 ## Guardrails
 

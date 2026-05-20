@@ -2,11 +2,11 @@
 scope: project
 type: process
 owners:
-  - "[[groups/{{default_group_id}}]]"
+    - "[[groups/{{default_group_id}}]]"
 tags:
-  - kanban
-  - tasks
-  - delivery
+    - kanban
+    - tasks
+    - delivery
 ---
 
 # Kanban Workflow
@@ -58,11 +58,11 @@ severity: S2 # for issue/bug/defect impact
 value: H # H | M | L
 module: app
 owners:
-  - "[[members/member-id]]"
+    - "[[members/member-id]]"
 assignees:
-  - "[[members/member-id]]"
+    - "[[members/member-id]]"
 reviewers:
-  - "[[members/member-id]]"
+    - "[[members/member-id]]"
 effort: M # S | M | L
 readiness: ready # ready | needs-refinement | blocked
 blocked_by: []
@@ -77,14 +77,14 @@ Use `blocked_by` and `related_to` with task knowledge-reference wikilinks instea
 
 Use `readiness: needs-refinement` for vague or incomplete task items. Use `readiness: blocked` when a blocker, decision, external condition, or required access prevents work.
 
-Use `readiness: ready` only when all are true:
+Use `readiness: ready` only when the task satisfies the Ready Checklist in `{{knowledge_dir}}/schemas/tasks.md`. In summary, all of these must be true:
 
-- one clear goal and primary outcome;
-- explicit scope, non-goals, and observable acceptance criteria;
-- stable sources for product, design, architecture, decision, planning, task, or asset context;
-- issue, bug, or defect context includes enough problem, impact, triage, and reproduction information to act safely;
+- `## Goal`, `## Sources`, `## In scope`, `## Out of scope`, and `## Acceptance criteria` sections are present;
+- acceptance criteria are observable pass/fail criteria;
+- source links point to stable product, design, architecture, decision, planning, task, or asset context;
+- issue, bug, or defect tasks include the required sections defined in `{{knowledge_dir}}/schemas/tasks.md`;
 - no unresolved `blocked_by` entries;
-- rough `module`, `effort`, `priority`, and `value` are present or intentionally deferred with a reason;
+- `module`, `effort`, `priority`, and `value` are present;
 - required source material is committed, and pushed to the default remote when one exists;
 - execution does not depend on local-only, localized-only, secret, or private context.
 
@@ -92,9 +92,10 @@ Agents may propose readiness changes in dry-run output. Writing `readiness: read
 
 Readiness is not delivery status:
 
-- `readiness: needs-refinement` usually belongs in `Backlog`, not `Ready`.
-- `readiness: ready` can appear in `Backlog` or `Ready`; `Ready` is the preferred candidate pool.
-- `readiness: blocked` should normally match a `Blocked` card unless the blocker was just found and the board has not been maintained yet.
+- `readiness: needs-refinement` belongs in `Backlog`, not `Ready`, unless a maintainer explicitly keeps the card elsewhere for cleanup.
+- `readiness: ready` can appear in `Backlog` or `Ready`; `Ready` is the default candidate pool.
+- `readiness: blocked` can appear in `Backlog` when the blocker is a planned dependency for work that has not entered the delivery flow.
+- `Blocked` is a Kanban column for work that was expected to proceed or already started, but cannot continue because the blocker is currently active.
 - `Done` and `Cancelled` do not require changing `readiness`; Kanban records completion or cancellation.
 
 ## Board
@@ -103,12 +104,12 @@ Readiness is not delivery status:
 
 Columns:
 
-- `Backlog`: accepted candidate work not yet ready for implementation.
-- `Ready`: work ready to be picked up.
-- `Doing`: actively being implemented.
-- `Reviewing`: under code, knowledge, or product review.
-- `Blocked`: cannot proceed because a blocker is unresolved.
-- `Done`: delivered and merged, with durable knowledge updated when needed.
+- `Backlog`: accepted candidate work not yet committed to near-term execution. It may contain tasks with `readiness: needs-refinement` or `readiness: blocked` when blockers are planned dependencies.
+- `Ready`: accepted work with `readiness: ready`, no unresolved `blocked_by` entries, stable source material, and the required Ready Checklist sections.
+- `Doing`: work that a member or Agent has actually started, or that has been moved into a member's WORKLIST for execution rather than planning only.
+- `Reviewing`: implementation and self-check are complete, and the work is waiting for formal delivery review.
+- `Blocked`: work that was ready or in progress but currently cannot proceed because a dependency, decision, access, environment, or other blocker is active.
+- `Done`: delivered, reviewed, and merged when relevant, with durable knowledge updated when needed and downstream blocker follow-up checked.
 - `Cancelled`: intentionally dropped or superseded.
 
 Cards stay thin:
@@ -121,14 +122,19 @@ The linked task item holds context and acceptance criteria. Prefer path-qualifie
 
 Kanban and task metadata must stay coherent:
 
-- Moving `Ready -> Doing` should confirm or set `assignees` when the current handler is known.
-- Moving to `Reviewing` should confirm `reviewers` when review responsibility is expected.
+- Moving `Ready -> Doing` confirms or sets `assignees` when the current handler is known.
+- Moving to `Reviewing` confirms `reviewers` when review responsibility is expected.
+- Planned dependencies recorded in `blocked_by` do not automatically require the card to be in `Blocked`; newly accepted dependent tasks remain in `Backlog` until selected for near-term execution.
+- A card in `Ready` must not have unresolved `blocked_by` entries or `readiness: blocked`.
+- Move to `Blocked` only when work that was expected to proceed or already started cannot continue; record the active blocker in the linked task item.
 - Do not clear `assignees` or `reviewers` just because the task is `Done`; update them only when responsibility changes or metadata was wrong.
 - Do not use `assignees`, `reviewers`, or `readiness` as substitutes for Kanban status.
 
 ## Planning And Selection
 
-Create or update a Kanban card only when the work has a clear outcome, a focused scope, observable acceptance criteria, source links, and no local-only source dependency.
+Create or update a Kanban card only when the linked task item has `## Goal`, `## Sources`, `## In scope`, `## Out of scope`, and `## Acceptance criteria`, plus no local-only source dependency.
+
+When a requirement is decomposed into several accepted tasks with planned dependency order, add the dependent tasks to `Backlog` unless one is ready for immediate execution. Use `blocked_by` and `readiness: blocked` to express unresolved planned dependencies; reserve the `Blocked` column for tasks that stall after entering or approaching active delivery.
 
 Before any Kanban write, produce a dry-run table and wait for explicit approval:
 
@@ -136,7 +142,7 @@ Before any Kanban write, produce a dry-run table and wait for explicit approval:
 | --------------------- | -------------------------------------------------------- | ------ | -------- | -------- | --------------------------------- | -------- | ------ |
 | Example delivery task | `{{knowledge_dir}}/tasks/items/example-delivery-task.md` | app    | P1       | Sprint 1 | `[[groups/{{default_group_id}}]]` | None     | Ready  |
 
-Use `{{agent_skills_dir}}/next-task-selection/SKILL.md` to recommend accepted Kanban cards. Selection is read-only by default:
+Use `next-task-selection` to recommend accepted Kanban cards. Selection is read-only by default:
 
 - select only cards from the board, not loose task items;
 - prefer assigned current-member tasks, then unassigned tasks;
@@ -146,7 +152,7 @@ Use `{{agent_skills_dir}}/next-task-selection/SKILL.md` to recommend accepted Ka
 
 ## Personal Execution
 
-Use `{{agent_skills_dir}}/workspace-worklist/SKILL.md` when a member takes accepted work into local execution.
+Use `workspace-worklist` when a member takes accepted work into local execution.
 
 - `intake-task` writes only the current member's `local/WORKLIST.md` and local logs.
 - Intake should preserve links to the card, task item, and important source knowledge.
@@ -161,7 +167,7 @@ Review order:
 1. Move or propose `Doing -> Reviewing` through approved `kanban-maintenance`.
 2. Run `delivery-review` while the card is in `Reviewing`.
 3. If accepted, check downstream dependency follow-up needs, then move or propose `Reviewing -> Done` through approved `kanban-maintenance`.
-4. Keep the card in `Reviewing` for small fixes, move back to `Doing` for substantial rework, move to `Blocked` for unresolved external blockers, or move to `Cancelled` when the task should not continue.
+4. Keep the card in `Reviewing` for `minor-fix`, move back to `Doing` for `rework-required`, move to `Blocked` for unresolved external blockers, or move to `Cancelled` when the task should not continue.
 
 Definition of Done:
 
@@ -170,6 +176,7 @@ Definition of Done:
 - focused validation passed, or skipped checks are documented with a reason;
 - required review is complete or residual risk is accepted by the maintainer;
 - durable product, discovery, design, architecture, decision, guideline, or task knowledge was updated when the work changed it;
+- downstream task readiness and Kanban follow-up were checked for tasks that reference this task in `blocked_by`;
 - local WORKLIST item and local log are closed;
 - approved Kanban maintenance moved the card to `Done`.
 
@@ -190,7 +197,7 @@ For each downstream task:
 
 Do not mechanically remove resolved `blocked_by` entries. They record dependency history and let Agents derive downstream unlocks by reverse lookup.
 
-When available, `superpowers:verification-before-completion` may support validation before completion, commit, PR, or Done-readiness claims. It does not replace `{{agent_skills_dir}}/delivery-review/SKILL.md` or approved Kanban maintenance.
+When available, `superpowers:verification-before-completion` may support validation before completion, commit, PR, or Done-readiness claims. It does not replace `delivery-review` or approved Kanban maintenance.
 
 ## Knowledge Updates
 
@@ -207,7 +214,7 @@ No knowledge update is required for purely local implementation details that cre
 
 ## Review Triggers
 
-Use `{{agent_skills_dir}}/delivery-review/SKILL.md` before Done for:
+Use `delivery-review` before Done for:
 
 - workflow, schema, AGENTS, or Skill changes;
 - authentication, authorization, security, privacy, or data handling changes;
@@ -220,6 +227,8 @@ Use `{{agent_skills_dir}}/delivery-review/SKILL.md` before Done for:
 ## Blocked Or Cancelled Work
 
 When blocked, move or propose the card to `Blocked`, set or propose `readiness: blocked`, and record the blocker in the linked task item.
+
+Do not move a newly planned dependent task to `Blocked` just because it has `blocked_by`. Keep it in `Backlog` until it is selected for near-term execution or was expected to proceed.
 
 Move out of `Blocked` only when the blocker is resolved and the next state is clear:
 

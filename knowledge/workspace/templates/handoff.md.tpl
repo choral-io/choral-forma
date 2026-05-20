@@ -2,13 +2,13 @@
 scope: member
 type: handoff
 owners:
-  - "[[Gavroche]]"
+    - "[[Gavroche]]"
 assignees:
-  - "[[Éponine]]"
+    - "[[Éponine]]"
 reviewers: []
 tags:
-  - workspace
-  - handoff
+    - workspace
+    - handoff
 ---
 
 <!--

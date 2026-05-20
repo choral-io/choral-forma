@@ -2,12 +2,12 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - metadata
-  - schema
-  - planning
-  - sprint
+    - metadata
+    - schema
+    - planning
+    - sprint
 ---
 
 # Sprints Schema
@@ -21,14 +21,14 @@ Sprint documents describe time-boxed planning, coordination, review, or retrospe
 scope: project
 type: sprint
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 assignees:
-  - "[[Gavroche]]"
+    - "[[Gavroche]]"
 reviewers:
-  - "[[Éponine]]"
+    - "[[Éponine]]"
 tags:
-  - planning
-  - sprint
+    - planning
+    - sprint
 sprint: Sprint 1
 start_date: 2026-04-01
 end_date: 2026-04-14

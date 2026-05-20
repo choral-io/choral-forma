@@ -5,14 +5,14 @@ Use this reference when `workspace-worklist` chooses `shared-worktree` or `slot-
 The serial shared worker worktree is:
 
 ```text
-.agents/.local/worktrees/shared/
+<agent_local_dir>/worktrees/shared/
 ```
 
 Parallel worker slot worktrees are:
 
 ```text
-.agents/.local/worktrees/slot-01/
-.agents/.local/worktrees/slot-02/
+<agent_local_dir>/worktrees/slot-01/
+<agent_local_dir>/worktrees/slot-02/
 ...
 ```
 
@@ -27,7 +27,7 @@ Use the shared worktree when isolated worker execution is useful and the task is
 - the task is larger than a direct edit
 - `run-loop` is processing multiple items over time
 
-Prefer direct execution for tiny documentation edits, simple metadata updates, or clearly scoped one-file changes.
+Use direct execution for single-file documentation edits, single-file metadata updates, or one-file changes with an explicit target path and validation step.
 
 Use slot worktrees only when `run-loop` or `run-goal` has explicit user authorization for parallel subagent execution and the main Agent has selected independent work items.
 
@@ -35,7 +35,7 @@ Use slot worktrees only when `run-loop` or `run-goal` has explicit user authoriz
 
 Before dispatching a worker:
 
-1. Confirm `.agents/.local/` is ignored by git.
+1. Confirm `<agent_local_dir>/` is ignored by git.
 2. Confirm the selected worktree is not already in use.
 3. Check main worktree status.
 4. Check whether the selected item may conflict with existing dirty files.
@@ -54,7 +54,7 @@ Before selecting new Kanban work, starting `run-goal`, or syncing a worker workt
 1. Inspect current branch, upstream/default remote, and worktree status.
 2. If there is no default remote or upstream, skip remote freshness checks and record that limitation.
 3. If the main worktree has unrelated dirty user changes, do not pull or switch base automatically.
-4. If freshness matters and the worktree is clean, propose `git pull` in `user-confirm`; in `auto-review`, pull only when the operation is low-risk and no local worker result is pending.
+4. If freshness matters and the worktree is clean, propose `git pull` in `user-confirm`; in `auto-review`, pull only when the operation is classified as `low` risk by `references/execution.md` and no local worker result is pending.
 5. If pull would create conflicts, require credentials, change submodules, update lockfiles unexpectedly, or alter unrelated user work, stop and ask the user.
 6. After a successful pull, re-read `KANBAN.md`, linked task items, and any source files used for selection.
 
@@ -65,9 +65,9 @@ Do not use remote sync as a hidden side effect of task selection. Mention it in 
 Use stable worktree paths:
 
 ```text
-.agents/.local/worktrees/shared/
-.agents/.local/worktrees/slot-01/
-.agents/.local/worktrees/slot-02/
+<agent_local_dir>/worktrees/shared/
+<agent_local_dir>/worktrees/slot-01/
+<agent_local_dir>/worktrees/slot-02/
 ```
 
 If a worktree needs a branch, prefer stable local branch names such as:
@@ -132,7 +132,7 @@ Accepted worker changes must be integrated back into the main worktree before WO
 
 ## Recovery Decision
 
-If a worker worktree is dirty, stale, blocked, or otherwise unusable, the main Agent should first make a bounded recovery decision:
+If a worker worktree is dirty, stale, blocked, or otherwise unusable, the main Agent makes a bounded recovery decision before retrying:
 
 1. Inspect status, changed files, branch/base, and worker report.
 2. Decide whether the issue can be handled without destructive cleanup or scope expansion.
@@ -140,7 +140,7 @@ If a worker worktree is dirty, stale, blocked, or otherwise unusable, the main A
 4. Re-dispatch only when the allowed paths, base, and validation requirements are still clear.
 5. Record the recovery decision in the local work log.
 
-The main Agent should not casually repair worker worktrees. Stop or use the maintenance rules below when recovery would require reset, clean, rebase, merge, delete, rebuild, unrelated dirty-file handling, user credentials, business judgment, or changing the task scope.
+The main Agent treats worker worktree repair as controlled maintenance. Stop or use the maintenance rules below when recovery would require reset, clean, rebase, merge, delete, rebuild, unrelated dirty-file handling, user credentials, business judgment, or changing the task scope.
 
 ## Worktree Maintenance
 
@@ -148,7 +148,7 @@ Worktree maintenance is a controlled operation, separate from normal worker reco
 
 Safety conditions:
 
-- The target path is under `.agents/.local/worktrees/shared/` or `.agents/.local/worktrees/slot-XX/`.
+- The target path is under `<agent_local_dir>/worktrees/shared/` or `<agent_local_dir>/worktrees/slot-XX/`.
 - The target is not the main worktree.
 - No worker is currently using the target.
 - There are no unintegrated worker results, or they are recorded and explicitly abandoned or already integrated.
@@ -165,7 +165,7 @@ Risk levels:
 Approval rules:
 
 - `user-confirm`: present the maintenance dry-run and wait for approval.
-- `auto-review`: only low-risk maintenance may proceed automatically when the run contract allowed it.
+- `auto-review`: only `low` risk maintenance may proceed automatically when the run contract allowed it.
 - High-risk maintenance always requires explicit user confirmation.
 
 Maintenance flow:

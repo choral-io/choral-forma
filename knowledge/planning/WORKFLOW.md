@@ -2,11 +2,11 @@
 scope: project
 type: process
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - collaboration
-  - workflow
-  - kanban
+    - collaboration
+    - workflow
+    - kanban
 ---
 
 # Collaboration Workflow

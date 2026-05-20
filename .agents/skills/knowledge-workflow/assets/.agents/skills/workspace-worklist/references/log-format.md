@@ -3,7 +3,7 @@
 ## Location
 
 ```text
-{{knowledge_dir}}/workspace/<member-id>/local/logs/YYYY-MM-DD.md
+<knowledge_dir>/workspace/<member-id>/local/logs/YYYY-MM-DD.md
 ```
 
 Use the local date. Create the file when first writing that day.
@@ -53,9 +53,9 @@ Continue progress and completion entries with the same work id:
 
 - Result: Added example classification and regression coverage.
 - Changed:
-  - `src/example/feature.ts`
+    - `src/example/feature.ts`
 - Checks:
-  - `project lint or focused test command`
+    - `project lint or focused test command`
 ```
 
 Entry verbs:
@@ -74,7 +74,7 @@ Record only meaningful events. Do not log every command, file read, search, or t
 
 - Keep the same `wl-*` id across days.
 - Write a new entry in the current day's log.
-- Use `rg <work-id> {{knowledge_dir}}/workspace/<member-id>/local/logs/` to gather history.
+- Use `rg <work-id> <knowledge_dir>/workspace/<member-id>/local/logs/` to gather history.
 - Do not merge daily logs.
 
 ## Pause And Resume
@@ -97,5 +97,5 @@ When extracting a summary:
 - Ask or infer the summary period and purpose.
 - Remove local noise, failed attempts, command chatter, secrets, and personal material.
 - Keep decisions, outcomes, changed areas, blockers, follow-ups, and links to durable project knowledge.
-- Use `{{knowledge_dir}}/workspace/<member-id>/summaries/` for ordinary summaries.
-- Use `{{knowledge_dir}}/workspace/<member-id>/handoffs/` when another member needs to continue the work.
+- Use `<knowledge_dir>/workspace/<member-id>/summaries/` for ordinary summaries.
+- Use `<knowledge_dir>/workspace/<member-id>/handoffs/` when another member needs to continue the work.

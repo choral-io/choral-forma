@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/{{default_group_id}}]]"
+    - "[[groups/{{default_group_id}}]]"
 tags:
-  - metadata
-  - schema
-  - architecture
+    - metadata
+    - schema
+    - architecture
 ---
 
 # Architecture Schema
@@ -20,9 +20,9 @@ Architecture documents describe system structure, module boundaries, data flow, 
 scope: project
 type: architecture
 owners:
-  - "[[groups/{{default_group_id}}]]"
+    - "[[groups/{{default_group_id}}]]"
 tags:
-  - api
+    - api
 ---
 ```
 

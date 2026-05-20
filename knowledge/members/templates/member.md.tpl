@@ -4,9 +4,9 @@ type: member
 member_id: <member-id>
 display_name: <Display Name>
 owners:
-  - "[[members/<member-id>]]"
+    - "[[members/<member-id>]]"
 tags:
-  - member
+    - member
 ---
 
 # <Display Name>

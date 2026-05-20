@@ -2,10 +2,10 @@
 scope: project
 type: index
 owners:
-  - "[[groups/{{default_group_id}}]]"
+    - "[[groups/{{default_group_id}}]]"
 tags:
-  - metadata
-  - schema
+    - metadata
+    - schema
 ---
 
 # Knowledge Schemas

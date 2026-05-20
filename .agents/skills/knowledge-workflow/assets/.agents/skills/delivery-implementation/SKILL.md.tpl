@@ -5,23 +5,29 @@ description: Implement an approved Kanban task. Use for project changes, checks,
 
 # Delivery Implementation
 
+## Runtime Context
+
+Before acting, use the repository Knowledge Workflow runtime context from root `AGENTS.md` and its manifest; do not assume workflow paths or default ids.
+
 Use this skill to implement a selected Kanban card and keep code, tests, and knowledge aligned.
 
 ## Workflow
 
-1. Read the selected card in `{{knowledge_dir}}/planning/KANBAN.md`.
+1. Read the selected card in `<knowledge_dir>/planning/KANBAN.md`.
 2. Read the linked task item and source knowledge.
-3. If implementing as the current member, determine the member id with `git config user.name`; read `{{knowledge_dir}}/workspace/<member-id>/local/AGENTS.md` if it exists; read relevant sections from `{{knowledge_dir}}/members/<member-id>.md` only when assignment, ownership, review, or handoff context is needed.
+3. If implementing as the current member, determine the member id with `git config user.name`; read `<knowledge_dir>/workspace/<member-id>/local/AGENTS.md` if it exists; read relevant sections from `<knowledge_dir>/members/<member-id>.md` only when assignment, ownership, review, or handoff context is needed.
 4. If the developer is taking the task into personal execution, use `workspace-worklist:intake-task` to create or update the local WORKLIST item before implementation.
-5. Read `{{knowledge_dir}}/schemas/common.md` and relevant area schemas under `{{knowledge_dir}}/schemas/` before updating knowledge.
+5. Read `<knowledge_dir>/schemas/common.md` and relevant area schemas under `<knowledge_dir>/schemas/` before updating knowledge.
 6. Inspect relevant project code or documents before editing.
-7. Implement the smallest coherent change.
-8. Update or add tests for changed behavior.
-9. Update canonical knowledge when product, design, architecture, configuration, decisions, or guidelines change.
-10. Keep localized files unchanged unless explicitly asked.
-11. Run focused checks first, then broader checks when risk warrants.
-12. Prepare a handoff summary when the work is ready for review, blocked, or needs another owner.
-13. Move the card only when the user asks or the maintainer has approved.
+7. Produce or confirm an implementation plan using the format in `references/checklist.md`.
+8. Implement the smallest coherent change.
+9. Update or add tests for changed behavior.
+10. Apply the knowledge update decision table in `references/checklist.md`.
+11. Keep localized files unchanged unless explicitly asked.
+12. Run focused checks first, then broader checks when risk warrants.
+13. Prepare review readiness evidence using the format in `references/checklist.md`.
+14. Prepare a handoff summary when the work is ready for review, blocked, or needs another owner.
+15. Move the card only when the user asks or the maintainer has approved.
 
 ## Optional Superpowers Guidance
 
@@ -40,7 +46,7 @@ Superpowers usage does not replace task acceptance criteria, project checks, can
 ## Quality Gates
 
 - Project-specific build, lint, format, and type checks pass when applicable.
-- Tests cover meaningful behavior changes.
+- Tests or documented manual checks cover changed behavior.
 - Linked knowledge remains consistent with implementation.
 
 ## Handoff Summary
@@ -67,15 +73,15 @@ Use this structure when handing implementation to review or reporting blocked wo
 ## Review Request
 ```
 
-Create a formal shared handoff under `{{knowledge_dir}}/workspace/<member-id>/handoffs/` only when the handoff is cross-member, long-lived, complex enough to survive the chat, or explicitly requested. Use `{{knowledge_dir}}/workspace/templates/handoff.md.tpl` as a reference template. Do not write into another member's workspace.
+Create a formal shared handoff under `<knowledge_dir>/workspace/<member-id>/handoffs/` only when the handoff is cross-member, long-lived, complex enough to survive the chat, or explicitly requested. Use `<knowledge_dir>/workspace/templates/handoff.md.tpl` as a reference template. Do not write into another member's workspace.
 
 ## Knowledge Updates
 
-- Update `{{knowledge_dir}}/product/` when user-facing behavior changes.
-- Update `{{knowledge_dir}}/design/` when UI design, component behavior, layout, interaction states, or visual rules change.
-- Update `{{knowledge_dir}}/architecture/` when module boundaries, APIs, data flow, integration behavior, configuration, or operational constraints change.
-- Update `{{knowledge_dir}}/decisions/` when a lasting product or technical tradeoff is made.
-- Update `{{knowledge_dir}}/guidelines/` when cross-area writing, terminology, language, documentation, or process guidance changes.
+- Update `<knowledge_dir>/product/` when user-facing behavior changes.
+- Update `<knowledge_dir>/design/` when UI design, component behavior, layout, interaction states, or visual rules change.
+- Update `<knowledge_dir>/architecture/` when module boundaries, APIs, data flow, integration behavior, configuration, or operational constraints change.
+- Update `<knowledge_dir>/decisions/` when a lasting product or technical tradeoff is made.
+- Update `<knowledge_dir>/guidelines/` when cross-area writing, terminology, language, documentation, or process guidance changes.
 - Do not add knowledge docs for purely local implementation details that do not create durable product or technical knowledge.
 
 ## Guardrails
@@ -88,4 +94,4 @@ Create a formal shared handoff under `{{knowledge_dir}}/workspace/<member-id>/ha
 
 ## References
 
-- For implementation checklist and command selection, read `references/checklist.md`.
+- For implementation plan format, knowledge update decisions, validation evidence, and command selection, read `references/checklist.md`.

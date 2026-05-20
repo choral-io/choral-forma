@@ -55,6 +55,181 @@ Explain the main reason when reliability is `medium` or `low`.
 
 ## Useful Counts
 
+Use these metric ids when the user asks for common status statistics:
+
+| Metric id                        | Scope         | Basis                     | Source                                                      |
+| -------------------------------- | ------------- | ------------------------- | ----------------------------------------------------------- |
+| `kanban.cards_by_column`         | delivery-only | board-based               | `planning/KANBAN.md`                                        |
+| `tasks.by_readiness`             | delivery-only | field-based               | `tasks/items/**/*.md`                                       |
+| `tasks.blocked_unresolved`       | delivery-only | field-based               | `blocked_by` plus referenced task state                     |
+| `tasks.ready_unassigned`         | delivery-only | field-based + board-based | Ready cards and `assignees`                                 |
+| `reviews.pending`                | delivery-only | board-based + field-based | Reviewing cards and `reviewers`                             |
+| `proposals.by_status`            | project-wide  | field-based               | `proposals/**/*.md`                                         |
+| `proposals.accepted_unconverted` | project-wide  | field-based + link check  | accepted proposals and target docs                          |
+| `decisions.by_status`            | project-wide  | field-based or inferred   | `decisions/**/*.md`                                         |
+| `requirements.with_delivery`     | product-only  | link-based                | product docs, task items, Done cards                        |
+| `ownership.by_area`              | ownership     | field-based               | `owners`, `assignees`, `reviewers`                          |
+| `knowledge.by_area`              | project-wide  | path-based + field-based  | knowledge area directories                                  |
+| `local.excluded`                 | project-wide  | path-based                | `workspace/*/local/**` count only when explicitly requested |
+
+If a request matches one of these metrics, use the metric id in `Counts.Area`. If no metric id fits, keep the nearest scope and add `Filter` or `Facet` in the report.
+
+## Report Templates
+
+Use the nearest template when the requested mode matches. Keep reports read-only.
+
+### Weekly Delivery Report
+
+```md
+## Status Summary
+
+- Scope: delivery-only
+- Period: ...
+- Reliability: high | medium | low
+
+## Counts
+
+| Area                       | Count | Basis                     | Notes |
+| -------------------------- | ----- | ------------------------- | ----- |
+| `kanban.cards_by_column`   |       | board-based               |       |
+| `tasks.by_readiness`       |       | field-based               |       |
+| `reviews.pending`          |       | board-based + field-based |       |
+| `tasks.blocked_unresolved` |       | field-based               |       |
+
+## Movement
+
+- Started:
+- Reached review:
+- Done:
+- Cancelled:
+
+## Risks And Gaps
+
+- ...
+
+## Recommended Next Actions
+
+- ...
+
+## Sources
+```
+
+### Knowledge Health Report
+
+```md
+## Status Summary
+
+- Scope: project-wide
+- Reliability: high | medium | low
+
+## Counts
+
+| Area                         | Count | Basis                    | Notes |
+| ---------------------------- | ----- | ------------------------ | ----- |
+| `knowledge.by_area`          |       | path-based + field-based |       |
+| localized files              |       | path-based               |       |
+| missing owners               |       | field-based              |       |
+| stale or ambiguous wikilinks |       | link-based               |       |
+
+## Risks And Gaps
+
+- ...
+
+## Recommended Next Actions
+
+- route fixes to `knowledge-schema-audit` or `task-metadata-audit`
+
+## Sources
+```
+
+### Proposal And Decision Queue
+
+```md
+## Status Summary
+
+- Scope: project-wide
+- Filter: proposals and decisions
+- Reliability: high | medium | low
+
+## Counts
+
+| Area                             | Count | Basis                    | Notes |
+| -------------------------------- | ----- | ------------------------ | ----- |
+| `proposals.by_status`            |       | field-based              |       |
+| `proposals.accepted_unconverted` |       | field-based + link check |       |
+| `decisions.by_status`            |       | field-based or inferred  |       |
+
+## Queues
+
+- Needs review:
+- Accepted but not converted:
+- Superseded/rejected:
+
+## Recommended Next Actions
+
+- ...
+
+## Sources
+```
+
+### Member Workload Report
+
+```md
+## Status Summary
+
+- Scope: member-specific
+- Member: ...
+- Reliability: high | medium | low
+
+## Counts
+
+| Area                  | Count | Basis                     | Notes |
+| --------------------- | ----- | ------------------------- | ----- |
+| active assignee tasks |       | field-based + board-based |       |
+| review requests       |       | field-based + board-based |       |
+| shared handoffs       |       | path-based + link-based   |       |
+
+## Workload
+
+- Assigned:
+- Reviewing:
+- Handoffs:
+- Risks:
+
+## Sources
+```
+
+### Blocked Work Report
+
+```md
+## Status Summary
+
+- Scope: delivery-only
+- Filter: blockers
+- Reliability: high | medium | low
+
+## Counts
+
+| Area                                | Count | Basis                     | Notes |
+| ----------------------------------- | ----- | ------------------------- | ----- |
+| `tasks.blocked_unresolved`          |       | field-based               |       |
+| Blocked cards                       |       | board-based               |       |
+| Backlog tasks with planned blockers |       | field-based + board-based |       |
+
+## Blocker Groups
+
+- Dependency task:
+- Decision:
+- Access/environment:
+- External source:
+
+## Recommended Next Actions
+
+- ...
+
+## Sources
+```
+
 Delivery:
 
 - cards by Kanban column
@@ -93,7 +268,7 @@ Requirements:
 Ownership:
 
 - owners by area
-- group-owned areas, including the manifest `default-group-id`
+- group-owned areas, including the manifest `default_group_id`
 - assignees by active delivery state
 - reviewers by Reviewing work
 - unowned or single-owner high-risk areas
@@ -124,7 +299,7 @@ Concise summary:
 
 | Area              | Count | Basis       | Notes                                                  |
 | ----------------- | ----- | ----------- | ------------------------------------------------------ |
-| Ready cards       | 4     | board-based | From `knowledge/planning/KANBAN.md`.                   |
+| Ready cards       | 4     | board-based | From `<knowledge_dir>/planning/KANBAN.md`.             |
 | Blocked cards     | 1     | board-based | One card has no linked blocker-resolution owner.       |
 | Pending decisions | 3     | inferred    | Based on headings/prose; schema support is incomplete. |
 
@@ -135,9 +310,9 @@ Concise summary:
 
 ## Sources
 
-- `knowledge/planning/KANBAN.md`
-- `knowledge/tasks/items/example-task.md`
-- `knowledge/decisions/example-decision.md`
+- `<knowledge_dir>/planning/KANBAN.md`
+- `<knowledge_dir>/tasks/items/example-task.md`
+- `<knowledge_dir>/decisions/example-decision.md`
 ```
 
 When a metric is not reliable:

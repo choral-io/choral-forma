@@ -2,7 +2,7 @@
 
 ## Inputs
 
-- `knowledge/planning/KANBAN.md`
+- `<knowledge_dir>/planning/KANBAN.md`
 - Linked task item or project knowledge card source
 - Current diff, pull request, or changed files
 - Relevant product, architecture, decision, and configuration documents
@@ -25,7 +25,7 @@
 ## Knowledge Review
 
 - Confirm durable changes are reflected in English canonical knowledge.
-- Confirm decisions that affect future implementation are captured in `knowledge/decisions/`.
+- Confirm decisions that affect future implementation are captured in `<knowledge_dir>/decisions/`.
 - Confirm delivery status is not duplicated into every linked task item.
 - Leave localized files unchanged unless translation work is explicitly requested.
 
@@ -42,6 +42,7 @@ Findings
 Then include:
 
 - Acceptance status: `accepted`, `needs changes`, or `blocked`
+- Review result: `accepted`, `minor-fix`, `rework-required`, `blocked`, or `invalid-review`
 - Checks run
 - Checks not run
 - Knowledge updates reviewed

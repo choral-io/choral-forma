@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/{{default_group_id}}]]"
+    - "[[groups/{{default_group_id}}]]"
 tags:
-  - metadata
-  - schema
-  - members
+    - metadata
+    - schema
+    - members
 ---
 
 # Members Schema
@@ -22,9 +22,9 @@ type: member
 member_id: Gavroche
 display_name: Gavroche
 owners:
-  - "[[members/Gavroche]]"
+    - "[[members/Gavroche]]"
 tags:
-  - member
+    - member
 ---
 ```
 

@@ -2,7 +2,7 @@
 
 ## Candidate Sources
 
-Default candidate source is accepted cards in `knowledge/planning/KANBAN.md`.
+Default candidate source is accepted cards in `<knowledge_dir>/planning/KANBAN.md`.
 Use linked task items only as context for those cards.
 
 Default Kanban scan order:
@@ -14,7 +14,9 @@ Do not select cards from `Doing`, `Reviewing`, `Done`, or `Cancelled` unless the
 
 Do not select cards from `Blocked` for implementation. Use blocked cards only when the user asks for blocker-resolution or recovery work.
 
-Do not select loose task items from `knowledge/tasks/items/**` unless they are linked from a candidate Kanban card. If the user asks to rank task items that are not on the board, route to `delivery-planning`.
+Cards in `Backlog` may have `readiness: blocked` for planned dependency order. Keep them visible as context, but exclude them from implementation recommendations until blockers are resolved.
+
+Do not select loose task items from `<knowledge_dir>/tasks/items/**` unless they are linked from a candidate Kanban card. If the user asks to rank task items that are not on the board, route to `delivery-planning`.
 
 ## Metadata
 
@@ -27,15 +29,15 @@ effort: M
 readiness: ready
 module: app
 owners:
-  - "[[Gavroche]]"
+    - "[[Gavroche]]"
 assignees:
-  - "[[Gavroche]]"
+    - "[[Gavroche]]"
 reviewers:
-  - "[[Éponine]]"
+    - "[[Éponine]]"
 blocked_by:
-  - "[[tasks/items/example-upstream-task]]"
+    - "[[tasks/items/example-upstream-task]]"
 related_to:
-  - "[[tasks/items/example-related-task]]"
+    - "[[tasks/items/example-related-task]]"
 ```
 
 Use task knowledge-reference wikilinks in relationship fields, not display titles. Tool-written values should prefer path-qualified task wikilinks.
@@ -64,7 +66,7 @@ Only recommend from the first non-empty eligible group. If only tasks assigned t
 
 Normalize member and group wikilinks before matching assignment. For example, `[[Gavroche]]` and `[[Gavroche|Display Name]]` both match id `Gavroche`. Group assignees, including the manifest `default_group_id`, mean team-pool assignment and do not match the current member.
 
-Within each assignment group, rank by the heuristics below.
+Within each assignment group, score candidates with the table below.
 
 ## Auto-Start
 
@@ -74,6 +76,37 @@ If the user explicitly allows automatic start, the Agent may proceed only for:
 - `unassigned`
 
 For `assigned-to-others`, the Agent must ask for a second explicit confirmation before starting. This protects another member's active work even when general automatic start is enabled.
+
+## Candidate Score Table
+
+Use this table for each eligible candidate in the first non-empty assignment group. Use `pass`, `warn`, or `fail` for status-like fields. Exclude candidates with any `fail` in `readiness`, `blockers`, `source_stability`, `sensitive_context`, or `dirty_conflict`.
+
+| Field                | Allowed values or scoring rule                                                       |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `assignment_class`   | `assigned-to-current-member`, `unassigned`, `assigned-to-others`                     |
+| `kanban_column`      | `Ready` ranks before `Backlog`; other columns require explicit user scope            |
+| `readiness`          | `pass` only for `readiness: ready`                                                   |
+| `blockers`           | `pass` when `blocked_by` is empty or resolved; otherwise `fail`                      |
+| `source_stability`   | `pass`, `warn`, or `fail` from source stability checks                               |
+| `acceptance`         | `pass` only when observable acceptance criteria exist                                |
+| `sensitive_context`  | `fail` when secrets, private personal data, or unapproved customer data are required |
+| `dirty_conflict`     | `fail` when current dirty files overlap likely task files                            |
+| `priority_score`     | `P0=4`, `P1=3`, `P2=2`, `P3=1`, missing=`0`                                          |
+| `value_score`        | `H=3`, `M=2`, `L=1`, missing=`0`                                                     |
+| `effort_fit`         | `S=3`, `M=2`, `L=1`, missing=`0`                                                     |
+| `downstream_unlocks` | count tasks whose unresolved `blocked_by` references this candidate                  |
+| `fit_notes`          | module, owner, member profile, or user goal fit                                      |
+
+Sort by assignment partition first, then by fail-free eligibility, `kanban_column`, `priority_score`, `value_score`, `downstream_unlocks`, `effort_fit`, and `fit_notes`.
+
+Use this output shape:
+
+```md
+## Candidate Scores
+
+| Task | Assignment | Column | Ready | Blockers | Source | Dirty | P   | V   | Effort | Unlocks | Result |
+| ---- | ---------- | ------ | ----- | -------- | ------ | ----- | --- | --- | ------ | ------- | ------ |
+```
 
 ## Ranking Heuristics
 
@@ -107,7 +140,7 @@ Reason:
 - P1 with high product value.
 - No unresolved `blocked_by` entries.
 - Releases downstream delivery work through referenced `blocked_by` relationships.
-- Small enough for a focused implementation pass.
+- Fits one focused implementation pass with no known dependency conflict.
 
 Alternatives:
 1. Example documentation task

@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - metadata
-  - schema
-  - design
+    - metadata
+    - schema
+    - design
 ---
 
 # Design Schema
@@ -20,14 +20,14 @@ Design documents define UI visual design, component behavior, screen composition
 scope: project
 type: design
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 assignees:
-  - "[[Gavroche]]"
+    - "[[Gavroche]]"
 reviewers:
-  - "[[Éponine]]"
+    - "[[Éponine]]"
 tags:
-  - ui
-  - design
+    - ui
+    - design
 ---
 ```
 

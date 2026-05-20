@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/{{default_group_id}}]]"
+    - "[[groups/{{default_group_id}}]]"
 tags:
-  - metadata
-  - schema
-  - guidelines
+    - metadata
+    - schema
+    - guidelines
 ---
 
 # Guidelines Schema
@@ -20,10 +20,10 @@ Guideline documents define cross-area writing, terminology, language, documentat
 scope: project
 type: guideline
 owners:
-  - "[[groups/{{default_group_id}}]]"
+    - "[[groups/{{default_group_id}}]]"
 tags:
-  - knowledge
-  - documentation
+    - knowledge
+    - documentation
 ---
 ```
 

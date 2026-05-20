@@ -2,11 +2,11 @@
 scope: project
 type: task
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 assignees: []
 reviewers: []
 tags:
-  - knowledge
+    - knowledge
 priority: P2
 severity:
 value: M

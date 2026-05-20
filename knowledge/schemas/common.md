@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - metadata
-  - schema
-  - knowledge
+    - metadata
+    - schema
+    - knowledge
 ---
 
 # Common Knowledge Schema
@@ -70,14 +70,14 @@ Use YAML frontmatter for durable knowledge files:
 scope: project
 type: task
 owners:
-  - "[[members/Gavroche]]"
+    - "[[members/Gavroche]]"
 assignees:
-  - "[[members/Gavroche]]"
+    - "[[members/Gavroche]]"
 reviewers:
-  - "[[members/Éponine]]"
+    - "[[members/Éponine]]"
 tags:
-  - app
-  - chat
+    - app
+    - chat
 ---
 ```
 

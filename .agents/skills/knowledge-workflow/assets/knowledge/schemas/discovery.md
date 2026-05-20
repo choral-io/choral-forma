@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/{{default_group_id}}]]"
+    - "[[groups/{{default_group_id}}]]"
 tags:
-  - metadata
-  - schema
-  - discovery
+    - metadata
+    - schema
+    - discovery
 ---
 
 # Discovery Schema
@@ -20,9 +20,9 @@ Discovery documents capture requirement discovery, market and business research,
 scope: project
 type: market-analysis
 owners:
-  - "[[groups/{{default_group_id}}]]"
+    - "[[groups/{{default_group_id}}]]"
 tags:
-  - discovery
+    - discovery
 ---
 ```
 

@@ -5,6 +5,10 @@ description: Produce read-only repository knowledge status reports. Use for deli
 
 # Knowledge Status Report
 
+## Runtime Context
+
+Before acting, use the repository Knowledge Workflow runtime context from root `AGENTS.md` and its manifest; do not assume workflow paths or default ids.
+
 Use this skill to summarize repository knowledge status without changing files.
 
 ## Modes
@@ -38,11 +42,11 @@ If the user asks for a statistic that does not fit a predefined scope, keep the 
 
 ## Workflow
 
-1. Read `{{knowledge_dir}}/.workflow/manifest.yml` when present; use its `knowledge-dir`, `agent-skills-dir`, `agent-local-dir`, and `canonical-language`.
+1. Read `<knowledge_dir>/.workflow/manifest.yml` when present; use its `knowledge_dir`, `agent_skills`, `agent_local_dir`, and `canonical_language`.
 2. Read the knowledge workflow block in root `AGENTS.md`.
-3. Read `{{knowledge_dir}}/README.md`, `{{knowledge_dir}}/schemas/common.md`, and the relevant schemas under `{{knowledge_dir}}/schemas/`.
+3. Read `<knowledge_dir>/README.md`, `<knowledge_dir>/schemas/common.md`, and the relevant schemas under `<knowledge_dir>/schemas/`.
 4. Read only the knowledge areas needed for the requested mode.
-5. Read `{{knowledge_dir}}/planning/KANBAN.md` and task items only for delivery-related modes.
+5. Read `<knowledge_dir>/planning/KANBAN.md` and task items only for delivery-related modes.
 6. Prefer explicit frontmatter, Kanban columns, wikilinks, and schema-defined fields over inference from prose.
 7. Clearly label counts as `field-based`, `board-based`, `git-based`, or `inferred`.
 8. Assign report reliability as `high`, `medium`, or `low`.
@@ -62,7 +66,7 @@ If the user asks for a statistic that does not fit a predefined scope, keep the 
 | `risks`        | task metadata, blocked cards, missing sources, stale links, local-only sources                           |
 | `activity`     | git history, recent file changes, Kanban movement evidence, work logs if shared                          |
 
-Exclude `{{knowledge_dir}}/workspace/*/local/**` by default. Read local workspace files only when the user explicitly asks about their own local state or the mode requires current-member local context.
+Exclude `<knowledge_dir>/workspace/*/local/**` by default. Read local workspace files only when the user explicitly asks about their own local state or the mode requires current-member local context.
 
 ## Reporting Rules
 
@@ -77,6 +81,7 @@ Exclude `{{knowledge_dir}}/workspace/*/local/**` by default. Read local workspac
 - Do not count a requirement, decision, or task as delivered only because prose suggests it; prefer linked Done cards, task metadata, or explicit delivered references.
 - Do not count proposals as project facts, accepted decisions, task items, or delivery commitments.
 - Count issue, bug, and defect tasks separately when severity or quality risk matters.
+- Use the predefined report template in `references/report.md` when the requested mode matches one.
 
 ## Output
 
@@ -107,7 +112,7 @@ Use this structure unless the user asks for another format:
 - ...
 ```
 
-For examples and metric guidance, read `references/report.md`.
+For report templates, examples, and metric guidance, read `references/report.md`.
 
 ## Guardrails
 
@@ -116,9 +121,9 @@ For examples and metric guidance, read `references/report.md`.
 - Do not run broad document migrations.
 - Do not infer sensitive information.
 - Route fixes to the owning skill:
-  - `knowledge-schema-audit` for non-task metadata quality.
-  - `task-metadata-audit` for task metadata and readiness quality.
-  - `knowledge-intake` for unclear placement or promotion decisions.
-  - `knowledge-capture` for approved knowledge updates.
-  - `delivery-planning` for delivery planning changes.
-  - `kanban-maintenance` for approved board updates.
+    - `knowledge-schema-audit` for non-task metadata quality.
+    - `task-metadata-audit` for task metadata and readiness quality.
+    - `knowledge-intake` for unclear placement or promotion decisions.
+    - `knowledge-capture` for approved knowledge updates.
+    - `delivery-planning` for delivery planning changes.
+    - `kanban-maintenance` for approved board updates.

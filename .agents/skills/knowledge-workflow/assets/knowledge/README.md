@@ -2,9 +2,9 @@
 scope: project
 type: index
 owners:
-  - "[[groups/{{default_group_id}}]]"
+    - "[[groups/{{default_group_id}}]]"
 tags:
-  - knowledge
+    - knowledge
 ---
 
 # Project Knowledge

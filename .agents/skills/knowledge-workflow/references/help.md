@@ -6,65 +6,71 @@ Use help mode to answer workflow questions and recommend the next process step. 
 
 Read only what the question needs:
 
-1. Search for `*/.workflow/manifest.yml`, commonly `knowledge/.workflow/manifest.yml`.
-2. If one manifest exists, use its `knowledge_dir`, `agent_skills_dir`, `agent_local_dir`, `canonical_language`, and `default_group_id`; if several exist, ask which installation to use.
-3. Read the marked Knowledge Workflow block in root `AGENTS.md`.
+1. Read the marked Knowledge Workflow block in root `AGENTS.md`.
+2. Extract the explicit knowledge directory from that block, then read `<knowledge_dir>/.workflow/manifest.yml`.
+3. Use the manifest `knowledge_dir`, `agent_skills`, `agent_local_dir`, `canonical_language`, and `default_group_id`.
 4. Read relevant installed docs only:
-   - `<knowledge_dir>/README.md`
-   - `<knowledge_dir>/schemas/common.md`
-   - relevant `<knowledge_dir>/schemas/*.md`
-   - `<knowledge_dir>/tasks/WORKFLOW.md`
-   - `<knowledge_dir>/planning/WORKFLOW.md`
-   - relevant `<agent_skills_dir>/<skill-name>/SKILL.md`
+    - `<knowledge_dir>/README.md`
+    - `<knowledge_dir>/schemas/common.md`
+    - relevant `<knowledge_dir>/schemas/*.md`
+    - `<knowledge_dir>/tasks/WORKFLOW.md`
+    - `<knowledge_dir>/planning/WORKFLOW.md`
 5. For member-scoped questions, use `git config user.name` as the member id; read public member sections first and local workspace rules only when personal execution style matters.
 
-If no manifest exists, give pre-install help only. Recommend defaults such as `knowledge/`, `.agents/skills/`, `.agents/.local/`, and `default-team` as examples, require an explicit canonical language for init, and route setup to `knowledge-workflow:init`.
+If the block or manifest is missing, give pre-install help only. Recommend defaults such as `knowledge/`, external skills reuse, `.agents/.local/`, and `default-team` as examples, require an explicit canonical language for init, and route setup to `knowledge-workflow:init`.
 
 ## Quick Router
 
-Use this first. Check that the recommended installed skill path exists before saying it is available.
+Use this first. Check that the recommended skill is loadable by the current Agent before saying it is available. If the manifest records `agent_skills.mode: project`, the project-local copy should exist under `agent_skills.dir`.
 
-| User asks about                              | Recommend                                                      | Boundary                                                         |
-| -------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Workflow usage or onboarding                 | `knowledge-workflow:help`                                      | Explain only.                                                    |
-| New installation                             | `knowledge-workflow:init`                                      | Ask for canonical language; dry-run first.                       |
-| Where information belongs                    | `knowledge-intake`                                             | Write only after capture approval.                               |
-| Approved knowledge write or promotion        | `knowledge-capture`                                            | Use schemas before writing.                                      |
-| Add a project member                         | `knowledge-capture`                                            | Confirm member id, public profile, and group membership updates. |
-| Add a group, team, board, or working group   | `knowledge-capture`                                            | Confirm group id, scope, owners, and members.                    |
-| Non-task knowledge quality                   | `knowledge-schema-audit`                                       | Read-only findings.                                              |
-| Task metadata or readiness                   | `task-metadata-audit`                                          | Read-only findings.                                              |
-| Project, delivery, decisions, or risk status | `knowledge-status-report`                                      | Read-only report with sources.                                   |
-| Delivery planning                            | `delivery-planning`                                            | Dry-run Kanban changes only.                                     |
-| Pick next accepted task                      | `next-task-selection`                                          | Recommend; do not start by default.                              |
-| Approved board edit                          | `kanban-maintenance`                                           | Requires explicit maintainer approval.                           |
-| Take a card into personal work               | `workspace-worklist:intake-task`                               | Current member local workspace only.                             |
-| Continue one local item                      | `workspace-worklist:run-next`                                  | One executable item.                                             |
-| Run several local items                      | `workspace-worklist:run-loop`                                  | Needs explicit budget; parallel needs budget.                    |
-| Advance accepted tasks toward review         | `workspace-worklist:run-goal`                                  | Stop at review readiness by default.                             |
-| Implement selected delivery work             | `delivery-implementation`                                      | Code, tests, and knowledge together.                             |
-| Review before Done                           | `delivery-review`                                              | Required before Done when delivery changed.                      |
-| Scope or source conflict                     | `knowledge-workflow:help`, then owning skill after user choice | Report conflicts; do not silently choose.                        |
+| User asks about                                                                                     | Recommend                                                      | Boundary                                                               |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Workflow usage or onboarding                                                                        | `knowledge-workflow:help`                                      | Explain only.                                                          |
+| New installation                                                                                    | `knowledge-workflow:init`                                      | Ask for canonical language; dry-run first.                             |
+| Project-specific Agent policy                                                                       | `knowledge-workflow:policy`                                    | Explain or audit read-only; dry-run before edits.                      |
+| Auto-review policy setup                                                                            | `knowledge-workflow:policy auto-review`                        | Only needed when the team wants repeatable auto-review automation.     |
+| Where information belongs                                                                           | `knowledge-intake`                                             | Write only after capture approval.                                     |
+| Approved knowledge write or promotion                                                               | `knowledge-capture`                                            | Use schemas before writing.                                            |
+| Add a project member                                                                                | `knowledge-capture`                                            | Confirm member id, public profile, and group membership updates.       |
+| Add a group, team, board, or working group                                                          | `knowledge-capture`                                            | Confirm group id, scope, owners, and members.                          |
+| Non-task knowledge quality                                                                          | `knowledge-schema-audit`                                       | Read-only findings.                                                    |
+| Task metadata or readiness                                                                          | `task-metadata-audit`                                          | Read-only findings.                                                    |
+| Project, delivery, decisions, or risk status                                                        | `knowledge-status-report`                                      | Read-only report with sources.                                         |
+| Weekly delivery, knowledge health, proposal/decision queue, member workload, or blocked work report | `knowledge-status-report`                                      | Use the matching predefined report template.                           |
+| Delivery planning                                                                                   | `delivery-planning`                                            | Dry-run Kanban changes only.                                           |
+| Sprint planning document                                                                            | `knowledge-capture`                                            | Store in `planning/sprints/`; use delivery-planning for board changes. |
+| Schema, guideline, or workflow rule change                                                          | `knowledge-capture`                                            | Shared workflow knowledge; audit first when impact is unclear.         |
+| Pick next accepted task                                                                             | `next-task-selection`                                          | Recommend; do not start by default.                                    |
+| Approved board edit                                                                                 | `kanban-maintenance`                                           | Requires explicit maintainer approval.                                 |
+| Take a card into personal work                                                                      | `workspace-worklist:intake-task`                               | Current member local workspace only.                                   |
+| Continue one local item                                                                             | `workspace-worklist:run-next`                                  | One executable item.                                                   |
+| Run several local items                                                                             | `workspace-worklist:run-loop`                                  | Needs explicit budget; parallel needs budget.                          |
+| Advance accepted tasks toward review                                                                | `workspace-worklist:run-goal`                                  | Stop at review readiness by default.                                   |
+| Implement selected delivery work                                                                    | `delivery-implementation`                                      | Code, tests, and knowledge together.                                   |
+| Review before Done                                                                                  | `delivery-review`                                              | Required before Done when delivery changed.                            |
+| Scope or source conflict                                                                            | `knowledge-workflow:help`, then owning skill after user choice | Report conflicts; do not silently choose.                              |
 
 ## Placement
 
 Use this table when the user asks where something should live.
 
-| Content                                     | Place                                                           | Owning path                                    |
-| ------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------- |
-| Raw observation or rough idea               | current member `local/scratch/`                                 | `knowledge-intake` if it may matter later      |
-| Structured personal draft                   | current member `local/drafts/`                                  | promote only after user approval               |
-| Personal executable action                  | current member `local/WORKLIST.md`                              | `workspace-worklist`                           |
-| Public member summary, handoff, or research | `workspace/<member-id>/summaries/`, `handoffs/`, or `research/` | `knowledge-capture` when writing shared files  |
-| Project member profile                      | `members/<member-id>.md`                                        | update group `members` when membership applies |
-| Group, team, review board, or working group | `groups/<group-id>.md`                                          | confirm members before writing                 |
-| Discovery, market, customer, or assumption  | `discovery/`                                                    | `knowledge-capture`                            |
-| Product behavior or requirement             | `product/`                                                      | `knowledge-capture`                            |
-| UI, flow, visual design, or design asset    | `design/` and `assets/design/<feature-name>/`                   | `knowledge-capture`                            |
-| Concept, architecture, decision, guideline  | matching canonical area                                         | `knowledge-capture`                            |
-| Valuable but unconfirmed candidate          | `proposals/`                                                    | convert before using as fact or delivery input |
-| Potential delivery work                     | `tasks/items/`                                                  | audit before planning                          |
-| Approved delivery status                    | `planning/KANBAN.md`                                            | `kanban-maintenance` after approval            |
+| Content                                     | Place                                                           | Owning path                                                                   |
+| ------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Raw observation or rough idea               | current member `local/scratch/`                                 | `knowledge-intake` if it may matter later                                     |
+| Structured personal draft                   | current member `local/drafts/`                                  | promote only after user approval                                              |
+| Personal executable action                  | current member `local/WORKLIST.md`                              | `workspace-worklist`                                                          |
+| Public member summary, handoff, or research | `workspace/<member-id>/summaries/`, `handoffs/`, or `research/` | `knowledge-capture` when writing shared files                                 |
+| Project member profile                      | `members/<member-id>.md`                                        | update group `members` when membership applies                                |
+| Group, team, review board, or working group | `groups/<group-id>.md`                                          | confirm members before writing                                                |
+| Discovery, market, customer, or assumption  | `discovery/`                                                    | `knowledge-capture`                                                           |
+| Product behavior or requirement             | `product/`                                                      | `knowledge-capture`                                                           |
+| UI, flow, visual design, or design asset    | `design/` and `assets/design/<feature-name>/`                   | `knowledge-capture`                                                           |
+| Non-design supporting asset                 | `assets/<area-or-topic>/` with a canonical note that links it   | `knowledge-capture`                                                           |
+| Concept, architecture, decision, guideline  | matching canonical area                                         | `knowledge-capture`                                                           |
+| Sprint or planning-period document          | `planning/sprints/`                                             | `knowledge-capture` for the document; `delivery-planning` for board proposals |
+| Valuable but unconfirmed candidate          | `proposals/`                                                    | convert before using as fact or delivery input                                |
+| Potential delivery work                     | `tasks/items/`                                                  | audit before planning                                                         |
+| Approved delivery status                    | `planning/KANBAN.md`                                            | `kanban-maintenance` after approval                                           |
 
 Project facts come from canonical knowledge and code. Shared workspace material is context. Local workspace material is personal execution state.
 
@@ -75,7 +81,7 @@ Use `knowledge-capture` for approved member and group creation.
 - Member profiles live in `members/<member-id>.md` and should use `members/templates/member.md.tpl`.
 - Group documents live in `groups/<group-id>.md` and should use `groups/templates/group.md.tpl`.
 - When creating a member, ask the user to choose groups manually or infer likely target groups from public responsibilities and ask for confirmation; record confirmed membership in the selected group documents' `members` lists.
-- When creating a group, ask the user to choose members manually or infer candidate members from public responsibilities and ask for confirmation.
+- When creating a group, ask the user to choose members manually or infer likely target members from public responsibilities and ask for confirmation.
 - `groups/*.md` frontmatter `members` is the structured membership source of truth. Do not write group membership into member profile frontmatter.
 - Keep private personal information out of both member and group documents.
 
@@ -106,8 +112,12 @@ Use these rules for `WORKLIST.md`, "continue", "run next", "run loop", local log
 - Determine the current member with `git config user.name`.
 - Default to `run-next` for one item unless the user authorizes `run-loop` or `run-goal`.
 - `run-loop` needs `max-items`; parallel execution also needs `parallel-work-items` and independent items.
-- `run-goal` coordinates accepted Kanban/worklist tasks toward review readiness; it is not open-ended discovery.
-- Before execution, validate that the selected item is still relevant, not blocked, scoped, current, and safe under the requested approval mode.
+- `run-goal` coordinates accepted Kanban/worklist tasks toward review readiness; it is not open-ended discovery. It composes `next-task-selection`, `workspace-worklist`, `delivery-implementation`, `delivery-review`, and approved `kanban-maintenance` under a confirmed run contract.
+- For `run-goal` or `auto-review`, merge execution policy from skill baseline, root `AGENTS.md` `Project-Specific Knowledge Workflow`, and the current prompt. The skill baseline is the hard floor; project and prompt policy may narrow scope or authorize automation only inside that floor.
+- `auto-review` is a Knowledge Workflow approval mode, not an Agent application or sandbox permission mode. It does not assume, require, replace, or bypass runtime permission prompts; when runtime access is broad, the workflow run contract remains the Agent's self-limiting boundary.
+- If project-specific execution policy is missing or partial, say so before starting. In that case, vague `auto-review` allows only low-risk automation; medium-risk work needs explicit task-level confirmation unless the prompt supplies clear temporary boundaries for this run. If the team wants repeatable automation, recommend `knowledge-workflow:policy auto-review`.
+- Default `run-goal` source stability to focused checks: repository state, selected task context, `Sources`, `blocked_by`, required links, and likely dirty-file overlap. Use strict checks only for high-risk, unclear, protected, worker-dispatched, or user-requested cases.
+- Before execution, classify selected item validity as `valid`, `already-done`, `superseded`, `blocked`, `withdrawn`, or `unclear`.
 - Stop or switch skills before crossing into Kanban edits, task metadata changes, shared knowledge writes, another member's workspace, commits, publishing, deletion, dependency installation, or elevated execution.
 - Keep Agent runtime worktrees under `<agent_local_dir>/worktrees/`; keep `<agent_local_dir>/` out of git.
 - Use formal shared handoff files only for cross-member, long-lived, complex, or explicitly requested handoffs.
@@ -121,13 +131,14 @@ Use these rules for task items, `KANBAN.md`, Ready, Doing, Reviewing, Blocked, D
 - `tasks/items/` holds durable task context and acceptance criteria.
 - `planning/KANBAN.md` tracks delivery status; cards stay thin and link to task items.
 - `delivery-planning` proposes board changes; `kanban-maintenance` applies approved changes.
-- `next-task-selection` selects accepted Kanban cards, not loose task items.
+- `next-task-selection` selects accepted Kanban cards, not loose task items, and outputs a candidate score table when ranking alternatives.
 - Starting from a card should use `workspace-worklist:intake-task` when local execution tracking is useful.
+- `delivery-implementation` should produce or confirm an implementation plan before editing, then provide review readiness evidence before delivery review.
 - Move to `Doing`, `Reviewing`, `Blocked`, `Done`, or `Cancelled` only through approved board maintenance.
 - `delivery-review` is the gate before `Done` when implementation, acceptance criteria, source knowledge, or required checks changed.
 - `Done` requires delivered work, relevant checks or documented skips, updated durable knowledge when needed, completed local log, review acceptance, and approved board movement.
 - `readiness` is execution readiness, not delivery completion state; Kanban records `Doing`, `Reviewing`, `Blocked`, `Done`, and `Cancelled`.
-- Before `Reviewing -> Done`, reverse-look up tasks blocked by the completed task and propose downstream readiness or board follow-up when blockers are resolved.
+- At `reviewing-ready`, report possible downstream follow-up only. After `delivery-review` accepts the task, reverse-look up tasks blocked by the completed task and propose downstream readiness or board follow-up when blockers are resolved.
 
 ## Optional Superpowers Guidance
 
@@ -150,6 +161,19 @@ For project status, delivery progress, decisions, requirements, ownership, or ri
 
 Ask it to choose the narrowest useful scope, state `Reliability: high | medium | low`, label counts as `field-based`, `board-based`, `git-based`, or `inferred`, and list source paths. If the user asks to report and fix, report first; route approved fixes to the owning skill.
 
+Use predefined report templates for weekly delivery, knowledge health, proposal/decision queue, member workload, and blocked work reports.
+
+## Proposals
+
+Use proposals as a review buffer, not as facts or delivery commitments.
+
+- `proposed -> reviewing`: reviewer or owner starts evaluation.
+- `reviewing -> accepted`: owner or maintainer approves the direction.
+- `accepted -> converted`: canonical document, task item, or decision exists.
+- `reviewing -> rejected` or `reviewing -> superseded`: record rationale and replacement when present.
+
+Accepted proposals remain non-canonical until converted. Task proposals must become task items before delivery planning.
+
 ## Scope Precedence
 
 When sources conflict, recommend applying this order and reporting conflicts that affect facts, delivery scope, permissions, review, ownership, or another member:
@@ -165,6 +189,14 @@ root AGENTS.md and repository safety rules
 
 Lower-scope material can trigger updates, but it does not replace committed project knowledge until the user approves capture or maintenance.
 
+## Project Policy
+
+Use `knowledge-workflow:policy` when the user wants to understand, audit, define, or update project-specific Agent behavior rules in root `AGENTS.md`.
+
+Policy topics include auto-review, approval gates, protected surfaces, validation baseline, Kanban automation, git/worktree automation, source stability, and parallel/subagent execution.
+
+Policy mode is read-only by default. Do not ask teams to configure auto-review unless they request auto-review or another workflow discovers that auto-review policy is missing and the user chooses to define a stable policy.
+
 ## Premature Actions
 
 Call out these unsafe jumps:
@@ -177,13 +209,15 @@ Call out these unsafe jumps:
 - work assigned to another member started without second confirmation
 - multi-item or parallel execution without explicit budget
 - Done move without review when delivery changed
-- changing `knowledge_dir`, `agent_skills_dir`, `agent_local_dir`, `canonical_language`, or `default_group_id` after init during internal testing
+- changing `knowledge_dir`, `agent_skills.mode`, `agent_skills.dir`, `agent_local_dir`, `canonical_language`, or `default_group_id` after init during internal testing
 
 ## Installation Help
 
 For workflow installation questions:
 
 - `init` creates a new internal-test installation.
+- Init reuses externally available workflow skills by default when the current Agent can load the complete required set.
+- Project-local collaboration skills remain available through an explicit install choice when external skills are missing or the user wants the repository to carry local copies.
 - Root `AGENTS.md` receives only the marked workflow block.
 - The final `### Project-Specific Knowledge Workflow` heading inside that block is protected local project space.
 - The manifest is workflow state created by init.
@@ -194,7 +228,7 @@ For workflow installation questions:
 
 ## Answer Shape
 
-Prefer this structure:
+Use this structure unless the user explicitly asks for another format:
 
 ```md
 ## Recommended Path
@@ -217,6 +251,8 @@ Premature or unsafe actions.
 
 "Use <skill> to ..."
 ```
+
+If the recommendation depends on an assumption, include `## Assumption` before `## Next Prompt` and state the exact assumption in one sentence.
 
 Keep answers practical. If the user is choosing between two valid paths, explain the tradeoff and recommend one default. If the user asks for action while still in help mode, recommend the mode or skill switch instead of performing it.
 
@@ -312,4 +348,40 @@ Knowledge Workflow owns item selection, dependency checks, WORKLIST updates, app
 ## Do Not Do Yet
 
 Do not dispatch parallel work before checking independence, file/resource conflicts, approval needs, and whether the items are accepted workflow work.
+```
+
+Question:
+
+```text
+Run goal until 18:00 to advance my assigned Ready tasks to review.
+```
+
+Answer:
+
+```md
+## Recommended Path
+
+Use `workspace-worklist:run-goal` with an explicit run contract.
+
+## Why
+
+`run-goal` coordinates accepted Kanban/worklist tasks toward review readiness. It is not open-ended discovery.
+
+## Example
+
+Candidate source: assigned `Ready` and `Doing` cards. Include `Reviewing` only for review or closest-to-Done goals.
+Stop-at: deadline or review readiness.
+Kanban policy: propose-only unless approved maintenance is explicitly allowed.
+Review policy: delivery-review before Done.
+Source stability: focused by default; strict only when risk or policy requires it.
+Policy sources: skill baseline + Project-Specific Knowledge Workflow + this prompt.
+Auto-review: low-risk only unless project policy or explicit task-level prompt policy allows medium-risk automation for the affected scope.
+
+## Do Not Do Yet
+
+Do not start new work after the deadline, edit Kanban without approved maintenance, run medium-risk auto-review without policy support, or start another member's assigned task without second confirmation.
+
+## Next Prompt
+
+"Use workspace-worklist:run-goal for my assigned Ready/Doing tasks until 18:00. Confirm the run contract, use next-task-selection for candidates, stop at review readiness, and propose board updates instead of editing them unless I approve maintenance."
 ```

@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - metadata
-  - schema
-  - groups
+    - metadata
+    - schema
+    - groups
 ---
 
 # Groups Schema
@@ -22,11 +22,11 @@ type: team
 group_id: default-team
 display_name: Default Team
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 members: []
 tags:
-  - group
-  - team
+    - group
+    - team
 ---
 ```
 
@@ -38,7 +38,7 @@ tags:
 - The workflow manifest records `default_group_id` for the default responsibility group.
 - Use group wikilinks in `owners` and `reviewers` when responsibility belongs to a group.
 - Use path-qualified group wikilinks such as `[[groups/default-team]]` for tool-written group references. Manual short group wikilinks are valid only when they resolve uniquely.
-- Use `members` for member wikilinks included in the group, preferring path-qualified values such as `[[members/Gavroche]]` in templates and tool output. Ask the user to choose members manually, or infer candidate members from responsibilities and ask for confirmation.
+- Use `members` for member wikilinks included in the group, preferring path-qualified values such as `[[members/Gavroche]]` in templates and tool output. Ask the user to choose members manually, or infer likely target members from responsibilities and ask for confirmation.
 - When creating a group, check existing `knowledge/members/*.md` and suggest likely members before writing.
 - Use `knowledge/groups/templates/group.md.tpl` as the reference template for new group documents.
 - Prefer concrete member wikilinks in `assignees`. A group assignee means a team or group pool, not assignment to the current member.

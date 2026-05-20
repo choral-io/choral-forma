@@ -5,14 +5,18 @@ description: Audit non-task knowledge documents without writing. Use for schema,
 
 # Knowledge Schema Audit
 
+## Runtime Context
+
+Before acting, use the repository Knowledge Workflow runtime context from root `AGENTS.md` and its manifest; do not assume workflow paths or default ids.
+
 Use this skill to inspect non-task knowledge schema quality. This skill is read-only.
 
 ## Workflow
 
-1. Read `knowledge/schemas/common.md`.
-2. Read relevant area schemas under `knowledge/schemas/`.
-3. Scan `knowledge/**/*.md`.
-4. Exclude `knowledge/tasks/items/**`, `knowledge/workspace/*/local/**`, and `knowledge/planning/KANBAN.md` by default.
+1. Read `<knowledge_dir>/schemas/common.md`.
+2. Read relevant area schemas under `<knowledge_dir>/schemas/`.
+3. Scan `<knowledge_dir>/**/*.md`.
+4. Exclude `<knowledge_dir>/tasks/items/**`, `<knowledge_dir>/workspace/*/local/**`, and `<knowledge_dir>/planning/KANBAN.md` by default.
 5. Parse frontmatter, filenames, links, and localized-file suffixes.
 6. Compare each document to the relevant area schema.
 7. Report findings and dry-run fixes without editing files.
@@ -25,7 +29,7 @@ Use this skill to inspect non-task knowledge schema quality. This skill is read-
 - Localized files missing `lang`, `canonical`, or `translation_of`.
 - Localized files that link to other localized files by default.
 - Discovery, product, or design files placed in the wrong area.
-- Design assets referenced from Markdown but not stored under `knowledge/assets/design/<feature-name>/`.
+- Design assets referenced from Markdown but not stored under `<knowledge_dir>/assets/design/<feature-name>/`.
 - Decision files with missing supersession metadata when a replacement is obvious.
 - Proposal files with missing or invalid `proposal_type`, `proposal_status`, `sources`, or target metadata.
 - Member files missing `member_id` or `display_name`.
@@ -37,11 +41,7 @@ Use this skill to inspect non-task knowledge schema quality. This skill is read-
 
 ## Output
 
-- Summary counts.
-- Findings grouped by severity.
-- Dry-run fixes with confidence.
-- Auto-fixable items after approval.
-- Items that require maintainer judgment.
+Use the standard audit output shape from `references/report.md`: `Summary`, `Findings`, `Dry-run fixes`, `Requires judgment`, `Safe after approval`, and `Sources`.
 
 ## Guardrails
 

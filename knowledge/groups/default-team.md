@@ -4,11 +4,11 @@ type: team
 group_id: default-team
 display_name: Default Team
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 members: []
 tags:
-  - group
-  - team
+    - group
+    - team
 ---
 
 # Default Team

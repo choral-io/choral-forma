@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - metadata
-  - schema
-  - workspace
+    - metadata
+    - schema
+    - workspace
 ---
 
 # Workspace Schema
@@ -20,13 +20,13 @@ Workspace documents capture member-scoped work context that is safe to share wit
 scope: member
 type: summary
 owners:
-  - "[[Gavroche]]"
+    - "[[Gavroche]]"
 assignees:
-  - "[[Gavroche]]"
+    - "[[Gavroche]]"
 reviewers: []
 tags:
-  - workspace
-  - summary
+    - workspace
+    - summary
 ---
 ```
 

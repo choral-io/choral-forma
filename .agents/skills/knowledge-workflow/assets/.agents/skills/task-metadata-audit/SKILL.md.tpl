@@ -5,15 +5,19 @@ description: Audit task item metadata and Kanban consistency without writing. Us
 
 # Task Metadata Audit
 
+## Runtime Context
+
+Before acting, use the repository Knowledge Workflow runtime context from root `AGENTS.md` and its manifest; do not assume workflow paths or default ids.
+
 Use this skill to inspect task metadata and report issues. This skill is read-only.
 
 ## Workflow
 
-1. Read `knowledge/schemas/common.md`.
-2. Read `knowledge/schemas/tasks.md`.
-3. Read `knowledge/tasks/WORKFLOW.md`.
-4. Read `knowledge/planning/KANBAN.md`.
-5. Scan `knowledge/tasks/items/**/*.md`, excluding localized files.
+1. Read `<knowledge_dir>/schemas/common.md`.
+2. Read `<knowledge_dir>/schemas/tasks.md`.
+3. Read `<knowledge_dir>/tasks/WORKFLOW.md`.
+4. Read `<knowledge_dir>/planning/KANBAN.md`.
+5. Scan `<knowledge_dir>/tasks/items/**/*.md`, excluding localized files.
 6. Parse frontmatter and task body sections.
 7. Check task relationships against existing task ids and Kanban card ids.
 8. Report issues and dry-run fixes without editing files.
@@ -36,19 +40,16 @@ Use this skill to inspect task metadata and report issues. This skill is read-on
 - Tasks with `readiness: ready` whose task item or required source materials are not pushed to the default remote when one exists.
 - Tasks in `Ready` with unresolved `blocked_by` entries.
 - Tasks in `Ready` with `readiness` other than `ready`.
-- Tasks in `Blocked` without `readiness: blocked` or unresolved `blocked_by` entries.
-- Tasks outside `Blocked` with unresolved `blocked_by` entries.
+- Tasks in `Blocked` without `readiness: blocked`, unresolved `blocked_by`, or an explicit blocker note.
+- Tasks in `Backlog` with `readiness: blocked`; report as allowed planned dependency state, not an error.
+- Tasks outside `Backlog` or `Blocked` with unresolved `blocked_by` entries.
 - Downstream tasks whose `blocked_by` references are all resolved but still have `readiness: blocked` or remain in `Blocked`.
 - Tasks in `Backlog` that appear ready but have not been promoted to `Ready`.
 - Localized task files used as planning inputs.
 
 ## Output
 
-- Summary counts.
-- Findings grouped by severity.
-- Dry-run metadata fixes with confidence and auto-fixability.
-- Candidate tasks that are safe for `next-task-selection`.
-- Questions for the maintainer when metadata cannot be inferred safely.
+Use the standard task audit output shape from `references/report.md`: `Summary`, `Findings`, `Dry-run fixes`, `Requires judgment`, `Safe for next-task-selection`, and `Sources`.
 
 ## Guardrails
 

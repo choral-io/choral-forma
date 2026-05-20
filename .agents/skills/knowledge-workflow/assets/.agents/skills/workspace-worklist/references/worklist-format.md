@@ -3,13 +3,13 @@
 ## Location
 
 ```text
-{{knowledge_dir}}/workspace/<member-id>/local/WORKLIST.md
+<knowledge_dir>/workspace/<member-id>/local/WORKLIST.md
 ```
 
 Create from:
 
 ```text
-{{knowledge_dir}}/workspace/templates/worklist.md.tpl
+<knowledge_dir>/workspace/templates/worklist.md.tpl
 ```
 
 ## Sections
@@ -37,19 +37,19 @@ Use normal Markdown checklists:
 
 ```md
 - [ ] Fix example feature behavior. ^wl-20260425-k7q9
-  - [ ] Reproduce example failure.
-  - [ ] Add regression test.
-  - [ ] Patch example classification.
+    - [ ] Reproduce example failure.
+    - [ ] Add regression test.
+    - [ ] Patch example classification.
 ```
 
 Intake from a team task should keep source links in the top-level item:
 
 ```md
 - [ ] Implement example feature handling from [[../../planning/KANBAN#^kb-example-feature]] / [[../../tasks/items/example-feature-handling]]. ^wl-20260425-a8f2
-  - [ ] Confirm current example behavior and failing case.
-  - [ ] Add regression coverage.
-  - [ ] Patch example classification.
-  - [ ] Run focused validation.
+    - [ ] Confirm current example behavior and failing case.
+    - [ ] Add regression coverage.
+    - [ ] Patch example classification.
+    - [ ] Run focused validation.
 ```
 
 Rules:

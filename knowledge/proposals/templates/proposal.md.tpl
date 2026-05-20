@@ -4,11 +4,11 @@ type: proposal
 proposal_type: knowledge
 proposal_status: proposed
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 assignees: []
 reviewers: []
 tags:
-  - proposal
+    - proposal
 sources: []
 target_area:
 target:
@@ -28,6 +28,11 @@ proposal_status: proposed | reviewing | accepted | rejected | converted | supers
 
 Do not use proposals as project facts, accepted decisions, delivery status,
 or Kanban inputs until they are converted into the appropriate canonical document.
+
+Lifecycle:
+proposed -> reviewing -> accepted -> converted
+proposed/reviewing -> rejected | superseded
+accepted -> superseded only when replacement happens before conversion
 -->
 
 # Proposal Title
@@ -54,8 +59,10 @@ Explain uncertainty, conflicts, assumptions, and confidence.
 
 ## Review Decision
 
-Record reviewer decision, rationale, and date when reviewed.
+Record reviewer decision, rationale, date, and one status transition.
 
 ## Follow-Up
 
-- List conversion, rejection, merge, or supersession follow-up actions.
+- For accepted proposals, name the conversion target and handler.
+- For converted proposals, link the target canonical document, task item, or decision.
+- For rejected or superseded proposals, record rationale and replacement link when one exists.

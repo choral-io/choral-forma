@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - metadata
-  - schema
-  - decisions
+    - metadata
+    - schema
+    - decisions
 ---
 
 # Decisions Schema
@@ -20,11 +20,11 @@ Decision documents capture accepted product or technical decisions that should g
 scope: project
 type: decision
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 reviewers:
-  - "[[Éponine]]"
+    - "[[Éponine]]"
 tags:
-  - architecture
+    - architecture
 supersedes: []
 superseded_by: []
 ---

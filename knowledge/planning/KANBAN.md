@@ -2,7 +2,7 @@
 scope: project
 type: kanban
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 ---
 
 # Kanban

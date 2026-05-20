@@ -48,7 +48,7 @@ Before a long-running `run-goal`, present and confirm:
 goal:
 scope:
 current-member:
-candidate-source: Doing | Ready | Backlog | mixed
+candidate-source: Reviewing | Doing | Ready | Backlog | mixed
 max-tasks:
 max-items:
 deadline:
@@ -56,26 +56,116 @@ parallel-work-items:
 approval-mode:
 isolation:
 stop-at:
+policy-sources:
+project-policy-status:
+runtime-permission-model:
 git-sync-policy:
 kanban-policy:
 review-policy:
+source-stability-policy:
+allowed-paths:
+forbidden-actions:
+protected-surfaces:
+validation-strategy:
+medium-risk-auto-review:
+confirmation-required:
 ```
 
-If the contract is unclear, use `plan-only`.
+Before `run-loop`, present the same contract without `goal`, `candidate-source`, `max-tasks`, `kanban-policy`, and `review-policy`. If any contract field is unclear, use `plan-only`.
+
+Contract field values:
+
+| Field                     | Allowed values                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------- |
+| `approval-mode`           | `user-confirm`, `auto-review`, `plan-only`                                         |
+| `isolation`               | `main-worktree`, `shared-worktree`, `slot-worktree`                                |
+| `stop-at`                 | `item-done`, `reviewing-ready`, `budget-used`, `deadline`, `blocked`, `needs-user` |
+| `git-sync-policy`         | `no-sync`, `pull-before-start`, `ask-before-sync`                                  |
+| `kanban-policy`           | `no-board-edits`, `propose-only`, `approved-maintenance`                           |
+| `review-policy`           | `self-check`, `delivery-review`, `reviewer-subagent-if-needed`                     |
+| `source-stability-policy` | `lightweight`, `focused`, `strict`                                                 |
+
+If the user does not provide a value, use the default contract. Do not infer authorization for higher-risk values from vague wording.
+
+`approval-mode` is a Knowledge Workflow concept, not a runtime permission concept. It does not assume, require, replace, or bypass any Agent application, sandbox, or tool-host permission model. When runtime permissions are broader than the run contract, follow the run contract. When runtime permissions are stricter, obey the runtime boundary and report the block.
+
+## Policy Sources And Merge
+
+Build `run-loop` and `run-goal` execution policy from three sources:
+
+1. Skill baseline policy: this skill, workflow rules, and repository safety rules. This is the hard floor.
+2. Project policy: root `AGENTS.md` -> `Project-Specific Knowledge Workflow`.
+3. Prompt policy: the current user instruction for this run.
+
+Merge rules:
+
+- Skill baseline cannot be weakened.
+- Project policy may refine or tighten the baseline, and may authorize medium-risk auto-review only inside baseline guardrails.
+- Prompt policy may narrow scope and enable automation inside the baseline and project policy. If project policy is missing or partial, explicit task-level prompt policy may supply temporary boundaries for the current run.
+- If policies conflict, choose the more conservative rule or stop and ask.
+- If project policy is missing or partial, warn before starting; the prompt may supplement this run, but stable rules should be proposed through `knowledge-workflow:policy`.
+
+Assume runtime permissions may be broad or automatically approved. Use workflow policy as the self-limiting contract that decides what the Agent should do, even when the environment technically allows more.
+
+Before `auto-review` or `run-goal`, check whether project policy defines:
+
+- allowed paths or selection rules;
+- protected or high-risk change surfaces;
+- actions that require confirmation;
+- validation strategy;
+- whether medium-risk auto-review is allowed.
+
+If project policy does not define enough execution boundaries, vague `auto-review` is limited to low-risk actions. Medium-risk work requires explicit task-level confirmation unless the prompt supplies clear temporary boundaries for this run.
 
 ## Selection Checkpoints
 
-`run-goal` may re-check `Doing`, `Ready`, or `Backlog` after a task reaches review readiness, becomes blocked, exhausts local items, reaches a budget, or when the user asks to keep pulling eligible work.
+`run-goal` may re-check `Reviewing`, `Doing`, `Ready`, or `Backlog` after a task reaches review readiness, becomes blocked, exhausts local items, reaches a budget, or when the user asks to keep pulling eligible work.
+
+Use this source order inside the confirmed scope:
+
+1. `Reviewing` cards when the user asks for work closest to Done, review follow-up, or completion readiness. Route these to `delivery-review`; do not implement or move to Done directly.
+2. `Doing` cards with linked current-member `Active` WORKLIST items. Continue these before pulling new Ready work unless the user explicitly excludes Doing.
+3. `Ready` cards selected through `next-task-selection`.
+4. `Backlog` cards only when explicitly included in the run goal; blocked planned dependencies remain context until blockers resolve.
+
+When a prompt says "assigned Ready tasks", keep the scope to Ready even if local Active items exist. When a prompt says "Doing", "active", "continue", "closest to Done", or "finish current work", include the earlier source classes above.
 
 At a checkpoint:
 
 1. Check repository and worktree state.
-2. If freshness matters, propose `git pull`; in `auto-review`, pull only when clean, low-risk, and no worker result is pending.
-3. Re-read `knowledge/planning/KANBAN.md` and linked task context.
-4. Use `next-task-selection` within the goal scope.
-5. Intake only approved candidates.
+2. If freshness matters, propose `git pull`; in `auto-review`, pull only when clean, classified as `low` risk, and no worker result is pending.
+3. Re-read `<knowledge_dir>/planning/KANBAN.md` and linked task context.
+4. Route `Reviewing` cards in scope to `delivery-review`.
+5. Continue `Doing` cards with linked current-member Active WORKLIST items before selecting new Ready work.
+6. Use `next-task-selection` for Ready or Backlog candidates within the goal scope.
+7. Intake only approved candidates.
 
 Never move a card to `Done` from `run-goal`; use `delivery-review` and approved `kanban-maintenance`.
+
+## Source Stability
+
+Default `source-stability-policy`: `focused`.
+
+Use layered source checks so long-running `run-goal` stays reliable without expensive full scans:
+
+| Policy        | When to use                                            | Required checks                                                                                                                                                    |
+| ------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lightweight` | simple `run-next` or low-risk local work               | repository state, selected WORKLIST item, and directly linked task or note                                                                                         |
+| `focused`     | default for `run-goal` and medium-risk work            | lightweight checks plus selected task `Sources`, `blocked_by`, required requirement/design/resource links, and likely dirty-file overlap                           |
+| `strict`      | high-risk surfaces, unclear freshness, or user request | focused checks plus broader linked context, relevant schema/workflow rules, planned validation, and whether related sources are committed and synced when required |
+
+Every checkpoint performs lightweight checks. Before starting a selected task, perform focused checks. Use strict checks only when the run contract, risk, dirty state, protected surface, worker dispatch, or user prompt requires it.
+
+If source stability cannot be established, classify the item as `blocked`, `out-of-scope`, or `needs-user` instead of implementing.
+
+## Downstream Follow-Up
+
+Use two stages for tasks whose completion may release downstream work:
+
+1. At `reviewing-ready`, reverse-look up downstream tasks whose `blocked_by` references the selected task and report possible follow-up only. Do not change downstream readiness or Kanban state.
+2. After `delivery-review` accepts the task, reverse-look up again and propose actionable downstream readiness, task metadata, or Kanban follow-up through the owning skill.
+
+Never treat `reviewing-ready` as delivery completion or as permission to update downstream cards automatically.
 
 ## Deadlines
 
@@ -96,14 +186,14 @@ Parallel work is opt-in. Use it only when the user explicitly authorizes paralle
 
 Before dispatch:
 
-1. Collect candidate `Active` items within the budget plus small lookahead.
+1. Collect candidate `Active` items within the budget plus at most `parallel-work-items` additional lookahead items.
 2. Validate each item.
 3. Classify type, risk, likely touched areas, required skills, approvals, and checks.
 4. Check dependencies and conflicts from item order, explicit links, task metadata, source references, likely files, blockers, and shared resources.
 5. Select an independent batch no larger than `parallel-work-items`.
 6. Dispatch only low- or medium-risk independent items.
 
-Use isolated `.agents/.local/worktrees/slot-XX/` worktrees for parallel workers. Do not run parallel workers in the main worktree or shared serial worktree.
+Use isolated `<agent_local_dir>/worktrees/slot-XX/` worktrees for parallel workers. Do not run parallel workers in the main worktree or shared serial worktree.
 
 Parallel eligibility requires:
 
@@ -140,16 +230,26 @@ Do not retry indefinitely or continue after high-risk failure, unclear repositor
 ## Approval Modes
 
 - `user-confirm`: default; stop when confirmation is needed.
-- `auto-review`: main Agent may approve low-risk local actions after reviewing scope, diff, and validation.
+- `auto-review`: main Agent may continue after self-reviewing scope, risk, diff, validation, policy sources, and the run contract.
 - `plan-only`: plan without implementation.
 
-`auto-review` is not a policy bypass. Deletion, commits, publishing, external transmission, account or permission changes, software installation, local system changes, elevated execution, and other high-risk actions still require user confirmation. Worker subagents never self-approve elevation.
+`auto-review` is a workflow approval mode. It is not runtime authorization, and it does not approve tool calls, escalation, sandbox overrides, or host-application permission prompts. Deletion, commits, publishing, external transmission, account or permission changes, software installation, local system changes, elevated execution, and project-defined protected or high-risk surfaces still require user confirmation at the workflow layer. Worker subagents never self-approve elevation.
+
+Use this risk classification before self-approval:
+
+| Risk     | Conditions                                                                                                                          | Workflow auto-review behavior                                                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `low`    | Local-only notes/logs, read-only checks, formatting approved files, or edits limited to approved paths                              | Main Agent may proceed after review when the run contract allows it                                                                                        |
+| `medium` | Source code, shared knowledge, task metadata, or generated artifacts within approved scope                                          | Proceed only when user allowed auto-review and project policy or explicit task-level prompt policy allows medium-risk automation for the affected scope    |
+| `high`   | Deletion, reset, migration, dependency install, external publish/transmission, secrets, permissions, commits, or protected surfaces | Requires explicit workflow confirmation unless the current user instruction and project policy both give a specific task-level exception inside guardrails |
+
+If any condition from a higher risk row applies, use the higher risk. If risk cannot be classified, treat it as `high`.
 
 ## Planning And Execution
 
 Choose the lightest safe path:
 
-- direct main-Agent plan for clear small work;
+- direct main-Agent plan for work that fits one file or one tightly scoped change and has no unresolved dependency;
 - read-only planner for unclear requirements, multi-file scope, dependency checks, risk assessment, or context pressure;
 - worker for bounded execution;
 - shared worktree for serial isolation;
@@ -215,4 +315,4 @@ If a worker is blocked, fails, leaves dirty state, or reports unusable state, ma
 
 Default run handoffs belong in the final response, local log, or current worklist item. Create a shared handoff file only when team-relevant, cross-member, long-lived, complex enough to survive chat, or explicitly requested.
 
-Use `knowledge/workspace/<member-id>/local/agent/` only for temporary loop coordination. Rebuild stale scratch from `WORKLIST.md`, copy important unlogged information to today's log, and clean scratch after durable logs and worklist updates are written.
+Use `<knowledge_dir>/workspace/<member-id>/local/agent/` only for temporary loop coordination. Rebuild stale scratch from `WORKLIST.md`, copy important unlogged information to today's log, and clean scratch after durable logs and worklist updates are written.

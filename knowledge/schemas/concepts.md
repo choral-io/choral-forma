@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - metadata
-  - schema
-  - concepts
+    - metadata
+    - schema
+    - concepts
 ---
 
 # Concepts Schema
@@ -20,9 +20,9 @@ Concept documents define reusable project terms, domain concepts, and shared voc
 scope: project
 type: concept
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - agent
+    - agent
 ---
 ```
 

@@ -2,12 +2,28 @@ template_id: knowledge-workflow
 template_version: 1
 manifest_version: 1
 knowledge_dir: knowledge
-agent_skills_dir: ".agents/skills"
 agent_local_dir: ".agents/.local"
 canonical_language: en
 default_group_id: default-team
 installed_at: "2026-05-16T15:26:58Z"
 updated_at: "2026-05-17T04:25:47Z"
+
+agent_skills:
+  mode: project
+  dir: .agents/skills
+  required:
+    - knowledge-intake
+    - knowledge-capture
+    - knowledge-schema-audit
+    - task-metadata-audit
+    - knowledge-status-report
+    - workspace-worklist
+    - delivery-planning
+    - next-task-selection
+    - kanban-maintenance
+    - delivery-implementation
+    - delivery-review
+
 append_blocks:
   - path: AGENTS.md
     block: knowledge-workflow

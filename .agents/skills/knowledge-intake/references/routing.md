@@ -1,21 +1,70 @@
 # Knowledge Intake Routing
 
+## Routing Decisions
+
+Choose exactly one routing decision before recommending a next step:
+
+| Decision              | Use when                                                                 | Default next step                                        |
+| --------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------- |
+| `no-change`           | No durable or useful local project information emerged                   | Answer in chat; do not write                             |
+| `local-scratch`       | Raw personal observation, rough idea, inbox-style capture                | Write only if user asks; target current `local/scratch/` |
+| `local-draft`         | Structured personal draft not approved for team sharing                  | Draft under current `local/drafts/` after approval       |
+| `shared-workspace`    | Public member summary, handoff, or shareable investigation               | Route approved write to `knowledge-capture`              |
+| `proposal`            | Valuable but unconfirmed candidate needing review                        | Create proposal after approval                           |
+| `canonical-knowledge` | Approved fact, requirement, design, architecture, decision, or guideline | Route approved write to `knowledge-capture`              |
+| `task-candidate`      | Executable team work not yet accepted onto Kanban                        | Create or refine task item after approval                |
+| `kanban-planning`     | Accepted task item needs board proposal                                  | Route to `delivery-planning`                             |
+| `member-or-group`     | Project-visible member or group profile/change                           | Route approved write to `knowledge-capture`              |
+| `ignore-or-defer`     | Duplicative, premature, sensitive, or intentionally deferred             | Explain why no repository write should happen            |
+
+If multiple decisions appear plausible, choose the highest row that preserves safety and source-of-truth boundaries, then list the rejected alternatives in the response.
+
+## Intake Output
+
+Use this shape:
+
+```md
+## Routing Decision
+
+`canonical-knowledge`
+
+## Target
+
+`<knowledge_dir>/product/example.md`
+
+## Why
+
+Rule-based reason tied to the table above.
+
+## Existing Knowledge Checked
+
+- path or "not checked"
+
+## Next Step
+
+Use `knowledge-capture` to ...
+
+## Do Not Do Yet
+
+- Kanban change
+```
+
 ## Routing Examples
 
-| User mention                                                       | First action                   | Target                                   |
-| ------------------------------------------------------------------ | ------------------------------ | ---------------------------------------- |
-| Market, business, customer, environmental, or competitive research | Review discovery docs          | `knowledge/discovery/`                   |
-| Product requirement or user behavior                               | Review existing product docs   | `knowledge/product/`                     |
-| UI layout, component behavior, visual state                        | Review existing design docs    | `knowledge/design/`                      |
-| Domain term or reusable concept                                    | Search concepts                | `knowledge/concepts/`                    |
-| Module boundary, API, data flow, integration                       | Review architecture docs       | `knowledge/architecture/`                |
-| Product or technical tradeoff                                      | Check existing decisions       | `knowledge/decisions/`                   |
-| Cross-area writing, terminology, or language                       | Review guidelines              | `knowledge/guidelines/`                  |
-| Sprint, roadmap, process, migration                                | Review planning docs           | `knowledge/planning/`                    |
-| Valuable but unconfirmed knowledge, task, or decision candidate    | Create proposal after approval | `knowledge/proposals/`                   |
-| Implementable work item                                            | Create or refine task item     | `knowledge/tasks/items/`                 |
-| Personal working context                                           | Capture locally                | `knowledge/workspace/<member-id>/local/` |
-| Shareable member summary, handoff, research                        | Summarize for team use         | `knowledge/workspace/<member-id>/`       |
+| User mention                                                       | First action                   | Target                                         |
+| ------------------------------------------------------------------ | ------------------------------ | ---------------------------------------------- |
+| Market, business, customer, environmental, or competitive research | Review discovery docs          | `<knowledge_dir>/discovery/`                   |
+| Product requirement or user behavior                               | Review existing product docs   | `<knowledge_dir>/product/`                     |
+| UI layout, component behavior, visual state                        | Review existing design docs    | `<knowledge_dir>/design/`                      |
+| Domain term or reusable concept                                    | Search concepts                | `<knowledge_dir>/concepts/`                    |
+| Module boundary, API, data flow, integration                       | Review architecture docs       | `<knowledge_dir>/architecture/`                |
+| Product or technical tradeoff                                      | Check existing decisions       | `<knowledge_dir>/decisions/`                   |
+| Cross-area writing, terminology, or language                       | Review guidelines              | `<knowledge_dir>/guidelines/`                  |
+| Sprint, roadmap, process, migration                                | Review planning docs           | `<knowledge_dir>/planning/`                    |
+| Valuable but unconfirmed knowledge, task, or decision candidate    | Create proposal after approval | `<knowledge_dir>/proposals/`                   |
+| Implementable work item                                            | Create or refine task item     | `<knowledge_dir>/tasks/items/`                 |
+| Personal working context                                           | Capture locally                | `<knowledge_dir>/workspace/<member-id>/local/` |
+| Shareable member summary, handoff, research                        | Summarize for team use         | `<knowledge_dir>/workspace/<member-id>/`       |
 
 ## Local Promotion
 
@@ -45,7 +94,7 @@ Good proposal candidates:
 - decision candidate that needs owner or reviewer judgment
 - material with multiple possible target areas
 
-Do not require a proposal when the user has clearly approved a low-risk knowledge update and the target document is obvious.
+Do not require a proposal for user-approved single-file wording or metadata updates with a known target and no schema, ownership, delivery-status, or acceptance impact.
 
 ## Suggested Response Pattern
 

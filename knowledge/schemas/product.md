@@ -2,11 +2,11 @@
 scope: project
 type: schema
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - metadata
-  - schema
-  - product
+    - metadata
+    - schema
+    - product
 ---
 
 # Product Schema
@@ -20,9 +20,9 @@ Product documents define product intent, requirements, user-facing behavior, pro
 scope: project
 type: product
 owners:
-  - "[[groups/default-team]]"
+    - "[[groups/default-team]]"
 tags:
-  - product
+    - product
 ---
 ```
 
