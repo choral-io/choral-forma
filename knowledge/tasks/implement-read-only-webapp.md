@@ -14,7 +14,7 @@ severity:
 value: M
 module: app
 effort: L
-readiness: blocked
+readiness: ready
 sprint:
 blocked_by:
     - "[[tasks/implement-operation-rpc-cli-foundation]]"
@@ -72,11 +72,10 @@ basic browsing and rendering, but no editing or mutation.
 
 ## Relationship Notes
 
-Previously blocked by operation/RPC, starter CLI flows, and render operations;
-those implementation slices are now present. The task is currently blocked by
-the follow-up view source/query model alignment because the WebApp should not
-build its navigation and rendering surface on the older collection-bound view
-model.
+Previously blocked by operation/RPC, starter CLI flows, render operations, and
+the follow-up view source/query model alignment. Those blockers are now resolved
+by completed delivery tasks. The `blocked_by` entries remain as dependency
+history and downstream-unlock evidence.
 
 ## Open Questions
 

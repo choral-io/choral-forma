@@ -49,9 +49,22 @@ pub struct IndexView {
     pub path: String,
     pub surface: String,
     pub mode: String,
-    pub collection: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<IndexViewSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexViewSource {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub include: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub exclude: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -467,12 +480,16 @@ fn discover_views(
         let mode = required_string(&value, "view.mode").or_else(|| required_string(&value, "mode"));
         let collection = required_string(&value, "view.collection")
             .or_else(|| required_string(&value, "collection"));
+        let source = parse_view_source(&value);
         let title =
             optional_string(&value, "view.title").or_else(|| optional_string(&value, "title"));
         let valid_collection = collection
             .as_ref()
-            .is_some_and(|collection| config.collections.contains_key(collection));
-        if surface.is_none() || mode.is_none() || collection.is_none() || !valid_collection {
+            .is_none_or(|collection| config.collections.contains_key(collection));
+        let valid_source = source
+            .as_ref()
+            .is_none_or(|source| source.kind == "workspace");
+        if surface.is_none() || mode.is_none() || !valid_collection || !valid_source {
             diagnostics.push(
                 Diagnostic::error("view.invalid", "View definition is invalid.")
                     .with_path(relative.clone()),
@@ -484,7 +501,8 @@ fn discover_views(
             path: relative,
             surface: surface.unwrap(),
             mode: mode.unwrap(),
-            collection: collection.unwrap(),
+            collection,
+            source,
             title,
         });
     }
@@ -861,6 +879,29 @@ fn optional_string(value: &Value, field: &str) -> Option<String> {
     required_string(value, field)
 }
 
+fn parse_view_source(value: &Value) -> Option<IndexViewSource> {
+    let source = value_at_path(value, "view.source")?;
+    let kind = optional_string(source, "kind")?;
+    Some(IndexViewSource {
+        kind,
+        include: string_sequence(source, "include"),
+        exclude: string_sequence(source, "exclude"),
+    })
+}
+
+fn string_sequence(value: &Value, field: &str) -> Vec<String> {
+    value_at_path(value, field)
+        .and_then(Value::as_sequence)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn strip_reference_markup(value: &str) -> String {
     let mut value = value.trim();
     if let Some(stripped) = value.strip_prefix("![[") {
@@ -1120,6 +1161,35 @@ mod tests {
         let invalid = index_check(&root);
         assert_eq!(invalid.status, OperationStatus::Failed);
         assert_eq!(invalid.diagnostics[0].code, "index.invalid");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn indexes_workspace_source_graph_view_without_collection_filter() {
+        let root = fixture_root("graph-view");
+        write_workspace(&root);
+        write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
+        write_view(
+            &root,
+            "knowledge-graph.md",
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: graph\n  title: Knowledge Graph\n  source:\n    kind: workspace\n    include:\n      - \"**/*.md\"\n    exclude:\n      - \".forma/**\"\n      - \"**/local/**\"\n---\n\n# Knowledge Graph\n\n<!-- forma-view -->\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+        let view = discovery
+            .index
+            .views
+            .iter()
+            .find(|view| view.id == "knowledge-graph")
+            .expect("graph view should be indexed");
+
+        assert!(discovery.diagnostics.is_empty());
+        assert_eq!(view.mode, "graph");
+        assert_eq!(view.collection, None);
+        assert_eq!(
+            view.source.as_ref().map(|source| source.kind.as_str()),
+            Some("workspace")
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

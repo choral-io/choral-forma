@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
+use globset::{Glob, GlobSetBuilder};
 use markdown::{Options, to_html_with_options};
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
@@ -70,7 +71,10 @@ pub struct RenderedView {
     pub mode: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    pub collection: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<ViewSource>,
     #[serde(default)]
     pub params: BTreeMap<String, Value>,
 }
@@ -118,11 +122,23 @@ struct ViewFile {
 struct ViewDefinition {
     surface: String,
     mode: String,
-    collection: String,
+    collection: Option<String>,
+    source: Option<ViewSource>,
+    query: Option<QueryDefinition>,
     table: Option<TableDefinition>,
     kanban: Option<KanbanDefinition>,
     #[serde(default)]
     sort: Vec<SortDefinition>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewSource {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub include: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub exclude: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -168,28 +184,42 @@ struct KanbanColumnDefinition {
 #[serde(rename_all = "camelCase")]
 struct QueryDefinition {
     #[serde(default)]
-    all: Vec<QueryCondition>,
+    all: Vec<QueryNode>,
     #[serde(default)]
-    any: Vec<QueryCondition>,
+    any: Vec<QueryNode>,
+    #[serde(default)]
+    not: Vec<QueryNode>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct QueryCondition {
-    field: String,
-    op: QueryOperator,
-    value: Value,
+struct QueryNode {
+    target: Option<String>,
+    field: Option<String>,
+    op: Option<QueryOperator>,
+    value: Option<Value>,
+    #[serde(default)]
+    all: Vec<QueryNode>,
+    #[serde(default)]
+    any: Vec<QueryNode>,
+    #[serde(default)]
+    not: Vec<QueryNode>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum QueryOperator {
     Equals,
+    In,
+    Contains,
+    Exists,
 }
 
 #[derive(Debug, Clone)]
 struct RenderCandidate {
     path: String,
+    collection: String,
+    kind: Option<String>,
     title: Option<String>,
     metadata: Value,
 }
@@ -302,11 +332,12 @@ pub fn render_view(
     }
 
     let definition_is_valid = view_definition.as_ref().is_some_and(|definition| {
-        definition.surface == "page"
-            && workspace
-                .config
-                .collections
-                .contains_key(&definition.collection)
+        view_definition_is_valid(
+            definition,
+            &workspace.config.collections,
+            &view_path,
+            &mut diagnostics,
+        )
     });
     if view_definition.is_some() && !definition_is_valid {
         diagnostics.push(
@@ -321,7 +352,10 @@ pub fn render_view(
             None
         }
     });
-    if definition_is_valid && render.is_none() {
+    let render_required = view_definition
+        .as_ref()
+        .is_some_and(|definition| matches!(definition.mode.as_str(), "table" | "kanban"));
+    if definition_is_valid && render_required && render.is_none() {
         diagnostics.push(
             Diagnostic::error("view.invalid", "View definition is invalid.")
                 .with_path(view_path.clone()),
@@ -371,6 +405,134 @@ fn parse_view_definition(
     Some(view)
 }
 
+fn view_definition_is_valid(
+    definition: &ViewDefinition,
+    collections: &BTreeMap<String, crate::config::CollectionDefinition>,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let mut valid = true;
+    if definition.surface != "page" {
+        valid = false;
+    }
+    if let Some(collection) = &definition.collection
+        && !collections.contains_key(collection)
+    {
+        valid = false;
+    }
+    if let Some(source) = &definition.source
+        && source.kind != "workspace"
+    {
+        valid = false;
+    }
+    if let Some(source) = &definition.source {
+        valid &= view_source_is_valid(source, path, diagnostics);
+    }
+    if let Some(query) = &definition.query {
+        valid &= query_is_valid(query, path, diagnostics);
+    }
+    if let Some(kanban) = &definition.kanban {
+        for column in &kanban.columns {
+            if let Some(query) = &column.query {
+                valid &= query_is_valid(query, path, diagnostics);
+            }
+        }
+    }
+    valid
+}
+
+fn view_source_is_valid(
+    source: &ViewSource,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let mut valid = true;
+    for pattern in source.include.iter().chain(source.exclude.iter()) {
+        if Glob::new(pattern).is_err() {
+            diagnostics.push(
+                Diagnostic::error("view.sourceInvalid", "View source glob is invalid.")
+                    .with_path(path)
+                    .with_actual(pattern.clone()),
+            );
+            valid = false;
+        }
+    }
+    valid
+}
+
+fn query_is_valid(query: &QueryDefinition, path: &str, diagnostics: &mut Vec<Diagnostic>) -> bool {
+    query
+        .all
+        .iter()
+        .all(|node| query_node_is_valid(node, path, diagnostics))
+        & query
+            .any
+            .iter()
+            .all(|node| query_node_is_valid(node, path, diagnostics))
+        & query
+            .not
+            .iter()
+            .all(|node| query_node_is_valid(node, path, diagnostics))
+}
+
+fn query_node_is_valid(node: &QueryNode, path: &str, diagnostics: &mut Vec<Diagnostic>) -> bool {
+    let has_children = !node.all.is_empty() || !node.any.is_empty() || !node.not.is_empty();
+    let mut valid = true;
+    valid &= node
+        .all
+        .iter()
+        .all(|child| query_node_is_valid(child, path, diagnostics));
+    valid &= node
+        .any
+        .iter()
+        .all(|child| query_node_is_valid(child, path, diagnostics));
+    valid &= node
+        .not
+        .iter()
+        .all(|child| query_node_is_valid(child, path, diagnostics));
+    if has_children {
+        return valid;
+    }
+
+    if node.op.is_none() || query_node_target(node).is_none() {
+        diagnostics.push(
+            Diagnostic::error("view.queryInvalid", "View query predicate is invalid.")
+                .with_path(path),
+        );
+        return false;
+    }
+    if let Some(target) = &node.target
+        && !is_supported_target(target)
+    {
+        diagnostics.push(
+            Diagnostic::error("view.queryInvalid", "View query target is invalid.")
+                .with_path(path)
+                .with_actual(target.clone()),
+        );
+        valid = false;
+    }
+    if matches!(node.op, Some(QueryOperator::Exists))
+        && node.value.as_ref().is_some_and(|value| !value.is_bool())
+    {
+        diagnostics.push(
+            Diagnostic::error(
+                "view.queryInvalid",
+                "View query exists value must be boolean.",
+            )
+            .with_path(path),
+        );
+        valid = false;
+    }
+    valid
+}
+
+fn is_supported_target(target: &str) -> bool {
+    matches!(
+        target,
+        "entry.collection" | "entry.path" | "entry.kind" | "entry.title"
+    ) || target.starts_with("frontmatter.")
+}
+
 fn rendered_view(
     index_view: Option<&IndexView>,
     id: &str,
@@ -389,7 +551,16 @@ fn rendered_view(
         mode: definition.mode.clone(),
         title: index_view.and_then(|view| view.title.clone()),
         collection: definition.collection.clone(),
+        source: Some(definition.source.clone().unwrap_or_else(workspace_source)),
         params,
+    }
+}
+
+fn workspace_source() -> ViewSource {
+    ViewSource {
+        kind: "workspace".to_string(),
+        include: Vec::new(),
+        exclude: Vec::new(),
     }
 }
 
@@ -403,8 +574,8 @@ fn render_view_definition(
     }
     let mut items = entries
         .iter()
-        .filter(|entry| entry.collection == definition.collection)
         .filter_map(|entry| RenderCandidate::from_index_entry(root, entry))
+        .filter(|item| view_candidate_matches(item, definition))
         .collect::<Vec<_>>();
     apply_sort(&mut items, &definition.sort);
 
@@ -442,6 +613,7 @@ fn render_view_definition(
                     .collect(),
             })
         }
+        "graph" => None,
         _ => None,
     }
 }
@@ -451,6 +623,8 @@ impl RenderCandidate {
         let metadata = read_entry_metadata(root, &entry.path)?;
         Some(Self {
             path: entry.path.clone(),
+            collection: entry.collection.clone(),
+            kind: entry.kind.clone(),
             title: entry.title.clone(),
             metadata,
         })
@@ -512,22 +686,130 @@ fn column_matches(item: &RenderCandidate, column: &KanbanColumnDefinition) -> bo
     let Some(query) = column.query.as_ref() else {
         return true;
     };
-    let all_match = query
-        .all
-        .iter()
-        .all(|condition| condition_matches(item, condition));
-    let any_match = query.any.is_empty()
-        || query
-            .any
-            .iter()
-            .any(|condition| condition_matches(item, condition));
-    all_match && any_match
+    query_matches(item, query)
 }
 
-fn condition_matches(item: &RenderCandidate, condition: &QueryCondition) -> bool {
-    match condition.op {
-        QueryOperator::Equals => value_at_path(&item.metadata, &condition.field)
-            .is_some_and(|actual| values_equal(actual, &condition.value)),
+fn view_candidate_matches(item: &RenderCandidate, definition: &ViewDefinition) -> bool {
+    if !source_matches(&item.path, definition.source.as_ref()) {
+        return false;
+    }
+    if let Some(collection) = &definition.collection
+        && item.collection != *collection
+    {
+        return false;
+    }
+    definition
+        .query
+        .as_ref()
+        .is_none_or(|query| query_matches(item, query))
+}
+
+fn source_matches(path: &str, source: Option<&ViewSource>) -> bool {
+    let Some(source) = source else {
+        return true;
+    };
+    if source.kind != "workspace" {
+        return false;
+    }
+    let include_match = source.include.is_empty() || path_matches_any(path, &source.include);
+    let exclude_match = path_matches_any(path, &source.exclude);
+    include_match && !exclude_match
+}
+
+fn path_matches_any(path: &str, patterns: &[String]) -> bool {
+    if patterns.is_empty() {
+        return false;
+    }
+    let mut builder = GlobSetBuilder::new();
+    for pattern in patterns {
+        let Ok(glob) = Glob::new(pattern) else {
+            return false;
+        };
+        builder.add(glob);
+    }
+    builder.build().is_ok_and(|set| set.is_match(path))
+}
+
+fn query_matches(item: &RenderCandidate, query: &QueryDefinition) -> bool {
+    let all_match = query.all.iter().all(|node| query_node_matches(item, node));
+    let any_match =
+        query.any.is_empty() || query.any.iter().any(|node| query_node_matches(item, node));
+    let not_match = query.not.iter().all(|node| !query_node_matches(item, node));
+    all_match && any_match && not_match
+}
+
+fn query_node_matches(item: &RenderCandidate, node: &QueryNode) -> bool {
+    if !node.all.is_empty() || !node.any.is_empty() || !node.not.is_empty() {
+        let all_match = node.all.iter().all(|child| query_node_matches(item, child));
+        let any_match =
+            node.any.is_empty() || node.any.iter().any(|child| query_node_matches(item, child));
+        let not_match = node
+            .not
+            .iter()
+            .all(|child| !query_node_matches(item, child));
+        return all_match && any_match && not_match;
+    }
+
+    let Some(op) = node.op else {
+        return false;
+    };
+    let target = query_node_target(node);
+    let actual = target.and_then(|target| value_for_target(item, target));
+
+    match op {
+        QueryOperator::Equals => node.value.as_ref().is_some_and(|expected| {
+            actual
+                .as_ref()
+                .is_some_and(|actual| values_equal(actual, expected))
+        }),
+        QueryOperator::In => node.value.as_ref().is_some_and(|expected| {
+            actual.as_ref().is_some_and(|actual| match expected {
+                Value::Sequence(values) => values.iter().any(|value| values_equal(actual, value)),
+                _ => false,
+            })
+        }),
+        QueryOperator::Contains => node.value.as_ref().is_some_and(|expected| {
+            actual
+                .as_ref()
+                .is_some_and(|actual| value_contains(actual, expected))
+        }),
+        QueryOperator::Exists => {
+            let expected = node.value.as_ref().and_then(Value::as_bool).unwrap_or(true);
+            actual.is_some() == expected
+        }
+    }
+}
+
+fn query_node_target(node: &QueryNode) -> Option<&str> {
+    node.target.as_deref().or_else(|| node.field.as_deref())
+}
+
+fn value_for_target(item: &RenderCandidate, target: &str) -> Option<Value> {
+    if target == "entry.collection" {
+        return Some(Value::String(item.collection.clone()));
+    }
+    if target == "entry.path" {
+        return Some(Value::String(item.path.clone()));
+    }
+    if target == "entry.kind" {
+        return item.kind.clone().map(Value::String);
+    }
+    if target == "entry.title" {
+        return item.title.clone().map(Value::String);
+    }
+    target
+        .strip_prefix("frontmatter.")
+        .and_then(|field| value_at_path(&item.metadata, field).cloned())
+        .or_else(|| value_at_path(&item.metadata, target).cloned())
+}
+
+fn value_contains(actual: &Value, expected: &Value) -> bool {
+    match actual {
+        Value::Sequence(values) => values.iter().any(|value| values_equal(value, expected)),
+        Value::String(actual) => expected
+            .as_str()
+            .is_some_and(|expected| actual.contains(expected)),
+        _ => false,
     }
 }
 
@@ -743,6 +1025,72 @@ mod tests {
             .expect("doing column should exist");
         assert_eq!(doing.items.len(), 1);
         assert_eq!(doing.items[0].fields["title"], "Draft brief");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renders_explicit_workspace_source_and_normalized_query_targets() {
+        let root = fixture_root("workspace-source-view-render");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        create_entry(
+            &root,
+            "notes",
+            BTreeMap::from([("title".to_string(), Value::String("Background".to_string()))]),
+        )
+        .unwrap();
+        create_entry(
+            &root,
+            "todos",
+            BTreeMap::from([
+                (
+                    "title".to_string(),
+                    Value::String("Draft brief".to_string()),
+                ),
+                ("status".to_string(), Value::String("doing".to_string())),
+            ]),
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/active-todos.md"),
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  title: Active Todos\n  source:\n    kind: workspace\n    include:\n      - \"**/*.md\"\n  query:\n    all:\n      - target: entry.collection\n        op: equals\n        value: todos\n      - target: frontmatter.status\n        op: in\n        value: [todo, doing]\n  table:\n    columns:\n      - title\n---\n\n# Active Todos\n\n<!-- forma-view -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "active-todos", BTreeMap::new()).unwrap();
+        let Some(ViewRenderOutput::Table { items, .. }) = result.render else {
+            panic!("expected table render");
+        };
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].path, "todos/draft-brief.md");
+        assert_eq!(items[0].fields["title"], "Draft brief");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_invalid_query_target_as_diagnostic() {
+        let root = fixture_root("view-invalid-target");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join(".forma/views/notes.md"),
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  title: Notes\n  query:\n    all:\n      - target: metadata.status\n        op: equals\n        value: todo\n  table:\n    columns:\n      - title\n---\n\n# Notes\n\n<!-- forma-view -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "notes", BTreeMap::new()).unwrap();
+
+        assert_eq!(result.status, crate::OperationStatus::Failed);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "view.queryInvalid")
+        );
+        assert!(result.render.is_none());
 
         fs::remove_dir_all(root).unwrap();
     }

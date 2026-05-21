@@ -11,20 +11,20 @@ Rules: [[planning/WORKFLOW]]
 ## Backlog
 
 - [ ] [[tasks/implement-ci-release-baseline|Implement CI Release Baseline]]
-- [ ] [[tasks/implement-read-only-webapp|Implement Read Only WebApp]]
 
 ## Ready
+
+- [ ] [[tasks/implement-read-only-webapp|Implement Read Only WebApp]]
 
 ## Doing
 
 ## Reviewing
 
-- [ ] [[tasks/align-view-source-query-model|Align View Source Query Model]]
-
 ## Blocked
 
 ## Done
 
+- [ ] [[tasks/align-view-source-query-model|Align View Source Query Model]]
 - [ ] [[tasks/implement-view-entry-render|Implement View Entry Render]]
 - [ ] [[tasks/implement-starter-init-create-inspect-list|Implement Starter Init Create Inspect List]]
 - [ ] [[tasks/implement-check-index-diagnostics|Implement Check Index Diagnostics]]
