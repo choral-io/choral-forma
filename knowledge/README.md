@@ -1,8 +1,7 @@
 ---
 scope: project
 type: index
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - knowledge
 ---
@@ -10,6 +9,8 @@ tags:
 # Project Knowledge
 
 This directory is the project knowledge base for this project. It stores shared facts, decisions, product context, and task planning material that should live with the code.
+
+The bundled profile is optimized for software product development teams. Its default areas and workflow rules focus on product knowledge, design notes, architecture decisions, delivery tasks, implementation review, and reusable product development experience.
 
 Read [schemas/common.md](schemas/common.md) before writing or reorganizing knowledge files. Then read the relevant area schema under [schemas/](schemas/).
 
@@ -28,7 +29,7 @@ Use `knowledge-assistant` when the next process step is unclear.
 ## Areas
 
 - `members/`: team member profiles, responsibilities, focus areas, and public collaboration context.
-- `groups/`: non-person responsibility subjects such as default responsibility group ownership, review boards, maintainer groups, and working groups.
+- `groups/`: non-person responsibility subjects such as teams, review boards, maintainer groups, and working groups.
 - `workspace/`: member-scoped shared summaries, handoffs, research, and local-only worklists/logs/personal Agent preferences under `local/`.
 - `discovery/`: requirement discovery, market and business research, customer context, environmental analysis, opportunity framing, and assumptions.
 - `product/`: product requirements, feature definitions, and user-facing behavior.
@@ -38,36 +39,37 @@ Use `knowledge-assistant` when the next process step is unclear.
 - `guidelines/`: cross-area writing, terminology, language, documentation, and process guidelines.
 - `planning/`: roadmap, sprint planning, and sprint summaries.
 - `proposals/`: optional review buffer for valuable but unconfirmed knowledge, task, or decision candidates.
-- `tasks/`: task items, Kanban rules, and task templates.
+- `tasks/`: durable delivery task context and acceptance criteria.
 - `schemas/`: writing contracts for knowledge metadata, body structure, naming, and link rules.
+- `templates/`: reusable Markdown templates for task, proposal, member, group, handoff, and worklist files.
 
 ## Schemas
 
 Use these schema files when writing or auditing knowledge:
 
-| Target                      | Schema                                             |
-| --------------------------- | -------------------------------------------------- |
-| Any knowledge file          | [schemas/common.md](schemas/common.md)             |
-| `discovery/`                | [schemas/discovery.md](schemas/discovery.md)       |
-| `product/`                  | [schemas/product.md](schemas/product.md)           |
-| `design/`                   | [schemas/design.md](schemas/design.md)             |
-| `architecture/`             | [schemas/architecture.md](schemas/architecture.md) |
-| `concepts/`                 | [schemas/concepts.md](schemas/concepts.md)         |
-| `decisions/`                | [schemas/decisions.md](schemas/decisions.md)       |
-| `guidelines/`               | [schemas/guidelines.md](schemas/guidelines.md)     |
-| `planning/`                 | [schemas/planning.md](schemas/planning.md)         |
-| `planning/sprints/`         | [schemas/sprints.md](schemas/sprints.md)           |
-| `proposals/`                | [schemas/proposals.md](schemas/proposals.md)       |
-| `tasks/` and `tasks/items/` | [schemas/tasks.md](schemas/tasks.md)               |
-| `members/`                  | [schemas/members.md](schemas/members.md)           |
-| `groups/`                   | [schemas/groups.md](schemas/groups.md)             |
-| `workspace/`                | [schemas/workspace.md](schemas/workspace.md)       |
+| Target              | Schema                                             |
+| ------------------- | -------------------------------------------------- |
+| Any knowledge file  | [schemas/common.md](schemas/common.md)             |
+| `discovery/`        | [schemas/discovery.md](schemas/discovery.md)       |
+| `product/`          | [schemas/product.md](schemas/product.md)           |
+| `design/`           | [schemas/design.md](schemas/design.md)             |
+| `architecture/`     | [schemas/architecture.md](schemas/architecture.md) |
+| `concepts/`         | [schemas/concepts.md](schemas/concepts.md)         |
+| `decisions/`        | [schemas/decisions.md](schemas/decisions.md)       |
+| `guidelines/`       | [schemas/guidelines.md](schemas/guidelines.md)     |
+| `planning/`         | [schemas/planning.md](schemas/planning.md)         |
+| `planning/sprints/` | [schemas/sprints.md](schemas/sprints.md)           |
+| `proposals/`        | [schemas/proposals.md](schemas/proposals.md)       |
+| `tasks/`            | [schemas/tasks.md](schemas/tasks.md)               |
+| `members/`          | [schemas/members.md](schemas/members.md)           |
+| `groups/`           | [schemas/groups.md](schemas/groups.md)             |
+| `workspace/`        | [schemas/workspace.md](schemas/workspace.md)       |
 
 Schema files are workflow rules, not product facts or delivery candidates.
 
-Knowledge documents use `.md` or `.mdx`. Templates use `.md.tpl` or `.mdx.tpl` and are not knowledge documents, graph nodes, task inputs, or delivery candidates.
+Knowledge documents use `.md` or `.mdx`. Files under `templates/` are reusable starting points and are not knowledge documents, graph nodes, task inputs, or delivery candidates.
 
-Editors may treat template files as Markdown for editing and formatting, while Foam should exclude `**/*.tpl` from the knowledge graph.
+Editors may treat template files as Markdown for editing and formatting, while Foam should exclude `templates/` from the knowledge graph.
 
 ## Source Of Truth
 
@@ -97,7 +99,7 @@ When two sources conflict and the answer affects facts, delivery scope, permissi
 
 ## Terminology And Language
 
-Use `guidelines/` for cross-area guidance that applies to multiple knowledge areas. Keep area-specific writing contracts in `schemas/`, delivery process gates in `planning/WORKFLOW.md` or `tasks/WORKFLOW.md`, and product/design/architecture/concept/decision facts in their owning areas.
+Use `guidelines/` for cross-area guidance that applies to multiple knowledge areas. Keep area-specific writing contracts in `schemas/`, delivery process gates in `planning/WORKFLOW.md`, reusable starting points in `templates/`, and product/design/architecture/concept/decision facts in their owning areas.
 
 Name guideline files with a clear topic phrase in kebab case. Avoid vague names such as `guidelines.md`, `rules.md`, or `notes.md`.
 
@@ -122,9 +124,9 @@ Project wikilink rules:
 - Manual short wikilinks such as `[[note-id]]` are valid only when they resolve
   uniquely in the expected relationship scope.
 - Tool-written links and examples should prefer path-qualified wikilinks such as
-  `[[groups/default-team]]` or `[[tasks/items/example-delivery-task]]`.
-- Use display aliases only for human-readable labels, such as `[[tasks/items/example-delivery-task|Example delivery task]]`.
-- Kanban card wikilinks resolve to `knowledge/tasks/items/<task-id>.md` by default.
+  `[[groups/review-board]]` or `[[tasks/example-delivery-task]]`.
+- Use display aliases only for human-readable labels, such as `[[tasks/example-delivery-task|Example delivery task]]`.
+- Kanban card wikilinks resolve to `knowledge/tasks/<task-id>.md` by default.
 - If a wikilink can resolve to multiple canonical files, report the ambiguity instead of guessing.
 - Check for broken or ambiguous wikilinks after renaming, moving, or deleting Markdown files.
 
@@ -140,7 +142,7 @@ member workspace -> project knowledge -> task item -> Kanban -> pull request -> 
 
 ## Localized Versions
 
-Canonical-language files are the source of truth for project knowledge. This repository records `canonical_language: en` in `knowledge/.workflow/manifest.yml`. Localized files may exist for reading, onboarding, or customer-facing preparation, but they must not introduce new project facts, decisions, requirements, or task status.
+Canonical-language files are the authoritative source for project knowledge. This repository records `canonical_language: en` in `knowledge/.workflow/manifest.yml`. Localized files may exist for reading, onboarding, or customer-facing preparation, but they must not introduce new project facts, decisions, requirements, or task status.
 
 Use a language suffix next to the canonical file:
 
@@ -173,8 +175,6 @@ Use that value as the member id to select the matching member profile in `knowle
 
 When member context matters, prefer section-scoped reads from `knowledge/members/<member-id>.md`. Read the full member file only when editing, auditing, or resolving ambiguity. Personal Agent collaboration preferences may live in `knowledge/workspace/<member-id>/local/AGENTS.md`; that file is local-only and must not override project workflow rules.
 
-Use `default_group_id` in `knowledge/.workflow/manifest.yml` as the default responsibility group. This repository currently records `default_group_id: default-team`, which resolves to `knowledge/groups/default-team.md`.
+Use `knowledge/templates/member.md` when adding a project-visible member profile. Confirm membership manually or by matching responsibilities to existing groups, then update the confirmed group documents' `members` lists.
 
-Use `knowledge/members/templates/member.md.tpl` when adding a project-visible member profile. Confirm membership manually or by matching responsibilities to existing groups, then update the confirmed group documents' `members` lists.
-
-Use `knowledge/groups/templates/group.md.tpl` when adding a project-visible group, team, review board, or working group. Confirm members manually or by matching group responsibilities to existing member profiles before writing `members`. Treat `groups/*.md` frontmatter `members` as the structured membership source of truth.
+Use `knowledge/templates/group.md` when adding a project-visible group, team, review board, or working group. Confirm members manually or by matching group responsibilities to existing member profiles before writing `members`. Treat `groups/*.md` frontmatter `members` as the structured membership source.

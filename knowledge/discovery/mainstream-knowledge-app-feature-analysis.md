@@ -1,13 +1,12 @@
 ---
 scope: project
 type: competitor-analysis
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - discovery
-  - competitor-analysis
-  - notes
-  - knowledge-apps
+    - discovery
+    - competitor-analysis
+    - notes
+    - knowledge-apps
 ---
 
 # Mainstream Knowledge App Feature Analysis

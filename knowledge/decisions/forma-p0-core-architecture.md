@@ -1,14 +1,13 @@
 ---
 scope: project
 type: adr
-owners:
-  - "[[groups/default-team]]"
+owners: []
 reviewers: []
 tags:
-  - architecture
-  - forma
-  - rust
-  - p0
+    - architecture
+    - forma
+    - rust
+    - p0
 supersedes: []
 superseded_by: []
 ---

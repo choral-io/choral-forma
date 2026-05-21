@@ -1,14 +1,13 @@
 ---
 scope: project
 type: technical-design
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - architecture
-  - forma
-  - rust
-  - markdown
-  - rendering
+    - architecture
+    - forma
+    - rust
+    - markdown
+    - rendering
 ---
 
 # Forma Core Technical Direction
@@ -333,29 +332,29 @@ P0 index references should distinguish intent:
 
 ```json
 {
-  "source": "frontmatter",
-  "field": "assignees",
-  "targetPath": "users/tiscs.md",
-  "semanticType": "user",
-  "intent": "reference"
+    "source": "frontmatter",
+    "field": "assignees",
+    "targetPath": "users/tiscs.md",
+    "semanticType": "user",
+    "intent": "reference"
 }
 ```
 
 ```json
 {
-  "source": "body",
-  "targetPath": "notes/foo.md",
-  "semanticType": "note",
-  "intent": "link"
+    "source": "body",
+    "targetPath": "notes/foo.md",
+    "semanticType": "note",
+    "intent": "link"
 }
 ```
 
 ```json
 {
-  "source": "body",
-  "targetPath": "notes/bar.md",
-  "semanticType": "note",
-  "intent": "embed"
+    "source": "body",
+    "targetPath": "notes/bar.md",
+    "semanticType": "note",
+    "intent": "embed"
 }
 ```
 

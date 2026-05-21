@@ -1,6 +1,6 @@
 ---
 name: delivery-planning
-description: Use when delivery work needs a proposal before editing: task candidates, Kanban cards, backlog shape, or board changes.
+description: Use when delivery work needs a proposal before editing task candidates, Kanban cards, backlog shape, or board changes.
 ---
 
 # Delivery Planning
@@ -16,13 +16,12 @@ Task items are candidates and context until an approved Kanban card links to the
 ## Workflow
 
 1. Read `<knowledge_dir>/planning/WORKFLOW.md`.
-2. Read `<knowledge_dir>/tasks/WORKFLOW.md`.
-3. Read `<knowledge_dir>/schemas/common.md` and `<knowledge_dir>/schemas/tasks.md`.
-4. Collect candidate task items and source knowledge.
-5. Exclude local workspace notes, archived notes, and localized files.
-6. When proposing assignees, reviewers, ownership fit, or handoffs, read only the relevant sections from `<knowledge_dir>/members/<member-id>.md`, such as `Responsibilities`, `Focus Areas`, `Collaboration`, or `Availability`.
-7. De-duplicate candidates against `<knowledge_dir>/planning/KANBAN.md`.
-8. Produce a dry-run table and wait for maintainer approval.
+2. Read `<knowledge_dir>/schemas/common.md` and `<knowledge_dir>/schemas/tasks.md`.
+3. Collect candidate task items and source knowledge.
+4. Exclude local workspace notes, archived notes, and localized files.
+5. When proposing assignees, reviewers, ownership fit, or handoffs, read only the relevant sections from `<knowledge_dir>/members/<member-id>.md`, such as `Responsibilities`, `Focus Areas`, `Collaboration`, or `Availability`.
+6. De-duplicate candidates against `<knowledge_dir>/planning/KANBAN.md`.
+7. Produce a dry-run table and wait for maintainer approval.
 
 ## Default Inputs
 
@@ -32,7 +31,7 @@ Task items are candidates and context until an approved Kanban card links to the
 - `<knowledge_dir>/architecture/**`
 - `<knowledge_dir>/decisions/**`
 - `<knowledge_dir>/guidelines/**`
-- `<knowledge_dir>/tasks/items/**`
+- `<knowledge_dir>/tasks/*.md`
 
 Use `<knowledge_dir>/guidelines/**` as planning context or constraints. Do not create Kanban candidates from guidelines alone unless a guideline explicitly defines executable delivery work.
 
@@ -42,7 +41,7 @@ Use `<knowledge_dir>/proposals/**` only as backlog review context. Do not create
 
 Use `type: issue`, `type: bug`, and `type: defect` task items as delivery candidates only after triage shows they are actionable. Do not plan raw feedback, unverified observations, duplicates, invalid reports, or unresolved non-reproducible defects as Ready work.
 
-When decomposing one requirement into several dependent tasks, propose dependent tasks for `Backlog` by default. Use `blocked_by` and `readiness: blocked` for planned dependency order; propose `Ready` only when every Ready Checklist source requirement is satisfied.
+When decomposing one requirement into several dependent tasks, propose dependent tasks for `Backlog` by default. Use `blocked_by` and `readiness: blocked` for planned dependency order; propose `Ready` only when every Ready Checklist source requirement is satisfied and `owners` resolves to existing member or group documents.
 
 Use `<knowledge_dir>/workspace/*/summaries/**`, `<knowledge_dir>/workspace/*/handoffs/**`, or `<knowledge_dir>/workspace/*/research/**` only when the owner or maintainer explicitly selects it.
 

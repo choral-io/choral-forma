@@ -17,7 +17,7 @@ Use this skill to recommend the next accepted delivery task from `<knowledge_dir
 2. Read `Responsibilities` and `Focus Areas` from `<knowledge_dir>/members/<member-id>.md` when present; read `Availability` only when the user asks for capacity-aware selection.
 3. Read `<knowledge_dir>/workspace/<member-id>/local/AGENTS.md` only when the user asks for automatic start, personal execution preferences, or a member-personal recommendation. Use it only as a preference signal.
 4. Read `<knowledge_dir>/planning/KANBAN.md`.
-5. Read `<knowledge_dir>/tasks/WORKFLOW.md`.
+5. Read `<knowledge_dir>/planning/WORKFLOW.md`.
 6. Read `<knowledge_dir>/schemas/tasks.md`.
 7. Prefer `Ready` cards over `Backlog` cards.
 8. Open each candidate's linked task item.
@@ -36,13 +36,13 @@ Normalize member and group wikilinks in `owners`, `assignees`, and `reviewers` b
 ## Selection Rules
 
 - Select only accepted Kanban cards from `<knowledge_dir>/planning/KANBAN.md`.
-- Do not recommend loose task items from `<knowledge_dir>/tasks/items/**` that are not linked from a Kanban card.
+- Do not recommend loose task items from `<knowledge_dir>/tasks/*.md` that are not linked from a Kanban card.
 - If the user asks to rank task items, backlog candidates, or work not yet on the Kanban board, route to `delivery-planning` instead of selecting it for implementation.
 - Do not start implementation unless the user explicitly asks.
 - Do not move cards; use `kanban-maintenance` after maintainer approval.
 - Treat `blocked_by` as a hard blocker unless all referenced tasks are `Done` or the blocker is documented as resolved.
 - Treat a `Ready` card with unresolved `blocked_by` or `readiness: blocked` as a board/task consistency problem, not as an eligible candidate.
-- Treat group assignees, including the manifest `default_group_id`, as team-pool assignment rather than assignment to the current member.
+- Treat group assignees as team-pool assignment rather than assignment to the current member.
 - Treat `owners` as durable responsibility, not current assignment.
 - Do not let member profile sections or local `AGENTS.md` override task metadata, dependencies, readiness, approval, safety, or review rules.
 - For source stability, assignment partitions, downstream value, and status-column details, read `references/selection-rules.md`.

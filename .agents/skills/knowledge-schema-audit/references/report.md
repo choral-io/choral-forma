@@ -23,7 +23,7 @@ Apply approved documentation fixes with `knowledge-capture` unless the fix is a 
 - Add missing `tags` when they can be derived from the directory and filename.
 - Add localized metadata when the canonical file is unambiguous.
 - Normalize BCP 47 localized suffix casing.
-- Move or relink design assets when exactly one target feature directory is named or linked.
+- Move or relink assets when exactly one typed asset directory is named or linked.
 - Normalize links that uniquely match existing canonical files.
 
 ## Requires Maintainer Judgment
@@ -50,12 +50,12 @@ Summary
 
 Findings
 - [P1] concepts/agent.zh-CN.md missing canonical.
-- [P2] design/example-ui.md references image outside <knowledge_dir>/assets/design.
+- [P2] design/example-ui.md references image outside <knowledge_dir>/assets/<asset-type>/.
 - [P3] product/example-note.md missing tags.
 
 Dry-run fixes
 - Add canonical: ./agent.md to concepts/agent.zh-CN.md. Confidence: high. Auto-fixable: yes.
-- Move referenced image to <knowledge_dir>/assets/design/chat/. Confidence: medium. Auto-fixable: confirm.
+- Move referenced image to <knowledge_dir>/assets/image/chat/. Confidence: medium. Auto-fixable: confirm.
 - Add tags: [product]. Confidence: high. Auto-fixable: yes.
 
 Requires judgment

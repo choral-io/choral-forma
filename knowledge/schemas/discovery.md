@@ -1,8 +1,7 @@
 ---
 scope: project
 type: schema
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - metadata
     - schema
@@ -19,8 +18,7 @@ Discovery documents capture requirement discovery, market and business research,
 ---
 scope: project
 type: market-analysis
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - discovery
 ---

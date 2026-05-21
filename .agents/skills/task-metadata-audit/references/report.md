@@ -57,7 +57,7 @@ Findings
 
 Dry-run fixes
 - Add value: H to example-search-task.
-- Add `blocked_by: ["[[tasks/items/example-upstream-task]]"]` to example-downstream-task.
+- Add `blocked_by: ["[[tasks/example-upstream-task]]"]` to example-downstream-task.
 - Add readiness: blocked to example-ingestion-task.
 
 Safe for next-task-selection
@@ -66,7 +66,7 @@ Safe for next-task-selection
 
 Sources
 - <knowledge_dir>/schemas/tasks.md
-- <knowledge_dir>/tasks/WORKFLOW.md
+- <knowledge_dir>/planning/WORKFLOW.md
 ```
 
 ## Finding Format
@@ -75,7 +75,7 @@ Each finding must include these fields:
 
 ```text
 - [P1] Short title
-  File: <knowledge_dir>/tasks/items/example-task.md
+  File: <knowledge_dir>/tasks/example-task.md
   Evidence: exact field, Kanban card, or section
   Issue: deterministic rule that failed
   Proposed fix: concrete dry-run metadata or board change, or "requires maintainer judgment"
@@ -88,7 +88,7 @@ Use task knowledge-reference wikilinks:
 
 ```yaml
 blocked_by:
-    - "[[tasks/items/example-upstream-task]]"
+    - "[[tasks/example-upstream-task]]"
 related_to:
-    - "[[tasks/items/example-related-task]]"
+    - "[[tasks/example-related-task]]"
 ```

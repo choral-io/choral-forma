@@ -1,13 +1,12 @@
 ---
 scope: project
 type: product
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - product
-  - direction
-  - agent-collaboration
-  - knowledge
+    - product
+    - direction
+    - agent-collaboration
+    - knowledge
 ---
 
 # Product Direction
@@ -33,6 +32,11 @@ information architecture. It should be simple at the core and flexible enough
 for users to create their own structures, schemas, modes, and templates.
 
 ## Product Principles
+
+Choral Forma should not be treated as only a Markdown editor. It should become a
+repository-backed knowledge compiler that continuously turns raw sources, human
+decisions, Agent analysis, and project artifacts into auditable, linked,
+maintainable canonical knowledge.
 
 - Keep the core simple, like a general note or knowledge app, while allowing
   many usage patterns to emerge.
@@ -198,55 +202,55 @@ Example P0 starter collection:
 
 ```yaml
 collections:
-  todos:
-    title: Todos
-    description: Lightweight action items.
-    include: todos/**/*.md
-    template: .forma/templates/todo.md
-    create:
-      directory: todos
-      filename: "{{ input.slug }}.md"
-      inputs:
-        title:
-          field: title
-          required: true
-        summary:
-          field: summary
-          default: ""
-        slug:
-          label: Slug
-          type: string
-          default: "{{ input.title }}"
-          transform: slugify
-    conventions:
-      titleField: title
-      summaryField: summary
-      createdAtField: createdAt
-    schema:
-      type: object
-      fields:
-        kind:
-          type: const
-          value: todo
-          required: true
-        title:
-          type: string
-          label: Title
-          required: true
-        summary:
-          type: string
-          label: Summary
-        status:
-          type: enum
-          enum: todoStatus
-          label: Status
-          required: true
-        assignees:
-          type: list
-          label: Assignees
-          items:
-            type: ref
-            target: user
+    todos:
+        title: Todos
+        description: Lightweight action items.
+        include: todos/**/*.md
+        template: .forma/templates/todo.md
+        create:
+            directory: todos
+            filename: "{{ input.slug }}.md"
+            inputs:
+                title:
+                    field: title
+                    required: true
+                summary:
+                    field: summary
+                    default: ""
+                slug:
+                    label: Slug
+                    type: string
+                    default: "{{ input.title }}"
+                    transform: slugify
+        conventions:
+            titleField: title
+            summaryField: summary
+            createdAtField: createdAt
+        schema:
+            type: object
+            fields:
+                kind:
+                    type: const
+                    value: todo
+                    required: true
+                title:
+                    type: string
+                    label: Title
+                    required: true
+                summary:
+                    type: string
+                    label: Summary
+                status:
+                    type: enum
+                    enum: todoStatus
+                    label: Status
+                    required: true
+                assignees:
+                    type: list
+                    label: Assignees
+                    items:
+                        type: ref
+                        target: user
 ```
 
 Collection paths such as `template`, `create.directory`, and `create.filename`
@@ -260,13 +264,13 @@ labels, and semantic field constraints. Useful P0 field properties include:
 
 ```yaml
 status:
-  type: enum
-  enum: todoStatus
-  label: Status
-  description: Current delivery state.
-  required: true
-  readonly: false
-  hidden: false
+    type: enum
+    enum: todoStatus
+    label: Status
+    description: Current delivery state.
+    required: true
+    readonly: false
+    hidden: false
 ```
 
 Use `label` for fields, enum values, buttons, and parameters. Use `title` for
@@ -338,15 +342,15 @@ The MVP type model should support:
 
 ```yaml
 types:
-  todoStatus:
-    kind: enum
-    values: [todo, doing, done]
+    todoStatus:
+        kind: enum
+        values: [todo, doing, done]
 
-  user:
-    kind: collection
-    collection: users
-    input:
-      transform: slugify
+    user:
+        kind: collection
+        collection: users
+        input:
+            transform: slugify
 ```
 
 Enum values can start as simple scalar values. Later versions can allow richer
@@ -363,11 +367,11 @@ values:
 
 ```yaml
 types:
-  note:
-    kind: collection
-    collection: notes
-    input:
-      transform: slugify
+    note:
+        kind: collection
+        collection: notes
+        input:
+            transform: slugify
 ```
 
 This applies only while parsing bare GUI, CLI, or Agent input. It does not change
@@ -410,7 +414,7 @@ path:
 
 ```yaml
 assignees:
-  - "[[users/tiscs]]"
+    - "[[users/tiscs]]"
 project: "[[projects/choral-forma]]"
 ```
 
@@ -522,11 +526,11 @@ way:
 
 ```yaml
 assignees:
-  type: list
-  label: Assignees
-  items:
-    type: ref
-    target: user
+    type: list
+    label: Assignees
+    items:
+        type: ref
+        target: user
 ```
 
 When groups are added later, the `assignees` field can keep its name and list
@@ -730,6 +734,10 @@ They are file-based facts, but not ordinary knowledge notes. Their frontmatter
 defines rendering behavior; their Markdown body explains purpose, usage, and
 maintenance context.
 
+The durable architecture for view sources and queries is captured in
+[[architecture/forma-view-query-model]]. This section keeps the product-facing
+behavior and examples aligned with that model.
+
 Shared view definitions should live under `.forma/views/`, not in the ordinary
 knowledge content tree. A view is configuration for rendering, filtering, and
 organizing knowledge; it is not itself a domain knowledge entry. Keeping view
@@ -743,13 +751,45 @@ The view file should be recognizable through explicit frontmatter:
 kind: forma-view
 
 view:
-  surface: page
-  mode: table
-  collection: todos
-  title: My Todos
-  description: Active todos assigned to the current user.
+    surface: page
+    mode: table
+    collection: todos
+    title: My Todos
+    description: Active todos assigned to the current user.
 ---
 ```
+
+The view data source should be the workspace. `source` selects the candidate
+file set; `query` filters normalized entries derived from those files.
+Collection-oriented views may keep the direct `collection` field as a readable
+shorthand, but it should be treated as a query shortcut rather than a separate
+source kind. This:
+
+```yaml
+view:
+    surface: page
+    mode: table
+    collection: todos
+```
+
+is equivalent to:
+
+```yaml
+view:
+    surface: page
+    mode: table
+    source:
+        kind: workspace
+    query:
+        all:
+            - target: entry.collection
+              op: equals
+              value: todos
+```
+
+This keeps graph, file navigation, uncatalogued documents, and future
+repository-wide renderings on the same source model without forcing every view
+through collection-specific semantics.
 
 The Markdown body should not contain query logic. It can include a render mount
 point:
@@ -793,16 +833,16 @@ metadata, query values, mode-specific configuration, and body text:
 
 ```yaml
 view:
-  params:
-    user:
-      label: User
-      type: user
-      required: true
-      default: "{{ runtime.values.currentUserId }}"
-    date:
-      label: Date
-      type: date
-      default: "{{ runtime.values.currentDate }}"
+    params:
+        user:
+            label: User
+            type: user
+            required: true
+            default: "{{ runtime.values.currentUserId }}"
+        date:
+            label: Date
+            type: date
+            default: "{{ runtime.values.currentDate }}"
 ```
 
 Page view parameter values can come from defaults, URL or GUI state, or CLI
@@ -837,22 +877,41 @@ Definitions and embeddings are separate concepts:
 knowledge Markdown comments = view embedding sites
 ```
 
-View queries should use a structured `all` / `any` query model rather than a
-text query DSL in the MVP:
+View queries should operate on normalized entry records, not directly on raw
+Markdown files. The runtime should first parse each candidate Markdown file into
+an entry record with stable namespaces such as:
+
+```ts
+entry = {
+    path: "todos/review-webapp.md",
+    collection: "todos" | null,
+    kind: "todo" | null,
+    frontmatter: {},
+    refs: {},
+    text: {},
+};
+```
+
+The query model should use structured `all` / `any` / `not` nodes rather than a
+text query DSL in the MVP. Query predicates should use explicit `target` paths
+into the normalized entry record:
 
 ```yaml
 query:
-  all:
-    - field: status
-      op: in
-      value: [todo, doing]
-    - any:
-        - field: priority
+    all:
+        - target: entry.collection
           op: equals
-          value: high
-        - field: blocked
-          op: equals
-          value: true
+          value: todos
+        - target: frontmatter.status
+          op: in
+          value: [todo, doing]
+        - any:
+              - target: frontmatter.priority
+                op: equals
+                value: high
+              - target: frontmatter.blocked
+                op: equals
+                value: true
 ```
 
 This query model should be treated as the internal query AST. A future text DSL
@@ -877,9 +936,58 @@ after
 afterOrEqual
 ```
 
+`exists` should use an explicit boolean `value`. For example, uncatalogued
+Markdown can be expressed without a special `missing` operator:
+
+```yaml
+query:
+    all:
+        - target: entry.collection
+          op: exists
+          value: false
+```
+
+P0 can keep query support intentionally small: `source.kind: workspace`,
+`source.include`, `source.exclude`, `all`, `any`, `not`, `target:
+entry.collection`, `target: frontmatter.<field>`, and the operations `equals`,
+`in`, `contains`, and `exists`. References, full-text predicates, date
+comparisons, diagnostic filters, and saved runtime query controls can remain P1
+unless needed by implementation evidence.
+
 View modes should start with `list`, `table`, and `kanban`. Calendar views are
 valuable for daily, weekly, monthly, and time-based workflows, but should remain
 P1 unless implementation capacity proves otherwise.
+
+Graph should also be treated as a view mode, not as a separate global product
+surface. Users should open graph views through normal view navigation, tabs, or
+links, the same way they open table or kanban views. A graph view can visualize
+references, backlinks, relationship fields, or a scoped subset of entries, but
+it should still be described by a view definition with explicit scope and
+rendering intent. Bottom relationship panels can show backlinks, outgoing links,
+and mentions for the current document, but they should not be the primary graph
+surface.
+
+Graph views can use the same workspace source without a collection filter. For
+example, an initialized workspace can include a global graph view:
+
+```yaml
+view:
+    surface: page
+    mode: graph
+    title: Knowledge Graph
+    source:
+        kind: workspace
+        include:
+            - "**/*.md"
+        exclude:
+            - ".forma/**"
+            - "**/local/**"
+```
+
+This is not a cross-collection table query. It is a graph rendering over the
+workspace file inventory and reference index, so it can include collection
+entries, uncatalogued Markdown documents, and cross-collection links without
+making every view mode support arbitrary collection joins.
 
 List and table views can use shared `query` and `sort` fields, plus
 mode-specific rendering options such as title fields, subtitle fields, metadata
@@ -895,33 +1003,33 @@ Example kanban configuration:
 
 ```yaml
 kanban:
-  card:
-    titleField: title
-    subtitleFields: [project, assignees]
-    badgeFields: [priority, dueDate]
-  columns:
-    - id: todo
-      label: To Do
-      icon: circle
-      query:
-        all:
-          - field: status
-            op: equals
-            value: todo
-      onDrop:
-        set:
-          status: todo
-    - id: blocked
-      label: Blocked
-      icon: octagon-alert
-      query:
-        all:
-          - field: blocked
-            op: equals
-            value: true
-      onDrop:
-        set:
-          blocked: true
+    card:
+        titleField: title
+        subtitleFields: [project, assignees]
+        badgeFields: [priority, dueDate]
+    columns:
+        - id: todo
+          label: To Do
+          icon: circle
+          query:
+              all:
+                  - target: frontmatter.status
+                    op: equals
+                    value: todo
+          onDrop:
+              set:
+                  status: todo
+        - id: blocked
+          label: Blocked
+          icon: octagon-alert
+          query:
+              all:
+                  - target: frontmatter.blocked
+                    op: equals
+                    value: true
+          onDrop:
+              set:
+                  blocked: true
 ```
 
 Drag-and-drop mutation should be explicit. If a column has complex matching
@@ -933,9 +1041,10 @@ parameters, incompatible operators, invalid default or query values, invalid
 sort or display fields, invalid kanban `onDrop.set` fields, overlapping kanban
 columns, unmatched kanban items, and multiple render mount points.
 
-Cross-collection views should remain out of the MVP. The initial view model
-should make one collection understandable and useful before trying to join
-multiple collections.
+Cross-collection list, table, and kanban views should remain out of the MVP.
+The initial collection view model should make one collection understandable and
+useful before trying to join multiple collections. This limitation does not
+prevent graph views from using the workspace source without a collection filter.
 
 Runtime temporary query controls, runtime filters, runtime group-by controls,
 runtime sort overrides, and saved personal view controls are not part of the
@@ -1003,28 +1112,28 @@ Example:
 
 ```yaml
 runtime:
-  values:
-    currentDate:
-      kind: currentDate
-    currentDateTime:
-      kind: currentDateTime
-    workspaceRoot:
-      kind: workspaceRoot
-    currentUserId:
-      kind: gitConfig
-      key: user.name
-      transform: slugify
+    values:
+        currentDate:
+            kind: currentDate
+        currentDateTime:
+            kind: currentDateTime
+        workspaceRoot:
+            kind: workspaceRoot
+        currentUserId:
+            kind: gitConfig
+            key: user.name
+            transform: slugify
 ```
 
 Local overrides can replace runtime value definitions with the same shape:
 
 ```yaml
 runtime:
-  values:
-    currentUserId:
-      kind: const
-      value: tiscs
-      transform: slugify
+    values:
+        currentUserId:
+            kind: const
+            value: tiscs
+            transform: slugify
 ```
 
 P0 should not include a separate `memberIdResolver` concept. Current-user
@@ -1051,11 +1160,11 @@ Create input defaults can use the same simple placeholder syntax:
 
 ```yaml
 create:
-  inputs:
-    date:
-      label: Date
-      type: date
-      default: "{{ runtime.values.currentDate }}"
+    inputs:
+        date:
+            label: Date
+            type: date
+            default: "{{ runtime.values.currentDate }}"
 ```
 
 Template placeholders should then stay simple:
@@ -1071,15 +1180,15 @@ Create inputs may also define a small operation-level transform:
 
 ```yaml
 create:
-  inputs:
-    title:
-      field: title
-      required: true
-    slug:
-      label: Slug
-      type: string
-      default: "{{ input.title }}"
-      transform: slugify
+    inputs:
+        title:
+            field: title
+            required: true
+        slug:
+            label: Slug
+            type: string
+            default: "{{ input.title }}"
+            transform: slugify
 ```
 
 Transforms are not template functions. They normalize final input values during
@@ -1127,10 +1236,10 @@ A create input may explicitly bind to a schema field:
 
 ```yaml
 create:
-  inputs:
-    title:
-      field: title
-      required: true
+    inputs:
+        title:
+            field: title
+            required: true
 ```
 
 The binding explains that the input corresponds to `collection.schema.fields.title` for
@@ -1405,60 +1514,60 @@ Recommended shape:
 
 ```json
 {
-  "schemaVersion": 1,
-  "workspace": {
-    "name": "Acme Knowledge",
-    "canonicalLanguage": "en",
-    "supportedLanguages": ["en"]
-  },
-  "collections": [
-    {
-      "id": "todos",
-      "title": "Todos",
-      "include": "todos/**/*.md",
-      "entryCount": 1
-    }
-  ],
-  "views": [
-    {
-      "id": "todos",
-      "path": ".forma/views/todos.md",
-      "surface": "page",
-      "mode": "kanban",
-      "collection": "todos",
-      "title": "Todos"
-    }
-  ],
-  "entries": [
-    {
-      "path": "todos/user-registration.md",
-      "collection": "todos",
-      "kind": "todo",
-      "title": "User registration",
-      "summary": "Implement user registration flow.",
-      "refs": [
+    "schemaVersion": 1,
+    "workspace": {
+        "name": "Acme Knowledge",
+        "canonicalLanguage": "en",
+        "supportedLanguages": ["en"]
+    },
+    "collections": [
         {
-          "source": "frontmatter",
-          "field": "assignees",
-          "targetPath": "users/tiscs.md",
-          "semanticType": "user",
-          "intent": "reference"
-        },
-        {
-          "source": "body",
-          "targetPath": "notes/account-model.md",
-          "semanticType": "note",
-          "intent": "link"
-        },
-        {
-          "source": "body",
-          "targetPath": "notes/project-brief.md",
-          "semanticType": "note",
-          "intent": "embed"
+            "id": "todos",
+            "title": "Todos",
+            "include": "todos/**/*.md",
+            "entryCount": 1
         }
-      ]
-    }
-  ]
+    ],
+    "views": [
+        {
+            "id": "todos",
+            "path": ".forma/views/todos.md",
+            "surface": "page",
+            "mode": "kanban",
+            "collection": "todos",
+            "title": "Todos"
+        }
+    ],
+    "entries": [
+        {
+            "path": "todos/user-registration.md",
+            "collection": "todos",
+            "kind": "todo",
+            "title": "User registration",
+            "summary": "Implement user registration flow.",
+            "refs": [
+                {
+                    "source": "frontmatter",
+                    "field": "assignees",
+                    "targetPath": "users/tiscs.md",
+                    "semanticType": "user",
+                    "intent": "reference"
+                },
+                {
+                    "source": "body",
+                    "targetPath": "notes/account-model.md",
+                    "semanticType": "note",
+                    "intent": "link"
+                },
+                {
+                    "source": "body",
+                    "targetPath": "notes/project-brief.md",
+                    "semanticType": "note",
+                    "intent": "embed"
+                }
+            ]
+        }
+    ]
 }
 ```
 
@@ -1509,36 +1618,36 @@ Recommended P0 JSON shape:
 
 ```json
 {
-  "status": "failed",
-  "summary": {
-    "errors": 1,
-    "warnings": 2,
-    "infos": 0
-  },
-  "diagnostics": [
-    {
-      "severity": "error",
-      "code": "ref.unresolved",
-      "message": "Reference cannot be resolved.",
-      "path": "todos/user-registration.md",
-      "location": {
-        "kind": "frontmatter",
-        "field": "assignees",
-        "index": 0
-      },
-      "actual": "[[users/tics]]",
-      "expected": {
-        "type": "ref",
-        "target": "user"
-      },
-      "suggestions": [
+    "status": "failed",
+    "summary": {
+        "errors": 1,
+        "warnings": 2,
+        "infos": 0
+    },
+    "diagnostics": [
         {
-          "label": "Use users/tiscs",
-          "value": "[[users/tiscs]]"
+            "severity": "error",
+            "code": "ref.unresolved",
+            "message": "Reference cannot be resolved.",
+            "path": "todos/user-registration.md",
+            "location": {
+                "kind": "frontmatter",
+                "field": "assignees",
+                "index": 0
+            },
+            "actual": "[[users/tics]]",
+            "expected": {
+                "type": "ref",
+                "target": "user"
+            },
+            "suggestions": [
+                {
+                    "label": "Use users/tiscs",
+                    "value": "[[users/tiscs]]"
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }
 ```
 

@@ -1,13 +1,12 @@
 ---
 scope: project
 type: technical-design
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - architecture
-  - forma
-  - p0
-  - schema
+    - architecture
+    - forma
+    - p0
+    - schema
 ---
 
 # Forma P0 Schema DSL Spec
@@ -79,31 +78,31 @@ Example:
 
 ```yaml
 schema:
-  type: object
-  fields:
-    kind:
-      type: const
-      value: todo
-      required: true
-    title:
-      type: string
-      required: true
-    summary:
-      type: string
-    status:
-      type: enum
-      enum: todoStatus
-      required: true
-    assignees:
-      type: list
-      items:
-        type: ref
-        target: user
-    dueDate:
-      type: date
-    createdAt:
-      type: datetime
-      readonly: true
+    type: object
+    fields:
+        kind:
+            type: const
+            value: todo
+            required: true
+        title:
+            type: string
+            required: true
+        summary:
+            type: string
+        status:
+            type: enum
+            enum: todoStatus
+            required: true
+        assignees:
+            type: list
+            items:
+                type: ref
+                target: user
+        dueDate:
+            type: date
+        createdAt:
+            type: datetime
+            readonly: true
 ```
 
 `readonly` and `hidden` are tool and UI hints only. They are not security
@@ -123,30 +122,30 @@ Example:
 
 ```yaml
 types:
-  note:
-    kind: collection
-    collection: notes
-    input:
-      transform: slugify
-  daily:
-    kind: collection
-    collection: daily
-  todo:
-    kind: collection
-    collection: todos
-    input:
-      transform: slugify
-  user:
-    kind: collection
-    collection: users
-    input:
-      transform: slugify
-  todoStatus:
-    kind: enum
-    values:
-      - todo
-      - doing
-      - done
+    note:
+        kind: collection
+        collection: notes
+        input:
+            transform: slugify
+    daily:
+        kind: collection
+        collection: daily
+    todo:
+        kind: collection
+        collection: todos
+        input:
+            transform: slugify
+    user:
+        kind: collection
+        collection: users
+        input:
+            transform: slugify
+    todoStatus:
+        kind: enum
+        values:
+            - todo
+            - doing
+            - done
 ```
 
 `types.*.input.transform` describes how human-provided locator input may be
@@ -169,55 +168,55 @@ Example shape:
 
 ```yaml
 collections:
-  todos:
-    title: Todos
-    include: todos/**/*.md
-    template: .forma/templates/todo.md
-    create:
-      directory: todos
-      filename: "{{ input.slug }}.md"
-      inputs:
-        title:
-          field: title
-          required: true
-        summary:
-          field: summary
-          default: ""
-        slug:
-          label: Slug
-          type: string
-          default: "{{ input.title }}"
-          transform: slugify
-    conventions:
-      titleField: title
-      summaryField: summary
-      createdAtField: createdAt
-    schema:
-      type: object
-      fields:
-        kind:
-          type: const
-          value: todo
-          required: true
-        title:
-          type: string
-          required: true
-        summary:
-          type: string
-        status:
-          type: enum
-          enum: todoStatus
-          required: true
-        assignees:
-          type: list
-          items:
-            type: ref
-            target: user
-        dueDate:
-          type: date
-        createdAt:
-          type: datetime
-          readonly: true
+    todos:
+        title: Todos
+        include: todos/**/*.md
+        template: .forma/templates/todo.md
+        create:
+            directory: todos
+            filename: "{{ input.slug }}.md"
+            inputs:
+                title:
+                    field: title
+                    required: true
+                summary:
+                    field: summary
+                    default: ""
+                slug:
+                    label: Slug
+                    type: string
+                    default: "{{ input.title }}"
+                    transform: slugify
+        conventions:
+            titleField: title
+            summaryField: summary
+            createdAtField: createdAt
+        schema:
+            type: object
+            fields:
+                kind:
+                    type: const
+                    value: todo
+                    required: true
+                title:
+                    type: string
+                    required: true
+                summary:
+                    type: string
+                status:
+                    type: enum
+                    enum: todoStatus
+                    required: true
+                assignees:
+                    type: list
+                    items:
+                        type: ref
+                        target: user
+                dueDate:
+                    type: date
+                createdAt:
+                    type: datetime
+                    readonly: true
 ```
 
 `include`, `template`, `create.directory`, and generated filenames are
@@ -262,18 +261,18 @@ Example:
 
 ```yaml
 runtime:
-  values:
-    currentDate:
-      kind: currentDate
-    currentDateTime:
-      kind: currentDateTime
-    workspaceRoot:
-      kind: workspaceRoot
-    currentUserId:
-      kind: gitConfig
-      key: user.name
-      transform: slugify
-      required: true
+    values:
+        currentDate:
+            kind: currentDate
+        currentDateTime:
+            kind: currentDateTime
+        workspaceRoot:
+            kind: workspaceRoot
+        currentUserId:
+            kind: gitConfig
+            key: user.name
+            transform: slugify
+            required: true
 ```
 
 P0 runtime value provider kinds:

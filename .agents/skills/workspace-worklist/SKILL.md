@@ -17,7 +17,7 @@ Use this skill for personal, local member work under `<knowledge_dir>/workspace/
 - Use `<knowledge_dir>/workspace/<member-id>/local/WORKLIST.md` as the local worklist for executable or nearly executable personal work.
 - Use `<knowledge_dir>/workspace/<member-id>/local/logs/YYYY-MM-DD.md` as the local daily execution log.
 - Treat `local/` as local-only personal state. Never stage or commit it.
-- Treat `<agent_local_dir>/` as local-only Agent runtime state. Never stage or commit it.
+- Treat `<worktree_dir>/` as local-only worktree state. Never stage or commit worktree contents.
 - Do not write into another member's `local/` directory.
 - Do not use `local/` content as team planning input unless it is first summarized or promoted into shared knowledge.
 - Use `knowledge-capture`, `delivery-planning`, `kanban-maintenance`, `delivery-implementation`, or review skills when the selected item crosses into their ownership.
@@ -49,13 +49,14 @@ For mode details, read `references/local-workflow.md`.
     - `references/worklist-format.md` for worklist edits.
     - `references/log-format.md` for execution logs.
     - `references/routing.md` for deciding whether to stay local, promote, or intake a team task.
-    - `references/execution.md` for `run-next`, `run-loop`, subagents, and shared worker worktree rules.
-    - `references/worktree-lifecycle.md` before using `<agent_local_dir>/worktrees/shared/`.
+    - `references/run-overview.md` for `run-next`, `run-loop`, `run-goal`, and narrower execution references.
+    - `references/run-contract.md`, `references/run-selection.md`, `references/run-controls.md`, or `references/worker-protocol.md` when the selected mode needs that detail.
+    - `references/worktree-lifecycle.md` before using `<worktree_dir>/shared/`.
 6. For `run-next`, `run-loop`, and `run-goal`, classify selected work item or Kanban task validity before implementation.
 7. Briefly report the selected item and validity result before making substantial changes.
 8. Make the smallest local worklist/log edit needed for the mode.
 9. If the work should become team knowledge or a formal task, propose the promotion path instead of hiding it in `local/`.
-10. Before any staging or commit, verify `local/` and `<agent_local_dir>/` files are not staged.
+10. Before any staging or commit, verify `local/` files and worktree contents under `<worktree_dir>/` are not staged, except the managed `<worktree_dir>/.gitignore`.
 
 ## Guardrails
 
@@ -63,7 +64,7 @@ For mode details, read `references/local-workflow.md`.
 - Do not intake another member's work without explicit confirmation.
 - Validate an item before implementation; if obsolete, blocked, superseded, or assigned elsewhere, do not implement it.
 - `run-loop` and `run-goal` require explicit user intent and budget; default to serial execution.
-- Parallel execution is allowlisted and must follow `references/execution.md`.
+- Parallel execution is allowlisted and must follow `references/run-controls.md` and `references/worker-protocol.md`.
 - Log key events only. Avoid recording every command, file read, search, or transient thought.
 - If an item affects team Kanban, formal task items, schema, commits, or another member's workspace, stop for confirmation or route to the owning skill.
 - If a worker subagent edits outside the approved scope, fails validation, or leaves state unclear, stop the loop and ask for user direction.
@@ -75,5 +76,9 @@ For mode details, read `references/local-workflow.md`.
 - Local workflow rules and modes: `references/local-workflow.md`
 - Log format: `references/log-format.md`
 - Routing and promotion: `references/routing.md`
-- Execution and subagents: `references/execution.md`
+- Run overview: `references/run-overview.md`
+- Run contract and rule merge: `references/run-contract.md`
+- Run selection and source stability: `references/run-selection.md`
+- Deadlines, parallelism, stop classes, approval risk: `references/run-controls.md`
+- Worker protocol, handoff, scratch: `references/worker-protocol.md`
 - Shared worktree lifecycle: `references/worktree-lifecycle.md`

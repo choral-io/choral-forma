@@ -1,12 +1,11 @@
 ---
 scope: project
 type: guideline
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - engineering
-  - dependencies
-  - review
+    - engineering
+    - dependencies
+    - review
 ---
 
 # Dependency Governance

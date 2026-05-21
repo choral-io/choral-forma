@@ -5,18 +5,18 @@ Use this reference when `workspace-worklist` chooses `shared-worktree` or `slot-
 The serial shared worker worktree is:
 
 ```text
-<agent_local_dir>/worktrees/shared/
+<worktree_dir>/shared/
 ```
 
 Parallel worker slot worktrees are:
 
 ```text
-<agent_local_dir>/worktrees/slot-01/
-<agent_local_dir>/worktrees/slot-02/
+<worktree_dir>/slot-01/
+<worktree_dir>/slot-02/
 ...
 ```
 
-It is local Agent runtime state. It must not be committed, linked from knowledge documents, or treated as project truth.
+It is local worktree state. Worktree contents must not be staged from the main worktree, linked from knowledge documents, or treated as project facts.
 
 ## When To Use
 
@@ -35,7 +35,7 @@ Use slot worktrees only when `run-loop` or `run-goal` has explicit user authoriz
 
 Before dispatching a worker:
 
-1. Confirm `<agent_local_dir>/` is ignored by git.
+1. Confirm `<worktree_dir>/.gitignore` exists and ignores worktree contents.
 2. Confirm the selected worktree is not already in use.
 3. Check main worktree status.
 4. Check whether the selected item may conflict with existing dirty files.
@@ -45,16 +45,16 @@ Before dispatching a worker:
 
 Do not install dependencies or run setup commands in the shared worktree unless the user has authorized that for this worktree.
 
-## Git Sync Policy
+## Git Sync Rules
 
-Use git conservatively. The main Agent owns git synchronization decisions; worker subagents must not pull, push, rebase, merge, reset, clean, or commit final project history unless that exact git task was assigned.
+Use git conservatively. The main Agent owns git synchronization decisions. Worker subagents may create local commits inside their assigned worktree for review. Worker subagents must not pull, push, rebase, merge, reset, clean, or commit to main repository history unless that exact git task was assigned.
 
 Before selecting new Kanban work, starting `run-goal`, or syncing a worker worktree:
 
 1. Inspect current branch, upstream/default remote, and worktree status.
 2. If there is no default remote or upstream, skip remote freshness checks and record that limitation.
 3. If the main worktree has unrelated dirty user changes, do not pull or switch base automatically.
-4. If freshness matters and the worktree is clean, propose `git pull` in `user-confirm`; in `auto-review`, pull only when the operation is classified as `low` risk by `references/execution.md` and no local worker result is pending.
+4. If freshness matters and the worktree is clean, propose `git pull` in `user-confirm`; in `auto-review`, pull only when the operation is classified as `low` risk by `references/run-controls.md` and no local worker result is pending.
 5. If pull would create conflicts, require credentials, change submodules, update lockfiles unexpectedly, or alter unrelated user work, stop and ask the user.
 6. After a successful pull, re-read `KANBAN.md`, linked task items, and any source files used for selection.
 
@@ -65,9 +65,9 @@ Do not use remote sync as a hidden side effect of task selection. Mention it in 
 Use stable worktree paths:
 
 ```text
-<agent_local_dir>/worktrees/shared/
-<agent_local_dir>/worktrees/slot-01/
-<agent_local_dir>/worktrees/slot-02/
+<worktree_dir>/shared/
+<worktree_dir>/slot-01/
+<worktree_dir>/slot-02/
 ```
 
 If a worktree needs a branch, prefer stable local branch names such as:
@@ -100,14 +100,15 @@ Worker must:
 
 - stay within allowed paths
 - produce a patch or local commit for review
+- keep any local commit confined to the assigned worktree and branch
 - report changed files and validation results
 - report if dependency setup or elevated execution is needed
 
 Worker must not:
 
 - edit the main worktree
-- edit `WORKLIST.md`, `local/logs/`, `<agent_local_dir>/runs/`, `KANBAN.md`, or other member workspaces
-- create final project commits
+- edit `WORKLIST.md`, `local/logs/`, `local/runs/`, `KANBAN.md`, or other member workspaces
+- create final project commits in the main worktree or push worker commits
 - spawn subagents
 - reset or clean the shared worktree unless the main Agent explicitly assigned that maintenance task
 - read or modify another worker slot
@@ -118,7 +119,7 @@ After worker completion:
 
 1. Inspect worker status and changed files.
 2. Reject or stop if changes are outside allowed paths.
-3. Review the diff or worker commit.
+3. Review the diff or worker commit. Treat worker commits as review artifacts, not accepted project history.
 4. Run or evaluate required validation.
 5. Apply accepted changes to the main worktree by patch, cherry-pick, or another reviewable method appropriate to the risk.
 6. For parallel slots, integrate only one accepted worker result at a time.
@@ -126,7 +127,7 @@ After worker completion:
 
 If the worker result is unsafe, unclear, or conflicts with user edits, stop and ask for direction.
 
-Do not merge an entire worker branch blindly. Review changed files, allowed paths, validation, lockfile or schema changes, and knowledge-update needs before integration.
+Do not merge an entire worker branch blindly. Review changed files, allowed paths, validation, lockfile or schema changes, and knowledge-update needs before integration. A worker local commit may be cherry-picked only after that review.
 
 Accepted worker changes must be integrated back into the main worktree before WORKLIST or Kanban state is marked complete. If integration is postponed, keep the item active or waiting and record the worker result location.
 
@@ -148,7 +149,7 @@ Worktree maintenance is a controlled operation, separate from normal worker reco
 
 Safety conditions:
 
-- The target path is under `<agent_local_dir>/worktrees/shared/` or `<agent_local_dir>/worktrees/slot-XX/`.
+- The target path is under `<worktree_dir>/shared/` or `<worktree_dir>/slot-XX/`.
 - The target is not the main worktree.
 - No worker is currently using the target.
 - There are no unintegrated worker results, or they are recorded and explicitly abandoned or already integrated.

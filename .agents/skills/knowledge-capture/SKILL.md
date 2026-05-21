@@ -23,7 +23,7 @@ Use this skill to write approved knowledge changes and move information from loc
 8. Promote approved local material when the user has decided it should become team knowledge.
 9. Use `references/placement.md` to choose the target area for durable material.
 10. Use member and group templates when creating approved member profiles or group documents; confirm membership updates before writing.
-11. Keep canonical-language files as the source of truth and localized files as translations only.
+11. Keep canonical-language files as the authoritative source and localized files as translations only.
 12. Before writing, produce a capture dry-run with the fields defined below unless the user explicitly asked for a single-file wording or metadata edit and the target path and schema are already known.
 
 Read `<knowledge_dir>/planning/WORKFLOW.md` before making structural changes.
@@ -42,7 +42,7 @@ If the user has not decided whether the content belongs in knowledge, use `knowl
 - Do not create or move Kanban cards with this skill.
 - Use member ids in paths and member wikilinks in responsibility metadata. Do not use display names as ids.
 - Use group ids in paths and group wikilinks in responsibility metadata. Do not use display names as ids.
-- Treat `<knowledge_dir>/groups/*.md` frontmatter `members` as the structured membership source of truth.
+- Treat `<knowledge_dir>/groups/*.md` frontmatter `members` as the structured membership source.
 - Use `owners` as the ownership field in frontmatter.
 
 ## Capture Dry Run

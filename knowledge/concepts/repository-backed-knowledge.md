@@ -1,12 +1,11 @@
 ---
 scope: project
 type: concept
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - concept
-  - knowledge
-  - repository
+    - concept
+    - knowledge
+    - repository
 ---
 
 # Repository-Backed Knowledge

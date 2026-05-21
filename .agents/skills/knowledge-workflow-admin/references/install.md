@@ -1,60 +1,32 @@
 # Installation Rules
 
-Use this reference for `knowledge-workflow-admin:init` and `knowledge-workflow-admin:install-skills`.
+Use this reference for `knowledge-workflow-admin:init` and `knowledge-workflow-admin:check`.
 
-## Assets
+## Skeleton
 
-Template assets live in `assets/`.
+Workflow skeleton files live in `skeleton/`.
 
-Render text assets by replacing `{{knowledge_dir}}`, `{{agent_local_dir}}`, `{{canonical_language}}`, and `{{default_group_id}}`. Normalize directory values without trailing slashes before writing the manifest or rendering placeholders.
+Render text skeleton files by replacing `{{knowledge_dir}}`, `{{worktree_dir}}`, and `{{canonical_language}}`. Normalize directory values without trailing slashes before writing the manifest or rendering placeholders.
 
-Asset mapping:
+Skeleton mapping:
 
 - `knowledge/` path segment -> selected `<knowledge_dir>/`.
 - `knowledge/_gitignore` -> `<knowledge_dir>/.gitignore`.
-- `knowledge/groups/default-team.md` -> `<knowledge_dir>/groups/<default_group_id>.md`.
-- Root asset `AGENTS.md` -> marked root `AGENTS.md` append block.
-- `.agents/skills/<skill-name>/SKILL.md.tpl` -> `<agent_skills.dir>/<skill-name>/SKILL.md` when `agent_skills.mode: project`.
+- `worktrees/_gitignore` -> `<worktree_dir>/.gitignore`.
+- Root skeleton `AGENTS.md` -> marked root `AGENTS.md` append block.
 
-Treat asset rendering as an inventory operation:
+Treat skeleton rendering as an inventory operation:
 
 - Build a complete source-to-target inventory before writing files or reporting the dry run.
-- Include required directories even when their asset directories are empty or absent from a packaged skill checkout.
-- Render every knowledge and AGENTS asset file individually; do not use wildcard copy commands.
-- If `agent_skills.mode` is `project`, copy every support file under asset `.agents/skills/<skill-name>/`, including `agents/` and `references/`.
-- Do not leave installed `SKILL.md.tpl` files in project-local workflow skill directories.
-- Treat the installed default group document as protected project knowledge, not a managed workflow file.
+- Include parent directories required by rendered files.
+- Render every knowledge and AGENTS skeleton file individually; do not use wildcard copy commands.
+- Do not create empty knowledge area directories during init; create them on demand when writing files later.
 
-## Required Knowledge Directories
+## On-Demand Knowledge Directories
 
-```text
-<knowledge_dir>/
-<knowledge_dir>/architecture/
-<knowledge_dir>/assets/
-<knowledge_dir>/assets/design/
-<knowledge_dir>/concepts/
-<knowledge_dir>/decisions/
-<knowledge_dir>/design/
-<knowledge_dir>/discovery/
-<knowledge_dir>/guidelines/
-<knowledge_dir>/groups/
-<knowledge_dir>/groups/templates/
-<knowledge_dir>/members/
-<knowledge_dir>/members/templates/
-<knowledge_dir>/planning/
-<knowledge_dir>/planning/sprints/
-<knowledge_dir>/product/
-<knowledge_dir>/proposals/
-<knowledge_dir>/proposals/templates/
-<knowledge_dir>/schemas/
-<knowledge_dir>/tasks/
-<knowledge_dir>/tasks/items/
-<knowledge_dir>/tasks/templates/
-<knowledge_dir>/workspace/
-<knowledge_dir>/workspace/templates/
-```
+Knowledge area directories such as `<knowledge_dir>/architecture/`, `<knowledge_dir>/product/`, `<knowledge_dir>/design/`, `<knowledge_dir>/tasks/`, `<knowledge_dir>/assets/<asset-type>/`, and `<knowledge_dir>/planning/sprints/` are created on demand. Do not rely on empty directories existing in a fresh checkout.
 
-## Required Collaboration Skills
+## Required Skills
 
 ```text
 knowledge-assistant
@@ -71,7 +43,7 @@ task-metadata-audit
 workspace-worklist
 ```
 
-All listed collaboration skills must be available to the current Agent or installed into the target repository when project-local skills are selected. `knowledge-workflow-admin` is the manager skill and should remain external to ordinary project-local distributions unless explicitly requested.
+All listed Skills must be available to the current Agent through the Agent runtime's Skill installation mechanism. The workflow does not copy Skills into target repositories.
 
 ## Init Parameters
 
@@ -79,57 +51,118 @@ All listed collaboration skills must be available to the current Agent or instal
 
 Default directory: `knowledge/`.
 
-For `init`, use a user-named directory when present. If no directory is named, ask whether to use `knowledge/` or another repo-relative path. Reject absolute paths, `..`, `.git/`, `.agents/`, source package directories, build outputs, dependency folders, editor caches, and tool caches.
+For `init`, use a user-named directory when present. If no directory is named, ask whether to use `knowledge/` or another repo-relative path. Reject absolute paths, `..`, `.git/`, `.agents/`, `.claude/`, source package directories, build outputs, dependency folders, editor caches, and tool caches.
 
 ### Canonical Language
 
 Use a user-named BCP 47 language tag such as `en`, `zh-CN`, or `ja-JP`. If no language is named, ask. Do not silently default the language. Record the selected value as `canonical_language`.
 
-### Default Group
-
-Default group id: `default-team`.
-
-Use a user-named default group id when present. If absent, suggest `default-team` and ask whether to use it or provide another lowercase kebab-case id. Reject empty ids, path separators, `..`, leading `.`, or characters outside lowercase letters, digits, and hyphens.
-
-Create `<knowledge_dir>/groups/<default_group_id>.md` from the default group seed only when the file does not already exist.
-
 ### Agent Skills
 
-Default mode: reuse externally available workflow skills when the current Agent can load the complete required set.
+The workflow uses required Skills as external runtime capabilities only.
 
-For `init`, check the required collaboration skills by name. If all are available, recommend `agent_skills.mode: external` and do not install local copies unless requested. If any are missing, recommend project-local installation. If using project mode, use a user-named skills directory or default to `.agents/skills/`.
+For `init`, check the required Skills by name. Missing Skills do not block initialization. Report missing Skill names in the dry run and final validation, and tell the maintainer they may initialize the workflow without using those Skills for ongoing maintenance.
 
-Reject Agent skills directories that are absolute, contain `..`, target `.git/`, the selected knowledge directory, source package directories, build outputs, dependency folders, editor caches, or tool caches. Record symlink adapter directories only outside the manifest.
+### Worktree Directory
 
-### Agent Local Directory
+Default local worktree directory: `.worktrees/`.
 
-Default Agent local runtime directory: `.agents/.local/`.
-
-Use a user-named Agent local directory when present; otherwise use `.agents/.local/`. Reject absolute paths, `..`, `.git/`, the selected knowledge directory, the selected project-local skills directory, source package directories, build outputs, dependency folders, editor caches, or tool caches.
+Use a user-named worktree directory when present; otherwise use `.worktrees/`. Reject absolute paths, `..`, `.git/`, `.agents/`, `.claude/`, the selected knowledge directory, source package directories, build outputs, dependency folders, editor caches, or tool caches.
 
 ## Init Workflow
 
-1. Resolve and validate `knowledge_dir`, `agent_skills.mode`, optional `agent_skills.dir`, `agent_local_dir`, `canonical_language`, and `default_group_id`.
-2. Precheck the asset tree: root AGENTS block, `knowledge/_gitignore`, required workflow files, and every installable collaboration-skill asset directory with `SKILL.md.tpl`.
-3. Build a complete render inventory covering required directories, managed knowledge files, protected default group seed, optional project-local workflow skill files, root AGENTS append block, and manifest file.
-4. Build a dry run showing `create`, `mkdir`, `append`, `skip`, and `conflict`.
-5. Create required directories separately from file rendering.
-6. Never overwrite an existing Kanban board, member profile, member workspace, task item, or business knowledge file.
-7. Append the marked knowledge workflow block to root `AGENTS.md`; do not replace existing project engineering instructions.
-8. Include the final `### Project-Specific Knowledge Workflow` heading inside the marked block. Ask for project-specific rules only when the user mentions them or wants customization.
-9. If root `.gitignore` is missing or does not ignore `<agent_local_dir>/`, propose creating or appending that ignore line as a non-managed edit.
-10. After user confirmation, write files and create `<knowledge_dir>/.workflow/manifest.yml`.
-11. Validate required directories, workflow files, default group file, root AGENTS block, `<knowledge_dir>/.gitignore`, optional root `.gitignore`, manifest fields, and project-local skills when used.
-12. Treat editor settings as optional unmanaged convenience; do not edit `.vscode/settings.json` or `.zed/settings.json` unless explicitly asked.
-13. Report created directories, created files, installed skills, skipped/protected paths, conflicts, and validation findings.
+1. Resolve and validate `knowledge_dir`, `worktree_dir`, and `canonical_language`.
+2. Precheck the skeleton tree: root AGENTS block, `knowledge/_gitignore`, `worktrees/_gitignore`, and required workflow files.
+3. Check required Skills by name; record missing Skills as validation findings, not blockers.
+4. Build a complete render inventory covering rendered file parent directories, managed knowledge files, `<worktree_dir>/.gitignore`, root AGENTS append block, and manifest file.
+5. Build a dry run showing `create`, `mkdir`, `append`, `skip`, and `conflict`.
+6. Create rendered file parent directories separately from file rendering.
+7. Never overwrite an existing Kanban board, member profile, member workspace, task item, or business knowledge file.
+8. Append the marked knowledge workflow block to root `AGENTS.md`; do not replace existing project engineering instructions.
+9. Include the final `### Project-Specific Rules` heading inside the marked block. Ask for project-specific rules only when the user mentions them or wants customization.
+10. Render `<worktree_dir>/.gitignore` so worktree contents are ignored while the directory's `.gitignore` remains trackable.
+11. After user confirmation, write files and create `<knowledge_dir>/.workflow/manifest.yml`.
+12. Validate rendered workflow files, root AGENTS block, `<knowledge_dir>/.gitignore`, `<worktree_dir>/.gitignore`, manifest fields, and required Skill availability.
+13. Treat editor settings as optional unmanaged convenience; do not edit `.vscode/settings.json` or `.zed/settings.json` unless explicitly asked.
+14. Report created directories, created files, missing required Skills, skipped/protected paths, conflicts, and validation findings.
 
-## Install Skills Workflow
+## Init Dry Run Shape
+
+Before writing files, output:
+
+```md
+## Init Dry Run
+
+### Parameters
+
+- knowledge_dir: <knowledge_dir>
+- worktree_dir: <worktree_dir>
+- canonical_language: <bcp47>
+
+### Render Inventory
+
+| Action   | Source             | Target               | Ownership             |
+| -------- | ------------------ | -------------------- | --------------------- |
+| create   | skeleton path      | target path          | managed               |
+| append   | skeleton/AGENTS.md | AGENTS.md block      | append_block          |
+| skip     | target path        | existing file reason | protected             |
+| conflict | target path        | reason               | requires confirmation |
+
+### Required Skills
+
+- available: ...
+- missing: ...
+
+### Validation Planned
+
+- manifest fields
+- root AGENTS marked block
+- <knowledge_dir>/.gitignore
+- <worktree_dir>/.gitignore
+- required Skill availability
+```
+
+Missing required Skills are warnings, not blockers. Conflicts in managed target files require maintainer confirmation before writing.
+
+## Check Workflow
 
 1. Read root `AGENTS.md` to find the explicit knowledge directory.
 2. Read `<knowledge_dir>/.workflow/manifest.yml`.
-3. Confirm or set `agent_skills.mode: project` and `agent_skills.dir`.
-4. Validate `agent_skills.dir`.
-5. Build a dry run from `assets/.agents/skills/` into `<agent_skills.dir>/`.
-6. Install `SKILL.md.tpl` assets as `SKILL.md`; copy support files such as `references/` and `agents/`.
-7. Do not install or update `knowledge-workflow-admin` itself unless explicitly asked.
-8. Update the manifest `agent_skills` section and managed paths after approval.
+3. Validate required manifest fields, managed/protected path shapes, and the marked root `AGENTS.md` workflow block.
+4. Read `agent_skills.required`.
+5. Check whether each required Skill is available to the current Agent runtime.
+6. Report available and missing Skills. For missing Skills, tell the maintainer to install the corresponding `skills/<skill-name>/` directory from the Choral Skills distribution into the Agent runtime's Skill directory or with a cross-Agent Skill manager such as `npx skills`.
+7. Do not copy Skill files into the target repository and do not update the manifest unless the required Skill list itself is intentionally changed.
+
+## Check Report Shape
+
+```md
+## Workflow Check
+
+### Summary
+
+- status: pass | warnings | blocked
+- knowledge_dir: <knowledge_dir>
+- worktree_dir: <worktree_dir>
+- canonical_language: <bcp47>
+
+### Findings
+
+| Severity | Area   | Finding                | Suggested next action    |
+| -------- | ------ | ---------------------- | ------------------------ |
+| warning  | skills | missing required Skill | install in Agent runtime |
+
+### Required Skills
+
+- available: ...
+- missing: ...
+
+### Sources
+
+- root AGENTS.md
+- <knowledge_dir>/.workflow/manifest.yml
+- <knowledge_dir>/.gitignore
+- <worktree_dir>/.gitignore
+```
+
+Use `blocked` only when workflow context, manifest, or managed baseline files cannot be resolved. Missing required Skills are `warning` findings.

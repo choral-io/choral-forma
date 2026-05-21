@@ -73,7 +73,7 @@ Use this structure when handing implementation to review or reporting blocked wo
 ## Review Request
 ```
 
-Create a formal shared handoff under `<knowledge_dir>/workspace/<member-id>/handoffs/` only when the handoff is cross-member, long-lived, complex enough to survive the chat, or explicitly requested. Use `<knowledge_dir>/workspace/templates/handoff.md.tpl` as a reference template. Do not write into another member's workspace.
+Create a formal shared handoff under `<knowledge_dir>/workspace/<member-id>/handoffs/` only when the handoff is cross-member, long-lived, complex enough to survive the chat, or explicitly requested. Use `<knowledge_dir>/templates/handoff.md` as a reference template. Do not write into another member's workspace.
 
 ## Knowledge Updates
 

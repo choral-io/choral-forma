@@ -35,7 +35,7 @@ Source:
 
 - [[../WORKLIST#^wl-20260425-a8f2]]
 - [[../../../planning/KANBAN#^kb-example-feature]]
-- [[../../../tasks/items/example-feature-handling]]
+- [[../../../tasks/example-feature-handling]]
 
 - Intake: split assigned Kanban task into local execution steps.
 - Next: confirm current example behavior and failing case.

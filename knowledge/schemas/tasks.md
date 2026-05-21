@@ -1,8 +1,7 @@
 ---
 scope: project
 type: schema
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - metadata
     - schema
@@ -35,7 +34,7 @@ readiness: ready
 sprint: Sprint 1
 blocked_by: []
 related_to:
-    - "[[tasks/items/example-related-task]]"
+    - "[[tasks/example-related-task]]"
 ---
 ```
 
@@ -49,6 +48,7 @@ related_to:
 - `effort`: `S`, `M`, `L`.
 - `readiness`: `ready`, `needs-refinement`, `blocked`.
 - `sprint`: sprint label when scheduled.
+- `owners`: member or group wikilinks for durable task ownership. `owners: []` is allowed while a task is being drafted or refined, but `readiness: ready`, Kanban promotion, and active delivery require non-empty owners that resolve to existing member or group documents.
 - `assignees`: member wikilinks for people currently responsible for moving the task forward. Group assignees mean a team or group pool, not assignment to the current member.
 - `reviewers`: member or group wikilinks for expected reviewers for delivery acceptance.
 - `blocked_by`: hard blocker relationships. Entries may remain after blockers are resolved; a task is blocked only when one or more entries are unresolved.
@@ -56,7 +56,7 @@ related_to:
 - `reported_by`: optional source, member id, role, channel, or anonymized reporter for issue, bug, or defect tasks.
 - `affected_area`: optional product, module, user journey, integration, customer segment, or environment affected by an issue, bug, or defect.
 
-Use task knowledge-reference wikilinks in relationship fields. Manual short task wikilinks such as `[[example-related-task]]` are valid only when they resolve uniquely. Tool-written task relationship values should prefer path-qualified wikilinks such as `[[tasks/items/example-related-task]]`.
+Use task knowledge-reference wikilinks in relationship fields. Manual short task wikilinks such as `[[example-related-task]]` are valid only when they resolve uniquely. Tool-written task relationship values should prefer path-qualified wikilinks such as `[[tasks/example-related-task]]`.
 
 ## Body Template
 
@@ -103,7 +103,8 @@ Use task knowledge-reference wikilinks in relationship fields. Manual short task
 
 All items are required before setting `readiness: ready`:
 
-- Frontmatter includes valid `type`, `priority`, `value`, `module`, `effort`, `readiness`, and `owners`.
+- Frontmatter includes valid `type`, `priority`, `value`, `module`, `effort`, and `readiness`.
+- `owners` is non-empty, and every owner resolves to an existing member or group document.
 - The task has `## Goal`, `## Sources`, `## In scope`, `## Out of scope`, and `## Acceptance criteria` sections.
 - `## Sources` links to committed canonical-language project knowledge, accepted decisions, architecture, product, design, planning, task, or explicitly selected shared workspace material.
 - `## Acceptance criteria` contains observable pass/fail criteria.
@@ -130,7 +131,7 @@ Sources should point to canonical-language project knowledge, accepted decisions
 Kanban cards use Foam wikilinks:
 
 ```md
-- [ ] [[tasks/items/example-delivery-task|Example delivery task]]
+- [ ] [[tasks/example-delivery-task|Example delivery task]]
 ```
 
-Resolve `[[tasks/items/example-delivery-task]]` to `knowledge/tasks/items/example-delivery-task.md`. Manual short task links such as `[[example-delivery-task]]` may resolve to `knowledge/tasks/items/example-delivery-task.md` when unambiguous. If multiple canonical files match the same id, report ambiguity instead of guessing. Do not use display titles as ids.
+Resolve `[[tasks/example-delivery-task]]` to `knowledge/tasks/example-delivery-task.md`. Manual short task links such as `[[example-delivery-task]]` may resolve to `knowledge/tasks/example-delivery-task.md` when unambiguous. If multiple canonical files match the same id, report ambiguity instead of guessing. Do not use display titles as ids.

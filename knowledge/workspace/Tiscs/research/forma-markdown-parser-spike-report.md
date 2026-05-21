@@ -2,15 +2,15 @@
 scope: member
 type: research
 owners:
-  - "[[members/Tiscs]]"
+    - "[[members/Tiscs]]"
 assignees: []
 reviewers: []
 tags:
-  - workspace
-  - research
-  - forma
-  - rust
-  - markdown
+    - workspace
+    - research
+    - forma
+    - rust
+    - markdown
 ---
 
 # Forma Markdown Parser Spike Report

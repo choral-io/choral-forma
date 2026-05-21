@@ -43,7 +43,7 @@ If the user asks for a statistic that does not fit a predefined scope, keep the 
 
 ## Workflow
 
-1. Read `<knowledge_dir>/.workflow/manifest.yml` when present; use its `knowledge_dir`, `agent_skills`, `agent_local_dir`, and `canonical_language`.
+1. Read `<knowledge_dir>/.workflow/manifest.yml` when present; use its `knowledge_dir`, `agent_skills`, `worktree_dir`, and `canonical_language`.
 2. Read the knowledge workflow block in root `AGENTS.md`.
 3. Read `<knowledge_dir>/README.md`, `<knowledge_dir>/schemas/common.md`, and the relevant schemas under `<knowledge_dir>/schemas/`.
 4. Read only the knowledge areas needed for the requested mode.
@@ -60,11 +60,12 @@ If the user asks for a statistic that does not fit a predefined scope, keep the 
 - State the report scope and reliability near the top of the output.
 - State any filter or facet used for a non-standard statistic.
 - Do not treat localized files as canonical sources.
-- Do not treat local-only notes, WORKLIST entries, or work logs as team status unless the user explicitly scopes the report to local work.
+- Do not treat `<knowledge_dir>/schemas/**` or `<knowledge_dir>/templates/**` as project facts, delivery candidates, or health-report subject documents.
+- Do not treat local-only notes, WORKLIST entries, or work logs as shared delivery state unless the user explicitly scopes the report to local work.
 - Do not count a requirement, decision, or task as delivered only because prose suggests it; prefer linked Done cards, task metadata, or explicit delivered references.
 - Do not count proposals as project facts, accepted decisions, task items, or delivery commitments.
 - In `health` reports, call out documents with missing source traceability when their type or content implies source-derived knowledge.
-- For source tables, report templates, metric guidance, and reliability examples, read `references/report.md`.
+- For metric guidance, templates, report areas, and reliability examples, read `references/report-guide.md` first, then the narrower reference it points to.
 
 ## Output
 
@@ -95,7 +96,7 @@ Use this structure unless the user asks for another format:
 - ...
 ```
 
-For report templates, examples, and metric guidance, read `references/report.md`.
+For report templates, examples, and metric guidance, read `references/report-guide.md` first, then the narrower reference it points to.
 
 ## Guardrails
 

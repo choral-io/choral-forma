@@ -1,8 +1,7 @@
 ---
 scope: project
 type: schema
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - metadata
     - schema
@@ -19,12 +18,11 @@ Planning documents describe workflow, roadmap, sprint planning, sprint summaries
 ---
 scope: project
 type: process
-owners:
-    - "[[groups/default-team]]"
+owners: []
 assignees:
-    - "[[Gavroche]]"
+    - "[[members/Gavroche]]"
 reviewers:
-    - "[[Éponine]]"
+    - "[[members/Éponine]]"
 tags:
     - planning
 ---

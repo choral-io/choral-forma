@@ -1,12 +1,11 @@
 ---
 scope: project
 type: concept
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - agent
-  - concept
-  - maintenance
+    - agent
+    - concept
+    - maintenance
 ---
 
 # Agent-Assisted Knowledge Maintenance

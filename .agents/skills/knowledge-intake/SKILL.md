@@ -30,7 +30,7 @@ Use this skill to decide whether discussion should affect the knowledge base and
     - `<knowledge_dir>/groups/`
     - `<knowledge_dir>/planning/`
     - `<knowledge_dir>/proposals/`
-    - `<knowledge_dir>/tasks/items/`
+    - `<knowledge_dir>/tasks/`
     - `<knowledge_dir>/workspace/<member-id>/summaries/`
     - `<knowledge_dir>/workspace/<member-id>/handoffs/`
     - `<knowledge_dir>/workspace/<member-id>/research/`

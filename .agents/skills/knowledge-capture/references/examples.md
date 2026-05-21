@@ -7,9 +7,9 @@
 scope: member
 type: summary
 owners:
-    - "[[Gavroche]]"
+    - "[[members/Gavroche]]"
 assignees:
-    - "[[Gavroche]]"
+    - "[[members/Gavroche]]"
 reviewers: []
 tags:
     - workspace
@@ -40,7 +40,7 @@ Use project areas when the promoted content affects durable facts:
 ```text
 <knowledge_dir>/product/example-feature-behavior.md
 <knowledge_dir>/architecture/example-service-flow.md
-<knowledge_dir>/tasks/items/example-feature-handling.md
+<knowledge_dir>/tasks/example-feature-handling.md
 ```
 
 Keep useful source links, but omit private notes, command chatter, failed attempts that do not matter, and raw local-only scratch context.
@@ -52,7 +52,7 @@ Keep useful source links, but omit private notes, command chatter, failed attemp
 scope: project
 type: concept
 owners:
-    - "[[groups/<default_group_id>]]"
+    - "[[groups/review-board]]"
 tags:
     - agent
 ---
@@ -65,7 +65,7 @@ tags:
 scope: project
 type: design
 owners:
-    - "[[groups/<default_group_id>]]"
+    - "[[groups/review-board]]"
 tags:
     - ui
     - design
@@ -78,7 +78,7 @@ Use for implementation-facing UI guidance in:
 <knowledge_dir>/design/<feature-name>-ui.md
 ```
 
-Store related images, screenshots, or exported mockups in:
+Store related images, screenshots, or exported mockups under a typed asset directory, for example:
 
 ```text
 <knowledge_dir>/assets/design/<feature-name>/
@@ -94,7 +94,7 @@ lang: zh-CN
 canonical: ./agent.md
 translation_of: agent
 owners:
-    - "[[groups/<default_group_id>]]"
+    - "[[groups/review-board]]"
 tags:
     - agent
 ---

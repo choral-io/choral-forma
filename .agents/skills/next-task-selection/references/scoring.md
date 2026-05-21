@@ -16,7 +16,7 @@ Do not select cards from `Blocked` for implementation. Use blocked cards only wh
 
 Cards in `Backlog` may have `readiness: blocked` for planned dependency order. Keep them visible as context, but exclude them from implementation recommendations until blockers are resolved.
 
-Do not select loose task items from `<knowledge_dir>/tasks/items/**` unless they are linked from a candidate Kanban card. If the user asks to rank task items that are not on the board, route to `delivery-planning`.
+Do not select loose task items from `<knowledge_dir>/tasks/*.md` unless they are linked from a candidate Kanban card. If the user asks to rank task items that are not on the board, route to `delivery-planning`.
 
 ## Metadata
 
@@ -29,15 +29,15 @@ effort: M
 readiness: ready
 module: app
 owners:
-    - "[[Gavroche]]"
+    - "[[members/Gavroche]]"
 assignees:
-    - "[[Gavroche]]"
+    - "[[members/Gavroche]]"
 reviewers:
-    - "[[Éponine]]"
+    - "[[members/Éponine]]"
 blocked_by:
-    - "[[tasks/items/example-upstream-task]]"
+    - "[[tasks/example-upstream-task]]"
 related_to:
-    - "[[tasks/items/example-related-task]]"
+    - "[[tasks/example-related-task]]"
 ```
 
 Use task knowledge-reference wikilinks in relationship fields, not display titles. Tool-written values should prefer path-qualified task wikilinks.
@@ -64,7 +64,7 @@ Apply assignment priority before normal ranking:
 
 Only recommend from the first non-empty eligible group. If only tasks assigned to other members remain, list them as candidates and state that reassignment or explicit approval is needed before starting.
 
-Normalize member and group wikilinks before matching assignment. For example, `[[Gavroche]]` and `[[Gavroche|Display Name]]` both match id `Gavroche`. Group assignees, including the manifest `default_group_id`, mean team-pool assignment and do not match the current member.
+Normalize member and group wikilinks before matching assignment. For example, `[[members/Gavroche]]` and `[[Gavroche|Display Name]]` both match id `Gavroche`. Group assignees mean team-pool assignment and do not match the current member.
 
 Within each assignment group, score candidates with the table below.
 

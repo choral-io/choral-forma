@@ -1,14 +1,13 @@
 ---
 scope: project
 type: architecture
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - architecture
-  - forma
-  - api
-  - cli
-  - p0
+    - architecture
+    - forma
+    - api
+    - cli
+    - p0
 ---
 
 # Forma P0 Operation API Spec
@@ -72,8 +71,9 @@ diagnostics in memory and expose check/index status through operation results,
 but it must not write files in P0.
 
 `ViewRender` is required for the P0 WebApp and local HTTP API so the GUI can
-render page, list, table, and kanban views. A direct CLI command for view
-rendering can wait until there is product demand.
+render page, table, and kanban views. View metadata should also allow graph
+views to be discovered even when P0 does not yet render an interactive graph.
+A direct CLI command for view rendering can wait until there is product demand.
 
 `EntryRender` is required for the P0 WebApp and local HTTP API so the GUI can
 render individual Markdown entries without reading files directly. A direct CLI
@@ -97,14 +97,14 @@ Recommended top-level shape:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "check",
-  "status": "failed",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "diagnostics": []
+    "schemaVersion": 1,
+    "operation": "check",
+    "status": "failed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "diagnostics": []
 }
 ```
 
@@ -168,10 +168,10 @@ Request:
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "id": "1",
-  "method": "check",
-  "params": {}
+    "jsonrpc": "2.0",
+    "id": "1",
+    "method": "check",
+    "params": {}
 }
 ```
 
@@ -179,19 +179,19 @@ Success response:
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "id": "1",
-  "result": {
-    "schemaVersion": 1,
-    "operation": "check",
-    "status": "passed",
-    "summary": {
-      "errors": 0,
-      "warnings": 0,
-      "infos": 0
-    },
-    "diagnostics": []
-  }
+    "jsonrpc": "2.0",
+    "id": "1",
+    "result": {
+        "schemaVersion": 1,
+        "operation": "check",
+        "status": "passed",
+        "summary": {
+            "errors": 0,
+            "warnings": 0,
+            "infos": 0
+        },
+        "diagnostics": []
+    }
 }
 ```
 
@@ -199,16 +199,16 @@ Error response:
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "id": "1",
-  "error": {
-    "code": -32602,
-    "message": "Invalid params.",
-    "data": {
-      "code": "params.invalid",
-      "details": []
+    "jsonrpc": "2.0",
+    "id": "1",
+    "error": {
+        "code": -32602,
+        "message": "Invalid params.",
+        "data": {
+            "code": "params.invalid",
+            "details": []
+        }
     }
-  }
 }
 ```
 
@@ -285,26 +285,26 @@ Diagnostic object outline:
 
 ```json
 {
-  "severity": "error",
-  "code": "ref.unresolved",
-  "message": "Reference cannot be resolved.",
-  "path": "todos/user-registration.md",
-  "location": {
-    "kind": "frontmatter",
-    "field": "assignees",
-    "index": 0
-  },
-  "actual": "[[users/tics]]",
-  "expected": {
-    "type": "ref",
-    "target": "user"
-  },
-  "suggestions": [
-    {
-      "label": "Use users/tiscs",
-      "value": "[[users/tiscs]]"
-    }
-  ]
+    "severity": "error",
+    "code": "ref.unresolved",
+    "message": "Reference cannot be resolved.",
+    "path": "todos/user-registration.md",
+    "location": {
+        "kind": "frontmatter",
+        "field": "assignees",
+        "index": 0
+    },
+    "actual": "[[users/tics]]",
+    "expected": {
+        "type": "ref",
+        "target": "user"
+    },
+    "suggestions": [
+        {
+            "label": "Use users/tiscs",
+            "value": "[[users/tiscs]]"
+        }
+    ]
 }
 ```
 
@@ -316,13 +316,13 @@ All P0 operation results should use this common base:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "operation.name",
-  "status": "passed",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  }
+    "schemaVersion": 1,
+    "operation": "operation.name",
+    "status": "passed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    }
 }
 ```
 
@@ -330,12 +330,12 @@ Operations that evaluate workspace health include:
 
 ```json
 {
-  "summary": {
-    "errors": 0,
-    "warnings": 0,
-    "infos": 0
-  },
-  "diagnostics": []
+    "summary": {
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0
+    },
+    "diagnostics": []
 }
 ```
 
@@ -355,9 +355,9 @@ Params:
 
 ```json
 {
-  "name": "Acme Knowledge",
-  "language": "en",
-  "timezone": "Asia/Shanghai"
+    "name": "Acme Knowledge",
+    "language": "en",
+    "timezone": "Asia/Shanghai"
 }
 ```
 
@@ -375,27 +375,27 @@ Result outline:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "init",
-  "status": "passed",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "created": [
-    ".forma/workspace.yml",
-    ".forma/collections.yml",
-    ".forma/types.yml",
-    ".forma/views/todos.md",
-    ".forma/templates/todo.md",
-    ".forma/index.summary.json"
-  ],
-  "summary": {
-    "errors": 0,
-    "warnings": 0,
-    "infos": 0
-  },
-  "diagnostics": []
+    "schemaVersion": 1,
+    "operation": "init",
+    "status": "passed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "created": [
+        ".forma/workspace.yml",
+        ".forma/collections.yml",
+        ".forma/types.yml",
+        ".forma/views/todos.md",
+        ".forma/templates/todo.md",
+        ".forma/index.summary.json"
+    ],
+    "summary": {
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0
+    },
+    "diagnostics": []
 }
 ```
 
@@ -414,27 +414,27 @@ Result outline:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "check",
-  "status": "failed",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "summary": {
-    "errors": 1,
-    "warnings": 2,
-    "infos": 0
-  },
-  "checks": {
-    "config": "passed",
-    "collections": "warning",
-    "entries": "failed",
-    "references": "failed",
-    "views": "passed",
-    "index": "failed"
-  },
-  "diagnostics": []
+    "schemaVersion": 1,
+    "operation": "check",
+    "status": "failed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "summary": {
+        "errors": 1,
+        "warnings": 2,
+        "infos": 0
+    },
+    "checks": {
+        "config": "passed",
+        "collections": "warning",
+        "entries": "failed",
+        "references": "failed",
+        "views": "passed",
+        "index": "failed"
+    },
+    "diagnostics": []
 }
 ```
 
@@ -449,7 +449,7 @@ Params:
 
 ```json
 {
-  "path": ".forma/collections.yml"
+    "path": ".forma/collections.yml"
 }
 ```
 
@@ -460,44 +460,44 @@ Result outline:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "config.inspect",
-  "status": "warning",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "config": {
-    "workspace": {},
-    "types": {},
-    "collections": [],
-    "views": [],
-    "runtime": {}
-  },
-  "sources": [
-    {
-      "path": ".forma/workspace.yml",
-      "kind": "shared"
+    "schemaVersion": 1,
+    "operation": "config.inspect",
+    "status": "warning",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
     },
-    {
-      "path": ".forma/overrides/local.yml",
-      "kind": "local",
-      "present": false
-    }
-  ],
-  "runtimeValues": [
-    {
-      "name": "currentUserId",
-      "status": "resolved",
-      "source": ".forma/workspace.yml"
-    }
-  ],
-  "summary": {
-    "errors": 0,
-    "warnings": 1,
-    "infos": 0
-  },
-  "diagnostics": []
+    "config": {
+        "workspace": {},
+        "types": {},
+        "collections": [],
+        "views": [],
+        "runtime": {}
+    },
+    "sources": [
+        {
+            "path": ".forma/workspace.yml",
+            "kind": "shared"
+        },
+        {
+            "path": ".forma/overrides/local.yml",
+            "kind": "local",
+            "present": false
+        }
+    ],
+    "runtimeValues": [
+        {
+            "name": "currentUserId",
+            "status": "resolved",
+            "source": ".forma/workspace.yml"
+        }
+    ],
+    "summary": {
+        "errors": 0,
+        "warnings": 1,
+        "infos": 0
+    },
+    "diagnostics": []
 }
 ```
 
@@ -516,28 +516,28 @@ Result outline:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "index.rebuild",
-  "status": "passed",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "index": {
-    "path": ".forma/index.summary.json",
     "schemaVersion": 1,
-    "collections": 4,
-    "views": 4,
-    "entries": 12,
-    "refs": 18,
-    "written": true
-  },
-  "summary": {
-    "errors": 0,
-    "warnings": 0,
-    "infos": 0
-  },
-  "diagnostics": []
+    "operation": "index.rebuild",
+    "status": "passed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "index": {
+        "path": ".forma/index.summary.json",
+        "schemaVersion": 1,
+        "collections": 4,
+        "views": 4,
+        "entries": 12,
+        "refs": 18,
+        "written": true
+    },
+    "summary": {
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0
+    },
+    "diagnostics": []
 }
 ```
 
@@ -556,39 +556,39 @@ Result outline:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "index.check",
-  "status": "failed",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "index": {
-    "path": ".forma/index.summary.json",
-    "present": true,
-    "fresh": false,
-    "expectedSchemaVersion": 1,
-    "actualSchemaVersion": 1
-  },
-  "summary": {
-    "errors": 1,
-    "warnings": 0,
-    "infos": 0
-  },
-  "diagnostics": [
-    {
-      "severity": "error",
-      "code": "index.stale",
-      "message": "Summary index is stale.",
-      "path": ".forma/index.summary.json",
-      "suggestions": [
+    "schemaVersion": 1,
+    "operation": "index.check",
+    "status": "failed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "index": {
+        "path": ".forma/index.summary.json",
+        "present": true,
+        "fresh": false,
+        "expectedSchemaVersion": 1,
+        "actualSchemaVersion": 1
+    },
+    "summary": {
+        "errors": 1,
+        "warnings": 0,
+        "infos": 0
+    },
+    "diagnostics": [
         {
-          "label": "Rebuild summary index",
-          "command": "forma index rebuild"
+            "severity": "error",
+            "code": "index.stale",
+            "message": "Summary index is stale.",
+            "path": ".forma/index.summary.json",
+            "suggestions": [
+                {
+                    "label": "Rebuild summary index",
+                    "command": "forma index rebuild"
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }
 ```
 
@@ -602,7 +602,7 @@ Params by path:
 
 ```json
 {
-  "path": "todos/user-registration.md"
+    "path": "todos/user-registration.md"
 }
 ```
 
@@ -610,8 +610,8 @@ Params by collection locator:
 
 ```json
 {
-  "collection": "todos",
-  "entry": "user-registration"
+    "collection": "todos",
+    "entry": "user-registration"
 }
 ```
 
@@ -619,31 +619,31 @@ Result outline:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "inspect",
-  "status": "passed",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "entry": {
-    "path": "todos/user-registration.md",
-    "collection": "todos",
-    "kind": "todo",
-    "title": "User registration",
-    "summary": "Implement user registration flow.",
-    "metadata": {},
-    "headings": [],
-    "refs": [],
-    "embeds": [],
-    "renderable": true
-  },
-  "summary": {
-    "errors": 0,
-    "warnings": 0,
-    "infos": 0
-  },
-  "diagnostics": []
+    "schemaVersion": 1,
+    "operation": "inspect",
+    "status": "passed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "entry": {
+        "path": "todos/user-registration.md",
+        "collection": "todos",
+        "kind": "todo",
+        "title": "User registration",
+        "summary": "Implement user registration flow.",
+        "metadata": {},
+        "headings": [],
+        "refs": [],
+        "embeds": [],
+        "renderable": true
+    },
+    "summary": {
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0
+    },
+    "diagnostics": []
 }
 ```
 
@@ -659,7 +659,7 @@ Params:
 
 ```json
 {
-  "collection": "todos"
+    "collection": "todos"
 }
 ```
 
@@ -667,33 +667,33 @@ Result outline:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "list",
-  "status": "passed",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "collection": {
-    "id": "todos",
-    "title": "Todos",
-    "include": "todos/**/*.md"
-  },
-  "entries": [
-    {
-      "path": "todos/user-registration.md",
-      "kind": "todo",
-      "title": "User registration",
-      "summary": "Implement user registration flow.",
-      "fields": {}
-    }
-  ],
-  "summary": {
-    "errors": 0,
-    "warnings": 0,
-    "infos": 0
-  },
-  "diagnostics": []
+    "schemaVersion": 1,
+    "operation": "list",
+    "status": "passed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "collection": {
+        "id": "todos",
+        "title": "Todos",
+        "include": "todos/**/*.md"
+    },
+    "entries": [
+        {
+            "path": "todos/user-registration.md",
+            "kind": "todo",
+            "title": "User registration",
+            "summary": "Implement user registration flow.",
+            "fields": {}
+        }
+    ],
+    "summary": {
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0
+    },
+    "diagnostics": []
 }
 ```
 
@@ -710,10 +710,10 @@ Params:
 
 ```json
 {
-  "collection": "todos",
-  "inputs": {
-    "title": "Draft reference model"
-  }
+    "collection": "todos",
+    "inputs": {
+        "title": "Draft reference model"
+    }
 }
 ```
 
@@ -721,52 +721,52 @@ Result outline:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "create",
-  "status": "warning",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "created": {
-    "path": "todos/draft-reference-model.md",
-    "collection": "todos",
-    "template": ".forma/templates/todo.md"
-  },
-  "inputs": {
-    "title": {
-      "source": "explicit",
-      "value": "Draft reference model"
+    "schemaVersion": 1,
+    "operation": "create",
+    "status": "warning",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
     },
-    "slug": {
-      "source": "default",
-      "value": "draft-reference-model",
-      "transform": "slugify"
-    }
-  },
-  "index": {
-    "stale": true,
-    "suggestedCommand": "forma index rebuild"
-  },
-  "summary": {
-    "errors": 0,
-    "warnings": 1,
-    "infos": 0
-  },
-  "diagnostics": [
-    {
-      "severity": "warning",
-      "code": "index.stale",
-      "message": "Summary index is stale after creating an entry.",
-      "path": ".forma/index.summary.json",
-      "suggestions": [
-        {
-          "label": "Rebuild summary index",
-          "command": "forma index rebuild"
+    "created": {
+        "path": "todos/draft-reference-model.md",
+        "collection": "todos",
+        "template": ".forma/templates/todo.md"
+    },
+    "inputs": {
+        "title": {
+            "source": "explicit",
+            "value": "Draft reference model"
+        },
+        "slug": {
+            "source": "default",
+            "value": "draft-reference-model",
+            "transform": "slugify"
         }
-      ]
-    }
-  ]
+    },
+    "index": {
+        "stale": true,
+        "suggestedCommand": "forma index rebuild"
+    },
+    "summary": {
+        "errors": 0,
+        "warnings": 1,
+        "infos": 0
+    },
+    "diagnostics": [
+        {
+            "severity": "warning",
+            "code": "index.stale",
+            "message": "Summary index is stale after creating an entry.",
+            "path": ".forma/index.summary.json",
+            "suggestions": [
+                {
+                    "label": "Rebuild summary index",
+                    "command": "forma index rebuild"
+                }
+            ]
+        }
+    ]
 }
 ```
 
@@ -777,16 +777,25 @@ diagnostics that do not block creation may be returned as diagnostics.
 ### View Render
 
 `view.render` renders one declarative view for the local WebApp and HTTP API.
-It evaluates view parameters, collection schema references, query definitions,
-sort definitions, display fields, table fields, kanban columns, and render
-mounts. It writes nothing and does not persist rendered view results.
+It evaluates view parameters, workspace source filters, collection shorthand,
+normalized-entry query definitions, sort definitions, display fields, table
+fields, kanban columns, and render mounts. It writes nothing and does not
+persist rendered view results.
+
+The source/query model is defined in [[architecture/forma-view-query-model]].
+
+The direct `view.collection` field is a shorthand for a workspace-source query
+where `entry.collection` equals the collection id. Explicit queries should use
+`target` paths such as `entry.collection` and `frontmatter.status`. P0 render
+support should cover `equals`, `in`, `contains`, and `exists`; unsupported
+targets or operators should return structured diagnostics.
 
 Params:
 
 ```json
 {
-  "view": "todos",
-  "params": {}
+    "view": "todos",
+    "params": {}
 }
 ```
 
@@ -794,33 +803,36 @@ Result outline:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "view.render",
-  "status": "passed",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "view": {
-    "id": "todos",
-    "path": ".forma/views/todos.md",
-    "surface": "page",
-    "mode": "kanban",
-    "title": "Todos",
-    "collection": "todos",
-    "params": {}
-  },
-  "render": {
-    "kind": "kanban",
-    "items": [],
-    "columns": []
-  },
-  "summary": {
-    "errors": 0,
-    "warnings": 0,
-    "infos": 0
-  },
-  "diagnostics": []
+    "schemaVersion": 1,
+    "operation": "view.render",
+    "status": "passed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "view": {
+        "id": "todos",
+        "path": ".forma/views/todos.md",
+        "surface": "page",
+        "mode": "kanban",
+        "title": "Todos",
+        "collection": "todos",
+        "source": {
+            "kind": "workspace"
+        },
+        "params": {}
+    },
+    "render": {
+        "kind": "kanban",
+        "items": [],
+        "columns": []
+    },
+    "summary": {
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0
+    },
+    "diagnostics": []
 }
 ```
 
@@ -840,8 +852,8 @@ Params:
 
 ```json
 {
-  "path": "todos/user-registration.md",
-  "format": "html"
+    "path": "todos/user-registration.md",
+    "format": "html"
 }
 ```
 
@@ -849,30 +861,30 @@ Result outline:
 
 ```json
 {
-  "schemaVersion": 1,
-  "operation": "entry.render",
-  "status": "passed",
-  "workspace": {
-    "root": ".",
-    "name": "Acme Knowledge"
-  },
-  "entry": {
-    "path": "todos/user-registration.md",
-    "collection": "todos",
-    "kind": "todo",
-    "title": "User registration"
-  },
-  "render": {
-    "format": "html",
-    "html": "<h1>User registration</h1>",
-    "refs": []
-  },
-  "summary": {
-    "errors": 0,
-    "warnings": 0,
-    "infos": 0
-  },
-  "diagnostics": []
+    "schemaVersion": 1,
+    "operation": "entry.render",
+    "status": "passed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "entry": {
+        "path": "todos/user-registration.md",
+        "collection": "todos",
+        "kind": "todo",
+        "title": "User registration"
+    },
+    "render": {
+        "format": "html",
+        "html": "<h1>User registration</h1>",
+        "refs": []
+    },
+    "summary": {
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0
+    },
+    "diagnostics": []
 }
 ```
 

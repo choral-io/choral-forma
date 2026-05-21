@@ -1,8 +1,7 @@
 ---
 scope: project
 type: schema
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - metadata
     - schema
@@ -19,12 +18,11 @@ Design documents define UI visual design, component behavior, screen composition
 ---
 scope: project
 type: design
-owners:
-    - "[[groups/default-team]]"
+owners: []
 assignees:
-    - "[[Gavroche]]"
+    - "[[members/Gavroche]]"
 reviewers:
-    - "[[Éponine]]"
+    - "[[members/Éponine]]"
 tags:
     - ui
     - design
@@ -63,10 +61,10 @@ Use sections that fit the document:
 
 ## Assets
 
-Store screenshots, sketches, exported mockups, Figma exports, and reference images under:
+Store screenshots, sketches, exported mockups, Figma exports, and reference images under a typed asset directory:
 
 ```text
-knowledge/assets/design/<feature-name>/
+knowledge/assets/<asset-type>/<topic>/
 ```
 
-Link assets from Markdown instead of leaving them at the repository root.
+Store design assets under `knowledge/assets/<asset-type>/<topic>/`, choosing an asset type such as `design`, `image`, or `export` to match the content. Link assets from Markdown instead of leaving them at the repository root.

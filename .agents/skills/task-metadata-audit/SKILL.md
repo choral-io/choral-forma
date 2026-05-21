@@ -15,9 +15,9 @@ Use this skill to inspect task metadata and report issues. This skill is read-on
 
 1. Read `<knowledge_dir>/schemas/common.md`.
 2. Read `<knowledge_dir>/schemas/tasks.md`.
-3. Read `<knowledge_dir>/tasks/WORKFLOW.md`.
+3. Read `<knowledge_dir>/planning/WORKFLOW.md`.
 4. Read `<knowledge_dir>/planning/KANBAN.md`.
-5. Scan `<knowledge_dir>/tasks/items/**/*.md`, excluding localized files.
+5. Scan `<knowledge_dir>/tasks/*.md`, excluding localized files.
 6. Parse frontmatter and task body sections.
 7. Check task relationships against existing task ids and Kanban card ids.
 8. Report issues and dry-run fixes without editing files.
@@ -26,7 +26,7 @@ Use this skill to inspect task metadata and report issues. This skill is read-on
 
 - Missing or invalid `type`, `priority`, `value`, `effort`, `readiness`, or `module`.
 - Missing or invalid `severity` only when `type` is `issue`, `bug`, or `defect` and impact is needed for triage.
-- Missing `owners` in new or actively maintained task items.
+- Missing, empty, or unresolved `owners` in task items that are `readiness: ready`, linked from a Kanban card, scheduled, assigned, or actively maintained.
 - `owners`, `assignees`, or `reviewers` values that reference member or group documents without wikilinks, or tool-written values that should be path-qualified.
 - Group values in `assignees`; report these as team-pool assignments, not direct assignment to the current member.
 - Missing `assignees` only when the task appears scheduled or actively assigned.

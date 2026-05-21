@@ -1,13 +1,12 @@
 ---
 scope: project
 type: product
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - product
-  - forma
-  - p0
-  - starter
+    - product
+    - forma
+    - p0
+    - starter
 ---
 
 # Forma P0 Starter Specification
@@ -95,25 +94,25 @@ current environment timezone:
 schemaVersion: 1
 
 workspace:
-  name: Acme Knowledge
-  canonicalLanguage: en
-  supportedLanguages:
-    - en
-  timezone: Asia/Shanghai
+    name: Acme Knowledge
+    canonicalLanguage: en
+    supportedLanguages:
+        - en
+    timezone: Asia/Shanghai
 
 runtime:
-  values:
-    currentDate:
-      kind: currentDate
-    currentDateTime:
-      kind: currentDateTime
-    workspaceRoot:
-      kind: workspaceRoot
-    currentUserId:
-      kind: gitConfig
-      key: user.name
-      transform: slugify
-      required: true
+    values:
+        currentDate:
+            kind: currentDate
+        currentDateTime:
+            kind: currentDateTime
+        workspaceRoot:
+            kind: workspaceRoot
+        currentUserId:
+            kind: gitConfig
+            key: user.name
+            transform: slugify
+            required: true
 ```
 
 `currentUserId` is a runtime value, not a special user system concept. If the
@@ -154,34 +153,34 @@ types only:
 schemaVersion: 1
 
 types:
-  note:
-    kind: collection
-    collection: notes
-    input:
-      transform: slugify
+    note:
+        kind: collection
+        collection: notes
+        input:
+            transform: slugify
 
-  daily:
-    kind: collection
-    collection: daily
+    daily:
+        kind: collection
+        collection: daily
 
-  todo:
-    kind: collection
-    collection: todos
-    input:
-      transform: slugify
+    todo:
+        kind: collection
+        collection: todos
+        input:
+            transform: slugify
 
-  user:
-    kind: collection
-    collection: users
-    input:
-      transform: slugify
+    user:
+        kind: collection
+        collection: users
+        input:
+            transform: slugify
 
-  todoStatus:
-    kind: enum
-    values:
-      - todo
-      - doing
-      - done
+    todoStatus:
+        kind: enum
+        values:
+            - todo
+            - doing
+            - done
 ```
 
 The `user` type resolves entries from `users/`. P0 must not add a separate
@@ -197,219 +196,219 @@ inputs and templates, not in schema fields.
 schemaVersion: 1
 
 collections:
-  notes:
-    title: Notes
-    description: General knowledge notes.
-    include: notes/**/*.md
-    template: .forma/templates/note.md
-    create:
-      directory: notes
-      filename: "{{ input.slug }}.md"
-      inputs:
-        title:
-          field: title
-          required: true
-        summary:
-          field: summary
-          default: ""
-        slug:
-          label: Slug
-          type: string
-          default: "{{ input.title }}"
-          transform: slugify
-        createdAt:
-          field: createdAt
-          default: "{{ runtime.values.currentDateTime }}"
-    conventions:
-      titleField: title
-      summaryField: summary
-      createdAtField: createdAt
-    schema:
-      type: object
-      fields:
-        kind:
-          type: const
-          value: note
-          required: true
-        title:
-          type: string
-          label: Title
-          required: true
-        summary:
-          type: string
-          label: Summary
-        createdAt:
-          type: datetime
-          label: Created At
-          required: true
-        updatedAt:
-          type: datetime
-          label: Updated At
+    notes:
+        title: Notes
+        description: General knowledge notes.
+        include: notes/**/*.md
+        template: .forma/templates/note.md
+        create:
+            directory: notes
+            filename: "{{ input.slug }}.md"
+            inputs:
+                title:
+                    field: title
+                    required: true
+                summary:
+                    field: summary
+                    default: ""
+                slug:
+                    label: Slug
+                    type: string
+                    default: "{{ input.title }}"
+                    transform: slugify
+                createdAt:
+                    field: createdAt
+                    default: "{{ runtime.values.currentDateTime }}"
+        conventions:
+            titleField: title
+            summaryField: summary
+            createdAtField: createdAt
+        schema:
+            type: object
+            fields:
+                kind:
+                    type: const
+                    value: note
+                    required: true
+                title:
+                    type: string
+                    label: Title
+                    required: true
+                summary:
+                    type: string
+                    label: Summary
+                createdAt:
+                    type: datetime
+                    label: Created At
+                    required: true
+                updatedAt:
+                    type: datetime
+                    label: Updated At
 
-  daily:
-    title: Daily Notes
-    description: Date-based notes.
-    include: daily/**/*.md
-    template: .forma/templates/daily.md
-    create:
-      directory: daily
-      filename: "{{ input.date }}.md"
-      inputs:
-        date:
-          field: date
-          type: date
-          required: true
-          default: "{{ runtime.values.currentDate }}"
-        title:
-          field: title
-          default: "{{ input.date }}"
-        summary:
-          field: summary
-          default: ""
-        createdAt:
-          field: createdAt
-          default: "{{ runtime.values.currentDateTime }}"
-    conventions:
-      titleField: title
-      summaryField: summary
-      createdAtField: createdAt
-    schema:
-      type: object
-      fields:
-        kind:
-          type: const
-          value: daily
-          required: true
-        date:
-          type: date
-          label: Date
-          required: true
-        title:
-          type: string
-          label: Title
-          required: true
-        summary:
-          type: string
-          label: Summary
-        createdAt:
-          type: datetime
-          label: Created At
-          required: true
+    daily:
+        title: Daily Notes
+        description: Date-based notes.
+        include: daily/**/*.md
+        template: .forma/templates/daily.md
+        create:
+            directory: daily
+            filename: "{{ input.date }}.md"
+            inputs:
+                date:
+                    field: date
+                    type: date
+                    required: true
+                    default: "{{ runtime.values.currentDate }}"
+                title:
+                    field: title
+                    default: "{{ input.date }}"
+                summary:
+                    field: summary
+                    default: ""
+                createdAt:
+                    field: createdAt
+                    default: "{{ runtime.values.currentDateTime }}"
+        conventions:
+            titleField: title
+            summaryField: summary
+            createdAtField: createdAt
+        schema:
+            type: object
+            fields:
+                kind:
+                    type: const
+                    value: daily
+                    required: true
+                date:
+                    type: date
+                    label: Date
+                    required: true
+                title:
+                    type: string
+                    label: Title
+                    required: true
+                summary:
+                    type: string
+                    label: Summary
+                createdAt:
+                    type: datetime
+                    label: Created At
+                    required: true
 
-  todos:
-    title: Todos
-    description: Lightweight action items.
-    include: todos/**/*.md
-    template: .forma/templates/todo.md
-    create:
-      directory: todos
-      filename: "{{ input.slug }}.md"
-      inputs:
-        title:
-          field: title
-          required: true
-        summary:
-          field: summary
-          default: ""
-        slug:
-          label: Slug
-          type: string
-          default: "{{ input.title }}"
-          transform: slugify
-        status:
-          field: status
-          default: todo
-        createdAt:
-          field: createdAt
-          default: "{{ runtime.values.currentDateTime }}"
-    conventions:
-      titleField: title
-      summaryField: summary
-      createdAtField: createdAt
-    schema:
-      type: object
-      fields:
-        kind:
-          type: const
-          value: todo
-          required: true
-        title:
-          type: string
-          label: Title
-          required: true
-        summary:
-          type: string
-          label: Summary
-        status:
-          type: enum
-          enum: todoStatus
-          label: Status
-          required: true
-        assignees:
-          type: list
-          label: Assignees
-          items:
-            type: ref
-            target: user
-        dueDate:
-          type: date
-          label: Due Date
-        createdAt:
-          type: datetime
-          label: Created At
-          required: true
+    todos:
+        title: Todos
+        description: Lightweight action items.
+        include: todos/**/*.md
+        template: .forma/templates/todo.md
+        create:
+            directory: todos
+            filename: "{{ input.slug }}.md"
+            inputs:
+                title:
+                    field: title
+                    required: true
+                summary:
+                    field: summary
+                    default: ""
+                slug:
+                    label: Slug
+                    type: string
+                    default: "{{ input.title }}"
+                    transform: slugify
+                status:
+                    field: status
+                    default: todo
+                createdAt:
+                    field: createdAt
+                    default: "{{ runtime.values.currentDateTime }}"
+        conventions:
+            titleField: title
+            summaryField: summary
+            createdAtField: createdAt
+        schema:
+            type: object
+            fields:
+                kind:
+                    type: const
+                    value: todo
+                    required: true
+                title:
+                    type: string
+                    label: Title
+                    required: true
+                summary:
+                    type: string
+                    label: Summary
+                status:
+                    type: enum
+                    enum: todoStatus
+                    label: Status
+                    required: true
+                assignees:
+                    type: list
+                    label: Assignees
+                    items:
+                        type: ref
+                        target: user
+                dueDate:
+                    type: date
+                    label: Due Date
+                createdAt:
+                    type: datetime
+                    label: Created At
+                    required: true
 
-  users:
-    title: Users
-    description: People who can be referenced in this workspace.
-    include: users/**/*.md
-    template: .forma/templates/user.md
-    create:
-      directory: users
-      filename: "{{ input.slug }}.md"
-      inputs:
-        name:
-          field: name
-          required: true
-        description:
-          field: description
-          default: ""
-        responsibilities:
-          field: responsibilities
-          default: ""
-        slug:
-          label: Slug
-          type: string
-          default: "{{ input.name }}"
-          transform: slugify
-        createdAt:
-          field: createdAt
-          default: "{{ runtime.values.currentDateTime }}"
-    conventions:
-      titleField: name
-      summaryField: description
-      createdAtField: createdAt
-    schema:
-      type: object
-      fields:
-        kind:
-          type: const
-          value: user
-          required: true
-        name:
-          type: string
-          label: Name
-          required: true
-        description:
-          type: string
-          label: Description
-        responsibilities:
-          type: string
-          label: Responsibilities
-        createdAt:
-          type: datetime
-          label: Created At
-          required: true
+    users:
+        title: Users
+        description: People who can be referenced in this workspace.
+        include: users/**/*.md
+        template: .forma/templates/user.md
+        create:
+            directory: users
+            filename: "{{ input.slug }}.md"
+            inputs:
+                name:
+                    field: name
+                    required: true
+                description:
+                    field: description
+                    default: ""
+                responsibilities:
+                    field: responsibilities
+                    default: ""
+                slug:
+                    label: Slug
+                    type: string
+                    default: "{{ input.name }}"
+                    transform: slugify
+                createdAt:
+                    field: createdAt
+                    default: "{{ runtime.values.currentDateTime }}"
+        conventions:
+            titleField: name
+            summaryField: description
+            createdAtField: createdAt
+        schema:
+            type: object
+            fields:
+                kind:
+                    type: const
+                    value: user
+                    required: true
+                name:
+                    type: string
+                    label: Name
+                    required: true
+                description:
+                    type: string
+                    label: Description
+                responsibilities:
+                    type: string
+                    label: Responsibilities
+                createdAt:
+                    type: datetime
+                    label: Created At
+                    required: true
 ```
 
 ## Templates
@@ -478,10 +477,11 @@ createdAt: "{{ input.createdAt }}"
 
 ## P0 Page Views
 
-P0 starter views are managed Markdown definitions under `.forma/views/`. Each
-starter view has `surface: page`, references one collection, and contains one
+P0 starter views are managed Markdown definitions under `.forma/views/`.
+Collection starter views have `surface: page`, use the `collection` shorthand
+for a workspace query filtered by `entry.collection`, and contain one
 `<!-- forma-view -->` mount point. The starter does not include embedded views
-or cross-collection views.
+or cross-collection list, table, or kanban views.
 
 ### `.forma/views/notes.md`
 
@@ -490,19 +490,19 @@ or cross-collection views.
 kind: forma-view
 
 view:
-  surface: page
-  mode: table
-  collection: notes
-  title: Notes
-  description: General knowledge notes.
-  table:
-    columns:
-      - title
-      - summary
-      - createdAt
-  sort:
-    - field: createdAt
-      direction: desc
+    surface: page
+    mode: table
+    collection: notes
+    title: Notes
+    description: General knowledge notes.
+    table:
+        columns:
+            - title
+            - summary
+            - createdAt
+    sort:
+        - field: createdAt
+          direction: desc
 ---
 
 # Notes
@@ -517,20 +517,20 @@ view:
 kind: forma-view
 
 view:
-  surface: page
-  mode: table
-  collection: daily
-  title: Daily Notes
-  description: Date-based notes.
-  table:
-    columns:
-      - date
-      - title
-      - summary
-      - createdAt
-  sort:
-    - field: date
-      direction: desc
+    surface: page
+    mode: table
+    collection: daily
+    title: Daily Notes
+    description: Date-based notes.
+    table:
+        columns:
+            - date
+            - title
+            - summary
+            - createdAt
+    sort:
+        - field: date
+          direction: desc
 ---
 
 # Daily Notes
@@ -545,41 +545,41 @@ view:
 kind: forma-view
 
 view:
-  surface: page
-  mode: kanban
-  collection: todos
-  title: Todos
-  description: Lightweight action items.
-  kanban:
-    card:
-      titleField: title
-      subtitleFields:
-        - summary
-        - assignees
-      badgeFields:
-        - dueDate
-    columns:
-      - id: todo
-        label: To Do
-        query:
-          all:
-            - field: status
-              op: equals
-              value: todo
-      - id: doing
-        label: Doing
-        query:
-          all:
-            - field: status
-              op: equals
-              value: doing
-      - id: done
-        label: Done
-        query:
-          all:
-            - field: status
-              op: equals
-              value: done
+    surface: page
+    mode: kanban
+    collection: todos
+    title: Todos
+    description: Lightweight action items.
+    kanban:
+        card:
+            titleField: title
+            subtitleFields:
+                - summary
+                - assignees
+            badgeFields:
+                - dueDate
+        columns:
+            - id: todo
+              label: To Do
+              query:
+                  all:
+                      - target: frontmatter.status
+                        op: equals
+                        value: todo
+            - id: doing
+              label: Doing
+              query:
+                  all:
+                      - target: frontmatter.status
+                        op: equals
+                        value: doing
+            - id: done
+              label: Done
+              query:
+                  all:
+                      - target: frontmatter.status
+                        op: equals
+                        value: done
 ---
 
 # Todos
@@ -597,22 +597,52 @@ are intentionally left for a later write-capable surface.
 kind: forma-view
 
 view:
-  surface: page
-  mode: table
-  collection: users
-  title: Users
-  description: People referenced by this workspace.
-  table:
-    columns:
-      - name
-      - description
-      - createdAt
-  sort:
-    - field: name
-      direction: asc
+    surface: page
+    mode: table
+    collection: users
+    title: Users
+    description: People referenced by this workspace.
+    table:
+        columns:
+            - name
+            - description
+            - createdAt
+    sort:
+        - field: name
+          direction: asc
 ---
 
 # Users
+
+<!-- forma-view -->
+```
+
+### Candidate `.forma/views/knowledge-graph.md`
+
+After graph rendering and workspace-scope view sources exist, initialized
+workspaces can include a built-in global graph view. This view is not a
+cross-collection table query; it renders the repository reference graph over a
+file scope.
+
+```markdown
+---
+kind: forma-view
+
+view:
+    surface: page
+    mode: graph
+    title: Knowledge Graph
+    description: Repository-wide knowledge graph.
+    source:
+        kind: workspace
+        include:
+            - "**/*.md"
+        exclude:
+            - ".forma/**"
+            - "**/local/**"
+---
+
+# Knowledge Graph
 
 <!-- forma-view -->
 ```

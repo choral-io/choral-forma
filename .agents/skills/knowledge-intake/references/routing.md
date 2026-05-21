@@ -76,7 +76,7 @@ Use `knowledge-capture` to ...
 | Cross-area writing, terminology, or language                       | Review guidelines              | `<knowledge_dir>/guidelines/`                  |
 | Sprint, roadmap, process, migration                                | Review planning docs           | `<knowledge_dir>/planning/`                    |
 | Valuable but unconfirmed knowledge, task, or decision candidate    | Create proposal after approval | `<knowledge_dir>/proposals/`                   |
-| Implementable work item                                            | Create or refine task item     | `<knowledge_dir>/tasks/items/`                 |
+| Implementable work item                                            | Create or refine task item     | `<knowledge_dir>/tasks/`                       |
 | Personal working context                                           | Capture locally                | `<knowledge_dir>/workspace/<member-id>/local/` |
 | Shareable member summary, handoff, research                        | Summarize for team use         | `<knowledge_dir>/workspace/<member-id>/`       |
 

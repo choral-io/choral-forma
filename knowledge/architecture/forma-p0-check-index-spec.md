@@ -1,14 +1,13 @@
 ---
 scope: project
 type: architecture
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - architecture
-  - forma
-  - p0
-  - indexing
-  - diagnostics
+    - architecture
+    - forma
+    - p0
+    - indexing
+    - diagnostics
 ---
 
 # Forma P0 Check And Index Specification
@@ -71,8 +70,8 @@ Pipeline phases:
 8. Enrich the parsed document into `FormaAST` by scanning wikilinks,
    Markdown links, Obsidian-style embeds, and Forma directives.
 9. Classify files into collections and views.
-10. Validate configuration, collection membership, frontmatter schemas, and view
-    definitions.
+10. Validate configuration, collection membership, frontmatter schemas, view
+    definitions, workspace view sources, and normalized-entry query targets.
 11. Resolve references.
 12. Build the deterministic summary-index projection from successfully resolved
     discovery facts.
@@ -85,6 +84,9 @@ Pipeline phases:
 Index-producing operations use phases 1 through 12 and exclude diagnostics from
 the index artifact. Check-producing operations use the same discovery and parse
 facts, then return diagnostics from phase 13.
+
+View source and query validation follows
+[[architecture/forma-view-query-model]].
 
 ## Summary Index
 
@@ -120,60 +122,72 @@ Recommended P0 JSON shape:
 
 ```json
 {
-  "schemaVersion": 1,
-  "workspace": {
-    "name": "Acme Knowledge",
-    "canonicalLanguage": "en",
-    "supportedLanguages": ["en"]
-  },
-  "collections": [
-    {
-      "id": "todos",
-      "title": "Todos",
-      "include": "todos/**/*.md",
-      "entryCount": 1
-    }
-  ],
-  "views": [
-    {
-      "id": "todos",
-      "path": ".forma/views/todos.md",
-      "surface": "page",
-      "mode": "kanban",
-      "collection": "todos",
-      "title": "Todos"
-    }
-  ],
-  "entries": [
-    {
-      "path": "todos/user-registration.md",
-      "collection": "todos",
-      "kind": "todo",
-      "title": "User registration",
-      "summary": "Implement user registration flow.",
-      "refs": [
+    "schemaVersion": 1,
+    "workspace": {
+        "name": "Acme Knowledge",
+        "canonicalLanguage": "en",
+        "supportedLanguages": ["en"]
+    },
+    "collections": [
         {
-          "source": "frontmatter",
-          "field": "assignees",
-          "targetPath": "users/tiscs.md",
-          "semanticType": "user",
-          "intent": "reference"
-        },
-        {
-          "source": "body",
-          "targetPath": "notes/account-model.md",
-          "semanticType": "note",
-          "intent": "link"
-        },
-        {
-          "source": "body",
-          "targetPath": "notes/project-brief.md",
-          "semanticType": "note",
-          "intent": "embed"
+            "id": "todos",
+            "title": "Todos",
+            "include": "todos/**/*.md",
+            "entryCount": 1
         }
-      ]
-    }
-  ]
+    ],
+    "views": [
+        {
+            "id": "todos",
+            "path": ".forma/views/todos.md",
+            "surface": "page",
+            "mode": "kanban",
+            "collection": "todos",
+            "title": "Todos"
+        },
+        {
+            "id": "knowledge-graph",
+            "path": ".forma/views/knowledge-graph.md",
+            "surface": "page",
+            "mode": "graph",
+            "title": "Knowledge Graph",
+            "source": {
+                "kind": "workspace",
+                "include": ["**/*.md"],
+                "exclude": [".forma/**", "**/local/**"]
+            }
+        }
+    ],
+    "entries": [
+        {
+            "path": "todos/user-registration.md",
+            "collection": "todos",
+            "kind": "todo",
+            "title": "User registration",
+            "summary": "Implement user registration flow.",
+            "refs": [
+                {
+                    "source": "frontmatter",
+                    "field": "assignees",
+                    "targetPath": "users/tiscs.md",
+                    "semanticType": "user",
+                    "intent": "reference"
+                },
+                {
+                    "source": "body",
+                    "targetPath": "notes/account-model.md",
+                    "semanticType": "note",
+                    "intent": "link"
+                },
+                {
+                    "source": "body",
+                    "targetPath": "notes/project-brief.md",
+                    "semanticType": "note",
+                    "intent": "embed"
+                }
+            ]
+        }
+    ]
 }
 ```
 
@@ -236,36 +250,36 @@ Recommended P0 check JSON shape:
 
 ```json
 {
-  "status": "failed",
-  "summary": {
-    "errors": 1,
-    "warnings": 2,
-    "infos": 0
-  },
-  "diagnostics": [
-    {
-      "severity": "error",
-      "code": "ref.unresolved",
-      "message": "Reference cannot be resolved.",
-      "path": "todos/user-registration.md",
-      "location": {
-        "kind": "frontmatter",
-        "field": "assignees",
-        "index": 0
-      },
-      "actual": "[[users/tics]]",
-      "expected": {
-        "type": "ref",
-        "target": "user"
-      },
-      "suggestions": [
+    "status": "failed",
+    "summary": {
+        "errors": 1,
+        "warnings": 2,
+        "infos": 0
+    },
+    "diagnostics": [
         {
-          "label": "Use users/tiscs",
-          "value": "[[users/tiscs]]"
+            "severity": "error",
+            "code": "ref.unresolved",
+            "message": "Reference cannot be resolved.",
+            "path": "todos/user-registration.md",
+            "location": {
+                "kind": "frontmatter",
+                "field": "assignees",
+                "index": 0
+            },
+            "actual": "[[users/tics]]",
+            "expected": {
+                "type": "ref",
+                "target": "user"
+            },
+            "suggestions": [
+                {
+                    "label": "Use users/tiscs",
+                    "value": "[[users/tiscs]]"
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }
 ```
 
@@ -347,30 +361,30 @@ Recommended location shapes:
 
 ```json
 {
-  "kind": "config",
-  "pointer": "/collections/todos/include"
+    "kind": "config",
+    "pointer": "/collections/todos/include"
 }
 ```
 
 ```json
 {
-  "kind": "frontmatter",
-  "field": "assignees",
-  "index": 0
+    "kind": "frontmatter",
+    "field": "assignees",
+    "index": 0
 }
 ```
 
 ```json
 {
-  "kind": "body",
-  "start": { "line": 12, "column": 4 },
-  "end": { "line": 12, "column": 27 }
+    "kind": "body",
+    "start": { "line": 12, "column": 4 },
+    "end": { "line": 12, "column": 27 }
 }
 ```
 
 ```json
 {
-  "kind": "file"
+    "kind": "file"
 }
 ```
 

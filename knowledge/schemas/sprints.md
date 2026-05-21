@@ -1,8 +1,7 @@
 ---
 scope: project
 type: schema
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - metadata
     - schema
@@ -20,12 +19,11 @@ Sprint documents describe time-boxed planning, coordination, review, or retrospe
 ---
 scope: project
 type: sprint
-owners:
-    - "[[groups/default-team]]"
+owners: []
 assignees:
-    - "[[Gavroche]]"
+    - "[[members/Gavroche]]"
 reviewers:
-    - "[[Éponine]]"
+    - "[[members/Éponine]]"
 tags:
     - planning
     - sprint

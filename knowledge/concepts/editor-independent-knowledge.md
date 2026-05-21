@@ -1,12 +1,11 @@
 ---
 scope: project
 type: concept
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - concept
-  - editor-independent
-  - knowledge
+    - concept
+    - editor-independent
+    - knowledge
 ---
 
 # Editor-Independent Knowledge

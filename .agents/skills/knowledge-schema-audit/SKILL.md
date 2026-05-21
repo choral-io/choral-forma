@@ -16,20 +16,22 @@ Use this skill to inspect non-task knowledge schema quality. This skill is read-
 1. Read `<knowledge_dir>/schemas/common.md`.
 2. Read relevant area schemas under `<knowledge_dir>/schemas/`.
 3. Scan `<knowledge_dir>/**/*.md`.
-4. Exclude `<knowledge_dir>/tasks/items/**`, `<knowledge_dir>/workspace/*/local/**`, and `<knowledge_dir>/planning/KANBAN.md` by default.
-5. Parse frontmatter, filenames, links, and localized-file suffixes.
-6. Compare each document to the relevant area schema.
-7. Report findings and dry-run fixes without editing files.
+4. Exclude workflow infrastructure: `<knowledge_dir>/schemas/**` and `<knowledge_dir>/templates/**`.
+5. Exclude delivery surfaces: `<knowledge_dir>/tasks/**` and `<knowledge_dir>/planning/KANBAN.md`; task metadata, readiness, dependencies, and Kanban consistency belong to `task-metadata-audit`.
+6. Exclude local-only state: `<knowledge_dir>/workspace/*/local/**`.
+7. Parse frontmatter, filenames, links, and localized-file suffixes.
+8. Compare each document to the relevant area schema.
+9. Report findings and dry-run fixes without editing files.
 
 ## Checks
 
 - Missing YAML frontmatter.
-- Missing or invalid `scope`, `type`, `owners`, or `tags`.
+- Missing or invalid `scope`, `type`, `owners`, or `tags`. Treat `owners: []` as valid syntax and report it as an ownership gap only when the document type, workflow state, or requested check requires an accountable owner.
 - Ownership metadata that does not use the canonical `owners` field.
 - Localized files missing `lang`, `canonical`, or `translation_of`.
 - Localized files that link to other localized files by default.
 - Discovery, product, or design files placed in the wrong area.
-- Design assets referenced from Markdown but not stored under `<knowledge_dir>/assets/design/<feature-name>/`.
+- Assets referenced from Markdown but not stored under a typed `<knowledge_dir>/assets/<asset-type>/<topic>/` directory.
 - Decision files with missing supersession metadata when a replacement is obvious.
 - Proposal files with missing or invalid `proposal_type`, `proposal_status`, `sources`, or target metadata.
 - Member files missing `member_id` or `display_name`.
@@ -53,4 +55,4 @@ Use the standard audit output shape from `references/report.md`: `Summary`, `Fin
 
 ## References
 
-- For report format and fix policy, read `references/report.md`.
+- For report format and fix rules, read `references/report.md`.

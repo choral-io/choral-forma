@@ -9,7 +9,7 @@
 Create from:
 
 ```text
-<knowledge_dir>/workspace/templates/worklist.md.tpl
+<knowledge_dir>/templates/worklist.md
 ```
 
 ## Sections
@@ -45,7 +45,7 @@ Use normal Markdown checklists:
 Intake from a team task should keep source links in the top-level item:
 
 ```md
-- [ ] Implement example feature handling from [[../../planning/KANBAN#^kb-example-feature]] / [[../../tasks/items/example-feature-handling]]. ^wl-20260425-a8f2
+- [ ] Implement example feature handling from [[../../planning/KANBAN#^kb-example-feature]] / [[../../tasks/example-feature-handling]]. ^wl-20260425-a8f2
     - [ ] Confirm current example behavior and failing case.
     - [ ] Add regression coverage.
     - [ ] Patch example classification.

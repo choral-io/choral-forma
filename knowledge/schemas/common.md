@@ -1,8 +1,7 @@
 ---
 scope: project
 type: schema
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - metadata
     - schema
@@ -85,7 +84,7 @@ tags:
 
 - `scope`: `project` or `member`.
 - `type`: document type. Area schemas define allowed values.
-- `owners`: member or group wikilinks; use a list even for one owner.
+- `owners`: member or group wikilinks; use a list even for one owner. Use `owners: []` when no owner has been assigned yet.
 - `assignees`: member wikilinks for people currently responsible for moving the work forward; use only when a document represents active work.
 - `reviewers`: member wikilinks for current or expected reviewers; use only when review responsibility matters.
 - `tags`: searchable keywords; use lowercase kebab-case.
@@ -143,7 +142,7 @@ If sources conflict and the conflict affects facts, delivery scope, permissions,
 
 ## Identity
 
-Use member or group wikilinks in responsibility metadata, such as `[[members/Gavroche]]` or `[[groups/default-team]]`. Manual short wikilinks such as `[[Gavroche]]` are valid only when they resolve uniquely in the expected member or group scope. Use the manifest `default_group_id` group when ownership belongs to the default group and no more specific member or group owner is assigned.
+Use member or group wikilinks in responsibility metadata, such as `[[members/Gavroche]]` or `[[groups/review-board]]`. Manual short wikilinks such as `[[Gavroche]]` are valid only when they resolve uniquely in the expected member or group scope. Empty `owners: []` means ownership is intentionally not assigned yet; it is allowed for draft or unowned knowledge, but it is an ownership gap at workflow gates that require accountability.
 
 Agents must determine the current member id with:
 
@@ -157,7 +156,7 @@ When matching `owners`, `assignees`, or `reviewers`, normalize member and group 
 
 ## Localization
 
-Canonical-language files are the source of truth. This repository records `canonical_language: en` in `knowledge/.workflow/manifest.yml`. Localized files must use BCP 47 suffix casing, such as `.zh-CN.md`.
+Canonical-language files are the authoritative source. This repository records `canonical_language: en` in `knowledge/.workflow/manifest.yml`. Localized files must use BCP 47 suffix casing, such as `.zh-CN.md`.
 
 Localized files should include:
 
@@ -172,7 +171,7 @@ Localized files must not introduce new facts, decisions, requirements, or delive
 ## Linking
 
 - Use Foam wikilinks for knowledge references when they improve navigation.
-- Use path-qualified wikilinks for tool-written knowledge references, such as `owners: ["[[groups/default-team]]"]` or `related_to: ["[[tasks/items/example-note]]"]`.
+- Use path-qualified wikilinks for tool-written knowledge references, such as `owners: ["[[members/Gavroche]]"]` or `related_to: ["[[tasks/example-note]]"]`.
 - Manual short wikilinks are acceptable only when they resolve uniquely in the expected relationship scope.
 - Use workspace-relative paths, not wikilinks, for file, resource, and configuration path fields such as localized `canonical` paths.
 - Preserve existing Obsidian/Foam wikilinks unless the task explicitly includes link normalization or document migration.

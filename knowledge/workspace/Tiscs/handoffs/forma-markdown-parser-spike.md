@@ -2,15 +2,15 @@
 scope: member
 type: handoff
 owners:
-  - "[[members/Tiscs]]"
+    - "[[members/Tiscs]]"
 assignees: []
 reviewers: []
 tags:
-  - workspace
-  - handoff
-  - forma
-  - rust
-  - markdown
+    - workspace
+    - handoff
+    - forma
+    - rust
+    - markdown
 ---
 
 # Forma Markdown Parser Spike
@@ -66,7 +66,7 @@ Use a sample Markdown document covering:
 kind: note
 title: Example
 assignees:
-  - "[[users/tiscs]]"
+    - "[[users/tiscs]]"
 ---
 
 # Example

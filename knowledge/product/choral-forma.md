@@ -1,12 +1,11 @@
 ---
 scope: project
 type: product-brief
-owners:
-  - "[[groups/default-team]]"
+owners: []
 tags:
-  - product
-  - choral-forma
-  - knowledge
+    - product
+    - choral-forma
+    - knowledge
 ---
 
 # Choral Forma

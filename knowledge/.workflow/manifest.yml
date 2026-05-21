@@ -2,40 +2,37 @@ template_id: knowledge-workflow
 template_version: 1
 manifest_version: 1
 knowledge_dir: knowledge
-agent_local_dir: ".agents/.local"
+worktree_dir: .worktrees
 canonical_language: en
-default_group_id: default-team
 installed_at: "2026-05-16T15:26:58Z"
-updated_at: "2026-05-20T16:38:09Z"
+updated_at: "2026-05-21T09:09:27Z"
 
 agent_skills:
-  mode: project
-  dir: .agents/skills
   required:
     - knowledge-assistant
-    - knowledge-intake
-    - knowledge-capture
-    - knowledge-schema-audit
-    - task-metadata-audit
-    - knowledge-status-report
-    - workspace-worklist
-    - delivery-planning
-    - next-task-selection
-    - kanban-maintenance
     - delivery-implementation
+    - delivery-planning
     - delivery-review
+    - kanban-maintenance
+    - knowledge-capture
+    - knowledge-intake
+    - knowledge-schema-audit
+    - knowledge-status-report
+    - next-task-selection
+    - task-metadata-audit
+    - workspace-worklist
 
 append_blocks:
   - path: AGENTS.md
     block: knowledge-workflow
     version: 1
+
 managed:
   version: 1
   paths:
     - knowledge/.gitignore
+    - .worktrees/.gitignore
     - knowledge/README.md
-    - knowledge/groups/templates/group.md.tpl
-    - knowledge/members/templates/member.md.tpl
     - knowledge/planning/WORKFLOW.md
     - knowledge/schemas/README.md
     - knowledge/schemas/architecture.md
@@ -53,47 +50,24 @@ managed:
     - knowledge/schemas/sprints.md
     - knowledge/schemas/tasks.md
     - knowledge/schemas/workspace.md
-    - knowledge/proposals/templates/proposal.md.tpl
-    - knowledge/tasks/WORKFLOW.md
-    - knowledge/tasks/templates/task-item.md.tpl
-    - knowledge/workspace/templates/worklist.md.tpl
-    - knowledge/workspace/templates/handoff.md.tpl
-    - .agents/skills/delivery-implementation/**
-    - .agents/skills/delivery-planning/**
-    - .agents/skills/delivery-review/**
-    - .agents/skills/kanban-maintenance/**
-    - .agents/skills/knowledge-assistant/**
-    - .agents/skills/knowledge-capture/**
-    - .agents/skills/knowledge-intake/**
-    - .agents/skills/knowledge-schema-audit/**
-    - .agents/skills/knowledge-status-report/**
-    - .agents/skills/knowledge-workflow-admin/**
-    - .agents/skills/next-task-selection/**
-    - .agents/skills/task-metadata-audit/**
-    - .agents/skills/workspace-worklist/**
+    - knowledge/templates/group.md
+    - knowledge/templates/member.md
+    - knowledge/templates/proposal.md
+    - knowledge/templates/worklist.md
+    - knowledge/templates/handoff.md
+    - knowledge/templates/task.md
+
 protected:
   - knowledge/planning/KANBAN.md
   - path: knowledge/planning/**
     except:
       - knowledge/planning/WORKFLOW.md
-  - path: knowledge/tasks/**
-    except:
-      - knowledge/tasks/WORKFLOW.md
-      - knowledge/tasks/templates/task-item.md.tpl
-  - path: knowledge/workspace/**
-    except:
-      - knowledge/workspace/templates/worklist.md.tpl
-      - knowledge/workspace/templates/handoff.md.tpl
+  - knowledge/tasks/**
+  - knowledge/workspace/**
   - knowledge/workspace/*/local/**
-  - path: knowledge/members/**
-    except:
-      - knowledge/members/templates/member.md.tpl
-  - path: knowledge/groups/**
-    except:
-      - knowledge/groups/templates/group.md.tpl
-  - path: knowledge/proposals/**
-    except:
-      - knowledge/proposals/templates/proposal.md.tpl
+  - knowledge/members/**
+  - knowledge/groups/**
+  - knowledge/proposals/**
   - knowledge/discovery/**
   - knowledge/product/**
   - knowledge/design/**
@@ -101,6 +75,6 @@ protected:
   - knowledge/concepts/**
   - knowledge/decisions/**
   - knowledge/guidelines/**
+
 local_overrides: []
 skipped_patterns: []
-applied_migrations: []

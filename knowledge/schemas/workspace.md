@@ -1,8 +1,7 @@
 ---
 scope: project
 type: schema
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - metadata
     - schema
@@ -20,9 +19,9 @@ Workspace documents capture member-scoped work context that is safe to share wit
 scope: member
 type: summary
 owners:
-    - "[[Gavroche]]"
+    - "[[members/Gavroche]]"
 assignees:
-    - "[[Gavroche]]"
+    - "[[members/Gavroche]]"
 reviewers: []
 tags:
     - workspace
@@ -51,7 +50,7 @@ workspace/<member-id>/
 Use these directories deliberately:
 
 - `summaries/`: edited daily, weekly, milestone, session, retrospective, or ad hoc summaries.
-- `handoffs/`: handoff notes that help another member continue work with clear context. Use `workspace/templates/handoff.md.tpl` as a reference template when a handoff needs a durable shared file.
+- `handoffs/`: handoff notes that help another member continue work with clear context. Use `templates/handoff.md` as a reference template when a handoff needs a durable shared file.
 - `research/`: member-led exploration or investigation notes that are useful to the team but not yet promoted into project knowledge.
 - `local/`: local-only member state for Agent collaboration, including `AGENTS.md`, `WORKLIST.md`, `logs/*.md`, `scratch/`, and `drafts/`. It must stay uncommitted.
 
@@ -65,7 +64,7 @@ Stable member identity, responsibilities, focus areas, and public collaboration 
 - Raw personal work items, daily notes, scratch material, draft notes, and inbox-style captures belong in `workspace/<member-id>/local/`, which is not committed.
 - Use `workspace/<member-id>/local/scratch/` for raw observations and `workspace/<member-id>/local/drafts/` for structured personal drafts that are not ready to become shared knowledge.
 - Use `workspace/<member-id>/local/WORKLIST.md` only for executable or nearly executable personal work items.
-- Agent runtime worktrees belong in `.agents/.local/worktrees/`, not in the knowledge base.
+- Worktrees belong in `.worktrees/`, not in the knowledge base.
 - Do not create shared `daily/`, `inbox/`, `scratch/`, or `drafts/` directories by default.
 - Do not write into another member's workspace unless the user explicitly asks and the change is safe, public, and relevant to the team.
 - Use `assignees` when a shared workspace note has a current follow-up owner.
@@ -78,7 +77,7 @@ Stable member identity, responsibilities, focus areas, and public collaboration 
 Copy the template from:
 
 ```text
-workspace/templates/worklist.md.tpl
+templates/worklist.md
 ```
 
 to:
@@ -102,19 +101,19 @@ workspace/<member-id>/local/drafts/
 
 The `local/` directory is ignored by `knowledge/.gitignore`.
 
-Agent runtime isolation, when used, belongs outside the knowledge base:
+Worktree isolation, when used, belongs outside the knowledge base:
 
 ```text
-.agents/.local/worktrees/shared/
+.worktrees/shared/
 ```
 
-This shared worker worktree is reusable local Agent state. It is not member workspace content, project knowledge, or a source for planning facts.
+This shared worker worktree is reusable local worktree state. It is not member workspace content, project knowledge, or a source for planning facts.
 
 ## Member-To-Member Work
 
 Do not assign work by writing into another member's workspace or `local/` directory.
 
-- Executable delegated work belongs in `knowledge/tasks/items/` with `assignees`.
+- Executable delegated work belongs in `knowledge/tasks/` with `assignees`.
 - Work ready for delivery belongs on `knowledge/planning/KANBAN.md` after approved Kanban maintenance.
 - Reusable forwarded material belongs in the relevant project knowledge area.
 - Temporary personal captures should be handled by the receiving member or their Agent in that member's `local/scratch/`, `local/drafts/`, or `local/WORKLIST.md`, depending on whether the material is raw, structured, or executable.

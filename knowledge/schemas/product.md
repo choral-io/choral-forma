@@ -1,8 +1,7 @@
 ---
 scope: project
 type: schema
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - metadata
     - schema
@@ -19,8 +18,7 @@ Product documents define product intent, requirements, user-facing behavior, pro
 ---
 scope: project
 type: product
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - product
 ---

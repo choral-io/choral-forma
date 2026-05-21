@@ -1,22 +1,22 @@
-# Knowledge Workflow Manager Help
+# Knowledge Workflow Admin Help
 
-Use this reference only for maintainer questions about the `knowledge-workflow-admin` manager skill itself. Ordinary team workflow help belongs to `knowledge-assistant`.
+Use this reference only for maintainer questions about the `knowledge-workflow-admin` Skill itself. Ordinary team workflow help belongs to `knowledge-assistant`.
 
 ## Boundary
 
-`knowledge-workflow-admin` is a maintainer/admin skill. It can initialize the repository knowledge workflow, install or refresh project-local collaboration skills, maintain the workflow manifest, and save approved project-specific workflow policy.
+`knowledge-workflow-admin` is a maintainer/admin Skill. It can initialize Knowledge Workflow in a repository, run checks, maintain the manifest, and save approved configuration.
 
-It is not the ordinary distributed help surface for team members. Do not route normal questions about content placement, delivery flow, WORKLIST usage, Kanban state, recovery, or skill choice through this manager skill unless the question is about setup or administration.
+It is not the ordinary distributed help surface for team members. Do not route normal questions about content placement, delivery flow, WORKLIST usage, Kanban state, recovery, or skill choice through this maintainer Skill unless the question is about setup or administration.
 
 ## Mode Router
 
-| Maintainer question                         | Mode             | Write behavior                                          |
-| ------------------------------------------- | ---------------- | ------------------------------------------------------- |
-| "How do I set this workflow up?"            | `help` or `init` | `help` is read-only; `init` writes only after approval. |
-| "Initialize this repository."               | `init`           | Dry-run first; write after approval.                    |
-| "Install or refresh local workflow skills." | `install-skills` | Dry-run first; write after approval.                    |
-| "Explain manager manifest fields."          | `help`           | Read-only.                                              |
-| "Change auto-review or project policy."     | `policy`         | Dry-run first; edit root `AGENTS.md` after approval.    |
+| Maintainer question                 | Mode             | Write behavior                                                   |
+| ----------------------------------- | ---------------- | ---------------------------------------------------------------- |
+| "How do I set this workflow up?"    | `help` or `init` | `help` is read-only; `init` writes only after approval.          |
+| "Initialize this repository."       | `init`           | Dry-run first; write after approval.                             |
+| "Check this workflow installation." | `check`          | Read-only; report setup and Skill availability issues.           |
+| "Explain manager manifest fields."  | `help`           | Read-only.                                                       |
+| "Change configuration."             | `config`         | Dry-run first; edit manifest or root `AGENTS.md` after approval. |
 
 For ordinary team questions, recommend `knowledge-assistant`.
 
@@ -29,17 +29,16 @@ Before answering setup questions:
 3. If neither exists, give pre-install guidance and ask for required initialization choices:
     - repository-relative `knowledge_dir`;
     - explicit `canonical_language`;
-    - `default_group_id`;
-    - whether to reuse external collaboration skills or install project-local skills;
-    - `agent_local_dir`.
+    - whether required Skills are available to the current Agent;
+    - `worktree_dir`.
 
-Do not silently choose a canonical language. `knowledge/`, `default-team`, external skills reuse, and `.agents/.local/` are examples or defaults only where the main skill instructions allow them.
+Do not silently choose a canonical language. `knowledge/`, required Skills, and `.worktrees/` are examples or defaults only where the main skill instructions allow them.
 
 ## Installed Content Rule
 
-Installed repository `AGENTS.md` and ordinary knowledge documents should not tell regular team members to call this manager skill directly. They may keep workflow block markers and manifest metadata required for upgrades, but normal routing should use `knowledge-assistant` and the ordinary collaboration skills.
+Installed repository `AGENTS.md` and ordinary knowledge documents should not tell regular team members to call this maintainer Skill directly. They may keep workflow block markers and manifest metadata required for upgrades, but normal routing should use `knowledge-assistant` and the ordinary workflow Skills.
 
-When a maintainer operation is needed, describe it as maintainer workflow administration unless the user has explicitly chosen this manager skill.
+When a maintainer operation is needed, describe it as maintainer administration unless the user has explicitly chosen this Skill.
 
 ## Answer Shape
 

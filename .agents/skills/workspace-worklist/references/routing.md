@@ -63,7 +63,7 @@ Suggest promotion when work becomes useful to the team:
 | Technical structure             | `<knowledge_dir>/architecture/`                                   |
 | Decision or tradeoff            | `<knowledge_dir>/decisions/`                                      |
 | Cross-area writing or language  | `<knowledge_dir>/guidelines/`                                     |
-| Executable team work            | `<knowledge_dir>/tasks/items/`                                    |
+| Executable team work            | `<knowledge_dir>/tasks/`                                          |
 | Delivery status                 | `<knowledge_dir>/planning/KANBAN.md` through `kanban-maintenance` |
 
 Summary extraction is flexible. Use daily summaries for routine reporting, weekly summaries for trend and planning review, and ad hoc summaries for milestones, interrupted work, investigations, or handoffs. Ask the user to adjust scope when the intended audience or period is unclear.

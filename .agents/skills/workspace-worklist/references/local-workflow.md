@@ -8,13 +8,13 @@ Use these details after `workspace-worklist` has triggered.
 - Read `<knowledge_dir>/workspace/<member-id>/local/AGENTS.md` before changing the member workspace or running worklist items when it exists.
 - Use `local/scratch/` for raw observations, rough notes, and inbox-style captures that are not executable.
 - Use `local/drafts/` for structured personal drafts that may later be promoted.
-- Create missing `local/`, `WORKLIST.md`, and `logs/` files on demand from `<knowledge_dir>/workspace/templates/worklist.md.tpl`.
+- Create missing `local/`, `WORKLIST.md`, and `logs/` files on demand from `<knowledge_dir>/templates/worklist.md`.
 
 ## Worktrees
 
-- Use `<agent_local_dir>/worktrees/shared/` as the reusable serial worker worktree when isolated worker execution is useful.
-- Use `<agent_local_dir>/worktrees/slot-XX/` worktrees only when the user explicitly authorizes parallel subagent execution for independent work items.
-- If Superpowers worktree or subagent skills are available, align them with this workflow's `<agent_local_dir>/worktrees/` rules and main-Agent ownership boundaries. Do not let them bypass approval, local-only, log, review, or Kanban rules.
+- Use `<worktree_dir>/shared/` as the reusable serial worker worktree when isolated worker execution is useful.
+- Use `<worktree_dir>/slot-XX/` worktrees only when the user explicitly authorizes parallel subagent execution for independent work items.
+- If Superpowers worktree or subagent skills are available, align them with this workflow's `<worktree_dir>/` rules and main-Agent ownership boundaries. Do not let them bypass approval, local-only, log, review, or Kanban rules.
 
 ## Mode Rules
 
@@ -41,7 +41,7 @@ Use these details after `workspace-worklist` has triggered.
 
 - `run-loop` is serial by default. Do not run multiple work items in parallel unless the user explicitly authorizes parallel subagent execution and a parallel budget.
 - `run-goal` must delegate task selection to `next-task-selection`, board changes to `kanban-maintenance`, local intake/execution to workspace-worklist modes, and review judgment to `delivery-review`.
-- Parallel execution is allowlisted, not denylisted. Before parallel execution, collect candidate `Active` items, validate each item, classify task type and risk, check dependencies and likely file/resource conflicts, then dispatch only items that meet all parallel eligibility conditions in `references/execution.md`.
+- Parallel execution is allowlisted, not denylisted. Before parallel execution, collect candidate `Active` items, validate each item, classify task type and risk, check dependencies and likely file/resource conflicts, then dispatch only items that meet all parallel eligibility conditions in `references/run-controls.md`.
 - Treat a WORKLIST item as the main task and allow at most one subtask layer. If user text contains deeper nesting, treat deeper bullets as details of the second-level subtask.
 - Planning, execution, and review subagents are optional load reducers. The main Agent decides when to use them and remains responsible for queue selection, dependency analysis, scope, approvals, integration, logs, and final decisions.
 - Worker subagents must route approval or elevated-execution needs back to the main Agent. They must not self-approve elevated execution, dependency installation, deletion, publishing, commits, migrations, or team-status changes.

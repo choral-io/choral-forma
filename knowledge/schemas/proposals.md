@@ -1,8 +1,7 @@
 ---
 scope: project
 type: schema
-owners:
-    - "[[groups/default-team]]"
+owners: []
 tags:
     - metadata
     - schema
@@ -23,8 +22,7 @@ scope: project
 type: proposal
 proposal_type: knowledge
 proposal_status: proposed
-owners:
-    - "[[groups/default-team]]"
+owners: []
 assignees: []
 reviewers: []
 tags:
@@ -84,11 +82,11 @@ Do not skip `accepted` when a proposal needs owner review before conversion. Dir
 | `proposal_type` | Conversion target                           | Owning workflow                               |
 | --------------- | ------------------------------------------- | --------------------------------------------- |
 | `knowledge`     | canonical knowledge document in target area | `knowledge-capture`                           |
-| `task`          | `knowledge/tasks/items/<task-id>.md`        | `knowledge-capture`, then `delivery-planning` |
+| `task`          | `knowledge/tasks/<task-id>.md`              | `knowledge-capture`, then `delivery-planning` |
 | `decision`      | `knowledge/decisions/<decision-id>.md`      | `knowledge-capture`                           |
 
 After conversion, update `proposal_status: converted`, set or confirm `target`, and keep source evidence and review rationale in the proposal. Do not use an accepted-but-unconverted proposal as a canonical source.
 
 ## Template
 
-Use `proposals/templates/proposal.md.tpl` as the reference template.
+Use `templates/proposal.md` as the reference template.
