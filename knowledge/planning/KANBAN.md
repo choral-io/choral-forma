@@ -12,11 +12,11 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Ready
 
-- [ ] [[tasks/implement-ci-release-baseline|Implement CI Release Baseline]]
-
 ## Doing
 
 ## Reviewing
+
+- [ ] [[tasks/implement-ci-release-baseline|Implement CI Release Baseline]]
 
 ## Blocked
 

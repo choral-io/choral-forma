@@ -1,0 +1,161 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish when running manually"
+        required: true
+        type: string
+      publish:
+        description: "Create or update the GitHub Release after building artifacts"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  contents: write
+
+env:
+  PNPM_VERSION: 11.2.2
+
+jobs:
+  build:
+    name: Build ${{ matrix.asset }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - asset: linux-x64
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            binary: forma
+            archive: tar.gz
+          - asset: macos-arm64
+            os: macos-26
+            target: aarch64-apple-darwin
+            binary: forma
+            archive: tar.gz
+          - asset: macos-x64
+            os: macos-26-intel
+            target: x86_64-apple-darwin
+            binary: forma
+            archive: tar.gz
+          - asset: windows-x64
+            os: windows-2025
+            target: x86_64-pc-windows-msvc
+            binary: forma.exe
+            archive: zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Setup Rust target
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add "${{ matrix.target }}"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build WebApp assets
+        run: pnpm build
+
+      - name: Build forma binary
+        run: cargo build --release --locked --bin forma --target ${{ matrix.target }}
+
+      - name: Package Unix artifact
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset="forma-${{ matrix.asset }}"
+          mkdir -p "dist-release/${asset}/bin"
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist-release/${asset}/bin/forma"
+          chmod +x "dist-release/${asset}/bin/forma"
+          cp README.md "dist-release/${asset}/README.md"
+          tar -C dist-release -czf "dist-release/${asset}.tar.gz" "${asset}"
+          (
+            cd dist-release
+            shasum -a 256 "${asset}.tar.gz" > "${asset}.tar.gz.sha256"
+          )
+
+      - name: Package Windows artifact
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $asset = "forma-${{ matrix.asset }}"
+          New-Item -ItemType Directory -Force -Path "dist-release/$asset/bin" | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist-release/$asset/bin/forma.exe"
+          Copy-Item "README.md" "dist-release/$asset/README.md"
+          Compress-Archive -Path "dist-release/$asset" -DestinationPath "dist-release/$asset.zip" -Force
+          $hash = Get-FileHash -Algorithm SHA256 "dist-release/$asset.zip"
+          "$($hash.Hash.ToLower())  $asset.zip" | Set-Content -NoNewline "dist-release/$asset.zip.sha256"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: forma-${{ matrix.asset }}
+          path: |
+            dist-release/forma-${{ matrix.asset }}.${{ matrix.archive }}
+            dist-release/forma-${{ matrix.asset }}.${{ matrix.archive }}.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'push' || inputs.publish
+    steps:
+      - name: Resolve release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "RELEASE_TAG=${{ inputs.tag }}" >> "$GITHUB_ENV"
+          else
+            echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Download release artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download "${{ github.run_id }}" --dir release-assets
+          mkdir -p upload
+          find release-assets -maxdepth 3 -type f -exec cp {} upload/ \;
+          ls -la upload
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" upload/* --clobber
+          else
+            gh release create "$RELEASE_TAG" upload/* --generate-notes
+          fi

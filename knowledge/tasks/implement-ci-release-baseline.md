@@ -1,28 +1,33 @@
 ---
 scope: project
 type: task
+priority: P1
+severity:
+value: M
+module: infra
+
 owners:
     - "[[members/Tiscs]]"
-assignees: []
+assignees:
+    - "[[members/Tiscs]]"
 reviewers: []
 tags:
     - forma
     - p0
     - ci
     - release
-priority: P1
-severity:
-value: M
-module: infra
+
 effort: M
 readiness: ready
 sprint:
+
 blocked_by:
     - "[[tasks/scaffold-forma-workspace]]"
     - "[[tasks/implement-read-only-webapp]]"
 related_to:
     - "[[decisions/forma-p0-core-architecture]]"
     - "[[architecture/forma-core-technical-direction]]"
+
 reported_by:
 affected_area: CI and release distribution
 ---
@@ -77,6 +82,33 @@ final binary and asset serving shape.
 
 The scaffold and WebApp integration blockers are resolved by completed delivery
 tasks. The `blocked_by` entries remain as dependency history.
+
+## Implementation Notes
+
+- Added GitHub Actions CI jobs for knowledge formatting, Web checks/builds, and
+  Rust formatting/check/test. Workflow pnpm setup uses a centralized
+  `PNPM_VERSION` workflow variable and avoids adding a second top-level
+  `packageManager` version source to `package.json`.
+- Added a release workflow that builds Linux x64, macOS arm64, macOS x64, and
+  Windows x64 artifacts, with WebApp assets built before Rust release builds so
+  `forma serve` does not require an end-user frontend runtime.
+- Standardized release asset names as `forma-linux-x64.tar.gz`,
+  `forma-macos-arm64.tar.gz`, `forma-macos-x64.tar.gz`, and
+  `forma-windows-x64.zip`, each with a sibling `.sha256` file.
+- Added `install.sh` and `install.ps1` skeletons that download, verify, and
+  install GitHub Release artifacts.
+- Documented GitHub Release installation scripts and mise GitHub backend
+  installation expectations in `README.md`.
+
+## Review Readiness
+
+| Field             | Evidence                                                                 |
+| ----------------- | ------------------------------------------------------------------------ |
+| Scope completed   | CI, release workflow, install scripts, checksums, and README documented. |
+| Files changed     | Intended CI/release/docs/task files only; unrelated dirty files remain.  |
+| Knowledge updated | Updated architecture, decision, README, and this task item.              |
+| Checks run        | Markdown/YAML/script syntax, Rust check/test, TypeScript check/build.    |
+| Residual risks    | GitHub Actions release matrix still needs first real workflow run.       |
 
 ## Open Questions
 

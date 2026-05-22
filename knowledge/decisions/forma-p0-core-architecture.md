@@ -309,6 +309,21 @@ Windows x64. Package-manager-specific distribution such as Homebrew, Scoop,
 Chocolatey, npm wrappers, system installers, or auto-updaters can wait until
 product demand justifies them.
 
+P0 release artifact names should stay predictable so install scripts, Agents,
+and mise's GitHub backend can match them without repository-specific logic:
+
+```text
+forma-linux-x64.tar.gz
+forma-macos-arm64.tar.gz
+forma-macos-x64.tar.gz
+forma-windows-x64.zip
+```
+
+Each artifact should have a sibling `.sha256` file. Archives should contain the
+`forma` executable under `bin/` and may include a short README. The release
+workflow may build and upload artifacts first, then publish a GitHub Release
+from those artifacts on tag pushes or explicit manual approval.
+
 ## Extension Boundary
 
 P0 uses declarative extension surfaces only:
@@ -383,10 +398,10 @@ AST enrichment through `FormaAST`.
 
 ## Related Knowledge
 
-- [Forma core technical direction](/Users/Tiscs/Projects/choral-notes/knowledge/architecture/forma-core-technical-direction.md)
-- [Product direction](/Users/Tiscs/Projects/choral-notes/knowledge/product/product-direction.md)
-- [Markdown parser spike handoff](/Users/Tiscs/Projects/choral-notes/knowledge/workspace/Tiscs/handoffs/forma-markdown-parser-spike.md)
-- [Markdown parser spike report](/Users/Tiscs/Projects/choral-notes/knowledge/workspace/Tiscs/research/forma-markdown-parser-spike-report.md)
+- [Forma core technical direction](../architecture/forma-core-technical-direction.md)
+- [Product direction](../product/product-direction.md)
+- [Markdown parser spike handoff](../workspace/Tiscs/handoffs/forma-markdown-parser-spike.md)
+- [Markdown parser spike report](../workspace/Tiscs/research/forma-markdown-parser-spike-report.md)
 
 ## Open Questions
 

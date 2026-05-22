@@ -16,7 +16,7 @@ workflow rules should not be treated as automatic product requirements.
 
 ## Current Status
 
-This repository is in its initial P0 scaffold phase. It contains:
+This repository is in its initial P0 implementation phase. It contains:
 
 - A repository-backed knowledge base under `knowledge/`.
 - Workflow schemas for product, concepts, decisions, planning, tasks, members,
@@ -24,13 +24,14 @@ This repository is in its initial P0 scaffold phase. It contains:
 - Project-local Agent skills under `.agents/skills/` for knowledge workflow,
   planning, review, and maintenance.
 - Editor integration for VS Code, Foam, Obsidian-readable Markdown, and Zed.
-- A Rust workspace for the future `forma` binary under `crates/`.
-- A pnpm web workspace for the future local WebApp under `packages/`.
+- A Rust workspace for the `forma` binary under `crates/`.
+- A pnpm web workspace for the local read-only WebApp under `packages/`.
 - Project tool versions declared through `package.json` and
   `rust-toolchain.toml`, with mise tasks for knowledge, Rust, and web checks.
 
-The current application code is a minimal scaffold only. It does not implement
-Forma product behavior yet.
+The current application code implements the early P0 read, inspect, check,
+index, render, serve, and read-only WebApp surfaces. It is still not a
+production release.
 
 ## Repository Layout
 
@@ -99,6 +100,66 @@ Run all checks:
 ```sh
 mise run check
 ```
+
+## Installing Forma
+
+P0 releases are distributed as GitHub Release artifacts. Release builds embed
+the built WebApp assets into the Rust binary, so end users do not need Node.js,
+pnpm, Vite, or another frontend runtime to run `forma serve`.
+
+The release workflow builds standalone `forma` archives for:
+
+- `forma-linux-x64.tar.gz`;
+- `forma-macos-arm64.tar.gz`;
+- `forma-macos-x64.tar.gz`;
+- `forma-windows-x64.zip`.
+
+Each artifact is paired with a `.sha256` checksum file.
+
+### Install Scripts
+
+Unix-like systems:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/choral-io/choral-forma/main/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+iwr https://raw.githubusercontent.com/choral-io/choral-forma/main/install.ps1 -UseBasicParsing | iex
+```
+
+The scripts install the latest GitHub Release by default. Pass a release tag to
+pin a version, or set `FORMA_INSTALL_DIR` to override the install directory.
+
+### mise GitHub Backend
+
+Forma release assets are also intended to work with mise's GitHub backend:
+
+```sh
+mise use -g github:choral-io/choral-forma
+```
+
+A project or user config can declare the same tool:
+
+```toml
+[tools]
+"github:choral-io/choral-forma" = "latest"
+```
+
+Mise normally autodetects the matching GitHub Release asset from OS and
+architecture. If autodetection is not enough for a team's environment, add
+platform-specific `asset_pattern` values as described in the
+[mise GitHub backend documentation](https://mise.jdx.dev/dev-tools/backends/github.html).
+
+## CI And Release Baseline
+
+GitHub Actions runs three baseline check jobs:
+
+- knowledge Markdown formatting;
+- Web package type checks and builds;
+- Rust formatting, checks, and tests after building embedded WebApp assets.
 
 ## Working With Knowledge
 

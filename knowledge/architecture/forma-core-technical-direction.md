@@ -490,6 +490,20 @@ Windows x64. Package-manager-specific distribution such as Homebrew, Scoop,
 Chocolatey, npm wrappers, system installers, or auto-updaters can wait until
 product demand justifies them.
 
+Use predictable release asset names:
+
+```text
+forma-linux-x64.tar.gz
+forma-macos-arm64.tar.gz
+forma-macos-x64.tar.gz
+forma-windows-x64.zip
+```
+
+Each artifact should have a sibling `.sha256` checksum. Archives should place
+the executable under `bin/forma` or `bin/forma.exe`. This keeps install scripts
+simple and gives mise's GitHub backend enough stable naming information for
+automatic or platform-specific asset matching.
+
 ## Extension Boundary
 
 P0 should use a declarative-only extension model. It should not include a runtime
@@ -541,4 +555,4 @@ fetching plugins.
 
 ## Related Research
 
-- [Forma Markdown Parser Spike Report](/Users/Tiscs/Projects/choral-notes/knowledge/workspace/Tiscs/research/forma-markdown-parser-spike-report.md)
+- [Forma Markdown Parser Spike Report](../workspace/Tiscs/research/forma-markdown-parser-spike-report.md)
