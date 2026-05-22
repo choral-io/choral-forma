@@ -10,18 +10,22 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Backlog
 
+- [ ] [[tasks/implement-search-reference-navigation-baseline|Implement Search And Reference Navigation Baseline]]
+- [ ] [[tasks/implement-interactive-graph-view-render|Implement Interactive Graph View Render]]
+- [ ] [[tasks/design-metadata-edit-deprecate-operations|Design Metadata Edit And Deprecate Operations]]
+- [ ] [[tasks/design-reviewable-knowledge-change-proposals|Design Reviewable Knowledge Change Proposals]]
+
 ## Ready
 
 ## Doing
 
 ## Reviewing
 
-- [ ] [[tasks/implement-ci-release-baseline|Implement CI Release Baseline]]
-
 ## Blocked
 
 ## Done
 
+- [ ] [[tasks/implement-ci-release-baseline|Implement CI Release Baseline]]
 - [ ] [[tasks/implement-read-only-webapp|Implement Read Only WebApp]]
 - [ ] [[tasks/align-view-source-query-model|Align View Source Query Model]]
 - [ ] [[tasks/implement-view-entry-render|Implement View Entry Render]]
