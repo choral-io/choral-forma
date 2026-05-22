@@ -21,8 +21,8 @@
   "scripts": {
     "build": "pnpm --recursive --if-present build",
     "check": "pnpm --recursive --if-present check",
-    "format:knowledge": "prettier --write \"knowledge/**/*.{md,mdx,md.tpl,mdx.tpl}\" --no-error-on-unmatched-pattern --log-level warn",
-    "check:knowledge": "prettier --check \"knowledge/**/*.{md,mdx,md.tpl,mdx.tpl}\" --no-error-on-unmatched-pattern --log-level warn"
+    "format:knowledge": "prettier --write \"knowledge/**/*.{md,mdx}\" --no-error-on-unmatched-pattern --log-level warn",
+    "check:knowledge": "prettier --check \"knowledge/**/*.{md,mdx}\" --no-error-on-unmatched-pattern --log-level warn"
   },
   "devDependencies": {
     "prettier": "~3.8.3",

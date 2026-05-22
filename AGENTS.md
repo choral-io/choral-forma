@@ -61,13 +61,13 @@ Tool versions are declared in the idiomatic project files: Node.js and pnpm in r
 - Knowledge directory: `knowledge/`.
 - Read `knowledge/.workflow/manifest.yml` before workflow work; use its `knowledge_dir`, `agent_skills.required`, `worktree_dir`, and `canonical_language: en` values.
 - Determine the current member id with `git config user.name`; do not infer it from OS, machine, shell, or chat names.
-- Before writing knowledge, read `knowledge/schemas/common.md` and the relevant `knowledge/schemas/*.md`; before changing delivery cards, read `knowledge/planning/WORKFLOW.md`.
+- Before writing knowledge, read `knowledge/.workflow/rules/knowledge.md`, `knowledge/.workflow/schemas/common.md`, and the relevant `knowledge/.workflow/schemas/*.md`; before changing delivery cards, read `knowledge/.workflow/rules/delivery.md`.
 - When member context matters, prefer section-scoped reads from `knowledge/members/<member-id>.md`; read `knowledge/workspace/<member-id>/local/AGENTS.md` when acting on that member's local workspace, worklist, or personal execution style.
 
 ### Boundaries
 
-- Treat `knowledge/` and code as project facts; treat `knowledge/planning/KANBAN.md` as delivery status.
-- Apply scope precedence from `knowledge/schemas/common.md`; stop and report conflicts that affect facts, delivery scope, permissions, review, ownership, or another member.
+- Treat canonical knowledge files under `knowledge/` and code as project facts; treat `knowledge/planning/KANBAN.md` as delivery status; treat `knowledge/.workflow/**` as workflow support, not project facts.
+- Apply scope precedence from `knowledge/.workflow/schemas/common.md`; stop and report conflicts that affect facts, delivery scope, permissions, review, ownership, or another member.
 - Treat `knowledge/proposals/` as a review buffer, not as facts, decisions, task items, or delivery commitments until converted.
 - Keep localized files as translations only; never store secrets or private notes in `knowledge/`.
 - Treat `knowledge/workspace/<member-id>/local/` and worktree contents under `.worktrees/` as local-only state; never stage or commit them. The managed `.worktrees/.gitignore` may be tracked.
@@ -93,9 +93,9 @@ Tool versions are declared in the idiomatic project files: Node.js and pnpm in r
 
 - The workflow must not depend on a specific runtime, language, package manager, shell, or script file.
 - When doing actual project work, Agents may detect and use tools already available in the project or environment.
-- For knowledge-only changes, use or suggest the project's available Markdown formatter/checker for supported knowledge and template files: `knowledge/**/*.md` and `knowledge/**/*.mdx`.
+- For knowledge-only or workflow-support changes, use or suggest the project's available Markdown formatter/checker for changed Markdown files.
 - Commit only files intentionally changed for the current task; leave unrelated dirty files untouched.
-- Before staging knowledge changes, confirm the staged diff excludes `knowledge/workspace/*/local/**` and worktree contents under `.worktrees/`, except the managed `.worktrees/.gitignore`.
+- Before staging knowledge changes, confirm the staged diff excludes `knowledge/.feedback/**`, `knowledge/workspace/*/local/**`, and worktree contents under `.worktrees/`, except the managed `.worktrees/.gitignore`.
 
 ### Project-Specific Rules
 

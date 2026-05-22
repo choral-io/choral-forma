@@ -1,12 +1,4 @@
 {
   "endOfLine": "auto",
-  "printWidth": 120,
-  "overrides": [
-    {
-      "files": ["**/*.md.tpl", "**/*.mdx.tpl"],
-      "options": {
-        "parser": "markdown"
-      }
-    }
-  ]
+  "printWidth": 120
 }

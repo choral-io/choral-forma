@@ -3,16 +3,23 @@ scope: project
 type: process
 owners: []
 tags:
-    - collaboration
+    - delivery
     - workflow
     - kanban
 ---
 
-# Collaboration Workflow
+# Delivery Rules
 
-This document is the end-to-end map for repository-backed knowledge and delivery. It also defines task, Kanban, readiness, and delivery-update rules.
+This document defines task, readiness, Kanban, implementation, review, blocked, and Done rules.
 
 The default workflow assumes a software product development loop across product, design, architecture, task delivery, implementation review, and accumulated project experience.
+
+## Required Reads
+
+- Before changing delivery cards, read this document and `{{knowledge_dir}}/.workflow/schemas/tasks.md`.
+- Before updating durable knowledge during delivery, read `{{knowledge_dir}}/.workflow/rules/knowledge.md`.
+- Before using member-local execution state, read `{{knowledge_dir}}/.workflow/rules/workspace.md`.
+- Determine the current member id with `git config user.name`; do not infer it from the OS, shell, machine, or chat name.
 
 ## Operating Model
 
@@ -20,54 +27,27 @@ The default workflow assumes a software product development loop across product,
 member workspace -> project knowledge -> task item -> Kanban -> implementation -> review -> updated knowledge
 ```
 
-| Area                  | Source of truth                       | Notes                                            |
-| --------------------- | ------------------------------------- | ------------------------------------------------ |
-| Project facts         | `knowledge/` canonical files and code | Canonical-language files are authoritative.      |
-| Personal work context | `knowledge/workspace/<member-id>/`    | Context, not team consensus.                     |
-| Delivery status       | `knowledge/planning/KANBAN.md`        | Board edits require approved Kanban maintenance. |
-| Task context          | `knowledge/tasks/*.md`                | Kanban cards should link to task items.          |
-| Localized content     | `*.<locale>.md`                       | Translations only; not sources of new facts.     |
+| Area                  | Source of truth                               | Notes                                            |
+| --------------------- | --------------------------------------------- | ------------------------------------------------ |
+| Project facts         | `{{knowledge_dir}}/` canonical files and code | Canonical-language files are authoritative.      |
+| Personal work context | `{{knowledge_dir}}/workspace/<member-id>/`    | Context, not team consensus.                     |
+| Delivery status       | `{{knowledge_dir}}/planning/KANBAN.md`        | Board edits require approved Kanban maintenance. |
+| Task context          | `{{knowledge_dir}}/tasks/*.md`                | Kanban cards should link to task items.          |
+| Workflow rules        | `{{knowledge_dir}}/.workflow/rules/*.md`      | Operational rules, not project facts.            |
 
-When sources conflict, apply precedence from `knowledge/schemas/common.md`. Local notes and current conversation can trigger updates, but they do not replace canonical knowledge until approved capture or maintenance happens.
+## Flow
 
-## Required Reads
-
-- Before writing knowledge, read `knowledge/schemas/common.md` and the target area schema.
-- Before changing delivery cards, read this document and `knowledge/schemas/tasks.md`.
-- Determine the current member id with `git config user.name`; do not infer it from the OS, shell, machine, or chat name.
-
-## Workflow Stages
-
-1. Capture raw personal context in the current member's `local/` workspace. Do not store secrets, private notes, or customer-sensitive data.
-2. Route durable material through `knowledge-intake`; write only approved shared or canonical updates through `knowledge-capture`.
-3. Use `proposals/` for valuable but unconfirmed knowledge, task, or decision candidates. Accepted proposals must be converted before they become facts or delivery inputs.
-4. Put durable project material in the matching canonical area: `discovery/`, `product/`, `design/`, `concepts/`, `architecture/`, `decisions/`, `guidelines/`, `planning/`, or `tasks/`.
-5. Shape delivery candidates as task items with clear sources, scope, acceptance criteria, readiness, and ownership metadata.
-6. Use `delivery-planning` for dry-run board proposals and `kanban-maintenance` only after explicit approval.
-7. Use `next-task-selection` for accepted Kanban cards; loose task items are planning candidates, not selected work.
-8. Use `workspace-worklist` when a member takes accepted work into local execution.
-9. Use `delivery-implementation` for code, tests, and required knowledge updates.
-10. Use `delivery-review` before `Done` when implementation, acceptance criteria, source knowledge, or checks changed.
-
-## Knowledge Areas
-
-| Area            | Use for                                                                  |
-| --------------- | ------------------------------------------------------------------------ |
-| `discovery/`    | market, customer, competitor, business, assumption, and research context |
-| `product/`      | product behavior, requirements, flows, prototypes, and IA                |
-| `design/`       | UI design, interaction states, layout, visual rules, design systems      |
-| `assets/`       | supporting files organized by asset type, such as `assets/design/`       |
-| `concepts/`     | glossary terms, domain concepts, and shared mental models                |
-| `architecture/` | modules, APIs, data flow, integrations, configuration, operations        |
-| `decisions/`    | accepted product or technical tradeoffs and supersessions                |
-| `guidelines/`   | cross-area writing, terminology, language, documentation, process        |
-| `proposals/`    | optional review buffer for unconfirmed candidates                        |
-| `tasks/`        | durable delivery task context and acceptance criteria                    |
-| `templates/`    | reusable Markdown templates for creating workflow documents              |
+1. Route durable material through `knowledge-intake`; write only approved shared or canonical updates through `knowledge-capture`.
+2. Shape delivery candidates as task items with clear sources, scope, acceptance criteria, readiness, and ownership metadata.
+3. Use `delivery-planning` for dry-run board proposals and `kanban-maintenance` only after explicit approval.
+4. Use `next-task-selection` for accepted Kanban cards; loose task items are planning candidates, not selected work.
+5. Use `workspace-worklist` when a member takes accepted work into local execution.
+6. Use `delivery-implementation` for code, tests, and required knowledge updates.
+7. Use `delivery-review` before `Done` when implementation, acceptance criteria, source knowledge, or checks changed.
 
 ## Task Items
 
-Task items live directly under `knowledge/tasks/` and follow `knowledge/schemas/tasks.md`.
+Task items live directly under `{{knowledge_dir}}/tasks/` and follow `{{knowledge_dir}}/.workflow/schemas/tasks.md`.
 
 Use task items for durable delivery context:
 
@@ -79,19 +59,19 @@ Use task items for durable delivery context:
 Allowed planning inputs:
 
 ```text
-knowledge/discovery/**
-knowledge/product/**
-knowledge/design/**
-knowledge/concepts/**
-knowledge/architecture/**
-knowledge/decisions/**
-knowledge/guidelines/**
-knowledge/planning/**
-knowledge/tasks/*.md
-knowledge/workspace/*/{summaries,handoffs,research}/** only when selected
+{{knowledge_dir}}/discovery/**
+{{knowledge_dir}}/product/**
+{{knowledge_dir}}/design/**
+{{knowledge_dir}}/concepts/**
+{{knowledge_dir}}/architecture/**
+{{knowledge_dir}}/decisions/**
+{{knowledge_dir}}/guidelines/**
+{{knowledge_dir}}/planning/**
+{{knowledge_dir}}/tasks/*.md
+{{knowledge_dir}}/workspace/*/{summaries,handoffs,research}/** only when selected
 ```
 
-Do not plan from `workspace/*/local/**`, localized files, raw personal notes, secrets, or private material.
+Do not plan from `.workflow/**`, `.feedback/**`, `workspace/*/local/**`, localized files, raw personal notes, secrets, or private material.
 
 Use `blocked_by` and `related_to` with task wikilinks instead of a generic dependency field when the relationship is known. Tool-written values should prefer path-qualified wikilinks such as `[[tasks/example-task]]`; manual short task wikilinks are valid only when they resolve uniquely. A missing or unclear blocker is a metadata issue; do not silently ignore it.
 
@@ -99,7 +79,7 @@ Use `blocked_by` and `related_to` with task wikilinks instead of a generic depen
 
 Use `readiness: needs-refinement` for vague or incomplete task items. Use `readiness: blocked` when a blocker, decision, external condition, or required access prevents work.
 
-Use `readiness: ready` only when the task satisfies the Ready Checklist in `knowledge/schemas/tasks.md`. In summary:
+Use `readiness: ready` only when the task satisfies the Ready Checklist in `{{knowledge_dir}}/.workflow/schemas/tasks.md`. In summary:
 
 - `## Goal`, `## Sources`, `## In scope`, `## Out of scope`, and `## Acceptance criteria` sections are present;
 - acceptance criteria are observable pass/fail criteria;
@@ -123,9 +103,9 @@ Agents may propose readiness changes in dry-run output. Writing `readiness: read
 
 ## Kanban
 
-- `knowledge/planning/KANBAN.md` tracks delivery status.
+- `{{knowledge_dir}}/planning/KANBAN.md` tracks delivery status.
 - Board movement requires explicit approved `kanban-maintenance`.
-- `Backlog` and `Ready` are candidate pools; `Doing`, `Reviewing`, `Blocked`, `Done`, and `Cancelled` have explicit state meaning in `knowledge/planning/WORKFLOW.md`.
+- `Backlog` and `Ready` are candidate pools; `Doing`, `Reviewing`, `Blocked`, `Done`, and `Cancelled` have explicit state meaning here.
 - `Done` requires delivered work, relevant checks or documented skips, updated durable knowledge when needed, local execution closure, delivery review acceptance, and approved board movement.
 
 Cards stay thin and link to task items:
@@ -154,9 +134,9 @@ When a requirement is decomposed into several accepted tasks with planned depend
 
 Before any Kanban write, produce a dry-run table and wait for explicit approval:
 
-| Title                 | Sources                                    | Module | Priority | Sprint   | Owners                 | Blockers | Target |
-| --------------------- | ------------------------------------------ | ------ | -------- | -------- | ---------------------- | -------- | ------ |
-| Example delivery task | `knowledge/tasks/example-delivery-task.md` | app    | P1       | Sprint 1 | `[[members/Gavroche]]` | None     | Ready  |
+| Title                 | Sources                                            | Module | Priority | Sprint   | Owners                 | Blockers | Target |
+| --------------------- | -------------------------------------------------- | ------ | -------- | -------- | ---------------------- | -------- | ------ |
+| Example delivery task | `{{knowledge_dir}}/tasks/example-delivery-task.md` | app    | P1       | Sprint 1 | `[[members/Gavroche]]` | None     | Ready  |
 
 Use `next-task-selection` to recommend accepted Kanban cards. Selection is read-only by default:
 
@@ -166,16 +146,6 @@ Use `next-task-selection` to recommend accepted Kanban cards. Selection is read-
 - starting another member's assigned task requires a second explicit confirmation;
 - exclude unresolved blockers and non-ready tasks from automatic start;
 - before automatic start or `Doing`, verify readiness, acceptance criteria, committed source material, remote freshness when relevant, clean worktree fit, and approval level.
-
-## Personal Execution
-
-Use `workspace-worklist` when a member takes accepted work into local execution.
-
-- `intake-task` writes only the current member's `local/WORKLIST.md` and local logs.
-- Intake should preserve links to the card, task item, and important source knowledge.
-- Move or propose the card to `Doing` through approved `kanban-maintenance` at intake time or before the item becomes `Active`.
-- Do not create detailed local execution items if the developer is not actually starting the task.
-- Use `run-goal` only for accepted Kanban/worklist tasks and a user-approved scope; default stop point is review readiness or approved `Doing -> Reviewing`.
 
 ## Delivery Updates
 
@@ -205,7 +175,7 @@ Do not mechanically remove resolved `blocked_by` entries. They record dependency
 
 When available, `superpowers:verification-before-completion` may support validation before completion, commit, PR, or Done-readiness claims. It does not replace `delivery-review` or approved Kanban maintenance.
 
-## Knowledge Updates
+## Knowledge Updates During Delivery
 
 Update durable knowledge when delivery changes it:
 
@@ -245,35 +215,3 @@ Move out of `Blocked` only when the blocker is resolved and the next state is cl
 When cancelled, move or propose the card to `Cancelled` and add a short cancellation reason if context would otherwise be unclear. Do not delete source knowledge unless it is wrong or obsolete and the user approves correction.
 
 `Cancelled` means intentionally dropped, replaced, duplicated, invalid, or no longer valuable. It is not `Done` and should not be treated as delivered. When a task is superseded, link the replacement task, proposal, or decision with `related_to`.
-
-## Optional Superpowers Guidance
-
-When Superpowers skills are available, use them only as optional execution-method support:
-
-| Workflow need                                           | Optional Superpowers skill                                                   |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| shape unclear work                                      | `superpowers:brainstorming`                                                  |
-| write implementation plan                               | `superpowers:writing-plans`                                                  |
-| feature, bugfix, refactor, or behavior change           | `superpowers:test-driven-development`                                        |
-| unclear failure                                         | `superpowers:systematic-debugging`                                           |
-| verify completion, commit, PR, or Done-readiness claims | `superpowers:verification-before-completion`                                 |
-| isolated or authorized parallel Agent execution         | `superpowers:using-git-worktrees`, `superpowers:subagent-driven-development` |
-
-Knowledge Workflow remains authoritative for knowledge placement, task items, Kanban state, WORKLIST ownership, approval gates, and delivery review. Superpowers plans should stay under `knowledge/workspace/<member-id>/local/drafts/` unless approved for promotion; worktrees belong under `.worktrees/`.
-
-## Localized Versions
-
-`canonical_language: en` in `knowledge/.workflow/manifest.yml` is the source language for canonical knowledge. Localized files may help readers but must declare translation metadata and must not introduce new facts, decisions, requirements, or delivery status.
-
-## Agent Rules
-
-Agents working in this workflow must:
-
-- preserve repository safety and root `AGENTS.md` instructions;
-- use schemas before writing knowledge;
-- use the task workflow before delivery changes;
-- keep `workspace/<member-id>/local/` and worktree contents under `.worktrees/` local-only, except the managed `.worktrees/.gitignore`;
-- avoid localized files and local-only notes as planning inputs;
-- stop and report secrets, sensitive data, or scope conflicts;
-- keep cards concise and link to source knowledge;
-- update durable product, discovery, design, architecture, decision, or guideline knowledge when delivery changes it.

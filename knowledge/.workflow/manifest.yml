@@ -5,7 +5,10 @@ knowledge_dir: knowledge
 worktree_dir: .worktrees
 canonical_language: en
 installed_at: "2026-05-16T15:26:58Z"
-updated_at: "2026-05-21T09:09:27Z"
+updated_at: "2026-05-21T14:34:17Z"
+
+feedback:
+  enabled: false
 
 agent_skills:
   required:
@@ -33,35 +36,35 @@ managed:
     - knowledge/.gitignore
     - .worktrees/.gitignore
     - knowledge/README.md
-    - knowledge/planning/WORKFLOW.md
-    - knowledge/schemas/README.md
-    - knowledge/schemas/architecture.md
-    - knowledge/schemas/common.md
-    - knowledge/schemas/concepts.md
-    - knowledge/schemas/decisions.md
-    - knowledge/schemas/design.md
-    - knowledge/schemas/discovery.md
-    - knowledge/schemas/groups.md
-    - knowledge/schemas/guidelines.md
-    - knowledge/schemas/members.md
-    - knowledge/schemas/planning.md
-    - knowledge/schemas/product.md
-    - knowledge/schemas/proposals.md
-    - knowledge/schemas/sprints.md
-    - knowledge/schemas/tasks.md
-    - knowledge/schemas/workspace.md
-    - knowledge/templates/group.md
-    - knowledge/templates/member.md
-    - knowledge/templates/proposal.md
-    - knowledge/templates/worklist.md
-    - knowledge/templates/handoff.md
-    - knowledge/templates/task.md
+    - knowledge/.workflow/rules/knowledge.md
+    - knowledge/.workflow/rules/delivery.md
+    - knowledge/.workflow/rules/workspace.md
+    - knowledge/.workflow/schemas/README.md
+    - knowledge/.workflow/schemas/architecture.md
+    - knowledge/.workflow/schemas/common.md
+    - knowledge/.workflow/schemas/concepts.md
+    - knowledge/.workflow/schemas/decisions.md
+    - knowledge/.workflow/schemas/design.md
+    - knowledge/.workflow/schemas/discovery.md
+    - knowledge/.workflow/schemas/groups.md
+    - knowledge/.workflow/schemas/guidelines.md
+    - knowledge/.workflow/schemas/members.md
+    - knowledge/.workflow/schemas/planning.md
+    - knowledge/.workflow/schemas/product.md
+    - knowledge/.workflow/schemas/proposals.md
+    - knowledge/.workflow/schemas/sprints.md
+    - knowledge/.workflow/schemas/tasks.md
+    - knowledge/.workflow/schemas/workspace.md
+    - knowledge/.workflow/templates/group.md
+    - knowledge/.workflow/templates/member.md
+    - knowledge/.workflow/templates/proposal.md
+    - knowledge/.workflow/templates/worklist.md
+    - knowledge/.workflow/templates/handoff.md
+    - knowledge/.workflow/templates/task.md
 
 protected:
   - knowledge/planning/KANBAN.md
-  - path: knowledge/planning/**
-    except:
-      - knowledge/planning/WORKFLOW.md
+  - knowledge/planning/**
   - knowledge/tasks/**
   - knowledge/workspace/**
   - knowledge/workspace/*/local/**
