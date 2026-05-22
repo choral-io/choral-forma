@@ -26,9 +26,9 @@ without blocking that discussion.
 
 Relevant project knowledge:
 
-- [Product direction](/Users/Tiscs/Projects/choral-notes/knowledge/product/product-direction.md)
-- [Forma core technical direction](/Users/Tiscs/Projects/choral-notes/knowledge/architecture/forma-core-technical-direction.md)
-- [Mainstream knowledge app feature analysis](/Users/Tiscs/Projects/choral-notes/knowledge/discovery/mainstream-knowledge-app-feature-analysis.md)
+- [Product direction](../../../product/product-direction.md)
+- [Forma core technical direction](../../../architecture/forma-core-technical-direction.md)
+- [Mainstream knowledge app feature analysis](../../../discovery/mainstream-knowledge-app-feature-analysis.md)
 
 Current technical direction:
 

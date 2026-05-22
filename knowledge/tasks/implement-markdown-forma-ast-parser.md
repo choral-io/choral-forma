@@ -1,6 +1,11 @@
 ---
 scope: project
 type: task
+priority: P0
+severity:
+value: H
+module: api
+
 owners:
     - "[[members/Tiscs]]"
 assignees: []
@@ -10,18 +15,17 @@ tags:
     - p0
     - markdown
     - parser
-priority: P0
-severity:
-value: H
-module: api
+
 effort: M
 readiness: ready
 sprint:
+
 blocked_by:
     - "[[tasks/scaffold-forma-workspace]]"
 related_to:
     - "[[architecture/forma-core-technical-direction]]"
     - "[[workspace/Tiscs/research/forma-markdown-parser-spike-report]]"
+
 reported_by:
 affected_area: Markdown parsing and FormaAST enrichment
 ---

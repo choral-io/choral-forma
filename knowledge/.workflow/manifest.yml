@@ -1,14 +1,14 @@
 template_id: knowledge-workflow
 template_version: 1
-manifest_version: 1
+manifest_version: 2
 knowledge_dir: knowledge
-worktree_dir: .worktrees
+worktrees_dir: .worktrees
 canonical_language: en
 installed_at: "2026-05-16T15:26:58Z"
-updated_at: "2026-05-21T14:34:17Z"
+updated_at: "2026-05-22T11:02:47Z"
 
 feedback:
-  enabled: false
+  enabled: true
 
 agent_skills:
   required:
@@ -31,53 +31,43 @@ append_blocks:
     version: 1
 
 managed:
-  version: 1
-  paths:
-    - knowledge/.gitignore
-    - .worktrees/.gitignore
-    - knowledge/README.md
-    - knowledge/.workflow/rules/knowledge.md
-    - knowledge/.workflow/rules/delivery.md
-    - knowledge/.workflow/rules/workspace.md
-    - knowledge/.workflow/schemas/README.md
-    - knowledge/.workflow/schemas/architecture.md
-    - knowledge/.workflow/schemas/common.md
-    - knowledge/.workflow/schemas/concepts.md
-    - knowledge/.workflow/schemas/decisions.md
-    - knowledge/.workflow/schemas/design.md
-    - knowledge/.workflow/schemas/discovery.md
-    - knowledge/.workflow/schemas/groups.md
-    - knowledge/.workflow/schemas/guidelines.md
-    - knowledge/.workflow/schemas/members.md
-    - knowledge/.workflow/schemas/planning.md
-    - knowledge/.workflow/schemas/product.md
-    - knowledge/.workflow/schemas/proposals.md
-    - knowledge/.workflow/schemas/sprints.md
-    - knowledge/.workflow/schemas/tasks.md
-    - knowledge/.workflow/schemas/workspace.md
-    - knowledge/.workflow/templates/group.md
-    - knowledge/.workflow/templates/member.md
-    - knowledge/.workflow/templates/proposal.md
-    - knowledge/.workflow/templates/worklist.md
-    - knowledge/.workflow/templates/handoff.md
-    - knowledge/.workflow/templates/task.md
+  version: 2
+  repository: []
+  knowledge:
+    - README.md
+    - .gitignore
+    - .workflow/runtime.md
+    - .workflow/rules/knowledge.md
+    - .workflow/rules/delivery.md
+    - .workflow/rules/workspace.md
+    - .workflow/schemas/**
+    - .workflow/templates/**
+  worktrees:
+    - .gitignore
 
 protected:
-  - knowledge/planning/KANBAN.md
-  - knowledge/planning/**
-  - knowledge/tasks/**
-  - knowledge/workspace/**
-  - knowledge/workspace/*/local/**
-  - knowledge/members/**
-  - knowledge/groups/**
-  - knowledge/proposals/**
-  - knowledge/discovery/**
-  - knowledge/product/**
-  - knowledge/design/**
-  - knowledge/architecture/**
-  - knowledge/concepts/**
-  - knowledge/decisions/**
-  - knowledge/guidelines/**
+  knowledge:
+    - planning/**
+    - tasks/**
+    - workspace/**
+    - members/**
+    - groups/**
+    - proposals/**
+    - discovery/**
+    - product/**
+    - design/**
+    - architecture/**
+    - concepts/**
+    - decisions/**
+    - guidelines/**
+
+local_only:
+  knowledge:
+    - .workflow/local.yml
+    - .feedback/**
+    - workspace/*/local/**
+  worktrees:
+    - "**"
 
 local_overrides: []
 skipped_patterns: []

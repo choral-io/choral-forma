@@ -1,6 +1,11 @@
 ---
 scope: project
 type: task
+priority: P0
+severity:
+value: M
+module: app
+
 owners:
     - "[[members/Tiscs]]"
 assignees:
@@ -10,13 +15,11 @@ tags:
     - forma
     - p0
     - webapp
-priority: P0
-severity:
-value: M
-module: app
+
 effort: L
 readiness: ready
 sprint:
+
 blocked_by:
     - "[[tasks/implement-operation-rpc-cli-foundation]]"
     - "[[tasks/implement-starter-init-create-inspect-list]]"
@@ -25,6 +28,7 @@ blocked_by:
 related_to:
     - "[[architecture/forma-p0-operation-api-spec]]"
     - "[[decisions/forma-p0-core-architecture]]"
+
 reported_by:
 affected_area: Local read-only Forma WebApp
 ---

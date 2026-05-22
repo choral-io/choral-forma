@@ -1,6 +1,11 @@
 ---
 scope: project
 type: task
+priority: P0
+severity:
+value: H
+module: api
+
 owners:
     - "[[members/Tiscs]]"
 assignees: []
@@ -10,18 +15,17 @@ tags:
     - p0
     - config
     - paths
-priority: P0
-severity:
-value: H
-module: api
+
 effort: M
 readiness: ready
 sprint:
+
 blocked_by:
     - "[[tasks/scaffold-forma-workspace]]"
 related_to:
     - "[[architecture/forma-p0-schema-dsl-spec]]"
     - "[[product/forma-p0-starter-spec]]"
+
 reported_by:
 affected_area: Forma configuration loading and path identity
 ---

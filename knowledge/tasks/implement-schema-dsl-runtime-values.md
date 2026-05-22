@@ -1,6 +1,11 @@
 ---
 scope: project
 type: task
+priority: P0
+severity:
+value: H
+module: api
+
 owners:
     - "[[members/Tiscs]]"
 assignees: []
@@ -10,17 +15,16 @@ tags:
     - p0
     - schema
     - runtime-values
-priority: P0
-severity:
-value: H
-module: api
+
 effort: M
 readiness: ready
 sprint:
+
 blocked_by:
     - "[[tasks/implement-forma-config-and-path-model]]"
 related_to:
     - "[[architecture/forma-p0-schema-dsl-spec]]"
+
 reported_by:
 affected_area: Schema validation and create input resolution
 ---

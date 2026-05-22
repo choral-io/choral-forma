@@ -56,51 +56,23 @@ Tool versions are declared in the idiomatic project files: Node.js and pnpm in r
 
 ## Knowledge Workflow
 
-### Required Context
+This repository uses Knowledge Workflow.
 
-- Knowledge directory: `knowledge/`.
-- Read `knowledge/.workflow/manifest.yml` before workflow work; use its `knowledge_dir`, `agent_skills.required`, `worktree_dir`, and `canonical_language: en` values.
-- Determine the current member id with `git config user.name`; do not infer it from OS, machine, shell, or chat names.
-- Before writing knowledge, read `knowledge/.workflow/rules/knowledge.md`, `knowledge/.workflow/schemas/common.md`, and the relevant `knowledge/.workflow/schemas/*.md`; before changing delivery cards, read `knowledge/.workflow/rules/delivery.md`.
-- When member context matters, prefer section-scoped reads from `knowledge/members/<member-id>.md`; read `knowledge/workspace/<member-id>/local/AGENTS.md` when acting on that member's local workspace, worklist, or personal execution style.
+Resolve `<knowledge_dir>` from repository root `.knowledge-workflow` when present. If it is absent, use default `knowledge` only when `knowledge/.workflow/runtime.md` and `knowledge/.workflow/manifest.yml` both exist. Then read `<knowledge_dir>/.workflow/runtime.md` before workflow work. Runtime, manifest, rules, schemas, and Skill instructions are the source of truth.
 
-### Boundaries
+Core boundaries:
 
-- Treat canonical knowledge files under `knowledge/` and code as project facts; treat `knowledge/planning/KANBAN.md` as delivery status; treat `knowledge/.workflow/**` as workflow support, not project facts.
-- Apply scope precedence from `knowledge/.workflow/schemas/common.md`; stop and report conflicts that affect facts, delivery scope, permissions, review, ownership, or another member.
-- Treat `knowledge/proposals/` as a review buffer, not as facts, decisions, task items, or delivery commitments until converted.
-- Keep localized files as translations only; never store secrets or private notes in `knowledge/`.
-- Treat `knowledge/workspace/<member-id>/local/` and worktree contents under `.worktrees/` as local-only state; never stage or commit them. The managed `.worktrees/.gitignore` may be tracked.
-- Share member workspace material through `summaries/`, `handoffs/`, and `research/`; keep raw captures and personal drafts under `local/`.
-- Do not assign work by writing into another member's workspace. Use task items with `assignees` and approved Kanban updates.
-
-### Skill Usage
-
-- Use the platform Skill loader. Required Skills are external runtime capabilities listed in manifest `agent_skills.required`; do not copy or manage Skill files inside this repository.
+- Do not guess workflow paths, current member id, or local-only paths.
+- Do not write shared knowledge, Kanban, task metadata, or workflow state without the owning Skill and required approval.
+- Keep `<knowledge_dir>/.workflow/local.yml`, `<knowledge_dir>/.feedback/`, `<knowledge_dir>/workspace/*/local/`, and worktree contents under `<worktrees_dir>/` local-only.
 - Use `knowledge-assistant` for workflow help, routing, recovery, and project rules explanation; otherwise use the specific Skill whose description matches the request.
-- Use `knowledge-intake` before unapproved knowledge writes, `knowledge-capture` only after approval, audit skills read-only, and `knowledge-workflow-admin` only by explicit maintainer choice.
-
-### Delivery And Local Execution
-
-- Accepted delivery work is tracked by thin cards in `knowledge/planning/KANBAN.md` linked to task items under `knowledge/tasks/`.
-- Use `delivery-planning` for proposed task/card changes, `kanban-maintenance` only after approval, and `delivery-review` before moving changed delivery work to Done.
-- Use `workspace-worklist:intake-task` when taking a Kanban card into the current member's local execution flow.
-- `run-goal` coordinates accepted Kanban/worklist tasks toward review readiness; it is not open-ended product discovery.
-- `auto-review` is a workflow approval mode, not a sandbox or host-permission mode. If project rules are missing or partial, keep broad or unspecified auto-review to low-risk actions and ask a maintainer to define a stable rule set.
-- Optional execution-method tools, including Superpowers, may help with planning, TDD, debugging, verification, worktrees, or authorized parallel agents, but they do not replace Knowledge Workflow ownership, gates, or review.
-
-### Formatting, Git, And Safety
-
-- The workflow must not depend on a specific runtime, language, package manager, shell, or script file.
-- When doing actual project work, Agents may detect and use tools already available in the project or environment.
-- For knowledge-only or workflow-support changes, use or suggest the project's available Markdown formatter/checker for changed Markdown files.
-- Commit only files intentionally changed for the current task; leave unrelated dirty files untouched.
-- Before staging knowledge changes, confirm the staged diff excludes `knowledge/.feedback/**`, `knowledge/workspace/*/local/**`, and worktree contents under `.worktrees/`, except the managed `.worktrees/.gitignore`.
+- Use `knowledge-workflow-admin` only for explicit maintainer setup, check, migration, manifest, or approved configuration work.
 
 ### Project-Specific Rules
 
-- Choral Forma is a lightweight, editor-independent team knowledge application concept. Keep repository knowledge Markdown-first so the future app can treat files as the source of truth.
+Project-specific rules may specialize workflow behavior, but they must not weaken runtime, safety, ownership, privacy, local-only, approval, or review rules.
+
 - Use `mise run format:knowledge` for knowledge Markdown formatting and `mise run check:knowledge` for check-only validation.
-- Foam is the recommended short-term editor integration; do not make project knowledge depend on Foam-only or Obsidian-plugin-only syntax for project facts.
+- Keep `knowledge/` Foam-compatible and Obsidian-readable, but do not make project knowledge depend on Foam-only or Obsidian-plugin-only syntax for project facts.
 
 <!-- knowledge-workflow:end -->

@@ -1,4 +1,7 @@
-.git/
+.worktrees/
+
 .agents/.local/
-knowledge/workspace/*/local/
-knowledge/.obsidian/
+.agents/skills/
+
+knowledge/.workflow/
+knowledge/.feedback/

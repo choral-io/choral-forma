@@ -1,6 +1,11 @@
 ---
 scope: project
 type: task
+priority: P0
+severity:
+value: H
+module: app
+
 owners:
     - "[[members/Tiscs]]"
 assignees:
@@ -11,19 +16,18 @@ tags:
     - p0
     - views
     - query
-priority: P0
-severity:
-value: H
-module: app
+
 effort: M
 readiness: ready
 sprint:
+
 blocked_by: []
 related_to:
     - "[[tasks/implement-read-only-webapp]]"
     - "[[tasks/implement-view-entry-render]]"
     - "[[tasks/implement-starter-init-create-inspect-list]]"
     - "[[tasks/implement-check-index-diagnostics]]"
+
 reported_by:
 affected_area: View source, query model, starter views, and view rendering
 ---

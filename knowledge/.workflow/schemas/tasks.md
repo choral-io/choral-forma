@@ -18,6 +18,11 @@ Task documents describe durable delivery context. The Kanban board tracks status
 ---
 scope: project
 type: task
+priority: P1
+severity:
+value: H
+module: app
+
 owners:
     - "[[members/Gavroche]]"
 assignees:
@@ -26,15 +31,16 @@ reviewers:
     - "[[members/Éponine]]"
 tags:
     - app
-priority: P1
-value: H
-module: app
+
 effort: M
 readiness: ready
 sprint: Sprint 1
+
 blocked_by: []
 related_to:
     - "[[tasks/example-related-task]]"
+reported_by:
+affected_area:
 ---
 ```
 
@@ -51,6 +57,7 @@ related_to:
 - `owners`: member or group wikilinks for durable task ownership. `owners: []` is allowed while a task is being drafted or refined, but `readiness: ready`, Kanban promotion, and active delivery require non-empty owners that resolve to existing member or group documents.
 - `assignees`: member wikilinks for people currently responsible for moving the task forward. Group assignees mean a team or group pool, not assignment to the current member.
 - `reviewers`: member or group wikilinks for expected reviewers for delivery acceptance.
+- `tags`: searchable labels for area, topic, or workflow classification.
 - `blocked_by`: hard blocker relationships. Entries may remain after blockers are resolved; a task is blocked only when one or more entries are unresolved.
 - `related_to`: context links that do not block work.
 - `reported_by`: optional source, member id, role, channel, or anonymized reporter for issue, bug, or defect tasks.
@@ -77,7 +84,7 @@ Use task knowledge-reference wikilinks in relationship fields. Manual short task
 
 ## Rules
 
-- Raw feedback, support notes, QA observations, and market signals should not become task items by default. Store raw or synthesized context in `knowledge/workspace/<member-id>/research/` or `knowledge/discovery/` first.
+- Raw feedback, support notes, QA observations, and market signals should not become task items by default. Store raw or synthesized context in `<knowledge_dir>/workspace/<member-id>/research/` or `<knowledge_dir>/discovery/` first.
 - Use `type: issue`, `type: bug`, or `type: defect` only when the problem is actionable enough to triage as delivery work.
 - Issue, bug, and defect tasks must include `Problem`, `Sources`, `Impact`, and `Triage` before they can be classified as Backlog, Ready, Blocked, or Cancelled delivery work.
 - Bug and defect tasks should include `Reproduction`, `Expected`, and `Actual` sections when the problem is reproducible. If not reproducible yet, explain that in `Triage` and keep `readiness: needs-refinement`.
@@ -121,7 +128,7 @@ Use a `## Sources` section for canonical source knowledge:
 ## Sources
 
 - [[product/example-source-note]]
-- [[planning/WORKFLOW]]
+- `.workflow/rules/delivery.md`
 ```
 
 Sources should point to canonical-language project knowledge, accepted decisions, architecture, product, design, or explicitly selected workspace summaries, handoffs, or research. Do not use local workspace notes or localized files as the only source.
@@ -134,4 +141,4 @@ Kanban cards use Foam wikilinks:
 - [ ] [[tasks/example-delivery-task|Example delivery task]]
 ```
 
-Resolve `[[tasks/example-delivery-task]]` to `knowledge/tasks/example-delivery-task.md`. Manual short task links such as `[[example-delivery-task]]` may resolve to `knowledge/tasks/example-delivery-task.md` when unambiguous. If multiple canonical files match the same id, report ambiguity instead of guessing. Do not use display titles as ids.
+Resolve `[[tasks/example-delivery-task]]` to `<knowledge_dir>/tasks/example-delivery-task.md`. Manual short task links such as `[[example-delivery-task]]` may resolve to `<knowledge_dir>/tasks/example-delivery-task.md` when unambiguous. If multiple canonical files match the same id, report ambiguity instead of guessing. Do not use display titles as ids.

@@ -1,6 +1,11 @@
 ---
 scope: project
 type: task
+priority: P0
+severity:
+value: H
+module: app
+
 owners:
     - "[[members/Tiscs]]"
 assignees: []
@@ -10,13 +15,11 @@ tags:
     - p0
     - cli
     - starter
-priority: P0
-severity:
-value: H
-module: app
+
 effort: L
 readiness: ready
 sprint:
+
 blocked_by:
     - "[[tasks/implement-schema-dsl-runtime-values]]"
     - "[[tasks/implement-check-index-diagnostics]]"
@@ -24,6 +27,7 @@ blocked_by:
 related_to:
     - "[[product/forma-p0-starter-spec]]"
     - "[[architecture/forma-p0-operation-api-spec]]"
+
 reported_by:
 affected_area: P0 CLI user flows
 ---

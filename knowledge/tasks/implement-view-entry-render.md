@@ -1,6 +1,11 @@
 ---
 scope: project
 type: task
+priority: P0
+severity:
+value: H
+module: app
+
 owners:
     - "[[members/Tiscs]]"
 assignees: []
@@ -10,13 +15,11 @@ tags:
     - p0
     - rendering
     - views
-priority: P0
-severity:
-value: H
-module: app
+
 effort: L
 readiness: ready
 sprint:
+
 blocked_by:
     - "[[tasks/implement-markdown-forma-ast-parser]]"
     - "[[tasks/implement-check-index-diagnostics]]"
@@ -24,6 +27,7 @@ blocked_by:
 related_to:
     - "[[architecture/forma-p0-operation-api-spec]]"
     - "[[product/forma-p0-starter-spec]]"
+
 reported_by:
 affected_area: Entry rendering and declarative views
 ---

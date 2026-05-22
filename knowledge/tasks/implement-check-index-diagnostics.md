@@ -1,6 +1,11 @@
 ---
 scope: project
 type: task
+priority: P0
+severity:
+value: H
+module: api
+
 owners:
     - "[[members/Tiscs]]"
 assignees: []
@@ -10,18 +15,17 @@ tags:
     - p0
     - index
     - diagnostics
-priority: P0
-severity:
-value: H
-module: api
+
 effort: L
 readiness: ready
 sprint:
+
 blocked_by:
     - "[[tasks/implement-schema-dsl-runtime-values]]"
     - "[[tasks/implement-markdown-forma-ast-parser]]"
 related_to:
     - "[[architecture/forma-p0-check-index-spec]]"
+
 reported_by:
 affected_area: Summary index and workspace diagnostics
 ---

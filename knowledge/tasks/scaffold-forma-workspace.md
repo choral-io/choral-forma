@@ -1,6 +1,11 @@
 ---
 scope: project
 type: task
+priority: P0
+severity:
+value: H
+module: infra
+
 owners:
     - "[[members/Tiscs]]"
 assignees: []
@@ -9,17 +14,16 @@ tags:
     - forma
     - p0
     - workspace
-priority: P0
-severity:
-value: H
-module: infra
+
 effort: M
 readiness: ready
 sprint:
+
 blocked_by: []
 related_to:
     - "[[decisions/forma-p0-core-architecture]]"
     - "[[architecture/forma-core-technical-direction]]"
+
 reported_by:
 affected_area: P0 workspace foundation
 ---
