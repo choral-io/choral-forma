@@ -157,8 +157,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          prerelease_flags=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            prerelease_flags+=(--prerelease)
+          fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            if [ "${#prerelease_flags[@]}" -gt 0 ]; then
+              gh release edit "$RELEASE_TAG" "${prerelease_flags[@]}"
+            fi
             gh release upload "$RELEASE_TAG" upload/* --clobber
           else
-            gh release create "$RELEASE_TAG" upload/* --generate-notes
+            gh release create "$RELEASE_TAG" upload/* --generate-notes "${prerelease_flags[@]}"
           fi
