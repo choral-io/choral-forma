@@ -60,10 +60,11 @@ names use stable lower camel case in JSON-facing APIs.
 | Inspect       | `inspect`         | `forma inspect <path> [--json]`                                               | No           |
 | Inspect       | `inspect`         | `forma inspect --collection <collection> <entry> --json`                      | No           |
 | List          | `list`            | `forma list --collection <collection> [--json]`                               | No           |
+| FilesList     | `files.list`      | No required P0 CLI command                                                    | No           |
 | Create        | `create`          | `forma create <collection> [--input <name=value>]... [--json]`                | Yes          |
 | ViewRender    | `view.render`     | No required P0 CLI command                                                    | No           |
 | EntryRender   | `entry.render`    | No required P0 CLI command                                                    | No           |
-| Serve         | Local server mode | `forma serve`                                                                 | No           |
+| Serve         | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...`                | No           |
 
 `Serve` is a CLI mode, not a domain operation. The server exposes operation
 methods through `POST /rpc` and serves static WebApp assets. It may compute
@@ -78,6 +79,11 @@ A direct CLI command for view rendering can wait until there is product demand.
 `EntryRender` is required for the P0 WebApp and local HTTP API so the GUI can
 render individual Markdown entries without reading files directly. A direct CLI
 command for entry rendering can wait until there is product demand.
+
+`FilesList` is required for the P0 WebApp file navigation mode. It is a
+read-only inventory operation over display-safe workspace files, not a general
+filesystem API. It should classify entries, views, Markdown files, configuration
+files, and the summary index using workspace-relative POSIX paths.
 
 ## CLI JSON Behavior
 
@@ -142,6 +148,10 @@ P0 command classification:
 - `forma check`, `forma index check`, `forma config inspect`, `forma inspect`,
   `forma list`, and `forma serve` do not require confirmation because they are
   read-only in P0.
+- `forma config inspect --path <path>` may inspect only known configuration
+  source files reported by the operation, such as `.forma/workspace.yml`,
+  `.forma/types.yml`, `.forma/collections.yml`, and
+  `.forma/overrides/local.yml`. It is not a general workspace file read API.
 
 Future command classification:
 
@@ -700,6 +710,56 @@ Result outline:
 `fields` should contain display-safe structured values derived from the
 collection schema and conventions. It should not expose full Markdown bodies.
 
+### Files List
+
+`files.list` returns display-safe workspace files for the WebApp file navigation
+mode. It must not expose absolute paths, `.git`, build artifacts, dependency
+directories, or local-only Forma files.
+
+Params:
+
+```json
+{}
+```
+
+Result outline:
+
+```json
+{
+    "schemaVersion": 1,
+    "operation": "files.list",
+    "status": "passed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "files": [
+        {
+            "path": ".forma/views/todos.md",
+            "kind": "view",
+            "title": "Todos"
+        },
+        {
+            "path": "todos/user-registration.md",
+            "kind": "entry",
+            "collection": "todos",
+            "title": "User registration"
+        }
+    ],
+    "summary": {
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0
+    },
+    "diagnostics": []
+}
+```
+
+P0 `kind` values are `entry`, `view`, `markdown`, `config`, and `index`.
+Uncatalogued Markdown should remain visible as `markdown` so users and Agents
+can find files outside collections without making file navigation the primary
+product navigation model.
+
 ### Create
 
 `create` resolves collection create inputs, renders the filename and template,
@@ -901,10 +961,29 @@ assets, and expose:
 POST /rpc
 ```
 
+The Rust CLI package should remain buildable from a clean checkout even when
+ignored WebApp `dist` assets have not been generated. Development and release
+tasks should build the WebApp before packaging `forma serve`; a fallback static
+page may be embedded only to keep Rust checks usable when assets are absent.
+
+P0 supports an explicit external WebApp asset directory override, such as
+`forma serve --webapp-dir <dir>`, for development debugging and issue
+verification. When present, that directory provides static assets instead of
+the embedded WebApp assets. The override is serve-time only, must not be stored
+in shared workspace configuration, and must not change RPC behavior or
+workspace permissions. Broader custom distribution and white-label packaging
+remain P1 concerns.
+
+P0 also supports explicit RPC CORS origins for Vite dev server workflows, such
+as `forma serve --cors-origin http://localhost:5173`. CORS must be disabled by
+default, must reject wildcard origins, and should apply only to `/rpc`.
+Development WebApp builds may use `VITE_FORMA_RPC_URL` to call the configured
+Forma RPC URL across origins.
+
 The WebApp should use `POST /rpc` for workspace overview, collection listing,
-entry inspection, Markdown rendering data, view rendering, diagnostics, and
-index status. P0 should avoid adding parallel REST endpoints for the same
-operation semantics.
+file navigation, entry inspection, Markdown rendering data, view rendering,
+diagnostics, configuration inspection, and index status. P0 should avoid adding
+parallel REST endpoints for the same operation semantics.
 
 Future convenience endpoints for static assets, health, or development-mode
 frontend integration must not bypass the shared dispatcher for product

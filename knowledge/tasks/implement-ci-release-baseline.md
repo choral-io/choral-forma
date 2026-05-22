@@ -15,7 +15,7 @@ severity:
 value: M
 module: infra
 effort: M
-readiness: blocked
+readiness: ready
 sprint:
 blocked_by:
     - "[[tasks/scaffold-forma-workspace]]"
@@ -74,6 +74,9 @@ runtime for released builds.
 
 Blocked by scaffold and WebApp integration because release packaging needs the
 final binary and asset serving shape.
+
+The scaffold and WebApp integration blockers are resolved by completed delivery
+tasks. The `blocked_by` entries remain as dependency history.
 
 ## Open Questions
 

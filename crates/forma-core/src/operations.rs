@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
@@ -13,8 +13,8 @@ use crate::index::{IndexEntry, config_error_diagnostic, discover_workspace, inde
 use crate::markdown::FormaMarkdownDocument;
 use crate::path::{
     FORMA_COLLECTIONS_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH,
-    FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR, FORMA_WORKSPACE_PATH, PathError,
-    WorkspacePath,
+    FORMA_LOCAL_OVERRIDES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR,
+    FORMA_WORKSPACE_PATH, PathError, WorkspacePath,
 };
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
@@ -129,6 +129,67 @@ pub struct ListResult {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigInspectResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub config: Value,
+    pub sources: Vec<ConfigSource>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigSource {
+    pub path: String,
+    pub kind: ConfigSourceKind,
+    pub present: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ConfigSourceKind {
+    Shared,
+    Local,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilesListResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub files: Vec<ListedFile>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListedFile {
+    pub path: String,
+    pub kind: ListedFileKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ListedFileKind {
+    Entry,
+    View,
+    Markdown,
+    Config,
+    Index,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListedCollection {
@@ -166,6 +227,8 @@ pub enum OperationError {
     InvalidInput(String),
     #[error("invalid workspace path: {0}")]
     InvalidPath(#[from] PathError),
+    #[error("configuration path is not inspectable: {0}")]
+    ConfigPathNotInspectable(String),
     #[error("invalid timezone `{0}`")]
     InvalidTimezone(String),
     #[error("entry was not found")]
@@ -455,6 +518,88 @@ pub fn list_collection(
     })
 }
 
+pub fn inspect_config(
+    root: impl AsRef<Path>,
+    path: Option<&str>,
+) -> Result<ConfigInspectResult, OperationError> {
+    let workspace = load_workspace(root.as_ref(), LoadMode::WithLocalOverrides)?;
+    let path = path.map(validate_config_inspect_path).transpose()?;
+    let mut diagnostics = workspace.diagnostics;
+    diagnostics.sort_by_key(|diagnostic| {
+        (
+            diagnostic.path.clone().unwrap_or_default(),
+            diagnostic.code.clone(),
+            diagnostic.message.clone(),
+        )
+    });
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+    let config = inspect_config_value(root.as_ref(), path.as_deref(), &workspace.config)?;
+
+    Ok(ConfigInspectResult {
+        schema_version: 1,
+        operation: "config.inspect".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace.config.workspace.name,
+        },
+        config,
+        sources: config_sources(root.as_ref()),
+        summary,
+        diagnostics,
+    })
+}
+
+pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationError> {
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let discovery = discover_workspace(root.as_ref())?;
+    let mut diagnostics = discovery.diagnostics;
+    diagnostics.sort_by_key(|diagnostic| {
+        (
+            diagnostic.path.clone().unwrap_or_default(),
+            diagnostic.code.clone(),
+            diagnostic.message.clone(),
+        )
+    });
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+    let mut files = collect_workspace_files(root.as_ref());
+
+    for file in &mut files {
+        if let Some(entry) = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == file.path)
+        {
+            file.kind = ListedFileKind::Entry;
+            file.collection = Some(entry.collection.clone());
+            file.title = entry.title.clone();
+        } else if let Some(view) = discovery
+            .index
+            .views
+            .iter()
+            .find(|view| view.path == file.path)
+        {
+            file.kind = ListedFileKind::View;
+            file.title = view.title.clone();
+        }
+    }
+    files.sort_by(|left, right| left.path.cmp(&right.path));
+
+    Ok(FilesListResult {
+        schema_version: 1,
+        operation: "files.list".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace.config.workspace.name,
+        },
+        files,
+        summary,
+        diagnostics,
+    })
+}
+
 fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
     let discovery = discover_workspace(root.as_ref())?;
@@ -511,6 +656,120 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
         },
         summary,
         diagnostics,
+    })
+}
+
+fn config_sources(root: &Path) -> Vec<ConfigSource> {
+    [
+        (FORMA_WORKSPACE_PATH, ConfigSourceKind::Shared),
+        (FORMA_TYPES_PATH, ConfigSourceKind::Shared),
+        (FORMA_COLLECTIONS_PATH, ConfigSourceKind::Shared),
+        (FORMA_LOCAL_OVERRIDES_PATH, ConfigSourceKind::Local),
+    ]
+    .into_iter()
+    .map(|(path, kind)| ConfigSource {
+        path: path.to_string(),
+        kind,
+        present: root.join(path).exists(),
+    })
+    .collect()
+}
+
+fn validate_config_inspect_path(path: &str) -> Result<String, OperationError> {
+    let path = WorkspacePath::parse_cli(path)?;
+    let path = path.as_str();
+    if matches!(
+        path,
+        FORMA_WORKSPACE_PATH
+            | FORMA_TYPES_PATH
+            | FORMA_COLLECTIONS_PATH
+            | FORMA_LOCAL_OVERRIDES_PATH
+    ) {
+        Ok(path.to_string())
+    } else {
+        Err(OperationError::ConfigPathNotInspectable(path.to_string()))
+    }
+}
+
+fn inspect_config_value(
+    root: &Path,
+    path: Option<&str>,
+    config: &crate::config::WorkspaceConfig,
+) -> Result<Value, OperationError> {
+    let Some(path) = path else {
+        return Ok(
+            serde_yml::to_value(config).unwrap_or_else(|_| Value::Mapping(Default::default()))
+        );
+    };
+    let source = fs::read_to_string(root.join(path)).map_err(|source| OperationError::Io {
+        path: path.to_string(),
+        source,
+    })?;
+    serde_yml::from_str(&source).map_err(|source| OperationError::Io {
+        path: path.to_string(),
+        source: std::io::Error::new(std::io::ErrorKind::InvalidData, source),
+    })
+}
+
+fn collect_workspace_files(root: &Path) -> Vec<ListedFile> {
+    let mut files = Vec::new();
+    collect_workspace_files_inner(root, root, &mut files);
+    files
+}
+
+fn collect_workspace_files_inner(root: &Path, dir: &Path, files: &mut Vec<ListedFile>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if path.is_dir() {
+            if should_skip_file_dir(name, &path) {
+                continue;
+            }
+            collect_workspace_files_inner(root, &path, files);
+        } else if let Some(file) = listed_file_from_path(root, path) {
+            files.push(file);
+        }
+    }
+}
+
+fn should_skip_file_dir(name: &str, path: &Path) -> bool {
+    matches!(name, ".git" | "target" | "node_modules")
+        || path.ends_with(FORMA_LOCAL_OVERRIDES_PATH)
+        || path.components().any(|component| {
+            component.as_os_str() == "local"
+                && path.components().any(|part| part.as_os_str() == FORMA_DIR)
+        })
+}
+
+fn listed_file_from_path(root: &Path, path: PathBuf) -> Option<ListedFile> {
+    let relative = path
+        .strip_prefix(root)
+        .ok()?
+        .to_string_lossy()
+        .replace('\\', "/");
+    let kind = if relative == FORMA_INDEX_SUMMARY_PATH {
+        ListedFileKind::Index
+    } else if matches!(
+        relative.as_str(),
+        FORMA_WORKSPACE_PATH | FORMA_TYPES_PATH | FORMA_COLLECTIONS_PATH
+    ) {
+        ListedFileKind::Config
+    } else if relative.ends_with(".md") {
+        ListedFileKind::Markdown
+    } else {
+        return None;
+    };
+
+    Some(ListedFile {
+        path: relative,
+        kind,
+        collection: None,
+        title: None,
     })
 }
 
@@ -666,6 +925,11 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
             "Workspace-relative path parameter is invalid.",
         )
         .with_actual(error.to_string()),
+        OperationError::ConfigPathNotInspectable(path) => Diagnostic::error(
+            "config.pathNotInspectable",
+            "Configuration inspect path must reference a known configuration source.",
+        )
+        .with_path(path),
         OperationError::InvalidTimezone(timezone) => Diagnostic::error(
             "init.timezoneInvalid",
             "Workspace timezone must be a valid IANA timezone.",
@@ -967,3 +1231,102 @@ collections:
           label: Created At
           required: true
 "#;
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use serde_yml::Value;
+
+    use super::{OperationError, create_entry, init_workspace, inspect_config, list_files};
+    use crate::{ListedFileKind, OperationStatus};
+
+    #[test]
+    fn config_inspect_returns_effective_config_sources_and_diagnostics() {
+        let root = fixture_root("config-inspect");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Config Test", "en", Some("UTC")).unwrap();
+
+        let result = inspect_config(&root, None).unwrap();
+
+        assert_eq!(result.operation, "config.inspect");
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert_eq!(result.workspace.name, "Config Test");
+        assert_eq!(
+            result.config["workspace"]["timezone"],
+            Value::String("UTC".to_string())
+        );
+        assert!(
+            result
+                .sources
+                .iter()
+                .any(|source| source.path == ".forma/workspace.yml" && source.present)
+        );
+        assert!(
+            result
+                .sources
+                .iter()
+                .any(|source| source.path == ".forma/overrides/local.yml" && !source.present)
+        );
+
+        let narrowed = inspect_config(&root, Some(".forma/workspace.yml")).unwrap();
+        assert_eq!(
+            narrowed.config["workspace"]["name"],
+            Value::String("Config Test".to_string())
+        );
+        assert!(narrowed.config.get("collections").is_none());
+
+        fs::write(root.join("notes.yml"), "secret: value").unwrap();
+        assert!(matches!(
+            inspect_config(&root, Some("notes.yml")),
+            Err(OperationError::ConfigPathNotInspectable(path)) if path == "notes.yml"
+        ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn files_list_returns_navigation_files_with_entry_and_view_classification() {
+        let root = fixture_root("files-list");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Files Test", "en", Some("UTC")).unwrap();
+        create_entry(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Navigation Note".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap();
+
+        let result = list_files(&root).unwrap();
+
+        assert_eq!(result.operation, "files.list");
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert!(result.files.iter().any(|file| {
+            file.path == "notes/navigation-note.md"
+                && file.kind == ListedFileKind::Entry
+                && file.collection.as_deref() == Some("notes")
+                && file.title.as_deref() == Some("Navigation Note")
+        }));
+        assert!(result.files.iter().any(|file| {
+            file.path == ".forma/views/notes.md" && file.kind == ListedFileKind::View
+        }));
+        assert!(result.files.iter().any(|file| {
+            file.path == ".forma/index.summary.json" && file.kind == ListedFileKind::Index
+        }));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn fixture_root(name: &str) -> std::path::PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("forma-operations-{name}-{unique}"))
+    }
+}

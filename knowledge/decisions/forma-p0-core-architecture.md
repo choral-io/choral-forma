@@ -287,6 +287,14 @@ Release builds should serve built WebApp static assets from the Rust binary or
 release package. The preferred release mode is embedded assets so `forma serve`
 does not require a separate frontend runtime or asset directory. Development
 mode may serve local `packages/webapp/dist` assets or proxy a Vite dev server.
+P0 may add a user-specified WebApp asset directory override for development
+debugging and issue verification. That override should remain a serve-time
+option rather than shared workspace configuration so knowledge repositories
+stay portable. Broader custom distribution and white-label packaging remain P1
+concerns.
+P0 may also add explicit `/rpc` CORS origins for Vite dev server workflows.
+This should remain disabled by default, reject wildcard origins, and keep RPC
+permissions unchanged.
 
 P0 distribution should use:
 

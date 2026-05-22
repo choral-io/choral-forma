@@ -664,6 +664,8 @@ create filename rule, and template. It should fail on path conflicts and report
 that `.forma/index.summary.json` is stale after writing the new entry.
 
 `forma serve` should expose the starter collections and page views through the
-read-only local WebApp. The P0 WebApp may inspect and render entries,
-collections, views, diagnostics, and index status, but it must not edit files or
-configuration.
+read-only local WebApp. The P0 WebApp should guide users toward structured
+navigation through views and collections, while still providing a file
+navigation mode for uncatalogued Markdown and configuration visibility. It may
+inspect and render entries, collections, views, diagnostics, configuration, file
+inventory, and index status, but it must not edit files or configuration.

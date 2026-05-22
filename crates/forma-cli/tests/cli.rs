@@ -132,6 +132,21 @@ fn init_create_list_inspect_and_index_check_use_operation_json() {
     assert!(inspect_stdout.contains(r#""operation":"inspect""#));
     assert!(inspect_stdout.contains(r#""title":"User Registration""#));
 
+    let config = forma(&root)
+        .args(["config", "inspect", "--json"])
+        .output()
+        .expect("forma config inspect should run");
+
+    assert!(
+        config.status.success(),
+        "{}",
+        String::from_utf8_lossy(&config.stderr)
+    );
+    let config_stdout = String::from_utf8_lossy(&config.stdout);
+    assert!(config_stdout.contains(r#""operation":"config.inspect""#));
+    assert!(config_stdout.contains(r#""workspace":{"#));
+    assert!(config_stdout.contains(r#""timezone":"UTC""#));
+
     std::fs::remove_dir_all(root).unwrap();
 }
 

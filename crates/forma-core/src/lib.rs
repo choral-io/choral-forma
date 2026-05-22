@@ -23,11 +23,12 @@ pub use markdown::{
     FormaReferenceSyntax, ParsedFrontmatter, SourceSpan, split_frontmatter,
 };
 pub use operations::{
-    CreateIndexStatus, CreateInputResult, CreateInputSource, CreateResult, CreatedEntry,
-    InitResult, InspectEntry, InspectResult, ListEntry, ListResult, ListedCollection,
+    ConfigInspectResult, ConfigSource, ConfigSourceKind, CreateIndexStatus, CreateInputResult,
+    CreateInputSource, CreateResult, CreatedEntry, FilesListResult, InitResult, InspectEntry,
+    InspectResult, ListEntry, ListResult, ListedCollection, ListedFile, ListedFileKind,
     OperationError, WorkspaceSummary, create_entry, detect_environment_timezone, init_workspace,
-    inspect_entry_by_collection, inspect_entry_by_path, list_collection,
-    operation_error_diagnostic,
+    inspect_config, inspect_entry_by_collection, inspect_entry_by_path, list_collection,
+    list_files, operation_error_diagnostic,
 };
 pub use path::{
     FORMA_COLLECTIONS_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH,

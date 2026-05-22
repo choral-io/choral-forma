@@ -6,15 +6,13 @@ owners: []
 
 # Kanban
 
-Rules: [[planning/WORKFLOW]]
+Rules: `.workflow/rules/delivery.md`
 
 ## Backlog
 
-- [ ] [[tasks/implement-ci-release-baseline|Implement CI Release Baseline]]
-
 ## Ready
 
-- [ ] [[tasks/implement-read-only-webapp|Implement Read Only WebApp]]
+- [ ] [[tasks/implement-ci-release-baseline|Implement CI Release Baseline]]
 
 ## Doing
 
@@ -24,6 +22,7 @@ Rules: [[planning/WORKFLOW]]
 
 ## Done
 
+- [ ] [[tasks/implement-read-only-webapp|Implement Read Only WebApp]]
 - [ ] [[tasks/align-view-source-query-model|Align View Source Query Model]]
 - [ ] [[tasks/implement-view-entry-render|Implement View Entry Render]]
 - [ ] [[tasks/implement-starter-init-create-inspect-list|Implement Starter Init Create Inspect List]]

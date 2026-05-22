@@ -19,6 +19,8 @@ pub enum Operation {
     Check,
     #[serde(rename = "config.inspect")]
     ConfigInspect,
+    #[serde(rename = "files.list")]
+    FilesList,
     #[serde(rename = "index.check")]
     IndexCheck,
     #[serde(rename = "index.rebuild")]
@@ -41,6 +43,7 @@ impl Operation {
             Self::Init => "init",
             Self::Check => "check",
             Self::ConfigInspect => "config.inspect",
+            Self::FilesList => "files.list",
             Self::IndexCheck => "index.check",
             Self::IndexRebuild => "index.rebuild",
             Self::Inspect => "inspect",
@@ -57,6 +60,7 @@ pub enum OperationRequest {
     Init(InitRequest),
     Check(CheckRequest),
     ConfigInspect(ConfigInspectRequest),
+    FilesList(FilesListRequest),
     IndexCheck(IndexCheckRequest),
     IndexRebuild(IndexRebuildRequest),
     Inspect(InspectRequest),
@@ -99,6 +103,11 @@ pub struct ConfigInspectRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
 }
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct FilesListRequest {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -163,18 +172,6 @@ pub struct OperationResult {
 }
 
 impl OperationResult {
-    fn passed(operation: Operation) -> Self {
-        Self {
-            schema_version: SCHEMA_VERSION,
-            operation: operation.method().to_string(),
-            status: forma_core::OperationStatus::Passed,
-            summary: Some(forma_core::DiagnosticSummary::default()),
-            diagnostics: Vec::new(),
-            path: None,
-            data: BTreeMap::new(),
-        }
-    }
-
     pub fn to_json_string(&self) -> String {
         serde_json::to_string(self).expect("operation results should serialize")
     }
@@ -219,9 +216,14 @@ impl Dispatcher {
             OperationRequest::Check(_) => {
                 Ok(OperationResult::from(forma_core::check_workspace(".")))
             }
-            OperationRequest::ConfigInspect(_) => {
-                Ok(OperationResult::passed(Operation::ConfigInspect))
+            OperationRequest::ConfigInspect(request) => {
+                forma_core::inspect_config(".", request.path.as_deref())
+                    .map(OperationResult::from)
+                    .or_else(|error| Ok(core_error_result(Operation::ConfigInspect, error)))
             }
+            OperationRequest::FilesList(_) => forma_core::list_files(".")
+                .map(OperationResult::from)
+                .or_else(|error| Ok(core_error_result(Operation::FilesList, error))),
             OperationRequest::IndexCheck(_) => {
                 Ok(OperationResult::from(forma_core::index_check(".")))
             }
@@ -504,6 +506,15 @@ fn operation_from_method(
                 "params.invalid",
             )),
         },
+        "files.list" => serde_json::from_value::<FilesListRequest>(params)
+            .map(OperationRequest::FilesList)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         _ => Err(JsonRpcFailure::without_id(
             JsonRpcErrorCode::MethodNotFound,
             "Method not found.",
@@ -599,6 +610,41 @@ impl From<forma_core::ListResult> for OperationResult {
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("collection".to_string(), json!(result.collection));
         data.insert("entries".to_string(), json!(result.entries));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::ConfigInspectResult> for OperationResult {
+    fn from(result: forma_core::ConfigInspectResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("config".to_string(), json!(result.config));
+        data.insert("sources".to_string(), json!(result.sources));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::FilesListResult> for OperationResult {
+    fn from(result: forma_core::FilesListResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("files".to_string(), json!(result.files));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -870,6 +916,10 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::Operation::ConfigInspect).unwrap(),
             "config.inspect"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::FilesList).unwrap(),
+            "files.list"
         );
         assert_eq!(
             serde_json::to_value(super::Operation::IndexCheck).unwrap(),

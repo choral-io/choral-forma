@@ -3,7 +3,8 @@ scope: project
 type: task
 owners:
     - "[[members/Tiscs]]"
-assignees: []
+assignees:
+    - "[[members/Tiscs]]"
 reviewers: []
 tags:
     - forma
@@ -76,6 +77,50 @@ Previously blocked by operation/RPC, starter CLI flows, render operations, and
 the follow-up view source/query model alignment. Those blockers are now resolved
 by completed delivery tasks. The `blocked_by` entries remain as dependency
 history and downstream-unlock evidence.
+
+## Implementation Notes
+
+- Added embedded WebApp asset serving to `forma serve` with `POST /rpc` kept as
+  the only product operation endpoint.
+- Added `forma serve --webapp-dir <dir>` as a P0 serve-time development
+  override for testing external WebApp assets without changing workspace
+  configuration.
+- Added `forma serve --cors-origin <origin>` and `VITE_FORMA_RPC_URL` support
+  so a Vite dev server can hot-reload the WebApp while calling Forma RPC
+  explicitly across origins.
+- Added a Rust build fallback so `forma-cli` can compile from a clean checkout
+  even when ignored WebApp `dist` assets have not been built yet.
+- Added read-only `config.inspect` and `files.list` RPC surfaces for
+  configuration inspection and file navigation.
+- Limited path-scoped `config.inspect` to known configuration source files so
+  it does not become a general workspace file read API.
+- Implemented the shared TypeScript RPC client and initial read-only React
+  WebApp shell for overview, structured navigation, file navigation, entry
+  rendering, view rendering, diagnostics, inspector, and relationship panels.
+- `files.list` supports file navigation without making file browsing the
+  primary product navigation surface.
+
+## Review Evidence
+
+- `cargo fmt --all -- --check`
+- `cargo test --workspace`
+- `cargo test -p forma-cli rpc_router`
+- `./node_modules/.bin/tsc --noEmit -p packages/shared/tsconfig.json`
+- `./node_modules/.bin/tsc --noEmit -p packages/webapp/tsconfig.json`
+- `./node_modules/.bin/tsdown src/index.ts --format esm --dts --clean --out-dir dist`
+  from `packages/shared`
+- `./node_modules/.bin/vite build` from `packages/webapp`
+- `./node_modules/.bin/prettier --check "knowledge/**/*.{md,mdx,md.tpl,mdx.tpl}"
+--no-error-on-unmatched-pattern --log-level warn`
+- `git diff --check`
+- Temporary no-`packages/webapp/dist` check:
+  `cargo test -p forma-cli rpc_router_serves_embedded_webapp_assets`
+- Manual browser verification against a temporary starter workspace served from
+  `forma serve --bind 127.0.0.1:3877`: overview loaded through RPC and
+  `notes/project.md` opened through `entry.render`.
+- `mise run check` and later `pnpm check:knowledge` were attempted but blocked
+  by environment or supply-chain policy checks outside this task's scope, so
+  equivalent project checks were run directly where practical.
 
 ## Open Questions
 
