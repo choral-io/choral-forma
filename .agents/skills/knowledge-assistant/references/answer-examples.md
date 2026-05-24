@@ -130,6 +130,30 @@ Knowledge Workflow owns item selection, dependency checks, WORKLIST updates, app
 Do not dispatch parallel work before checking independence, file/resource conflicts, approval needs, and whether the items are accepted workflow work.
 ```
 
+## Superpowers Plan Output
+
+Question:
+
+```text
+Should we use Superpowers to write the implementation plan?
+```
+
+Answer:
+
+```md
+## Recommended Path
+
+Use `delivery-implementation` or the owning workflow skill, and apply `superpowers:writing-plans` only after resolving the plan output directory and commit behavior.
+
+## Why
+
+Knowledge Workflow owns delivery context and shared state. If the current request does not name a path, write the Superpowers plan under the current member local workspace: `<knowledge_dir>/workspace/<member-id>/local/superpowers/plans/`, verify it is SCM-excluded, and do not commit it.
+
+## Do Not Do Yet
+
+Do not use the Superpowers default plan path by fallback unless runtime or current-member resolution failed and the user accepts using that default path. If the user explicitly asked for another path, treat it as the selected location.
+```
+
 ## Obsolete WORKLIST Item
 
 Question:
