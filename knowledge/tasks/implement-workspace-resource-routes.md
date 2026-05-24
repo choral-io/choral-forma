@@ -26,6 +26,7 @@ related_to:
     - "[[tasks/implement-read-only-webapp]]"
     - "[[tasks/implement-reference-navigation-baseline]]"
     - "[[tasks/refactor-webapp-with-shadcn-base-ui]]"
+    - "[[tasks/implement-resource-description-health-diagnostics]]"
 
 reported_by:
 affected_area: WebApp routing and workspace resources
@@ -74,9 +75,8 @@ The description document is a normal knowledge file. It may contain
 frontmatter, links, owners, sources, licensing notes, usage constraints, and
 review context. The resource file remains a resource; the description document
 is the knowledge entry. If a resource exists without a description document,
-that is allowed. If a resource description document exists but the described
-resource is missing, health checks should report a failing diagnostic such as
-`resource.description.missingTarget`.
+that is allowed. Health diagnostics for missing resource targets are split to
+[[tasks/implement-resource-description-health-diagnostics]].
 
 A separate raw route should expose source bytes for preview and asset use cases:
 
@@ -107,13 +107,11 @@ the file.
   and knowledge-entry checks by default.
 - Treat `filename.ext.md` resource description documents as normal knowledge
   files when they match collection rules.
-- Add health checks for resource description documents whose target resource is
-  missing.
 - Add focused route tests.
 
 ## Out Of Scope
 
-- Full media preview UI.
+- Resource-description health diagnostics for missing target resources.
 - Range request support for audio/video seeking.
 - ETag, Last-Modified, or advanced cache negotiation.
 - Authentication or multi-user authorization.
@@ -135,9 +133,26 @@ the file.
   entries, graph nodes, or backlink participants by default.
 - Resource description documents such as `assets/logo.png.md` are normal
   knowledge documents when they match collection rules.
-- `assets/logo.png.md` without `assets/logo.png` causes health checks to fail
-  with a missing resource target diagnostic.
 - Focused Rust route tests pass.
+
+## Validation Notes
+
+- Raw workspace routes already exist under `/<root>/raw/{*path}` in
+  `forma serve`.
+- Raw route handling preserves configured `root_path`, sets media content types,
+  rejects traversal and local-only paths, and avoids WebApp fallback for raw
+  requests.
+- `files.list` classifies safe non-Markdown files as `resource`, assigns
+  `mediaType`, and uses server-owned feature flags such as `preview.media` and
+  `render.source`.
+- The validation WebApp can preview image, audio, and video resources through
+  the raw route when `preview.media` is present.
+- Existing focused tests cover raw route serving, traversal rejection,
+  local-only rejection, symlink escape rejection, resource media types, and
+  resource preview features.
+- Verified on 2026-05-24:
+    - `cargo test -p forma-cli raw -- --nocapture`
+    - `cargo test -p forma-core files_list_reports_media_type_and_resource_preview_features -- --nocapture`
 
 ## Relationship Notes
 
@@ -156,5 +171,3 @@ first media preview implementation needs them.
   exclude hidden directories entirely?
 - Should text source preview eventually use `/raw/...` instead of
   `file.render` with `format: source`?
-- Should resource description documents require a `target` frontmatter field,
-  or is the filename-derived target enough?

@@ -101,6 +101,21 @@ diagnostic data, or write-capable navigation actions.
 - Durable architecture or product docs describe any new RPC operation names and
   result-shape commitments.
 
+## Validation Notes
+
+- Implemented `file.references` as an index-backed read-only operation.
+- Added shared TypeScript `FileReferencesResult` and client support through
+  `listFileReferences`.
+- Replaced the validation WebApp reference placeholder with outgoing reference
+  and backlink groups for the active knowledge file.
+- Preserved workspace-relative POSIX paths in operation results.
+- Covered outgoing references, backlinks, empty results, and invalid paths with
+  focused Rust tests.
+- Verified on 2026-05-24:
+    - `cargo test -p forma-core file_references`
+    - `cargo test -p forma-rpc file_references`
+    - `mise run check:web`
+
 ## Relationship Notes
 
 This task follows the read-only WebApp and check/index diagnostics work. It may
