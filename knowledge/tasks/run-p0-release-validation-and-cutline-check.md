@@ -102,6 +102,60 @@ This task should move to Ready only after
 The blocker is resolved by the accepted P0 scope audit and the approved Kanban
 move of [[tasks/audit-p0-release-scope-and-roadmap]] to Done.
 
+## Validation Notes
+
+Candidate cutline:
+
+- Branch: `main`
+- Commit: `3c6989bd6fadc26ea11cb72603cf5f0dc450c48f`
+- Initial status: `## main...origin/main [ahead 10]`
+
+Validation matrix:
+
+- `mise run check:knowledge`: passed.
+- `mise run check:rust`: passed.
+- `mise run test:rust`: passed; workspace tests passed across `forma-cli`,
+  `forma-core`, and `forma-rpc`.
+- `mise run check:web`: passed.
+- `mise run build:web`: passed.
+- `mise run check`: passed.
+
+Starter workspace smoke test:
+
+- Temporary workspace: `/private/tmp/forma-p0-smoke.gOBUFB`
+- `forma init --name "P0 Smoke" --language en --timezone Asia/Shanghai -y`:
+  passed.
+- `forma config inspect --json`: passed.
+- `forma create notes --input title=Alpha --input summary=Smoke --json`: passed
+  with expected `index.stale` warning after writing the entry.
+- `forma inspect notes/alpha.md --json`: passed.
+- `forma list --collection notes --json`: passed and returned one note.
+- `forma check --json`: passed with expected stale-index warning before rebuild.
+- `forma index rebuild --json`: passed.
+- `forma index check --json`: passed after rebuild.
+- `forma serve --bind 127.0.0.1:0`: sandboxed bind failed with
+  `Operation not permitted`; reran with approved localhost binding and passed.
+- HTTP root smoke check returned the WebApp HTML shell.
+- JSON-RPC `list` smoke check returned the `notes` collection and the created
+  `Alpha` note.
+
+Artifact check:
+
+- `git status --short --branch` after validation reported
+  `## main...origin/main [ahead 10]`.
+- `git diff --stat HEAD` after validation was empty before recording these
+  notes.
+- Smoke-test artifacts stayed under `/private/tmp/forma-p0-smoke.gOBUFB`; no
+  generated starter files were left in the shared repository.
+
+Release decision:
+
+- The local P0 cutline is validated for release publishing as a separate
+  approved action.
+- Publishing is not yet source-stable because `main` is still ahead of
+  `origin/main`. Before publishing, select the remote release target and push or
+  otherwise synchronize the validated commits.
+
 ## Open Questions
 
 - Which remote branch or tag should be treated as the release publication
