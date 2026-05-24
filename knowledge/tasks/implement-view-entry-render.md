@@ -53,7 +53,7 @@ stay metadata-focused.
 
 ## In Scope
 
-- Implement `entry.render` with `format: "html"` for WebApp use.
+- Implement `file.render` with `format: "html"` for WebApp use.
 - Implement `view.render` for P0 page views.
 - Render table views from collection entries, columns, and sort definitions.
 - Render kanban views from collection entries and column `query.all` filters.
@@ -72,7 +72,7 @@ stay metadata-focused.
 
 ## Acceptance Criteria
 
-- `entry.render` and `view.render` return stable JSON result shapes.
+- `file.render` and `view.render` return stable JSON result shapes.
 - P0 starter views render with zero entries and with fixture entries.
 - Invalid views produce structured diagnostics.
 - Rendered output does not persist to disk or enter `.forma/index.summary.json`.

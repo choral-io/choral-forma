@@ -121,7 +121,7 @@ history and downstream-unlock evidence.
   `cargo test -p forma-cli rpc_router_serves_embedded_webapp_assets`
 - Manual browser verification against a temporary starter workspace served from
   `forma serve --bind 127.0.0.1:3877`: overview loaded through RPC and
-  `notes/project.md` opened through `entry.render`.
+  `notes/project.md` opened through `file.render`.
 - `mise run check` and later `pnpm check:knowledge` were attempted but blocked
   by environment or supply-chain policy checks outside this task's scope, so
   equivalent project checks were run directly where practical.

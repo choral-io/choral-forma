@@ -50,21 +50,22 @@ the same JSON-compatible operation result shapes.
 P0 operations are product-semantic actions exposed through adapters. Operation
 names use stable lower camel case in JSON-facing APIs.
 
-| Operation     | JSON method       | Primary CLI command                                                           | Writes files |
-| ------------- | ----------------- | ----------------------------------------------------------------------------- | ------------ |
-| Init          | `init`            | `forma init --name <name> [--language <tag>] [--timezone <iana>] [-y\|--yes]` | Yes          |
-| ConfigInspect | `config.inspect`  | `forma config inspect [--path <path>] [--json]`                               | No           |
-| IndexRebuild  | `index.rebuild`   | `forma index rebuild [--json]`                                                | Yes          |
-| IndexCheck    | `index.check`     | `forma index check [--json]`                                                  | No           |
-| Check         | `check`           | `forma check [--json]`                                                        | No           |
-| Inspect       | `inspect`         | `forma inspect <path> [--json]`                                               | No           |
-| Inspect       | `inspect`         | `forma inspect --collection <collection> <entry> --json`                      | No           |
-| List          | `list`            | `forma list --collection <collection> [--json]`                               | No           |
-| FilesList     | `files.list`      | No required P0 CLI command                                                    | No           |
-| Create        | `create`          | `forma create <collection> [--input <name=value>]... [--json]`                | Yes          |
-| ViewRender    | `view.render`     | No required P0 CLI command                                                    | No           |
-| EntryRender   | `entry.render`    | No required P0 CLI command                                                    | No           |
-| Serve         | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...`                | No           |
+| Operation      | JSON method       | Primary CLI command                                                           | Writes files |
+| -------------- | ----------------- | ----------------------------------------------------------------------------- | ------------ |
+| Init           | `init`            | `forma init --name <name> [--language <tag>] [--timezone <iana>] [-y\|--yes]` | Yes          |
+| ConfigInspect  | `config.inspect`  | `forma config inspect [--path <path>] [--json]`                               | No           |
+| IndexRebuild   | `index.rebuild`   | `forma index rebuild [--json]`                                                | Yes          |
+| IndexCheck     | `index.check`     | `forma index check [--json]`                                                  | No           |
+| Check          | `check`           | `forma check [--json]`                                                        | No           |
+| Inspect        | `inspect`         | `forma inspect <path> [--json]`                                               | No           |
+| Inspect        | `inspect`         | `forma inspect --collection <collection> <entry> --json`                      | No           |
+| List           | `list`            | `forma list --collection <collection> [--json]`                               | No           |
+| FilesList      | `files.list`      | No required P0 CLI command                                                    | No           |
+| FileRender     | `file.render`     | No required P0 CLI command                                                    | No           |
+| FileReferences | `file.references` | No required P0 CLI command                                                    | No           |
+| Create         | `create`          | `forma create <collection> [--input <name=value>]... [--json]`                | Yes          |
+| ViewRender     | `view.render`     | No required P0 CLI command                                                    | No           |
+| Serve          | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...`                | No           |
 
 `Serve` is a CLI mode, not a domain operation. The server exposes operation
 methods through `POST /rpc` and serves static WebApp assets. It may compute
@@ -76,14 +77,29 @@ render page, table, and kanban views. View metadata should also allow graph
 views to be discovered even when P0 does not yet render an interactive graph.
 A direct CLI command for view rendering can wait until there is product demand.
 
-`EntryRender` is required for the P0 WebApp and local HTTP API so the GUI can
-render individual Markdown entries without reading files directly. A direct CLI
-command for entry rendering can wait until there is product demand.
+`FileRender` is required for the P0 WebApp and local HTTP API so the GUI can
+render individual workspace files without reading files directly. A direct CLI
+command for file rendering can wait until there is product demand.
 
 `FilesList` is required for the P0 WebApp file navigation mode. It is a
 read-only inventory operation over display-safe workspace files, not a general
-filesystem API. It should classify entries, views, Markdown files, configuration
-files, and the summary index using workspace-relative POSIX paths.
+filesystem API. It should classify knowledge files, views, Markdown files,
+configuration files, resources, and the summary index using workspace-relative
+POSIX paths.
+
+`FileReferences` is required for the read-only bidirectional note navigation
+baseline. It is a read-only operation for one indexed knowledge file. It returns
+outgoing references from that file plus backlinks from other indexed knowledge
+files, using resolved reference data from the summary index. It should include
+display-safe source and target paths, available titles, reference source,
+optional field and semantic type, and intent `reference | link | embed`. It
+should not scan raw Markdown in the WebApp, persist relationship results, or
+expose absolute host paths. A direct CLI command can wait until there is script
+demand.
+
+`entry.render` and `references.list` are not part of the P0 API. The project is
+still early enough that callers should migrate directly to `file.render` and
+`file.references` instead of relying on compatibility aliases.
 
 ## CLI JSON Behavior
 
@@ -636,7 +652,7 @@ Result outline:
         "root": ".",
         "name": "Acme Knowledge"
     },
-    "entry": {
+    "file": {
         "path": "todos/user-registration.md",
         "collection": "todos",
         "kind": "todo",
@@ -737,13 +753,42 @@ Result outline:
         {
             "path": ".forma/views/todos.md",
             "kind": "view",
-            "title": "Todos"
+            "mediaType": "text/markdown",
+            "name": "todos.md",
+            "parent": ".forma/views",
+            "depth": 2,
+            "features": ["render.view", "render.source"],
+            "title": "Todos",
+            "frontmatter": {
+                "kind": "forma-view"
+            }
         },
         {
             "path": "todos/user-registration.md",
-            "kind": "entry",
+            "kind": "knowledge",
+            "mediaType": "text/markdown",
+            "name": "user-registration.md",
+            "parent": "todos",
+            "depth": 1,
+            "features": ["render.html", "render.source"],
             "collection": "todos",
-            "title": "User registration"
+            "title": "User registration",
+            "frontmatter": {
+                "kind": "todo",
+                "title": "User registration"
+            }
+        },
+        {
+            "path": ".forma/templates/todo.md",
+            "kind": "template",
+            "mediaType": "text/markdown",
+            "name": "todo.md",
+            "parent": ".forma/templates",
+            "depth": 2,
+            "features": ["render.source"],
+            "frontmatter": {
+                "kind": "todo"
+            }
         }
     ],
     "summary": {
@@ -755,10 +800,37 @@ Result outline:
 }
 ```
 
-P0 `kind` values are `entry`, `view`, `markdown`, `config`, and `index`.
-Uncatalogued Markdown should remain visible as `markdown` so users and Agents
-can find files outside collections without making file navigation the primary
-product navigation model.
+P0 `kind` values are `knowledge`, `view`, `template`, `markdown`, `config`,
+`index`, and `resource`. Uncatalogued Markdown should remain visible as
+`markdown` so users and Agents can find files outside collections without
+making file navigation the primary product navigation model. Supported
+non-Markdown files should appear as `resource` when they are safe to expose in
+workspace file navigation.
+
+`mediaType` is the server-assigned MIME type for the file, derived from the
+workspace-relative path extension in P0. Clients should treat it as display and
+preview metadata from the operation layer, not as user-authored frontmatter.
+
+`features` is assigned by the operation layer and is the client-facing source
+of truth for preview and render affordances. P0 feature values are:
+
+- `render.html`: the file can be rendered with `file.render` HTML mode.
+- `render.source`: the file can be rendered with `file.render` source mode.
+- `render.view`: the file can be rendered with `view.render`.
+- `preview.media`: the file can be previewed through the raw workspace route.
+
+P0 feature assignment:
+
+- `knowledge`: `render.html`, `render.source`
+- `view`: `render.view`, `render.source`
+- `template`, `markdown`, `config`, and `index`: `render.source`
+- `resource`: `preview.media` for image, audio, and video media types;
+  `render.source` for text-like media types and `application/json`; otherwise
+  no render or preview feature
+
+Markdown files may include a `frontmatter` object with raw parsed YAML
+frontmatter. `frontmatter.kind` is the source file value, not a separate
+Forma-inferred knowledge kind.
 
 ### Create
 
@@ -896,17 +968,18 @@ Result outline:
 }
 ```
 
-For a Markdown entry render needed by the WebApp, `inspect` can return the
-entry structure, while `entry.render` owns HTML or Markdown render output.
+For a Markdown knowledge file render needed by the WebApp, `inspect` can return
+the entry structure, while `file.render` owns HTML or source render output.
 Keeping rendered output separate avoids making `inspect` return full rendered
 content for scripts that only need metadata, outline, references, or
 diagnostics.
 
-### Entry Render
+### File Render
 
-`entry.render` renders one Markdown entry for the local WebApp and HTTP API. It
+`file.render` renders one workspace file for the local WebApp and HTTP API. It
 uses the same parsing, reference, FormaAST, and diagnostic pipeline as
-`inspect`. It writes nothing and does not persist rendered output.
+`inspect` for knowledge files. It writes nothing and does not persist rendered
+output.
 
 Params:
 
@@ -922,13 +995,13 @@ Result outline:
 ```json
 {
     "schemaVersion": 1,
-    "operation": "entry.render",
+    "operation": "file.render",
     "status": "passed",
     "workspace": {
         "root": ".",
         "name": "Acme Knowledge"
     },
-    "entry": {
+    "file": {
         "path": "todos/user-registration.md",
         "collection": "todos",
         "kind": "todo",
@@ -948,9 +1021,59 @@ Result outline:
 }
 ```
 
-P0 should support `format: "html"` for the WebApp. Markdown export can be
-added later as a compatibility target when transclusion, view embedding, or
-Forma-specific render directives make it useful.
+P0 should support `format: "html"` for knowledge files and `format: "source"`
+for text-like files marked with the `render.source` feature. `file.render`
+should reject unsupported file and format combinations through operation
+diagnostics instead of falling back to raw file access.
+
+The `file.render` result uses a top-level `file` payload. It does not include
+the full `WorkspaceFile` metadata from `files.list`; clients should use
+`files.list` when they need navigation metadata or feature flags.
+
+### File References
+
+`file.references` returns outgoing references and backlinks for one indexed
+knowledge file and should succeed with top-level operation `file.references`.
+
+Params:
+
+```json
+{
+    "path": "todos/user-registration.md"
+}
+```
+
+Result outline:
+
+```json
+{
+    "schemaVersion": 1,
+    "operation": "file.references",
+    "status": "passed",
+    "workspace": {
+        "root": ".",
+        "name": "Acme Knowledge"
+    },
+    "file": {
+        "path": "todos/user-registration.md",
+        "collection": "todos",
+        "kind": "todo",
+        "title": "User registration"
+    },
+    "outgoing": [],
+    "backlinks": [],
+    "summary": {
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0
+    },
+    "diagnostics": []
+}
+```
+
+`file.references` should use resolved reference data from the summary index and
+should not scan raw Markdown in the WebApp or expose absolute host paths. The
+result uses a top-level `file` payload for the requested knowledge file.
 
 ## Serve API
 
@@ -981,7 +1104,7 @@ Development WebApp builds may use `VITE_FORMA_RPC_URL` to call the configured
 Forma RPC URL across origins.
 
 The WebApp should use `POST /rpc` for workspace overview, collection listing,
-file navigation, entry inspection, Markdown rendering data, view rendering,
+file navigation, entry inspection, file rendering data, view rendering,
 diagnostics, configuration inspection, and index status. P0 should avoid adding
 parallel REST endpoints for the same operation semantics.
 
@@ -1013,4 +1136,4 @@ operations.
 - `index.rebuild --json` is part of P0.
 - The WebApp landing view should compose existing operations instead of adding
   a separate `workspace.inspect` operation.
-- Individual entry rendering is handled by `entry.render`.
+- Individual workspace file rendering is handled by `file.render`.
