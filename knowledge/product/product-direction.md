@@ -437,6 +437,11 @@ template: .forma/templates/task.md
 source_file: attachments/acme-contract.pdf
 ```
 
+The WebApp should treat WorkspaceFile as the first-class navigation object.
+Knowledge documents, views, templates, config files, generated indexes, and
+resources share the same file inventory shape, while server-assigned features
+drive render and preview affordances.
+
 Heading or block wikilinks should not be valid for collection entry references
 in the MVP. Alias wikilinks may be accepted where useful for display, but the
 identity should resolve from the target part.
@@ -503,21 +508,19 @@ Starter Kits may initialize Agent compatibility content. Choral Forma should tre
 Choral Forma targets professional users and may assume a development-like environment where repository-local symlinks are supported. Import wrappers or generated copies are exceptional compatibility fallbacks, not baseline product behavior. Compatibility entrypoints should derive from the canonical Agent layer rather than becoming independent sources of truth.
 
 The P0 minimal starter should include enough structure to demonstrate Choral
-Forma's knowledge, time, action, and lightweight collaboration model without
-becoming an opinionated project-management workflow.
+Forma's knowledge, action, and lightweight collaboration model without becoming
+an opinionated project-management workflow.
 
 Recommended P0 minimal starter collections:
 
 ```text
 notes
-daily
 todos
 users
 ```
 
-`notes` represents general knowledge notes. `daily` represents date-based notes
-without imposing a daily review method. `todos` represents lightweight action
-items. `users` represents people who can be referenced in the workspace.
+`notes` represents general knowledge notes. `todos` represents lightweight
+action items. `users` represents people who can be referenced in the workspace.
 
 The P0 starter should not include `groups` or union semantic types. Groups
 introduce membership, responsibility, and organizational modeling that should
@@ -1772,8 +1775,8 @@ those operations when they are needed.
 
 ## Open Questions
 
-- What exact P0 starter file contents should initialize `notes`, `daily`,
-  `todos`, and `users` without constraining advanced workspaces?
+- What exact P0 starter file contents should initialize `notes`, `todos`, and
+  `users` without constraining advanced workspaces?
 - What exact P0 Schema DSL, semantic type, template, and view configuration
   syntax should be implemented first?
 - When should loaders or integrations become necessary beyond declarative

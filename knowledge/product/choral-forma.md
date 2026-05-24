@@ -33,7 +33,7 @@ instead of hiding knowledge in a proprietary application store.
 Choral Forma should preserve the repository as the durable system of record.
 Application behavior, when introduced, should read from and write to explicit
 Markdown files, Forma configuration under `.forma/`, and user-defined content
-directories such as `notes/`, `daily/`, `todos/`, or `users/`.
+directories such as `notes/`, `todos/`, or `users/`.
 
 This repository's current `knowledge/` directory is the development knowledge
 base for Choral Forma, not the required structure of a future user workspace.

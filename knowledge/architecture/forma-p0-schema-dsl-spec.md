@@ -127,9 +127,6 @@ types:
         collection: notes
         input:
             transform: slugify
-    daily:
-        kind: collection
-        collection: daily
     todo:
         kind: collection
         collection: todos

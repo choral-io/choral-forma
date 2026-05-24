@@ -27,7 +27,6 @@ This specification closes the starter-content question in
 The P0 starter includes only these collections:
 
 - `notes`: general knowledge notes.
-- `daily`: date-based notes without an imposed review method.
 - `todos`: lightweight action items.
 - `users`: people who can be referenced by other entries.
 
@@ -55,15 +54,12 @@ The starter must not include:
   index.summary.json
   templates/
     note.md
-    daily.md
     todo.md
     user.md
   views/
     notes.md
-    daily.md
     todos.md
     users.md
-daily/
 notes/
 todos/
 users/
@@ -159,10 +155,6 @@ types:
         input:
             transform: slugify
 
-    daily:
-        kind: collection
-        collection: daily
-
     todo:
         kind: collection
         collection: todos
@@ -244,56 +236,6 @@ collections:
                 updatedAt:
                     type: datetime
                     label: Updated At
-
-    daily:
-        title: Daily Notes
-        description: Date-based notes.
-        include: daily/**/*.md
-        template: .forma/templates/daily.md
-        create:
-            directory: daily
-            filename: "{{ input.date }}.md"
-            inputs:
-                date:
-                    field: date
-                    type: date
-                    required: true
-                    default: "{{ runtime.values.currentDate }}"
-                title:
-                    field: title
-                    default: "{{ input.date }}"
-                summary:
-                    field: summary
-                    default: ""
-                createdAt:
-                    field: createdAt
-                    default: "{{ runtime.values.currentDateTime }}"
-        conventions:
-            titleField: title
-            summaryField: summary
-            createdAtField: createdAt
-        schema:
-            type: object
-            fields:
-                kind:
-                    type: const
-                    value: daily
-                    required: true
-                date:
-                    type: date
-                    label: Date
-                    required: true
-                title:
-                    type: string
-                    label: Title
-                    required: true
-                summary:
-                    type: string
-                    label: Summary
-                createdAt:
-                    type: datetime
-                    label: Created At
-                    required: true
 
     todos:
         title: Todos
@@ -430,22 +372,6 @@ createdAt: "{{ input.createdAt }}"
 # {{ input.title }}
 ```
 
-### `.forma/templates/daily.md`
-
-```markdown
----
-kind: daily
-date: "{{ input.date }}"
-title: "{{ input.title }}"
-summary: "{{ input.summary }}"
-createdAt: "{{ input.createdAt }}"
----
-
-# {{ input.title }}
-
-## Notes
-```
-
 ### `.forma/templates/todo.md`
 
 ```markdown
@@ -506,34 +432,6 @@ view:
 ---
 
 # Notes
-
-<!-- forma-view -->
-```
-
-### `.forma/views/daily.md`
-
-```markdown
----
-kind: forma-view
-
-view:
-    surface: page
-    mode: table
-    collection: daily
-    title: Daily Notes
-    description: Date-based notes.
-    table:
-        columns:
-            - date
-            - title
-            - summary
-            - createdAt
-    sort:
-        - field: date
-          direction: desc
----
-
-# Daily Notes
 
 <!-- forma-view -->
 ```
@@ -667,5 +565,6 @@ that `.forma/index.summary.json` is stale after writing the new entry.
 read-only local WebApp. The P0 WebApp should guide users toward structured
 navigation through views and collections, while still providing a file
 navigation mode for uncatalogued Markdown and configuration visibility. It may
-inspect and render entries, collections, views, diagnostics, configuration, file
-inventory, and index status, but it must not edit files or configuration.
+inspect and render knowledge files, collections, views, diagnostics,
+configuration, file inventory, and index status, but it must not edit files or
+configuration.
