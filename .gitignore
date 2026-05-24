@@ -1,6 +1,6 @@
 .DS_Store
 
-.agents/.local/
+.local/
 .pnpm-store/
 node_modules/
 target/
