@@ -810,12 +810,12 @@ function FileTreeFileRow({
   file: WorkspaceFile;
   onOpenFile: (path: string, fallbackTitle?: string) => Promise<void>;
 }) {
-  const title = file.title ?? frontmatterTitle(file);
+  const title = displayableTitle(file.title) ?? frontmatterTitle(file);
   const detail = title && title !== file.name ? title : file.path;
   return (
     <button
       className="file-tree-row file"
-      onClick={() => void onOpenFile(file.path, file.title)}
+      onClick={() => void onOpenFile(file.path, title)}
       style={{ "--file-tree-depth": depth } as CSSProperties}
       type="button"
     >
@@ -835,7 +835,16 @@ function fileHasFeature(file: WorkspaceFile | undefined, feature: WorkspaceFileF
 
 function frontmatterTitle(file: WorkspaceFile | undefined) {
   const title = file?.frontmatter?.title;
-  return typeof title === "string" ? title : undefined;
+  return typeof title === "string" ? displayableTitle(title) : undefined;
+}
+
+function displayableTitle(title: string | undefined) {
+  const trimmed = title?.trim();
+  return trimmed && !isPlaceholderTitle(trimmed) ? title : undefined;
+}
+
+function isPlaceholderTitle(title: string) {
+  return /^\{\{\s*[^}]+?\s*\}\}$/.test(title);
 }
 
 function isHiddenWorkspacePath(path: string) {
