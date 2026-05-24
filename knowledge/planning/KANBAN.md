@@ -19,7 +19,7 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Ready
 
-- [ ] [[tasks/audit-p0-release-scope-and-roadmap|Audit P0 Release Scope And Roadmap]]
+- [ ] [[tasks/run-p0-release-validation-and-cutline-check|Run P0 Release Validation And Cutline Check]]
 
 ## Doing
 
@@ -29,6 +29,7 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Done
 
+- [ ] [[tasks/audit-p0-release-scope-and-roadmap|Audit P0 Release Scope And Roadmap]]
 - [ ] [[tasks/implement-workspace-resource-routes|Implement Workspace Resource Routes]]
 - [ ] [[tasks/implement-reference-navigation-baseline|Implement Reference Navigation Baseline]]
 - [ ] [[tasks/fix-mvp-validation-cli-issues|Fix MVP Validation CLI Issues]]

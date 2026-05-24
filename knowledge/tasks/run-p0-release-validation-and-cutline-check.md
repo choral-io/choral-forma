@@ -17,7 +17,7 @@ tags:
     - validation
 
 effort: S
-readiness: needs-refinement
+readiness: ready
 sprint:
 
 blocked_by:
@@ -98,6 +98,9 @@ existing focused evidence to an explicit release cutline.
 
 This task should move to Ready only after
 [[tasks/audit-p0-release-scope-and-roadmap]] is accepted or moved to Done.
+
+The blocker is resolved by the accepted P0 scope audit and the approved Kanban
+move of [[tasks/audit-p0-release-scope-and-roadmap]] to Done.
 
 ## Open Questions
 
