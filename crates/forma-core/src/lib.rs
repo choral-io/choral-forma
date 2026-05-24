@@ -24,11 +24,12 @@ pub use markdown::{
 };
 pub use operations::{
     ConfigInspectResult, ConfigSource, ConfigSourceKind, CreateIndexStatus, CreateInputResult,
-    CreateInputSource, CreateResult, CreatedEntry, FilesListResult, InitResult, InspectEntry,
-    InspectResult, ListEntry, ListResult, ListedCollection, ListedFile, ListedFileKind,
-    OperationError, WorkspaceSummary, create_entry, detect_environment_timezone, init_workspace,
+    CreateInputSource, CreateResult, CreatedEntry, FileReferencesResult, FilesListResult,
+    InitResult, InspectEntry, InspectResult, ListEntry, ListResult, ListedCollection,
+    OperationError, ReferenceEdge, ReferenceFile, WorkspaceFile, WorkspaceFileFeature,
+    WorkspaceFileKind, WorkspaceSummary, create_entry, detect_environment_timezone, init_workspace,
     inspect_config, inspect_entry_by_collection, inspect_entry_by_path, list_collection,
-    list_files, operation_error_diagnostic,
+    list_file_references, list_files, media_type_for_workspace_path, operation_error_diagnostic,
 };
 pub use path::{
     FORMA_COLLECTIONS_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH,
@@ -36,8 +37,8 @@ pub use path::{
     FORMA_WORKSPACE_PATH, PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,
 };
 pub use render::{
-    EntryRenderOutput, EntryRenderResult, KanbanRenderColumn, RenderedEntry, RenderedView,
-    ViewRenderItem, ViewRenderOutput, ViewRenderResult, render_entry, render_view,
+    FileRenderOutput, FileRenderResult, KanbanRenderColumn, RenderedFile, RenderedView,
+    ViewRenderItem, ViewRenderOutput, ViewRenderResult, render_file, render_view,
 };
 pub use schema::{
     PlaceholderContext, RenderedTemplate, ResolvedCreateInputs, RuntimeValues, SchemaNode,

@@ -15,6 +15,18 @@ fn prints_placeholder_version() {
 }
 
 #[test]
+fn supports_standard_version_flag() {
+    let output = Command::new(env!("CARGO_BIN_EXE_forma"))
+        .arg("--version")
+        .output()
+        .expect("forma --version should run");
+
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "forma 0.1.0\n");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
 fn check_json_prints_direct_operation_result() {
     let output = Command::new(env!("CARGO_BIN_EXE_forma"))
         .args(["check", "--json"])
@@ -151,6 +163,79 @@ fn init_create_list_inspect_and_index_check_use_operation_json() {
 }
 
 #[test]
+fn global_workspace_option_selects_operation_root() {
+    let cwd = fixture_root("workspace-option-cwd");
+    let workspace = fixture_root("workspace-option-root");
+    std::fs::create_dir_all(&cwd).unwrap();
+
+    let init = forma(&cwd)
+        .args([
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "init",
+            "--name",
+            "Workspace Option",
+            "--language",
+            "en",
+            "--timezone",
+            "UTC",
+            "--yes",
+            "--json",
+        ])
+        .output()
+        .expect("forma init --workspace should run");
+
+    assert!(
+        init.status.success(),
+        "{}",
+        String::from_utf8_lossy(&init.stderr)
+    );
+    assert!(workspace.join(FORMA_WORKSPACE_PATH).is_file());
+    assert!(!cwd.join(FORMA_WORKSPACE_PATH).exists());
+
+    let create = forma(&cwd)
+        .args([
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "create",
+            "notes",
+            "--input",
+            "title=Workspace Root Note",
+            "--json",
+        ])
+        .output()
+        .expect("forma create --workspace should run");
+
+    assert!(
+        create.status.success(),
+        "{}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+    assert!(workspace.join("notes/workspace-root-note.md").is_file());
+    assert!(!cwd.join("notes/workspace-root-note.md").exists());
+
+    let list = forma(&cwd)
+        .args([
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "list",
+            "--collection",
+            "notes",
+            "--json",
+        ])
+        .output()
+        .expect("forma list --workspace should run");
+
+    assert!(list.status.success());
+    assert!(
+        String::from_utf8_lossy(&list.stdout).contains(r#""path":"notes/workspace-root-note.md""#)
+    );
+
+    std::fs::remove_dir_all(cwd).unwrap();
+    std::fs::remove_dir_all(workspace).unwrap();
+}
+
+#[test]
 fn create_reports_path_conflicts_and_unknown_inputs_as_json_failures() {
     let root = fixture_root("starter-conflicts");
     std::fs::create_dir_all(&root).unwrap();
@@ -188,7 +273,7 @@ fn create_reports_path_conflicts_and_unknown_inputs_as_json_failures() {
     assert!(!unknown.status.success());
     let unknown_stdout = String::from_utf8_lossy(&unknown.stdout);
     assert!(unknown_stdout.contains(r#""status":"failed""#));
-    assert!(unknown_stdout.contains(r#""code":"create.inputInvalid""#));
+    assert!(unknown_stdout.contains(r#""code":"operation.inputInvalid""#));
 
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -243,6 +328,26 @@ fn init_requires_yes_in_non_interactive_shells() {
     assert!(stdout.contains(r#""operation":"init""#));
     assert!(stdout.contains(r#""status":"failed""#));
     assert!(stdout.contains(r#""code":"init.confirmationRequired""#));
+    assert!(!root.join(forma_core::FORMA_DIR).exists());
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn non_json_failures_print_diagnostic_details() {
+    let root = fixture_root("starter-confirmation-human");
+    std::fs::create_dir_all(&root).unwrap();
+
+    let output = forma(&root)
+        .args(["init", "--name", "Acme Knowledge", "--timezone", "UTC"])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("init failed"));
+    assert!(stdout.contains("error init.confirmationRequired:"));
+    assert!(stdout.contains("pass --yes in non-interactive environments"));
     assert!(!root.join(forma_core::FORMA_DIR).exists());
 
     std::fs::remove_dir_all(root).unwrap();

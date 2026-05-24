@@ -16,22 +16,23 @@ use crate::path::{FORMA_VIEWS_DIR, WorkspacePath};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EntryRenderResult {
+pub struct FileRenderResult {
     pub schema_version: u16,
     pub operation: String,
     pub status: OperationStatus,
     pub workspace: WorkspaceSummary,
-    pub entry: RenderedEntry,
-    pub render: EntryRenderOutput,
+    pub file: RenderedFile,
+    pub render: FileRenderOutput,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RenderedEntry {
+pub struct RenderedFile {
     pub path: String,
-    pub collection: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -40,9 +41,12 @@ pub struct RenderedEntry {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EntryRenderOutput {
+pub struct FileRenderOutput {
     pub format: String,
-    pub html: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub html: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
     #[serde(default)]
     pub refs: Vec<IndexReference>,
 }
@@ -224,11 +228,14 @@ struct RenderCandidate {
     metadata: Value,
 }
 
-pub fn render_entry(
+pub fn render_file(
     root: impl AsRef<Path>,
     path: &str,
     format: &str,
-) -> Result<EntryRenderResult, OperationError> {
+) -> Result<FileRenderResult, OperationError> {
+    if format == "source" {
+        return render_source_file(root, path);
+    }
     if format != "html" {
         return Err(OperationError::InvalidInput("format".to_string()));
     }
@@ -259,27 +266,66 @@ pub fn render_entry(
     diagnostics.sort_by_key(render_diagnostic_sort_key);
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
 
-    Ok(EntryRenderResult {
+    Ok(FileRenderResult {
         schema_version: 1,
-        operation: "entry.render".to_string(),
+        operation: "file.render".to_string(),
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name,
         },
-        entry: RenderedEntry {
+        file: RenderedFile {
             path,
-            collection: index_entry.collection.clone(),
+            collection: Some(index_entry.collection.clone()),
             kind: index_entry.kind.clone(),
             title: index_entry.title.clone(),
         },
-        render: EntryRenderOutput {
+        render: FileRenderOutput {
             format: format.to_string(),
-            html: render_markdown_html(&document),
+            html: Some(render_markdown_html(&document)),
+            source: None,
             refs: index_entry.refs.clone(),
         },
         summary,
         diagnostics,
+    })
+}
+
+fn render_source_file(
+    root: impl AsRef<Path>,
+    path: &str,
+) -> Result<FileRenderResult, OperationError> {
+    let path = WorkspacePath::parse_cli(path)?.as_str().to_string();
+    let source =
+        fs::read_to_string(root.as_ref().join(&path)).map_err(|source| OperationError::Io {
+            path: path.clone(),
+            source,
+        })?;
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let summary = DiagnosticSummary::default();
+
+    Ok(FileRenderResult {
+        schema_version: 1,
+        operation: "file.render".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace.config.workspace.name,
+        },
+        file: RenderedFile {
+            path,
+            collection: None,
+            kind: None,
+            title: None,
+        },
+        render: FileRenderOutput {
+            format: "source".to_string(),
+            html: None,
+            source: Some(source),
+            refs: Vec::new(),
+        },
+        summary,
+        diagnostics: Vec::new(),
     })
 }
 
@@ -865,10 +911,25 @@ fn markdown_with_reference_fallbacks(document: &FormaMarkdownDocument) -> String
             .label
             .as_deref()
             .unwrap_or(reference.target.as_str());
-        let replacement = format!("[{label}]({})", reference.target);
+        let href = reference_fallback_href(&reference.target);
+        let replacement = format!("[{label}](<{href}>)");
         output.replace_range(span.start_byte..span.end_byte, &replacement);
     }
     output
+}
+
+fn reference_fallback_href(target: &str) -> String {
+    let trimmed = target.trim();
+    let (path, fragment) = trimmed.split_once('#').unwrap_or((trimmed, ""));
+    let mut path = path.trim_start_matches('/').to_string();
+    if !path.ends_with(".md") {
+        path.push_str(".md");
+    }
+    if fragment.is_empty() {
+        format!("./{path}")
+    } else {
+        format!("./{path}#{fragment}")
+    }
 }
 
 fn normalize_markdown_path(path: &str) -> Result<String, OperationError> {
@@ -907,12 +968,12 @@ mod tests {
 
     use serde_yml::Value;
 
-    use super::{ViewRenderOutput, render_entry, render_view};
-    use crate::operations::{create_entry, init_workspace};
+    use super::{ViewRenderOutput, render_file, render_view};
+    use crate::operations::{OperationError, create_entry, init_workspace};
 
     #[test]
-    fn renders_entry_html_and_degrades_obsidian_embed_to_link() {
-        let root = fixture_root("entry-render");
+    fn renders_file_html_and_degrades_obsidian_embed_to_link() {
+        let root = fixture_root("file-render");
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
@@ -926,25 +987,46 @@ mod tests {
         )
         .unwrap();
 
-        let result = render_entry(&root, "notes/source.md", "html").unwrap();
+        let result = render_file(&root, "notes/source.md", "html").unwrap();
 
-        assert_eq!(result.operation, "entry.render");
+        assert_eq!(result.operation, "file.render");
         assert_eq!(result.status, crate::OperationStatus::Passed);
-        assert!(result.render.html.contains("<h1>Source</h1>"));
-        assert!(
-            result
-                .render
-                .html
-                .contains(r#"<a href="notes/target">Target note</a>"#)
-        );
+        let html = result.render.html.as_deref().unwrap_or_default();
+        assert!(html.contains("<h1>Source</h1>"));
+        assert!(html.contains(r#"<a href="./notes/target.md">Target note</a>"#));
         assert_eq!(result.render.refs.len(), 1);
 
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
-    fn entry_render_reports_unresolved_references_as_diagnostics() {
-        let root = fixture_root("entry-render-unresolved-ref");
+    fn renders_wikilink_fallbacks_as_base_relative_markdown_paths() {
+        let root = fixture_root("file-render-base-relative-wikilink");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\nOwner: [[users/tiscs|Tiscs]].\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("users/tiscs.md"),
+            "---\nkind: user\nname: Tiscs\nrole: Developer\n---\n\n# Tiscs\n",
+        )
+        .unwrap();
+
+        let result = render_file(&root, "notes/source.md", "html").unwrap();
+
+        let html = result.render.html.as_deref().unwrap_or_default();
+        assert!(html.contains(r#"<a href="./users/tiscs.md">Tiscs</a>"#));
+        assert!(!html.contains(r#"href="users/tiscs""#));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn file_render_reports_unresolved_references_as_diagnostics() {
+        let root = fixture_root("file-render-unresolved-ref");
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
@@ -953,7 +1035,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = render_entry(&root, "notes/source.md", "html").unwrap();
+        let result = render_file(&root, "notes/source.md", "html").unwrap();
 
         assert_eq!(result.status, crate::OperationStatus::Failed);
         assert!(
@@ -962,7 +1044,85 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.code == "ref.unresolved")
         );
-        assert!(result.render.html.contains("notes/missing"));
+        assert!(
+            result
+                .render
+                .html
+                .as_deref()
+                .unwrap_or_default()
+                .contains("notes/missing")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renders_source_for_workspace_text_files() {
+        let root = fixture_root("file-render-source");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+
+        let result = render_file(&root, ".forma/workspace.yml", "source").unwrap();
+
+        assert_eq!(result.status, crate::OperationStatus::Passed);
+        assert_eq!(result.file.path, ".forma/workspace.yml");
+        assert_eq!(result.file.collection, None);
+        assert_eq!(result.render.format, "source");
+        assert!(result.render.html.is_none());
+        assert!(
+            result
+                .render
+                .source
+                .as_deref()
+                .unwrap_or_default()
+                .contains("workspace:")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn file_render_html_accepts_knowledge_files_and_rejects_templates() {
+        let root = fixture_root("file-render-html");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "File Render Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/renderable.md"),
+            "---\nkind: note\ntitle: Renderable\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Renderable\n",
+        )
+        .unwrap();
+
+        let rendered = render_file(&root, "notes/renderable.md", "html").unwrap();
+        assert_eq!(rendered.operation, "file.render");
+        assert_eq!(rendered.file.path, "notes/renderable.md");
+        assert!(
+            rendered
+                .render
+                .html
+                .as_deref()
+                .unwrap_or_default()
+                .contains("<h1>Renderable</h1>")
+        );
+
+        assert!(matches!(
+            render_file(&root, ".forma/templates/note.md", "html"),
+            Err(OperationError::EntryNotFound)
+        ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn file_render_source_reads_text_resources() {
+        let root = fixture_root("file-render-source-resource");
+        fs::create_dir_all(root.join("assets")).unwrap();
+        init_workspace(&root, "File Source Test", "en", Some("UTC")).unwrap();
+        fs::write(root.join("assets/data.json"), br#"{"ok":true}"#).unwrap();
+
+        let rendered = render_file(&root, "assets/data.json", "source").unwrap();
+        assert_eq!(rendered.operation, "file.render");
+        assert_eq!(rendered.file.path, "assets/data.json");
+        assert_eq!(rendered.render.source.as_deref(), Some("{\"ok\":true}"));
 
         fs::remove_dir_all(root).unwrap();
     }

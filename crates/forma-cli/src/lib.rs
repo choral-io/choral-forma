@@ -11,7 +11,7 @@ use axum::http::header::{
     CONTENT_TYPE, HeaderName, ORIGIN, VARY,
 };
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
-use axum::response::{IntoResponse, Response};
+use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use clap::{Parser, Subcommand};
 use forma_rpc::{
@@ -26,13 +26,19 @@ static WEBAPP_DIST: Dir<'_> = include_dir!("$OUT_DIR/webapp-dist");
 #[derive(Debug, Clone)]
 struct AppState {
     dispatcher: Dispatcher,
+    workspace_root: PathBuf,
     webapp_dir: Option<PathBuf>,
     cors_origins: Vec<String>,
+    root_path: String,
 }
 
 #[derive(Debug, Parser)]
 #[command(name = "forma", disable_version_flag = true)]
 pub struct Cli {
+    #[arg(short = 'V', long)]
+    version: bool,
+    #[arg(short = 'w', long = "workspace", global = true, default_value = ".")]
+    workspace: PathBuf,
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -86,6 +92,8 @@ enum Command {
     Serve {
         #[arg(long, default_value = "127.0.0.1:0")]
         bind: SocketAddr,
+        #[arg(long, default_value = "/")]
+        root_path: String,
         #[arg(long)]
         webapp_dir: Option<PathBuf>,
         #[arg(long = "cors-origin")]
@@ -121,9 +129,19 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
-    let dispatcher = Dispatcher;
+    let Cli {
+        version,
+        workspace,
+        command,
+    } = cli;
+    let dispatcher = Dispatcher::new(&workspace);
 
-    match cli.command {
+    if version {
+        println!("forma {}", forma_core::version());
+        return Ok(());
+    }
+
+    match command {
         None => {
             println!("forma {}", forma_core::version());
             Ok(())
@@ -137,7 +155,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }) => {
             if !yes
                 && let Some(result) =
-                    init_confirmation_result(&name, &language, timezone.as_deref())?
+                    init_confirmation_result(&workspace, &name, &language, timezone.as_deref())?
             {
                 print_result(&result, json, "init");
                 exit_if_failed(&result);
@@ -230,9 +248,20 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         },
         Some(Command::Serve {
             bind,
+            root_path,
             webapp_dir,
             cors_origins,
-        }) => serve(bind, webapp_dir, cors_origins).await,
+        }) => {
+            serve(
+                bind,
+                root_path,
+                webapp_dir,
+                cors_origins,
+                dispatcher,
+                workspace,
+            )
+            .await
+        }
     }
 }
 
@@ -241,6 +270,9 @@ fn print_result(result: &forma_rpc::OperationResult, json: bool, label: &str) {
         println!("{}", result.to_json_string());
     } else {
         println!("{label} {}", result.status_label());
+        for diagnostic in &result.diagnostics {
+            print_diagnostic(diagnostic);
+        }
         if result.status == forma_core::OperationStatus::Warning {
             for diagnostic in &result.diagnostics {
                 if diagnostic.code == "index.stale" {
@@ -252,7 +284,24 @@ fn print_result(result: &forma_rpc::OperationResult, json: bool, label: &str) {
     }
 }
 
+fn print_diagnostic(diagnostic: &forma_core::Diagnostic) {
+    let severity = match diagnostic.severity {
+        forma_core::DiagnosticSeverity::Error => "error",
+        forma_core::DiagnosticSeverity::Warning => "warning",
+        forma_core::DiagnosticSeverity::Info => "info",
+    };
+    if let Some(path) = &diagnostic.path {
+        println!(
+            "{severity} {}: {} ({path})",
+            diagnostic.code, diagnostic.message
+        );
+    } else {
+        println!("{severity} {}: {}", diagnostic.code, diagnostic.message);
+    }
+}
+
 fn init_confirmation_result(
+    root: &FsPath,
     name: &str,
     language: &str,
     timezone: Option<&str>,
@@ -273,7 +322,7 @@ fn init_confirmation_result(
 
     let mut stderr = io::stderr();
     writeln!(stderr, "Forma will initialize a workspace with:")?;
-    writeln!(stderr, "  root: .")?;
+    writeln!(stderr, "  root: {}", root.display())?;
     writeln!(stderr, "  name: {name}")?;
     writeln!(stderr, "  language: {language}")?;
     writeln!(stderr, "  timezone: {resolved_timezone}")?;
@@ -315,11 +364,26 @@ fn parse_input_pair(value: &str) -> Result<(String, Value), String> {
 
 pub async fn serve(
     bind: SocketAddr,
+    root_path: String,
     webapp_dir: Option<PathBuf>,
     cors_origins: Vec<String>,
+    dispatcher: Dispatcher,
+    workspace_root: PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::bind(bind).await?;
-    axum::serve(listener, rpc_router_with_options(webapp_dir, cors_origins)?).await?;
+    let local_addr = listener.local_addr()?;
+    println!("forma serve listening on http://{local_addr}");
+    axum::serve(
+        listener,
+        rpc_router_with_dispatcher_and_workspace(
+            webapp_dir,
+            cors_origins,
+            dispatcher,
+            workspace_root,
+            root_path,
+        )?,
+    )
+    .await?;
     Ok(())
 }
 
@@ -332,6 +396,44 @@ fn rpc_router_with_options(
     webapp_dir: Option<PathBuf>,
     cors_origins: Vec<String>,
 ) -> Result<Router, Box<dyn std::error::Error>> {
+    rpc_router_with_options_and_root_path(webapp_dir, cors_origins, "/")
+}
+
+fn rpc_router_with_options_and_root_path(
+    webapp_dir: Option<PathBuf>,
+    cors_origins: Vec<String>,
+    root_path: impl AsRef<str>,
+) -> Result<Router, Box<dyn std::error::Error>> {
+    rpc_router_with_dispatcher(
+        webapp_dir,
+        cors_origins,
+        Dispatcher::default(),
+        root_path.as_ref().to_string(),
+    )
+}
+
+fn rpc_router_with_dispatcher(
+    webapp_dir: Option<PathBuf>,
+    cors_origins: Vec<String>,
+    dispatcher: Dispatcher,
+    root_path: String,
+) -> Result<Router, Box<dyn std::error::Error>> {
+    rpc_router_with_dispatcher_and_workspace(
+        webapp_dir,
+        cors_origins,
+        dispatcher,
+        PathBuf::from("."),
+        root_path,
+    )
+}
+
+fn rpc_router_with_dispatcher_and_workspace(
+    webapp_dir: Option<PathBuf>,
+    cors_origins: Vec<String>,
+    dispatcher: Dispatcher,
+    workspace_root: PathBuf,
+    root_path: String,
+) -> Result<Router, Box<dyn std::error::Error>> {
     if let Some(webapp_dir) = &webapp_dir {
         if !webapp_dir.is_dir() {
             return Err(format!(
@@ -342,18 +444,86 @@ fn rpc_router_with_options(
         }
     }
     let cors_origins = validate_cors_origins(cors_origins)?;
+    let root_path = normalize_root_path(&root_path)?;
 
     let state = AppState {
-        dispatcher: Dispatcher,
+        dispatcher,
+        workspace_root,
         webapp_dir,
         cors_origins,
+        root_path: root_path.clone(),
     };
 
-    Ok(Router::new()
-        .route("/rpc", post(rpc_handler).options(rpc_preflight_handler))
-        .route("/", get(index_handler))
-        .route("/{*path}", get(asset_handler))
-        .with_state(state))
+    if root_path == "/" {
+        Ok(Router::new()
+            .route("/rpc", post(rpc_handler).options(rpc_preflight_handler))
+            .route("/raw/{*path}", get(raw_workspace_file))
+            .route("/", get(index_handler))
+            .route("/{*path}", get(asset_handler))
+            .with_state(state))
+    } else {
+        let rpc_route = format!("{root_path}/rpc");
+        let raw_route = format!("{root_path}/raw/{{*path}}");
+        let root_route = format!("{root_path}/");
+        let asset_route = format!("{root_path}/{{*path}}");
+        let redirect_target = app_root_location(&root_path);
+        Ok(Router::new()
+            .route(&rpc_route, post(rpc_handler).options(rpc_preflight_handler))
+            .route(&raw_route, get(raw_workspace_file))
+            .route(
+                &root_path,
+                get(move || async move { Redirect::temporary(&redirect_target) }),
+            )
+            .route(&root_route, get(index_handler))
+            .route(&asset_route, get(asset_handler))
+            .with_state(state))
+    }
+}
+
+async fn raw_workspace_file(
+    AxumPath(path): AxumPath<String>,
+    State(state): State<AppState>,
+) -> Response {
+    let workspace_path = match forma_core::WorkspacePath::parse_cli(&path) {
+        Ok(path) => path.as_str().to_string(),
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+    if !is_raw_workspace_path_allowed(&workspace_path) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Some(media_type) = forma_core::media_type_for_workspace_path(&workspace_path) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+
+    let base = match state.workspace_root.canonicalize() {
+        Ok(base) => base,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+    let file_path = state.workspace_root.join(&workspace_path);
+    let resolved = match file_path.canonicalize() {
+        Ok(resolved) if resolved.starts_with(&base) && resolved.is_file() => resolved,
+        _ => return StatusCode::NOT_FOUND.into_response(),
+    };
+    let bytes = match tokio::fs::read(resolved).await {
+        Ok(bytes) => bytes,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    let mut response = (StatusCode::OK, bytes).into_response();
+    response
+        .headers_mut()
+        .insert(CONTENT_TYPE, HeaderValue::from_static(media_type));
+    response.headers_mut().insert(
+        HeaderName::from_static("x-content-type-options"),
+        HeaderValue::from_static("nosniff"),
+    );
+    response
+}
+
+fn is_raw_workspace_path_allowed(path: &str) -> bool {
+    // Mirrors files.list local-only exclusions until the rule is exposed by forma-core.
+    let normalized = path.to_ascii_lowercase();
+    normalized != ".forma/overrides/local.yml" && !normalized.starts_with(".forma/local/")
 }
 
 async fn rpc_handler(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
@@ -418,7 +588,11 @@ fn apply_rpc_cors(request_headers: &HeaderMap, state: &AppState, response: &mut 
 }
 
 async fn index_handler(State(state): State<AppState>) -> Response {
-    webapp_asset_response("index.html", state.webapp_dir.as_deref())
+    webapp_asset_response(
+        "index.html",
+        state.webapp_dir.as_deref(),
+        state.root_path.as_str(),
+    )
 }
 
 async fn asset_handler(
@@ -428,10 +602,10 @@ async fn asset_handler(
     if path == "rpc" {
         return StatusCode::METHOD_NOT_ALLOWED.into_response();
     }
-    webapp_asset_response(&path, state.webapp_dir.as_deref())
+    webapp_asset_response(&path, state.webapp_dir.as_deref(), state.root_path.as_str())
 }
 
-fn webapp_asset_response(path: &str, webapp_dir: Option<&FsPath>) -> Response {
+fn webapp_asset_response(path: &str, webapp_dir: Option<&FsPath>, root_path: &str) -> Response {
     let normalized = path.trim_start_matches('/');
     let asset_path = if normalized.is_empty() {
         "index.html"
@@ -440,32 +614,29 @@ fn webapp_asset_response(path: &str, webapp_dir: Option<&FsPath>) -> Response {
     };
 
     if let Some(webapp_dir) = webapp_dir {
-        return external_webapp_asset_response(webapp_dir, asset_path);
+        return external_webapp_asset_response(webapp_dir, asset_path, root_path);
     }
 
-    let file = if let Some(file) = WEBAPP_DIST.get_file(asset_path) {
-        file
-    } else if asset_path.starts_with("assets/") {
-        return StatusCode::NOT_FOUND.into_response();
-    } else if let Some(file) = WEBAPP_DIST.get_file("index.html") {
-        file
-    } else {
+    let Some(file) = WEBAPP_DIST.get_file(asset_path) else {
+        if should_redirect_to_app_root(asset_path) {
+            return Redirect::temporary(&app_root_location(root_path)).into_response();
+        }
         return StatusCode::NOT_FOUND.into_response();
     };
 
-    let content_type = content_type_for(file.path().to_string_lossy().as_ref());
-    let mut response = (StatusCode::OK, file.contents()).into_response();
-    response
-        .headers_mut()
-        .insert(CONTENT_TYPE, HeaderValue::from_static(content_type));
-    response.headers_mut().insert(
-        HeaderName::from_static("x-content-type-options"),
-        HeaderValue::from_static("nosniff"),
-    );
-    response
+    webapp_file_response(
+        asset_path,
+        file.path().to_string_lossy().as_ref(),
+        file.contents(),
+        root_path,
+    )
 }
 
-fn external_webapp_asset_response(webapp_dir: &FsPath, asset_path: &str) -> Response {
+fn external_webapp_asset_response(
+    webapp_dir: &FsPath,
+    asset_path: &str,
+    root_path: &str,
+) -> Response {
     let Some(asset_path) = safe_asset_path(asset_path) else {
         return StatusCode::NOT_FOUND.into_response();
     };
@@ -476,18 +647,37 @@ fn external_webapp_asset_response(webapp_dir: &FsPath, asset_path: &str) -> Resp
     let candidate = base.join(&asset_path);
     let resolved = match candidate.canonicalize() {
         Ok(resolved) if resolved.starts_with(&base) => resolved,
-        _ if asset_path.starts_with("assets/") => return StatusCode::NOT_FOUND.into_response(),
-        _ => match base.join("index.html").canonicalize() {
-            Ok(index) if index.starts_with(&base) => index,
-            _ => return StatusCode::NOT_FOUND.into_response(),
-        },
+        _ if should_redirect_to_app_root(&asset_path) => {
+            return Redirect::temporary(&app_root_location(root_path)).into_response();
+        }
+        _ => return StatusCode::NOT_FOUND.into_response(),
     };
     let bytes = match fs::read(&resolved) {
         Ok(bytes) => bytes,
         Err(_) => return StatusCode::NOT_FOUND.into_response(),
     };
-    let content_type = content_type_for(resolved.to_string_lossy().as_ref());
-    let mut response = (StatusCode::OK, bytes).into_response();
+    webapp_file_response(
+        &asset_path,
+        resolved.to_string_lossy().as_ref(),
+        bytes.as_slice(),
+        root_path,
+    )
+}
+
+fn webapp_file_response(
+    asset_path: &str,
+    source_path: &str,
+    contents: &[u8],
+    root_path: &str,
+) -> Response {
+    let content_type = content_type_for(source_path);
+    let body = if asset_path == "index.html" {
+        let html = String::from_utf8_lossy(contents);
+        inject_base_href(&html, root_path).into_bytes()
+    } else {
+        contents.to_vec()
+    };
+    let mut response = (StatusCode::OK, body).into_response();
     response
         .headers_mut()
         .insert(CONTENT_TYPE, HeaderValue::from_static(content_type));
@@ -496,6 +686,21 @@ fn external_webapp_asset_response(webapp_dir: &FsPath, asset_path: &str) -> Resp
         HeaderValue::from_static("nosniff"),
     );
     response
+}
+
+fn inject_base_href(html: &str, root_path: &str) -> String {
+    let base = format!(r#"<base href="{}">"#, app_root_location(root_path));
+    if let Some(head_index) = html.find("<head>") {
+        let insert_at = head_index + "<head>".len();
+        let mut output = String::with_capacity(html.len() + base.len() + 1);
+        output.push_str(&html[..insert_at]);
+        output.push('\n');
+        output.push_str(&base);
+        output.push_str(&html[insert_at..]);
+        output
+    } else {
+        format!("{base}\n{html}")
+    }
 }
 
 fn safe_asset_path(path: &str) -> Option<String> {
@@ -516,6 +721,45 @@ fn safe_asset_path(path: &str) -> Option<String> {
     } else {
         Some(segments.join("/"))
     }
+}
+
+fn normalize_root_path(value: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Ok("/".to_string());
+    }
+    if !value.starts_with('/') {
+        return Err("root path must start with `/`".into());
+    }
+    if value.contains('?') || value.contains('#') {
+        return Err("root path must not include a query string or fragment".into());
+    }
+    let normalized = value.trim_end_matches('/');
+    if normalized.is_empty() {
+        return Ok("/".to_string());
+    }
+    if safe_asset_path(normalized.trim_start_matches('/')).is_none() {
+        return Err("root path must be a safe absolute URL path".into());
+    }
+    Ok(normalized.to_string())
+}
+
+fn app_root_location(root_path: &str) -> String {
+    if root_path == "/" {
+        "/".to_string()
+    } else {
+        format!("{root_path}/")
+    }
+}
+
+fn should_redirect_to_app_root(path: &str) -> bool {
+    if path.starts_with("assets/") {
+        return false;
+    }
+    let extension = FsPath::new(path)
+        .extension()
+        .and_then(|extension| extension.to_str());
+    matches!(extension, None | Some("md"))
 }
 
 fn content_type_for(path: &str) -> &'static str {
@@ -550,10 +794,14 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use axum::body::{Body, to_bytes};
-    use axum::http::{Method, Request, StatusCode};
+    use axum::http::{Method, Request, StatusCode, header};
+    use forma_rpc::Dispatcher;
     use tower::ServiceExt;
 
-    use super::{rpc_router, rpc_router_with_options};
+    use super::{
+        rpc_router, rpc_router_with_dispatcher, rpc_router_with_dispatcher_and_workspace,
+        rpc_router_with_options, rpc_router_with_options_and_root_path,
+    };
 
     #[tokio::test]
     async fn rpc_router_exposes_json_rpc_handler() {
@@ -576,6 +824,36 @@ mod tests {
         let body = String::from_utf8_lossy(&body);
         assert!(body.contains(r#""jsonrpc":"2.0""#));
         assert!(body.contains(r#""operation":"check""#));
+    }
+
+    #[tokio::test]
+    async fn rpc_router_uses_configured_workspace_root() {
+        let root = fixture_root("rpc-workspace-root");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "RPC Workspace", "en", Some("UTC")).unwrap();
+
+        let response =
+            rpc_router_with_dispatcher(None, Vec::new(), Dispatcher::new(&root), "/".to_string())
+                .unwrap()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri("/rpc")
+                        .header("content-type", "application/json")
+                        .body(Body::from(
+                            r#"{"jsonrpc":"2.0","id":"1","method":"config.inspect","params":{}}"#,
+                        ))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let body = String::from_utf8_lossy(&body);
+        assert!(body.contains(r#""name":"RPC Workspace""#));
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]
@@ -611,6 +889,258 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn rpc_router_redirects_workspace_like_paths_to_app_root() {
+        let response = rpc_router()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/notes/users/workspace-note")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(response.headers().get("location").unwrap(), "/");
+    }
+
+    #[tokio::test]
+    async fn rpc_router_mounts_under_configured_root_path() {
+        let router = rpc_router_with_options_and_root_path(None, Vec::new(), "/forma").unwrap();
+
+        let index_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/forma/")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(index_response.status(), StatusCode::OK);
+        let index_body = to_bytes(index_response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let index_body = String::from_utf8_lossy(&index_body);
+        assert!(index_body.contains(r#"<base href="/forma/">"#));
+        assert!(
+            index_body.find(r#"<base href="/forma/">"#)
+                < index_body
+                    .find("<script")
+                    .or_else(|| index_body.find("<link"))
+        );
+
+        let rpc_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::OPTIONS)
+                    .uri("/forma/rpc")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(rpc_response.status(), StatusCode::NO_CONTENT);
+
+        let root_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/forma")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(root_response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(root_response.headers().get("location").unwrap(), "/forma/");
+
+        let bad_path_response = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/forma/notes/users/workspace-note")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(bad_path_response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(
+            bad_path_response.headers().get("location").unwrap(),
+            "/forma/"
+        );
+    }
+
+    #[tokio::test]
+    async fn rpc_router_serves_raw_workspace_resources_under_root_path() {
+        let root = fixture_root("raw-resource-route");
+        fs::create_dir_all(root.join("assets")).unwrap();
+        forma_core::init_workspace(&root, "Raw Route", "en", Some("UTC")).unwrap();
+        fs::write(root.join("assets/logo.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+
+        let app = rpc_router_with_dispatcher_and_workspace(
+            None,
+            Vec::new(),
+            Dispatcher::new(&root),
+            root.clone(),
+            "/forma".into(),
+        )
+        .unwrap();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/forma/raw/assets/logo.png")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::CONTENT_TYPE).unwrap(),
+            "image/png"
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rpc_router_rejects_raw_workspace_path_traversal() {
+        let root = fixture_root("raw-route-traversal");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "Raw Route Traversal", "en", Some("UTC")).unwrap();
+
+        let app = rpc_router_with_dispatcher_and_workspace(
+            None,
+            Vec::new(),
+            Dispatcher::new(&root),
+            root.clone(),
+            "/forma".into(),
+        )
+        .unwrap();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/forma/raw/../.forma/workspace.yml")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rpc_router_rejects_raw_local_only_workspace_files() {
+        let root = fixture_root("raw-route-local-only");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "Raw Route Local Only", "en", Some("UTC")).unwrap();
+        fs::create_dir_all(root.join(".forma/overrides")).unwrap();
+        fs::write(root.join(".forma/overrides/local.yml"), "collections: {}\n").unwrap();
+
+        let app = rpc_router_with_dispatcher_and_workspace(
+            None,
+            Vec::new(),
+            Dispatcher::new(&root),
+            root.clone(),
+            "/forma".into(),
+        )
+        .unwrap();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/forma/raw/.forma/overrides/local.yml")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rpc_router_rejects_raw_local_only_workspace_files_case_variants() {
+        let root = fixture_root("raw-route-local-only-case");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "Raw Route Local Only Case", "en", Some("UTC")).unwrap();
+        fs::create_dir_all(root.join(".forma/overrides")).unwrap();
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(root.join(".forma/overrides/local.yml"), "collections: {}\n").unwrap();
+        fs::write(root.join(".forma/local/secret.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+
+        let app = rpc_router_with_dispatcher_and_workspace(
+            None,
+            Vec::new(),
+            Dispatcher::new(&root),
+            root.clone(),
+            "/forma".into(),
+        )
+        .unwrap();
+
+        for uri in [
+            "/forma/raw/.FORMA/overrides/local.yml",
+            "/forma/raw/.FORMA/local/secret.png",
+        ] {
+            let response = app
+                .clone()
+                .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn rpc_router_rejects_raw_workspace_symlink_escape() {
+        let root = fixture_root("raw-route-symlink-escape");
+        let outside = fixture_root("raw-route-symlink-outside");
+        fs::create_dir_all(root.join("assets")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        forma_core::init_workspace(&root, "Raw Route Symlink", "en", Some("UTC")).unwrap();
+        fs::write(outside.join("logo.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+        std::os::unix::fs::symlink(outside.join("logo.png"), root.join("assets/logo.png")).unwrap();
+
+        let app = rpc_router_with_dispatcher_and_workspace(
+            None,
+            Vec::new(),
+            Dispatcher::new(&root),
+            root.clone(),
+            "/forma".into(),
+        )
+        .unwrap();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/forma/raw/assets/logo.png")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
     }
 
     #[tokio::test]

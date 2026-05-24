@@ -9,7 +9,10 @@ use thiserror::Error;
 
 use crate::config::{ConfigError, LoadMode, load_workspace};
 use crate::diagnostics::{Diagnostic, DiagnosticSummary, OperationStatus};
-use crate::index::{IndexEntry, config_error_diagnostic, discover_workspace, index_rebuild};
+use crate::index::{
+    IndexEntry, IndexReference, ReferenceIntent, ReferenceSource, config_error_diagnostic,
+    discover_workspace, index_rebuild,
+};
 use crate::markdown::FormaMarkdownDocument;
 use crate::path::{
     FORMA_COLLECTIONS_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH,
@@ -164,30 +167,97 @@ pub struct FilesListResult {
     pub operation: String,
     pub status: OperationStatus,
     pub workspace: WorkspaceSummary,
-    pub files: Vec<ListedFile>,
+    pub files: Vec<WorkspaceFile>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileReferencesResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub file: ReferenceFile,
+    pub outgoing: Vec<ReferenceEdge>,
+    pub backlinks: Vec<ReferenceEdge>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ListedFile {
+pub struct ReferenceFile {
     pub path: String,
-    pub kind: ListedFileKind,
+    pub collection: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub collection: Option<String>,
+    pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceEdge {
+    pub source_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_kind: Option<String>,
+    pub target_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_kind: Option<String>,
+    pub source: ReferenceSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub semantic_type: Option<String>,
+    pub intent: ReferenceIntent,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceFile {
+    pub path: String,
+    pub name: String,
+    pub parent: String,
+    pub depth: usize,
+    pub kind: WorkspaceFileKind,
+    pub media_type: String,
+    pub features: Vec<WorkspaceFileFeature>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frontmatter: Option<Value>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum ListedFileKind {
-    Entry,
+pub enum WorkspaceFileKind {
+    Knowledge,
     View,
+    Template,
     Markdown,
     Config,
     Index,
+    Resource,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WorkspaceFileFeature {
+    #[serde(rename = "render.html")]
+    RenderHtml,
+    #[serde(rename = "render.source")]
+    RenderSource,
+    #[serde(rename = "render.view")]
+    RenderView,
+    #[serde(rename = "preview.media")]
+    PreviewMedia,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -268,7 +338,6 @@ pub fn init_workspace(
         FORMA_DIR,
         FORMA_TEMPLATES_DIR,
         FORMA_VIEWS_DIR,
-        "daily",
         "notes",
         "todos",
         "users",
@@ -571,7 +640,8 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
             .iter()
             .find(|entry| entry.path == file.path)
         {
-            file.kind = ListedFileKind::Entry;
+            file.kind = WorkspaceFileKind::Knowledge;
+            file.features = features_for_media_type(file.kind, &file.media_type);
             file.collection = Some(entry.collection.clone());
             file.title = entry.title.clone();
         } else if let Some(view) = discovery
@@ -580,7 +650,8 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
             .iter()
             .find(|view| view.path == file.path)
         {
-            file.kind = ListedFileKind::View;
+            file.kind = WorkspaceFileKind::View;
+            file.features = features_for_media_type(file.kind, &file.media_type);
             file.title = view.title.clone();
         }
     }
@@ -598,6 +669,103 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
         summary,
         diagnostics,
     })
+}
+
+pub fn list_file_references(
+    root: impl AsRef<Path>,
+    path: &str,
+) -> Result<FileReferencesResult, OperationError> {
+    let path = normalize_entry_path(path)?;
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let discovery = discover_workspace(root.as_ref())?;
+    let index_entry = discovery
+        .index
+        .entries
+        .iter()
+        .find(|entry| entry.path == path)
+        .ok_or(OperationError::EntryNotFound)?;
+    let mut diagnostics = discovery.diagnostics;
+    diagnostics.sort_by_key(|diagnostic| {
+        (
+            diagnostic.path.clone().unwrap_or_default(),
+            diagnostic.code.clone(),
+            diagnostic.message.clone(),
+        )
+    });
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+    let mut outgoing = index_entry
+        .refs
+        .iter()
+        .map(|reference| reference_edge(index_entry, reference, &discovery.index.entries))
+        .collect::<Vec<_>>();
+    let mut backlinks = discovery
+        .index
+        .entries
+        .iter()
+        .filter(|entry| entry.path != path)
+        .flat_map(|entry| {
+            entry
+                .refs
+                .iter()
+                .filter(|reference| reference.target_path == path)
+                .map(|reference| reference_edge(entry, reference, &discovery.index.entries))
+        })
+        .collect::<Vec<_>>();
+    outgoing.sort_by_key(reference_edge_sort_key);
+    backlinks.sort_by_key(reference_edge_sort_key);
+
+    Ok(FileReferencesResult {
+        schema_version: 1,
+        operation: "file.references".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace.config.workspace.name,
+        },
+        file: ReferenceFile {
+            path: index_entry.path.clone(),
+            collection: index_entry.collection.clone(),
+            kind: index_entry.kind.clone(),
+            title: index_entry.title.clone(),
+        },
+        outgoing,
+        backlinks,
+        summary,
+        diagnostics,
+    })
+}
+
+fn reference_edge(
+    source_entry: &IndexEntry,
+    reference: &IndexReference,
+    entries: &[IndexEntry],
+) -> ReferenceEdge {
+    let target_entry = entries
+        .iter()
+        .find(|entry| entry.path == reference.target_path);
+    ReferenceEdge {
+        source_path: source_entry.path.clone(),
+        source_title: source_entry.title.clone(),
+        source_kind: source_entry.kind.clone(),
+        target_path: reference.target_path.clone(),
+        target_title: target_entry.and_then(|entry| entry.title.clone()),
+        target_kind: target_entry.and_then(|entry| entry.kind.clone()),
+        source: reference.source,
+        field: reference.field.clone(),
+        semantic_type: reference.semantic_type.clone(),
+        intent: reference.intent,
+    }
+}
+
+fn reference_edge_sort_key(
+    edge: &ReferenceEdge,
+) -> (String, String, ReferenceIntent, ReferenceSource) {
+    (
+        edge.source_path.clone(),
+        edge.target_path.clone(),
+        edge.intent,
+        edge.source,
+    )
 }
 
 fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, OperationError> {
@@ -711,13 +879,13 @@ fn inspect_config_value(
     })
 }
 
-fn collect_workspace_files(root: &Path) -> Vec<ListedFile> {
+fn collect_workspace_files(root: &Path) -> Vec<WorkspaceFile> {
     let mut files = Vec::new();
     collect_workspace_files_inner(root, root, &mut files);
     files
 }
 
-fn collect_workspace_files_inner(root: &Path, dir: &Path, files: &mut Vec<ListedFile>) {
+fn collect_workspace_files_inner(root: &Path, dir: &Path, files: &mut Vec<WorkspaceFile>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -731,7 +899,9 @@ fn collect_workspace_files_inner(root: &Path, dir: &Path, files: &mut Vec<Listed
                 continue;
             }
             collect_workspace_files_inner(root, &path, files);
-        } else if let Some(file) = listed_file_from_path(root, path) {
+        } else if should_skip_workspace_file(name, &path) {
+            continue;
+        } else if let Some(file) = workspace_file_from_path(root, path) {
             files.push(file);
         }
     }
@@ -746,31 +916,117 @@ fn should_skip_file_dir(name: &str, path: &Path) -> bool {
         })
 }
 
-fn listed_file_from_path(root: &Path, path: PathBuf) -> Option<ListedFile> {
+fn should_skip_workspace_file(_name: &str, path: &Path) -> bool {
+    path.ends_with(FORMA_LOCAL_OVERRIDES_PATH)
+}
+
+fn workspace_file_from_path(root: &Path, path: PathBuf) -> Option<WorkspaceFile> {
     let relative = path
         .strip_prefix(root)
         .ok()?
         .to_string_lossy()
         .replace('\\', "/");
+    let media_type = media_type_for_workspace_path(&relative)?;
     let kind = if relative == FORMA_INDEX_SUMMARY_PATH {
-        ListedFileKind::Index
+        WorkspaceFileKind::Index
     } else if matches!(
         relative.as_str(),
         FORMA_WORKSPACE_PATH | FORMA_TYPES_PATH | FORMA_COLLECTIONS_PATH
     ) {
-        ListedFileKind::Config
-    } else if relative.ends_with(".md") {
-        ListedFileKind::Markdown
+        WorkspaceFileKind::Config
+    } else if relative.starts_with(&format!("{FORMA_TEMPLATES_DIR}/"))
+        && media_type == "text/markdown"
+    {
+        WorkspaceFileKind::Template
+    } else if media_type == "text/markdown" {
+        WorkspaceFileKind::Markdown
     } else {
-        return None;
+        WorkspaceFileKind::Resource
     };
 
-    Some(ListedFile {
+    Some(WorkspaceFile {
+        name: file_name_from_workspace_path(&relative),
+        parent: parent_from_workspace_path(&relative),
+        depth: relative.matches('/').count(),
         path: relative,
         kind,
+        media_type: media_type.to_string(),
+        features: features_for_media_type(kind, media_type),
         collection: None,
         title: None,
+        frontmatter: frontmatter_from_workspace_file(root, &path),
     })
+}
+
+pub fn media_type_for_workspace_path(path: &str) -> Option<&'static str> {
+    let extension = path.rsplit_once('.')?.1.to_ascii_lowercase();
+    match extension.as_str() {
+        "md" | "mdx" => Some("text/markdown"),
+        "yml" | "yaml" => Some("application/yaml"),
+        "json" => Some("application/json"),
+        "txt" => Some("text/plain"),
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        "svg" => Some("image/svg+xml"),
+        "mp3" => Some("audio/mpeg"),
+        "wav" => Some("audio/wav"),
+        "ogg" => Some("audio/ogg"),
+        "mp4" => Some("video/mp4"),
+        "webm" => Some("video/webm"),
+        "mov" => Some("video/quicktime"),
+        _ => None,
+    }
+}
+
+fn features_for_media_type(kind: WorkspaceFileKind, media_type: &str) -> Vec<WorkspaceFileFeature> {
+    match kind {
+        WorkspaceFileKind::Knowledge => vec![
+            WorkspaceFileFeature::RenderHtml,
+            WorkspaceFileFeature::RenderSource,
+        ],
+        WorkspaceFileKind::View => vec![
+            WorkspaceFileFeature::RenderView,
+            WorkspaceFileFeature::RenderSource,
+        ],
+        WorkspaceFileKind::Template
+        | WorkspaceFileKind::Markdown
+        | WorkspaceFileKind::Config
+        | WorkspaceFileKind::Index => vec![WorkspaceFileFeature::RenderSource],
+        WorkspaceFileKind::Resource
+            if media_type.starts_with("image/")
+                || media_type.starts_with("audio/")
+                || media_type.starts_with("video/") =>
+        {
+            vec![WorkspaceFileFeature::PreviewMedia]
+        }
+        WorkspaceFileKind::Resource
+            if media_type.starts_with("text/") || media_type == "application/json" =>
+        {
+            vec![WorkspaceFileFeature::RenderSource]
+        }
+        WorkspaceFileKind::Resource => Vec::new(),
+    }
+}
+
+fn frontmatter_from_workspace_file(root: &Path, path: &Path) -> Option<Value> {
+    let relative = path.strip_prefix(root).ok()?.to_string_lossy();
+    if media_type_for_workspace_path(&relative) != Some("text/markdown") {
+        return None;
+    }
+    let source = fs::read_to_string(path).ok()?;
+    FormaMarkdownDocument::parse(&source).frontmatter.value
+}
+
+fn file_name_from_workspace_path(path: &str) -> String {
+    path.rsplit('/').next().unwrap_or(path).to_string()
+}
+
+fn parent_from_workspace_path(path: &str) -> String {
+    path.rsplit_once('/')
+        .map(|(parent, _)| parent.to_string())
+        .unwrap_or_default()
 }
 
 fn resolve_collection_entry_path(
@@ -841,10 +1097,6 @@ fn starter_templates() -> Vec<(String, &'static str)> {
             "---\nkind: note\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\ncreatedAt: \"{{ input.createdAt }}\"\n---\n\n# {{ input.title }}\n",
         ),
         (
-            format!("{FORMA_TEMPLATES_DIR}/daily.md"),
-            "---\nkind: daily\ndate: \"{{ input.date }}\"\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\ncreatedAt: \"{{ input.createdAt }}\"\n---\n\n# {{ input.title }}\n\n## Notes\n",
-        ),
-        (
             format!("{FORMA_TEMPLATES_DIR}/todo.md"),
             "---\nkind: todo\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\nassignees: []\ncreatedAt: \"{{ input.createdAt }}\"\n---\n\n# {{ input.title }}\n",
         ),
@@ -860,10 +1112,6 @@ fn starter_views() -> Vec<(String, &'static str)> {
         (
             format!("{FORMA_VIEWS_DIR}/notes.md"),
             "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  collection: notes\n  title: Notes\n  description: General knowledge notes.\n  table:\n    columns:\n      - title\n      - summary\n      - createdAt\n  sort:\n    - field: createdAt\n      direction: desc\n---\n\n# Notes\n\n<!-- forma-view -->\n",
-        ),
-        (
-            format!("{FORMA_VIEWS_DIR}/daily.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  collection: daily\n  title: Daily Notes\n  description: Date-based notes.\n  table:\n    columns:\n      - date\n      - title\n      - summary\n      - createdAt\n  sort:\n    - field: date\n      direction: desc\n---\n\n# Daily Notes\n\n<!-- forma-view -->\n",
         ),
         (
             format!("{FORMA_VIEWS_DIR}/todos.md"),
@@ -918,7 +1166,8 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
             format!("Collection `{collection}` does not define create behavior."),
         ),
         OperationError::InvalidInput(input) => {
-            Diagnostic::error("create.inputInvalid", "Create input is invalid.").with_actual(input)
+            Diagnostic::error("operation.inputInvalid", "Operation input is invalid.")
+                .with_actual(input)
         }
         OperationError::InvalidPath(error) => Diagnostic::error(
             "path.invalid",
@@ -989,10 +1238,6 @@ types:
     collection: notes
     input:
       transform: slugify
-
-  daily:
-    kind: collection
-    collection: daily
 
   todo:
     kind: collection
@@ -1065,56 +1310,6 @@ collections:
         updatedAt:
           type: datetime
           label: Updated At
-
-  daily:
-    title: Daily Notes
-    description: Date-based notes.
-    include: daily/**/*.md
-    template: __TEMPLATES_DIR__/daily.md
-    create:
-      directory: daily
-      filename: "{{ input.date }}.md"
-      inputs:
-        date:
-          field: date
-          type: date
-          required: true
-          default: "{{ runtime.values.currentDate }}"
-        title:
-          field: title
-          default: "{{ input.date }}"
-        summary:
-          field: summary
-          default: ""
-        createdAt:
-          field: createdAt
-          default: "{{ runtime.values.currentDateTime }}"
-    conventions:
-      titleField: title
-      summaryField: summary
-      createdAtField: createdAt
-    schema:
-      type: object
-      fields:
-        kind:
-          type: const
-          value: daily
-          required: true
-        date:
-          type: date
-          label: Date
-          required: true
-        title:
-          type: string
-          label: Title
-          required: true
-        summary:
-          type: string
-          label: Summary
-        createdAt:
-          type: datetime
-          label: Created At
-          required: true
 
   todos:
     title: Todos
@@ -1239,8 +1434,11 @@ mod tests {
 
     use serde_yml::Value;
 
-    use super::{OperationError, create_entry, init_workspace, inspect_config, list_files};
-    use crate::{ListedFileKind, OperationStatus};
+    use super::{
+        OperationError, WorkspaceFileFeature, create_entry, init_workspace, inspect_config,
+        list_file_references, list_files,
+    };
+    use crate::{OperationStatus, ReferenceIntent, WorkspaceFileKind};
 
     #[test]
     fn config_inspect_returns_effective_config_sources_and_diagnostics() {
@@ -1308,16 +1506,250 @@ mod tests {
         assert_eq!(result.status, OperationStatus::Passed);
         assert!(result.files.iter().any(|file| {
             file.path == "notes/navigation-note.md"
-                && file.kind == ListedFileKind::Entry
+                && file.name == "navigation-note.md"
+                && file.parent == "notes"
+                && file.depth == 1
+                && file.kind == WorkspaceFileKind::Knowledge
+                && file.features
+                    == vec![
+                        WorkspaceFileFeature::RenderHtml,
+                        WorkspaceFileFeature::RenderSource,
+                    ]
                 && file.collection.as_deref() == Some("notes")
                 && file.title.as_deref() == Some("Navigation Note")
+                && file
+                    .frontmatter
+                    .as_ref()
+                    .and_then(|value| value.get("title"))
+                    == Some(&Value::String("Navigation Note".to_string()))
         }));
         assert!(result.files.iter().any(|file| {
-            file.path == ".forma/views/notes.md" && file.kind == ListedFileKind::View
+            file.path == ".forma/views/notes.md"
+                && file.name == "notes.md"
+                && file.parent == ".forma/views"
+                && file.depth == 2
+                && file.kind == WorkspaceFileKind::View
+                && file.features
+                    == vec![
+                        WorkspaceFileFeature::RenderView,
+                        WorkspaceFileFeature::RenderSource,
+                    ]
         }));
         assert!(result.files.iter().any(|file| {
-            file.path == ".forma/index.summary.json" && file.kind == ListedFileKind::Index
+            file.path == ".forma/templates/note.md"
+                && file.name == "note.md"
+                && file.parent == ".forma/templates"
+                && file.depth == 2
+                && file.kind == WorkspaceFileKind::Template
+                && file.features == vec![WorkspaceFileFeature::RenderSource]
+                && file
+                    .frontmatter
+                    .as_ref()
+                    .and_then(|value| value.get("kind"))
+                    == Some(&Value::String("note".to_string()))
         }));
+        assert!(result.files.iter().any(|file| {
+            file.path == ".forma/index.summary.json"
+                && file.name == "index.summary.json"
+                && file.parent == ".forma"
+                && file.depth == 1
+                && file.kind == WorkspaceFileKind::Index
+                && file.features == vec![WorkspaceFileFeature::RenderSource]
+        }));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn files_list_returns_workspace_files_with_neutral_kinds() {
+        let root = fixture_root("workspace-file-kinds");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Workspace File Kinds", "en", Some("UTC")).unwrap();
+        create_entry(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Neutral File Model".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap();
+
+        let result = list_files(&root).unwrap();
+
+        let knowledge = result
+            .files
+            .iter()
+            .find(|file| file.path == "notes/neutral-file-model.md")
+            .unwrap();
+        assert_eq!(knowledge.kind, WorkspaceFileKind::Knowledge);
+        let knowledge_json = serde_json::to_value(knowledge).unwrap();
+        assert_eq!(knowledge_json["kind"], serde_json::json!("knowledge"));
+        assert_eq!(knowledge.collection.as_deref(), Some("notes"));
+        assert_eq!(knowledge.title.as_deref(), Some("Neutral File Model"));
+
+        let view = result
+            .files
+            .iter()
+            .find(|file| file.path == ".forma/views/notes.md")
+            .unwrap();
+        assert_eq!(view.kind, WorkspaceFileKind::View);
+
+        let template = result
+            .files
+            .iter()
+            .find(|file| file.path == ".forma/templates/note.md")
+            .unwrap();
+        assert_eq!(template.kind, WorkspaceFileKind::Template);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn files_list_reports_media_type_and_resource_preview_features() {
+        let root = fixture_root("workspace-file-media-types");
+        fs::create_dir_all(root.join("assets")).unwrap();
+        init_workspace(&root, "Media Type Test", "en", Some("UTC")).unwrap();
+        fs::write(root.join("assets/logo.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+        fs::write(root.join("assets/clip.mp3"), b"ID3").unwrap();
+        fs::write(root.join("assets/demo.mp4"), b"\0\0\0\x18ftypmp42").unwrap();
+        fs::write(root.join("assets/data.json"), br#"{"ok":true}"#).unwrap();
+
+        let result = list_files(&root).unwrap();
+
+        let logo = result
+            .files
+            .iter()
+            .find(|file| file.path == "assets/logo.png")
+            .unwrap();
+        assert_eq!(logo.kind, WorkspaceFileKind::Resource);
+        assert_eq!(logo.media_type, "image/png");
+        assert_eq!(logo.features, vec![WorkspaceFileFeature::PreviewMedia]);
+        let logo_json = serde_json::to_value(logo).unwrap();
+        assert_eq!(logo_json["kind"], serde_json::json!("resource"));
+        assert_eq!(logo_json["mediaType"], serde_json::json!("image/png"));
+        assert_eq!(logo_json["features"], serde_json::json!(["preview.media"]));
+
+        let clip = result
+            .files
+            .iter()
+            .find(|file| file.path == "assets/clip.mp3")
+            .unwrap();
+        assert_eq!(clip.media_type, "audio/mpeg");
+        assert_eq!(clip.features, vec![WorkspaceFileFeature::PreviewMedia]);
+
+        let demo = result
+            .files
+            .iter()
+            .find(|file| file.path == "assets/demo.mp4")
+            .unwrap();
+        assert_eq!(demo.media_type, "video/mp4");
+        assert_eq!(demo.features, vec![WorkspaceFileFeature::PreviewMedia]);
+
+        let data = result
+            .files
+            .iter()
+            .find(|file| file.path == "assets/data.json")
+            .unwrap();
+        assert_eq!(data.kind, WorkspaceFileKind::Resource);
+        assert_eq!(data.media_type, "application/json");
+        assert_eq!(data.features, vec![WorkspaceFileFeature::RenderSource]);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn files_list_excludes_local_only_override_files() {
+        let root = fixture_root("files-list-local-only");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Local Only Test", "en", Some("UTC")).unwrap();
+        fs::create_dir_all(root.join(".forma/overrides")).unwrap();
+        fs::write(root.join(".forma/overrides/local.yml"), "collections: {}\n").unwrap();
+
+        let result = list_files(&root).unwrap();
+
+        assert!(
+            !result
+                .files
+                .iter()
+                .any(|file| file.path == ".forma/overrides/local.yml")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn file_references_returns_outgoing_references_and_backlinks() {
+        let root = fixture_root("references-list");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "References Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/alpha.md"),
+            "---\nkind: note\ntitle: Alpha\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Alpha\n\nSee [[notes/beta|Beta]].\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/beta.md"),
+            "---\nkind: note\ntitle: Beta\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Beta\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/gamma.md"),
+            "---\nkind: note\ntitle: Gamma\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Gamma\n\nBack to [[notes/alpha]].\n",
+        )
+        .unwrap();
+
+        let result = list_file_references(&root, "notes/alpha.md").unwrap();
+
+        assert_eq!(result.operation, "file.references");
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert_eq!(result.file.path, "notes/alpha.md");
+        assert_eq!(result.file.title.as_deref(), Some("Alpha"));
+        assert_eq!(result.outgoing.len(), 1);
+        assert_eq!(result.outgoing[0].source_path, "notes/alpha.md");
+        assert_eq!(result.outgoing[0].target_path, "notes/beta.md");
+        assert_eq!(result.outgoing[0].target_title.as_deref(), Some("Beta"));
+        assert_eq!(result.outgoing[0].intent, ReferenceIntent::Link);
+        assert_eq!(result.backlinks.len(), 1);
+        assert_eq!(result.backlinks[0].source_path, "notes/gamma.md");
+        assert_eq!(result.backlinks[0].source_title.as_deref(), Some("Gamma"));
+        assert_eq!(result.backlinks[0].target_path, "notes/alpha.md");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn file_references_returns_empty_relationships_for_isolated_entries() {
+        let root = fixture_root("references-empty");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "References Empty Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/solo.md"),
+            "---\nkind: note\ntitle: Solo\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Solo\n",
+        )
+        .unwrap();
+
+        let result = list_file_references(&root, "notes/solo.md").unwrap();
+
+        assert_eq!(result.operation, "file.references");
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert!(result.outgoing.is_empty());
+        assert!(result.backlinks.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn file_references_rejects_missing_entries() {
+        let root = fixture_root("references-missing");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "References Missing Test", "en", Some("UTC")).unwrap();
+
+        assert!(matches!(
+            list_file_references(&root, "notes/missing.md"),
+            Err(OperationError::EntryNotFound)
+        ));
 
         fs::remove_dir_all(root).unwrap();
     }

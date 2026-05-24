@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -33,8 +34,10 @@ pub enum Operation {
     Create,
     #[serde(rename = "view.render")]
     ViewRender,
-    #[serde(rename = "entry.render")]
-    EntryRender,
+    #[serde(rename = "file.render")]
+    FileRender,
+    #[serde(rename = "file.references")]
+    FileReferences,
 }
 
 impl Operation {
@@ -50,7 +53,8 @@ impl Operation {
             Self::List => "list",
             Self::Create => "create",
             Self::ViewRender => "view.render",
-            Self::EntryRender => "entry.render",
+            Self::FileRender => "file.render",
+            Self::FileReferences => "file.references",
         }
     }
 }
@@ -67,7 +71,8 @@ pub enum OperationRequest {
     List(ListRequest),
     Create(CreateRequest),
     ViewRender(ViewRenderRequest),
-    EntryRender(EntryRenderRequest),
+    FileRender(FileRenderRequest),
+    FileReferences(FileReferencesRequest),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -149,10 +154,17 @@ pub struct ViewRenderRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub struct EntryRenderRequest {
+pub struct FileRenderRequest {
     pub path: String,
     #[serde(default = "default_render_format")]
     pub format: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct FileReferencesRequest {
+    pub path: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -199,14 +211,29 @@ pub enum OperationError {
     Failed,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Dispatcher;
+#[derive(Debug, Clone)]
+pub struct Dispatcher {
+    root: PathBuf,
+}
+
+impl Default for Dispatcher {
+    fn default() -> Self {
+        Self::new(".")
+    }
+}
 
 impl Dispatcher {
+    pub fn new(root: impl AsRef<Path>) -> Self {
+        Self {
+            root: root.as_ref().to_path_buf(),
+        }
+    }
+
     pub fn dispatch(&self, request: OperationRequest) -> Result<OperationResult, OperationError> {
+        let root = &self.root;
         match request {
             OperationRequest::Init(request) => forma_core::init_workspace(
-                ".",
+                root,
                 &request.name,
                 &request.language,
                 request.timezone.as_deref(),
@@ -214,29 +241,29 @@ impl Dispatcher {
             .map(OperationResult::from)
             .or_else(|error| Ok(core_error_result(Operation::Init, error))),
             OperationRequest::Check(_) => {
-                Ok(OperationResult::from(forma_core::check_workspace(".")))
+                Ok(OperationResult::from(forma_core::check_workspace(root)))
             }
             OperationRequest::ConfigInspect(request) => {
-                forma_core::inspect_config(".", request.path.as_deref())
+                forma_core::inspect_config(root, request.path.as_deref())
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::ConfigInspect, error)))
             }
-            OperationRequest::FilesList(_) => forma_core::list_files(".")
+            OperationRequest::FilesList(_) => forma_core::list_files(root)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::FilesList, error))),
             OperationRequest::IndexCheck(_) => {
-                Ok(OperationResult::from(forma_core::index_check(".")))
+                Ok(OperationResult::from(forma_core::index_check(root)))
             }
-            OperationRequest::IndexRebuild(_) => forma_core::index_rebuild(".")
+            OperationRequest::IndexRebuild(_) => forma_core::index_rebuild(root)
                 .map(OperationResult::from)
                 .map_err(|_| OperationError::Failed),
             OperationRequest::Inspect(request) => {
                 match (request.path, request.collection, request.entry) {
-                    (Some(path), None, None) => forma_core::inspect_entry_by_path(".", &path)
+                    (Some(path), None, None) => forma_core::inspect_entry_by_path(root, &path)
                         .map(OperationResult::from)
                         .or_else(|error| Ok(core_error_result(Operation::Inspect, error))),
                     (None, Some(collection), Some(entry)) => {
-                        forma_core::inspect_entry_by_collection(".", &collection, &entry)
+                        forma_core::inspect_entry_by_collection(root, &collection, &entry)
                             .map(OperationResult::from)
                             .or_else(|error| Ok(core_error_result(Operation::Inspect, error)))
                     }
@@ -244,24 +271,29 @@ impl Dispatcher {
                 }
             }
             OperationRequest::List(request) => {
-                forma_core::list_collection(".", &request.collection)
+                forma_core::list_collection(root, &request.collection)
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::List, error)))
             }
             OperationRequest::Create(request) => {
-                forma_core::create_entry(".", &request.collection, request.inputs)
+                forma_core::create_entry(root, &request.collection, request.inputs)
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::Create, error)))
             }
             OperationRequest::ViewRender(request) => {
-                forma_core::render_view(".", &request.view, request.params)
+                forma_core::render_view(root, &request.view, request.params)
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::ViewRender, error)))
             }
-            OperationRequest::EntryRender(request) => {
-                forma_core::render_entry(".", &request.path, &request.format)
+            OperationRequest::FileRender(request) => {
+                forma_core::render_file(root, &request.path, &request.format)
                     .map(OperationResult::from)
-                    .or_else(|error| Ok(core_error_result(Operation::EntryRender, error)))
+                    .or_else(|error| Ok(core_error_result(Operation::FileRender, error)))
+            }
+            OperationRequest::FileReferences(request) => {
+                forma_core::list_file_references(root, &request.path)
+                    .map(OperationResult::from)
+                    .or_else(|error| Ok(core_error_result(Operation::FileReferences, error)))
             }
         }
     }
@@ -478,8 +510,17 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
-        "entry.render" => serde_json::from_value::<EntryRenderRequest>(params)
-            .map(OperationRequest::EntryRender)
+        "file.render" => serde_json::from_value::<FileRenderRequest>(params)
+            .map(OperationRequest::FileRender)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "file.references" => serde_json::from_value::<FileReferencesRequest>(params)
+            .map(OperationRequest::FileReferences)
             .map_err(|_| {
                 JsonRpcFailure::without_id(
                     JsonRpcErrorCode::InvalidParams,
@@ -679,12 +720,31 @@ impl From<forma_core::ViewRenderResult> for OperationResult {
     }
 }
 
-impl From<forma_core::EntryRenderResult> for OperationResult {
-    fn from(result: forma_core::EntryRenderResult) -> Self {
+impl From<forma_core::FileRenderResult> for OperationResult {
+    fn from(result: forma_core::FileRenderResult) -> Self {
         let mut data = BTreeMap::new();
         data.insert("workspace".to_string(), json!(result.workspace));
-        data.insert("entry".to_string(), json!(result.entry));
+        data.insert("file".to_string(), json!(result.file));
         data.insert("render".to_string(), json!(result.render));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::FileReferencesResult> for OperationResult {
+    fn from(result: forma_core::FileReferencesResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("file".to_string(), json!(result.file));
+        data.insert("outgoing".to_string(), json!(result.outgoing));
+        data.insert("backlinks".to_string(), json!(result.backlinks));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -774,13 +834,16 @@ fn json_rpc_error(
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use serde_json::json;
 
     use super::{Dispatcher, JsonRpcErrorCode};
 
     #[test]
     fn json_rpc_rejects_parse_errors() {
-        let response = Dispatcher.handle_json_rpc(b"{");
+        let response = Dispatcher::default().handle_json_rpc(b"{");
 
         assert!(response.get("result").is_none());
         assert_eq!(response["jsonrpc"], "2.0");
@@ -794,7 +857,7 @@ mod tests {
 
     #[test]
     fn json_rpc_rejects_invalid_requests() {
-        let response = Dispatcher
+        let response = Dispatcher::default()
             .handle_json_rpc(br#"[{"jsonrpc":"2.0","id":1,"method":"check","params":{}}]"#);
 
         assert_eq!(response["id"], serde_json::Value::Null);
@@ -810,8 +873,8 @@ mod tests {
 
     #[test]
     fn json_rpc_rejects_notifications() {
-        let response =
-            Dispatcher.handle_json_rpc(br#"{"jsonrpc":"2.0","method":"check","params":{}}"#);
+        let response = Dispatcher::default()
+            .handle_json_rpc(br#"{"jsonrpc":"2.0","method":"check","params":{}}"#);
 
         assert_eq!(response["id"], serde_json::Value::Null);
         assert_eq!(
@@ -823,7 +886,8 @@ mod tests {
 
     #[test]
     fn json_rpc_rejects_missing_jsonrpc() {
-        let response = Dispatcher.handle_json_rpc(br#"{"id":"1","method":"check","params":{}}"#);
+        let response =
+            Dispatcher::default().handle_json_rpc(br#"{"id":"1","method":"check","params":{}}"#);
 
         assert_eq!(response["id"], "1");
         assert_eq!(
@@ -835,7 +899,8 @@ mod tests {
 
     #[test]
     fn json_rpc_rejects_missing_method() {
-        let response = Dispatcher.handle_json_rpc(br#"{"jsonrpc":"2.0","id":"1","params":{}}"#);
+        let response =
+            Dispatcher::default().handle_json_rpc(br#"{"jsonrpc":"2.0","id":"1","params":{}}"#);
 
         assert_eq!(response["id"], "1");
         assert_eq!(
@@ -847,7 +912,7 @@ mod tests {
 
     #[test]
     fn json_rpc_reports_method_not_found() {
-        let response = Dispatcher.handle_json_rpc(
+        let response = Dispatcher::default().handle_json_rpc(
             br#"{"jsonrpc":"2.0","id":"1","method":"missing.operation","params":{}}"#,
         );
 
@@ -861,7 +926,7 @@ mod tests {
 
     #[test]
     fn json_rpc_reports_invalid_params() {
-        let response = Dispatcher
+        let response = Dispatcher::default()
             .handle_json_rpc(br#"{"jsonrpc":"2.0","id":"1","method":"check","params":[]}"#);
 
         assert_eq!(response["id"], "1");
@@ -874,7 +939,7 @@ mod tests {
 
     #[test]
     fn json_rpc_rejects_unknown_params() {
-        let response = Dispatcher.handle_json_rpc(
+        let response = Dispatcher::default().handle_json_rpc(
             br#"{"jsonrpc":"2.0","id":"1","method":"check","params":{"unexpected":true}}"#,
         );
 
@@ -888,7 +953,7 @@ mod tests {
 
     #[test]
     fn json_rpc_dispatches_successfully() {
-        let response = Dispatcher
+        let response = Dispatcher::default()
             .handle_json_rpc(br#"{"jsonrpc":"2.0","id":"1","method":"check","params":{}}"#);
 
         assert!(response.get("error").is_none());
@@ -901,6 +966,99 @@ mod tests {
             response["result"]["summary"],
             json!({"errors":1,"warnings":0,"infos":0})
         );
+    }
+
+    #[test]
+    fn json_rpc_rejects_legacy_file_methods() {
+        let root = fixture_root("legacy-file-methods");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "Legacy File Methods", "en", Some("UTC")).unwrap();
+
+        for method in ["entry.render", "references.list"] {
+            let body = format!(
+                r#"{{"jsonrpc":"2.0","id":"1","method":"{method}","params":{{"path":"notes/source.md"}}}}"#
+            );
+            let response = Dispatcher::new(&root).handle_json_rpc(body.as_bytes());
+
+            assert_eq!(response["id"], "1");
+            assert_eq!(
+                response["error"]["code"],
+                JsonRpcErrorCode::MethodNotFound as i64
+            );
+            assert_eq!(response["error"]["data"]["code"], "method.notFound");
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_dispatches_file_render() {
+        let root = fixture_root("file-render-rpc");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "File Render RPC", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
+        )
+        .unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"file.render","params":{"path":"notes/source.md","format":"html"}}"#,
+        );
+        assert_eq!(response["result"]["operation"], "file.render");
+        assert_eq!(response["result"]["file"]["path"], "notes/source.md");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_dispatches_file_references() {
+        let root = fixture_root("file-references-rpc");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "File References RPC", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
+        )
+        .unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"file.references","params":{"path":"notes/source.md"}}"#,
+        );
+        assert_eq!(response["result"]["operation"], "file.references");
+        assert_eq!(response["result"]["file"]["path"], "notes/source.md");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_file_render_invalid_format_reports_neutral_input_diagnostic() {
+        let root = fixture_root("file-render-invalid-format");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "File Render Invalid Format", "en", Some("UTC")).unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"file.render","params":{"path":"notes/missing.md","format":"pdf"}}"#,
+        );
+
+        assert_eq!(response["result"]["operation"], "file.render");
+        assert_eq!(
+            response["result"]["diagnostics"][0]["code"],
+            "operation.inputInvalid"
+        );
+        assert_eq!(
+            response["result"]["diagnostics"][0]["message"],
+            "Operation input is invalid."
+        );
+        assert_ne!(
+            response["result"]["diagnostics"][0]["code"],
+            "create.inputInvalid"
+        );
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -946,8 +1104,24 @@ mod tests {
             "view.render"
         );
         assert_eq!(
-            serde_json::to_value(super::Operation::EntryRender).unwrap(),
-            "entry.render"
+            serde_json::to_value(super::Operation::FileRender).unwrap(),
+            "file.render"
         );
+        assert_eq!(
+            serde_json::to_value(super::Operation::FileReferences).unwrap(),
+            "file.references"
+        );
+    }
+
+    fn fixture_root(name: &str) -> std::path::PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("forma-rpc-{name}-{unique}"))
+    }
+
+    fn handle_json_rpc(root: &std::path::Path, body: &[u8]) -> serde_json::Value {
+        Dispatcher::new(root).handle_json_rpc(body)
     }
 }

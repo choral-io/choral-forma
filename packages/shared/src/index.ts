@@ -70,12 +70,35 @@ export type ListedCollection = {
   entryCount: number;
 };
 
-export type ListedFile = {
+export type WorkspaceFileKind =
+  | "knowledge"
+  | "view"
+  | "template"
+  | "markdown"
+  | "config"
+  | "index"
+  | "resource";
+
+export type WorkspaceFileFeature =
+  | "render.html"
+  | "render.source"
+  | "render.view"
+  | "preview.media";
+
+export type WorkspaceFile = {
   path: string;
-  kind: "entry" | "view" | "markdown" | "config" | "index";
+  name: string;
+  parent: string;
+  depth: number;
+  kind: WorkspaceFileKind;
+  mediaType: string;
+  features: WorkspaceFileFeature[];
   collection?: string;
   title?: string;
+  frontmatter?: Record<string, unknown>;
 };
+
+export type ListedFile = WorkspaceFile;
 
 export type InspectEntry = {
   path: string;
@@ -97,17 +120,38 @@ export type IndexReference = {
   intent: "reference" | "link" | "embed";
 };
 
-export type RenderedEntry = {
+export type RenderedFile = {
+  path: string;
+  collection?: string;
+  kind?: string;
+  title?: string;
+};
+
+export type FileRenderOutput = {
+  format: string;
+  html?: string;
+  source?: string;
+  refs: IndexReference[];
+};
+
+export type ReferenceFile = {
   path: string;
   collection: string;
   kind?: string;
   title?: string;
 };
 
-export type EntryRenderOutput = {
-  format: string;
-  html: string;
-  refs: IndexReference[];
+export type ReferenceEdge = {
+  sourcePath: string;
+  sourceTitle?: string;
+  sourceKind?: string;
+  targetPath: string;
+  targetTitle?: string;
+  targetKind?: string;
+  source: "frontmatter" | "body";
+  field?: string;
+  semanticType?: string;
+  intent: "reference" | "link" | "embed";
 };
 
 export type RenderedView = {
@@ -175,7 +219,7 @@ export type ConfigInspectResult = BaseOperationResult & {
 export type FilesListResult = BaseOperationResult & {
   operation: "files.list";
   workspace: WorkspaceSummary;
-  files: ListedFile[];
+  files: WorkspaceFile[];
 };
 
 export type ListResult = BaseOperationResult & {
@@ -191,11 +235,19 @@ export type InspectResult = BaseOperationResult & {
   entry: InspectEntry;
 };
 
-export type EntryRenderResult = BaseOperationResult & {
-  operation: "entry.render";
+export type FileRenderResult = BaseOperationResult & {
+  operation: "file.render";
   workspace: WorkspaceSummary;
-  entry: RenderedEntry;
-  render: EntryRenderOutput;
+  file: RenderedFile;
+  render: FileRenderOutput;
+};
+
+export type FileReferencesResult = BaseOperationResult & {
+  operation: "file.references";
+  workspace: WorkspaceSummary;
+  file: ReferenceFile;
+  outgoing: ReferenceEdge[];
+  backlinks: ReferenceEdge[];
 };
 
 export type ViewRenderResult = BaseOperationResult & {
@@ -313,8 +365,12 @@ export class FormaRpcClient {
     return this.call<InspectResult>("inspect", { path });
   }
 
-  renderEntry(path: string) {
-    return this.call<EntryRenderResult>("entry.render", { path, format: "html" });
+  renderFile(path: string, format: "html" | "source" = "html") {
+    return this.call<FileRenderResult>("file.render", { path, format });
+  }
+
+  listFileReferences(path: string) {
+    return this.call<FileReferencesResult>("file.references", { path });
   }
 
   renderView(view: string) {
