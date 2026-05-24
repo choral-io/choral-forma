@@ -14,7 +14,7 @@ tags:
     - forma
     - p1
     - navigation
-    - search
+    - references
 
 effort: M
 readiness: needs-refinement
@@ -26,15 +26,15 @@ related_to:
     - "[[tasks/implement-check-index-diagnostics]]"
 
 reported_by:
-affected_area: Search and reference navigation
+affected_area: Reference navigation
 ---
 
-# Implement Search And Reference Navigation Baseline
+# Implement Reference Navigation Baseline
 
 ## Goal
 
-Add the first useful search and reference-navigation baseline for browsing a
-Forma workspace.
+Add the first useful reference-navigation baseline for browsing a Forma
+workspace as a read-only bidirectional note application.
 
 ## Sources
 
@@ -45,43 +45,39 @@ Forma workspace.
 
 ## Context
 
-The product direction identifies search, quick navigation, backlinks, and
-broken-link diagnostics as core reading and maintenance affordances. The P0
+The product direction identifies backlinks, outgoing links, graph navigation,
+and broken-link diagnostics as core reading and maintenance affordances. The P0
 read-only WebApp already has browsing, rendering, inspection, diagnostics, and
-file navigation surfaces, but it does not yet provide a focused search or
-reference navigation workflow.
+file navigation surfaces, but it does not yet provide a real reference
+navigation workflow.
 
-This task should stay smaller than a full search/query system. The baseline is
-an index-backed reading aid for the WebApp: users can quickly find known entries
-and inspect the reference neighborhood of the active document. It should not
-introduce a full-text engine, graph rendering, persisted diagnostic data, or
-write-capable navigation actions.
+This task should stay smaller than a full note-app UI pass. The baseline is an
+index-backed reading aid for the current validation WebApp: users can inspect
+the reference neighborhood of the active document and navigate to related
+entries. It should not introduce a full-text engine, graph rendering, persisted
+diagnostic data, or write-capable navigation actions.
 
 ## In Scope
 
-- Add a lightweight `search.entries` operation for indexed entry search.
-    - Search candidates come from the summary index, not raw Markdown body text.
-    - Match against path, title, summary, collection, and kind.
-    - Return workspace-relative POSIX paths, display titles, snippets or match
-      fields when cheaply available, and stable empty states.
-    - Keep CLI exposure optional; the P1 requirement is RPC/WebApp support.
-- Add a lightweight reference-navigation operation for one entry, such as
-  `references.list`.
+- Add a lightweight `file.references` operation for one entry.
     - Use the summary index to return outgoing references for the entry and
       backlinks from other indexed entries.
-    - Include source path, source title when available, target path, intent,
-      source kind, field, and semantic type when available.
+    - Include source path, source title when available, target path, target
+      title when available, intent, source kind, field, and semantic type when
+      available.
     - Report unresolved or stale index conditions as diagnostics, not persisted
       diagnostic files.
-- Add WebApp affordances for quick entry search and opening results in tabs.
+- Add shared TypeScript result types and client support for `file.references`.
 - Replace placeholder relationship UI with real outgoing/backlink data when the
   operation can resolve it.
+- Let users open referenced entries from the validation WebApp.
 - Add focused tests for any changed operation or shared TypeScript contract.
 - Update durable product or architecture knowledge when behavior is finalized.
 
 ## Out Of Scope
 
 - Full-text search engine integration.
+- Quick switcher or title/path search.
 - Fuzzy search tuning beyond a simple baseline.
 - Vector search.
 - Interactive graph rendering.
@@ -91,17 +87,15 @@ write-capable navigation actions.
 
 ## Acceptance Criteria
 
-- Users can search indexed entries from the read-only WebApp by title or path
-  and open a selected result.
-- Empty queries, no-result searches, stale index data, and invalid parameters
-  produce clear empty states or diagnostics rather than panics.
 - Users can view outgoing references and backlinks for the active entry when
   reference data is available in the summary index.
 - Reference navigation results distinguish `reference`, `link`, and `embed`
   intents when the index provides that data.
 - Any new operation result uses workspace-relative POSIX paths only.
-- Focused Rust tests cover search matching, empty/no-result behavior, outgoing
-  references, and backlinks.
+- Missing entries, entries with no references, stale index data, and invalid
+  parameters produce clear empty states or diagnostics rather than panics.
+- Focused Rust tests cover outgoing references, backlinks, empty results, and
+  invalid entry paths.
 - Shared TypeScript types and WebApp behavior are covered by focused type/build
   checks.
 - Durable architecture or product docs describe any new RPC operation names and
@@ -110,17 +104,18 @@ write-capable navigation actions.
 ## Relationship Notes
 
 This task follows the read-only WebApp and check/index diagnostics work. It may
-need to be split if the selected baseline requires new index data and a larger
-WebApp interaction pass.
+need to be split if the selected baseline requires new index data.
 
 It should stay separate from `[[tasks/implement-interactive-graph-view-render]]`.
 Graph can reuse the same reference-index data later, but graph rendering is a
-view-mode task rather than a bottom-panel relationship navigation task.
+view-mode task rather than a bottom-panel relationship navigation task. Search
+and quick switching are later efficiency features, not prerequisites for the
+read-only bidirectional note loop.
 
 ## Open Questions
 
-- Exact RPC names and result field names can be finalized during
-  implementation, but the operation should remain read-only and index-backed.
+- Exact result field names can be finalized during implementation, but the
+  operation should remain read-only and index-backed.
 - If the current summary index lacks display data needed for usable backlinks,
   prefer adding small deterministic index fields over scanning full Markdown
   bodies in the WebApp.

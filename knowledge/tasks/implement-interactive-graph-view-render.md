@@ -20,7 +20,8 @@ effort: M
 readiness: needs-refinement
 sprint:
 
-blocked_by: []
+blocked_by:
+    - "[[tasks/implement-reference-navigation-baseline]]"
 related_to:
     - "[[tasks/align-view-source-query-model]]"
     - "[[tasks/implement-view-entry-render]]"
@@ -34,8 +35,8 @@ affected_area: Graph views
 
 ## Goal
 
-Implement an interactive graph view rendering path for workspace and filtered
-view data.
+Implement graph view data and a minimal validation render for workspace and
+filtered view data.
 
 ## Sources
 
@@ -48,16 +49,22 @@ view data.
 ## Context
 
 The accepted view query model treats graph as a view mode rather than a global
-special feature. P0 already discovers and indexes graph views, but interactive
-graph rendering is explicitly not guaranteed by the current scope. A graph
-view should use normal view navigation, tabs, or links, and should remain a
-query over workspace files instead of a separate product subsystem.
+special feature. P0 already discovers and indexes graph views, but graph
+rendering is explicitly not guaranteed by the current scope. A graph view
+should use normal view navigation, tabs, or links, and should remain a query
+over workspace files instead of a separate product subsystem.
+
+The current WebApp is a validation shell and is expected to be rebuilt in a
+later UI phase. This task should prioritize the graph data contract and minimal
+function verification over polished graph UI.
 
 ## In Scope
 
-- Define the graph render result shape for view rendering.
-- Render graph view data from existing workspace source/query semantics.
-- Add a WebApp graph view surface or placeholder that can navigate graph nodes.
+- Define the graph render result shape for `view.render`.
+- Render graph nodes and edges from existing workspace source/query semantics
+  and resolved index reference data.
+- Add a minimal WebApp graph surface or graph-ready data surface that can
+  validate node navigation.
 - Preserve graph as a normal view mode.
 - Add tests for graph render data and invalid graph-view definitions.
 - Update architecture or product knowledge if the graph render contract
@@ -65,27 +72,29 @@ query over workspace files instead of a separate product subsystem.
 
 ## Out Of Scope
 
-- Advanced graph layout tuning.
+- Advanced graph layout tuning or visual polish.
 - Large-workspace graph performance optimization.
 - Global graph outside the view system.
-- Reference-aware query targets beyond the accepted P0 model.
+- Reference-aware query targets beyond the accepted view source/query model.
 - Editable graph interactions.
 
 ## Acceptance Criteria
 
 - A configured graph view can be opened through normal WebApp navigation.
 - Graph render output contains enough node and edge data for the WebApp to
-  display a meaningful graph or graph-ready data surface.
+  display a meaningful minimal graph or graph-ready data surface.
 - Graph view source/query behavior follows the existing view source query
   model.
+- Graph edges are derived from resolved index references rather than ad hoc
+  Markdown scanning in the WebApp.
 - Invalid graph definitions produce diagnostics rather than panics.
 - Focused Rust and Web checks pass for changed behavior.
 
 ## Relationship Notes
 
-This task builds on completed view query, view render, and WebApp work. It can
-remain Backlog until the team decides graph rendering is the next best use of
-WebApp effort.
+This task builds on completed view query, view render, WebApp work, and the
+reference navigation baseline. It can remain Backlog until reference navigation
+is available.
 
 ## Open Questions
 

@@ -10,8 +10,11 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Backlog
 
-- [ ] [[tasks/implement-search-reference-navigation-baseline|Implement Search And Reference Navigation Baseline]]
+- [ ] [[tasks/implement-reference-navigation-baseline|Implement Reference Navigation Baseline]]
 - [ ] [[tasks/implement-interactive-graph-view-render|Implement Interactive Graph View Render]]
+- [ ] [[tasks/expose-read-only-knowledge-health-in-webapp|Expose Read-only Knowledge Health In WebApp]]
+- [ ] [[tasks/implement-workspace-resource-routes|Implement Workspace Resource Routes]]
+- [ ] [[tasks/implement-quick-switcher-search|Implement Quick Switcher Search]]
 - [ ] [[tasks/design-metadata-edit-deprecate-operations|Design Metadata Edit And Deprecate Operations]]
 - [ ] [[tasks/design-reviewable-knowledge-change-proposals|Design Reviewable Knowledge Change Proposals]]
 
@@ -20,6 +23,8 @@ Rules: `.workflow/rules/delivery.md`
 ## Doing
 
 ## Reviewing
+
+- [ ] [[tasks/fix-mvp-validation-cli-issues|Fix MVP Validation CLI Issues]]
 
 ## Blocked
 
