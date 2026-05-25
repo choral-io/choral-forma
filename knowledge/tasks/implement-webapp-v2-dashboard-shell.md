@@ -101,3 +101,19 @@ RPC can be reconnected later.
 This task replaces the earlier narrower GUI foundation refactor path. The old
 P0 validation shell remains recoverable from git history and should be used only
 as behavioral reference, not as the V2 component structure.
+
+## Validation Notes
+
+- Implemented `packages/webapp` as a WebApp-local Tailwind CSS, shadcn/ui, and
+  Base UI dashboard shell with deterministic fake workspace data.
+- Kept `packages/shared` contract-only on its existing `tsdown` build.
+- Used `@base-ui/react` rather than the retired `@base-ui-components/react`
+  package.
+- Verified the local Vite preview through the in-app browser at
+  `http://127.0.0.1:5174/`; the dashboard rendered and browser console error
+  logs were empty.
+- Fresh validation:
+    - `pnpm --filter @choral-forma/webapp check`
+    - `pnpm --filter @choral-forma/webapp build`
+    - `pnpm --filter @choral-forma/shared check`
+    - `pnpm --filter @choral-forma/shared build`

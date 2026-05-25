@@ -21,11 +21,15 @@
   "scripts": {
     "build": "pnpm --recursive --if-present build",
     "check": "pnpm --recursive --if-present check",
-    "format:knowledge": "prettier --write \"knowledge/**/*.{md,mdx}\" --no-error-on-unmatched-pattern --log-level warn",
-    "check:knowledge": "prettier --check \"knowledge/**/*.{md,mdx}\" --no-error-on-unmatched-pattern --log-level warn"
+    "format:knowledge": "prettier --write \"knowledge/**/*.{md,mdx}\" --no-error-on-unmatched-pattern --cache --cache-location node_modules/.tmp/prettier-knowledge --log-level warn",
+    "check:knowledge": "prettier --check \"knowledge/**/*.{md,mdx}\" --no-error-on-unmatched-pattern --cache --cache-location node_modules/.tmp/prettier-knowledge --log-level warn"
   },
   "devDependencies": {
+    "eslint": "~10.4.0",
     "prettier": "~3.8.3",
+    "prettier-plugin-organize-imports": "~4.3.0",
+    "prettier-plugin-tailwindcss": "~0.8.0",
+    "tslib": "~2.8.1",
     "typescript": "~6.0.3"
   }
 }

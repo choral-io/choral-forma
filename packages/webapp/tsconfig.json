@@ -15,6 +15,7 @@
     "jsx": "react-jsx",
     "types": ["vite/client"],
     "paths": {
+      "@/*": ["./src/*"],
       "@choral-forma/shared": ["../shared/src/index.ts"]
     },
 
