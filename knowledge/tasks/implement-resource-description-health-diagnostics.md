@@ -95,6 +95,21 @@ This task follows the raw route/resource inventory baseline. The
 
 It can feed the read-only knowledge health WebApp task.
 
+## Validation Notes
+
+- Implemented `resource.description.missingTarget` in core workspace discovery.
+- Added focused Rust coverage for present-resource and missing-resource
+  description documents.
+- Updated check/index and operation API architecture docs for the new diagnostic
+  contract.
+- Validation passed on 2026-05-25:
+    - `cargo test -p forma-core resource_description_documents_report_missing_targets`
+    - `cargo test -p forma-core`
+    - `cargo test -p forma-rpc`
+    - `mise run check:knowledge`
+    - `mise run check:rust`
+    - `git diff --check`
+
 ## Open Questions
 
 -

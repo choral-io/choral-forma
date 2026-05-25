@@ -317,6 +317,7 @@ P0 diagnostic code families:
 - `schema.*`
 - `entry.*`
 - `ref.*`
+- `resource.*`
 - `view.*`
 - `template.*`
 - `create.*`
@@ -335,6 +336,7 @@ example:
 - `ref.unresolved`
 - `ref.ambiguous`
 - `ref.case-mismatch`
+- `resource.description.missingTarget`
 - `view.invalid`
 - `index.missing`
 - `index.stale`
@@ -343,6 +345,11 @@ example:
 
 Codes are public Script, Agent, and GUI contract. Rename a code only with an
 explicit compatibility decision.
+
+`resource.description.missingTarget` reports a Markdown resource description
+document such as `assets/logo.png.md` whose filename-derived target resource
+such as `assets/logo.png` is missing. The diagnostic path is the description
+document path and the expected value is the missing target path.
 
 ### Location Rules
 

@@ -246,6 +246,7 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
     views.sort_by(|left, right| {
         (left.path.as_str(), left.id.as_str()).cmp(&(right.path.as_str(), right.id.as_str()))
     });
+    diagnostics.extend(resource_description_diagnostics(&root));
     index_entries.sort_by(|left, right| left.path.cmp(&right.path));
 
     Ok(Discovery {
@@ -508,6 +509,41 @@ fn discover_views(
     }
 
     views
+}
+
+fn resource_description_diagnostics(root: &Path) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for path in collect_markdown_files(root) {
+        let Some(description_path) = workspace_relative_path(root, &path) else {
+            continue;
+        };
+        let Some(target_path) = resource_description_target(&description_path) else {
+            continue;
+        };
+        if !root.join(&target_path).is_file() {
+            diagnostics.push(
+                Diagnostic::error(
+                    "resource.description.missingTarget",
+                    "Resource description target is missing.",
+                )
+                .with_path(description_path)
+                .with_location(DiagnosticLocation::File)
+                .with_expected(target_path),
+            );
+        }
+    }
+    diagnostics
+}
+
+fn resource_description_target(path: &str) -> Option<String> {
+    let target = path.strip_suffix(".md")?;
+    media_type_for_resource_target(target)?;
+    Some(target.to_string())
+}
+
+fn media_type_for_resource_target(path: &str) -> Option<&'static str> {
+    let media_type = crate::operations::media_type_for_workspace_path(path)?;
+    (media_type != "text/markdown").then_some(media_type)
 }
 
 fn collect_view_files(dir: &Path, files: &mut Vec<PathBuf>) {
@@ -1308,6 +1344,37 @@ mod tests {
             result.diagnostics[0].path.as_deref(),
             Some(FORMA_COLLECTIONS_PATH)
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn resource_description_documents_report_missing_targets() {
+        let root = fixture_root("resource-description-health");
+        write_workspace(&root);
+        fs::create_dir_all(root.join("assets")).unwrap();
+        fs::write(root.join("assets/logo.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+        write_entry(&root, "assets/logo.png.md", "---\ntitle: Logo\n---\n");
+        write_entry(&root, "assets/missing.png.md", "---\ntitle: Missing\n---\n");
+
+        let discovery = discover_workspace(&root).unwrap();
+
+        assert!(discovery.index.entries.iter().all(|entry| {
+            entry.path != "assets/logo.png" && entry.path != "assets/logo.png.md"
+        }));
+        assert!(
+            discovery
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.path.as_deref() != Some("assets/logo.png.md"))
+        );
+        let missing = discovery
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "resource.description.missingTarget")
+            .expect("missing resource target should produce a diagnostic");
+        assert_eq!(missing.path.as_deref(), Some("assets/missing.png.md"));
+        assert_eq!(missing.location, Some(DiagnosticLocation::File));
+        assert_eq!(missing.expected.as_deref(), Some("assets/missing.png"));
         fs::remove_dir_all(root).unwrap();
     }
 

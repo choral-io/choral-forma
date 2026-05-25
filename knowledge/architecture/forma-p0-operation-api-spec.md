@@ -271,6 +271,7 @@ Examples of diagnostics-as-result:
 - Invalid collection membership.
 - Invalid frontmatter against a collection schema.
 - Unresolved or ambiguous references.
+- Missing resource targets for Markdown resource description documents.
 - Unknown configuration fields that leave the workspace inspectable.
 - Missing or stale `.forma/index.summary.json`.
 - Invalid views, missing fields, invalid params, or overlapping kanban columns.
