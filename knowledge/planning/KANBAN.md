@@ -22,12 +22,11 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Reviewing
 
-- [ ] [[tasks/implement-resource-description-health-diagnostics|Implement Resource Description Health Diagnostics]]
-
 ## Blocked
 
 ## Done
 
+- [ ] [[tasks/implement-resource-description-health-diagnostics|Implement Resource Description Health Diagnostics]]
 - [ ] [[tasks/run-p0-release-validation-and-cutline-check|Run P0 Release Validation And Cutline Check]]
 - [ ] [[tasks/audit-p0-release-scope-and-roadmap|Audit P0 Release Scope And Roadmap]]
 - [ ] [[tasks/implement-workspace-resource-routes|Implement Workspace Resource Routes]]
