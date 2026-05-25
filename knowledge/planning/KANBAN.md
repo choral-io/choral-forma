@@ -12,7 +12,6 @@ Rules: `.workflow/rules/delivery.md`
 
 - [ ] [[tasks/implement-interactive-graph-view-render|Implement Interactive Graph View Render]]
 - [ ] [[tasks/expose-read-only-knowledge-health-in-webapp|Expose Read-only Knowledge Health In WebApp]]
-- [ ] [[tasks/implement-resource-description-health-diagnostics|Implement Resource Description Health Diagnostics]]
 - [ ] [[tasks/implement-quick-switcher-search|Implement Quick Switcher Search]]
 - [ ] [[tasks/design-metadata-edit-deprecate-operations|Design Metadata Edit And Deprecate Operations]]
 - [ ] [[tasks/design-reviewable-knowledge-change-proposals|Design Reviewable Knowledge Change Proposals]]
@@ -22,6 +21,8 @@ Rules: `.workflow/rules/delivery.md`
 ## Doing
 
 ## Reviewing
+
+- [ ] [[tasks/implement-resource-description-health-diagnostics|Implement Resource Description Health Diagnostics]]
 
 ## Blocked
 
