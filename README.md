@@ -16,7 +16,7 @@ workflow rules should not be treated as automatic product requirements.
 
 ## Current Status
 
-This repository is in its initial P0 implementation phase. It contains:
+This repository is in P0 internal-test stabilization. It contains:
 
 - A repository-backed knowledge base under `knowledge/`.
 - Workflow schemas for product, concepts, decisions, planning, tasks, members,
@@ -29,9 +29,9 @@ This repository is in its initial P0 implementation phase. It contains:
 - Project tool versions declared through `package.json` and
   `rust-toolchain.toml`, with mise tasks for knowledge, Rust, and web checks.
 
-The current application code implements the early P0 read, inspect, check,
-index, render, serve, and read-only WebApp surfaces. It is still not a
-production release.
+The current application code implements the P0 read, inspect, check, index,
+render, serve, create, resource-preview, reference-navigation, and read-only
+WebApp surfaces. It is an internal-test candidate, not a production release.
 
 ## Repository Layout
 
@@ -40,11 +40,15 @@ production release.
 - `knowledge/concepts/`: reusable vocabulary and domain concepts.
 - `knowledge/planning/`: Kanban board and planning workflow.
 - `knowledge/tasks/`: task workflow and task item templates.
-- `crates/forma-core/`: Rust core engine placeholder.
-- `crates/forma-rpc/`: Rust operation/RPC placeholder.
-- `crates/forma-cli/`: Rust `forma` binary placeholder.
-- `packages/shared/`: shared TypeScript package placeholder.
-- `packages/webapp/`: Vite React WebApp placeholder.
+- `crates/forma-core/`: Rust core engine for config, schema, parsing, indexing,
+  diagnostics, rendering, create flows, and workspace file operations.
+- `crates/forma-rpc/`: shared operation dispatcher and minimal JSON-RPC 2.0
+  adapter model.
+- `crates/forma-cli/`: Rust `forma` binary, CLI handlers, local HTTP server, and
+  embedded WebApp asset serving.
+- `packages/shared/`: shared TypeScript RPC client and operation result types.
+- `packages/webapp/`: Vite React read-only WebApp for browsing configured Forma
+  workspaces.
 - `.agents/skills/`: project-local Agent workflow skills.
 - `.agents/.local/`: local-only Agent runtime state, ignored by git.
 - `AGENTS.md`: repository instructions for AI agents.

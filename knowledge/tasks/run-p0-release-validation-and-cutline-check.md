@@ -107,13 +107,15 @@ move of [[tasks/audit-p0-release-scope-and-roadmap]] to Done.
 Candidate cutline:
 
 - Branch: `main`
-- Commit: `3c6989bd6fadc26ea11cb72603cf5f0dc450c48f`
-- Initial status: `## main...origin/main [ahead 10]`
+- Commit: `bb996c1ee18a3d54af6f97e51e9e426e1cef3df7`
+- Initial status: `## main...origin/main [ahead 5]`
+- Tags at HEAD: none.
 
 Validation matrix:
 
 - `mise run check:knowledge`: passed.
-- `mise run check:rust`: passed.
+- `mise run check:rust`: passed; rebuilt WebApp assets first, then ran Rust
+  formatting and workspace checks.
 - `mise run test:rust`: passed; workspace tests passed across `forma-cli`,
   `forma-core`, and `forma-rpc`.
 - `mise run check:web`: passed.
@@ -122,9 +124,9 @@ Validation matrix:
 
 Starter workspace smoke test:
 
-- Temporary workspace: `/private/tmp/forma-p0-smoke.gOBUFB`
-- `forma init --name "P0 Smoke" --language en --timezone Asia/Shanghai -y`:
-  passed.
+- Temporary workspace: `/private/tmp/forma-p0-cutline.fQS1M5`
+- `forma init` with name `P0 Cutline`, language `en`, timezone
+  `Asia/Shanghai`, `-y`, and `--json`: passed.
 - `forma config inspect --json`: passed.
 - `forma create notes --input title=Alpha --input summary=Smoke --json`: passed
   with expected `index.stale` warning after writing the entry.
@@ -142,21 +144,21 @@ Starter workspace smoke test:
 Artifact check:
 
 - `git status --short --branch` after validation reported
-  `## main...origin/main [ahead 10]`.
+  `## main...origin/main [ahead 5]`.
 - `git diff --stat HEAD` after validation was empty before recording these
   notes.
-- Smoke-test artifacts stayed under `/private/tmp/forma-p0-smoke.gOBUFB`; no
+- Smoke-test artifacts stayed under `/private/tmp/forma-p0-cutline.fQS1M5`; no
   generated starter files were left in the shared repository.
 
 Release decision:
 
-- The local P0 cutline is validated for release publishing as a separate
-  approved action.
+- The local P0 cutline is validated for internal-test release publishing as a
+  separate approved action.
 - Publishing is not yet source-stable because `main` is still ahead of
-  `origin/main`. Before publishing, select the remote release target and push or
-  otherwise synchronize the validated commits.
+  `origin/main` and HEAD has no release tag.
+- Recommended publication target: push current `main`, then publish
+  `v0.1.0-alpha.4` from the pushed HEAD.
 
 ## Open Questions
 
-- Which remote branch or tag should be treated as the release publication
-  target after local validation passes?
+- None.
