@@ -6,6 +6,21 @@
         <title>Choral Forma</title>
     </head>
     <body>
+        <script>
+            (() => {
+                const storageKey = "choral-forma-theme";
+                const storedMode = window.localStorage.getItem(storageKey);
+                const mode =
+                    storedMode === "light" || storedMode === "dark" || storedMode === "system" ? storedMode : "system";
+                const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+                document.documentElement.classList.toggle(
+                    "dark",
+                    mode === "dark" || (mode === "system" && prefersDark),
+                );
+                document.documentElement.dataset.theme = mode;
+            })();
+        </script>
         <div id="root"></div>
         <script type="module" src="/src/main.tsx"></script>
     </body>

@@ -11,6 +11,7 @@ import type {
     WorkspaceHealth,
 } from "@/data/workspace-client";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
+import { ThemeModeMenu } from "@/features/theme/ThemeModeMenu";
 
 export function DashboardHome({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
@@ -29,6 +30,7 @@ export function DashboardHome({ dashboard }: { dashboard: WorkspaceDashboard }) 
                         <GitPullRequestDraft data-icon="inline-start" />
                         New proposal
                     </Button>
+                    <ThemeModeMenu />
                 </div>
             </header>
             <div className="grid flex-1 grid-cols-1 gap-6 overflow-auto p-4 lg:p-8 xl:grid-cols-[minmax(0,1fr)_22rem]">

@@ -5,6 +5,7 @@ import { mockWorkspaceClient } from "@/data/mock-workspace-client";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { DashboardHome } from "@/features/dashboard/DashboardHome";
 import { WorkspaceSidebar } from "@/features/workspace/WorkspaceSidebar";
+import { ThemeProvider } from "./ThemeProvider";
 
 export function App() {
     const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null);
@@ -60,9 +61,11 @@ export function App() {
     }
 
     return (
-        <div className="bg-background text-foreground flex min-h-screen flex-col lg:flex-row">
-            <WorkspaceSidebar dashboard={dashboard} />
-            <DashboardHome dashboard={dashboard} />
-        </div>
+        <ThemeProvider>
+            <div className="bg-background text-foreground flex min-h-screen flex-col lg:flex-row">
+                <WorkspaceSidebar dashboard={dashboard} />
+                <DashboardHome dashboard={dashboard} />
+            </div>
+        </ThemeProvider>
     );
 }
