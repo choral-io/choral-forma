@@ -60,7 +60,7 @@ export function App() {
     }
 
     return (
-        <div className="app-shell bg-background text-foreground flex">
+        <div className="bg-background text-foreground flex min-h-screen flex-col lg:flex-row">
             <WorkspaceSidebar dashboard={dashboard} />
             <DashboardHome dashboard={dashboard} />
         </div>

@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
 minimumReleaseAge: 4320
+savePrefix: "~"
 allowBuilds:
   esbuild: true
   msw: false

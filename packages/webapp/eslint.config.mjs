@@ -3,6 +3,7 @@ import globals from "globals";
 
 import react from "@eslint-react/eslint-plugin";
 import js from "@eslint/js";
+import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import prettierRecommended from "eslint-plugin-prettier/recommended";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
@@ -12,7 +13,14 @@ export default defineConfig(
     { ignores: ["dist", "node_modules", "*.config.mjs"] },
     {
         settings: {
+            "better-tailwindcss": {
+                cwd: import.meta.dirname,
+                entryPoint: "src/styles/globals.css",
+            },
             "react-x": { version: "detect" },
+        },
+        plugins: {
+            "better-tailwindcss": betterTailwindcss,
         },
         extends: [
             js.configs.recommended,
@@ -44,6 +52,12 @@ export default defineConfig(
                 },
             ],
             "prettier/prettier": ["error", { endOfLine: "auto" }],
+            "better-tailwindcss/enforce-canonical-classes": "error",
+            "better-tailwindcss/no-conflicting-classes": "error",
+            "better-tailwindcss/no-deprecated-classes": "error",
+            "better-tailwindcss/no-duplicate-classes": "error",
+            "better-tailwindcss/no-unknown-classes": "error",
+            "better-tailwindcss/no-unnecessary-whitespace": "error",
         },
     },
     {

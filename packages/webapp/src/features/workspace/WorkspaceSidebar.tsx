@@ -21,7 +21,7 @@ interface WorkspaceSidebarProps {
 
 export function WorkspaceSidebar({ dashboard }: WorkspaceSidebarProps) {
     return (
-        <aside className="border-border bg-card/85 flex h-screen w-72 shrink-0 flex-col border-r">
+        <aside className="border-border bg-card/85 flex w-full shrink-0 flex-col border-b lg:h-screen lg:w-72 lg:border-r lg:border-b-0">
             <div className="flex items-center gap-3 p-4">
                 <div className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-lg text-lg font-semibold">
                     F
@@ -37,7 +37,7 @@ export function WorkspaceSidebar({ dashboard }: WorkspaceSidebarProps) {
                     Quick open
                 </Button>
             </div>
-            <ScrollArea className="mt-4 flex-1 px-3">
+            <ScrollArea className="mt-4 max-h-128 flex-1 px-3 lg:max-h-none">
                 <nav className="flex flex-col gap-1">
                     <SidebarItem active icon={LayoutDashboard} label="Dashboard" />
                     <SidebarItem icon={LibraryBig} label="Collections" />
@@ -55,7 +55,7 @@ export function WorkspaceSidebar({ dashboard }: WorkspaceSidebarProps) {
                     <div className="flex flex-col gap-1">
                         {dashboard.collections.map((collection) => (
                             <button
-                                className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between rounded-md px-2 py-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                                className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between rounded-md p-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
                                 key={collection.id}
                                 type="button"
                             >
@@ -89,7 +89,7 @@ function SidebarItem({
 }) {
     return (
         <button
-            className={`focus-visible:ring-ring flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none ${active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            className={`focus-visible:ring-ring flex items-center gap-2 rounded-md p-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none ${active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
             type="button"
         >
             <Icon data-icon="inline-start" />

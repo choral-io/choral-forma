@@ -15,12 +15,12 @@ import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
 export function DashboardHome({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
         <main className="flex min-w-0 flex-1 flex-col">
-            <header className="border-border bg-background/80 flex items-center justify-between border-b px-8 py-4 backdrop-blur">
+            <header className="border-border bg-background/80 flex flex-col gap-4 border-b p-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between lg:px-8">
                 <div>
                     <p className="text-muted-foreground text-sm">Choral Forma</p>
                     <h1 className="text-2xl font-semibold tracking-normal">{dashboard.workspaceName}</h1>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                     <Button variant="outline">
                         <Search data-icon="inline-start" />
                         Search
@@ -31,7 +31,7 @@ export function DashboardHome({ dashboard }: { dashboard: WorkspaceDashboard }) 
                     </Button>
                 </div>
             </header>
-            <div className="grid flex-1 grid-cols-[minmax(0,1fr)_22rem] gap-6 overflow-auto p-8">
+            <div className="grid flex-1 grid-cols-1 gap-6 overflow-auto p-4 lg:p-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
                 <section className="flex min-w-0 flex-col gap-6">
                     <Hero dashboard={dashboard} />
                     <Tabs defaultValue="collections">
@@ -41,7 +41,7 @@ export function DashboardHome({ dashboard }: { dashboard: WorkspaceDashboard }) 
                             <TabsTrigger value="views">Views</TabsTrigger>
                         </TabsList>
                         <TabsContent value="collections">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 {dashboard.collections.map((collection) => (
                                     <CollectionCard collection={collection} key={collection.id} />
                                 ))}
@@ -55,7 +55,7 @@ export function DashboardHome({ dashboard }: { dashboard: WorkspaceDashboard }) 
                             </div>
                         </TabsContent>
                         <TabsContent value="views">
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                 {dashboard.views.map((view) => (
                                     <Card key={view.id}>
                                         <CardHeader>
@@ -102,15 +102,15 @@ export function DashboardHome({ dashboard }: { dashboard: WorkspaceDashboard }) 
 function Hero({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
         <section className="border-border bg-card rounded-lg border p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="max-w-2xl">
                     <Badge variant={healthVariant(dashboard.status)}>{dashboard.status}</Badge>
                     <h2 className="mt-4 text-3xl font-semibold tracking-normal">
                         A read-oriented workspace dashboard for repository knowledge.
                     </h2>
-                    <p className="text-muted-foreground mt-3 text-sm leading-6">{dashboard.tagline}</p>
+                    <p className="text-muted-foreground mt-3 text-sm/6">{dashboard.tagline}</p>
                 </div>
-                <div className="grid w-72 grid-cols-2 gap-3">
+                <div className="grid w-full grid-cols-2 gap-3 sm:w-72">
                     <Metric icon={FileText} label="Documents" value={dashboard.recentDocuments.length} />
                     <Metric icon={ShieldCheck} label="Findings" value={dashboard.diagnostics.length} />
                     <Metric icon={Network} label="Views" value={dashboard.views.length} />
@@ -162,5 +162,5 @@ function DocumentRow({ document }: { document: DashboardDocument }) {
 }
 
 function healthVariant(status: WorkspaceHealth) {
-    return status === "healthy" ? "success" : status === "warning" ? "warning" : "destructive";
+    return status === "failed" ? "destructive" : status === "warning" ? "secondary" : "default";
 }

@@ -29,7 +29,7 @@ export function DiagnosticsPanel({ diagnostics }: { diagnostics: DashboardDiagno
                                 <Badge
                                     variant={
                                         diagnostic.severity === "warning"
-                                            ? "warning"
+                                            ? "secondary"
                                             : diagnostic.severity === "error"
                                               ? "destructive"
                                               : "secondary"
@@ -39,7 +39,7 @@ export function DiagnosticsPanel({ diagnostics }: { diagnostics: DashboardDiagno
                                 </Badge>
                                 <span className="text-muted-foreground text-xs">{diagnostic.severity}</span>
                             </div>
-                            <p className="mt-2 text-sm leading-6">{diagnostic.message}</p>
+                            <p className="mt-2 text-sm/6">{diagnostic.message}</p>
                             {diagnostic.path && (
                                 <code className="text-muted-foreground mt-2 block truncate text-xs">
                                     {diagnostic.path}

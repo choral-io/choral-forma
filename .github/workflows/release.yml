@@ -21,7 +21,7 @@ permissions:
   contents: write
 
 env:
-  PNPM_VERSION: 11.2.2
+  PNPM_VERSION: 11.3.0
 
 jobs:
   build:
