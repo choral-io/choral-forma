@@ -1,17 +1,17 @@
 [settings]
 idiomatic_version_file_enable_tools = ["node", "pnpm", "rust"]
 
-[tasks."check:knowledge"]
-description = "Check knowledge Markdown files with Prettier"
-run = "pnpm check:knowledge"
+[tasks."check:pnpm"]
+description = "Check non-Rust files with pnpm-managed tools"
+run = "pnpm check && pnpm lint"
 
-[tasks."format:knowledge"]
-description = "Format knowledge Markdown files with Prettier"
-run = "pnpm format:knowledge"
+[tasks."format:pnpm"]
+description = "Format non-Rust files with pnpm-managed tools"
+run = "pnpm format"
 
 [tasks."check:rust"]
 description = "Check Rust workspace"
-depends = ["build:web"]
+depends = ["build:pnpm"]
 run = "cargo fmt --all -- --check && cargo check --workspace"
 
 [tasks."format:rust"]
@@ -20,17 +20,13 @@ run = "cargo fmt --all"
 
 [tasks."test:rust"]
 description = "Test Rust workspace"
-depends = ["build:web"]
+depends = ["build:pnpm"]
 run = "cargo test --workspace"
 
-[tasks."check:web"]
-description = "Typecheck web workspace"
-run = "pnpm check"
-
-[tasks."build:web"]
-description = "Build web workspace"
+[tasks."build:pnpm"]
+description = "Build pnpm workspace"
 run = "pnpm build"
 
 [tasks.check]
 description = "Run all project checks"
-depends = ["check:knowledge", "check:rust", "test:rust", "check:web", "build:web"]
+depends = ["check:pnpm", "check:rust", "test:rust", "build:pnpm"]

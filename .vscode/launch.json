@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Chrome (WebApp)",
+      "request": "launch",
+      "type": "chrome",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/packages/webapp/src",
+      "userDataDir": "${workspaceFolder}/.local/chrome-dev-profile",
+      "skipFiles": ["**/node_modules/**"]
+    },
+    {
+      "name": "Launch MSEdge (WebApp)",
+      "request": "launch",
+      "type": "msedge",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/packages/webapp/src",
+      "userDataDir": "${workspaceFolder}/.local/msedge-dev-profile",
+      "skipFiles": ["**/node_modules/**"]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+[
+  {
+    "label": "Launch Chrome (WebApp)",
+    "adapter": "JavaScript",
+    "request": "launch",
+    "type": "chrome",
+    "url": "http://localhost:5173",
+    "webRoot": "$ZED_WORKTREE_ROOT/packages/webapp/src",
+    "userDataDir": "$ZED_WORKTREE_ROOT/.local/chrome-dev-profile",
+    "console": "integratedTerminal",
+    "skipFiles": ["**/node_modules/**"]
+  },
+  {
+    "label": "Launch MSEdge (WebApp)",
+    "adapter": "JavaScript",
+    "request": "launch",
+    "type": "msedge",
+    "url": "http://localhost:5173",
+    "webRoot": "$ZED_WORKTREE_ROOT/packages/webapp/src",
+    "userDataDir": "$ZED_WORKTREE_ROOT/.local/msedge-dev-profile",
+    "console": "integratedTerminal",
+    "skipFiles": ["**/node_modules/**"]
+  }
+]

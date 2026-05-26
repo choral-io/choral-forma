@@ -1,4 +1,17 @@
 {
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/.svn",
+    "**/.hg",
+    "**/.jj",
+    "**/CVS",
+    "**/.DS_Store",
+    "**/Thumbs.db",
+    "**/.local/",
+    "**/node_modules/",
+    "target/",
+    "packages/*/dist/"
+  ],
   "formatter": {
     "external": {
       "command": "pnpm",
@@ -6,5 +19,38 @@
     }
   },
   "format_on_save": "on",
-  "ensure_final_newline_on_save": true
+  "ensure_final_newline_on_save": true,
+  "languages": {
+    "Rust": {
+      "formatter": "language_server"
+    }
+  },
+  "lsp": {
+    "vscode-css-language-server": {
+      "settings": {
+        "css": {
+          "lint": {
+            "unknownAtRules": "ignore"
+          }
+        }
+      }
+    },
+    "vtsls": {
+      "settings": {
+        "typescript": {
+          "tsdk": "node_modules/typescript/lib"
+        }
+      }
+    },
+    "eslint": {
+      "settings": {
+        "onIgnoredFiles": "off"
+      }
+    },
+    "rust-analyzer": {
+      "initialization_options": {
+        "linkedProjects": ["Cargo.toml"]
+      }
+    }
+  }
 }

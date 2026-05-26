@@ -1,7 +1,18 @@
+.git/
 .worktrees/
 
-.agents/.local/
 .agents/skills/
+.claude/skills/
 
+knowledge/.obsidian/
 knowledge/.workflow/
 knowledge/.feedback/
+
+target/
+crates/**/*.rs
+Cargo.lock
+
+node_modules/
+pnpm-lock.yaml
+packages/*/dist/
+packages/*/node_modules/

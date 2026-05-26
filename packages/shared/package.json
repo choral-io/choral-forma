@@ -10,11 +10,11 @@
     }
   },
   "scripts": {
+    "lint": "eslint . --cache --cache-location node_modules/.tmp/.eslintcache",
     "build": "tsdown src/index.ts --format esm --dts --clean --out-dir dist",
     "check": "tsc --noEmit"
   },
   "devDependencies": {
-    "tsdown": "~0.22.0",
-    "typescript": "~6.0.3"
+    "tsdown": "~0.22.0"
   }
 }

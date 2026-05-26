@@ -67,16 +67,16 @@ Mise is a convenience path, not a hard requirement. The project version sources
 are `package.json` for Node.js and pnpm, and `rust-toolchain.toml` plus
 `Cargo.toml` for Rust.
 
-Check Markdown formatting:
+Check non-Rust files:
 
 ```sh
-mise run check:knowledge
+mise run check:pnpm
 ```
 
-Format Markdown:
+Format non-Rust files:
 
 ```sh
-mise run format:knowledge
+mise run format:pnpm
 ```
 
 Install JavaScript dependencies:
@@ -92,11 +92,10 @@ mise run check:rust
 mise run test:rust
 ```
 
-Run web checks and build:
+Build the pnpm workspace:
 
 ```sh
-mise run check:web
-mise run build:web
+mise run build:pnpm
 ```
 
 Run all checks:

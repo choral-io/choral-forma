@@ -27,12 +27,11 @@ Use mise for project tools and tasks:
 ```sh
 mise install
 pnpm install
-mise run check:knowledge
-mise run format:knowledge
+mise run check:pnpm
+mise run format:pnpm
 mise run check:rust
 mise run test:rust
-mise run check:web
-mise run build:web
+mise run build:pnpm
 mise run check
 ```
 
@@ -73,7 +72,7 @@ Core boundaries:
 
 Project-specific rules may specialize workflow behavior, but they must not weaken runtime, safety, ownership, privacy, local-only, approval, or review rules.
 
-- Use `mise run format:knowledge` for knowledge Markdown formatting and `mise run check:knowledge` for check-only validation.
+- Use `mise run format:pnpm` for pnpm-managed formatting and `mise run check:pnpm` for check-only validation of non-Rust files.
 - Keep `knowledge/` Foam-compatible and Obsidian-readable, but do not make project knowledge depend on Foam-only or Obsidian-plugin-only syntax for project facts.
 
 <!-- knowledge-workflow:end -->

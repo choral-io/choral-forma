@@ -1,3 +1,11 @@
 {
-  "recommendations": ["foam.foam-vscode", "esbenp.prettier-vscode", "editorconfig.editorconfig"]
+  "recommendations": [
+    "foam.foam-vscode",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "editorconfig.editorconfig",
+    "bradlc.vscode-tailwindcss",
+    "rust-lang.rust-analyzer",
+    "vadimcn.vscode-lldb"
+  ]
 }
