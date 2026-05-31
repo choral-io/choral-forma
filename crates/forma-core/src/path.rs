@@ -11,7 +11,7 @@ macro_rules! forma_path {
 }
 
 pub const FORMA_DIR: &str = forma_path!("");
-pub const FORMA_COLLECTIONS_PATH: &str = forma_path!("/collections.yml");
+pub const FORMA_SPACES_PATH: &str = forma_path!("/spaces.yml");
 pub const FORMA_GITIGNORE_PATH: &str = forma_path!("/.gitignore");
 pub const FORMA_INDEX_SUMMARY_PATH: &str = forma_path!("/index.summary.json");
 pub const FORMA_LOCAL_OVERRIDES_PATH: &str = forma_path!("/overrides/local.yml");

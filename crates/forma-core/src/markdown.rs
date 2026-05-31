@@ -9,6 +9,7 @@ pub struct FormaMarkdownDocument {
     pub frontmatter: ParsedFrontmatter,
     pub body: String,
     pub references: Vec<FormaReference>,
+    pub headings: Vec<FormaHeading>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -36,6 +37,15 @@ pub struct FormaReference {
     pub target: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub span: Option<SourceSpan>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FormaHeading {
+    pub level: u8,
+    pub text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub span: Option<SourceSpan>,
 }
@@ -107,9 +117,10 @@ pub fn parse_markdown(source: &str) -> FormaMarkdownDocument {
 
     let body = split.body.to_string();
     let mut references = scan_forma_references(&body);
+    let mut headings = Vec::new();
 
     match to_mdast(&body, &ParseOptions::gfm()) {
-        Ok(ast) => collect_markdown_links(&ast, &mut references),
+        Ok(ast) => collect_markdown_structure(&ast, &mut references, &mut headings),
         Err(error) => diagnostics.push(
             Diagnostic::error(
                 "markdown.body.parseFailed",
@@ -137,6 +148,7 @@ pub fn parse_markdown(source: &str) -> FormaMarkdownDocument {
         },
         body,
         references,
+        headings,
         diagnostics,
     }
 }
@@ -192,7 +204,11 @@ fn frontmatter_opening_end(source: &str) -> Option<usize> {
     }
 }
 
-fn collect_markdown_links(node: &mdast::Node, references: &mut Vec<FormaReference>) {
+fn collect_markdown_structure(
+    node: &mdast::Node,
+    references: &mut Vec<FormaReference>,
+    headings: &mut Vec<FormaHeading>,
+) {
     if let mdast::Node::Link(link) = node {
         references.push(FormaReference {
             intent: FormaReferenceIntent::Link,
@@ -207,9 +223,25 @@ fn collect_markdown_links(node: &mdast::Node, references: &mut Vec<FormaReferenc
         });
     }
 
+    if let mdast::Node::Heading(heading) = node
+        && (2..=3).contains(&heading.depth)
+    {
+        let text = plain_text(&heading.children);
+        if !text.trim().is_empty() {
+            headings.push(FormaHeading {
+                level: heading.depth,
+                text,
+                span: heading
+                    .position
+                    .as_ref()
+                    .map(SourceSpan::from_markdown_position),
+            });
+        }
+    }
+
     if let Some(children) = node.children() {
         for child in children {
-            collect_markdown_links(child, references);
+            collect_markdown_structure(child, references, headings);
         }
     }
 }
@@ -391,6 +423,22 @@ mod tests {
         assert_eq!(link.target, "notes/docs.md");
         assert_eq!(link.label.as_deref(), Some("docs"));
         assert_eq!(link.span.unwrap().start_line, 2);
+    }
+
+    #[test]
+    fn parses_markdown_links_after_wikilinks_in_same_paragraph() {
+        let document = FormaMarkdownDocument::parse(
+            "See [[notes/target|Target]], [[notes/other|Other\nTarget]], and [external](https://example.com/guide/).\n",
+        );
+
+        assert!(document.diagnostics.is_empty());
+        assert!(
+            document
+                .references
+                .iter()
+                .any(|reference| reference.target == "https://example.com/guide/"
+                    && reference.label.as_deref() == Some("external"))
+        );
     }
 
     #[test]

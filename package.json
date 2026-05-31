@@ -1,18 +1,11 @@
 {
   "name": "choral-forma",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": ">=11.3.0",
-      "onFail": "error"
-    },
-    "runtime": {
-      "name": "node",
-      "version": ">=24.11.0 <25",
-      "onFail": "error"
-    }
+  "packageManager": "pnpm@11.5.0",
+  "engines": {
+    "node": ">=24.11.0 <25"
   },
   "repository": {
     "type": "git",
@@ -21,6 +14,7 @@
   "scripts": {
     "lint": "pnpm --recursive --if-present lint",
     "build": "pnpm --recursive --if-present build",
+    "test": "vitest run",
     "check": "pnpm --recursive --if-present check && prettier --check . --cache",
     "format": "prettier --write . --cache"
   },
@@ -32,8 +26,8 @@
     "prettier": "~3.8.3",
     "prettier-plugin-organize-imports": "~4.3.0",
     "prettier-plugin-tailwindcss": "~0.8.0",
-    "tslib": "~2.8.1",
     "typescript": "~6.0.3",
-    "typescript-eslint": "~8.59.4"
+    "typescript-eslint": "~8.59.4",
+    "vitest": "~4.1.7"
   }
 }

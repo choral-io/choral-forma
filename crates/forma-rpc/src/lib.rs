@@ -22,6 +22,8 @@ pub enum Operation {
     ConfigInspect,
     #[serde(rename = "files.list")]
     FilesList,
+    #[serde(rename = "workspace.dashboard")]
+    WorkspaceDashboard,
     #[serde(rename = "index.check")]
     IndexCheck,
     #[serde(rename = "index.rebuild")]
@@ -47,6 +49,7 @@ impl Operation {
             Self::Check => "check",
             Self::ConfigInspect => "config.inspect",
             Self::FilesList => "files.list",
+            Self::WorkspaceDashboard => "workspace.dashboard",
             Self::IndexCheck => "index.check",
             Self::IndexRebuild => "index.rebuild",
             Self::Inspect => "inspect",
@@ -65,6 +68,7 @@ pub enum OperationRequest {
     Check(CheckRequest),
     ConfigInspect(ConfigInspectRequest),
     FilesList(FilesListRequest),
+    WorkspaceDashboard(WorkspaceDashboardRequest),
     IndexCheck(IndexCheckRequest),
     IndexRebuild(IndexRebuildRequest),
     Inspect(InspectRequest),
@@ -114,6 +118,11 @@ pub struct ConfigInspectRequest {
 #[serde(rename_all = "camelCase")]
 pub struct FilesListRequest {}
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceDashboardRequest {}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
@@ -121,7 +130,7 @@ pub struct InspectRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub collection: Option<String>,
+    pub space: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entry: Option<String>,
 }
@@ -130,14 +139,14 @@ pub struct InspectRequest {
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct ListRequest {
-    pub collection: String,
+    pub space: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateRequest {
-    pub collection: String,
+    pub space: String,
     #[serde(default)]
     pub inputs: BTreeMap<String, serde_yml::Value>,
 }
@@ -251,6 +260,9 @@ impl Dispatcher {
             OperationRequest::FilesList(_) => forma_core::list_files(root)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::FilesList, error))),
+            OperationRequest::WorkspaceDashboard(_) => forma_core::workspace_dashboard(root)
+                .map(OperationResult::from)
+                .or_else(|error| Ok(core_error_result(Operation::WorkspaceDashboard, error))),
             OperationRequest::IndexCheck(_) => {
                 Ok(OperationResult::from(forma_core::index_check(root)))
             }
@@ -258,25 +270,23 @@ impl Dispatcher {
                 .map(OperationResult::from)
                 .map_err(|_| OperationError::Failed),
             OperationRequest::Inspect(request) => {
-                match (request.path, request.collection, request.entry) {
+                match (request.path, request.space, request.entry) {
                     (Some(path), None, None) => forma_core::inspect_entry_by_path(root, &path)
                         .map(OperationResult::from)
                         .or_else(|error| Ok(core_error_result(Operation::Inspect, error))),
-                    (None, Some(collection), Some(entry)) => {
-                        forma_core::inspect_entry_by_collection(root, &collection, &entry)
+                    (None, Some(space), Some(entry)) => {
+                        forma_core::inspect_entry_by_space(root, &space, &entry)
                             .map(OperationResult::from)
                             .or_else(|error| Ok(core_error_result(Operation::Inspect, error)))
                     }
                     _ => Err(OperationError::InvalidParams),
                 }
             }
-            OperationRequest::List(request) => {
-                forma_core::list_collection(root, &request.collection)
-                    .map(OperationResult::from)
-                    .or_else(|error| Ok(core_error_result(Operation::List, error)))
-            }
+            OperationRequest::List(request) => forma_core::list_space(root, &request.space)
+                .map(OperationResult::from)
+                .or_else(|error| Ok(core_error_result(Operation::List, error))),
             OperationRequest::Create(request) => {
-                forma_core::create_entry(root, &request.collection, request.inputs)
+                forma_core::create_entry(root, &request.space, request.inputs)
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::Create, error)))
             }
@@ -556,6 +566,15 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "workspace.dashboard" => serde_json::from_value::<WorkspaceDashboardRequest>(params)
+            .map(OperationRequest::WorkspaceDashboard)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         _ => Err(JsonRpcFailure::without_id(
             JsonRpcErrorCode::MethodNotFound,
             "Method not found.",
@@ -649,7 +668,7 @@ impl From<forma_core::ListResult> for OperationResult {
     fn from(result: forma_core::ListResult) -> Self {
         let mut data = BTreeMap::new();
         data.insert("workspace".to_string(), json!(result.workspace));
-        data.insert("collection".to_string(), json!(result.collection));
+        data.insert("space".to_string(), json!(result.space));
         data.insert("entries".to_string(), json!(result.entries));
         Self {
             schema_version: result.schema_version,
@@ -686,6 +705,25 @@ impl From<forma_core::FilesListResult> for OperationResult {
         let mut data = BTreeMap::new();
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("files".to_string(), json!(result.files));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::WorkspaceDashboardResult> for OperationResult {
+    fn from(result: forma_core::WorkspaceDashboardResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("spaces".to_string(), json!(result.spaces));
+        data.insert("documents".to_string(), json!(result.documents));
+        data.insert("views".to_string(), json!(result.views));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1034,6 +1072,44 @@ mod tests {
     }
 
     #[test]
+    fn json_rpc_dispatches_workspace_dashboard() {
+        let root = fixture_root("workspace-dashboard-rpc");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "Workspace Dashboard RPC", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: Dashboard source\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
+        )
+        .unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"workspace.dashboard","params":{}}"#,
+        );
+
+        assert_eq!(response["result"]["operation"], "workspace.dashboard");
+        assert_eq!(
+            response["result"]["workspace"]["name"],
+            "Workspace Dashboard RPC"
+        );
+        assert!(response["result"]["spaces"].as_array().unwrap().len() >= 3);
+        assert_eq!(
+            response["result"]["documents"][0]["path"],
+            "notes/source.md"
+        );
+        assert!(response["result"]["views"].as_array().unwrap().len() >= 3);
+        assert!(
+            response["result"]["views"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|view| view["kind"] == "table")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn json_rpc_file_render_invalid_format_reports_neutral_input_diagnostic() {
         let root = fixture_root("file-render-invalid-format");
         fs::create_dir_all(&root).unwrap();
@@ -1078,6 +1154,10 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::Operation::FilesList).unwrap(),
             "files.list"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::WorkspaceDashboard).unwrap(),
+            "workspace.dashboard"
         );
         assert_eq!(
             serde_json::to_value(super::Operation::IndexCheck).unwrap(),

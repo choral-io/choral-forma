@@ -111,7 +111,7 @@ fn init_create_list_inspect_and_index_check_use_operation_json() {
     assert!(String::from_utf8_lossy(&stale.stdout).contains(r#""code":"index.stale""#));
 
     let list = forma(&root)
-        .args(["list", "--collection", "todos", "--json"])
+        .args(["list", "--space", "todos", "--json"])
         .output()
         .expect("forma list should run");
 
@@ -125,13 +125,7 @@ fn init_create_list_inspect_and_index_check_use_operation_json() {
     assert!(list_stdout.contains(r#""path":"todos/user-registration.md""#));
 
     let inspect = forma(&root)
-        .args([
-            "inspect",
-            "--collection",
-            "todos",
-            "user-registration",
-            "--json",
-        ])
+        .args(["inspect", "--space", "todos", "user-registration", "--json"])
         .output()
         .expect("forma inspect should run");
 
@@ -219,7 +213,7 @@ fn global_workspace_option_selects_operation_root() {
             "--workspace",
             workspace.to_str().unwrap(),
             "list",
-            "--collection",
+            "--space",
             "notes",
             "--json",
         ])

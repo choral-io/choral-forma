@@ -10,17 +10,17 @@ use crate::config::{ConfigError, LoadMode, SemanticType, WorkspaceConfig, load_w
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
 use crate::path::{
-    FORMA_COLLECTIONS_PATH, FORMA_DIR, FORMA_INDEX_SUMMARY_PATH, FORMA_VIEWS_DIR, WorkspacePath,
+    FORMA_DIR, FORMA_INDEX_SUMMARY_PATH, FORMA_SPACES_PATH, FORMA_VIEWS_DIR, WorkspacePath,
     slugify_path_segment,
 };
-use crate::schema::{SchemaNode, parse_collection_schema, validate_schema_value};
+use crate::schema::{SchemaNode, parse_space_schema, validate_schema_value};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SummaryIndex {
     pub schema_version: u16,
     pub workspace: IndexWorkspace,
-    pub collections: Vec<IndexCollection>,
+    pub spaces: Vec<IndexSpace>,
     pub views: Vec<IndexView>,
     pub entries: Vec<IndexEntry>,
 }
@@ -35,7 +35,7 @@ pub struct IndexWorkspace {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct IndexCollection {
+pub struct IndexSpace {
     pub id: String,
     pub title: String,
     pub include: String,
@@ -50,7 +50,7 @@ pub struct IndexView {
     pub surface: String,
     pub mode: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub collection: Option<String>,
+    pub space: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<IndexViewSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -71,7 +71,7 @@ pub struct IndexViewSource {
 #[serde(rename_all = "camelCase")]
 pub struct IndexEntry {
     pub path: String,
-    pub collection: String,
+    pub space: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -89,6 +89,8 @@ pub struct IndexReference {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,
     pub target_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub semantic_type: Option<String>,
     pub intent: ReferenceIntent,
@@ -139,7 +141,7 @@ pub struct Discovery {
 #[derive(Debug, Clone)]
 struct CandidateEntry {
     path: String,
-    collection: String,
+    space: String,
     document: FormaMarkdownDocument,
 }
 
@@ -147,14 +149,14 @@ struct CandidateEntry {
 struct PathIndex {
     all_paths: BTreeSet<String>,
     by_basename: BTreeMap<String, Vec<String>>,
-    by_collection: BTreeMap<String, BTreeSet<String>>,
+    by_space: BTreeMap<String, BTreeSet<String>>,
 }
 
 #[derive(Debug, Clone)]
 struct RefField {
     field: String,
     semantic_type: String,
-    collection: String,
+    space: String,
     transform: Option<String>,
     many: bool,
 }
@@ -171,8 +173,8 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
 
     for entry in &mut entries {
         let mut refs = Vec::new();
-        let collection = &config.collections[&entry.collection];
-        if let Ok(schema) = parse_collection_schema(collection) {
+        let space = &config.spaces[&entry.space];
+        if let Ok(schema) = parse_space_schema(space) {
             let frontmatter_value = entry
                 .document
                 .frontmatter
@@ -200,47 +202,29 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
             &path_index,
             &mut diagnostics,
         ));
-        refs.sort_by(|left, right| {
-            (
-                left.intent,
-                left.target_path.as_str(),
-                left.source,
-                left.field.as_deref().unwrap_or(""),
-            )
-                .cmp(&(
-                    right.intent,
-                    right.target_path.as_str(),
-                    right.source,
-                    right.field.as_deref().unwrap_or(""),
-                ))
-        });
 
         let frontmatter_value = entry.document.frontmatter.value.as_ref();
         index_entries.push(IndexEntry {
             path: entry.path.clone(),
-            collection: entry.collection.clone(),
+            space: entry.space.clone(),
             kind: scalar_field(frontmatter_value, "kind"),
-            title: title_for_entry(frontmatter_value, collection),
-            summary: summary_for_entry(frontmatter_value, collection),
+            title: title_for_entry(frontmatter_value, space),
+            summary: summary_for_entry(frontmatter_value, space),
             refs,
         });
     }
 
-    let mut collections = config
-        .collections
+    let mut spaces = config
+        .spaces
         .iter()
-        .map(|(id, collection)| IndexCollection {
+        .map(|(id, space)| IndexSpace {
             id: id.clone(),
-            title: collection.title.clone(),
-            include: collection.include.clone(),
-            entry_count: path_index
-                .by_collection
-                .get(id)
-                .map(BTreeSet::len)
-                .unwrap_or(0),
+            title: space.title.clone(),
+            include: space.include.clone(),
+            entry_count: path_index.by_space.get(id).map(BTreeSet::len).unwrap_or(0),
         })
         .collect::<Vec<_>>();
-    collections.sort_by(|left, right| left.id.cmp(&right.id));
+    spaces.sort_by(|left, right| left.id.cmp(&right.id));
 
     let mut views = discover_views(&root, &config, &mut diagnostics);
     views.sort_by(|left, right| {
@@ -257,7 +241,7 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
                 canonical_language: config.workspace.canonical_language,
                 supported_languages: config.workspace.supported_languages,
             },
-            collections,
+            spaces,
             views,
             entries: index_entries,
         },
@@ -330,7 +314,7 @@ fn discover_entries(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<CandidateEntry> {
     let markdown_files = collect_markdown_files(root);
-    let matchers = build_collection_matchers(config, diagnostics);
+    let matchers = build_space_matchers(config, diagnostics);
     let mut entries = Vec::new();
 
     for path in markdown_files {
@@ -348,8 +332,8 @@ fn discover_entries(
         if matched.len() > 1 {
             diagnostics.push(
                 Diagnostic::error(
-                    "collection.membership.ambiguous",
-                    "Entry matches multiple collections.",
+                    "space.membership.ambiguous",
+                    "Entry matches multiple spaces.",
                 )
                 .with_path(relative),
             );
@@ -368,7 +352,7 @@ fn discover_entries(
                 );
                 entries.push(CandidateEntry {
                     path: relative,
-                    collection: matched[0].clone(),
+                    space: matched[0].clone(),
                     document,
                 });
             }
@@ -384,25 +368,25 @@ fn discover_entries(
     entries
 }
 
-fn build_collection_matchers(
+fn build_space_matchers(
     config: &WorkspaceConfig,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<(String, GlobSet)> {
     let mut matchers = Vec::new();
-    for (collection_id, collection) in &config.collections {
+    for (space_id, space) in &config.spaces {
         let mut builder = GlobSetBuilder::new();
-        match Glob::new(&collection.include) {
+        match Glob::new(&space.include) {
             Ok(glob) => {
                 builder.add(glob);
                 if let Ok(set) = builder.build() {
-                    matchers.push((collection_id.clone(), set));
+                    matchers.push((space_id.clone(), set));
                 }
             }
             Err(error) => diagnostics.push(
-                Diagnostic::error("config.globInvalid", "Collection include glob is invalid.")
-                    .with_path(FORMA_COLLECTIONS_PATH)
+                Diagnostic::error("config.globInvalid", "Space include glob is invalid.")
+                    .with_path(FORMA_SPACES_PATH)
                     .with_location(DiagnosticLocation::Config {
-                        field: format!("collections.{collection_id}.include"),
+                        field: format!("spaces.{space_id}.include"),
                     })
                     .with_actual(error.to_string()),
             ),
@@ -479,18 +463,18 @@ fn discover_views(
         let surface =
             required_string(&value, "view.surface").or_else(|| required_string(&value, "surface"));
         let mode = required_string(&value, "view.mode").or_else(|| required_string(&value, "mode"));
-        let collection = required_string(&value, "view.collection")
-            .or_else(|| required_string(&value, "collection"));
+        let space =
+            required_string(&value, "view.space").or_else(|| required_string(&value, "space"));
         let source = parse_view_source(&value);
         let title =
             optional_string(&value, "view.title").or_else(|| optional_string(&value, "title"));
-        let valid_collection = collection
+        let valid_space = space
             .as_ref()
-            .is_none_or(|collection| config.collections.contains_key(collection));
+            .is_none_or(|space| config.spaces.contains_key(space));
         let valid_source = source
             .as_ref()
             .is_none_or(|source| source.kind == "workspace");
-        if surface.is_none() || mode.is_none() || !valid_collection || !valid_source {
+        if surface.is_none() || mode.is_none() || !valid_space || !valid_source {
             diagnostics.push(
                 Diagnostic::error("view.invalid", "View definition is invalid.")
                     .with_path(relative.clone()),
@@ -502,7 +486,7 @@ fn discover_views(
             path: relative,
             surface: surface.unwrap(),
             mode: mode.unwrap(),
-            collection,
+            space,
             source,
             title,
         });
@@ -589,11 +573,11 @@ fn collect_ref_fields_inner(
             collect_ref_fields_inner(config, items, field_path, true, fields)
         }
         SchemaNode::Ref { target, .. } => {
-            if let Some(SemanticType::Collection { collection, input }) = config.types.get(target) {
+            if let Some(SemanticType::Space { space, input }) = config.types.get(target) {
                 fields.push(RefField {
                     field: field_path.to_string(),
                     semantic_type: target.clone(),
-                    collection: collection.clone(),
+                    space: space.clone(),
                     transform: input.transform.clone(),
                     many,
                 });
@@ -681,11 +665,12 @@ fn resolve_frontmatter_ref_value(
             }
         }
     }
-    match path_index.resolve(&target, Some(&field.collection)) {
+    match path_index.resolve(&target, Some(&field.space)) {
         ResolveResult::Resolved(target_path) => refs.push(IndexReference {
             source: ReferenceSource::Frontmatter,
             field: Some(field.field.clone()),
             target_path,
+            target_title: None,
             semantic_type: Some(field.semantic_type.clone()),
             intent: ReferenceIntent::Reference,
         }),
@@ -720,7 +705,7 @@ fn resolve_body_refs(
     let mut refs = Vec::new();
     for reference in &document.references {
         if matches!(reference.intent, FormaReferenceIntent::View)
-            || is_external_target(&reference.target)
+            || reference.target.starts_with('#')
         {
             continue;
         }
@@ -729,11 +714,23 @@ fn resolve_body_refs(
             FormaReferenceIntent::Embed => ReferenceIntent::Embed,
             FormaReferenceIntent::View => continue,
         };
+        if is_external_target(&reference.target) {
+            refs.push(IndexReference {
+                source: ReferenceSource::Body,
+                field: None,
+                target_path: reference.target.clone(),
+                target_title: non_empty_string(reference.label.clone()),
+                semantic_type: None,
+                intent,
+            });
+            continue;
+        }
         match path_index.resolve(&reference.target, None) {
             ResolveResult::Resolved(target_path) => refs.push(IndexReference {
                 source: ReferenceSource::Body,
                 field: None,
                 target_path,
+                target_title: non_empty_string(reference.label.clone()),
                 semantic_type: None,
                 intent,
             }),
@@ -786,7 +783,7 @@ impl PathIndex {
     fn from_entries(entries: &[CandidateEntry]) -> Self {
         let mut all_paths = BTreeSet::new();
         let mut by_basename: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        let mut by_collection: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        let mut by_space: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
         for entry in entries {
             all_paths.insert(entry.path.clone());
@@ -795,8 +792,8 @@ impl PathIndex {
                 .entry(basename)
                 .or_default()
                 .push(entry.path.clone());
-            by_collection
-                .entry(entry.collection.clone())
+            by_space
+                .entry(entry.space.clone())
                 .or_default()
                 .insert(entry.path.clone());
         }
@@ -804,15 +801,15 @@ impl PathIndex {
         Self {
             all_paths,
             by_basename,
-            by_collection,
+            by_space,
         }
     }
 
-    fn resolve(&self, raw_target: &str, collection: Option<&str>) -> ResolveResult {
+    fn resolve(&self, raw_target: &str, space: Option<&str>) -> ResolveResult {
         let target = strip_reference_markup(raw_target);
         let candidates = candidate_paths(&target);
         for candidate in candidates {
-            if self.path_allowed(&candidate, collection) {
+            if self.path_allowed(&candidate, space) {
                 return ResolveResult::Resolved(candidate);
             }
         }
@@ -826,7 +823,7 @@ impl PathIndex {
             .get(&target)
             .into_iter()
             .flatten()
-            .filter(|path| self.path_allowed(path, collection))
+            .filter(|path| self.path_allowed(path, space))
             .cloned()
             .collect::<Vec<_>>();
 
@@ -837,14 +834,14 @@ impl PathIndex {
         }
     }
 
-    fn path_allowed(&self, path: &str, collection: Option<&str>) -> bool {
+    fn path_allowed(&self, path: &str, space: Option<&str>) -> bool {
         if !self.all_paths.contains(path) {
             return false;
         }
-        match collection {
-            Some(collection) => self
-                .by_collection
-                .get(collection)
+        match space {
+            Some(space) => self
+                .by_space
+                .get(space)
                 .is_some_and(|paths| paths.contains(path)),
             None => true,
         }
@@ -871,9 +868,9 @@ fn basename_id(path: &str) -> String {
 
 fn title_for_entry(
     value: Option<&Value>,
-    collection: &crate::config::CollectionDefinition,
+    space: &crate::config::SpaceDefinition,
 ) -> Option<String> {
-    collection
+    space
         .conventions
         .title_field
         .as_deref()
@@ -883,9 +880,9 @@ fn title_for_entry(
 
 fn summary_for_entry(
     value: Option<&Value>,
-    collection: &crate::config::CollectionDefinition,
+    space: &crate::config::SpaceDefinition,
 ) -> Option<String> {
-    collection
+    space
         .conventions
         .summary_field
         .as_deref()
@@ -951,6 +948,10 @@ fn strip_reference_markup(value: &str) -> String {
         .unwrap_or(value)
         .trim()
         .to_string()
+}
+
+fn non_empty_string(value: Option<String>) -> Option<String> {
+    value.filter(|value| !value.trim().is_empty())
 }
 
 fn apply_input_transform(transform: &str, value: &str) -> Result<String, String> {
@@ -1079,7 +1080,7 @@ mod tests {
         write_view(
             &root,
             "todos.md",
-            "---\ntitle: Todos\nsurface: page\nmode: kanban\ncollection: todos\n---\n<!-- forma-view -->\n",
+            "---\ntitle: Todos\nsurface: page\nmode: kanban\nspace: todos\n---\n<!-- forma-view -->\n",
         );
 
         let discovery = discover_workspace(&root).unwrap();
@@ -1087,7 +1088,7 @@ mod tests {
 
         assert!(discovery.diagnostics.is_empty());
         assert_eq!(discovery.index.entries.len(), 3);
-        assert_eq!(discovery.index.collections[0].id, "notes");
+        assert_eq!(discovery.index.spaces[0].id, "notes");
         let expected_json = r#"{
   "schemaVersion": 1,
   "workspace": {
@@ -1097,7 +1098,7 @@ mod tests {
       "en"
     ]
   },
-  "collections": [
+  "spaces": [
     {
       "id": "notes",
       "title": "Notes",
@@ -1123,20 +1124,20 @@ mod tests {
       "path": "{{todos_view_path}}",
       "surface": "page",
       "mode": "kanban",
-      "collection": "todos",
+      "space": "todos",
       "title": "Todos"
     }
   ],
   "entries": [
     {
       "path": "notes/account-model.md",
-      "collection": "notes",
+      "space": "notes",
       "kind": "note",
       "title": "Account model"
     },
     {
       "path": "todos/user-registration.md",
-      "collection": "todos",
+      "space": "todos",
       "kind": "todo",
       "title": "User registration",
       "summary": "Register users",
@@ -1162,7 +1163,7 @@ mod tests {
     },
     {
       "path": "users/tiscs.md",
-      "collection": "users",
+      "space": "users",
       "kind": "user",
       "title": "Tiscs"
     }
@@ -1201,7 +1202,7 @@ mod tests {
     }
 
     #[test]
-    fn indexes_workspace_source_graph_view_without_collection_filter() {
+    fn indexes_workspace_source_graph_view_without_space_filter() {
         let root = fixture_root("graph-view");
         write_workspace(&root);
         write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
@@ -1221,7 +1222,7 @@ mod tests {
 
         assert!(discovery.diagnostics.is_empty());
         assert_eq!(view.mode, "graph");
-        assert_eq!(view.collection, None);
+        assert_eq!(view.space, None);
         assert_eq!(
             view.source.as_ref().map(|source| source.kind.as_str()),
             Some("workspace")
@@ -1304,7 +1305,7 @@ mod tests {
         write_view(
             &root,
             "bad.md",
-            "---\ntitle: Bad\nsurface: page\nmode: table\ncollection: missing\n---\n",
+            "---\ntitle: Bad\nsurface: page\nmode: table\nspace: missing\n---\n",
         );
 
         let result = check_workspace(&root);
@@ -1329,11 +1330,7 @@ mod tests {
     fn invalid_config_produces_runtime_diagnostic() {
         let root = fixture_root("invalid-config");
         write_workspace(&root);
-        fs::write(
-            root.join(FORMA_COLLECTIONS_PATH),
-            "schemaVersion: [broken\n",
-        )
-        .unwrap();
+        fs::write(root.join(FORMA_SPACES_PATH), "schemaVersion: [broken\n").unwrap();
 
         let result = check_workspace(&root);
 
@@ -1342,7 +1339,7 @@ mod tests {
         assert_eq!(result.diagnostics[0].code, "config.parseFailed");
         assert_eq!(
             result.diagnostics[0].path.as_deref(),
-            Some(FORMA_COLLECTIONS_PATH)
+            Some(FORMA_SPACES_PATH)
         );
         fs::remove_dir_all(root).unwrap();
     }
@@ -1423,13 +1420,13 @@ mod tests {
         .unwrap();
         fs::write(
             root.join(FORMA_TYPES_PATH),
-            "schemaVersion: 1\ntypes:\n  note:\n    kind: collection\n    collection: notes\n  todo:\n    kind: collection\n    collection: todos\n  user:\n    kind: collection\n    collection: users\n    input:\n      transform: slugify\n",
+            "schemaVersion: 1\ntypes:\n  note:\n    kind: space\n    space: notes\n  todo:\n    kind: space\n    space: todos\n  user:\n    kind: space\n    space: users\n    input:\n      transform: slugify\n",
         )
         .unwrap();
         fs::write(
-            root.join(FORMA_COLLECTIONS_PATH),
+            root.join(FORMA_SPACES_PATH),
             format!(
-                "schemaVersion: 1\ncollections:\n  notes:\n    title: Notes\n    include: notes/**/*.md\n    template: {FORMA_TEMPLATES_DIR}/note.md\n    conventions:\n      titleField: title\n      summaryField: summary\n    schema:\n      type: object\n      fields:\n        kind:\n          type: const\n          value: note\n        title:\n          type: string\n  todos:\n    title: Todos\n    include: todos/**/*.md\n    template: {FORMA_TEMPLATES_DIR}/todo.md\n    conventions:\n      titleField: title\n      summaryField: summary\n    schema:\n      type: object\n      fields:\n        kind:\n          type: const\n          value: todo\n        title:\n          type: string\n          required: true\n        summary:\n          type: string\n        assignees:\n          type: list\n          items:\n            type: ref\n            target: user\n  users:\n    title: Users\n    include: users/**/*.md\n    template: {FORMA_TEMPLATES_DIR}/user.md\n    conventions:\n      titleField: title\n    schema:\n      type: object\n      fields:\n        kind:\n          type: const\n          value: user\n        title:\n          type: string\n"
+                "schemaVersion: 1\nspaces:\n  notes:\n    title: Notes\n    include: notes/**/*.md\n    template: {FORMA_TEMPLATES_DIR}/note.md\n    conventions:\n      titleField: title\n      summaryField: summary\n    schema:\n      type: object\n      fields:\n        kind:\n          type: const\n          value: note\n        title:\n          type: string\n  todos:\n    title: Todos\n    include: todos/**/*.md\n    template: {FORMA_TEMPLATES_DIR}/todo.md\n    conventions:\n      titleField: title\n      summaryField: summary\n    schema:\n      type: object\n      fields:\n        kind:\n          type: const\n          value: todo\n        title:\n          type: string\n          required: true\n        summary:\n          type: string\n        assignees:\n          type: list\n          items:\n            type: ref\n            target: user\n  users:\n    title: Users\n    include: users/**/*.md\n    template: {FORMA_TEMPLATES_DIR}/user.md\n    conventions:\n      titleField: title\n    schema:\n      type: object\n      fields:\n        kind:\n          type: const\n          value: user\n        title:\n          type: string\n"
             ),
         )
         .unwrap();

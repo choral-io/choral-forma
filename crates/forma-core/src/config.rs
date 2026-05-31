@@ -8,10 +8,10 @@ use thiserror::Error;
 
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::path::{
-    FORMA_COLLECTIONS_PATH, FORMA_DIR, FORMA_LOCAL_OVERRIDES_PATH, FORMA_TYPES_PATH,
+    FORMA_DIR, FORMA_LOCAL_OVERRIDES_PATH, FORMA_SPACES_PATH, FORMA_TYPES_PATH,
     FORMA_WORKSPACE_PATH, PathError, WorkspacePath,
 };
-use crate::schema::validate_collection_schemas;
+use crate::schema::validate_space_schemas;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LoadMode {
@@ -36,7 +36,7 @@ pub struct WorkspaceConfig {
     #[serde(default)]
     pub types: BTreeMap<String, SemanticType>,
     #[serde(default)]
-    pub collections: BTreeMap<String, CollectionDefinition>,
+    pub spaces: BTreeMap<String, SpaceDefinition>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,8 +80,8 @@ pub enum RuntimeValueProvider {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SemanticType {
-    Collection {
-        collection: String,
+    Space {
+        space: String,
         #[serde(default)]
         input: TypeInput,
     },
@@ -98,7 +98,7 @@ pub struct TypeInput {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CollectionDefinition {
+pub struct SpaceDefinition {
     pub title: String,
     #[serde(default)]
     pub description: Option<String>,
@@ -107,7 +107,7 @@ pub struct CollectionDefinition {
     #[serde(default)]
     pub create: Option<CreateDefinition>,
     #[serde(default)]
-    pub conventions: CollectionConventions,
+    pub conventions: SpaceConventions,
     pub schema: Value,
 }
 
@@ -139,7 +139,7 @@ pub struct CreateInput {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CollectionConventions {
+pub struct SpaceConventions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title_field: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -192,11 +192,11 @@ struct TypesFile {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct CollectionsFile {
+struct SpacesFile {
     #[allow(dead_code)]
     schema_version: u64,
     #[serde(default)]
-    collections: BTreeMap<String, CollectionDefinition>,
+    spaces: BTreeMap<String, SpaceDefinition>,
 }
 
 pub fn load_workspace(
@@ -211,7 +211,7 @@ pub fn load_workspace(
 
     let workspace_path = root.join(FORMA_WORKSPACE_PATH);
     let types_path = root.join(FORMA_TYPES_PATH);
-    let collections_path = root.join(FORMA_COLLECTIONS_PATH);
+    let spaces_path = root.join(FORMA_SPACES_PATH);
 
     let mut workspace_value = read_yaml_value(&workspace_path, FORMA_WORKSPACE_PATH)?;
     if mode == LoadMode::WithLocalOverrides {
@@ -228,17 +228,17 @@ pub fn load_workspace(
             source,
         })?;
     let types_file: TypesFile = read_yaml(&types_path, FORMA_TYPES_PATH)?;
-    let collections_file: CollectionsFile = read_yaml(&collections_path, FORMA_COLLECTIONS_PATH)?;
+    let spaces_file: SpacesFile = read_yaml(&spaces_path, FORMA_SPACES_PATH)?;
 
     let config = WorkspaceConfig {
         schema_version: workspace_file.schema_version,
         workspace: workspace_file.workspace,
         runtime: workspace_file.runtime,
         types: types_file.types,
-        collections: collections_file.collections,
+        spaces: spaces_file.spaces,
     };
     let mut diagnostics = validate_config_paths(&config);
-    diagnostics.extend(validate_collection_schemas(&config));
+    diagnostics.extend(validate_space_schemas(&config));
 
     Ok(FormaWorkspace {
         root: root.to_path_buf(),
@@ -284,26 +284,26 @@ fn deep_merge(base: &mut Value, overlay: Value) {
 fn validate_config_paths(config: &WorkspaceConfig) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    for (collection_id, collection) in &config.collections {
+    for (space_id, space) in &config.spaces {
         push_path_diagnostic(
             &mut diagnostics,
-            collection_id,
+            space_id,
             "include",
-            &collection.include,
-            WorkspacePath::parse_config(&collection.include),
+            &space.include,
+            WorkspacePath::parse_config(&space.include),
         );
         push_path_diagnostic(
             &mut diagnostics,
-            collection_id,
+            space_id,
             "template",
-            &collection.template,
-            WorkspacePath::parse_config(&collection.template),
+            &space.template,
+            WorkspacePath::parse_config(&space.template),
         );
 
-        if let Some(create) = &collection.create {
+        if let Some(create) = &space.create {
             push_path_diagnostic(
                 &mut diagnostics,
-                collection_id,
+                space_id,
                 "create.directory",
                 &create.directory,
                 WorkspacePath::parse_config(&create.directory),
@@ -316,7 +316,7 @@ fn validate_config_paths(config: &WorkspaceConfig) -> Vec<Diagnostic> {
 
 fn push_path_diagnostic(
     diagnostics: &mut Vec<Diagnostic>,
-    collection_id: &str,
+    space_id: &str,
     field: &str,
     value: &str,
     result: Result<WorkspacePath, PathError>,
@@ -325,11 +325,11 @@ fn push_path_diagnostic(
         diagnostics.push(
             Diagnostic::error(
                 "config.pathInvalid",
-                format!("Collection `{collection_id}` has invalid `{field}` path: {error}."),
+                format!("Space `{space_id}` has invalid `{field}` path: {error}."),
             )
-            .with_path(FORMA_COLLECTIONS_PATH)
+            .with_path(FORMA_SPACES_PATH)
             .with_location(DiagnosticLocation::Config {
-                field: format!("collections.{collection_id}.{field}"),
+                field: format!("spaces.{space_id}.{field}"),
             })
             .with_actual(value.to_string()),
         );
@@ -344,7 +344,7 @@ mod tests {
 
     use super::{LoadMode, load_workspace};
     use crate::path::{
-        FORMA_COLLECTIONS_PATH, FORMA_LOCAL_OVERRIDES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH,
+        FORMA_LOCAL_OVERRIDES_PATH, FORMA_SPACES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH,
         FORMA_WORKSPACE_PATH,
     };
 
@@ -357,11 +357,8 @@ mod tests {
 
         assert_eq!(workspace.config.workspace.name, "Acme Knowledge");
         assert_eq!(workspace.config.workspace.timezone, "Asia/Shanghai");
-        assert_eq!(workspace.config.types["note"].collection(), Some("notes"));
-        assert_eq!(
-            workspace.config.collections["notes"].include,
-            "notes/**/*.md"
-        );
+        assert_eq!(workspace.config.types["note"].space(), Some("notes"));
+        assert_eq!(workspace.config.spaces["notes"].include, "notes/**/*.md");
         assert!(workspace.diagnostics.is_empty());
 
         fs::remove_dir_all(root).unwrap();
@@ -405,7 +402,7 @@ mod tests {
         assert_eq!(workspace.diagnostics[0].code, "config.pathInvalid");
         assert_eq!(
             workspace.diagnostics[0].path.as_deref(),
-            Some(FORMA_COLLECTIONS_PATH)
+            Some(FORMA_SPACES_PATH)
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -422,13 +419,13 @@ mod tests {
         .unwrap();
         fs::write(
             root.join(FORMA_TYPES_PATH),
-            "schemaVersion: 1\ntypes:\n  note:\n    kind: collection\n    collection: notes\n",
+            "schemaVersion: 1\ntypes:\n  note:\n    kind: space\n    space: notes\n",
         )
         .unwrap();
         fs::write(
-            root.join(FORMA_COLLECTIONS_PATH),
+            root.join(FORMA_SPACES_PATH),
             format!(
-                "schemaVersion: 1\ncollections:\n  notes:\n    title: Notes\n    include: {include}\n    template: {FORMA_TEMPLATES_DIR}/note.md\n    create:\n      directory: notes\n      filename: \"{{{{ input.slug }}}}.md\"\n    schema:\n      type: object\n      fields:\n        title:\n          type: string\n"
+                "schemaVersion: 1\nspaces:\n  notes:\n    title: Notes\n    include: {include}\n    template: {FORMA_TEMPLATES_DIR}/note.md\n    create:\n      directory: notes\n      filename: \"{{{{ input.slug }}}}.md\"\n    schema:\n      type: object\n      fields:\n        title:\n          type: string\n"
             ),
         )
         .unwrap();
@@ -443,13 +440,13 @@ mod tests {
     }
 
     trait SemanticTypeExt {
-        fn collection(&self) -> Option<&str>;
+        fn space(&self) -> Option<&str>;
     }
 
     impl SemanticTypeExt for super::SemanticType {
-        fn collection(&self) -> Option<&str> {
+        fn space(&self) -> Option<&str> {
             match self {
-                super::SemanticType::Collection { collection, .. } => Some(collection),
+                super::SemanticType::Space { space, .. } => Some(space),
                 super::SemanticType::Enum { .. } => None,
             }
         }

@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 use serde_yml::{Number, Value};
 
 use crate::config::{
-    CollectionDefinition, CreateInput, RuntimeValueProvider, SemanticType, WorkspaceConfig,
+    CreateInput, RuntimeValueProvider, SemanticType, SpaceDefinition, WorkspaceConfig,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
-use crate::path::{FORMA_COLLECTIONS_PATH, FORMA_WORKSPACE_PATH, slugify_path_segment};
+use crate::path::{FORMA_SPACES_PATH, FORMA_WORKSPACE_PATH, slugify_path_segment};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -226,22 +226,22 @@ pub struct RenderedTemplate {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-pub fn validate_collection_schemas(config: &WorkspaceConfig) -> Vec<Diagnostic> {
+pub fn validate_space_schemas(config: &WorkspaceConfig) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    for (collection_id, collection) in &config.collections {
-        let field_path = format!("collections.{collection_id}.schema");
-        match parse_collection_schema(collection) {
+    for (space_id, space) in &config.spaces {
+        let field_path = format!("spaces.{space_id}.schema");
+        match parse_space_schema(space) {
             Ok(schema) => validate_schema_node(
                 config,
                 &schema,
-                FORMA_COLLECTIONS_PATH,
+                FORMA_SPACES_PATH,
                 &field_path,
                 &mut diagnostics,
             ),
             Err(error) => diagnostics.push(
-                Diagnostic::error("schema.invalid", "Collection schema is invalid.")
-                    .with_path(FORMA_COLLECTIONS_PATH)
+                Diagnostic::error("schema.invalid", "Space schema is invalid.")
+                    .with_path(FORMA_SPACES_PATH)
                     .with_location(DiagnosticLocation::Config { field: field_path })
                     .with_actual(error),
             ),
@@ -251,8 +251,8 @@ pub fn validate_collection_schemas(config: &WorkspaceConfig) -> Vec<Diagnostic> 
     diagnostics
 }
 
-pub fn parse_collection_schema(collection: &CollectionDefinition) -> Result<SchemaNode, String> {
-    serde_yml::from_value(collection.schema.clone()).map_err(|error| error.to_string())
+pub fn parse_space_schema(space: &SpaceDefinition) -> Result<SchemaNode, String> {
+    serde_yml::from_value(space.schema.clone()).map_err(|error| error.to_string())
 }
 
 pub fn validate_schema_value(
@@ -556,14 +556,11 @@ fn validate_schema_node(
             }
         }
         SchemaNode::Ref { target, .. } => {
-            if !matches!(
-                config.types.get(target),
-                Some(SemanticType::Collection { .. })
-            ) {
+            if !matches!(config.types.get(target), Some(SemanticType::Space { .. })) {
                 diagnostics.push(
                     Diagnostic::error(
                         "schema.ref.invalid",
-                        format!("Reference target `{target}` is not a collection semantic type."),
+                        format!("Reference target `{target}` is not a space semantic type."),
                     )
                     .with_path(path)
                     .with_location(DiagnosticLocation::Config {
@@ -600,7 +597,9 @@ fn validate_value_node(
                     "schema.required",
                     format!("Required field `{field}` is missing."),
                 )
-                .with_path(path),
+                .with_path(path)
+                .with_location(frontmatter_field_location(field))
+                .with_expected("required field"),
             );
         }
         return;
@@ -660,6 +659,7 @@ fn validate_value_node(
                         format!("Field `{field}` does not match required const value."),
                     )
                     .with_path(path)
+                    .with_location(frontmatter_field_location(field))
                     .with_actual(format!("{value:?}"))
                     .with_expected(format!("{expected:?}")),
                 );
@@ -676,7 +676,9 @@ fn validate_value_node(
                         "schema.enum.invalid",
                         format!("Enum type `{enum_type}` is not defined."),
                     )
-                    .with_path(path),
+                    .with_path(path)
+                    .with_location(frontmatter_field_location(field))
+                    .with_expected(format!("defined enum type `{enum_type}`")),
                 );
                 return;
             };
@@ -687,6 +689,7 @@ fn validate_value_node(
                         format!("Field `{field}` has an invalid enum value."),
                     )
                     .with_path(path)
+                    .with_location(frontmatter_field_location(field))
                     .with_actual(actual.to_string())
                     .with_expected(values.join(", ")),
                 );
@@ -696,16 +699,15 @@ fn validate_value_node(
             if !value.is_string() {
                 diagnostics.push(type_error(path.clone(), field, "reference string", value));
             }
-            if !matches!(
-                config.types.get(target),
-                Some(SemanticType::Collection { .. })
-            ) {
+            if !matches!(config.types.get(target), Some(SemanticType::Space { .. })) {
                 diagnostics.push(
                     Diagnostic::error(
                         "schema.ref.invalid",
-                        format!("Reference target `{target}` is not a collection semantic type."),
+                        format!("Reference target `{target}` is not a space semantic type."),
                     )
-                    .with_path(path),
+                    .with_path(path)
+                    .with_location(frontmatter_field_location(field))
+                    .with_expected(format!("space semantic type `{target}`")),
                 );
             }
         }
@@ -744,6 +746,7 @@ fn validate_date_like(
                 format!("Field `{field}` is not a valid {expected}."),
             )
             .with_path(path)
+            .with_location(frontmatter_field_location(field))
             .with_actual(value.to_string())
             .with_expected(expected.to_string()),
         );
@@ -756,8 +759,16 @@ fn type_error(path: String, field: &str, expected: &str, actual: &Value) -> Diag
         format!("Field `{field}` must be {expected}."),
     )
     .with_path(path)
+    .with_location(frontmatter_field_location(field))
     .with_actual(format!("{actual:?}"))
     .with_expected(expected.to_string())
+}
+
+fn frontmatter_field_location(field: &str) -> DiagnosticLocation {
+    DiagnosticLocation::Frontmatter {
+        field: field.to_string(),
+        index: None,
+    }
 }
 
 fn resolve_runtime_provider(
@@ -876,7 +887,7 @@ fn is_iso_datetime(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{CollectionConventions, RuntimeConfig, TypeInput, WorkspaceSettings};
+    use crate::config::{RuntimeConfig, SpaceConventions, TypeInput, WorkspaceSettings};
     use crate::path::FORMA_TEMPLATES_DIR;
 
     fn config_with_todo_schema(schema: &str) -> WorkspaceConfig {
@@ -899,23 +910,23 @@ mod tests {
                 ),
                 (
                     "user".to_string(),
-                    SemanticType::Collection {
-                        collection: "users".to_string(),
+                    SemanticType::Space {
+                        space: "users".to_string(),
                         input: TypeInput {
                             transform: Some("slugify".to_string()),
                         },
                     },
                 ),
             ]),
-            collections: BTreeMap::from([(
+            spaces: BTreeMap::from([(
                 "todos".to_string(),
-                CollectionDefinition {
+                SpaceDefinition {
                     title: "Todos".to_string(),
                     description: None,
                     include: "todos/**/*.md".to_string(),
                     template: format!("{FORMA_TEMPLATES_DIR}/todo.md"),
                     create: None,
-                    conventions: CollectionConventions::default(),
+                    conventions: SpaceConventions::default(),
                     schema,
                 },
             )]),
@@ -947,7 +958,7 @@ fields:
 "#,
         );
 
-        assert!(validate_collection_schemas(&config).is_empty());
+        assert!(validate_space_schemas(&config).is_empty());
     }
 
     #[test]
@@ -965,7 +976,7 @@ fields:
 "#,
         );
 
-        let diagnostics = validate_collection_schemas(&config);
+        let diagnostics = validate_space_schemas(&config);
         assert_eq!(diagnostics.len(), 2);
         assert!(
             diagnostics
@@ -1003,7 +1014,7 @@ fields:
       target: user
 "#,
         );
-        let schema = parse_collection_schema(&config.collections["todos"]).unwrap();
+        let schema = parse_space_schema(&config.spaces["todos"]).unwrap();
         let value = serde_yml::from_str(
             r#"
 kind: note
@@ -1015,11 +1026,18 @@ assignees: tiscs
 
         let diagnostics = validate_schema_value(&config, &schema, &value, "todos/foo.md");
 
-        assert!(
-            diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "schema.required")
+        let required = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "schema.required")
+            .expect("missing required diagnostic");
+        assert_eq!(
+            required.location,
+            Some(DiagnosticLocation::Frontmatter {
+                field: "title".to_string(),
+                index: None,
+            })
         );
+        assert_eq!(required.expected.as_deref(), Some("required field"));
         assert!(
             diagnostics
                 .iter()
@@ -1030,11 +1048,18 @@ assignees: tiscs
                 .iter()
                 .any(|diagnostic| diagnostic.code == "schema.enum.valueInvalid")
         );
-        assert!(
-            diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "schema.type.invalid")
+        let type_error = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "schema.type.invalid")
+            .expect("missing type diagnostic");
+        assert_eq!(
+            type_error.location,
+            Some(DiagnosticLocation::Frontmatter {
+                field: "assignees".to_string(),
+                index: None,
+            })
         );
+        assert_eq!(type_error.expected.as_deref(), Some("list"));
     }
 
     #[test]
@@ -1048,7 +1073,7 @@ fields:
 "#,
         );
 
-        let diagnostics = validate_collection_schemas(&config);
+        let diagnostics = validate_space_schemas(&config);
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].code, "schema.invalid");
@@ -1074,7 +1099,7 @@ fields:
     type: datetime
 "#,
         );
-        let schema = parse_collection_schema(&config.collections["todos"]).unwrap();
+        let schema = parse_space_schema(&config.spaces["todos"]).unwrap();
         let valid = serde_yml::from_str(
             r#"
 estimate: 1.5

@@ -1,6 +1,7 @@
 {
   "name": "@choral-forma/shared",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "types": "./dist/index.d.mts",
   "exports": {

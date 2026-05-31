@@ -1,7 +1,8 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
@@ -15,8 +16,8 @@ use crate::index::{
 };
 use crate::markdown::FormaMarkdownDocument;
 use crate::path::{
-    FORMA_COLLECTIONS_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH,
-    FORMA_LOCAL_OVERRIDES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR,
+    FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH, FORMA_LOCAL_OVERRIDES_PATH,
+    FORMA_SPACES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR,
     FORMA_WORKSPACE_PATH, PathError, WorkspacePath,
 };
 use crate::schema::{
@@ -60,7 +61,7 @@ pub struct CreateResult {
 #[serde(rename_all = "camelCase")]
 pub struct CreatedEntry {
     pub path: String,
-    pub collection: String,
+    pub space: String,
     pub template: String,
 }
 
@@ -103,7 +104,7 @@ pub struct InspectResult {
 #[serde(rename_all = "camelCase")]
 pub struct InspectEntry {
     pub path: String,
-    pub collection: String,
+    pub space: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -126,7 +127,7 @@ pub struct ListResult {
     pub operation: String,
     pub status: OperationStatus,
     pub workspace: WorkspaceSummary,
-    pub collection: ListedCollection,
+    pub space: ListedSpace,
     pub entries: Vec<ListEntry>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
@@ -174,6 +175,60 @@ pub struct FilesListResult {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct WorkspaceDashboardResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub spaces: Vec<DashboardSpace>,
+    pub documents: Vec<DashboardDocumentSummary>,
+    pub views: Vec<DashboardViewSummary>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardSpace {
+    pub id: String,
+    pub title: String,
+    pub include: String,
+    pub entry_count: usize,
+    pub status: OperationStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardDocumentSummary {
+    pub id: String,
+    pub path: String,
+    pub space: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    pub status: OperationStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    pub renderable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardViewSummary {
+    pub id: String,
+    pub path: String,
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileReferencesResult {
     pub schema_version: u16,
     pub operation: String,
@@ -190,7 +245,7 @@ pub struct FileReferencesResult {
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceFile {
     pub path: String,
-    pub collection: String,
+    pub space: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -229,7 +284,7 @@ pub struct WorkspaceFile {
     pub media_type: String,
     pub features: Vec<WorkspaceFileFeature>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub collection: Option<String>,
+    pub space: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -262,7 +317,7 @@ pub enum WorkspaceFileFeature {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ListedCollection {
+pub struct ListedSpace {
     pub id: String,
     pub title: String,
     pub include: String,
@@ -289,9 +344,9 @@ pub enum OperationError {
     Config(#[from] ConfigError),
     #[error("workspace already contains .forma")]
     WorkspaceExists,
-    #[error("collection `{0}` was not found")]
-    CollectionNotFound(String),
-    #[error("collection `{0}` does not define create behavior")]
+    #[error("space `{0}` was not found")]
+    SpaceNotFound(String),
+    #[error("space `{0}` does not define create behavior")]
     CreateNotConfigured(String),
     #[error("invalid input `{0}`")]
     InvalidInput(String),
@@ -356,12 +411,7 @@ pub fn init_workspace(
         &mut created,
     )?;
     write_file(root, FORMA_TYPES_PATH, STARTER_TYPES_YML, &mut created)?;
-    write_file(
-        root,
-        FORMA_COLLECTIONS_PATH,
-        &starter_collections_yml(),
-        &mut created,
-    )?;
+    write_file(root, FORMA_SPACES_PATH, &starter_spaces_yml(), &mut created)?;
     for (path, source) in starter_templates() {
         write_file(root, &path, source, &mut created)?;
     }
@@ -390,19 +440,19 @@ pub fn init_workspace(
 
 pub fn create_entry(
     root: impl AsRef<Path>,
-    collection_id: &str,
+    space_id: &str,
     provided: BTreeMap<String, Value>,
 ) -> Result<CreateResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::WithLocalOverrides)?;
-    let collection = workspace
+    let space = workspace
         .config
-        .collections
-        .get(collection_id)
-        .ok_or_else(|| OperationError::CollectionNotFound(collection_id.to_string()))?;
-    let create = collection
+        .spaces
+        .get(space_id)
+        .ok_or_else(|| OperationError::SpaceNotFound(space_id.to_string()))?;
+    let create = space
         .create
         .as_ref()
-        .ok_or_else(|| OperationError::CreateNotConfigured(collection_id.to_string()))?;
+        .ok_or_else(|| OperationError::CreateNotConfigured(space_id.to_string()))?;
 
     for name in provided.keys() {
         if !create.inputs.contains_key(name) {
@@ -434,7 +484,7 @@ pub fn create_entry(
         return Err(OperationError::PathConflict(public_path));
     }
 
-    let template_path = WorkspacePath::parse_config(&collection.template)?;
+    let template_path = WorkspacePath::parse_config(&space.template)?;
     let template_source =
         fs::read_to_string(root.as_ref().join(template_path.as_str())).map_err(|source| {
             OperationError::Io {
@@ -502,8 +552,8 @@ pub fn create_entry(
         },
         created: CreatedEntry {
             path: public_path,
-            collection: collection_id.to_string(),
-            template: collection.template.clone(),
+            space: space_id.to_string(),
+            template: space.template.clone(),
         },
         inputs,
         index: CreateIndexStatus {
@@ -523,26 +573,23 @@ pub fn inspect_entry_by_path(
     inspect_entry(root, &path)
 }
 
-pub fn inspect_entry_by_collection(
+pub fn inspect_entry_by_space(
     root: impl AsRef<Path>,
-    collection: &str,
+    space: &str,
     entry: &str,
 ) -> Result<InspectResult, OperationError> {
     let discovery = discover_workspace(root.as_ref())?;
-    let path = resolve_collection_entry_path(&discovery.index.entries, collection, entry)?;
+    let path = resolve_space_entry_path(&discovery.index.entries, space, entry)?;
     inspect_entry(root, &path)
 }
 
-pub fn list_collection(
-    root: impl AsRef<Path>,
-    collection_id: &str,
-) -> Result<ListResult, OperationError> {
+pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let collection = workspace
+    let space = workspace
         .config
-        .collections
-        .get(collection_id)
-        .ok_or_else(|| OperationError::CollectionNotFound(collection_id.to_string()))?;
+        .spaces
+        .get(space_id)
+        .ok_or_else(|| OperationError::SpaceNotFound(space_id.to_string()))?;
     let discovery = discover_workspace(root.as_ref())?;
     let mut diagnostics = discovery.diagnostics;
     diagnostics.sort_by_key(|diagnostic| {
@@ -557,7 +604,7 @@ pub fn list_collection(
         .index
         .entries
         .iter()
-        .filter(|entry| entry.collection == collection_id)
+        .filter(|entry| entry.space == space_id)
         .map(|entry| ListEntry {
             path: entry.path.clone(),
             kind: entry.kind.clone(),
@@ -575,10 +622,10 @@ pub fn list_collection(
             root: ".".to_string(),
             name: workspace.config.workspace.name,
         },
-        collection: ListedCollection {
-            id: collection_id.to_string(),
-            title: collection.title.clone(),
-            include: collection.include.clone(),
+        space: ListedSpace {
+            id: space_id.to_string(),
+            title: space.title.clone(),
+            include: space.include.clone(),
             entry_count: entries.len(),
         },
         entries,
@@ -642,7 +689,7 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
         {
             file.kind = WorkspaceFileKind::Knowledge;
             file.features = features_for_media_type(file.kind, &file.media_type);
-            file.collection = Some(entry.collection.clone());
+            file.space = Some(entry.space.clone());
             file.title = entry.title.clone();
         } else if let Some(view) = discovery
             .index
@@ -671,6 +718,88 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
     })
 }
 
+pub fn workspace_dashboard(
+    root: impl AsRef<Path>,
+) -> Result<WorkspaceDashboardResult, OperationError> {
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let discovery = discover_workspace(root.as_ref())?;
+    let mut diagnostics = discovery.diagnostics;
+    diagnostics.sort_by_key(|diagnostic| {
+        (
+            diagnostic.path.clone().unwrap_or_default(),
+            diagnostic.code.clone(),
+            diagnostic.message.clone(),
+        )
+    });
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+
+    let spaces = discovery
+        .index
+        .spaces
+        .iter()
+        .map(|space| DashboardSpace {
+            id: space.id.clone(),
+            title: space.title.clone(),
+            include: space.include.clone(),
+            entry_count: space.entry_count,
+            status: status_for_paths(
+                &diagnostics,
+                discovery
+                    .index
+                    .entries
+                    .iter()
+                    .filter(|entry| entry.space == space.id)
+                    .map(|entry| entry.path.as_str()),
+            ),
+        })
+        .collect::<Vec<_>>();
+
+    let documents = discovery
+        .index
+        .entries
+        .iter()
+        .map(|entry| DashboardDocumentSummary {
+            id: document_id_for_path(&entry.path),
+            path: entry.path.clone(),
+            space: entry.space.clone(),
+            kind: entry.kind.clone(),
+            title: entry.title.clone(),
+            summary: entry.summary.clone(),
+            status: status_for_paths(&diagnostics, std::iter::once(entry.path.as_str())),
+            updated_at: file_modified_at(root.as_ref(), &entry.path),
+            renderable: true,
+        })
+        .collect::<Vec<_>>();
+
+    let views = discovery
+        .index
+        .views
+        .iter()
+        .map(|view| DashboardViewSummary {
+            id: view.id.clone(),
+            path: view.path.clone(),
+            kind: view.mode.clone(),
+            title: view.title.clone(),
+            space: view.space.clone(),
+        })
+        .collect::<Vec<_>>();
+
+    Ok(WorkspaceDashboardResult {
+        schema_version: 1,
+        operation: "workspace.dashboard".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace.config.workspace.name,
+        },
+        spaces,
+        documents,
+        views,
+        summary,
+        diagnostics,
+    })
+}
+
 pub fn list_file_references(
     root: impl AsRef<Path>,
     path: &str,
@@ -684,18 +813,11 @@ pub fn list_file_references(
         .iter()
         .find(|entry| entry.path == path)
         .ok_or(OperationError::EntryNotFound)?;
-    let mut diagnostics = discovery.diagnostics;
-    diagnostics.sort_by_key(|diagnostic| {
-        (
-            diagnostic.path.clone().unwrap_or_default(),
-            diagnostic.code.clone(),
-            diagnostic.message.clone(),
-        )
-    });
+    let mut diagnostics = diagnostics_for_workspace_path(discovery.diagnostics, &path);
+    diagnostics.sort_by_key(diagnostic_sort_key);
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
-    let mut outgoing = index_entry
-        .refs
-        .iter()
+    let outgoing = unique_references_by_target(index_entry.refs.iter())
+        .into_iter()
         .map(|reference| reference_edge(index_entry, reference, &discovery.index.entries))
         .collect::<Vec<_>>();
     let mut backlinks = discovery
@@ -704,14 +826,16 @@ pub fn list_file_references(
         .iter()
         .filter(|entry| entry.path != path)
         .flat_map(|entry| {
-            entry
-                .refs
-                .iter()
-                .filter(|reference| reference.target_path == path)
-                .map(|reference| reference_edge(entry, reference, &discovery.index.entries))
+            unique_references_by_target(
+                entry
+                    .refs
+                    .iter()
+                    .filter(|reference| reference.target_path == path),
+            )
+            .into_iter()
+            .map(|reference| reference_edge(entry, reference, &discovery.index.entries))
         })
         .collect::<Vec<_>>();
-    outgoing.sort_by_key(reference_edge_sort_key);
     backlinks.sort_by_key(reference_edge_sort_key);
 
     Ok(FileReferencesResult {
@@ -724,7 +848,7 @@ pub fn list_file_references(
         },
         file: ReferenceFile {
             path: index_entry.path.clone(),
-            collection: index_entry.collection.clone(),
+            space: index_entry.space.clone(),
             kind: index_entry.kind.clone(),
             title: index_entry.title.clone(),
         },
@@ -733,6 +857,72 @@ pub fn list_file_references(
         summary,
         diagnostics,
     })
+}
+
+fn unique_references_by_target<'a>(
+    references: impl IntoIterator<Item = &'a IndexReference>,
+) -> Vec<&'a IndexReference> {
+    let mut seen = BTreeSet::new();
+    references
+        .into_iter()
+        .filter(|reference| seen.insert(reference.target_path.as_str()))
+        .collect()
+}
+
+pub(crate) fn diagnostics_for_workspace_path(
+    diagnostics: impl IntoIterator<Item = Diagnostic>,
+    path: &str,
+) -> Vec<Diagnostic> {
+    diagnostics
+        .into_iter()
+        .filter(|diagnostic| diagnostic.path.as_deref() == Some(path))
+        .collect()
+}
+
+pub(crate) fn diagnostic_sort_key(diagnostic: &Diagnostic) -> (String, String, String) {
+    (
+        diagnostic.path.clone().unwrap_or_default(),
+        diagnostic.code.clone(),
+        diagnostic.message.clone(),
+    )
+}
+
+fn status_for_paths<'a>(
+    diagnostics: &[Diagnostic],
+    paths: impl Iterator<Item = &'a str>,
+) -> OperationStatus {
+    let paths = paths.collect::<Vec<_>>();
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic
+                .path
+                .as_deref()
+                .is_some_and(|path| paths.iter().any(|candidate| path == *candidate))
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    DiagnosticSummary::from_diagnostics(&relevant).status()
+}
+
+fn document_id_for_path(path: &str) -> String {
+    let without_extension = path.strip_suffix(".md").unwrap_or(path);
+    let id = without_extension
+        .split('/')
+        .filter_map(|segment| crate::path::slugify_path_segment(segment).ok())
+        .collect::<Vec<_>>()
+        .join("--");
+
+    if id.is_empty() {
+        path.replace(['/', '.'], "-")
+    } else {
+        id
+    }
+}
+
+fn file_modified_at(root: &Path, path: &str) -> Option<DateTime<Utc>> {
+    let modified = fs::metadata(root.join(path)).ok()?.modified().ok()?;
+    Some(modified.into())
 }
 
 fn reference_edge(
@@ -748,7 +938,9 @@ fn reference_edge(
         source_title: source_entry.title.clone(),
         source_kind: source_entry.kind.clone(),
         target_path: reference.target_path.clone(),
-        target_title: target_entry.and_then(|entry| entry.title.clone()),
+        target_title: target_entry
+            .and_then(|entry| entry.title.clone())
+            .or_else(|| reference.target_title.clone()),
         target_kind: target_entry.and_then(|entry| entry.kind.clone()),
         source: reference.source,
         field: reference.field.clone(),
@@ -810,7 +1002,7 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
         },
         entry: InspectEntry {
             path: path.to_string(),
-            collection: index_entry.collection.clone(),
+            space: index_entry.space.clone(),
             kind: index_entry.kind.clone(),
             title: index_entry.title.clone(),
             summary: index_entry.summary.clone(),
@@ -831,7 +1023,7 @@ fn config_sources(root: &Path) -> Vec<ConfigSource> {
     [
         (FORMA_WORKSPACE_PATH, ConfigSourceKind::Shared),
         (FORMA_TYPES_PATH, ConfigSourceKind::Shared),
-        (FORMA_COLLECTIONS_PATH, ConfigSourceKind::Shared),
+        (FORMA_SPACES_PATH, ConfigSourceKind::Shared),
         (FORMA_LOCAL_OVERRIDES_PATH, ConfigSourceKind::Local),
     ]
     .into_iter()
@@ -848,10 +1040,7 @@ fn validate_config_inspect_path(path: &str) -> Result<String, OperationError> {
     let path = path.as_str();
     if matches!(
         path,
-        FORMA_WORKSPACE_PATH
-            | FORMA_TYPES_PATH
-            | FORMA_COLLECTIONS_PATH
-            | FORMA_LOCAL_OVERRIDES_PATH
+        FORMA_WORKSPACE_PATH | FORMA_TYPES_PATH | FORMA_SPACES_PATH | FORMA_LOCAL_OVERRIDES_PATH
     ) {
         Ok(path.to_string())
     } else {
@@ -926,12 +1115,15 @@ fn workspace_file_from_path(root: &Path, path: PathBuf) -> Option<WorkspaceFile>
         .ok()?
         .to_string_lossy()
         .replace('\\', "/");
+    if !is_raw_workspace_path_allowed(&relative) {
+        return None;
+    }
     let media_type = media_type_for_workspace_path(&relative)?;
     let kind = if relative == FORMA_INDEX_SUMMARY_PATH {
         WorkspaceFileKind::Index
     } else if matches!(
         relative.as_str(),
-        FORMA_WORKSPACE_PATH | FORMA_TYPES_PATH | FORMA_COLLECTIONS_PATH
+        FORMA_WORKSPACE_PATH | FORMA_TYPES_PATH | FORMA_SPACES_PATH
     ) {
         WorkspaceFileKind::Config
     } else if relative.starts_with(&format!("{FORMA_TEMPLATES_DIR}/"))
@@ -952,7 +1144,7 @@ fn workspace_file_from_path(root: &Path, path: PathBuf) -> Option<WorkspaceFile>
         kind,
         media_type: media_type.to_string(),
         features: features_for_media_type(kind, media_type),
-        collection: None,
+        space: None,
         title: None,
         frontmatter: frontmatter_from_workspace_file(root, &path),
     })
@@ -978,6 +1170,11 @@ pub fn media_type_for_workspace_path(path: &str) -> Option<&'static str> {
         "mov" => Some("video/quicktime"),
         _ => None,
     }
+}
+
+pub fn is_raw_workspace_path_allowed(path: &str) -> bool {
+    let normalized = path.to_ascii_lowercase();
+    normalized != ".forma/overrides/local.yml" && !normalized.starts_with(".forma/local/")
 }
 
 fn features_for_media_type(kind: WorkspaceFileKind, media_type: &str) -> Vec<WorkspaceFileFeature> {
@@ -1029,16 +1226,16 @@ fn parent_from_workspace_path(path: &str) -> String {
         .unwrap_or_default()
 }
 
-fn resolve_collection_entry_path(
+fn resolve_space_entry_path(
     entries: &[IndexEntry],
-    collection: &str,
+    space: &str,
     entry: &str,
 ) -> Result<String, OperationError> {
     let entry = entry.strip_suffix(".md").unwrap_or(entry);
     let matches = entries
         .iter()
         .filter(|candidate| {
-            candidate.collection == collection
+            candidate.space == space
                 && candidate
                     .path
                     .rsplit('/')
@@ -1086,8 +1283,8 @@ fn starter_workspace_yml(name: &str, language: &str, timezone: &str) -> String {
         .replace("__TIMEZONE__", &yaml_string(timezone))
 }
 
-fn starter_collections_yml() -> String {
-    STARTER_COLLECTIONS_YML.replace("__TEMPLATES_DIR__", FORMA_TEMPLATES_DIR)
+fn starter_spaces_yml() -> String {
+    STARTER_SPACES_YML.replace("__TEMPLATES_DIR__", FORMA_TEMPLATES_DIR)
 }
 
 fn starter_templates() -> Vec<(String, &'static str)> {
@@ -1111,15 +1308,15 @@ fn starter_views() -> Vec<(String, &'static str)> {
     vec![
         (
             format!("{FORMA_VIEWS_DIR}/notes.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  collection: notes\n  title: Notes\n  description: General knowledge notes.\n  table:\n    columns:\n      - title\n      - summary\n      - createdAt\n  sort:\n    - field: createdAt\n      direction: desc\n---\n\n# Notes\n\n<!-- forma-view -->\n",
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  space: notes\n  title: Notes\n  description: General knowledge notes.\n  table:\n    columns:\n      - title\n      - summary\n      - createdAt\n  sort:\n    - field: createdAt\n      direction: desc\n---\n\n# Notes\n\n<!-- forma-view -->\n",
         ),
         (
             format!("{FORMA_VIEWS_DIR}/todos.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: kanban\n  collection: todos\n  title: Todos\n  description: Lightweight action items.\n  kanban:\n    card:\n      titleField: title\n      subtitleFields:\n        - summary\n        - assignees\n      badgeFields:\n        - dueDate\n    columns:\n      - id: todo\n        label: To Do\n        query:\n          all:\n            - target: frontmatter.status\n              op: equals\n              value: todo\n      - id: doing\n        label: Doing\n        query:\n          all:\n            - target: frontmatter.status\n              op: equals\n              value: doing\n      - id: done\n        label: Done\n        query:\n          all:\n            - target: frontmatter.status\n              op: equals\n              value: done\n---\n\n# Todos\n\n<!-- forma-view -->\n",
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: kanban\n  space: todos\n  title: Todos\n  description: Lightweight action items.\n  kanban:\n    card:\n      titleField: title\n      subtitleFields:\n        - summary\n        - assignees\n      badgeFields:\n        - dueDate\n    columns:\n      - id: todo\n        label: To Do\n        query:\n          all:\n            - target: frontmatter.status\n              op: equals\n              value: todo\n      - id: doing\n        label: Doing\n        query:\n          all:\n            - target: frontmatter.status\n              op: equals\n              value: doing\n      - id: done\n        label: Done\n        query:\n          all:\n            - target: frontmatter.status\n              op: equals\n              value: done\n---\n\n# Todos\n\n<!-- forma-view -->\n",
         ),
         (
             format!("{FORMA_VIEWS_DIR}/users.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  collection: users\n  title: Users\n  description: People referenced by this workspace.\n  table:\n    columns:\n      - name\n      - description\n      - createdAt\n  sort:\n    - field: name\n      direction: asc\n---\n\n# Users\n\n<!-- forma-view -->\n",
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  space: users\n  title: Users\n  description: People referenced by this workspace.\n  table:\n    columns:\n      - name\n      - description\n      - createdAt\n  sort:\n    - field: name\n      direction: asc\n---\n\n# Users\n\n<!-- forma-view -->\n",
         ),
     ]
 }
@@ -1157,13 +1354,12 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
             Diagnostic::error("init.workspaceExists", "Workspace already contains .forma.")
                 .with_path(FORMA_DIR)
         }
-        OperationError::CollectionNotFound(collection) => Diagnostic::error(
-            "collection.notFound",
-            format!("Collection `{collection}` was not found."),
-        ),
-        OperationError::CreateNotConfigured(collection) => Diagnostic::error(
+        OperationError::SpaceNotFound(space) => {
+            Diagnostic::error("space.notFound", format!("Space `{space}` was not found."))
+        }
+        OperationError::CreateNotConfigured(space) => Diagnostic::error(
             "create.notConfigured",
-            format!("Collection `{collection}` does not define create behavior."),
+            format!("Space `{space}` does not define create behavior."),
         ),
         OperationError::InvalidInput(input) => {
             Diagnostic::error("operation.inputInvalid", "Operation input is invalid.")
@@ -1234,20 +1430,20 @@ const STARTER_TYPES_YML: &str = r#"schemaVersion: 1
 
 types:
   note:
-    kind: collection
-    collection: notes
+    kind: space
+    space: notes
     input:
       transform: slugify
 
   todo:
-    kind: collection
-    collection: todos
+    kind: space
+    space: todos
     input:
       transform: slugify
 
   user:
-    kind: collection
-    collection: users
+    kind: space
+    space: users
     input:
       transform: slugify
 
@@ -1259,9 +1455,9 @@ types:
       - done
 "#;
 
-const STARTER_COLLECTIONS_YML: &str = r#"schemaVersion: 1
+const STARTER_SPACES_YML: &str = r#"schemaVersion: 1
 
-collections:
+spaces:
   notes:
     title: Notes
     description: General knowledge notes.
@@ -1436,7 +1632,7 @@ mod tests {
 
     use super::{
         OperationError, WorkspaceFileFeature, create_entry, init_workspace, inspect_config,
-        list_file_references, list_files,
+        is_raw_workspace_path_allowed, list_file_references, list_files, workspace_dashboard,
     };
     use crate::{OperationStatus, ReferenceIntent, WorkspaceFileKind};
 
@@ -1473,13 +1669,57 @@ mod tests {
             narrowed.config["workspace"]["name"],
             Value::String("Config Test".to_string())
         );
-        assert!(narrowed.config.get("collections").is_none());
+        assert!(narrowed.config.get("spaces").is_none());
 
         fs::write(root.join("notes.yml"), "secret: value").unwrap();
         assert!(matches!(
             inspect_config(&root, Some("notes.yml")),
             Err(OperationError::ConfigPathNotInspectable(path)) if path == "notes.yml"
         ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_dashboard_uses_path_derived_document_ids() {
+        let root = fixture_root("dashboard-document-ids");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Dashboard IDs", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/shared.md"),
+            "---\nkind: note\ntitle: Note Shared\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Note Shared\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("todos/shared.md"),
+            "---\nkind: todo\ntitle: Todo Shared\nsummary: \"\"\nstatus: todo\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Todo Shared\n",
+        )
+        .unwrap();
+
+        let result = workspace_dashboard(&root).unwrap();
+        let ids = result
+            .documents
+            .iter()
+            .map(|document| document.id.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(ids.contains(&"notes--shared"));
+        assert!(ids.contains(&"todos--shared"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_dashboard_view_summary_uses_space_field() {
+        let root = fixture_root("dashboard-view-space");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Dashboard Views", "en", Some("UTC")).unwrap();
+
+        let result = workspace_dashboard(&root).unwrap();
+        let notes_view = result.views.iter().find(|view| view.id == "notes").unwrap();
+        let value = serde_json::to_value(notes_view).unwrap();
+
+        assert_eq!(value["space"], serde_json::json!("notes"));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1515,7 +1755,7 @@ mod tests {
                         WorkspaceFileFeature::RenderHtml,
                         WorkspaceFileFeature::RenderSource,
                     ]
-                && file.collection.as_deref() == Some("notes")
+                && file.space.as_deref() == Some("notes")
                 && file.title.as_deref() == Some("Navigation Note")
                 && file
                     .frontmatter
@@ -1586,7 +1826,7 @@ mod tests {
         assert_eq!(knowledge.kind, WorkspaceFileKind::Knowledge);
         let knowledge_json = serde_json::to_value(knowledge).unwrap();
         assert_eq!(knowledge_json["kind"], serde_json::json!("knowledge"));
-        assert_eq!(knowledge.collection.as_deref(), Some("notes"));
+        assert_eq!(knowledge.space.as_deref(), Some("notes"));
         assert_eq!(knowledge.title.as_deref(), Some("Neutral File Model"));
 
         let view = result
@@ -1665,7 +1905,7 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Local Only Test", "en", Some("UTC")).unwrap();
         fs::create_dir_all(root.join(".forma/overrides")).unwrap();
-        fs::write(root.join(".forma/overrides/local.yml"), "collections: {}\n").unwrap();
+        fs::write(root.join(".forma/overrides/local.yml"), "spaces: {}\n").unwrap();
 
         let result = list_files(&root).unwrap();
 
@@ -1680,13 +1920,21 @@ mod tests {
     }
 
     #[test]
+    fn raw_workspace_path_policy_excludes_local_only_files() {
+        assert!(!is_raw_workspace_path_allowed(".forma/overrides/local.yml"));
+        assert!(!is_raw_workspace_path_allowed(".forma/local/cache.json"));
+        assert!(is_raw_workspace_path_allowed(".forma/workspace.yml"));
+        assert!(is_raw_workspace_path_allowed("notes/public.md"));
+    }
+
+    #[test]
     fn file_references_returns_outgoing_references_and_backlinks() {
         let root = fixture_root("references-list");
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "References Test", "en", Some("UTC")).unwrap();
         fs::write(
             root.join("notes/alpha.md"),
-            "---\nkind: note\ntitle: Alpha\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Alpha\n\nSee [[notes/beta|Beta]].\n",
+            "---\nkind: note\ntitle: Alpha\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Alpha\n\nSee [[notes/beta|Beta]] and [External Guide](https://example.com/guide). Repeat [[notes/beta|Beta again]].\n",
         )
         .unwrap();
         fs::write(
@@ -1706,15 +1954,59 @@ mod tests {
         assert_eq!(result.status, OperationStatus::Passed);
         assert_eq!(result.file.path, "notes/alpha.md");
         assert_eq!(result.file.title.as_deref(), Some("Alpha"));
-        assert_eq!(result.outgoing.len(), 1);
-        assert_eq!(result.outgoing[0].source_path, "notes/alpha.md");
-        assert_eq!(result.outgoing[0].target_path, "notes/beta.md");
-        assert_eq!(result.outgoing[0].target_title.as_deref(), Some("Beta"));
-        assert_eq!(result.outgoing[0].intent, ReferenceIntent::Link);
+        assert_eq!(result.outgoing.len(), 2);
+        assert_eq!(
+            result
+                .outgoing
+                .iter()
+                .map(|reference| reference.target_path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["notes/beta.md", "https://example.com/guide"]
+        );
+        let beta = result
+            .outgoing
+            .iter()
+            .find(|reference| reference.target_path == "notes/beta.md")
+            .unwrap();
+        assert_eq!(beta.source_path, "notes/alpha.md");
+        assert_eq!(beta.target_title.as_deref(), Some("Beta"));
+        assert_eq!(beta.intent, ReferenceIntent::Link);
+        let external = result
+            .outgoing
+            .iter()
+            .find(|reference| reference.target_path == "https://example.com/guide")
+            .unwrap();
+        assert_eq!(external.source_path, "notes/alpha.md");
+        assert_eq!(external.target_title.as_deref(), Some("External Guide"));
+        assert_eq!(external.intent, ReferenceIntent::Link);
         assert_eq!(result.backlinks.len(), 1);
         assert_eq!(result.backlinks[0].source_path, "notes/gamma.md");
         assert_eq!(result.backlinks[0].source_title.as_deref(), Some("Gamma"));
         assert_eq!(result.backlinks[0].target_path, "notes/alpha.md");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn file_references_reports_only_selected_document_diagnostics() {
+        let root = fixture_root("references-scoped-diagnostics");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "References Scoped Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/broken.md"),
+            "---\nkind: note\nsummary: Missing title\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Broken\n",
+        )
+        .unwrap();
+
+        let result = list_file_references(&root, "notes/source.md").unwrap();
+
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert!(result.diagnostics.is_empty());
 
         fs::remove_dir_all(root).unwrap();
     }

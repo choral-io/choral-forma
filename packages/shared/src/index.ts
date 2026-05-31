@@ -4,6 +4,25 @@ export type OperationStatus = "passed" | "warning" | "failed";
 
 export type DiagnosticSeverity = "error" | "warning" | "info";
 
+export type DiagnosticLocation =
+    | {
+          kind: "file";
+      }
+    | {
+          field: string;
+          index?: number;
+          kind: "frontmatter";
+      }
+    | {
+          column?: number;
+          kind: "body";
+          line?: number;
+      }
+    | {
+          field: string;
+          kind: "config";
+      };
+
 export type DiagnosticSummary = {
     errors: number;
     warnings: number;
@@ -15,6 +34,7 @@ export type Diagnostic = {
     code: string;
     message: string;
     path?: string;
+    location?: DiagnosticLocation;
     actual?: unknown;
     expected?: unknown;
     suggestions?: Array<{ label: string; value: unknown }>;
@@ -34,7 +54,7 @@ export type BaseOperationResult = {
     diagnostics?: Diagnostic[];
 };
 
-export type IndexCollection = {
+export type IndexSpace = {
     id: string;
     title: string;
     include: string;
@@ -46,7 +66,7 @@ export type IndexView = {
     path: string;
     surface: string;
     mode: string;
-    collection?: string;
+    space?: string;
     title?: string;
     source?: {
         kind: string;
@@ -63,7 +83,7 @@ export type ListedEntry = {
     fields?: Record<string, unknown>;
 };
 
-export type ListedCollection = {
+export type ListedSpace = {
     id: string;
     title: string;
     include: string;
@@ -82,7 +102,7 @@ export type WorkspaceFile = {
     kind: WorkspaceFileKind;
     mediaType: string;
     features: WorkspaceFileFeature[];
-    collection?: string;
+    space?: string;
     title?: string;
     frontmatter?: Record<string, unknown>;
 };
@@ -91,7 +111,7 @@ export type ListedFile = WorkspaceFile;
 
 export type InspectEntry = {
     path: string;
-    collection: string;
+    space: string;
     kind?: string;
     title?: string;
     summary?: string;
@@ -105,13 +125,14 @@ export type IndexReference = {
     source: "frontmatter" | "body";
     field?: string;
     targetPath: string;
+    targetTitle?: string;
     semanticType?: string;
     intent: "reference" | "link" | "embed";
 };
 
 export type RenderedFile = {
     path: string;
-    collection?: string;
+    space?: string;
     kind?: string;
     title?: string;
 };
@@ -119,13 +140,18 @@ export type RenderedFile = {
 export type FileRenderOutput = {
     format: string;
     html?: string;
+    headings?: Array<{
+        id: string;
+        level: 2 | 3;
+        text: string;
+    }>;
     source?: string;
     refs: IndexReference[];
 };
 
 export type ReferenceFile = {
     path: string;
-    collection: string;
+    space: string;
     kind?: string;
     title?: string;
 };
@@ -149,7 +175,7 @@ export type RenderedView = {
     surface: string;
     mode: string;
     title?: string;
-    collection?: string;
+    space?: string;
     source?: {
         kind: string;
         include?: string[];
@@ -164,7 +190,30 @@ export type ViewRenderItem = {
     fields?: Record<string, unknown>;
 };
 
+export type GraphRenderNode = {
+    id: string;
+    path: string;
+    title?: string;
+    space: string;
+    kind?: string;
+};
+
+export type GraphRenderEdge = {
+    id: string;
+    source: string;
+    target: string;
+    sourcePath: string;
+    targetPath: string;
+    intent: "reference" | "link" | "embed";
+    referenceSource: "frontmatter" | "body";
+    field?: string;
+};
+
 export type ViewRenderOutput =
+    | {
+          kind: "list";
+          items: ViewRenderItem[];
+      }
     | {
           kind: "table";
           columns: string[];
@@ -178,6 +227,11 @@ export type ViewRenderOutput =
               icon?: string;
               items: ViewRenderItem[];
           }>;
+      }
+    | {
+          kind: "graph";
+          nodes: GraphRenderNode[];
+          edges: GraphRenderEdge[];
       };
 
 export type CheckResult = BaseOperationResult & {
@@ -194,7 +248,7 @@ export type ConfigInspectResult = BaseOperationResult & {
             supportedLanguages?: string[];
             timezone?: string;
         };
-        collections?: Record<string, unknown>;
+        spaces?: Record<string, unknown>;
         runtime?: Record<string, unknown>;
         types?: Record<string, unknown>;
     };
@@ -211,10 +265,46 @@ export type FilesListResult = BaseOperationResult & {
     files: WorkspaceFile[];
 };
 
+export type DashboardSpace = {
+    id: string;
+    title: string;
+    include: string;
+    entryCount: number;
+    status: OperationStatus;
+};
+
+export type DashboardDocumentSummary = {
+    id: string;
+    path: string;
+    space: string;
+    kind?: string;
+    title?: string;
+    summary?: string;
+    status: OperationStatus;
+    updatedAt?: string;
+    renderable: boolean;
+};
+
+export type DashboardViewSummary = {
+    id: string;
+    path: string;
+    kind: string;
+    title?: string;
+    space?: string;
+};
+
+export type WorkspaceDashboardResult = BaseOperationResult & {
+    operation: "workspace.dashboard";
+    workspace: WorkspaceSummary;
+    spaces: DashboardSpace[];
+    documents: DashboardDocumentSummary[];
+    views: DashboardViewSummary[];
+};
+
 export type ListResult = BaseOperationResult & {
     operation: "list";
     workspace: WorkspaceSummary;
-    collection: ListedCollection;
+    space: ListedSpace;
     entries: ListedEntry[];
 };
 
@@ -353,8 +443,12 @@ export class FormaRpcClient {
         return this.call<FilesListResult>("files.list");
     }
 
-    list(collection: string) {
-        return this.call<ListResult>("list", { collection });
+    workspaceDashboard() {
+        return this.call<WorkspaceDashboardResult>("workspace.dashboard");
+    }
+
+    list(space: string) {
+        return this.call<ListResult>("list", { space });
     }
 
     inspect(path: string) {

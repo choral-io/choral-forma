@@ -62,7 +62,7 @@ enum Command {
         json: bool,
     },
     Create {
-        collection: String,
+        space: String,
         #[arg(long = "input", value_parser = parse_input_pair)]
         inputs: Vec<(String, Value)>,
         #[arg(long)]
@@ -70,14 +70,14 @@ enum Command {
     },
     Inspect {
         #[arg(long)]
-        collection: Option<String>,
+        space: Option<String>,
         locator: String,
         #[arg(long)]
         json: bool,
     },
     List {
         #[arg(long)]
-        collection: String,
+        space: String,
         #[arg(long)]
         json: bool,
     },
@@ -177,12 +177,12 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         }
         Some(Command::Create {
-            collection,
+            space,
             inputs,
             json,
         }) => {
             let result = dispatcher.dispatch(OperationRequest::Create(CreateRequest {
-                collection,
+                space,
                 inputs: inputs.into_iter().collect(),
             }))?;
             print_result(&result, json, "create");
@@ -190,20 +190,20 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         }
         Some(Command::Inspect {
-            collection,
+            space,
             locator,
             json,
         }) => {
-            let request = if let Some(collection) = collection {
+            let request = if let Some(space) = space {
                 InspectRequest {
                     path: None,
-                    collection: Some(collection),
+                    space: Some(space),
                     entry: Some(locator),
                 }
             } else {
                 InspectRequest {
                     path: Some(locator),
-                    collection: None,
+                    space: None,
                     entry: None,
                 }
             };
@@ -212,8 +212,8 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             exit_if_failed(&result);
             Ok(())
         }
-        Some(Command::List { collection, json }) => {
-            let result = dispatcher.dispatch(OperationRequest::List(ListRequest { collection }))?;
+        Some(Command::List { space, json }) => {
+            let result = dispatcher.dispatch(OperationRequest::List(ListRequest { space }))?;
             print_result(&result, json, "list");
             exit_if_failed(&result);
             Ok(())
@@ -488,7 +488,7 @@ async fn raw_workspace_file(
         Ok(path) => path.as_str().to_string(),
         Err(_) => return StatusCode::NOT_FOUND.into_response(),
     };
-    if !is_raw_workspace_path_allowed(&workspace_path) {
+    if !forma_core::is_raw_workspace_path_allowed(&workspace_path) {
         return StatusCode::NOT_FOUND.into_response();
     }
     let Some(media_type) = forma_core::media_type_for_workspace_path(&workspace_path) else {
@@ -518,12 +518,6 @@ async fn raw_workspace_file(
         HeaderValue::from_static("nosniff"),
     );
     response
-}
-
-fn is_raw_workspace_path_allowed(path: &str) -> bool {
-    // Mirrors files.list local-only exclusions until the rule is exposed by forma-core.
-    let normalized = path.to_ascii_lowercase();
-    normalized != ".forma/overrides/local.yml" && !normalized.starts_with(".forma/local/")
 }
 
 async fn rpc_handler(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
@@ -1049,7 +1043,7 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         forma_core::init_workspace(&root, "Raw Route Local Only", "en", Some("UTC")).unwrap();
         fs::create_dir_all(root.join(".forma/overrides")).unwrap();
-        fs::write(root.join(".forma/overrides/local.yml"), "collections: {}\n").unwrap();
+        fs::write(root.join(".forma/overrides/local.yml"), "spaces: {}\n").unwrap();
 
         let app = rpc_router_with_dispatcher_and_workspace(
             None,
@@ -1081,7 +1075,7 @@ mod tests {
         forma_core::init_workspace(&root, "Raw Route Local Only Case", "en", Some("UTC")).unwrap();
         fs::create_dir_all(root.join(".forma/overrides")).unwrap();
         fs::create_dir_all(root.join(".forma/local")).unwrap();
-        fs::write(root.join(".forma/overrides/local.yml"), "collections: {}\n").unwrap();
+        fs::write(root.join(".forma/overrides/local.yml"), "spaces: {}\n").unwrap();
         fs::write(root.join(".forma/local/secret.png"), b"\x89PNG\r\n\x1a\n").unwrap();
 
         let app = rpc_router_with_dispatcher_and_workspace(

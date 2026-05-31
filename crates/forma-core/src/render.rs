@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
@@ -9,9 +9,13 @@ use serde_yml::Value;
 
 use crate::config::{LoadMode, load_workspace};
 use crate::diagnostics::{Diagnostic, DiagnosticSummary, OperationStatus};
-use crate::index::{IndexEntry, IndexReference, IndexView, discover_workspace};
+use crate::index::{
+    IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource, discover_workspace,
+};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax};
-use crate::operations::{OperationError, WorkspaceSummary};
+use crate::operations::{
+    OperationError, WorkspaceSummary, diagnostic_sort_key, diagnostics_for_workspace_path,
+};
 use crate::path::{FORMA_VIEWS_DIR, WorkspacePath};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -32,7 +36,7 @@ pub struct FileRenderResult {
 pub struct RenderedFile {
     pub path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub collection: Option<String>,
+    pub space: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -47,8 +51,18 @@ pub struct FileRenderOutput {
     pub html: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub headings: Vec<RenderedHeading>,
     #[serde(default)]
     pub refs: Vec<IndexReference>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderedHeading {
+    pub id: String,
+    pub level: u8,
+    pub text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -76,7 +90,7 @@ pub struct RenderedView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub collection: Option<String>,
+    pub space: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<ViewSource>,
     #[serde(default)]
@@ -86,12 +100,19 @@ pub struct RenderedView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ViewRenderOutput {
+    List {
+        items: Vec<ViewRenderItem>,
+    },
     Table {
         columns: Vec<String>,
         items: Vec<ViewRenderItem>,
     },
     Kanban {
         columns: Vec<KanbanRenderColumn>,
+    },
+    Graph {
+        nodes: Vec<GraphRenderNode>,
+        edges: Vec<GraphRenderEdge>,
     },
 }
 
@@ -115,6 +136,32 @@ pub struct KanbanRenderColumn {
     pub items: Vec<ViewRenderItem>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphRenderNode {
+    pub id: String,
+    pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    pub space: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphRenderEdge {
+    pub id: String,
+    pub source: String,
+    pub target: String,
+    pub source_path: String,
+    pub target_path: String,
+    pub intent: ReferenceIntent,
+    pub reference_source: ReferenceSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ViewFile {
@@ -126,7 +173,7 @@ struct ViewFile {
 struct ViewDefinition {
     surface: String,
     mode: String,
-    collection: Option<String>,
+    space: Option<String>,
     source: Option<ViewSource>,
     query: Option<QueryDefinition>,
     table: Option<TableDefinition>,
@@ -222,7 +269,7 @@ enum QueryOperator {
 #[derive(Debug, Clone)]
 struct RenderCandidate {
     path: String,
-    collection: String,
+    space: String,
     kind: Option<String>,
     title: Option<String>,
     metadata: Value,
@@ -255,7 +302,7 @@ pub fn render_file(
             source,
         })?;
     let document = FormaMarkdownDocument::parse(&source);
-    let mut diagnostics = discovery.diagnostics;
+    let mut diagnostics = diagnostics_for_workspace_path(discovery.diagnostics, &path);
     diagnostics.extend(
         document
             .diagnostics
@@ -263,7 +310,7 @@ pub fn render_file(
             .cloned()
             .map(|diagnostic| diagnostic.with_path(path.clone())),
     );
-    diagnostics.sort_by_key(render_diagnostic_sort_key);
+    diagnostics.sort_by_key(diagnostic_sort_key);
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
 
     Ok(FileRenderResult {
@@ -276,7 +323,7 @@ pub fn render_file(
         },
         file: RenderedFile {
             path,
-            collection: Some(index_entry.collection.clone()),
+            space: Some(index_entry.space.clone()),
             kind: index_entry.kind.clone(),
             title: index_entry.title.clone(),
         },
@@ -284,6 +331,7 @@ pub fn render_file(
             format: format.to_string(),
             html: Some(render_markdown_html(&document)),
             source: None,
+            headings: render_headings(&document),
             refs: index_entry.refs.clone(),
         },
         summary,
@@ -314,7 +362,7 @@ fn render_source_file(
         },
         file: RenderedFile {
             path,
-            collection: None,
+            space: None,
             kind: None,
             title: None,
         },
@@ -322,6 +370,7 @@ fn render_source_file(
             format: "source".to_string(),
             html: None,
             source: Some(source),
+            headings: Vec::new(),
             refs: Vec::new(),
         },
         summary,
@@ -380,7 +429,7 @@ pub fn render_view(
     let definition_is_valid = view_definition.as_ref().is_some_and(|definition| {
         view_definition_is_valid(
             definition,
-            &workspace.config.collections,
+            &workspace.config.spaces,
             &view_path,
             &mut diagnostics,
         )
@@ -398,9 +447,12 @@ pub fn render_view(
             None
         }
     });
-    let render_required = view_definition
-        .as_ref()
-        .is_some_and(|definition| matches!(definition.mode.as_str(), "table" | "kanban"));
+    let render_required = view_definition.as_ref().is_some_and(|definition| {
+        matches!(
+            definition.mode.as_str(),
+            "list" | "table" | "kanban" | "graph"
+        )
+    });
     if definition_is_valid && render_required && render.is_none() {
         diagnostics.push(
             Diagnostic::error("view.invalid", "View definition is invalid.")
@@ -453,7 +505,7 @@ fn parse_view_definition(
 
 fn view_definition_is_valid(
     definition: &ViewDefinition,
-    collections: &BTreeMap<String, crate::config::CollectionDefinition>,
+    spaces: &BTreeMap<String, crate::config::SpaceDefinition>,
     path: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
@@ -461,8 +513,8 @@ fn view_definition_is_valid(
     if definition.surface != "page" {
         valid = false;
     }
-    if let Some(collection) = &definition.collection
-        && !collections.contains_key(collection)
+    if let Some(space) = &definition.space
+        && !spaces.contains_key(space)
     {
         valid = false;
     }
@@ -575,7 +627,7 @@ fn query_node_is_valid(node: &QueryNode, path: &str, diagnostics: &mut Vec<Diagn
 fn is_supported_target(target: &str) -> bool {
     matches!(
         target,
-        "entry.collection" | "entry.path" | "entry.kind" | "entry.title"
+        "entry.space" | "entry.path" | "entry.kind" | "entry.title"
     ) || target.starts_with("frontmatter.")
 }
 
@@ -596,7 +648,7 @@ fn rendered_view(
         surface: definition.surface.clone(),
         mode: definition.mode.clone(),
         title: index_view.and_then(|view| view.title.clone()),
-        collection: definition.collection.clone(),
+        space: definition.space.clone(),
         source: Some(definition.source.clone().unwrap_or_else(workspace_source)),
         params,
     }
@@ -626,6 +678,12 @@ fn render_view_definition(
     apply_sort(&mut items, &definition.sort);
 
     match definition.mode.as_str() {
+        "list" => Some(ViewRenderOutput::List {
+            items: items
+                .into_iter()
+                .map(RenderCandidate::into_all_fields_view_item)
+                .collect(),
+        }),
         "table" => {
             let columns = definition
                 .table
@@ -659,9 +717,74 @@ fn render_view_definition(
                     .collect(),
             })
         }
-        "graph" => None,
+        "graph" => Some(render_graph_view(&items, entries)),
         _ => None,
     }
+}
+
+fn render_graph_view(items: &[RenderCandidate], entries: &[IndexEntry]) -> ViewRenderOutput {
+    let included_paths = items
+        .iter()
+        .map(|item| item.path.as_str())
+        .collect::<BTreeSet<_>>();
+    let entry_by_path = entries
+        .iter()
+        .map(|entry| (entry.path.as_str(), entry))
+        .collect::<BTreeMap<_, _>>();
+
+    let nodes = items
+        .iter()
+        .map(|item| GraphRenderNode {
+            id: item.path.clone(),
+            path: item.path.clone(),
+            title: item.title.clone(),
+            space: item.space.clone(),
+            kind: item.kind.clone(),
+        })
+        .collect();
+
+    let mut seen_edges = BTreeSet::<String>::new();
+    let mut edges = Vec::new();
+    for item in items {
+        let Some(entry) = entry_by_path.get(item.path.as_str()) else {
+            continue;
+        };
+
+        for reference in &entry.refs {
+            if reference.source != ReferenceSource::Body {
+                continue;
+            }
+
+            if !included_paths.contains(reference.target_path.as_str()) {
+                continue;
+            }
+
+            let key = format!(
+                "{}->{}:{:?}:{:?}:{}",
+                entry.path,
+                reference.target_path,
+                reference.intent,
+                reference.source,
+                reference.field.as_deref().unwrap_or_default()
+            );
+            if !seen_edges.insert(key.clone()) {
+                continue;
+            }
+
+            edges.push(GraphRenderEdge {
+                id: key,
+                source: entry.path.clone(),
+                target: reference.target_path.clone(),
+                source_path: entry.path.clone(),
+                target_path: reference.target_path.clone(),
+                intent: reference.intent,
+                reference_source: reference.source,
+                field: reference.field.clone(),
+            });
+        }
+    }
+
+    ViewRenderOutput::Graph { nodes, edges }
 }
 
 impl RenderCandidate {
@@ -669,7 +792,7 @@ impl RenderCandidate {
         let metadata = read_entry_metadata(root, &entry.path)?;
         Some(Self {
             path: entry.path.clone(),
-            collection: entry.collection.clone(),
+            space: entry.space.clone(),
             kind: entry.kind.clone(),
             title: entry.title.clone(),
             metadata,
@@ -739,8 +862,8 @@ fn view_candidate_matches(item: &RenderCandidate, definition: &ViewDefinition) -
     if !source_matches(&item.path, definition.source.as_ref()) {
         return false;
     }
-    if let Some(collection) = &definition.collection
-        && item.collection != *collection
+    if let Some(space) = &definition.space
+        && item.space != *space
     {
         return false;
     }
@@ -831,8 +954,8 @@ fn query_node_target(node: &QueryNode) -> Option<&str> {
 }
 
 fn value_for_target(item: &RenderCandidate, target: &str) -> Option<Value> {
-    if target == "entry.collection" {
-        return Some(Value::String(item.collection.clone()));
+    if target == "entry.space" {
+        return Some(Value::String(item.space.clone()));
     }
     if target == "entry.path" {
         return Some(Value::String(item.path.clone()));
@@ -889,6 +1012,55 @@ fn value_at_path<'a>(value: &'a Value, field: &str) -> Option<&'a Value> {
 fn render_markdown_html(document: &FormaMarkdownDocument) -> String {
     let markdown = markdown_with_reference_fallbacks(document);
     to_html_with_options(&markdown, &Options::gfm()).expect("normal Markdown renders to HTML")
+}
+
+fn render_headings(document: &FormaMarkdownDocument) -> Vec<RenderedHeading> {
+    let mut seen = BTreeMap::<String, usize>::new();
+    document
+        .headings
+        .iter()
+        .map(|heading| {
+            let base_id = slugify_heading(&heading.text);
+            let count = seen.entry(base_id.clone()).or_insert(0);
+            *count += 1;
+            let id = if *count == 1 {
+                base_id
+            } else {
+                format!("{base_id}-{count}")
+            };
+
+            RenderedHeading {
+                id,
+                level: heading.level,
+                text: heading.text.clone(),
+            }
+        })
+        .collect()
+}
+
+fn slugify_heading(text: &str) -> String {
+    let slug = text
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .split('-')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+
+    if slug.is_empty() {
+        "section".to_string()
+    } else {
+        slug
+    }
 }
 
 fn markdown_with_reference_fallbacks(document: &FormaMarkdownDocument) -> String {
@@ -968,7 +1140,10 @@ mod tests {
 
     use serde_yml::Value;
 
-    use super::{ViewRenderOutput, render_file, render_view};
+    use super::{
+        ReferenceIntent, ReferenceSource, RenderedHeading, ViewRenderOutput, render_file,
+        render_view,
+    };
     use crate::operations::{OperationError, create_entry, init_workspace};
 
     #[test]
@@ -978,7 +1153,7 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
             root.join("notes/source.md"),
-            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\nSee ![[notes/target|Target note]].\n",
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\n## Context\n\n### Details\n\n## Context\n\nSee ![[notes/target|Target note]].\n",
         )
         .unwrap();
         fs::write(
@@ -994,6 +1169,26 @@ mod tests {
         let html = result.render.html.as_deref().unwrap_or_default();
         assert!(html.contains("<h1>Source</h1>"));
         assert!(html.contains(r#"<a href="./notes/target.md">Target note</a>"#));
+        assert_eq!(
+            result.render.headings,
+            vec![
+                RenderedHeading {
+                    id: "context".to_string(),
+                    level: 2,
+                    text: "Context".to_string(),
+                },
+                RenderedHeading {
+                    id: "details".to_string(),
+                    level: 3,
+                    text: "Details".to_string(),
+                },
+                RenderedHeading {
+                    id: "context-2".to_string(),
+                    level: 2,
+                    text: "Context".to_string(),
+                },
+            ],
+        );
         assert_eq!(result.render.refs.len(), 1);
 
         fs::remove_dir_all(root).unwrap();
@@ -1057,6 +1252,30 @@ mod tests {
     }
 
     #[test]
+    fn file_render_reports_only_selected_document_diagnostics() {
+        let root = fixture_root("file-render-scoped-diagnostics");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/broken.md"),
+            "---\nkind: note\nsummary: Missing title\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Broken\n",
+        )
+        .unwrap();
+
+        let result = render_file(&root, "notes/source.md", "html").unwrap();
+
+        assert_eq!(result.status, crate::OperationStatus::Passed);
+        assert!(result.diagnostics.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn renders_source_for_workspace_text_files() {
         let root = fixture_root("file-render-source");
         fs::create_dir_all(&root).unwrap();
@@ -1066,7 +1285,7 @@ mod tests {
 
         assert_eq!(result.status, crate::OperationStatus::Passed);
         assert_eq!(result.file.path, ".forma/workspace.yml");
-        assert_eq!(result.file.collection, None);
+        assert_eq!(result.file.space, None);
         assert_eq!(result.render.format, "source");
         assert!(result.render.html.is_none());
         assert!(
@@ -1190,6 +1409,86 @@ mod tests {
     }
 
     #[test]
+    fn renders_list_view_from_query_candidates() {
+        let root = fixture_root("list-view-render");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        create_entry(
+            &root,
+            "notes",
+            BTreeMap::from([("title".to_string(), Value::String("Background".to_string()))]),
+        )
+        .unwrap();
+        create_entry(
+            &root,
+            "todos",
+            BTreeMap::from([
+                (
+                    "title".to_string(),
+                    Value::String("Draft brief".to_string()),
+                ),
+                ("status".to_string(), Value::String("doing".to_string())),
+            ]),
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/recent.md"),
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: list\n  title: Recent Workspace Items\n  source:\n    kind: workspace\n    include:\n      - \"**/*.md\"\n  query:\n    all:\n      - target: frontmatter.title\n        op: contains\n        value: brief\n---\n\n# Recent Workspace Items\n\n<!-- forma-view -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "recent", BTreeMap::new()).unwrap();
+        let Some(ViewRenderOutput::List { items }) = result.render else {
+            panic!("expected list render");
+        };
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].path, "todos/draft-brief.md");
+        assert_eq!(items[0].title.as_deref(), Some("Draft brief"));
+        assert_eq!(items[0].fields["status"], "doing");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renders_graph_view_from_resolved_index_references() {
+        let root = fixture_root("graph-view-render");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\nSee [Target](target).\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/target.md"),
+            "---\nkind: note\ntitle: Target\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Target\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/knowledge-graph.md"),
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: graph\n  title: Knowledge Graph\n  source:\n    kind: workspace\n    include:\n      - \"notes/**/*.md\"\n---\n\n# Knowledge Graph\n\n<!-- forma-view -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "knowledge-graph", BTreeMap::new()).unwrap();
+        let Some(ViewRenderOutput::Graph { nodes, edges }) = result.render else {
+            panic!("expected graph render");
+        };
+
+        assert_eq!(nodes.len(), 2);
+        assert!(nodes.iter().any(|node| node.id == "notes/source.md"));
+        assert!(nodes.iter().any(|node| node.id == "notes/target.md"));
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].source, "notes/source.md");
+        assert_eq!(edges[0].target, "notes/target.md");
+        assert_eq!(edges[0].intent, ReferenceIntent::Link);
+        assert_eq!(edges[0].reference_source, ReferenceSource::Body);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn renders_explicit_workspace_source_and_normalized_query_targets() {
         let root = fixture_root("workspace-source-view-render");
         fs::create_dir_all(&root).unwrap();
@@ -1214,7 +1513,7 @@ mod tests {
         .unwrap();
         fs::write(
             root.join(".forma/views/active-todos.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  title: Active Todos\n  source:\n    kind: workspace\n    include:\n      - \"**/*.md\"\n  query:\n    all:\n      - target: entry.collection\n        op: equals\n        value: todos\n      - target: frontmatter.status\n        op: in\n        value: [todo, doing]\n  table:\n    columns:\n      - title\n---\n\n# Active Todos\n\n<!-- forma-view -->\n",
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  title: Active Todos\n  source:\n    kind: workspace\n    include:\n      - \"**/*.md\"\n  query:\n    all:\n      - target: entry.space\n        op: equals\n        value: todos\n      - target: frontmatter.status\n        op: in\n        value: [todo, doing]\n  table:\n    columns:\n      - title\n---\n\n# Active Todos\n\n<!-- forma-view -->\n",
         )
         .unwrap();
 
@@ -1262,7 +1561,7 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
             root.join(".forma/views/notes.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  collection: notes\n  title: Notes\n  table:\n    columns:\n      - title\n---\n\n# Notes\n",
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  space: notes\n  title: Notes\n  table:\n    columns:\n      - title\n---\n\n# Notes\n",
         )
         .unwrap();
 
@@ -1286,7 +1585,7 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
             root.join(".forma/views/notes.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  collection: notes\n  table: broken\n---\n\n# Notes\n\n<!-- forma-view -->\n",
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  space: notes\n  table: broken\n---\n\n# Notes\n\n<!-- forma-view -->\n",
         )
         .unwrap();
 
@@ -1310,7 +1609,7 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
             root.join(".forma/views/notes.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  collection: missing\n  table:\n    columns:\n      - title\n---\n\n# Notes\n\n<!-- forma-view -->\n",
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  space: missing\n  table:\n    columns:\n      - title\n---\n\n# Notes\n\n<!-- forma-view -->\n",
         )
         .unwrap();
 
