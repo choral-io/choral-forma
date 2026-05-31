@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { Outlet } from "react-router";
 
 import { Button } from "@/components/ui/button";
-import { mockWorkspaceClient } from "@/data/mock-workspace-client";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
-import { DashboardHome } from "@/features/dashboard/DashboardHome";
+import { workspaceClient } from "@/data/workspace-client-source";
 import { WorkspaceSidebar } from "@/features/workspace/WorkspaceSidebar";
 import { ThemeProvider } from "./ThemeProvider";
 
@@ -13,7 +15,7 @@ export function App() {
 
     useEffect(() => {
         let cancelled = false;
-        mockWorkspaceClient
+        workspaceClient
             .getDashboard()
             .then((result) => {
                 if (!cancelled) {
@@ -62,10 +64,14 @@ export function App() {
 
     return (
         <ThemeProvider>
-            <div className="bg-background text-foreground flex min-h-screen flex-col lg:flex-row">
-                <WorkspaceSidebar dashboard={dashboard} />
-                <DashboardHome dashboard={dashboard} />
-            </div>
+            <TooltipProvider>
+                <SidebarProvider className="h-svh min-h-0 overflow-hidden">
+                    <WorkspaceSidebar dashboard={dashboard} />
+                    <SidebarInset className="min-h-0 overflow-hidden">
+                        <Outlet context={dashboard} />
+                    </SidebarInset>
+                </SidebarProvider>
+            </TooltipProvider>
         </ThemeProvider>
     );
 }

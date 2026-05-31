@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 
 import { ThemeContext, type ThemeMode } from "./theme-context";
 
@@ -25,11 +25,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const [mode, setMode] = useState<ThemeMode>(() => readStoredMode());
     const [systemMode, setSystemMode] = useState<Exclude<ThemeMode, "system">>(() => getSystemMode());
     const resolvedMode = mode === "system" ? systemMode : mode;
+    const updateMode = useCallback((nextMode: ThemeMode) => {
+        window.localStorage.setItem(THEME_STORAGE_KEY, nextMode);
+        applyTheme(nextMode);
+        setMode(nextMode);
+    }, []);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         window.localStorage.setItem(THEME_STORAGE_KEY, mode);
         applyTheme(mode);
+    }, [mode, systemMode]);
 
+    useEffect(() => {
         if (mode !== "system") {
             return;
         }
@@ -51,9 +58,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         () => ({
             mode,
             resolvedMode,
-            setMode,
+            setMode: updateMode,
         }),
-        [mode, resolvedMode],
+        [mode, resolvedMode, updateMode],
     );
 
     return <ThemeContext value={value}>{children}</ThemeContext>;

@@ -9,6 +9,10 @@ run = "pnpm check && pnpm lint"
 description = "Format non-Rust files with pnpm-managed tools"
 run = "pnpm format"
 
+[tasks."test:pnpm"]
+description = "Test pnpm workspace"
+run = "pnpm test"
+
 [tasks."check:rust"]
 description = "Check Rust workspace"
 depends = ["build:pnpm"]
@@ -29,4 +33,4 @@ run = "pnpm build"
 
 [tasks.check]
 description = "Run all project checks"
-depends = ["check:pnpm", "check:rust", "test:rust", "build:pnpm"]
+depends = ["check:pnpm", "test:pnpm", "check:rust", "test:rust"]
