@@ -27,12 +27,11 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Reviewing
 
-- [ ] [[tasks/implement-webapp-v2-dashboard-shell|Implement WebApp V2 Dashboard Shell]]
-
 ## Blocked
 
 ## Done
 
+- [ ] [[tasks/implement-webapp-v2-dashboard-shell|Implement WebApp V2 Dashboard Shell]]
 - [ ] [[tasks/implement-resource-description-health-diagnostics|Implement Resource Description Health Diagnostics]]
 - [ ] [[tasks/run-p0-release-validation-and-cutline-check|Run P0 Release Validation And Cutline Check]]
 - [ ] [[tasks/audit-p0-release-scope-and-roadmap|Audit P0 Release Scope And Roadmap]]
