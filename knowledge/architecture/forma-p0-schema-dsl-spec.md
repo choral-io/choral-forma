@@ -29,8 +29,8 @@ rather than pretending every workspace state can be prevented.
 
 ## Goals
 
-- Provide a small YAML-friendly DSL for collection entry metadata.
-- Keep collection definitions readable for non-frontend and non-Git-specialist
+- Provide a small YAML-friendly DSL for space entry metadata.
+- Keep space definitions readable for non-frontend and non-Git-specialist
   users.
 - Make semantic references such as user assignments explicit enough for Agents
   and scripts.
@@ -42,7 +42,7 @@ rather than pretending every workspace state can be prevented.
 
 ## Non-goals
 
-- Do not use JSON Schema files as the user-authored P0 collection constraint
+- Do not use JSON Schema files as the user-authored P0 space constraint
   surface.
 - Do not introduce a code-first validation framework.
 - Do not support executable validators, custom scripts, DataviewJS-like trusted
@@ -53,8 +53,8 @@ rather than pretending every workspace state can be prevented.
 
 ## Schema DSL
 
-Schema definitions are authored in YAML. A collection owns an inline `schema`
-object that describes the frontmatter shape for entries in that collection.
+Schema definitions are authored in YAML. A space owns an inline `schema`
+object that describes the frontmatter shape for entries in that space.
 
 P0 supports these schema node kinds:
 
@@ -111,11 +111,11 @@ controls and do not prevent a user from editing files directly.
 ## Semantic Types
 
 Semantic types are declared in `.forma/types.yml`. They give names to reusable
-value meanings such as collection references and static enums.
+value meanings such as space references and static enums.
 
 P0 supports:
 
-- `kind: collection`: values resolve to entries in a collection.
+- `kind: space`: values resolve to entries in a space.
 - `kind: enum`: values must be one of a static list.
 
 Example:
@@ -123,18 +123,18 @@ Example:
 ```yaml
 types:
     note:
-        kind: collection
-        collection: notes
+        kind: space
+        space: notes
         input:
             transform: slugify
     todo:
-        kind: collection
-        collection: todos
+        kind: space
+        space: todos
         input:
             transform: slugify
     user:
-        kind: collection
-        collection: users
+        kind: space
+        space: users
         input:
             transform: slugify
     todoStatus:
@@ -156,15 +156,15 @@ P0 should keep matching explicit and deterministic:
 - Forma must not silently perform global case-insensitive matching.
 - Diagnostics may suggest a case-correct match when one exists.
 
-## Collections
+## Spaces
 
-A P0 collection definition combines file inclusion, create behavior, runtime
+A P0 space definition combines file inclusion, create behavior, runtime
 schema, and display conventions.
 
 Example shape:
 
 ```yaml
-collections:
+spaces:
     todos:
         title: Todos
         include: todos/**/*.md
@@ -222,7 +222,7 @@ workspace-relative POSIX-style paths. Forma should reject absolute paths,
 configuration.
 
 `conventions` are display and tooling hints. They do not replace schema
-constraints and should not be required for every collection field.
+constraints and should not be required for every space field.
 
 ## Create Inputs
 
@@ -355,8 +355,8 @@ P0 validation should be diagnostic-first:
 
 - Parse configuration into typed structures where practical.
 - Parse entry frontmatter into generic YAML values.
-- Determine collection membership from collection `include` rules.
-- Validate known fields against the collection schema.
+- Determine space membership from space `include` rules.
+- Validate known fields against the space schema.
 - Resolve semantic references where schema fields use `type: ref`.
 - Report unknown, invalid, unresolved, stale, and ambiguous cases with
   structured diagnostics.

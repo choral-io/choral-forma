@@ -40,7 +40,7 @@ the same JSON-compatible operation result shapes.
   server push, or stdio JSON-RPC.
 - P0 does not include structured edit operations such as `set`, `add`,
   `remove`, or `unset`.
-- P0 does not define full schema details for every configuration, collection,
+- P0 does not define full schema details for every configuration, space,
   entry, view, or rendered Markdown object.
 - P0 does not persist diagnostics, rendered views, effective configuration, or
   check summaries.
@@ -58,12 +58,12 @@ names use stable lower camel case in JSON-facing APIs.
 | IndexCheck     | `index.check`     | `forma index check [--json]`                                                  | No           |
 | Check          | `check`           | `forma check [--json]`                                                        | No           |
 | Inspect        | `inspect`         | `forma inspect <path> [--json]`                                               | No           |
-| Inspect        | `inspect`         | `forma inspect --collection <collection> <entry> --json`                      | No           |
-| List           | `list`            | `forma list --collection <collection> [--json]`                               | No           |
+| Inspect        | `inspect`         | `forma inspect --space <space> <entry> --json`                                | No           |
+| List           | `list`            | `forma list --space <space> [--json]`                                         | No           |
 | FilesList      | `files.list`      | No required P0 CLI command                                                    | No           |
 | FileRender     | `file.render`     | No required P0 CLI command                                                    | No           |
 | FileReferences | `file.references` | No required P0 CLI command                                                    | No           |
-| Create         | `create`          | `forma create <collection> [--input <name=value>]... [--json]`                | Yes          |
+| Create         | `create`          | `forma create <space> [--input <name=value>]... [--json]`                     | Yes          |
 | ViewRender     | `view.render`     | No required P0 CLI command                                                    | No           |
 | Serve          | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...`                | No           |
 
@@ -157,7 +157,7 @@ P0 command classification:
   starter configuration, starter templates, starter views, and the initial
   summary index. `-y` or `--yes` bypasses the prompt for scripts and CI.
 - `forma create` does not require confirmation in P0 because it writes one new
-  entry, uses collection-defined inputs and templates, and fails on path
+  entry, uses space-defined inputs and templates, and fails on path
   conflicts.
 - `forma index rebuild` does not require confirmation in P0 because it writes
   only the deterministic, rebuildable `.forma/index.summary.json` file.
@@ -166,7 +166,7 @@ P0 command classification:
   read-only in P0.
 - `forma config inspect --path <path>` may inspect only known configuration
   source files reported by the operation, such as `.forma/workspace.yml`,
-  `.forma/types.yml`, `.forma/collections.yml`, and
+  `.forma/types.yml`, `.forma/spaces.yml`, and
   `.forma/overrides/local.yml`. It is not a general workspace file read API.
 
 Future command classification:
@@ -268,8 +268,8 @@ errors and should not be persisted.
 
 Examples of diagnostics-as-result:
 
-- Invalid collection membership.
-- Invalid frontmatter against a collection schema.
+- Invalid space membership.
+- Invalid frontmatter against a space schema.
 - Unresolved or ambiguous references.
 - Missing resource targets for Markdown resource description documents.
 - Unknown configuration fields that leave the workspace inspectable.
@@ -411,7 +411,7 @@ Result outline:
     },
     "created": [
         ".forma/workspace.yml",
-        ".forma/collections.yml",
+        ".forma/spaces.yml",
         ".forma/types.yml",
         ".forma/views/todos.md",
         ".forma/templates/todo.md",
@@ -455,7 +455,7 @@ Result outline:
     },
     "checks": {
         "config": "passed",
-        "collections": "warning",
+        "spaces": "warning",
         "entries": "failed",
         "references": "failed",
         "views": "passed",
@@ -476,7 +476,7 @@ Params:
 
 ```json
 {
-    "path": ".forma/collections.yml"
+    "path": ".forma/spaces.yml"
 }
 ```
 
@@ -497,7 +497,7 @@ Result outline:
     "config": {
         "workspace": {},
         "types": {},
-        "collections": [],
+        "spaces": [],
         "views": [],
         "runtime": {}
     },
@@ -553,7 +553,7 @@ Result outline:
     "index": {
         "path": ".forma/index.summary.json",
         "schemaVersion": 1,
-        "collections": 4,
+        "spaces": 4,
         "views": 4,
         "entries": 12,
         "refs": 18,
@@ -621,8 +621,8 @@ Result outline:
 
 ### Inspect
 
-`inspect` reads one entry by workspace-relative path or collection-scoped
-locator. It returns metadata, body-derived structure, references, collection
+`inspect` reads one entry by workspace-relative path or space-scoped
+locator. It returns metadata, body-derived structure, references, space
 membership, and diagnostics for that entry. It writes nothing.
 
 Params by path:
@@ -633,11 +633,11 @@ Params by path:
 }
 ```
 
-Params by collection locator:
+Params by space locator:
 
 ```json
 {
-    "collection": "todos",
+    "space": "todos",
     "entry": "user-registration"
 }
 ```
@@ -655,7 +655,7 @@ Result outline:
     },
     "file": {
         "path": "todos/user-registration.md",
-        "collection": "todos",
+        "space": "todos",
         "kind": "todo",
         "title": "User registration",
         "summary": "Implement user registration flow.",
@@ -679,14 +679,14 @@ absolute paths or internal parser state.
 
 ### List
 
-`list` returns entries in one collection. P0 list behavior should remain
-collection-scoped rather than becoming a general query language.
+`list` returns entries in one space. P0 list behavior should remain
+space-scoped rather than becoming a general query language.
 
 Params:
 
 ```json
 {
-    "collection": "todos"
+    "space": "todos"
 }
 ```
 
@@ -701,7 +701,7 @@ Result outline:
         "root": ".",
         "name": "Acme Knowledge"
     },
-    "collection": {
+    "space": {
         "id": "todos",
         "title": "Todos",
         "include": "todos/**/*.md"
@@ -725,7 +725,7 @@ Result outline:
 ```
 
 `fields` should contain display-safe structured values derived from the
-collection schema and conventions. It should not expose full Markdown bodies.
+space schema and conventions. It should not expose full Markdown bodies.
 
 ### Files List
 
@@ -772,7 +772,7 @@ Result outline:
             "parent": "todos",
             "depth": 1,
             "features": ["render.html", "render.source"],
-            "collection": "todos",
+            "space": "todos",
             "title": "User registration",
             "frontmatter": {
                 "kind": "todo",
@@ -803,7 +803,7 @@ Result outline:
 
 P0 `kind` values are `knowledge`, `view`, `template`, `markdown`, `config`,
 `index`, and `resource`. Uncatalogued Markdown should remain visible as
-`markdown` so users and Agents can find files outside collections without
+`markdown` so users and Agents can find files outside spaces without
 making file navigation the primary product navigation model. Supported
 non-Markdown files should appear as `resource` when they are safe to expose in
 workspace file navigation.
@@ -835,7 +835,7 @@ Forma-inferred knowledge kind.
 
 ### Create
 
-`create` resolves collection create inputs, renders the filename and template,
+`create` resolves space create inputs, renders the filename and template,
 validates the generated entry, writes one file, and reports that the summary
 index is stale without rebuilding it automatically.
 
@@ -843,7 +843,7 @@ Params:
 
 ```json
 {
-    "collection": "todos",
+    "space": "todos",
     "inputs": {
         "title": "Draft reference model"
     }
@@ -863,7 +863,7 @@ Result outline:
     },
     "created": {
         "path": "todos/draft-reference-model.md",
-        "collection": "todos",
+        "space": "todos",
         "template": ".forma/templates/todo.md"
     },
     "inputs": {
@@ -910,16 +910,16 @@ diagnostics that do not block creation may be returned as diagnostics.
 ### View Render
 
 `view.render` renders one declarative view for the local WebApp and HTTP API.
-It evaluates view parameters, workspace source filters, collection shorthand,
+It evaluates view parameters, workspace source filters, space shorthand,
 normalized-entry query definitions, sort definitions, display fields, table
 fields, kanban columns, and render mounts. It writes nothing and does not
 persist rendered view results.
 
 The source/query model is defined in [[architecture/forma-view-query-model]].
 
-The direct `view.collection` field is a shorthand for a workspace-source query
-where `entry.collection` equals the collection id. Explicit queries should use
-`target` paths such as `entry.collection` and `frontmatter.status`. P0 render
+The direct `view.space` field is a shorthand for a workspace-source query
+where `entry.space` equals the space id. Explicit queries should use
+`target` paths such as `entry.space` and `frontmatter.status`. P0 render
 support should cover `equals`, `in`, `contains`, and `exists`; unsupported
 targets or operators should return structured diagnostics.
 
@@ -949,7 +949,7 @@ Result outline:
         "surface": "page",
         "mode": "kanban",
         "title": "Todos",
-        "collection": "todos",
+        "space": "todos",
         "source": {
             "kind": "workspace"
         },
@@ -1004,7 +1004,7 @@ Result outline:
     },
     "file": {
         "path": "todos/user-registration.md",
-        "collection": "todos",
+        "space": "todos",
         "kind": "todo",
         "title": "User registration"
     },
@@ -1057,7 +1057,7 @@ Result outline:
     },
     "file": {
         "path": "todos/user-registration.md",
-        "collection": "todos",
+        "space": "todos",
         "kind": "todo",
         "title": "User registration"
     },
@@ -1104,7 +1104,7 @@ default, must reject wildcard origins, and should apply only to `/rpc`.
 Development WebApp builds may use `VITE_FORMA_RPC_URL` to call the configured
 Forma RPC URL across origins.
 
-The WebApp should use `POST /rpc` for workspace overview, collection listing,
+The WebApp should use `POST /rpc` for workspace overview, space listing,
 file navigation, entry inspection, file rendering data, view rendering,
 diagnostics, configuration inspection, and index status. P0 should avoid adding
 parallel REST endpoints for the same operation semantics.

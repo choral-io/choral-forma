@@ -96,7 +96,7 @@ validation step after these CLI behavior fixes.
       `index rebuild`, `check`, `list`, `inspect`, and `config inspect`;
     - verified `forma serve` serves embedded WebApp assets and RPC;
     - opened the release WebApp in the in-app browser and confirmed overview,
-      collections, views, diagnostics, and `rpc: connected`.
+      spaces, views, diagnostics, and `rpc: connected`.
 - As expected, `v0.1.0-alpha.2` does not include the local `--version` fix yet.
 
 ## Open questions

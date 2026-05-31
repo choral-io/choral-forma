@@ -60,7 +60,7 @@ the interaction.
 
 - Add a lightweight read-only entry search operation, such as `search.entries`.
     - Search candidates come from the summary index, not raw Markdown body text.
-    - Match against path, title, summary, collection, and kind.
+    - Match against path, title, summary, space, and kind.
     - Return workspace-relative POSIX paths, display titles, and simple match
       fields when cheaply available.
 - Add shared TypeScript result types and client support.

@@ -62,15 +62,15 @@ Pipeline phases:
 2. Load optional local overrides from `.forma/overrides/local.yml` when the
    operation needs effective local behavior.
 3. Normalize all public paths to workspace-relative POSIX-style paths.
-4. Discover candidate source files from collection `include` and `exclude`
+4. Discover candidate source files from space `include` and `exclude`
    globs, managed view definitions, and relevant `.forma/*.yml` files.
 5. Split Markdown frontmatter and body.
 6. Parse YAML configuration and entry frontmatter.
 7. Parse Markdown body into the chosen Markdown AST.
 8. Enrich the parsed document into `FormaAST` by scanning wikilinks,
    Markdown links, Obsidian-style embeds, and Forma directives.
-9. Classify files into collections and views.
-10. Validate configuration, collection membership, frontmatter schemas, view
+9. Classify files into spaces and views.
+10. Validate configuration, space membership, frontmatter schemas, view
     definitions, workspace view sources, and normalized-entry query targets.
 11. Resolve references.
 12. Build the deterministic summary-index projection from successfully resolved
@@ -103,7 +103,7 @@ configuration.
 The summary index must include only deterministic, shared discovery facts:
 
 - Workspace summary.
-- Collection summaries.
+- Space summaries.
 - Managed view summaries.
 - Entry summaries.
 - Successfully resolved references.
@@ -128,7 +128,7 @@ Recommended P0 JSON shape:
         "canonicalLanguage": "en",
         "supportedLanguages": ["en"]
     },
-    "collections": [
+    "spaces": [
         {
             "id": "todos",
             "title": "Todos",
@@ -142,7 +142,7 @@ Recommended P0 JSON shape:
             "path": ".forma/views/todos.md",
             "surface": "page",
             "mode": "kanban",
-            "collection": "todos",
+            "space": "todos",
             "title": "Todos"
         },
         {
@@ -161,7 +161,7 @@ Recommended P0 JSON shape:
     "entries": [
         {
             "path": "todos/user-registration.md",
-            "collection": "todos",
+            "space": "todos",
             "kind": "todo",
             "title": "User registration",
             "summary": "Implement user registration flow.",
@@ -218,7 +218,7 @@ Sorting rules:
   not by map iteration order.
 - Preserve `workspace.supportedLanguages` in configuration order because the
   order may carry display preference.
-- Sort `collections` by `id`.
+- Sort `spaces` by `id`.
 - Sort `views` by `path`, then `id`.
 - Sort `entries` by `path`.
 - Sort `entries[].refs` by `intent`, then `targetPath`, then `source`, then
@@ -313,7 +313,7 @@ P0 diagnostic code families:
 
 - `config.*`
 - `runtime.*`
-- `collection.*`
+- `space.*`
 - `schema.*`
 - `entry.*`
 - `ref.*`
@@ -329,8 +329,8 @@ example:
 
 - `config.parse`
 - `config.unknown-field`
-- `collection.multiple-match`
-- `collection.no-match`
+- `space.multiple-match`
+- `space.no-match`
 - `schema.invalid`
 - `entry.frontmatter-parse`
 - `ref.unresolved`
@@ -369,7 +369,7 @@ Recommended location shapes:
 ```json
 {
     "kind": "config",
-    "pointer": "/collections/todos/include"
+    "pointer": "/spaces/todos/include"
 }
 ```
 
@@ -447,7 +447,7 @@ runtime diagnostics and includes summary-index freshness by default.
 Behavior:
 
 - Read-only.
-- Runs diagnostics over shared configuration, collection membership, schemas,
+- Runs diagnostics over shared configuration, space membership, schemas,
   entries, references, views, templates where relevant, privacy boundaries, and
   index freshness.
 - Does not write repairs, caches, local results, or the summary index.
@@ -465,7 +465,7 @@ Behavior:
 
 - Read-only in P0.
 - May compute diagnostics and index/check status in memory.
-- Exposes workspace overview, collection listing, entry inspection, Markdown
+- Exposes workspace overview, space listing, entry inspection, Markdown
   rendering, view rendering, diagnostics, and index status through the local
   API.
 - Does not rebuild `.forma/index.summary.json` automatically.
@@ -483,38 +483,38 @@ Behavior:
 - Read-only.
 - Resolves the locator using workspace-relative POSIX path rules.
 - Parses and returns entry metadata summary, body-derived outline, resolved
-  references, collection membership, and target-specific diagnostics where
+  references, space membership, and target-specific diagnostics where
   applicable.
 - Should inspect imperfect files when possible and include diagnostics instead
   of failing early for every workspace issue.
 - Does not rebuild the summary index or persist diagnostics.
 
-### `forma inspect --collection <collection> <entry> [--json]`
+### `forma inspect --space <space> <entry> [--json]`
 
-Collection-scoped inspect resolves `<entry>` as a file basename without `.md`
-inside the collection's include/exclude result.
+Space-scoped inspect resolves `<entry>` as a file basename without `.md`
+inside the space's include/exclude result.
 
 Behavior:
 
 - Read-only.
 - No-match and multiple-match cases are operation errors or diagnostics with
   suggestions to use a path locator or create a new entry.
-- Collection-backed type normalization may apply to bare entry names when such a
+- Space-backed type normalization may apply to bare entry names when such a
   type exists.
 - Path-like locators remain exact and are not normalized.
 - Does not rebuild the summary index or persist diagnostics.
 
-### `forma list --collection <collection> [--json]`
+### `forma list --space <space> [--json]`
 
-`forma list` returns entries for one collection.
+`forma list` returns entries for one space.
 
 Behavior:
 
 - Read-only.
-- Uses the shared discovery and collection-classification pipeline.
+- Uses the shared discovery and space-classification pipeline.
 - Returns deterministic entry ordering by workspace-relative `path`.
-- Includes the collection id, entry count, and entry summaries.
-- May include relevant collection-level diagnostics in JSON output.
+- Includes the space id, entry count, and entry summaries.
+- May include relevant space-level diagnostics in JSON output.
 - Does not rebuild the summary index or persist diagnostics.
 
 ## Cache Rules

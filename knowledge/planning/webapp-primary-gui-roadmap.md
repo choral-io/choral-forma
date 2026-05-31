@@ -32,7 +32,7 @@ The WebApp should become a complete read-oriented knowledge client for local
 repository workspaces:
 
 - workspace overview and navigation;
-- collection, file, view, and resource browsing;
+- space, file, view, and resource browsing;
 - rendered Markdown and source preview;
 - reference navigation and graph views;
 - diagnostics and knowledge health;
@@ -67,7 +67,7 @@ semantics that belong in shared Forma operations.
 2. Validate the V2 dashboard layout in the in-app browser before reconnecting
    real RPC data.
 3. Reconnect the dashboard through a WebApp workspace client backed by Forma RPC.
-4. Add knowledge-health views over existing and new diagnostics.
+4. Add diagnostics and knowledge health surfaces over existing and new checks.
 5. Add graph view render data and a minimal graph surface.
 6. Add quick switcher and entry search over the summary index.
 7. Design reviewable operation proposals for interactive GUI actions.

@@ -14,7 +14,7 @@ tags:
 ## Goal
 
 Define the concrete P0 starter workspace created by `forma init`. The starter
-should demonstrate Forma's Markdown-first knowledge model, thin collections,
+should demonstrate Forma's Markdown-first knowledge model, thin spaces,
 Forma Schema DSL, semantic types, create templates, and page views without
 introducing P1 workflow machinery.
 
@@ -24,7 +24,7 @@ This specification closes the starter-content question in
 
 ## Scope
 
-The P0 starter includes only these collections:
+The P0 starter includes only these spaces:
 
 - `notes`: general knowledge notes.
 - `todos`: lightweight action items.
@@ -50,7 +50,7 @@ The starter must not include:
   .gitignore
   workspace.yml
   types.yml
-  collections.yml
+  spaces.yml
   index.summary.json
   templates/
     note.md
@@ -68,7 +68,7 @@ users/
 The content directories are created so editors can display the intended
 workspace shape, but the starter does not create sample entries. `forma init`
 should run the initial index rebuild so `.forma/index.summary.json` exists and
-records zero entries for each collection.
+records zero entries for each space.
 
 ## `.forma/.gitignore`
 
@@ -113,7 +113,7 @@ runtime:
 
 `currentUserId` is a runtime value, not a special user system concept. If the
 workspace creates an initial user entry during initialization in the future,
-that entry should be produced through the ordinary `users` collection create
+that entry should be produced through the ordinary `users` space create
 flow.
 
 `workspace.timezone` is an explicit workspace behavior setting. Time field
@@ -142,7 +142,7 @@ files unless `-y` or `--yes` is provided.
 
 ## `.forma/types.yml`
 
-`types.yml` owns semantic types. P0 uses static enums and collection-backed
+`types.yml` owns semantic types. P0 uses static enums and space-backed
 types only:
 
 ```yaml
@@ -150,20 +150,20 @@ schemaVersion: 1
 
 types:
     note:
-        kind: collection
-        collection: notes
+        kind: space
+        space: notes
         input:
             transform: slugify
 
     todo:
-        kind: collection
-        collection: todos
+        kind: space
+        space: todos
         input:
             transform: slugify
 
     user:
-        kind: collection
-        collection: users
+        kind: space
+        space: users
         input:
             transform: slugify
 
@@ -178,16 +178,16 @@ types:
 The `user` type resolves entries from `users/`. P0 must not add a separate
 `username` field or a union type for assignees.
 
-## `.forma/collections.yml`
+## `.forma/spaces.yml`
 
-`collections.yml` owns collection definitions and inline Forma Schema DSL
+`spaces.yml` owns space definitions and inline Forma Schema DSL
 constraints. Schema fields use field-local `required`. Defaults live in create
 inputs and templates, not in schema fields.
 
 ```yaml
 schemaVersion: 1
 
-collections:
+spaces:
     notes:
         title: Notes
         description: General knowledge notes.
@@ -404,10 +404,10 @@ createdAt: "{{ input.createdAt }}"
 ## P0 Page Views
 
 P0 starter views are managed Markdown definitions under `.forma/views/`.
-Collection starter views have `surface: page`, use the `collection` shorthand
-for a workspace query filtered by `entry.collection`, and contain one
+Space starter views have `surface: page`, use the `space` shorthand
+for a workspace query filtered by `entry.space`, and contain one
 `<!-- forma-view -->` mount point. The starter does not include embedded views
-or cross-collection list, table, or kanban views.
+or cross-space list, table, or kanban views.
 
 ### `.forma/views/notes.md`
 
@@ -418,7 +418,7 @@ kind: forma-view
 view:
     surface: page
     mode: table
-    collection: notes
+    space: notes
     title: Notes
     description: General knowledge notes.
     table:
@@ -445,7 +445,7 @@ kind: forma-view
 view:
     surface: page
     mode: kanban
-    collection: todos
+    space: todos
     title: Todos
     description: Lightweight action items.
     kanban:
@@ -497,7 +497,7 @@ kind: forma-view
 view:
     surface: page
     mode: table
-    collection: users
+    space: users
     title: Users
     description: People referenced by this workspace.
     table:
@@ -519,7 +519,7 @@ view:
 
 After graph rendering and workspace-scope view sources exist, initialized
 workspaces can include a built-in global graph view. This view is not a
-cross-collection table query; it renders the repository reference graph over a
+cross-space table query; it renders the repository reference graph over a
 file scope.
 
 ```markdown
@@ -557,14 +557,14 @@ view:
 6. Create no `.forma/local/` or `.forma/overrides/local.yml`.
 7. Run `forma index rebuild`.
 
-`forma create <collection>` should use the target collection's create inputs,
+`forma create <space>` should use the target space's create inputs,
 create filename rule, and template. It should fail on path conflicts and report
 that `.forma/index.summary.json` is stale after writing the new entry.
 
-`forma serve` should expose the starter collections and page views through the
+`forma serve` should expose the starter spaces and page views through the
 read-only local WebApp. The P0 WebApp should guide users toward structured
-navigation through views and collections, while still providing a file
+navigation through views and spaces, while still providing a file
 navigation mode for uncatalogued Markdown and configuration visibility. It may
-inspect and render knowledge files, collections, views, diagnostics,
+inspect and render knowledge files, spaces, views, diagnostics,
 configuration, file inventory, and index status, but it must not edit files or
 configuration.

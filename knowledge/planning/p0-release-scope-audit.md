@@ -52,7 +52,7 @@ starter, and view-query documents.
   workspace checks, and index rebuild/check behavior.
 - View discovery, view metadata, table and kanban rendering, and graph view
   discovery/indexing without requiring interactive graph rendering in P0.
-- Read-only local WebApp for browsing collections, views, files, rendered
+- Read-only local WebApp for browsing spaces, views, files, rendered
   Markdown, diagnostics, and index status.
 - CI/release baseline, release packaging workflow, and MVP validation fixes.
 - Reference navigation baseline through `file.references`, including outgoing

@@ -131,14 +131,14 @@ Starter workspace smoke test:
 - `forma create notes --input title=Alpha --input summary=Smoke --json`: passed
   with expected `index.stale` warning after writing the entry.
 - `forma inspect notes/alpha.md --json`: passed.
-- `forma list --collection notes --json`: passed and returned one note.
+- `forma list --space notes --json`: passed and returned one note.
 - `forma check --json`: passed with expected stale-index warning before rebuild.
 - `forma index rebuild --json`: passed.
 - `forma index check --json`: passed after rebuild.
 - `forma serve --bind 127.0.0.1:0`: sandboxed bind failed with
   `Operation not permitted`; reran with approved localhost binding and passed.
 - HTTP root smoke check returned the WebApp HTML shell.
-- JSON-RPC `list` smoke check returned the `notes` collection and the created
+- JSON-RPC `list` smoke check returned the `notes` space and the created
   `Alpha` note.
 
 Artifact check:

@@ -48,7 +48,7 @@ workspace.
 ## Context
 
 P0 should provide enough CLI behavior to create a workspace, create entries,
-inspect entries, list a collection, check the workspace, and rebuild/check the
+inspect entries, list a space, check the workspace, and rebuild/check the
 summary index.
 
 ## In Scope
@@ -62,10 +62,10 @@ summary index.
 - Require explicit confirmation before `init` writes files unless `-y` or
   `--yes` is provided; non-interactive shells should fail without writing files
   unless confirmation is bypassed explicitly.
-- Implement `forma create <collection> [--input <name=value>]... [--json]`.
+- Implement `forma create <space> [--input <name=value>]... [--json]`.
 - Implement `forma inspect <path> [--json]` and
-  `forma inspect --collection <collection> <entry> [--json]`.
-- Implement `forma list --collection <collection> [--json]`.
+  `forma inspect --space <space> <entry> [--json]`.
+- Implement `forma list --space <space> [--json]`.
 - Wire `forma check`, `forma index rebuild`, and `forma index check` to the
   shared operations.
 - Add CLI tests for success cases, stale index warnings, path conflicts,
@@ -85,7 +85,7 @@ summary index.
   already exists.
 - `forma init` shows resolved init parameters and requires confirmation before
   writing in interactive shells; non-interactive usage requires `-y` or `--yes`.
-- `forma create` writes one file from collection inputs and template, then
+- `forma create` writes one file from space inputs and template, then
   reports stale index without rebuilding automatically.
 - Inspect and list commands return stable JSON and useful human output.
 - Warnings exit zero and errors exit non-zero according to the P0 operation

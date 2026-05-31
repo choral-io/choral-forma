@@ -180,14 +180,14 @@ candidate, for structured configuration and frontmatter reads. Forma should
 split frontmatter and body itself before parsing YAML.
 
 P0 configuration files such as `.forma/workspace.yml`, `.forma/types.yml`, and
-`.forma/collections.yml` should parse into typed Rust structs where practical.
+`.forma/spaces.yml` should parse into typed Rust structs where practical.
 Unknown config fields should produce diagnostics or warnings rather than
 immediate hard failures, so future-version or manually edited config can remain
 inspectable.
 
-P0 entry frontmatter should parse into a generic YAML value before collection
-schema validation. Collection-specific Rust structs are not appropriate because
-collections are user-defined.
+P0 entry frontmatter should parse into a generic YAML value before space
+schema validation. Space-specific Rust structs are not appropriate because
+spaces are user-defined.
 
 P0 should not modify existing frontmatter. It can generate new files from
 templates, but structured metadata edits such as `set`, `add`, `remove`, and

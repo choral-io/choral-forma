@@ -57,7 +57,7 @@ files share the same basename with different extensions.
 Only Markdown and MDX files should participate in the knowledge system by
 default. Non-Markdown files are workspace resources: they may be browsed,
 previewed, linked, and served through raw routes, but they should not enter
-collections, graph nodes, backlinks, or knowledge checks as knowledge entries.
+spaces, graph nodes, backlinks, or knowledge checks as knowledge entries.
 
 When a resource needs durable knowledge, create an explicit Markdown
 description document next to it:
@@ -103,10 +103,10 @@ the file.
 - Reject path traversal, absolute paths, and local-only or private workflow
   paths.
 - Preserve configured `root_path` behavior.
-- Keep non-Markdown resource files out of collections, graph nodes, backlinks,
+- Keep non-Markdown resource files out of spaces, graph nodes, backlinks,
   and knowledge-entry checks by default.
 - Treat `filename.ext.md` resource description documents as normal knowledge
-  files when they match collection rules.
+  files when they match space rules.
 - Add focused route tests.
 
 ## Out Of Scope
@@ -129,10 +129,10 @@ the file.
   private paths.
 - Raw routes do not return `index.html` as fallback.
 - Raw routes work when `forma serve --root-path /forma` is configured.
-- Non-Markdown resources such as `assets/logo.png` do not become collection
+- Non-Markdown resources such as `assets/logo.png` do not become space
   entries, graph nodes, or backlink participants by default.
 - Resource description documents such as `assets/logo.png.md` are normal
-  knowledge documents when they match collection rules.
+  knowledge documents when they match space rules.
 - Focused Rust route tests pass.
 
 ## Validation Notes

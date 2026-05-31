@@ -81,7 +81,7 @@ diagnostic data, or write-capable navigation actions.
 - Fuzzy search tuning beyond a simple baseline.
 - Vector search.
 - Interactive graph rendering.
-- Cross-collection query DSL or advanced view filters.
+- Cross-space query DSL or advanced view filters.
 - Editing source files from search results.
 - Persisted diagnostic result files.
 

@@ -47,7 +47,7 @@ without changing the underlying project facts.
 ## In Scope
 
 - Markdown-first knowledge workspaces.
-- Thin configurable collections, semantic types, schemas, templates, and views.
+- Thin configurable spaces, semantic types, schemas, templates, and views.
 - Lightweight navigation across user-defined knowledge entries.
 - Agent-assisted maintenance that respects repository workflow rules and local
   privacy boundaries.

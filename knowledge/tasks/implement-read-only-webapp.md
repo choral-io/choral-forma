@@ -55,7 +55,7 @@ basic browsing and rendering, but no editing or mutation.
 - Implement WebApp shell in `packages/webapp`.
 - Implement shared RPC client/types/utilities in `packages/shared`.
 - Show workspace overview from composed operations.
-- Show collections, entry lists, entry inspection/rendering, page views, check
+- Show spaces, entry lists, entry inspection/rendering, page views, check
   diagnostics, and index status.
 - Serve built static assets from `forma serve` in release mode.
 - Add frontend type/build checks and minimal integration tests where practical.
@@ -71,7 +71,7 @@ basic browsing and rendering, but no editing or mutation.
 
 - `forma serve` starts a localhost server and serves the WebApp.
 - The WebApp uses RPC operations instead of direct file reads.
-- Starter workspace collections and views are browsable.
+- Starter workspace spaces and views are browsable.
 - Diagnostics and stale-index state are visible without being persisted.
 - Frontend build/type checks pass in CI.
 

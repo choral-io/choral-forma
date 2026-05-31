@@ -51,15 +51,15 @@ editor-independent, repository-backed team knowledge application.
 - [Superthread projects](https://superthread.com/docs/help/projects-roadmap)
 - [How Superthread uses Superthread internally](https://superthread.com/blog/how-we-use-superthread-internally)
 - [Superthread CLI reference](https://superthread.com/docs/cli)
-- [Astro Content Collections](https://docs.astro.build/en/guides/content-collections/)
-- [Astro Content Collections API reference](https://docs.astro.build/en/reference/modules/astro-content/)
+- [Astro Content Spaces](https://docs.astro.build/en/guides/content-spaces/)
+- [Astro Content Spaces API reference](https://docs.astro.build/en/reference/modules/astro-content/)
 - [Astro Content Loader API](https://docs.astro.build/en/reference/content-loader-reference/)
 - [Use a CMS with Astro](https://docs.astro.build/en/guides/cms/)
 - [Hugo configuration introduction](https://gohugo.io/configuration/introduction/)
 - [Hugo templating introduction](https://gohugo.io/templates/introduction/)
 - [Hugo functions quick reference](https://gohugo.io/quick-reference/functions/)
 - [Hugo default function](https://gohugo.io/functions/compare/default/)
-- [Hugo where function](https://gohugo.io/functions/collections/where/)
+- [Hugo where function](https://gohugo.io/functions/spaces/where/)
 - [Tolaria homepage](https://tolaria.md/)
 - [Tolaria vaults](https://tolaria.md/concepts/vaults)
 - [Tolaria editor](https://tolaria.md/concepts/editor)
@@ -78,7 +78,7 @@ relevant for team review UX, and Notion relevant for collaborative polish and
 database-style knowledge views.
 Superthread is relevant as a product-management reference because it integrates
 tasks, projects, docs, comments, smart links, and meeting notes in one workspace.
-Astro Content Collections and the Astro Content Layer are relevant as a
+Astro Content Spaces and the Astro Content Layer are relevant as a
 reference for typed, validated content management over Markdown, data files, and
 remote content sources.
 Hugo is relevant as a mature files-first static site generator with split
@@ -105,16 +105,16 @@ adapter over explicit repository files and schemas.
 These capabilities are central to Choral Forma and should shape the earliest
 product and architecture work.
 
-| Capability                             | Why It Matters                                                                                   | Reference Pattern                                                                      |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| Repository files as canonical state    | Prevents hidden app state and keeps Git, editors, and agents aligned.                            | Foam, Dendron, MkDocs, Quartz                                                          |
-| Collections, schemas, and frontmatter  | Enables validation, routing, automation, and stable views without a proprietary database.        | Astro Content Collections, Astro Content Layer, Dendron, current Choral Forma workflow |
-| Safe read/write operations             | The app must make file changes that can be reviewed, diffed, reverted, and checked.              | Tolaria Git UI, GitBook change requests, Git workflows                                 |
-| Fast search and file navigation        | Users need immediate retrieval before richer graph or AI features matter.                        | Tolaria, Obsidian quick switcher, Foam, MkDocs                                         |
-| Wikilinks plus portable Markdown links | Lightweight relationships are useful, but syntax must remain documented and editor-independent.  | Obsidian, Foam, Quartz                                                                 |
-| Backlinks and broken-link diagnostics  | Repository knowledge needs visible relationships, missing targets, and safe rename behavior.     | Obsidian backlinks, Foam placeholders                                                  |
-| Local-only privacy boundaries          | Project-local and user-private state need explicit boundaries from shared repository knowledge.  | Current repository workflow, local-first note apps                                     |
-| Validation and formatting checks       | Trust in the file store depends on repeatable checks for schema, links, and Markdown formatting. | CI/docs-as-code workflows                                                              |
+| Capability                             | Why It Matters                                                                                   | Reference Pattern                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Repository files as canonical state    | Prevents hidden app state and keeps Git, editors, and agents aligned.                            | Foam, Dendron, MkDocs, Quartz                                                     |
+| Spaces, schemas, and frontmatter       | Enables validation, routing, automation, and stable views without a proprietary database.        | Astro Content Spaces, Astro Content Layer, Dendron, current Choral Forma workflow |
+| Safe read/write operations             | The app must make file changes that can be reviewed, diffed, reverted, and checked.              | Tolaria Git UI, GitBook change requests, Git workflows                            |
+| Fast search and file navigation        | Users need immediate retrieval before richer graph or AI features matter.                        | Tolaria, Obsidian quick switcher, Foam, MkDocs                                    |
+| Wikilinks plus portable Markdown links | Lightweight relationships are useful, but syntax must remain documented and editor-independent.  | Obsidian, Foam, Quartz                                                            |
+| Backlinks and broken-link diagnostics  | Repository knowledge needs visible relationships, missing targets, and safe rename behavior.     | Obsidian backlinks, Foam placeholders                                             |
+| Local-only privacy boundaries          | Project-local and user-private state need explicit boundaries from shared repository knowledge.  | Current repository workflow, local-first note apps                                |
+| Validation and formatting checks       | Trust in the file store depends on repeatable checks for schema, links, and Markdown formatting. | CI/docs-as-code workflows                                                         |
 
 ### P1: Early Product Differentiators
 
@@ -271,29 +271,29 @@ The limitation is product direction and adoption risk. Dendron is best treated
 as an architectural reference for schema-driven knowledge management, not as a
 runtime dependency.
 
-### Astro Content Collections
+### Astro Content Spaces
 
-Astro Content Collections are a useful reference for pattern-based notes and
-structured content. Astro models a collection as a set of related entries loaded
+Astro Content Spaces are a useful reference for pattern-based notes and
+structured content. Astro models a space as a set of related entries loaded
 from local Markdown, MDX, Markdoc, YAML, TOML, JSON, or remote sources. Each
-collection can define a loader and a schema, commonly through Zod, so entry data
+space can define a loader and a schema, commonly through Zod, so entry data
 can be validated and queried with predictable fields.
 
 The strongest product idea for Choral Forma is that structure can be declared at
-the collection level. A user should be able to say that a set of files are
+the space level. A user should be able to say that a set of files are
 experiments, decisions, customer notes, procedures, or tasks, then attach a
-schema, template, references, and views to that collection. This is a cleaner
+schema, template, references, and views to that space. This is a cleaner
 model than treating every note as globally uniform or relying only on ad hoc
 tags.
 
 Astro's `reference()` concept is also relevant. Choral Forma should support
-typed relationships between collections, such as tasks referencing projects,
+typed relationships between spaces, such as tasks referencing projects,
 decisions referencing proposals, experiments referencing hypotheses, or sales
 notes referencing accounts. These references should remain visible in Markdown
 and validated by the product.
 
 The limitation is that Astro is a web framework content layer, not a knowledge
-application. Choral Forma should borrow the collection mental model, schema
+application. Choral Forma should borrow the space mental model, schema
 validation, references, and typed queries, while keeping the user experience
 focused on reading, editing, health checks, and Agent collaboration.
 
@@ -307,13 +307,13 @@ file-friendly instead of a proprietary editing database.
 
 Astro's content management model has several useful parts:
 
-- Collections define named sets of structurally related content.
-- Loaders connect a collection to local files, a single data file, remote data,
+- Spaces define named sets of structurally related content.
+- Loaders connect a space to local files, a single data file, remote data,
   a CMS, a database, or an API.
 - Schemas validate content shape and provide editor/type support.
-- Query APIs such as `getCollection()` and `getEntry()` give application code a
+- Query APIs such as `getSpace()` and `getEntry()` give application code a
   stable way to access entries.
-- Reference fields model relationships between collections.
+- Reference fields model relationships between spaces.
 - Render APIs turn Markdown, MDX, or other supported content into displayable
   output.
 - Build-time and live content modes separate static content from content fetched
@@ -323,7 +323,7 @@ For Choral Forma, the most valuable idea is a content-management pipeline over
 repository knowledge:
 
 ```text
-source files -> collection loader -> schema validation -> typed entries -> views,
+source files -> space loader -> schema validation -> typed entries -> views,
 queries, rendering, health checks, and Agent context
 ```
 
@@ -332,10 +332,10 @@ start with local Markdown loaders and later add optional loaders for other
 sources. Unlike Astro, Choral Forma should focus on editing and maintaining the
 knowledge itself, not generating web pages.
 
-The product should avoid inheriting the web-framework assumptions. Collections
+The product should avoid inheriting the web-framework assumptions. Spaces
 should remain user-facing knowledge structures, not only developer
 configuration. Non-software users should be able to create and modify
-collections through GUI or Agent-assisted workflows without editing TypeScript
+spaces through GUI or Agent-assisted workflows without editing TypeScript
 configuration files.
 
 ### Hugo Template And Configuration Model
@@ -347,7 +347,7 @@ generated output the source of truth.
 Hugo's template system is intentionally powerful. It is based on Go's
 `text/template` and `html/template` packages, and supports variables,
 functions, methods, conditionals, loops, context rebinding, partial templates,
-and pipelines. Its function catalog includes casting, collection manipulation,
+and pipelines. Its function catalog includes casting, space manipulation,
 comparison, formatting, path helpers, resource processing, string helpers, time
 helpers, and transformation functions.
 
@@ -360,7 +360,7 @@ without adding loops, conditionals, arbitrary functions, or a broad filter
 pipeline.
 
 Hugo's `where` function is also relevant as a query design reference. It filters
-collections by a key, operator, and value, with operators such as equality,
+spaces by a key, operator, and value, with operators such as equality,
 ordering, membership, intersection, and pattern matching. Choral Forma's
 structured `all` / `any` query model covers a similar user need, but should stay
 declarative and type-checked so GUI and Agent consumers can inspect and explain
@@ -383,11 +383,11 @@ Implications for Choral Forma:
 - Keep `{{ ... }}` placeholders path-oriented and inspectable.
 - Do not add loops, conditionals, arbitrary functions, partials, or file/network
   access to P0 templates.
-- Let structured view queries handle collection filtering instead of embedding
+- Let structured view queries handle space filtering instead of embedding
   query logic in templates.
 - Keep configuration concise even when the internal model is split across
-  `workspace.yml`, `types.yml`, `collections.yml`, `templates/`, and `views/`.
-  P0 should keep the user-authored Schema DSL in collection configuration rather
+  `workspace.yml`, `types.yml`, `spaces.yml`, `templates/`, and `views/`.
+  P0 should keep the user-authored Schema DSL in space configuration rather
   than requiring separate `.forma/schemas/` authoring files.
 
 ### Tolaria
@@ -410,7 +410,7 @@ properties such as `type`, `status`, `url`, and `date`, reserves underscore
 fields for system behavior, and allows custom fields. This is thinner than a
 heavy schema system but still gives the app enough structure for properties
 panels, filtering, navigation, and editing. It aligns with Choral Forma's
-current direction toward thin collections and user-defined semantic types.
+current direction toward thin spaces and user-defined semantic types.
 
 The third pattern is relationship fields backed by wikilinks. Tolaria treats any
 frontmatter field containing wikilinks as a relationship field and supports
@@ -438,9 +438,9 @@ whiteboards, table-of-contents navigation for long notes, and built-in product
 documentation for local AI agents.
 
 The main limitation is that Tolaria appears closer to a general files-first
-Markdown app with AI and Git than to a configurable collection/schema platform
+Markdown app with AI and Git than to a configurable space/schema platform
 for many work domains. Choral Forma should learn from Tolaria's UX integration
-while keeping stronger emphasis on collections, semantic types, shared versus
+while keeping stronger emphasis on spaces, semantic types, shared versus
 personal knowledge/config layers, CLI/Skills-based health checks, and
 cross-industry adaptability.
 
@@ -557,6 +557,6 @@ remain adapters over explicit repository state.
 - What minimal query language is expressive enough for schema-driven views
   without requiring custom executable scripts?
 - Should Markdown TODOs remain lightweight references to structured task items,
-  or become a first-class task source alongside a configured task collection?
+  or become a first-class task source alongside a configured task space?
 - How should Choral Forma represent project health, stale updates, and
   cross-team child work while keeping repository files reviewable?

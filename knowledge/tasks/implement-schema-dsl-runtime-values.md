@@ -53,7 +53,7 @@ modeled as a normal runtime value.
 - Implement Schema DSL node types: `object`, `string`, `number`, `integer`,
   `boolean`, `date`, `datetime`, `const`, `enum`, `ref`, and `list`.
 - Implement field-local `required: true`, `readonly`, and `hidden` hints.
-- Implement semantic types for static enums and collection-backed references.
+- Implement semantic types for static enums and space-backed references.
 - Implement simple `{{ path.to.value }}` placeholder resolution with cycle
   detection.
 - Implement `slugify` transform.
@@ -72,7 +72,7 @@ modeled as a normal runtime value.
 
 ## Acceptance Criteria
 
-- Valid P0 starter collection schemas parse and validate.
+- Valid P0 starter space schemas parse and validate.
 - Invalid enum, ref, required, and type cases produce structured diagnostics.
 - Runtime values can be resolved from shared config and local overrides.
 - Placeholder cycles and missing required dependencies produce diagnostics.

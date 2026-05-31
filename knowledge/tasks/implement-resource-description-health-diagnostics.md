@@ -53,7 +53,7 @@ the described target should exist.
 
 The raw route/resource inventory baseline does not need to own this health
 rule. The rule belongs with diagnostic and health behavior so users can find
-broken resource documentation without making resources part of collections,
+broken resource documentation without making resources part of spaces,
 graph nodes, backlinks, or normal knowledge-entry validation.
 
 ## In Scope
@@ -62,7 +62,7 @@ graph nodes, backlinks, or normal knowledge-entry validation.
   resource is missing.
 - Emit a diagnostic such as `resource.description.missingTarget` with the
   description document path and missing target path.
-- Keep resource files themselves out of collections, graph nodes, backlinks,
+- Keep resource files themselves out of spaces, graph nodes, backlinks,
   and knowledge-entry checks by default.
 - Add focused Rust coverage for present-resource and missing-resource cases.
 - Update operation or health documentation if the diagnostic becomes an API
@@ -83,7 +83,7 @@ graph nodes, backlinks, or normal knowledge-entry validation.
 - `assets/logo.png.md` without `assets/logo.png` produces a
   `resource.description.missingTarget` diagnostic.
 - The diagnostic uses workspace-relative POSIX paths only.
-- Non-Markdown resources do not become collection entries, graph nodes, or
+- Non-Markdown resources do not become space entries, graph nodes, or
   backlink participants because of this check.
 - Focused Rust checks pass for the changed diagnostic behavior.
 

@@ -90,5 +90,5 @@ operations without broadening the current P0 read-only WebApp scope.
 - Should frontmatter patching be implemented with a comment/order-preserving
   YAML layer, or is a simpler generated-frontmatter strategy acceptable for
   early write operations?
-- Should `deprecate` use a conventional metadata field or collection-defined
+- Should `deprecate` use a conventional metadata field or space-defined
   schema configuration?

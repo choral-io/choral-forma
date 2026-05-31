@@ -110,7 +110,7 @@ Use a serde-compatible YAML parser for P0, with `serde_yml` as the preferred
 candidate. Forma should split frontmatter and Markdown body itself before YAML
 parsing. P0 `.forma/*.yml` configuration should parse into typed Rust structs
 where practical, while entry frontmatter should parse into a generic YAML value
-before collection schema validation because collections are user-defined.
+before space schema validation because spaces are user-defined.
 
 Unknown configuration fields should produce diagnostics or warnings rather than
 immediate hard failures. P0 should not modify existing frontmatter. Future
@@ -158,7 +158,7 @@ The server should expose RPC-over-HTTP endpoints backed by the shared operation
 dispatcher and serve the read-only WebApp static assets.
 
 The WebApp should not read files directly. It should call the local API for
-workspace overview, collection listing, entry inspection, Markdown rendering,
+workspace overview, space listing, entry inspection, Markdown rendering,
 view rendering, diagnostics, and index status.
 
 End users should not need Node, Bun, or another frontend runtime to use released
@@ -196,7 +196,7 @@ Future local caches:
 
 The summary index is a deterministic committed discovery artifact. It contains
 resolved structure, not health state. It should include workspace summary,
-collections, views, entries, and successfully resolved references. It must not
+spaces, views, entries, and successfully resolved references. It must not
 contain diagnostics, check summaries, last check status, health summaries,
 effective config, runtime values, rendered views, local paths, private local
 files, full frontmatter, full Markdown bodies, or user behavior traces.

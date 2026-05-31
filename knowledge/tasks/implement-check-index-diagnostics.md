@@ -50,7 +50,7 @@ Diagnostics are runtime operation results and must not be persisted.
 
 ## In Scope
 
-- Discover collections, views, entries, and successfully resolved references.
+- Discover spaces, views, entries, and successfully resolved references.
 - Generate deterministic `.forma/index.summary.json`.
 - Implement in-memory index freshness comparison.
 - Implement diagnostic result shape, status values, diagnostic code families,

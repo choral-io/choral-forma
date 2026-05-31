@@ -23,11 +23,11 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Ready
 
-- [ ] [[tasks/implement-webapp-v2-dashboard-shell|Implement WebApp V2 Dashboard Shell]]
-
 ## Doing
 
 ## Reviewing
+
+- [ ] [[tasks/implement-webapp-v2-dashboard-shell|Implement WebApp V2 Dashboard Shell]]
 
 ## Blocked
 

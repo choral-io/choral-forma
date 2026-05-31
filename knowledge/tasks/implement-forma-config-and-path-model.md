@@ -55,7 +55,7 @@ time-derived runtime values.
 
 - Locate and validate the workspace root.
 - Load `.forma/workspace.yml`, `.forma/types.yml`, and
-  `.forma/collections.yml`.
+  `.forma/spaces.yml`.
 - Load optional `.forma/overrides/local.yml` when effective local behavior is
   required.
 - Model `workspace.name`, `canonicalLanguage`, `supportedLanguages`, and

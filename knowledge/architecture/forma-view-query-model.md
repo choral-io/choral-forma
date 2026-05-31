@@ -21,12 +21,12 @@ turning view definitions into ordinary domain notes.
 The initial design previously leaned toward collection-bound views. The
 accepted model is broader: a view starts from a workspace data source, narrows
 candidate files with `source`, then filters normalized entry records with
-`query`. A collection view is a common shortcut, not a separate source model.
+`query`. A space view is a common shortcut, not a separate source model.
 
 ## Goals
 
 - Keep view behavior explicit, file-backed, and reviewable.
-- Support collection views, uncatalogued file views, and graph views with one
+- Support space views, uncatalogued file views, and graph views with one
   source/query model.
 - Keep P0 query support small enough for robust diagnostics and GUI
   round-tripping.
@@ -40,7 +40,7 @@ candidate files with `source`, then filters normalized entry records with
 - P0 does not support DataviewJS-style or trusted JavaScript queries.
 - P0 does not implement full-text predicates, date comparisons, reference
   predicates, diagnostic filters, runtime temporary query controls, saved
-  personal view controls, or cross-collection table joins.
+  personal view controls, or cross-space table joins.
 - P0 does not make graph a global special feature outside the view system.
 
 ## Proposed Architecture
@@ -71,20 +71,20 @@ The `source.kind` field is intentionally explicit. P0 implements only
 future inputs should be treated as view inputs, not as durable workspace truth,
 unless a separate import or promotion flow writes them into repository files.
 
-### Collection Shorthand
+### Space Shorthand
 
-The direct `view.collection` field remains valid because it is readable and
+The direct `view.space` field remains valid because it is readable and
 useful for starter views:
 
 ```yaml
 view:
     surface: page
     mode: table
-    collection: todos
+    space: todos
 ```
 
 It is equivalent to a workspace-source query over the normalized
-`entry.collection` field:
+`entry.space` field:
 
 ```yaml
 view:
@@ -94,12 +94,12 @@ view:
         kind: workspace
     query:
         all:
-            - target: entry.collection
+            - target: entry.space
               op: equals
               value: todos
 ```
 
-Runtime behavior should treat `collection` as an additional filter. It should
+Runtime behavior should treat `space` as an additional filter. It should
 not prevent graph views, file navigation views, or uncatalogued-document views
 from using the same workspace source model.
 
@@ -112,7 +112,7 @@ is:
 ```ts
 entry = {
     path: "todos/review-webapp.md",
-    collection: "todos" | null,
+    space: "todos" | null,
     kind: "todo" | null,
     title: "Review WebApp" | null,
     frontmatter: {},
@@ -123,7 +123,7 @@ entry = {
 
 The stable P0 target namespaces are:
 
-- `entry.collection`
+- `entry.space`
 - `entry.path`
 - `entry.kind`
 - `entry.title`
@@ -139,7 +139,7 @@ The query model is a structured AST with boolean composition:
 ```yaml
 query:
     all:
-        - target: entry.collection
+        - target: entry.space
           op: equals
           value: todos
         - any:
@@ -176,7 +176,7 @@ a special `missing` operator:
 ```yaml
 query:
     all:
-        - target: entry.collection
+        - target: entry.space
           op: exists
           value: false
 ```
@@ -203,7 +203,7 @@ checks should warn about overlapping column queries and unmatched items.
 
 Graph views use `source` and optional `query` to define the graph scope, but
 their rendering semantics are graph-specific. A repository-wide graph is not a
-cross-collection table join.
+cross-space table join.
 
 Example global graph view:
 
@@ -232,7 +232,7 @@ not the primary graph surface.
 
 - view parameters;
 - workspace source filters;
-- collection shorthand;
+- space shorthand;
 - normalized-entry query definitions;
 - sort definitions;
 - display fields;
@@ -242,7 +242,7 @@ not the primary graph surface.
 
 `index.rebuild` should include valid view metadata in
 `.forma/index.summary.json`, including workspace-source graph views without a
-collection filter. The index should not persist rendered query results.
+space filter. The index should not persist rendered query results.
 
 `check` should report structured diagnostics for:
 
@@ -251,7 +251,7 @@ collection filter. The index should not persist rendered query results.
 - invalid query targets;
 - unsupported operators;
 - incompatible operator/value combinations;
-- missing referenced collections, fields, or parameters when the view requires
+- missing referenced spaces, fields, or parameters when the view requires
   them;
 - invalid kanban column queries;
 - overlapping or unmatched kanban items when enough information is available.
@@ -269,10 +269,10 @@ P0 implements:
 - `query.all`;
 - `query.any`;
 - `query.not`;
-- targets `entry.collection`, `entry.path`, `entry.kind`, `entry.title`, and
+- targets `entry.space`, `entry.path`, `entry.kind`, `entry.title`, and
   `frontmatter.<field>`;
 - operators `equals`, `in`, `contains`, and `exists`;
-- `view.collection` as shorthand for `entry.collection`;
+- `view.space` as shorthand for `entry.space`;
 - table and kanban rendering over this model;
 - graph view discovery and indexing, but not necessarily interactive graph
   rendering.

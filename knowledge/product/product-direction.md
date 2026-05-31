@@ -49,9 +49,9 @@ maintainable canonical knowledge.
 - Make hidden context, stale context, and poor context quality visible.
 - Treat validation as diagnostic-first rather than enforcement-first because
   repository files remain directly editable throughout the product lifecycle.
-- Model repeatable note types as collections: a named set of related entries
+- Model repeatable note types as spaces: a named set of related entries
   with a source location, schema, templates, references, and views.
-- Keep collections thin. They should explain files, not become a heavyweight
+- Keep spaces thin. They should explain files, not become a heavyweight
   database, permission, or workflow engine.
 - Support user-defined semantic types instead of hard-coding product concepts
   such as people, projects, statuses, priorities, customers, or machines.
@@ -91,7 +91,7 @@ rejecting that convention.
 
 Choral Forma and Choral Flows share the same underlying knowledge runtime thesis, but productize it for different users and interaction surfaces.
 
-Choral Forma is the professional productization path. It keeps repository-backed Markdown, collections, schemas, semantic types, structured views, reviewable diffs, health checks, and Agent-readable context close to the surface so knowledge maintainers and Agent workflow builders can control the structure directly.
+Choral Forma is the professional productization path. It keeps repository-backed Markdown, spaces, schemas, semantic types, structured views, reviewable diffs, health checks, and Agent-readable context close to the surface so knowledge maintainers and Agent workflow builders can control the structure directly.
 
 Choral Flows is the business-user productization path. It hides repository and schema mechanics behind business objects such as Matter, Message, Handoff, Proposal, Work Record, Agent, Skill, and Knowledge Promotion so ordinary users can operate through work context rather than knowledge-engineering mechanics.
 
@@ -127,8 +127,8 @@ Default templates and schemas can help users get started, but the product should
 allow custom structures, schemas, modes, and templates instead of forcing the
 current repository's `knowledge/` layout onto every user.
 
-Astro Content Collections are a useful reference for this model. In Choral Forma, a collection should mean a group of related knowledge entries with a
-defined source, schema, template, references, and view behavior. A collection
+Astro Content Spaces are a useful reference for this model. In Choral Forma, a space should mean a group of related knowledge entries with a
+defined source, schema, template, references, and view behavior. A space
 could represent decisions, experiments, customer notes, manufacturing issues,
 sales opportunities, operating procedures, or any domain-specific note type.
 
@@ -136,12 +136,12 @@ The important product idea is not Astro compatibility. The useful idea is that
 "a pile of Markdown files" can become a typed, validated, queryable set without
 turning Markdown into a database export format.
 
-### Collections And Schemas
+### Spaces And Schemas
 
-Collections should provide the bridge between a simple note app and structured
+Spaces should provide the bridge between a simple note app and structured
 knowledge work.
 
-Current product direction favors a thin collection model. A collection
+Current product direction favors a thin space model. A space
 definition should initially focus on:
 
 - A name and human-readable purpose.
@@ -154,38 +154,38 @@ definition should initially focus on:
 
 Schemas should make structure visible and checkable, but should not force every
 workspace into one information architecture. Users should be able to start with
-plain notes, then promote repeated patterns into collections when the structure
+plain notes, then promote repeated patterns into spaces when the structure
 becomes valuable.
 
 More advanced concepts such as lifecycle rules, permissions, strict process
 automation, complex loaders, and deep validation should remain outside the thin
-collection core until the product has stronger evidence.
+space core until the product has stronger evidence.
 
-Recommended MVP collection responsibilities:
+Recommended MVP space responsibilities:
 
 - Discover files.
 - Validate metadata shape.
 - Create new entries.
 - Explain field semantics.
 
-The collection model should not become the first place for lifecycle policy,
+The space model should not become the first place for lifecycle policy,
 permissions, workflow automation, executable hooks, or external data loading.
 
 `include` should be the primary source field name rather than `path`. It should
 be a required workspace-relative glob. The MVP can start with one include glob
-string per collection. `exclude` should be an optional list of workspace-relative
+string per space. `exclude` should be an optional list of workspace-relative
 globs.
 
-A file should match at most one collection after excludes are applied. Multiple
-collection matches should be reported as health issues. Candidate files that
+A file should match at most one space after excludes are applied. Multiple
+space matches should be reported as health issues. Candidate files that
 match `include` and are not removed by `exclude` should then be checked against
-the collection's schema. P0 collection schemas should use a `kind` const field
+the space's schema. P0 space schemas should use a `kind` const field
 as the frontmatter discriminator.
 
 The Markdown body should remain free-form. Body structure constraints should be
 expressed through templates and guidance rather than hard validation in the
-collection MVP. Health checks may warn about empty or obviously incomplete
-bodies, but a file should not fail collection membership only because its
+space MVP. Health checks may warn about empty or obviously incomplete
+bodies, but a file should not fail space membership only because its
 headings differ from a template.
 
 P0 should use a Forma-native YAML Schema DSL as the canonical object constraint
@@ -194,14 +194,14 @@ derive internal validation plans or exported JSON Schema from the Forma Schema
 DSL when useful.
 
 The Schema DSL should be used wherever Choral Forma needs object structure or
-field constraints, not only for collection entries. Future create inputs, update
+field constraints, not only for space entries. Future create inputs, update
 inputs, view params, workflow inputs, starter manifests, and diagnostics can use
 the same schema primitives instead of inventing separate constraint syntaxes.
 
-Example P0 starter collection:
+Example P0 starter space:
 
 ```yaml
-collections:
+spaces:
     todos:
         title: Todos
         description: Lightweight action items.
@@ -253,13 +253,13 @@ collections:
                         target: user
 ```
 
-Collection paths such as `template`, `create.directory`, and `create.filename`
+Space paths such as `template`, `create.directory`, and `create.filename`
 should be workspace-relative paths, not knowledge wikilinks.
 The default starter layout above means a todo entry for a user registration task
-is `todos/user-registration.md`: `todos` is the collection id, and `todos/` is
-the collection's default entry directory.
+is `todos/user-registration.md`: `todos` is the space id, and `todos/` is
+the space's default entry directory.
 
-Collection `schema` should describe entry metadata structure, user-facing
+Space `schema` should describe entry metadata structure, user-facing
 labels, and semantic field constraints. Useful P0 field properties include:
 
 ```yaml
@@ -274,7 +274,7 @@ status:
 ```
 
 Use `label` for fields, enum values, buttons, and parameters. Use `title` for
-content objects, collections, views, and pages.
+content objects, spaces, views, and pages.
 
 P0 Schema DSL primitives can include:
 
@@ -297,24 +297,24 @@ list
 `required: [title]` array. Field-local required constraints are easier to merge,
 patch, review, and edit with Agents.
 
-`default` does not belong in collection schema fields in P0. Defaults are
+`default` does not belong in space schema fields in P0. Defaults are
 operation-level behavior and should live in create or update input
 configuration, templates, runtime values, or later migration rules. `readonly`
 and `hidden` should be treated as product and tool behavior hints, not security
 permissions.
 
-Collection `conventions` can name common semantic fields such as `titleField`,
+Space `conventions` can name common semantic fields such as `titleField`,
 `summaryField`, and `createdAtField`. These conventions should help creation,
 display, and Agent explanation, but they should not define view layouts. Health
 checks should validate referenced schema fields. Fallbacks are allowed when no
 convention exists, but they should be explainable; for example, title can fall
 back from `title` to `name`, `displayName`, and finally the file basename.
 
-Views should reference collections by id. They should not redefine collection
-schema fields. Collections should not define view layouts. Query operators
-should be validated from collection schema field types and cardinality. Display
+Views should reference spaces by id. They should not redefine space
+schema fields. Spaces should not define view layouts. Query operators
+should be validated from space schema field types and cardinality. Display
 fields, sort fields, kanban fields, and parameter references should be checked
-against the target collection and view parameter definitions.
+against the target space and view parameter definitions.
 
 ### Semantic Types
 
@@ -330,11 +330,11 @@ Semantic types can be backed by:
 
 - Static enums declared in configuration, such as status, priority, risk level,
   or review state.
-- Entries from a collection, such as users, customers, accounts, machines, or
+- Entries from a space, such as users, customers, accounts, machines, or
   projects.
 
-Collection-backed types make a collection's entries available as a type. For
-example, a `users` collection can define the allowed values for a `user`
+Space-backed types make a space's entries available as a type. For
+example, a `users` space can define the allowed values for a `user`
 semantic type. Other schemas can then use that type as a single value, a list
 value, or a map key or value.
 
@@ -347,8 +347,8 @@ types:
         values: [todo, doing, done]
 
     user:
-        kind: collection
-        collection: users
+        kind: space
+        space: users
         input:
             transform: slugify
 ```
@@ -356,20 +356,20 @@ types:
 Enum values can start as simple scalar values. Later versions can allow richer
 value objects with label, icon, color, description, or ordering metadata.
 
-Collection-backed types imply knowledge reference behavior. Union types are a
+Space-backed types imply knowledge reference behavior. Union types are a
 useful future capability for closely related reference classes, such as users
 and groups in an assignee field, but they should not be part of P0. When union
 types are introduced, they should be constrained enough to remain explainable
 and should not become a general-purpose way to combine unrelated data shapes.
 
-Collection-backed types may define input normalization for bare user-entered
+Space-backed types may define input normalization for bare user-entered
 values:
 
 ```yaml
 types:
     note:
-        kind: collection
-        collection: notes
+        kind: space
+        space: notes
         input:
             transform: slugify
 ```
@@ -391,7 +391,7 @@ when the workspace follows slug conventions. P0 should support `slugify` as the
 only type input transform.
 
 Cardinality belongs on fields rather than type definitions. The same semantic
-type can be used as a single value in one field and a collection of values in
+type can be used as a single value in one field and a space of values in
 another field.
 
 This lets Choral Forma support many domains without embedding industry-specific
@@ -405,7 +405,7 @@ configuration path references.
 
 Knowledge references point to knowledge entries, such as users, groups,
 projects, tasks, decisions, customers, machines, topics, or other user-defined
-collections. Fields with collection-backed semantic types are knowledge
+spaces. Fields with space-backed semantic types are knowledge
 reference fields.
 
 Knowledge reference fields may use wikilink syntax in Markdown metadata because
@@ -420,12 +420,12 @@ project: "[[projects/choral-forma]]"
 
 The product should use read-wide, write-strict behavior. Manually authored short
 wikilinks such as `[[tiscs]]` are valid when they resolve uniquely within the
-field's allowed target collections. GUI, CLI, and Agent writes should prefer
+field's allowed target spaces. GUI, CLI, and Agent writes should prefer
 path-qualified wikilinks such as `[[users/tiscs]]` to avoid ambiguity and make
 diffs clearer.
 
 The resolver scope should come from the field's semantic type. For example,
-`assignees` can resolve only against allowed user collections in P0, rather
+`assignees` can resolve only against allowed user spaces in P0, rather
 than searching the whole workspace. Ambiguous short wikilinks should produce a
 health check finding instead of being guessed.
 
@@ -442,7 +442,7 @@ Knowledge documents, views, templates, config files, generated indexes, and
 resources share the same file inventory shape, while server-assigned features
 drive render and preview affordances.
 
-Heading or block wikilinks should not be valid for collection entry references
+Heading or block wikilinks should not be valid for space entry references
 in the MVP. Alias wikilinks may be accepted where useful for display, but the
 identity should resolve from the target part.
 
@@ -458,7 +458,7 @@ schema configuration format in the product direction for the visible future.
 
 Forma Schema DSL should be the user-visible schema layer. It avoids making
 Node.js or a JavaScript runtime a hard dependency, keeps object constraints in
-YAML alongside collection configuration, and lets Choral Forma express product
+YAML alongside space configuration, and lets Choral Forma express product
 semantics such as references, labels, readonly fields, and hidden fields without
 custom JSON Schema extension keys.
 
@@ -471,7 +471,7 @@ useful.
 
 Choral Forma should consider a Git-backed Starter Kit Registry so official teams, community contributors, and private teams can publish reusable knowledge workspace starter kits through ordinary repositories.
 
-At a high level, a registry should let a repository declare one or more installable Starter Kits in a conventional, inspectable way. A Starter Kit should be able to initialize or extend a Choral Forma workspace with knowledge structures such as collections, schemas, semantic types, templates, views, health checks, workflow rules, examples, and optional Agent or Skill guidance.
+At a high level, a registry should let a repository declare one or more installable Starter Kits in a conventional, inspectable way. A Starter Kit should be able to initialize or extend a Choral Forma workspace with knowledge structures such as spaces, schemas, semantic types, templates, views, health checks, workflow rules, examples, and optional Agent or Skill guidance.
 
 The registration mechanism should stay lightweight and repository-native. Choral Forma should be able to discover, inspect, and install a kit from an approved source without requiring a centralized marketplace in the initial product. Users should be able to preview planned file changes, review diffs, and run health checks before accepting the result.
 
@@ -511,7 +511,7 @@ The P0 minimal starter should include enough structure to demonstrate Choral
 Forma's knowledge, action, and lightweight collaboration model without becoming
 an opinionated project-management workflow.
 
-Recommended P0 minimal starter collections:
+Recommended P0 minimal starter spaces:
 
 ```text
 notes
@@ -540,14 +540,14 @@ When groups are added later, the `assignees` field can keep its name and list
 shape while its item target evolves to an `assignee` union over `user` and
 `group`.
 
-The P0 `users` collection should keep identity lightweight. A user entry's
+The P0 `users` space should keep identity lightweight. A user entry's
 stable id comes from its path, such as `users/tiscs.md`. P0 should not include a
 separate `username` field because it would act like a field-level override for
 path identity. Runtime current-user matching should use the user id directly.
 
 `forma init` should not treat the current user as a special system value. If an
 initial user entry is created during initialization, it should be handled as
-ordinary starter input and created through the same collection create pipeline
+ordinary starter input and created through the same space create pipeline
 as any other user entry.
 
 ### Product Naming In Workspace Surfaces
@@ -576,7 +576,7 @@ schema checks, or knowledge health checks, the product should guide the human
 without requiring them to understand the underlying Git mechanics.
 
 Agent and Skill flows should be an assistance layer over stable product
-capabilities. Core actions such as creating collections, editing semantic types,
+capabilities. Core actions such as creating spaces, editing semantic types,
 building views, inspecting effective config, and running health checks should be
 available through GUI and CLI. Agents can suggest, explain, draft, orchestrate,
 and repair, but the product should not depend on Agents as the only way to use
@@ -631,7 +631,7 @@ should remain a P1 or later capability until there are enough durable personal
 preferences to justify the extra configuration layer.
 
 Team shared configuration is committed to the repository and defines workspace
-meaning: collections, semantic types, schemas, templates, shared views, and
+meaning: spaces, semantic types, schemas, templates, shared views, and
 baseline health checks. Team-level changes should be made directly in the shared
 base configuration; the MVP should not include shared team overrides.
 
@@ -657,7 +657,7 @@ Recommended initial layout:
   .gitignore
   workspace.yml
   types.yml
-  collections.yml
+  spaces.yml
   views/
     *.md
   templates/
@@ -714,7 +714,7 @@ Configuration files should have clear responsibility boundaries:
 ```text
 workspace.yml owns workspace identity and global behavior.
 types.yml owns semantic types.
-collections.yml owns collection definitions and Forma Schema DSL constraints.
+spaces.yml owns space definitions and Forma Schema DSL constraints.
 templates/ owns create-time content templates.
 overrides/local.yml owns local, private, and temporary overrides.
 views/ owns managed Markdown view definitions.
@@ -756,7 +756,7 @@ kind: forma-view
 view:
     surface: page
     mode: table
-    collection: todos
+    space: todos
     title: My Todos
     description: Active todos assigned to the current user.
 ---
@@ -764,7 +764,7 @@ view:
 
 The view data source should be the workspace. `source` selects the candidate
 file set; `query` filters normalized entries derived from those files.
-Collection-oriented views may keep the direct `collection` field as a readable
+Space-oriented views may keep the direct `space` field as a readable
 shorthand, but it should be treated as a query shortcut rather than a separate
 source kind. This:
 
@@ -772,7 +772,7 @@ source kind. This:
 view:
     surface: page
     mode: table
-    collection: todos
+    space: todos
 ```
 
 is equivalent to:
@@ -785,14 +785,14 @@ view:
         kind: workspace
     query:
         all:
-            - target: entry.collection
+            - target: entry.space
               op: equals
               value: todos
 ```
 
 This keeps graph, file navigation, uncatalogued documents, and future
 repository-wide renderings on the same source model without forcing every view
-through collection-specific semantics.
+through space-specific semantics.
 
 The Markdown body should not contain query logic. It can include a render mount
 point:
@@ -887,7 +887,7 @@ an entry record with stable namespaces such as:
 ```ts
 entry = {
     path: "todos/review-webapp.md",
-    collection: "todos" | null,
+    space: "todos" | null,
     kind: "todo" | null,
     frontmatter: {},
     refs: {},
@@ -902,7 +902,7 @@ into the normalized entry record:
 ```yaml
 query:
     all:
-        - target: entry.collection
+        - target: entry.space
           op: equals
           value: todos
         - target: frontmatter.status
@@ -945,14 +945,14 @@ Markdown can be expressed without a special `missing` operator:
 ```yaml
 query:
     all:
-        - target: entry.collection
+        - target: entry.space
           op: exists
           value: false
 ```
 
 P0 can keep query support intentionally small: `source.kind: workspace`,
 `source.include`, `source.exclude`, `all`, `any`, `not`, `target:
-entry.collection`, `target: frontmatter.<field>`, and the operations `equals`,
+entry.space`, `target: frontmatter.<field>`, and the operations `equals`,
 `in`, `contains`, and `exists`. References, full-text predicates, date
 comparisons, diagnostic filters, and saved runtime query controls can remain P1
 unless needed by implementation evidence.
@@ -970,7 +970,7 @@ rendering intent. Bottom relationship panels can show backlinks, outgoing links,
 and mentions for the current document, but they should not be the primary graph
 surface.
 
-Graph views can use the same workspace source without a collection filter. For
+Graph views can use the same workspace source without a space filter. For
 example, an initialized workspace can include a global graph view:
 
 ```yaml
@@ -987,10 +987,10 @@ view:
             - "**/local/**"
 ```
 
-This is not a cross-collection table query. It is a graph rendering over the
-workspace file inventory and reference index, so it can include collection
-entries, uncatalogued Markdown documents, and cross-collection links without
-making every view mode support arbitrary collection joins.
+This is not a cross-space table query. It is a graph rendering over the
+workspace file inventory and reference index, so it can include space
+entries, uncatalogued Markdown documents, and cross-space links without
+making every view mode support arbitrary space joins.
 
 List and table views can use shared `query` and `sort` fields, plus
 mode-specific rendering options such as title fields, subtitle fields, metadata
@@ -1039,15 +1039,15 @@ Drag-and-drop mutation should be explicit. If a column has complex matching
 logic, the product should not guess how to update a card. `onDrop.set` should
 declare the exact field changes that moving a card into the column will make.
 
-View health checks should report missing collections, missing fields, missing
+View health checks should report missing spaces, missing fields, missing
 parameters, incompatible operators, invalid default or query values, invalid
 sort or display fields, invalid kanban `onDrop.set` fields, overlapping kanban
 columns, unmatched kanban items, and multiple render mount points.
 
-Cross-collection list, table, and kanban views should remain out of the MVP.
-The initial collection view model should make one collection understandable and
-useful before trying to join multiple collections. This limitation does not
-prevent graph views from using the workspace source without a collection filter.
+Cross-space list, table, and kanban views should remain out of the MVP.
+The initial space view model should make one space understandable and
+useful before trying to join multiple spaces. This limitation does not
+prevent graph views from using the workspace source without a space filter.
 
 Runtime temporary query controls, runtime filters, runtime group-by controls,
 runtime sort overrides, and saved personal view controls are not part of the
@@ -1056,7 +1056,7 @@ should be discussed separately from the P0 managed view model.
 
 Agents should read the same view definitions that human-facing UI uses. View
 definitions should not contain a separate Agent-only context policy. Agents can
-use `view.query`, `view.params`, collection schema fields, semantic types, and
+use `view.query`, `view.params`, space schema fields, semantic types, and
 future view rendering APIs to find candidate entries, then decide which entries
 to inspect based on the task.
 
@@ -1142,7 +1142,7 @@ runtime:
 P0 should not include a separate `memberIdResolver` concept. Current-user
 identity should instead be modeled as `runtime.values.currentUserId`, a normal runtime
 value whose provider can normalize environment data into a user id. Member-like
-or user-like behavior should be derived from collections, semantic types, and
+or user-like behavior should be derived from spaces, semantic types, and
 runtime values rather than hard-coded resolver names.
 
 The resolver chain should remain explicit and inspectable. CLI and Agent tools
@@ -1176,7 +1176,7 @@ Template placeholders should then stay simple:
 date: "{{ input.date }}"
 ```
 
-This keeps defaults inspectable in collection configuration instead of burying
+This keeps defaults inspectable in space configuration instead of burying
 them in template expressions.
 
 Create inputs may also define a small operation-level transform:
@@ -1210,10 +1210,10 @@ remain separate from arbitrary scripting.
 
 ### Create, Edit, And Inspect Flows
 
-Collection-backed create flows should be predictable and reviewable:
+Space-backed create flows should be predictable and reviewable:
 
 ```text
-choose collection
+choose space
 -> collect input
 -> generate path
 -> render template
@@ -1228,13 +1228,13 @@ Example:
 forma create tasks --title "Draft reference model"
 ```
 
-Creation should use `collection.create.directory` and
-`collection.create.filename`. `input.*` placeholders are create-time values only.
+Creation should use `space.create.directory` and
+`space.create.filename`. `input.*` placeholders are create-time values only.
 Templates can use input, runtime, and configuration placeholders, but committed
 knowledge entries should store resolved concrete values where possible.
 
-Create inputs are operation parameters, not runtime collection schema
-definitions. Collection schema fields and create inputs are separate namespaces.
+Create inputs are operation parameters, not runtime space schema
+definitions. Space schema fields and create inputs are separate namespaces.
 A create input may explicitly bind to a schema field:
 
 ```yaml
@@ -1245,7 +1245,7 @@ create:
             required: true
 ```
 
-The binding explains that the input corresponds to `collection.schema.fields.title` for
+The binding explains that the input corresponds to `space.schema.fields.title` for
 type checking, GUI labels, Agent explanation, and diagnostics. Same-name inputs
 and schema fields do not bind implicitly. If `field` is absent, the input is a
 create-only parameter even when it has the same name as a schema field.
@@ -1285,7 +1285,7 @@ filename rendering happens only after all inputs are resolved.
 Semantic field context should control serialization. For example, if
 `assignees` is a many-valued `user` reference field, a user id can be serialized
 as a path-qualified user wikilink. The write should fail before creating an
-invalid collection entry.
+invalid space entry.
 
 The MVP should not require bulk creation, loops, executable hooks, overwrite
 modes, or multi-file transactions.
@@ -1346,30 +1346,30 @@ Entry locators should support:
 
 - Workspace-relative Markdown paths.
 - Workspace-relative paths with the `.md` extension omitted.
-- Explicit collection-scoped lookup with `--collection <collection-id>
+- Explicit space-scoped lookup with `--space <space-id>
 <entry-name>`.
 
 Recommended Agent-safe form:
 
 ```sh
-forma inspect --collection todos user-registration --json
+forma inspect --space todos user-registration --json
 ```
 
-For collection-scoped lookup, `<entry-name>` should mean a file basename without
-`.md` inside the collection's include and exclude result. No-match and
+For space-scoped lookup, `<entry-name>` should mean a file basename without
+`.md` inside the space's include and exclude result. No-match and
 multiple-match cases should be errors with suggestions to use a path locator or
 create a new entry.
 
-Collection-scoped bare entry locators may use the corresponding
-collection-backed type input normalization when such a type exists. For example,
-`forma inspect --collection notes "Meeting Notes"` can normalize the bare entry
+Space-scoped bare entry locators may use the corresponding
+space-backed type input normalization when such a type exists. For example,
+`forma inspect --space notes "Meeting Notes"` can normalize the bare entry
 name to `meeting-notes` before exact lookup. Path-like locators remain exact and
 should not be normalized.
 
-With the starter todos collection, `forma inspect todos/user-registration` is a
+With the starter todos space, `forma inspect todos/user-registration` is a
 path-like locator for `todos/user-registration.md`, while
-`forma inspect --collection todos user-registration` resolves the same entry
-through the `todos` collection.
+`forma inspect --space todos user-registration` resolves the same entry
+through the `todos` space.
 
 P0 CLI should prioritize reading, indexing, checking, and inspection before safe
 write operations, while still including initialization and minimal create so the
@@ -1383,9 +1383,9 @@ starter can be used end to end. Required P0 commands:
 - forma index check [--json]
 - forma check [--json]
 - forma inspect <path> [--json]
-- forma inspect --collection <collection> <entry> [--json]
-- forma list --collection <collection> [--json]
-- forma create <collection> [--input <name=value>]... [--json]
+- forma inspect --space <space> <entry> [--json]
+- forma list --space <space> [--json]
+- forma create <space> [--input <name=value>]... [--json]
 - forma serve
 
 P1:
@@ -1396,7 +1396,7 @@ P1:
 - forma deprecate <entry>
 - forma delete <entry>
 - forma move <from> <to>
-- forma rename --collection <collection> <old> <new>
+- forma rename --space <space> <old> <new>
 - search/query commands
 - fix plan/apply commands
 - local full index
@@ -1408,7 +1408,7 @@ Human-oriented output should remain concise and explainable.
 `forma init` should create the P0 minimal starter without sample entries, create
 `.forma/.gitignore` rules for local-only Forma files, run the initial index
 rebuild, and fail if `.forma/` already exists. `forma create` should use
-collection create inputs, defaults, transforms, and templates, fail on path
+space create inputs, defaults, transforms, and templates, fail on path
 conflicts, and report that the summary index is stale without rebuilding it
 automatically.
 
@@ -1446,7 +1446,7 @@ The dedicated deprecation command should be P1, earlier than archive or merge:
 ```sh
 forma deprecate decisions/old-auth.md --reason "Superseded by the new auth model"
 forma deprecate decisions/old-auth.md --replaced-by decisions/new-auth.md
-forma deprecate --collection decisions old-auth --replaced-by decisions/new-auth
+forma deprecate --space decisions old-auth --replaced-by decisions/new-auth
 ```
 
 The exact lifecycle schema, replacement relationship, view filtering, and
@@ -1475,15 +1475,15 @@ and report anything ambiguous. More advanced reference cleanup options can wait.
 
 Path should remain the default entry identity in the MVP. Controlled move and
 rename commands should be the preferred migration path because they can update
-references and keep collection membership valid:
+references and keep space membership valid:
 
 ```sh
 forma move todos/old-name.md todos/new-name.md
-forma rename --collection todos old-name new-name
+forma rename --space todos old-name new-name
 ```
 
 Direct filesystem edits should remain allowed. `forma check` should detect
-broken references, invalid collection membership, ambiguous short wikilinks,
+broken references, invalid space membership, ambiguous short wikilinks,
 stale views, and other consequences before review or commit.
 
 ### Summary Index
@@ -1523,7 +1523,7 @@ Recommended shape:
         "canonicalLanguage": "en",
         "supportedLanguages": ["en"]
     },
-    "collections": [
+    "spaces": [
         {
             "id": "todos",
             "title": "Todos",
@@ -1537,14 +1537,14 @@ Recommended shape:
             "path": ".forma/views/todos.md",
             "surface": "page",
             "mode": "kanban",
-            "collection": "todos",
+            "space": "todos",
             "title": "Todos"
         }
     ],
     "entries": [
         {
             "path": "todos/user-registration.md",
-            "collection": "todos",
+            "space": "todos",
             "kind": "todo",
             "title": "User registration",
             "summary": "Implement user registration flow.",
@@ -1589,8 +1589,8 @@ summary in memory and comparing it to `.forma/index.summary.json`.
 `forma check` should include summary index freshness as a default read-only
 check. A stale summary index should fail checks, because Agents, reviews, and
 CI may rely on it for fast orientation. Staleness includes missing index, added
-or removed collections, views, or entries, changed title, summary, references,
-collection membership, or other discovery-index content.
+or removed spaces, views, or entries, changed title, summary, references,
+space membership, or other discovery-index content.
 
 `forma check` should report the fix instead of writing automatically:
 
@@ -1683,7 +1683,7 @@ P0 diagnostic code families can include:
 ```text
 config.*
 runtime.*
-collection.*
+space.*
 schema.*
 entry.*
 ref.*
@@ -1707,7 +1707,7 @@ The product can support multiple surfaces:
 - Agent and Skill wrappers over GUI, CLI, and repository operations.
 
 P0 GUI should be a local webapp served by `forma serve`. It should browse
-collections and page views, render table and kanban views, inspect entry
+spaces and page views, render table and kanban views, inspect entry
 metadata and Markdown bodies, show resolved references, and display check/index
 status. It should not create, edit, delete, move, rename, deprecate, rebuild the
 index, mutate kanban cards, edit settings or schemas, run Git operations, or
@@ -1719,14 +1719,14 @@ those operations when they are needed.
 
 ## In Scope
 
-- Thin configurable collections, schemas, semantic types, modes, views, and
+- Thin configurable spaces, schemas, semantic types, modes, views, and
   templates.
 - Human-readable and Agent-friendly repository knowledge.
 - Agent-friendly CLI and skills for health checks, validation, workflow
   execution, and safe maintenance.
 - CLI interfaces for init, config inspection, index rebuild/check, check,
   inspect, list, create, and serving a local read-only webapp.
-- Read-only local browser GUI for browsing collections and views, rendering
+- Read-only local browser GUI for browsing spaces and views, rendering
   entries, inspecting metadata, and viewing diagnostics.
 - Structured views over files without requiring custom executable scripts.
 - Forma-native YAML Schema DSL as the initial user-visible object constraint
@@ -1745,7 +1745,7 @@ those operations when they are needed.
 - Committed summary index at `.forma/index.summary.json` with check-time
   freshness validation.
 - P0 CLI for init, config inspection, index rebuild/check, workspace checks,
-  entry inspection, collection listing, entry creation, and read-only local GUI
+  entry inspection, space listing, entry creation, and read-only local GUI
   serving.
 
 ## Out Of Scope
@@ -1757,7 +1757,7 @@ those operations when they are needed.
 - Required JSON Schema authoring files in the P0 minimal starter.
 - Arbitrary expression evaluation, filters, loops, conditionals, includes,
   partials, or scripting inside template placeholders.
-- `default` in collection schema fields for P0.
+- `default` in space schema fields for P0.
 - Publishing systems in the initial product direction.
 - Assuming the current repository's `knowledge/` layout is the default or only
   future workspace structure.
@@ -1780,7 +1780,7 @@ those operations when they are needed.
 - What exact P0 Schema DSL, semantic type, template, and view configuration
   syntax should be implemented first?
 - When should loaders or integrations become necessary beyond declarative
-  collection configuration?
+  space configuration?
 - How should Forma package or expose repository-backed knowledge so operational
   systems such as Choral Flows can consume it as a Git-backed knowledge source
   without turning Forma into a Flows backend or losing repository authorship?

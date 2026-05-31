@@ -55,8 +55,8 @@ stay metadata-focused.
 
 - Implement `file.render` with `format: "html"` for WebApp use.
 - Implement `view.render` for P0 page views.
-- Render table views from collection entries, columns, and sort definitions.
-- Render kanban views from collection entries and column `query.all` filters.
+- Render table views from space entries, columns, and sort definitions.
+- Render kanban views from space entries and column `query.all` filters.
 - Support `<!-- forma-view -->` as the view mount point.
 - Render Obsidian-style embeds as links or placeholders, not expanded content.
 - Add golden tests for table, kanban, entry HTML, missing mount points, invalid

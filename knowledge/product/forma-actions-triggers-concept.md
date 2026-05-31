@@ -126,7 +126,7 @@ says."
 ## Daily Note Example
 
 Daily Notes should not be a hidden built-in product feature. A workspace that
-wants Daily Notes can define a `daily` collection, a template, and a
+wants Daily Notes can define a `daily` space, a template, and a
 `createTodayDailyNote` Action.
 
 That Action would need a future `createEntry` step:
@@ -144,7 +144,7 @@ actions:
                         default: "{{ runtime.currentDate }}"
         steps:
             - kind: createEntry
-              collection: daily
+              space: daily
               input:
                   date: "{{ input.date }}"
                   title: "{{ input.date }}"
@@ -158,7 +158,7 @@ remain a later extension example or optional preset capability.
 Actions should tend toward centralized definition because they are executable
 capabilities and may write files. Centralizing them makes team review easier.
 
-Triggers may be centralized or placed near the collection, view, or action that
+Triggers may be centralized or placed near the space, view, or action that
 uses them. The exact file layout should remain open until implementation
 pressure clarifies the tradeoff.
 
