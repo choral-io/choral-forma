@@ -28,7 +28,7 @@ Use this skill to independently review delivery work after implementation and be
 
 ## Optional Superpowers Evidence
 
-When available, `superpowers:verification-before-completion` output can be used as validation evidence. Still inspect the diff, tests, acceptance criteria, and knowledge updates directly; Superpowers evidence supports delivery review but does not replace it.
+When available, Superpowers `verification-before-completion` output can be used as validation evidence. Still inspect the diff, tests, acceptance criteria, and knowledge updates directly; Superpowers evidence supports delivery review but does not replace it.
 
 ## Kanban State
 

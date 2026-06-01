@@ -95,7 +95,7 @@ Answer:
 ```md
 ## Recommended Path
 
-Use `delivery-implementation` for the accepted delivery task. If Superpowers is available, use `superpowers:test-driven-development` as execution-method guidance.
+Use `delivery-implementation` for the accepted delivery task. If Superpowers is available, use its `test-driven-development` skill as execution-method guidance.
 
 ## Why
 
@@ -103,7 +103,7 @@ Knowledge Workflow owns task context, checks, knowledge updates, and review gate
 
 ## Next Prompt
 
-"Use delivery-implementation for this bugfix, and apply superpowers:test-driven-development before changing behavior when Superpowers is available."
+"Use delivery-implementation for this bugfix, and apply Superpowers test-driven-development before changing behavior when Superpowers is available."
 ```
 
 ## Parallel Work
@@ -143,7 +143,7 @@ Answer:
 ```md
 ## Recommended Path
 
-Use `delivery-implementation` or the owning workflow skill, and apply `superpowers:writing-plans` only after resolving the plan output directory and commit behavior.
+Use `delivery-implementation` or the owning workflow skill, and apply Superpowers `writing-plans` only after resolving the plan output directory and commit behavior.
 
 ## Why
 

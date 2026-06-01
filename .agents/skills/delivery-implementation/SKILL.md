@@ -33,21 +33,21 @@ Use this skill to implement a selected Kanban card and keep code, tests, and kno
 
 When Superpowers skills are available, use them as execution-method guidance only:
 
-| Situation                                                   | Optional Superpowers skill                   |
-| ----------------------------------------------------------- | -------------------------------------------- |
-| Requirements or approach need shaping before implementation | `superpowers:brainstorming`                  |
-| Work needs a multi-step implementation plan                 | `superpowers:writing-plans`                  |
-| Code behavior changes, bugfixes, or refactors               | `superpowers:test-driven-development`        |
-| Failure cause is unclear                                    | `superpowers:systematic-debugging`           |
-| Completion, commit, PR, or review-readiness claim           | `superpowers:verification-before-completion` |
+| Situation                                                   | Optional Superpowers skill         |
+| ----------------------------------------------------------- | ---------------------------------- |
+| Requirements or approach need shaping before implementation | `brainstorming`                    |
+| Work needs a multi-step implementation plan                 | `writing-plans`                    |
+| Code behavior changes, bugfixes, or refactors               | `test-driven-development`          |
+| Failure cause is unclear                                    | `systematic-debugging`             |
+| Completion, commit, PR, or review-readiness claim           | `verification-before-completion`   |
 
 Superpowers usage does not replace task acceptance criteria, project checks, canonical knowledge updates, delivery review, or Kanban approval gates.
 
-Before invoking `superpowers:brainstorming` or `superpowers:writing-plans`, resolve and state the output directory and commit behavior using `knowledge-assistant/references/superpowers.md`: user-specified path first, then `<knowledge_dir>/workspace/<member-id>/local/superpowers/specs/` or `plans/` with SCM exclusion verified and no commit, and only then the Superpowers default when repair is not the next step and the user explicitly confirms using that default path.
+Before invoking Superpowers `brainstorming` or `writing-plans`, resolve and state the output directory and commit behavior using `knowledge-assistant/references/superpowers.md`: user-specified path first, then `<knowledge_dir>/workspace/<member-id>/local/superpowers/specs/` or `plans/` with SCM exclusion verified and no commit, and only then the Superpowers default when repair is not the next step and the user explicitly confirms using that default path.
 
-Before invoking `superpowers:subagent-driven-development`, require an accepted plan with independent tasks and keep the main Agent responsible for integration, review checkpoints, approvals, shared knowledge writes, commits, and Kanban state. Worker subagents must route approval or elevated-execution needs back to the main Agent and must not commit local-only output.
+Before invoking Superpowers `subagent-driven-development`, require an accepted plan with independent tasks and keep the main Agent responsible for integration, review checkpoints, approvals, shared knowledge writes, commits, and Kanban state. Worker subagents must route approval or elevated-execution needs back to the main Agent and must not commit local-only output.
 
-Before invoking `superpowers:using-git-worktrees`, resolve `<worktrees_dir>` from Knowledge Workflow runtime and manifest; do not use an unrelated Superpowers default location. Before invoking `superpowers:verification-before-completion`, run the relevant project checks and treat the result as review-readiness evidence, not as a replacement for Knowledge Workflow delivery review or Done approval.
+Before invoking Superpowers `using-git-worktrees`, resolve `<worktrees_dir>` from Knowledge Workflow runtime and manifest; do not use an unrelated Superpowers default location. Before invoking Superpowers `verification-before-completion`, run the relevant project checks and treat the result as review-readiness evidence, not as a replacement for Knowledge Workflow delivery review or Done approval.
 
 ## Quality Gates
 

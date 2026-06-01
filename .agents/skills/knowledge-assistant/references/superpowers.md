@@ -12,19 +12,21 @@ Team-shared plans and specs are not a default Knowledge Workflow area. When loca
 
 ## P0 Integration Rules
 
-| Superpowers skill                            | Knowledge Workflow integration                                                                                                                           |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `superpowers:brainstorming`                  | Resolve spec output using the path priority below before invocation. Durable outcomes require Knowledge Workflow promotion before becoming shared facts. |
-| `superpowers:writing-plans`                  | Resolve plan output using the path priority below before invocation. Local plans support personal execution and are not team plans by default.           |
-| `superpowers:subagent-driven-development`    | Use only for an accepted plan with independent tasks. The main Agent owns scope, integration, review, approvals, and all Knowledge Workflow state.       |
-| `superpowers:using-git-worktrees`            | Resolve `<worktrees_dir>` from Knowledge Workflow runtime and manifest. Do not let Superpowers choose an unrelated worktree location.                    |
-| `superpowers:verification-before-completion` | Use as evidence discipline before completion claims. Knowledge Workflow delivery review, acceptance criteria, and Kanban gates remain authoritative.     |
+Superpowers entries below are Skill names, not repository paths. Use the invocation form shown by the current Agent runtime, such as a plugin-qualified name, a local Skill name, or a runtime Skill-selection tool. Invoke them only through that runtime's Skill, extension, or plugin loading mechanism after confirming they are available. Do not construct or read paths such as `skills/<name>/SKILL.md`, `.agents/skills/...`, or plugin cache directories for Superpowers.
+
+| Superpowers skill                  | Knowledge Workflow integration                                                                                                                           |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `brainstorming`                    | Resolve spec output using the path priority below before invocation. Durable outcomes require Knowledge Workflow promotion before becoming shared facts. |
+| `writing-plans`                    | Resolve plan output using the path priority below before invocation. Local plans support personal execution and are not team plans by default.           |
+| `subagent-driven-development`      | Use only for an accepted plan with independent tasks. The main Agent owns scope, integration, review, approvals, and all Knowledge Workflow state.       |
+| `using-git-worktrees`              | Resolve `<worktrees_dir>` from Knowledge Workflow runtime and manifest. Do not let Superpowers choose an unrelated worktree location.                    |
+| `verification-before-completion`   | Use as evidence discipline before completion claims. Knowledge Workflow delivery review, acceptance criteria, and Kanban gates remain authoritative.     |
 
 Subagents and worktree workers must not self-approve elevated execution, dependency installation, deletion, publishing, commits, migrations, Kanban changes, shared knowledge writes, or local-only file promotion. Route those decisions back to the main Agent.
 
 ## Output Path Priority
 
-Before invoking `superpowers:brainstorming` or `superpowers:writing-plans`, explicitly tell Superpowers which output directory to use and whether the output may be committed. Resolve the directory in this order:
+Before invoking Superpowers `brainstorming` or `writing-plans`, explicitly tell Superpowers which output directory to use and whether the output may be committed. Resolve the directory in this order:
 
 1. User-specified path in the current request.
     - Examples: "write the plan to X", "put the spec in Y", or "use this directory for the plan".

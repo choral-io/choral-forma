@@ -50,6 +50,6 @@ Use these details after `workspace-worklist` has triggered.
 
 ## Verification
 
-- Use `superpowers:verification-before-completion` only as evidence discipline before completion, commit, PR, review-readiness, or Done claims.
+- Use Superpowers `verification-before-completion` only as evidence discipline before completion, commit, PR, review-readiness, or Done claims.
 - Knowledge Workflow review gates, task acceptance criteria, and Kanban approval remain authoritative even when Superpowers verification passes.
 - Keep raw verification notes under the current member local workspace when they are local-only. Promote only summarized durable evidence through the owning review, task, handoff, or shared knowledge path.

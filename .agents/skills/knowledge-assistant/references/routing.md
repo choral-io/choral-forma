@@ -59,14 +59,16 @@ Do not skip conversion steps: proposals are not facts, loose task items are not 
 
 Recommend Superpowers only as execution-method support when available. It is not a managed workflow dependency, manifest state, or replacement for Knowledge Workflow ownership.
 
-| Workflow need                                                 | Optional Superpowers skill                                                   |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Shape unclear feature, product, design, or implementation     | `superpowers:brainstorming`                                                  |
-| Write a multi-step implementation plan                        | `superpowers:writing-plans`                                                  |
-| Implement feature, bugfix, refactor, or behavior change       | `superpowers:test-driven-development`                                        |
-| Investigate a bug or unclear failure                          | `superpowers:systematic-debugging`                                           |
-| Verify before completion, commit, PR, or Done-readiness claim | `superpowers:verification-before-completion`                                 |
-| Isolate work or run authorized parallel Agents                | `superpowers:using-git-worktrees`, `superpowers:subagent-driven-development` |
+Treat Superpowers entries as Skill names, not repository paths. Use the invocation form shown by the current Agent runtime, such as a plugin-qualified name, a local Skill name, or a runtime Skill-selection tool. Check that the current Agent can load them through its Skill, extension, or plugin mechanism; do not resolve them as repository files or installed workflow paths.
+
+| Workflow need                                                 | Optional Superpowers skill                                 |
+| ------------------------------------------------------------- | ---------------------------------------------------------- |
+| Shape unclear feature, product, design, or implementation     | `brainstorming`                                            |
+| Write a multi-step implementation plan                        | `writing-plans`                                            |
+| Implement feature, bugfix, refactor, or behavior change       | `test-driven-development`                                  |
+| Investigate a bug or unclear failure                          | `systematic-debugging`                                     |
+| Verify before completion, commit, PR, or Done-readiness claim | `verification-before-completion`                           |
+| Isolate work or run authorized parallel Agents                | `using-git-worktrees`, `subagent-driven-development`       |
 
 When the current Agent will invoke any P0 Superpowers skill listed above, apply `references/superpowers.md` first. For `brainstorming` and `writing-plans`, explicitly pass the resolved output directory and commit behavior. For worktree, subagent, or verification skills, explicitly preserve `<worktrees_dir>`, main-Agent ownership, no self-approval, local-only, approval, and review-gate boundaries. When `knowledge-assistant` is only recommending the next prompt, include those instructions in the prompt instead of continuing into Superpowers.
 

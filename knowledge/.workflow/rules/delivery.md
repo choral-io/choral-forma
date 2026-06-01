@@ -173,7 +173,7 @@ When a task reaches `Done`, scan task items for downstream tasks whose `blocked_
 
 Do not mechanically remove resolved `blocked_by` entries. They record dependency history and let Agents derive downstream unlocks by reverse lookup.
 
-When available, `superpowers:verification-before-completion` may support validation before completion, commit, PR, or Done-readiness claims. It does not replace `delivery-review` or approved Kanban maintenance.
+When available, Superpowers `verification-before-completion` may support validation before completion, commit, PR, or Done-readiness claims. It does not replace `delivery-review` or approved Kanban maintenance.
 
 ## Knowledge Updates During Delivery
 

@@ -1,7 +1,6 @@
 ---
 name: knowledge-workflow-admin
-description: Use when a maintainer explicitly needs Knowledge Workflow setup, checks, upgrade migration, manifest work, or approved configuration updates.
-disable-model-invocation: true
+description: Use when a maintainer explicitly asks for Knowledge Workflow setup, checks, upgrade migration, manifest work, or approved configuration updates.
 ---
 
 # Knowledge Workflow Admin
@@ -9,6 +8,8 @@ disable-model-invocation: true
 Use this maintainer skill to install or administer the knowledge workflow in a target repository when a maintainer explicitly selects it.
 
 This maintainer skill should run from an external installed copy. It supports fresh init, checks, manifest work, generic post-upgrade migration guidance, and approved configuration management.
+
+If the user is not explicitly acting as a workflow maintainer, do not use this Skill. Route ordinary team usage, content placement, onboarding, recovery, capture, planning, delivery, or review questions to `knowledge-assistant` or the owning ordinary workflow Skill.
 
 ## References
 

@@ -55,15 +55,15 @@ Create a formal shared handoff under `<knowledge_dir>/workspace/<member-id>/hand
 
 ## Optional Superpowers Guidance
 
-When Superpowers skills are available, use them only as optional execution-method support:
+When Superpowers skills are available, use them only as optional execution-method support. Treat the names below as Skill names, not repository paths; invoke them using the current Agent runtime's Skill, extension, or plugin loading mechanism.
 
-| Workflow need                                           | Optional Superpowers skill                                                   |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| shape unclear work                                      | `superpowers:brainstorming`                                                  |
-| write implementation plan                               | `superpowers:writing-plans`                                                  |
-| feature, bugfix, refactor, or behavior change           | `superpowers:test-driven-development`                                        |
-| unclear failure                                         | `superpowers:systematic-debugging`                                           |
-| verify completion, commit, PR, or Done-readiness claims | `superpowers:verification-before-completion`                                 |
-| isolated or authorized parallel Agent execution         | `superpowers:using-git-worktrees`, `superpowers:subagent-driven-development` |
+| Workflow need                                           | Optional Superpowers skill                             |
+| ------------------------------------------------------- | ------------------------------------------------------ |
+| shape unclear work                                      | `brainstorming`                                        |
+| write implementation plan                               | `writing-plans`                                        |
+| feature, bugfix, refactor, or behavior change           | `test-driven-development`                              |
+| unclear failure                                         | `systematic-debugging`                                 |
+| verify completion, commit, PR, or Done-readiness claims | `verification-before-completion`                       |
+| isolated or authorized parallel Agent execution         | `using-git-worktrees`, `subagent-driven-development`   |
 
 Knowledge Workflow remains authoritative for knowledge placement, task items, Kanban state, WORKLIST ownership, approval gates, and delivery review. Superpowers specs and plans are personal execution aids by default and should use `<knowledge_dir>/workspace/<member-id>/local/superpowers/specs/` or `<knowledge_dir>/workspace/<member-id>/local/superpowers/plans/` unless the user explicitly specifies another safe path. These paths do not replace `local/drafts/` for general structured personal drafts. Apply the Superpowers integration rules before writing or committing output. Superpowers worktrees must use runtime-resolved `<worktrees_dir>/`. Superpowers subagents cannot self-approve, change Kanban, write shared knowledge, commit local-only output, or promote local-only files. Verification-before-completion is evidence discipline; delivery review and Kanban gates remain authoritative.
