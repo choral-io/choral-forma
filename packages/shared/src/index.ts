@@ -92,7 +92,7 @@ export type ListedSpace = {
 
 export type WorkspaceFileKind = "knowledge" | "view" | "template" | "markdown" | "config" | "index" | "resource";
 
-export type WorkspaceFileFeature = "render.html" | "render.source" | "render.view" | "preview.media";
+export type WorkspaceFileFeature = "render.markdown" | "render.source" | "render.view" | "preview.media";
 
 export type WorkspaceFile = {
     path: string;
@@ -139,6 +139,7 @@ export type RenderedFile = {
 
 export type FileRenderOutput = {
     format: string;
+    markdown?: string;
     html?: string;
     headings?: Array<{
         id: string;
@@ -455,7 +456,7 @@ export class FormaRpcClient {
         return this.call<InspectResult>("inspect", { path });
     }
 
-    renderFile(path: string, format: "html" | "source" = "html") {
+    renderFile(path: string, format: "markdown" | "html" | "source" = "markdown") {
         return this.call<FileRenderResult>("file.render", { path, format });
     }
 

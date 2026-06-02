@@ -48,6 +48,8 @@ pub struct RenderedFile {
 pub struct FileRenderOutput {
     pub format: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub markdown: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub html: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
@@ -283,7 +285,7 @@ pub fn render_file(
     if format == "source" {
         return render_source_file(root, path);
     }
-    if format != "html" {
+    if format != "html" && format != "markdown" {
         return Err(OperationError::InvalidInput("format".to_string()));
     }
 
@@ -329,7 +331,8 @@ pub fn render_file(
         },
         render: FileRenderOutput {
             format: format.to_string(),
-            html: Some(render_markdown_html(&document)),
+            markdown: (format == "markdown").then(|| markdown_with_reference_fallbacks(&document)),
+            html: (format == "html").then(|| render_markdown_html(&document)),
             source: None,
             headings: render_headings(&document),
             refs: index_entry.refs.clone(),
@@ -368,6 +371,7 @@ fn render_source_file(
         },
         render: FileRenderOutput {
             format: "source".to_string(),
+            markdown: None,
             html: None,
             source: Some(source),
             headings: Vec::new(),
@@ -1295,6 +1299,43 @@ mod tests {
                 .as_deref()
                 .unwrap_or_default()
                 .contains("workspace:")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renders_file_markdown_for_client_reader() {
+        let root = fixture_root("file-render-markdown");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Markdown Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\n## Context\n\nSee ![[notes/target|Target note]].\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/target.md"),
+            "---\nkind: note\ntitle: Target\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Target\n",
+        )
+        .unwrap();
+
+        let result = render_file(&root, "notes/source.md", "markdown").unwrap();
+
+        assert_eq!(result.operation, "file.render");
+        assert_eq!(result.status, crate::OperationStatus::Passed);
+        assert_eq!(result.render.format, "markdown");
+        assert_eq!(result.render.html, None);
+        let markdown = result.render.markdown.as_deref().unwrap_or_default();
+        assert!(markdown.contains("# Source"));
+        assert!(markdown.contains("[Target note](<./notes/target.md>)"));
+        assert_eq!(
+            result.render.headings,
+            vec![RenderedHeading {
+                id: "context".to_string(),
+                level: 2,
+                text: "Context".to_string(),
+            }]
         );
 
         fs::remove_dir_all(root).unwrap();

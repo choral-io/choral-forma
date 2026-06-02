@@ -305,8 +305,8 @@ pub enum WorkspaceFileKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorkspaceFileFeature {
-    #[serde(rename = "render.html")]
-    RenderHtml,
+    #[serde(rename = "render.markdown")]
+    RenderMarkdown,
     #[serde(rename = "render.source")]
     RenderSource,
     #[serde(rename = "render.view")]
@@ -1180,7 +1180,7 @@ pub fn is_raw_workspace_path_allowed(path: &str) -> bool {
 fn features_for_media_type(kind: WorkspaceFileKind, media_type: &str) -> Vec<WorkspaceFileFeature> {
     match kind {
         WorkspaceFileKind::Knowledge => vec![
-            WorkspaceFileFeature::RenderHtml,
+            WorkspaceFileFeature::RenderMarkdown,
             WorkspaceFileFeature::RenderSource,
         ],
         WorkspaceFileKind::View => vec![
@@ -1752,7 +1752,7 @@ mod tests {
                 && file.kind == WorkspaceFileKind::Knowledge
                 && file.features
                     == vec![
-                        WorkspaceFileFeature::RenderHtml,
+                        WorkspaceFileFeature::RenderMarkdown,
                         WorkspaceFileFeature::RenderSource,
                     ]
                 && file.space.as_deref() == Some("notes")

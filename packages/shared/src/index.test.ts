@@ -63,4 +63,36 @@ describe("FormaRpcClient", () => {
             dataCode: "invalid_params",
         });
     });
+
+    it("requests markdown file renders by default", async () => {
+        const calls: Array<{ input: string; body: unknown }> = [];
+        const client = new FormaRpcClient("/rpc", (input, init) => {
+            calls.push({ input, body: JSON.parse(init.body) });
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: () =>
+                    Promise.resolve({
+                        jsonrpc: "2.0",
+                        id: "1",
+                        result: {
+                            schemaVersion: 1,
+                            operation: "file.render",
+                            status: "passed",
+                            render: { format: "markdown", markdown: "# Title", refs: [] },
+                        },
+                    }),
+            });
+        });
+
+        await client.renderFile("notes/title.md");
+
+        expect(calls[0]?.body).toMatchObject({
+            method: "file.render",
+            params: {
+                path: "notes/title.md",
+                format: "markdown",
+            },
+        });
+    });
 });
