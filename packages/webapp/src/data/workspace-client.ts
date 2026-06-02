@@ -17,6 +17,11 @@ export interface DashboardDocument {
 
 export type DashboardDocumentBlock =
     | {
+          type: "markdown";
+          markdown: string;
+          outline: DashboardDocumentHeading[];
+      }
+    | {
           type: "html";
           html: string;
           outline: DashboardDocumentHeading[];

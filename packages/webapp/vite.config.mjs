@@ -20,6 +20,10 @@ export default defineConfig({
                       changeOrigin: true,
                       target: formaRpcProxyTarget,
                   },
+                  "/raw": {
+                      changeOrigin: true,
+                      target: formaRpcProxyTarget,
+                  },
               },
           }
         : undefined,

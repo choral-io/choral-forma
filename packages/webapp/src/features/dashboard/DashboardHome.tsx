@@ -52,6 +52,7 @@ import {
 import { formatAbsoluteDateTime } from "@/lib/date-time";
 import { cn } from "@/lib/utils";
 
+import { MarkdownReader } from "./MarkdownReader";
 import { ViewGraphProjection } from "./ViewGraphProjection";
 
 export function DashboardRoute() {
@@ -160,7 +161,12 @@ export function DocumentRoute() {
             mobileContextPanel={<DocumentContextPanel document={document} outline={outline} />}
             title={document.title}
         >
-            <DocumentPage document={document} outline={outline} readingWidth={readingWidth} />
+            <DocumentPage
+                document={document}
+                documents={dashboard.documents}
+                outline={outline}
+                readingWidth={readingWidth}
+            />
         </WorkspacePageShell>
     );
 }
@@ -425,7 +431,7 @@ function getDocumentOutline(blocks: DashboardDocumentBlock[]): DocumentOutlineIt
     const seen = new Map<string, number>();
 
     return blocks.flatMap((block, blockIndex) => {
-        if (block.type === "html") {
+        if (block.type === "html" || block.type === "markdown") {
             return block.outline.map((item) => ({
                 ...item,
                 blockIndex,
@@ -548,10 +554,12 @@ function DocumentViewOptions({
 
 function DocumentPage({
     document,
+    documents,
     outline,
     readingWidth,
 }: {
     document: DashboardDocument;
+    documents: DashboardDocument[];
     outline: DocumentOutlineItem[];
     readingWidth: ReadingWidth;
 }) {
@@ -583,12 +591,27 @@ function DocumentPage({
                     <StatCell label="Status" value={document.status} />
                 </CardContent>
             </Card>
-            <DocumentReader blocks={document.body} outline={outline} />
+            <DocumentReader
+                blocks={document.body}
+                currentPath={document.path}
+                documents={documents}
+                outline={outline}
+            />
         </div>
     );
 }
 
-function DocumentReader({ blocks, outline }: { blocks: DashboardDocumentBlock[]; outline: DocumentOutlineItem[] }) {
+function DocumentReader({
+    blocks,
+    currentPath,
+    documents,
+    outline,
+}: {
+    blocks: DashboardDocumentBlock[];
+    currentPath: string;
+    documents: DashboardDocument[];
+    outline: DocumentOutlineItem[];
+}) {
     return (
         <div className="w-full border-y px-4 py-6 md:py-8">
             <article className="flex w-full flex-col gap-5">
@@ -596,7 +619,13 @@ function DocumentReader({ blocks, outline }: { blocks: DashboardDocumentBlock[];
                     const headingId = outline.find((item) => item.blockIndex === index)?.id;
 
                     return (
-                        <DocumentBlockView block={block} headingId={headingId} key={`${block.type}-${String(index)}`} />
+                        <DocumentBlockView
+                            block={block}
+                            currentPath={currentPath}
+                            documents={documents}
+                            headingId={headingId}
+                            key={`${block.type}-${String(index)}`}
+                        />
                     );
                 })}
             </article>
@@ -604,19 +633,32 @@ function DocumentReader({ blocks, outline }: { blocks: DashboardDocumentBlock[];
     );
 }
 
-function DocumentBlockView({ block, headingId }: { block: DashboardDocumentBlock; headingId?: string }) {
+function DocumentBlockView({
+    block,
+    currentPath,
+    documents,
+    headingId,
+}: {
+    block: DashboardDocumentBlock;
+    currentPath: string;
+    documents: DashboardDocument[];
+    headingId?: string;
+}) {
+    if (block.type === "markdown") {
+        return (
+            <MarkdownReader
+                currentPath={currentPath}
+                documents={documents}
+                headings={block.outline}
+                markdown={block.markdown}
+            />
+        );
+    }
+
     if (block.type === "html") {
         return (
             <div
-                className={cn(
-                    "text-foreground/90 max-w-none text-sm/7",
-                    "[&_a]:text-primary [&_a]:underline-offset-4 [&_a:hover]:underline",
-                    "[&_blockquote]:border-border [&_blockquote]:text-muted-foreground [&_blockquote]:bg-muted/30 [&_blockquote]:rounded-r-lg [&_blockquote]:border-s-4 [&_blockquote]:px-4 [&_blockquote]:py-3",
-                    "[&_code]:bg-muted [&_code]:rounded-sm [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-sm",
-                    "[&_h2]:text-foreground [&_h2]:mt-8 [&_h2]:scroll-m-20 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-normal [&_h2:first-child]:mt-0",
-                    "[&_h3]:text-foreground [&_h3]:mt-6 [&_h3]:scroll-m-20 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:tracking-normal [&_h3:first-child]:mt-0",
-                    "[&_pre]:bg-muted/50 [&_li+li]:mt-2 [&_ol]:list-decimal [&_ol]:ps-5 [&_p]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_table]:w-full [&_table]:text-left [&_td]:border-t [&_td]:px-4 [&_td]:py-3 [&_th]:px-4 [&_th]:py-2 [&_ul]:list-disc [&_ul]:ps-5",
-                )}
+                data-reader="markdown"
                 // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
                 dangerouslySetInnerHTML={{ __html: block.html }}
             />

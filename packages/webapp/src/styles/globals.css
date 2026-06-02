@@ -73,6 +73,7 @@
     --chart-3: oklch(0.588 0.158 241.966);
     --chart-4: oklch(0.5 0.134 242.749);
     --chart-5: oklch(0.443 0.11 240.79);
+    --reader-link: oklch(0.596 0.145 163.225);
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
@@ -108,6 +109,7 @@
     --chart-3: oklch(0.588 0.158 241.966);
     --chart-4: oklch(0.5 0.134 242.749);
     --chart-5: oklch(0.443 0.11 240.79);
+    --reader-link: oklch(0.696 0.17 162.48);
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.696 0.17 162.48);
@@ -134,5 +136,168 @@
 
     html {
         @apply font-sans;
+    }
+}
+
+@layer components {
+    [data-reader="markdown"] {
+        @apply text-foreground/90 max-w-none text-sm/7;
+    }
+
+    [data-reader="markdown"] a {
+        color: var(--reader-link);
+        @apply underline-offset-4 hover:underline;
+    }
+
+    [data-reader="markdown"] blockquote {
+        @apply border-border/70 text-muted-foreground my-5 border-s-4 ps-4;
+    }
+
+    [data-reader="markdown"] blockquote p {
+        @apply my-2;
+    }
+
+    [data-reader="markdown"] code {
+        @apply bg-muted rounded-sm px-1 py-0.5 text-sm;
+    }
+
+    [data-reader="markdown"] del {
+        @apply text-muted-foreground;
+    }
+
+    [data-reader="markdown"] h1 {
+        @apply text-foreground mt-10 mb-5 scroll-m-20 text-2xl font-semibold tracking-normal;
+    }
+
+    [data-reader="markdown"] h1:first-child {
+        @apply mt-0;
+    }
+
+    [data-reader="markdown"] h2 {
+        @apply text-foreground mt-8 mb-4 scroll-m-20 text-xl font-semibold tracking-normal;
+    }
+
+    [data-reader="markdown"] h2:first-child {
+        @apply mt-0;
+    }
+
+    [data-reader="markdown"] h3 {
+        @apply text-foreground mt-6 mb-3 scroll-m-20 text-base font-semibold tracking-normal;
+    }
+
+    [data-reader="markdown"] h3:first-child {
+        @apply mt-0;
+    }
+
+    [data-reader="markdown"] h4 {
+        @apply text-foreground mt-5 mb-2 scroll-m-20 text-sm font-semibold tracking-normal;
+    }
+
+    [data-reader="markdown"] h4:first-child {
+        @apply mt-0;
+    }
+
+    [data-reader="markdown"] h5,
+    [data-reader="markdown"] h6 {
+        @apply text-foreground mt-4 mb-2 scroll-m-20 text-sm font-medium tracking-normal;
+    }
+
+    [data-reader="markdown"] h5:first-child,
+    [data-reader="markdown"] h6:first-child {
+        @apply mt-0;
+    }
+
+    [data-reader="markdown"] hr {
+        @apply border-border my-7 border-0 border-t;
+    }
+
+    [data-reader="markdown"] img {
+        @apply border-border my-5 max-w-full border;
+    }
+
+    [data-reader="markdown"] input[type="checkbox"] {
+        @apply border-border bg-background accent-primary me-2 size-3.5 rounded-sm align-middle;
+    }
+
+    [data-reader="markdown"] input[type="checkbox"]:disabled {
+        @apply opacity-80;
+    }
+
+    [data-reader="markdown"] li + li {
+        @apply mt-2;
+    }
+
+    [data-reader="markdown"] li::marker {
+        @apply text-muted-foreground;
+    }
+
+    [data-reader="markdown"] ol {
+        @apply list-decimal ps-5;
+    }
+
+    [data-reader="markdown"] p {
+        @apply my-3;
+    }
+
+    [data-reader="markdown"] [data-code-block] {
+        @apply relative my-5;
+    }
+
+    [data-reader="markdown"] [data-code-block]::before {
+        content: attr(data-language);
+        @apply bg-background/95 text-muted-foreground border-border pointer-events-none absolute end-3 top-0 z-1 -translate-y-1/2 rounded-full border px-2.5 py-0.5 text-xs font-medium opacity-90 shadow-sm;
+    }
+
+    [data-reader="markdown"] [data-code-block] pre {
+        @apply my-0;
+    }
+
+    [data-reader="markdown"] pre {
+        @apply bg-muted/50 my-5 overflow-x-auto rounded-lg border p-4;
+    }
+
+    [data-reader="markdown"] pre.shiki {
+        @apply bg-muted/50!;
+    }
+
+    [data-reader="markdown"] pre code {
+        @apply bg-transparent p-0;
+    }
+
+    [data-reader="markdown"] pre.shiki code {
+        @apply grid;
+    }
+
+    [data-reader="markdown"] pre.shiki code .line {
+        @apply min-h-[1lh];
+    }
+
+    .dark [data-reader="markdown"] pre.shiki,
+    .dark [data-reader="markdown"] pre.shiki span {
+        color: var(--shiki-dark) !important;
+    }
+
+    [data-reader="markdown"] .table-wrapper {
+        @apply border-border my-5 block w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border;
+    }
+
+    [data-reader="markdown"] table {
+        @apply w-max min-w-full text-left whitespace-nowrap;
+    }
+
+    [data-reader="markdown"] td {
+        @apply border-border border-t px-4 py-3;
+    }
+
+    [data-reader="markdown"] thead {
+        @apply bg-muted/50;
+    }
+
+    [data-reader="markdown"] th {
+        @apply text-muted-foreground px-4 py-2 font-medium;
+    }
+
+    [data-reader="markdown"] ul {
+        @apply list-disc ps-5;
     }
 }

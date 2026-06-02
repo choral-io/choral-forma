@@ -11,6 +11,7 @@ import {
 } from "@choral-forma/shared";
 
 import { formatRelativeDateTime } from "@/lib/date-time";
+import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 import type {
     DashboardDiagnostic,
     DashboardDocument,
@@ -48,7 +49,7 @@ export class RpcWorkspaceClient implements WorkspaceClient {
         }
 
         const [renderResult, referencesResult] = await Promise.all([
-            this.#rpc.renderFile(document.path, "html"),
+            this.#rpc.renderFile(document.path),
             this.#rpc.listFileReferences(document.path),
         ]);
 
@@ -145,6 +146,16 @@ function mapDocumentDetail(
 }
 
 function mapRenderedBody(result: FileRenderResult, documents: DashboardDocument[]): DashboardDocumentBlock[] {
+    if (result.render.markdown) {
+        return [
+            {
+                type: "markdown",
+                markdown: result.render.markdown,
+                outline: result.render.headings ?? [],
+            },
+        ];
+    }
+
     if (result.render.html) {
         return [htmlToDocumentBlock(result.render.html, result.render.headings ?? [], result.file.path, documents)];
     }
@@ -400,41 +411,4 @@ function latestUpdatedAt(documents: DashboardDocument[]): string | undefined {
         .map((document) => document.updatedAt)
         .filter((value): value is string => Boolean(value))
         .sort((left, right) => new Date(right).valueOf() - new Date(left).valueOf())[0];
-}
-
-function isExternalHref(href: string) {
-    return /^[a-z][a-z0-9+.-]*:/i.test(href);
-}
-
-function normalizeWorkspaceHref(href: string, currentPath: string, documents: DashboardDocument[]) {
-    const [pathPart = "", hashPart] = href.split("#", 2);
-    const hash = hashPart ? `#${hashPart}` : "";
-    const directPath = pathPart.replace(/^\.\//, "").replace(/^\//, "");
-
-    if (documents.some((document) => document.path === directPath)) {
-        return {
-            hash,
-            path: directPath,
-        };
-    }
-
-    const pathSegments = pathPart.startsWith("/") ? [] : currentPath.split("/").slice(0, -1);
-
-    for (const segment of pathPart.split("/")) {
-        if (!segment || segment === ".") {
-            continue;
-        }
-
-        if (segment === "..") {
-            pathSegments.pop();
-            continue;
-        }
-
-        pathSegments.push(segment);
-    }
-
-    return {
-        hash,
-        path: pathSegments.join("/"),
-    };
 }
