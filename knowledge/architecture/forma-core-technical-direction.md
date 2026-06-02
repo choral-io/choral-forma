@@ -225,7 +225,8 @@ should not make expanded Markdown the primary rendering model.
 The rendering layer needs to support at least three target needs:
 
 - Human-readable Markdown source.
-- Rendered HTML for the local WebApp.
+- Client-rendered HTML for the local WebApp reader, produced from Markdown
+  source plus backend analysis.
 - Structured render output for CLI, Agents, future MCP tools, and editor
   extensions.
 
@@ -260,8 +261,14 @@ The rendering pipeline should therefore look like:
 source Markdown
 -> Markdown AST
 -> FormaAST enrichment
--> HTML render / Markdown export / JSON render
+-> analysis output / Markdown export / optional HTML render
 ```
+
+For the WebApp, the backend should return Markdown body source and analysis
+data, and the browser should own final HTML generation, sanitization, Mermaid
+and code rendering, and theme-aware reader styling. Server-side HTML can remain
+an explicit compatibility or static-export target, but it should not be the
+primary WebApp reader contract.
 
 Markdown export should be an output target for compatibility with other tools,
 not the only intermediate representation. P0 should keep the `FormaAST` surface

@@ -771,7 +771,7 @@ Result outline:
             "name": "user-registration.md",
             "parent": "todos",
             "depth": 1,
-            "features": ["render.html", "render.source"],
+            "features": ["render.markdown", "render.source"],
             "space": "todos",
             "title": "User registration",
             "frontmatter": {
@@ -815,14 +815,14 @@ preview metadata from the operation layer, not as user-authored frontmatter.
 `features` is assigned by the operation layer and is the client-facing source
 of truth for preview and render affordances. P0 feature values are:
 
-- `render.html`: the file can be rendered with `file.render` HTML mode.
+- `render.markdown`: the file can be rendered with `file.render` Markdown mode.
 - `render.source`: the file can be rendered with `file.render` source mode.
 - `render.view`: the file can be rendered with `view.render`.
 - `preview.media`: the file can be previewed through the raw workspace route.
 
 P0 feature assignment:
 
-- `knowledge`: `render.html`, `render.source`
+- `knowledge`: `render.markdown`, `render.source`
 - `view`: `render.view`, `render.source`
 - `template`, `markdown`, `config`, and `index`: `render.source`
 - `resource`: `preview.media` for image, audio, and video media types;
@@ -969,15 +969,17 @@ Result outline:
 }
 ```
 
-For a Markdown knowledge file render needed by the WebApp, `inspect` can return
-the entry structure, while `file.render` owns HTML or source render output.
-Keeping rendered output separate avoids making `inspect` return full rendered
+For a Markdown knowledge file needed by the WebApp reader, `inspect` can return
+the entry structure, while `file.render` owns document body payloads and render
+analysis. The WebApp's primary reader path uses Markdown source plus
+backend-derived headings, references, and diagnostics, then renders HTML in the
+browser. Keeping body payloads separate avoids making `inspect` return full
 content for scripts that only need metadata, outline, references, or
 diagnostics.
 
 ### File Render
 
-`file.render` renders one workspace file for the local WebApp and HTTP API. It
+`file.render` prepares one workspace file for the local WebApp and HTTP API. It
 uses the same parsing, reference, FormaAST, and diagnostic pipeline as
 `inspect` for knowledge files. It writes nothing and does not persist rendered
 output.
@@ -987,7 +989,7 @@ Params:
 ```json
 {
     "path": "todos/user-registration.md",
-    "format": "html"
+    "format": "markdown"
 }
 ```
 
@@ -1009,8 +1011,9 @@ Result outline:
         "title": "User registration"
     },
     "render": {
-        "format": "html",
-        "html": "<h1>User registration</h1>",
+        "format": "markdown",
+        "markdown": "# User registration\n\n...",
+        "headings": [],
         "refs": []
     },
     "summary": {
@@ -1022,10 +1025,20 @@ Result outline:
 }
 ```
 
-P0 should support `format: "html"` for knowledge files and `format: "source"`
-for text-like files marked with the `render.source` feature. `file.render`
-should reject unsupported file and format combinations through operation
-diagnostics instead of falling back to raw file access.
+P0 should support `format: "markdown"` for Markdown knowledge files and
+`format: "source"` for text-like files marked with the `render.source` feature.
+The Markdown render result should provide the body source after frontmatter
+splitting plus backend-derived headings, references, and diagnostics. The WebApp
+then owns HTML generation, sanitization, Mermaid/code/math plugins, and reader
+styling.
+
+Server-rendered `format: "html"` may be reintroduced or retained as an explicit
+compatibility/export mode for non-WebApp clients, CLI preview, or static output.
+It should not be the primary WebApp reader contract. When present, HTML output
+should be semantic and avoid presentation-oriented classes and inline styles.
+
+`file.render` should reject unsupported file and format combinations through
+operation diagnostics instead of falling back to raw file access.
 
 The `file.render` result uses a top-level `file` payload. It does not include
 the full `WorkspaceFile` metadata from `files.list`; clients should use

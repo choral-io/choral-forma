@@ -19,8 +19,10 @@ the Rust backend provide the read-only data needed by the GUI instead of
 continuing to grow WebApp-local mock projections.
 
 The WebApp remains a lightweight standalone knowledge browser. It should consume
-shared Forma operations and must not re-scan Markdown, infer diagnostics,
-evaluate view queries, or duplicate reference resolution in the browser.
+shared Forma operations and must not infer diagnostics, evaluate view queries,
+or duplicate reference resolution in the browser. Markdown rendering is a
+client concern for the WebApp reader, while Markdown analysis, indexing,
+diagnostics, and reference resolution remain backend concerns.
 
 ## Goals
 
@@ -38,7 +40,8 @@ evaluate view queries, or duplicate reference resolution in the browser.
 
 - No write-capable WebApp operations in this phase.
 - No AI Chat, ACP, proposal queue, or editor-extension integration.
-- No browser-side Markdown parsing or query evaluation.
+- No browser-side workspace scanning, reference resolution, diagnostics, or
+  query evaluation.
 - No backend commitment to a specific graph layout or graph rendering library.
 - No polished `list`, `table`, `kanban`, or `graph` renderer work beyond the
   minimum needed to show real operation output.
@@ -91,33 +94,55 @@ The route should not depend on filesystem walking in the browser.
 The document route needs:
 
 - metadata summary for the selected document;
-- rendered Markdown body HTML or structured blocks;
+- Markdown source for the selected document body;
+- backend-derived heading outline, explicit references, backlinks, and
+  diagnostics;
 - optional source text only when source mode is explicitly supported;
-- outgoing links and backlinks from body-derived Markdown links and wikilinks;
-- document-level diagnostics;
-- heading outline from `file.render` for the right-panel `Outline` tab.
+- client-rendered Markdown body HTML or structured reader output.
 
 For V2, relationships should include only explicit content-derived links.
 Configured frontmatter relations and custom marker semantics are deferred.
 
-### Rendered HTML Contract
+### Client Markdown Render Contract
 
-`file.render` should return semantic HTML with no presentation-oriented
-`class` or `style` attributes. The backend may include structural attributes
-needed for navigation and correctness, such as heading `id`, link `href`, image
-`src` and `alt`, and code language metadata. Visual treatment belongs to the
-WebApp reader surface.
+For the WebApp reader, `file.render` should return the Markdown body source and
+backend-derived analysis results instead of making server-rendered HTML the
+primary contract. The backend owns frontmatter splitting, Markdown parsing for
+headings and references, diagnostics, and link resolution. The WebApp owns the
+final reader HTML so it can use browser-oriented Markdown libraries, theme-aware
+styling, Mermaid integration, and later reader plugins without changing Rust
+rendering code.
 
-`file.render` should also return a structured `headings` list for h2/h3 reader
-navigation. The WebApp may use that list to attach matching heading ids to the
-HTML surface, but it should not infer the document outline by reparsing Markdown
-or inventing heading slugs locally.
+When the backend rewrites wikilinks or embeds into ordinary Markdown fallback
+links for client rendering, it must still preserve the original reference
+identity in structured read-model metadata. The client should not re-parse raw
+wikilink syntax or infer wikilink identity from rendered anchor text and `href`
+values. Future reader enhancements such as hover cards, backlink previews, or
+reference-specific styling should bind backend-provided reference metadata back
+onto rendered anchors during post-processing. This keeps syntax recognition and
+reference resolution in the Rust read model while letting the WebApp own
+presentation and interaction. Client-side enhanced reference rendering is
+deferred for now.
 
-The WebApp should style rendered Markdown through a reader container and
-semantic selectors, similar to `tailwindcss-typography`, rather than embedding
-large arbitrary-selector chains in React components. This keeps the render
-contract stable, lets alternate clients reuse the same HTML, and allows reader
-themes to evolve without changing backend output.
+`file.render` should return a structured `headings` list for reader navigation.
+The WebApp may attach heading ids while rendering Markdown locally, but the
+outline order and heading identity should come from backend analysis rather than
+client-invented workspace scanning.
+
+The WebApp should render Markdown through an isolated reader component. The
+renderer should prefer valid ordinary Markdown semantics and should sanitize
+generated HTML before insertion. It may borrow the pipeline shape used by
+Choral Flows: a `marked` renderer with explicit plugins for Mermaid, code
+highlighting, math, tables, and other reader features. Forma should not inherit
+Choral Flows' product-specific mention syntax, and it should not make DOM
+patching libraries part of the read-model contract.
+
+Reader styling should live in WebApp CSS on a semantic container, similar to
+`tailwindcss-typography`, rather than large arbitrary-selector chains inside
+route components. Backend output and analysis should stay presentation-neutral.
+
+Server-rendered HTML can remain a future compatibility or static-export output
+mode, but it is not the primary WebApp reader path.
 
 ### Views
 
@@ -172,7 +197,7 @@ Existing P0 operations remain useful and should be wired first where they match
 the route need:
 
 - `files.list`: file navigation and global document candidates;
-- `file.render`: document detail body rendering;
+- `file.render`: document detail source and render analysis;
 - `file.references`: outgoing links and backlinks;
 - `view.render`: list, table, and kanban view detail;
 - `check` and `index.check`: diagnostics and health state;
@@ -217,6 +242,14 @@ type DocumentReadResult = BaseOperationResult & {
 
 Do not add this operation until `file.render` plus `file.references` proves too
 awkward for the WebApp adapter.
+
+### Optional Server HTML Export
+
+If server-rendered HTML becomes useful for static publishing, CLI preview, or
+non-browser clients, it should be treated as an explicit output mode rather than
+the WebApp reader's normal route. That mode should still avoid
+presentation-oriented classes and should not force the WebApp to give up its
+client renderer.
 
 ## Data Shape Guidelines
 
@@ -279,11 +312,11 @@ configuration is designed.
 
 ```text
 repository files
-  -> forma-core discovery/index/render/reference operations
+  -> forma-core discovery/index/analysis/reference operations
   -> forma-rpc JSON-RPC results
   -> packages/shared TypeScript contracts and client
   -> packages/webapp workspace client adapter
-  -> route components
+  -> client Markdown reader and route components
 ```
 
 The WebApp should keep a package-local adapter boundary. Fake data can remain as
@@ -299,9 +332,12 @@ shared operation results through `packages/shared`.
 4. Replace WebApp mock dashboard loading with a workspace client that calls the
    RPC endpoint.
 5. Wire document detail to `file.render` and `file.references`.
-6. Keep view detail renderers lightweight while graph interaction and layout
+6. Replace server-rendered document HTML consumption with a WebApp-local
+   Markdown reader that uses backend-provided source, headings, references, and
+   diagnostics.
+7. Keep view detail renderers lightweight while graph interaction and layout
    choices remain outside the current `view.render` output contract.
-7. Keep graph renderer implementation package-local and isolated from route
+8. Keep graph renderer implementation package-local and isolated from route
    orchestration so renderer choices can change without changing the read-model
    contract.
 
@@ -310,15 +346,18 @@ shared operation results through `packages/shared`.
 - Should document ids stay path-derived slugs permanently, or should the summary
   index eventually expose explicit stable ids? Current direction: path-derived
   slugs.
-- Should document heading ids eventually be embedded directly into backend HTML
-  output instead of being attached by the WebApp adapter? Current direction:
-  acceptable to attach from `file.render.headings` while the HTML renderer stays
-  simple.
+- Should document heading ids eventually be embedded directly into server HTML
+  output for export modes? Current direction: WebApp reader attaches ids from
+  backend heading analysis during client render.
 - Should `workspace.dashboard` include document bodies? Current direction: no.
 - Should graph rendering use Sigma.js long-term? Current direction: Sigma.js is
   acceptable as the current WebApp renderer because it improves read-only graph
   interaction with modest dependency cost, but the backend and shared contract
   must remain renderer-agnostic.
+- Should the first client renderer use `marked` or a React/unified component
+  renderer? Current direction: use a `marked` pipeline close to Choral Flows for
+  the first implementation, with DOMPurify sanitization and isolated WebApp
+  CSS, then revisit if component-level rendering becomes necessary.
 
 ## Related Documents
 

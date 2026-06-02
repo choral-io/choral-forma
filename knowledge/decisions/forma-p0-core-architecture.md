@@ -131,11 +131,14 @@ Rendering should flow through:
 source Markdown
 -> Markdown AST
 -> FormaAST enrichment
--> HTML render / Markdown export / JSON render
+-> analysis output / Markdown export / optional HTML render
 ```
 
-Markdown export is a compatibility output target, not the primary rendering
-intermediate.
+For the local WebApp reader, final HTML rendering should happen in the client
+from Markdown source plus backend-derived headings, references, diagnostics, and
+other analysis output. Server-side HTML remains an optional compatibility or
+static-export target, not the primary WebApp rendering contract. Markdown export
+is a compatibility output target, not the primary rendering intermediate.
 
 P0 should parse Obsidian-style embeds such as `![[notes/project-brief]]` as
 embedded reference intent, validate their targets like normal references, and
@@ -158,8 +161,10 @@ The server should expose RPC-over-HTTP endpoints backed by the shared operation
 dispatcher and serve the read-only WebApp static assets.
 
 The WebApp should not read files directly. It should call the local API for
-workspace overview, space listing, entry inspection, Markdown rendering,
-view rendering, diagnostics, and index status.
+workspace overview, space listing, entry inspection, Markdown source and render
+analysis, view rendering, diagnostics, and index status. The WebApp may render
+document Markdown in the browser, but relationship resolution, diagnostics,
+view queries, and workspace indexing remain backend responsibilities.
 
 End users should not need Node, Bun, or another frontend runtime to use released
 Forma builds. Development mode may use a frontend dev server.

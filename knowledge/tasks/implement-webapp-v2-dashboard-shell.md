@@ -153,6 +153,17 @@ as behavioral reference, not as the V2 component structure.
 - Fixed graph label and hover rendering to use theme-aware colors and updated
   theme synchronization so CSS-token consumers respond when switching light and
   dark modes.
+- Switched document body rendering to a WebApp-local Markdown reader backed by
+  backend-provided Markdown source, heading analysis, references, and
+  diagnostics.
+- Added Shiki code highlighting with theme-aware light and dark output, reader
+  CSS for common Markdown semantics, raw workspace image loading through the
+  existing `/raw` route, and a local Markdown rendering fixture for browser
+  review.
+- Recorded the reference identity boundary: backend analysis must preserve
+  wikilink/embed identity in structured metadata for future hover cards or
+  reference-specific rendering, while the WebApp should not re-parse raw
+  wikilink syntax.
 - Aligned the root package manager declaration with the local toolchain by
   updating `packageManager` to `pnpm@11.5.0`; `pnpm@11.4.0` could not be
   resolved by Corepack in the current environment.
@@ -165,8 +176,11 @@ as behavioral reference, not as the V2 component structure.
 - Verified:
     - `pnpm --filter @choral-forma/webapp lint`
     - `pnpm --filter @choral-forma/webapp check`
+    - `pnpm exec vitest run packages/webapp/src/lib/workspace-links.test.ts`
+    - `mise run check`
+- Latest full validation:
     - `mise run check`
 - Residual review item: Vite reports a chunk-size warning after adding the graph
-  renderer. This is not blocking for review, but the graph renderer is a good
-  candidate for later route-level lazy loading if bundle size becomes a release
-  gate.
+  renderer and client-side syntax highlighting. This is not blocking for review,
+  but graph rendering and Shiki loading are good candidates for later route-level
+  lazy loading if bundle size becomes a release gate.
