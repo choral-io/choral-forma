@@ -480,7 +480,6 @@ function SidebarMenuButton({
     size = "default",
     tooltip,
     className,
-    ref,
     ...props
 }: useRender.ComponentProps<"button"> &
     React.ComponentProps<"button"> & {
@@ -490,7 +489,6 @@ function SidebarMenuButton({
     const { isMobile, state } = useSidebar();
     const comp = useRender({
         defaultTagName: "button",
-        ref,
         props: mergeProps<"button">(
             {
                 className: cn(sidebarMenuButtonVariants({ variant, size }), className),
