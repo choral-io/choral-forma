@@ -15,10 +15,15 @@ Use this when the user asks where something should live.
 | Group, team, review board, or working group | `groups/<group-id>.md`                                                  | confirm members before writing                                                |
 | Discovery, market, customer, or assumption  | `discovery/`                                                            | `knowledge-capture`                                                           |
 | Product behavior or requirement             | `product/`                                                              | `knowledge-capture`                                                           |
+| User story, use case, scenario, or journey  | `user-stories/`                                                         | `knowledge-capture`                                                           |
 | UI, flow, visual design, or design asset    | `design/` plus `assets/<asset-type>/<topic>/` for supporting files      | `knowledge-capture`                                                           |
 | Supporting asset                            | `assets/<asset-type>/<topic>/` with a canonical note that links it      | `knowledge-capture`                                                           |
 | Concept, architecture, decision, guideline  | matching canonical area                                                 | `knowledge-capture`                                                           |
 | Sprint or planning-period document          | `planning/sprints/`                                                     | `knowledge-capture` for the document; `delivery-planning` for board proposals |
+| Test case or validation scenario            | `test-cases/`                                                           | `knowledge-capture`                                                           |
+| Metric definition or target                 | `metrics/`                                                              | `knowledge-capture`                                                           |
+| Experiment or rollout probe                 | `experiments/`                                                          | `knowledge-capture`                                                           |
+| Release scope, rollout, or release note     | `releases/`                                                             | `knowledge-capture`                                                           |
 | Valuable but unconfirmed candidate          | `proposals/`                                                            | convert before using as fact or delivery input                                |
 | Potential delivery work                     | `tasks/`                                                                | audit before planning                                                         |
 | Approved delivery status                    | `planning/KANBAN.md`                                                    | `kanban-maintenance` after approval                                           |

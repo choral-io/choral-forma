@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "skills": {
+    "delivery-implementation": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/delivery-implementation/SKILL.md",
+      "computedHash": "b01747e7d8c40b289090a2073ad828abff17c6577040206d567909be18ce808d"
+    },
+    "delivery-planning": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/delivery-planning/SKILL.md",
+      "computedHash": "17c6ca48a4ad45842e23f789620056d884c46231985e685bc7e7510692ac5aa6"
+    },
+    "delivery-review": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/delivery-review/SKILL.md",
+      "computedHash": "deac79f69d8c9d09b0f7349e8b386ddec8fa2a73871c2630d41530f624183f9f"
+    },
+    "kanban-maintenance": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/kanban-maintenance/SKILL.md",
+      "computedHash": "8916169f683f0d808f753bb033fffa0451217603be1cb1af8b2c3bce07d211ac"
+    },
+    "knowledge-assistant": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/knowledge-assistant/SKILL.md",
+      "computedHash": "e6c0e72471a12c9e5ef41cc24e3a37fbf9629a73f5ce97e38f24e3679990e712"
+    },
+    "knowledge-capture": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/knowledge-capture/SKILL.md",
+      "computedHash": "21218295bd8ef0536ee98594871906261d627750ca7f17214dea594aa5fc523a"
+    },
+    "knowledge-intake": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/knowledge-intake/SKILL.md",
+      "computedHash": "56f11f65c65183385da4a71ccd074120d7fa601636daead9648d2742b997795c"
+    },
+    "knowledge-schema-audit": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/knowledge-schema-audit/SKILL.md",
+      "computedHash": "cca8ab4661a81b861c50cdc5b92591372f155d8695ed3e6784289882a092544d"
+    },
+    "knowledge-status-report": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/knowledge-status-report/SKILL.md",
+      "computedHash": "a6f3d2a23984fc78ed00416e7a5173d013c6aba29309365ef321a5f2c1295374"
+    },
+    "knowledge-workflow-admin": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/knowledge-workflow-admin/SKILL.md",
+      "computedHash": "a89d7fd0b3b6678c00a2e079de0e4b6d306e5751bca713194a7617518b3c308e"
+    },
+    "next-task-selection": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/next-task-selection/SKILL.md",
+      "computedHash": "bd13fa68e27649d878fc57adef03d64ee3b1597e3ffa98773cdccf88ee43d49e"
+    },
+    "task-metadata-audit": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/task-metadata-audit/SKILL.md",
+      "computedHash": "ef1581f874c67f81cdd56abed03ee5411b1bb9fd65dce0eb7591811b8a46fc01"
+    },
+    "workspace-worklist": {
+      "source": "choral-io/choral-skills",
+      "sourceType": "github",
+      "skillPath": "skills/workspace-worklist/SKILL.md",
+      "computedHash": "d8c0f8835ebf6720ef8d8bff38683b275a18462c583422113116622033523697"
+    }
+  }
+}

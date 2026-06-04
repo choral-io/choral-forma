@@ -21,6 +21,7 @@ Use this skill to decide whether discussion should affect the knowledge base and
 6. Route the information to the right area:
     - `<knowledge_dir>/discovery/`
     - `<knowledge_dir>/product/`
+    - `<knowledge_dir>/user-stories/`
     - `<knowledge_dir>/design/`
     - `<knowledge_dir>/concepts/`
     - `<knowledge_dir>/architecture/`
@@ -29,6 +30,10 @@ Use this skill to decide whether discussion should affect the knowledge base and
     - `<knowledge_dir>/members/`
     - `<knowledge_dir>/groups/`
     - `<knowledge_dir>/planning/`
+    - `<knowledge_dir>/test-cases/`
+    - `<knowledge_dir>/metrics/`
+    - `<knowledge_dir>/experiments/`
+    - `<knowledge_dir>/releases/`
     - `<knowledge_dir>/proposals/`
     - `<knowledge_dir>/tasks/`
     - `<knowledge_dir>/workspace/<member-id>/summaries/`

@@ -14,7 +14,10 @@ Check that the recommended Skill is loadable by the current Agent before saying 
 | Explicit request to record workflow friction or improvement feedback                                | `knowledge-assistant`                                      | Explicit-only; explain privacy and local-only behavior first; if disabled, confirm enablement before routing manifest update. |
 | Auto-review rules setup                                                                             | `knowledge-workflow-admin:config`                          | Only needed when the team wants repeatable auto-review automation.                                                            |
 | Where information belongs                                                                           | `knowledge-intake`                                         | Write only after capture approval.                                                                                            |
+| User story, use case, scenario, or journey candidate                                                | `knowledge-intake`                                         | Route to `user-stories/`; capture only after target and change are approved.                                                  |
+| Test case, validation scenario, metric, experiment, or release candidate                            | `knowledge-intake`                                         | Route to `test-cases/`, `metrics/`, `experiments/`, or `releases/`; write only after approval.                                |
 | Approved knowledge write or promotion                                                               | `knowledge-capture`                                        | Use schemas before writing.                                                                                                   |
+| Approved user story, use case, test case, metric, experiment, or release write                      | `knowledge-capture`                                        | Use the matching area schema and template before writing.                                                                     |
 | Add a project member                                                                                | `knowledge-capture`                                        | Confirm member id, public profile, and group membership updates.                                                              |
 | Add a group, team, board, or working group                                                          | `knowledge-capture`                                        | Confirm group id, scope, owners, and members.                                                                                 |
 | Non-task knowledge quality                                                                          | `knowledge-schema-audit`                                   | Read-only findings.                                                                                                           |
@@ -61,14 +64,14 @@ Recommend Superpowers only as execution-method support when available. It is not
 
 Treat Superpowers entries as Skill names, not repository paths. Use the invocation form shown by the current Agent runtime, such as a plugin-qualified name, a local Skill name, or a runtime Skill-selection tool. Check that the current Agent can load them through its Skill, extension, or plugin mechanism; do not resolve them as repository files or installed workflow paths.
 
-| Workflow need                                                 | Optional Superpowers skill                                 |
-| ------------------------------------------------------------- | ---------------------------------------------------------- |
-| Shape unclear feature, product, design, or implementation     | `brainstorming`                                            |
-| Write a multi-step implementation plan                        | `writing-plans`                                            |
-| Implement feature, bugfix, refactor, or behavior change       | `test-driven-development`                                  |
-| Investigate a bug or unclear failure                          | `systematic-debugging`                                     |
-| Verify before completion, commit, PR, or Done-readiness claim | `verification-before-completion`                           |
-| Isolate work or run authorized parallel Agents                | `using-git-worktrees`, `subagent-driven-development`       |
+| Workflow need                                                 | Optional Superpowers skill                           |
+| ------------------------------------------------------------- | ---------------------------------------------------- |
+| Shape unclear feature, product, design, or implementation     | `brainstorming`                                      |
+| Write a multi-step implementation plan                        | `writing-plans`                                      |
+| Implement feature, bugfix, refactor, or behavior change       | `test-driven-development`                            |
+| Investigate a bug or unclear failure                          | `systematic-debugging`                               |
+| Verify before completion, commit, PR, or Done-readiness claim | `verification-before-completion`                     |
+| Isolate work or run authorized parallel Agents                | `using-git-worktrees`, `subagent-driven-development` |
 
 When the current Agent will invoke any P0 Superpowers skill listed above, apply `references/superpowers.md` first. For `brainstorming` and `writing-plans`, explicitly pass the resolved output directory and commit behavior. For worktree, subagent, or verification skills, explicitly preserve `<worktrees_dir>`, main-Agent ownership, no self-approval, local-only, approval, and review-gate boundaries. When `knowledge-assistant` is only recommending the next prompt, include those instructions in the prompt instead of continuing into Superpowers.
 

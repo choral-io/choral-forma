@@ -14,6 +14,11 @@ Use these metric ids when the user asks for common status statistics:
 | `knowledge.source_trace_missing` | project-wide  | field-based + inferred    | source-derived docs without `sources` or source notes              |
 | `knowledge.orphaned_docs`        | project-wide  | link-based + inferred     | canonical docs with no inbound/outbound durable links              |
 | `knowledge.link_gaps`            | project-wide  | link-based + field-based  | requirements, decisions, designs, and tasks missing expected links |
+| `user_stories.by_status`         | product-only  | field-based               | `user-stories/**/*.md`                                             |
+| `test_cases.by_status`           | project-wide  | field-based               | `test-cases/**/*.md`                                               |
+| `metrics.by_status`              | project-wide  | field-based               | `metrics/**/*.md`                                                  |
+| `experiments.by_status`          | project-wide  | field-based               | `experiments/**/*.md`                                              |
+| `releases.by_status`             | delivery-only | field-based               | `releases/**/*.md`                                                 |
 | `decisions.by_status`            | project-wide  | field-based or inferred   | `decisions/**/*.md`                                                |
 | `requirements.with_delivery`     | product-only  | link-based                | product docs, task items, Done cards                               |
 | `ownership.by_area`              | ownership     | field-based               | `owners`, `assignees`, `reviewers`                                 |

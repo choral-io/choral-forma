@@ -71,12 +71,17 @@ Use `knowledge-capture` to ...
 | ------------------------------------------------------------------ | ------------------------------ | ---------------------------------------------- |
 | Market, business, customer, environmental, or competitive research | Review discovery docs          | `<knowledge_dir>/discovery/`                   |
 | Product requirement or user behavior                               | Review existing product docs   | `<knowledge_dir>/product/`                     |
+| User story, use case, user scenario, or journey                    | Review user story docs         | `<knowledge_dir>/user-stories/`                |
 | UI layout, component behavior, visual state                        | Review existing design docs    | `<knowledge_dir>/design/`                      |
 | Domain term or reusable concept                                    | Search concepts                | `<knowledge_dir>/concepts/`                    |
 | Module boundary, API, data flow, integration                       | Review architecture docs       | `<knowledge_dir>/architecture/`                |
 | Product or technical tradeoff                                      | Check existing decisions       | `<knowledge_dir>/decisions/`                   |
 | Cross-area writing, terminology, or language                       | Review guidelines              | `<knowledge_dir>/guidelines/`                  |
 | Sprint, roadmap, process, migration                                | Review planning docs           | `<knowledge_dir>/planning/`                    |
+| Manual, acceptance, regression, end-to-end, or exploratory test    | Review test case docs          | `<knowledge_dir>/test-cases/`                  |
+| Metric definition, target, threshold, source, or review cadence    | Review metric docs             | `<knowledge_dir>/metrics/`                     |
+| Hypothesis, experiment, rollout probe, result, or guardrail        | Review experiment docs         | `<knowledge_dir>/experiments/`                 |
+| Release scope, validation, rollout, rollback, or release note      | Review release docs            | `<knowledge_dir>/releases/`                    |
 | Valuable but unconfirmed knowledge, task, or decision candidate    | Create proposal after approval | `<knowledge_dir>/proposals/`                   |
 | Implementable work item                                            | Create or refine task item     | `<knowledge_dir>/tasks/`                       |
 | Personal working context                                           | Capture locally                | `<knowledge_dir>/workspace/<member-id>/local/` |
@@ -90,8 +95,13 @@ Recommend promotion when local material affects:
 
 - market, business, customer, environmental, or competitive research that informs product direction
 - product behavior or user-visible requirements
+- user stories, use cases, scenarios, or journeys
 - UI design, interaction, or prototype decisions
 - architecture, data flow, integration, or operational constraints
+- reusable test cases, validation scenarios, or release validation evidence
+- metric definitions, targets, thresholds, or review cadence
+- experiments, rollout probes, guardrails, or experiment results
+- release scope, rollout, rollback, or post-release follow-up
 - task scope, acceptance criteria, blockers, or readiness
 - member handoff, coordination, or review context
 - decisions that future Agents or team members must rely on

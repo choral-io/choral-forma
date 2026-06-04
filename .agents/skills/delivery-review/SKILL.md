@@ -20,7 +20,7 @@ Use this skill to independently review delivery work after implementation and be
 5. Compare implementation against acceptance criteria, out-of-scope notes, and related decisions.
 6. Check that tests cover meaningful behavior changes.
 7. When reviewer assignment, handoff expectations, or member responsibilities matter, read only the relevant sections from `<knowledge_dir>/members/<member-id>.md`.
-8. Check that canonical knowledge was updated when product, architecture, configuration, or decisions changed.
+8. Check that canonical knowledge was updated when product, user story, design, architecture, test case, metric, experiment, release, configuration, or decision knowledge changed.
 9. Run focused checks when practical, or report which checks were not run.
 10. Report findings first, ordered by severity.
 11. Say clearly whether the work is accepted, needs changes, or is blocked.

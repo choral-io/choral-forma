@@ -17,6 +17,7 @@ Read `common.md` before writing or reorganizing shared knowledge. Then read the 
 | ------------------- | ----------------- |
 | `discovery/`        | `discovery.md`    |
 | `product/`          | `product.md`      |
+| `user-stories/`     | `user-stories.md` |
 | `design/`           | `design.md`       |
 | `architecture/`     | `architecture.md` |
 | `concepts/`         | `concepts.md`     |
@@ -24,6 +25,10 @@ Read `common.md` before writing or reorganizing shared knowledge. Then read the 
 | `guidelines/`       | `guidelines.md`   |
 | `planning/`         | `planning.md`     |
 | `planning/sprints/` | `sprints.md`      |
+| `test-cases/`       | `test-cases.md`   |
+| `metrics/`          | `metrics.md`      |
+| `experiments/`      | `experiments.md`  |
+| `releases/`         | `releases.md`     |
 | `proposals/`        | `proposals.md`    |
 | `tasks/`            | `tasks.md`        |
 | `members/`          | `members.md`      |

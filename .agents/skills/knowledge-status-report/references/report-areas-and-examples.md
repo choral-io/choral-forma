@@ -20,6 +20,11 @@ Knowledge:
 - canonical vs localized files
 - documents missing owners
 - discovery documents that support product requirements or decisions
+- user stories, use cases, scenarios, and journeys by `type` and `status`
+- test cases by `type`, `status`, `priority`, `automation`, and coverage links
+- metrics by `type`, `status`, target, source, and review cadence
+- experiments by `type`, `status`, metric links, guardrails, and follow-up decisions
+- releases by `status`, version, validation links, rollout, rollback, and post-release follow-up
 - shared workspace summaries, handoffs, and research items
 - proposals by `proposal_type` and `proposal_status`
 - local-only content excluded from team reporting
@@ -38,6 +43,11 @@ Requirements:
 - requirements linked to planned or Ready work
 - requirements linked to Done work
 - requirements with no linked delivery path
+- user stories without linked product, test case, metric, or task context
+- test cases without covered user stories, product requirements, tasks, or releases
+- metrics without source, target, or review cadence
+- running experiments without metrics, guardrails, or follow-up owner
+- releases without validation, rollback, or post-release follow-up
 
 Ownership:
 
@@ -51,6 +61,7 @@ Risks:
 
 - Source traceability risks: source-derived docs without `sources`, docs citing local-only material as team evidence, and converted proposals whose target docs dropped the proposal source.
 - Link health risks: canonical docs with no inbound or outbound durable links, requirements without delivery links, designs without product or task links, and decisions without affected-area links.
+- Product-development coverage risks: user stories without delivery or validation links, test cases without covered scope, metrics without sources or targets, experiments without metrics or guardrails, and releases without validation or rollback context.
 - Proposal health risks: accepted but unconverted proposals, stale reviewing proposals, rejected proposals still referenced as facts, and proposals with no owner.
 - blocked work with no clear blocker-resolution path
 - Ready work with missing source material

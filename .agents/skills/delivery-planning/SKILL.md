@@ -26,16 +26,27 @@ Task items are candidates and context until an approved Kanban card links to the
 ## Default Inputs
 
 - `<knowledge_dir>/product/**`
+- `<knowledge_dir>/user-stories/**`
 - `<knowledge_dir>/discovery/**`
 - `<knowledge_dir>/concepts/**`
 - `<knowledge_dir>/architecture/**`
 - `<knowledge_dir>/decisions/**`
+- `<knowledge_dir>/test-cases/**`
+- `<knowledge_dir>/metrics/**`
+- `<knowledge_dir>/experiments/**`
+- `<knowledge_dir>/releases/**`
 - `<knowledge_dir>/guidelines/**`
 - `<knowledge_dir>/tasks/*.md`
 
 Use `<knowledge_dir>/guidelines/**` as planning context or constraints. Do not create Kanban candidates from guidelines alone unless a guideline explicitly defines executable delivery work.
 
 Use `<knowledge_dir>/discovery/**` as supporting evidence, assumptions, and opportunity context for product requirements. Do not create Kanban candidates from discovery analysis alone unless it has been accepted as product scope or a task item.
+
+Use `<knowledge_dir>/user-stories/**` as source intent for user goals, use cases, scenarios, journeys, and acceptance intent. Do not create Kanban candidates from stories alone unless they are linked to accepted product scope or converted into task items.
+
+Use `<knowledge_dir>/test-cases/**` as validation context for task readiness and acceptance coverage. Do not create Kanban candidates from test cases alone unless the test case explicitly identifies executable delivery work.
+
+Use `<knowledge_dir>/metrics/**`, `<knowledge_dir>/experiments/**`, and `<knowledge_dir>/releases/**` as planning context, evidence, constraints, or follow-up signals. Do not create Kanban candidates directly from raw metric movement, running experiments, or release notes unless a task item or accepted scope exists.
 
 Use `<knowledge_dir>/proposals/**` only as backlog review context. Do not create Kanban candidates directly from proposals. Accepted task proposals must be converted into task items before delivery planning.
 

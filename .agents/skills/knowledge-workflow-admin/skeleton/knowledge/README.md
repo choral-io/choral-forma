@@ -33,11 +33,16 @@ Use `knowledge-assistant` when the next process step is unclear.
 - `workspace/`: member-scoped shared summaries, handoffs, research, and local-only worklists/logs/personal Agent preferences under `local/`.
 - `discovery/`: requirement discovery, market and business research, customer context, environmental analysis, opportunity framing, and assumptions.
 - `product/`: product requirements, feature definitions, and user-facing behavior.
+- `user-stories/`: user stories, use cases, scenarios, and journeys that describe user goals and behavior expectations.
 - `concepts/`: domain terms and reusable conceptual notes.
 - `architecture/`: technical design and module-level architecture.
 - `decisions/`: accepted product or technical decisions.
 - `guidelines/`: cross-area writing, terminology, language, documentation, and process guidelines.
 - `planning/`: roadmap, sprint planning, and sprint summaries.
+- `test-cases/`: manual, acceptance, regression, end-to-end, and exploratory test cases that describe validation intent.
+- `metrics/`: product, quality, delivery, and operational metrics with definitions, sources, targets, and review cadence.
+- `experiments/`: hypotheses, experiment designs, rollout probes, results, and follow-up decisions.
+- `releases/`: release scope, validation, rollout, rollback, and post-release follow-up notes.
 - `proposals/`: optional review buffer for valuable but unconfirmed knowledge, task, or decision candidates.
 - `tasks/`: durable delivery task context and acceptance criteria.
 - `.workflow/`: workflow manifest, rules, schemas, and templates. These files support workflow operation and are not project knowledge.
@@ -51,6 +56,7 @@ Use these schema files when writing or auditing knowledge:
 | Any knowledge file  | [.workflow/schemas/common.md](.workflow/schemas/common.md)             |
 | `discovery/`        | [.workflow/schemas/discovery.md](.workflow/schemas/discovery.md)       |
 | `product/`          | [.workflow/schemas/product.md](.workflow/schemas/product.md)           |
+| `user-stories/`     | [.workflow/schemas/user-stories.md](.workflow/schemas/user-stories.md) |
 | `design/`           | [.workflow/schemas/design.md](.workflow/schemas/design.md)             |
 | `architecture/`     | [.workflow/schemas/architecture.md](.workflow/schemas/architecture.md) |
 | `concepts/`         | [.workflow/schemas/concepts.md](.workflow/schemas/concepts.md)         |
@@ -58,6 +64,10 @@ Use these schema files when writing or auditing knowledge:
 | `guidelines/`       | [.workflow/schemas/guidelines.md](.workflow/schemas/guidelines.md)     |
 | `planning/`         | [.workflow/schemas/planning.md](.workflow/schemas/planning.md)         |
 | `planning/sprints/` | [.workflow/schemas/sprints.md](.workflow/schemas/sprints.md)           |
+| `test-cases/`       | [.workflow/schemas/test-cases.md](.workflow/schemas/test-cases.md)     |
+| `metrics/`          | [.workflow/schemas/metrics.md](.workflow/schemas/metrics.md)           |
+| `experiments/`      | [.workflow/schemas/experiments.md](.workflow/schemas/experiments.md)   |
+| `releases/`         | [.workflow/schemas/releases.md](.workflow/schemas/releases.md)         |
 | `proposals/`        | [.workflow/schemas/proposals.md](.workflow/schemas/proposals.md)       |
 | `tasks/`            | [.workflow/schemas/tasks.md](.workflow/schemas/tasks.md)               |
 | `members/`          | [.workflow/schemas/members.md](.workflow/schemas/members.md)           |

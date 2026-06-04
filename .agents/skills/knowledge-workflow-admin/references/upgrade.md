@@ -18,7 +18,7 @@ Use this when the target repository's knowledge maintainer has upgraded the inst
 - `legacy-support`: old support file with a current-baseline target.
 - `missing-support`: required current-baseline support file is absent.
 - `conflict`: both legacy and current targets exist, or content differs in a way that needs review.
-- `project-fact`: project knowledge, Kanban, tasks, members, groups, proposals, decisions, product, design, architecture, discovery, guidelines, concepts, or assets.
+- `project-fact`: project knowledge, Kanban, tasks, members, groups, proposals, decisions, product, user stories, test cases, metrics, experiments, releases, design, architecture, discovery, guidelines, concepts, or assets.
 - `local-state`: SCM-excluded or member-local state such as `workspace/*/local/**`, `.feedback/**`, or worktree contents.
 - `dead-link`: internal Markdown link or wikilink that no longer resolves.
 - `non-knowledge-link`: knowledge-style link that points to support files, local state, ignored paths, or files outside the knowledge boundary.

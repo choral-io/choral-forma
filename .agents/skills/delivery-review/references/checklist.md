@@ -5,7 +5,7 @@
 - `<knowledge_dir>/planning/KANBAN.md`
 - Linked task item or project knowledge card source
 - Current diff, pull request, or changed files
-- Relevant product, architecture, decision, and configuration documents
+- Relevant product, user story, design, architecture, decision, test case, metric, experiment, release, and configuration documents
 
 ## Acceptance Review
 
@@ -26,6 +26,7 @@
 
 - Confirm durable changes are reflected in English canonical knowledge.
 - Confirm decisions that affect future implementation are captured in `<knowledge_dir>/decisions/`.
+- Confirm user stories, test cases, metrics, experiments, and releases are updated when the delivery changes those knowledge areas.
 - Confirm delivery status is not duplicated into every linked task item.
 - Leave localized files unchanged unless translation work is explicitly requested.
 

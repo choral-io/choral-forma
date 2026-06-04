@@ -30,10 +30,15 @@ Use this skill to inspect non-task knowledge schema quality. This skill is read-
 - Ownership metadata that does not use the canonical `owners` field.
 - Localized files missing `lang`, `canonical`, or `translation_of`.
 - Localized files that link to other localized files by default.
-- Discovery, product, or design files placed in the wrong area.
+- Discovery, product, user story, design, test case, metric, experiment, release, or guideline files placed in the wrong area.
 - Assets referenced from Markdown but not stored under a typed `<knowledge_dir>/assets/<asset-type>/<topic>/` directory.
 - Decision files with missing supersession metadata when a replacement is obvious.
 - Proposal files with missing or invalid `proposal_type`, `proposal_status`, `sources`, or target metadata.
+- User story files with invalid `type`, `status`, actor, relationship, or acceptance-intent metadata.
+- Test case files with invalid `type`, `status`, `priority`, `automation`, or coverage metadata.
+- Metric files with invalid `type`, `status`, source, unit, target, or review-cadence metadata.
+- Experiment files with invalid `type`, `status`, hypothesis, metric, guardrail, or result metadata.
+- Release files with invalid `status`, version, date, validation, rollout, rollback, or follow-up metadata.
 - Member files missing `member_id` or `display_name`.
 - Member files that still use legacy `groups` frontmatter instead of group documents' `members` lists.
 - Group `members` entries that point to missing or ambiguous member profiles.

@@ -29,9 +29,11 @@ Apply approved documentation fixes with `knowledge-capture` unless the fix is a 
 ## Requires Maintainer Judgment
 
 - Product requirements or acceptance meaning.
+- User story, use case, scenario, journey, or acceptance-intent meaning.
 - Design intent or UI behavior.
 - Architecture decisions.
 - Decision supersession.
+- Test coverage meaning, metric interpretation, experiment conclusions, or release acceptance.
 - Member responsibility changes.
 - Workspace note promotion to project facts.
 - Deleting, archiving, or merging documents.

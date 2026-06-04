@@ -39,16 +39,21 @@ If any row cannot be filled from the task item, source knowledge, or user instru
 
 ## Knowledge Update Decision
 
-| Change observed during implementation                                   | Required action                                                                        |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| User-facing behavior, requirement interpretation, or product scope      | Update `<knowledge_dir>/product/` or propose a knowledge update before review.         |
-| UI layout, component behavior, interaction state, or visual rule        | Update `<knowledge_dir>/design/` or record why no durable design knowledge changed.    |
-| Module boundary, API, data flow, integration, config, or operations     | Update `<knowledge_dir>/architecture/` or `<knowledge_dir>/decisions/` as appropriate. |
-| Lasting tradeoff or accepted product/technical decision                 | Create or update `<knowledge_dir>/decisions/`.                                         |
-| Cross-area terminology, documentation, language, or process rule        | Update `<knowledge_dir>/guidelines/`.                                                  |
-| Pure implementation detail with no durable product or technical meaning | No canonical knowledge update; mention this in review readiness evidence.              |
-| New follow-up work discovered outside current acceptance criteria       | Create or propose a follow-up task/proposal; do not silently expand scope.             |
-| Local experiment, temporary log, or private execution note              | Keep it in current member `local/`; do not promote without user approval.              |
+| Change observed during implementation                                    | Required action                                                                        |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| User-facing behavior, requirement interpretation, or product scope       | Update `<knowledge_dir>/product/` or propose a knowledge update before review.         |
+| User story, use case, scenario, journey, or acceptance intent            | Update `<knowledge_dir>/user-stories/` or link an existing story from the task.        |
+| UI layout, component behavior, interaction state, or visual rule         | Update `<knowledge_dir>/design/` or record why no durable design knowledge changed.    |
+| Module boundary, API, data flow, integration, config, or operations      | Update `<knowledge_dir>/architecture/` or `<knowledge_dir>/decisions/` as appropriate. |
+| Lasting tradeoff or accepted product/technical decision                  | Create or update `<knowledge_dir>/decisions/`.                                         |
+| Reusable validation intent, manual check, acceptance case, or regression | Update `<knowledge_dir>/test-cases/` or link existing test case coverage.              |
+| Metric definition, target, threshold, source, or interpretation rule     | Update `<knowledge_dir>/metrics/`.                                                     |
+| Experiment hypothesis, rollout probe, guardrail, result, or follow-up    | Update `<knowledge_dir>/experiments/` or convert an accepted decision separately.      |
+| Release scope, validation, rollout, rollback, or release note            | Update `<knowledge_dir>/releases/`.                                                    |
+| Cross-area terminology, documentation, language, or process rule         | Update `<knowledge_dir>/guidelines/`.                                                  |
+| Pure implementation detail with no durable product or technical meaning  | No canonical knowledge update; mention this in review readiness evidence.              |
+| New follow-up work discovered outside current acceptance criteria        | Create or propose a follow-up task/proposal; do not silently expand scope.             |
+| Local experiment, temporary log, or private execution note               | Keep it in current member `local/`; do not promote without user approval.              |
 
 ## Suggested Checks
 

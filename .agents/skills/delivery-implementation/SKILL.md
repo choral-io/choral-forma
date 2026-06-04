@@ -33,13 +33,13 @@ Use this skill to implement a selected Kanban card and keep code, tests, and kno
 
 When Superpowers skills are available, use them as execution-method guidance only:
 
-| Situation                                                   | Optional Superpowers skill         |
-| ----------------------------------------------------------- | ---------------------------------- |
-| Requirements or approach need shaping before implementation | `brainstorming`                    |
-| Work needs a multi-step implementation plan                 | `writing-plans`                    |
-| Code behavior changes, bugfixes, or refactors               | `test-driven-development`          |
-| Failure cause is unclear                                    | `systematic-debugging`             |
-| Completion, commit, PR, or review-readiness claim           | `verification-before-completion`   |
+| Situation                                                   | Optional Superpowers skill       |
+| ----------------------------------------------------------- | -------------------------------- |
+| Requirements or approach need shaping before implementation | `brainstorming`                  |
+| Work needs a multi-step implementation plan                 | `writing-plans`                  |
+| Code behavior changes, bugfixes, or refactors               | `test-driven-development`        |
+| Failure cause is unclear                                    | `systematic-debugging`           |
+| Completion, commit, PR, or review-readiness claim           | `verification-before-completion` |
 
 Superpowers usage does not replace task acceptance criteria, project checks, canonical knowledge updates, delivery review, or Kanban approval gates.
 
@@ -86,9 +86,14 @@ Create a formal shared handoff under `<knowledge_dir>/workspace/<member-id>/hand
 ## Knowledge Updates
 
 - Update `<knowledge_dir>/product/` when user-facing behavior changes.
+- Update `<knowledge_dir>/user-stories/` when implementation changes accepted user stories, use cases, scenarios, journeys, or acceptance intent.
 - Update `<knowledge_dir>/design/` when UI design, component behavior, layout, interaction states, or visual rules change.
 - Update `<knowledge_dir>/architecture/` when module boundaries, APIs, data flow, integration behavior, configuration, or operational constraints change.
 - Update `<knowledge_dir>/decisions/` when a lasting product or technical tradeoff is made.
+- Update `<knowledge_dir>/test-cases/` when reusable validation intent, manual checks, acceptance cases, regression cases, or exploratory test cases change.
+- Update `<knowledge_dir>/metrics/` when metric definitions, targets, thresholds, sources, or interpretation rules change.
+- Update `<knowledge_dir>/experiments/` when hypotheses, rollout probes, guardrails, experiment results, or follow-up experiment decisions change.
+- Update `<knowledge_dir>/releases/` when release scope, validation evidence, rollout, rollback, release notes, or post-release follow-up changes.
 - Update `<knowledge_dir>/guidelines/` when cross-area writing, terminology, language, documentation, or process guidance changes.
 - Do not add knowledge docs for purely local implementation details that do not create durable product or technical knowledge.
 
