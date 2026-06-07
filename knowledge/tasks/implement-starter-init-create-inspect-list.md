@@ -100,4 +100,4 @@ operation dispatch foundation; all prerequisites are now done.
 
 `forma init` exposes `--timezone` as an optional override. When omitted, the
 implementation detects the current environment timezone once and writes the
-resolved value into `.forma/workspace.yml`.
+resolved value into `.forma/settings.yml`.

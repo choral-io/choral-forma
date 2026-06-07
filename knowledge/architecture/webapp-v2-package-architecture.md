@@ -74,7 +74,6 @@ packages/webapp/
       base/
     data/
       workspace-client.ts
-      mock-workspace-client.ts
       rpc-workspace-client.ts
     features/
       dashboard/
@@ -142,14 +141,13 @@ V2 should use a workspace client interface inside `packages/webapp`:
 ```text
 WebApp feature component
 -> workspace client interface
--> mock workspace client during design
--> RPC workspace client after design approval
 -> @choral-forma/shared RPC client
 -> forma serve / RPC operations
 ```
 
-This keeps visual design review independent from backend completeness while
-preserving the eventual RPC integration path.
+This keeps the product WebApp path aligned with the public RPC contract. Design
+review and demos should use backend-served example workspaces rather than a
+product-side mock workspace client.
 
 ## Reinitialization Strategy
 

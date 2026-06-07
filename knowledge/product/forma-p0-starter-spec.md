@@ -48,7 +48,7 @@ The starter must not include:
 ```text
 .forma/
   .gitignore
-  workspace.yml
+  settings.yml
   types.yml
   spaces.yml
   index.summary.json
@@ -80,11 +80,11 @@ overrides/local.yml
 local/
 ```
 
-## `.forma/workspace.yml`
+## `.forma/settings.yml`
 
-`workspace.yml` owns workspace identity and global behavior. The initialized
-file should contain concrete values from `forma init` inputs and the detected
-current environment timezone:
+`settings.yml` owns workspace identity, runtime values, and other global
+settings. The initialized file should contain concrete values from `forma init`
+inputs and the detected current environment timezone:
 
 ```yaml
 schemaVersion: 1
@@ -131,7 +131,7 @@ such as `2026-05-19T10:30:00` are invalid.
 
 `forma init` may default `workspace.timezone` from the current environment's
 timezone, but the generated workspace should still store the resolved timezone
-explicitly in `.forma/workspace.yml`.
+explicitly in `.forma/settings.yml`.
 
 `forma init` is a write-heavy operation and should require explicit
 confirmation. Unless the user passes `-y` or `--yes`, interactive shells should
@@ -552,7 +552,7 @@ view:
 1. Fail if `.forma/` already exists.
 2. Require confirmation in CLI adapters unless `-y` or `--yes` is provided.
 3. Create the starter file tree.
-4. Render concrete `workspace.yml` values from init inputs.
+4. Render concrete `settings.yml` values from init inputs.
 5. Create no sample entries.
 6. Create no `.forma/local/` or `.forma/overrides/local.yml`.
 7. Run `forma index rebuild`.

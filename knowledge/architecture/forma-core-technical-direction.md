@@ -179,7 +179,7 @@ P0 should use a serde-compatible YAML parser, with `serde_yml` as the preferred
 candidate, for structured configuration and frontmatter reads. Forma should
 split frontmatter and body itself before parsing YAML.
 
-P0 configuration files such as `.forma/workspace.yml`, `.forma/types.yml`, and
+P0 configuration files such as `.forma/settings.yml`, `.forma/types.yml`, and
 `.forma/spaces.yml` should parse into typed Rust structs where practical.
 Unknown config fields should produce diagnostics or warnings rather than
 immediate hard failures, so future-version or manually edited config can remain

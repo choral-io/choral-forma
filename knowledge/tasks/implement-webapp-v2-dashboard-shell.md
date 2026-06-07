@@ -123,7 +123,8 @@ as behavioral reference, not as the V2 component structure.
 ## Validation Notes
 
 - Implemented `packages/webapp` as a WebApp-local Tailwind CSS, shadcn/ui, and
-  Base UI dashboard shell with deterministic fake workspace data.
+  Base UI dashboard shell with deterministic design fixture data during the V2
+  design phase.
 - Kept `packages/shared` contract-only on its existing `tsdown` build.
 - Used `@base-ui/react` rather than the retired `@base-ui-components/react`
   package.

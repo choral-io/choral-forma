@@ -23,8 +23,10 @@ sprint:
 blocked_by:
     - "[[tasks/implement-reference-navigation-baseline]]"
 related_to:
+    - "[[planning/public-read-only-release-roadmap]]"
     - "[[tasks/implement-check-index-diagnostics]]"
     - "[[tasks/implement-read-only-webapp]]"
+    - "[[tasks/stabilize-public-read-only-webapp-release]]"
 
 reported_by:
 affected_area: Read-only knowledge health
@@ -34,9 +36,8 @@ affected_area: Read-only knowledge health
 
 ## Goal
 
-Expose read-only knowledge health signals in the validation WebApp so a user can
-understand broken or weak note graph structure without leaving the local
-application.
+Promote read-only diagnostics into a useful WebApp knowledge health surface for
+the public read-only release.
 
 ## Sources
 
@@ -45,6 +46,8 @@ application.
 - [[architecture/forma-p0-operation-api-spec]]
 - [[tasks/implement-check-index-diagnostics]]
 - [[tasks/implement-reference-navigation-baseline]]
+- [[tasks/implement-webapp-v2-dashboard-shell]]
+- [[planning/public-read-only-release-roadmap]]
 
 ## Context
 
@@ -54,9 +57,14 @@ ambiguous, the index is stale, or notes are structurally isolated. The current
 WebApp already exposes raw diagnostics, but it does not organize knowledge
 health around note navigation.
 
-The current WebApp is a validation shell and will be rebuilt in a later UI
-phase. This task should focus on proving the underlying health signals and
-navigation behavior rather than investing in polished WebApp design.
+The current WebApp now has route-level diagnostics panels and document-level
+diagnostics in the document context panel. Those surfaces prove that diagnostics
+can be displayed, but they are still closer to raw findings than to a public
+knowledge health experience.
+
+This task should organize existing and cheaply derived health signals into a
+read-only surface that helps users understand what needs attention without
+introducing automatic fixes or proposal workflows.
 
 ## In Scope
 
@@ -66,8 +74,9 @@ navigation behavior rather than investing in polished WebApp design.
 - Reuse `check`, `index.check`, and reference navigation outputs where possible.
 - Add operation result fields only if existing diagnostics do not expose enough
   structured data for the validation WebApp.
-- Add a minimal WebApp surface for viewing health findings and opening affected
-  entries.
+- Add a WebApp surface for viewing health findings and opening affected entries.
+- Keep health findings grouped enough to be actionable without becoming a
+  scoring or analytics subsystem.
 - Add focused Rust or Web checks for any new contract behavior.
 - Update product or architecture knowledge if health result shapes become part
   of the API contract.
@@ -77,8 +86,8 @@ navigation behavior rather than investing in polished WebApp design.
 - Automatic fixes.
 - Writing diagnostics or health summaries to workspace files.
 - Ranking, scoring, or analytics beyond simple categories.
-- Full UI redesign or polished dashboards.
 - Search or quick switcher behavior.
+- Proposal drafting or repair actions.
 
 ## Acceptance Criteria
 
@@ -88,6 +97,8 @@ navigation behavior rather than investing in polished WebApp design.
   files.
 - Users can identify entries with no outgoing references or no backlinks when
   reference data is available.
+- Health categories are grouped or labeled clearly enough to distinguish
+  diagnostics, unresolved references, stale index state, and weak-link signals.
 - Health information uses workspace-relative POSIX paths only.
 - No health result is persisted as product state.
 - Focused validation passes for changed Rust, shared TypeScript, and WebApp

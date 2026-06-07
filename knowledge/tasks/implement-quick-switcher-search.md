@@ -23,8 +23,10 @@ sprint:
 blocked_by:
     - "[[tasks/implement-reference-navigation-baseline]]"
 related_to:
+    - "[[planning/public-read-only-release-roadmap]]"
     - "[[tasks/implement-read-only-webapp]]"
     - "[[tasks/implement-interactive-graph-view-render]]"
+    - "[[tasks/stabilize-public-read-only-webapp-release]]"
 
 reported_by:
 affected_area: Quick navigation
@@ -34,8 +36,8 @@ affected_area: Quick navigation
 
 ## Goal
 
-Add a lightweight quick switcher for opening indexed entries by title or path
-after the read-only bidirectional note loop is usable.
+Decide and implement the shared search capability behind Quick Open when it
+needs to become more than dashboard-local route navigation.
 
 ## Sources
 
@@ -43,6 +45,8 @@ after the read-only bidirectional note loop is usable.
 - [[architecture/forma-p0-operation-api-spec]]
 - [[tasks/implement-read-only-webapp]]
 - [[tasks/implement-reference-navigation-baseline]]
+- [[tasks/implement-webapp-v2-dashboard-shell]]
+- [[planning/public-read-only-release-roadmap]]
 
 ## Context
 
@@ -52,9 +56,15 @@ links, backlinks, graph data, and knowledge health usable. Once that loop is in
 place, a lightweight quick switcher can make entry opening faster without
 introducing a full search subsystem.
 
-The current WebApp is a validation shell. This task should validate the
-operation contract and basic behavior only; a later WebApp rewrite can redesign
-the interaction.
+The current WebApp already has a Quick Open dialog in the sidebar. That
+implementation searches route, space, document, and view candidates already
+loaded in the dashboard read model. This is useful as a navigation affordance,
+but it is not a shared search operation and should not be described as full-text
+search.
+
+For the first public release, Quick Open can remain dashboard-local if it is
+positioned only as route and entry navigation. If it becomes a public search
+feature, this task should introduce the shared `search.entries` operation.
 
 ## In Scope
 
@@ -64,7 +74,9 @@ the interaction.
     - Return workspace-relative POSIX paths, display titles, and simple match
       fields when cheaply available.
 - Add shared TypeScript result types and client support.
-- Add minimal WebApp quick-open behavior for opening a selected result.
+- Connect Quick Open to the shared operation when the operation is added.
+- Preserve the current dashboard-local Quick Open behavior if shared search is
+  deferred.
 - Add focused tests for matching, empty queries, no-result behavior, and invalid
   parameters.
 - Update architecture or product knowledge if the operation name and result
@@ -91,9 +103,12 @@ the interaction.
 ## Relationship Notes
 
 This task is intentionally P2. It should not block reference navigation, graph
-rendering, or read-only knowledge health work.
+rendering, read-only knowledge health work, or the first public release unless
+Quick Open is promoted from navigation affordance to search feature.
 
 ## Open Questions
 
 - Should the first quick switcher search be exposed through CLI as well as RPC,
   or remain WebApp/RPC-only until there is script demand?
+- Should the first public release keep dashboard-local Quick Open and defer
+  `search.entries`?

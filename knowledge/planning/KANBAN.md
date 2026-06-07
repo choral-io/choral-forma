@@ -10,6 +10,7 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Backlog
 
+- [ ] [[tasks/stabilize-public-read-only-webapp-release|Stabilize Public Read-only WebApp Release]]
 - [ ] [[tasks/design-reviewable-operation-proposal-flow|Design Reviewable Operation Proposal Flow]]
 - [ ] [[tasks/design-ai-chat-interaction-model|Design AI Chat Interaction Model]]
 - [ ] [[tasks/implement-interactive-graph-view-render|Implement Interactive Graph View Render]]

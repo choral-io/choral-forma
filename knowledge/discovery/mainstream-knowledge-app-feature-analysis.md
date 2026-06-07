@@ -386,7 +386,7 @@ Implications for Choral Forma:
 - Let structured view queries handle space filtering instead of embedding
   query logic in templates.
 - Keep configuration concise even when the internal model is split across
-  `workspace.yml`, `types.yml`, `spaces.yml`, `templates/`, and `views/`.
+  `settings.yml`, `types.yml`, `spaces.yml`, `templates/`, and `views/`.
   P0 should keep the user-authored Schema DSL in space configuration rather
   than requiring separate `.forma/schemas/` authoring files.
 

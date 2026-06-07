@@ -165,7 +165,7 @@ P0 command classification:
   `forma list`, and `forma serve` do not require confirmation because they are
   read-only in P0.
 - `forma config inspect --path <path>` may inspect only known configuration
-  source files reported by the operation, such as `.forma/workspace.yml`,
+  source files reported by the operation, such as `.forma/settings.yml`,
   `.forma/types.yml`, `.forma/spaces.yml`, and
   `.forma/overrides/local.yml`. It is not a general workspace file read API.
 
@@ -390,7 +390,7 @@ Params:
 
 `timezone` is optional. When omitted, CLI initialization may detect the current
 environment timezone once, then write the resolved value into
-`.forma/workspace.yml`.
+`.forma/settings.yml`.
 
 The CLI adapter should require explicit confirmation before running `init`.
 Without `-y` or `--yes`, interactive shells should display the resolved init
@@ -410,7 +410,7 @@ Result outline:
         "name": "Acme Knowledge"
     },
     "created": [
-        ".forma/workspace.yml",
+        ".forma/settings.yml",
         ".forma/spaces.yml",
         ".forma/types.yml",
         ".forma/views/todos.md",
@@ -503,7 +503,7 @@ Result outline:
     },
     "sources": [
         {
-            "path": ".forma/workspace.yml",
+            "path": ".forma/settings.yml",
             "kind": "shared"
         },
         {
@@ -516,7 +516,7 @@ Result outline:
         {
             "name": "currentUserId",
             "status": "resolved",
-            "source": ".forma/workspace.yml"
+            "source": ".forma/settings.yml"
         }
     ],
     "summary": {

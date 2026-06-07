@@ -655,7 +655,7 @@ Recommended initial layout:
 ```text
 .forma/
   .gitignore
-  workspace.yml
+  settings.yml
   types.yml
   spaces.yml
   views/
@@ -712,7 +712,7 @@ same-layer conflict: invalid unless a file boundary explicitly owns it
 Configuration files should have clear responsibility boundaries:
 
 ```text
-workspace.yml owns workspace identity and global behavior.
+settings.yml owns workspace identity, runtime values, and other global settings.
 types.yml owns semantic types.
 spaces.yml owns space definitions and Forma Schema DSL constraints.
 templates/ owns create-time content templates.

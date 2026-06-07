@@ -54,7 +54,7 @@ time-derived runtime values.
 ## In Scope
 
 - Locate and validate the workspace root.
-- Load `.forma/workspace.yml`, `.forma/types.yml`, and
+- Load `.forma/settings.yml`, `.forma/types.yml`, and
   `.forma/spaces.yml`.
 - Load optional `.forma/overrides/local.yml` when effective local behavior is
   required.
