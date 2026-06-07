@@ -14,10 +14,11 @@ tags:
 
 ## Context
 
-Choral Forma P0 needs stable read, check, index, inspect, list, and serve
-behavior over repository-backed Markdown. Repository files remain the source of
-truth, while `.forma/index.summary.json` is a deterministic committed discovery
-artifact that can be rebuilt from source.
+Choral Forma P0 needs stable read, check, inspect, list, and serve behavior
+over repository-backed Markdown. Repository files remain the source of truth.
+The first public release should not require a committed summary index by
+default; `forma serve` can scan source files at startup and maintain an
+in-memory read model.
 
 This specification refines the P0 check/index pipeline described in
 [../product/product-direction.md](../product/product-direction.md),
@@ -29,7 +30,8 @@ accepted decision
 
 - Define one shared pipeline for CLI commands, `forma serve`, and the shared RPC
   operation dispatcher.
-- Define the committed `.forma/index.summary.json` contract.
+- Define the default in-memory read-model contract.
+- Reserve a deterministic persistent index contract for future opt-in use.
 - Keep diagnostics runtime-only and separate from committed discovery state.
 - Define deterministic ordering so committed index diffs are stable.
 - Define command behavior for P0 index, check, inspect, list, and serve
@@ -40,6 +42,7 @@ accepted decision
 
 ## Non-Goals
 
+- No mandatory committed index file in the first public release.
 - No local full index such as `.forma/local/index.json` in P0.
 - No SQLite, filesystem watcher, vector index, or incremental indexing in P0.
 - No persisted diagnostic result file, health summary, last check status, or
@@ -58,22 +61,23 @@ diagnostic, reference, or index semantics.
 
 Pipeline phases:
 
-1. Load workspace root and shared `.forma/` configuration.
-2. Load optional local overrides from `.forma/overrides/local.yml` when the
-   operation needs effective local behavior.
+1. Load the `.forma.yml` configuration entry and resolve the configured
+   workspace root.
+2. Load optional included configuration files when `.forma.yml` references
+   them.
 3. Normalize all public paths to workspace-relative POSIX-style paths.
-4. Discover candidate source files from space `include` and `exclude`
-   globs, managed view definitions, and relevant `.forma/*.yml` files.
+4. Discover candidate source files from configured page sources, taxonomy
+   source rules, view definitions, and navigation/dashboard references.
 5. Split Markdown frontmatter and body.
 6. Parse YAML configuration and entry frontmatter.
 7. Parse Markdown body into the chosen Markdown AST.
 8. Enrich the parsed document into `FormaAST` by scanning wikilinks,
    Markdown links, Obsidian-style embeds, and Forma directives.
-9. Classify files into spaces and views.
-10. Validate configuration, space membership, frontmatter schemas, view
+9. Classify pages into configured taxonomies and views.
+10. Validate configuration, taxonomy membership, frontmatter schemas, view
     definitions, workspace view sources, and normalized-entry query targets.
 11. Resolve references.
-12. Build the deterministic summary-index projection from successfully resolved
+12. Build the in-memory read-model projection from successfully resolved
     discovery facts.
 13. Build runtime diagnostics from configuration, parsing, schema, membership,
     references, index freshness, view, template, create, runtime, and privacy
@@ -81,22 +85,26 @@ Pipeline phases:
 14. Project the operation result for CLI JSON, human CLI output, local HTTP RPC,
     or WebApp consumption.
 
-Index-producing operations use phases 1 through 12 and exclude diagnostics from
-the index artifact. Check-producing operations use the same discovery and parse
-facts, then return diagnostics from phase 13.
+Read-model-producing operations use phases 1 through 12 and exclude diagnostics
+from persisted artifacts by default. Check-producing operations use the same
+discovery and parse facts, then return diagnostics from phase 13.
 
 View source and query validation follows
 [[architecture/forma-view-query-model]].
 
 ## Summary Index
 
-P0 includes one committed, deterministic, rebuildable summary index:
+P0 should not require a committed summary index by default. The default read
+model is rebuilt in memory by scanning source files and configuration.
+
+Future work may add an opt-in committed, deterministic, rebuildable summary
+index:
 
 ```text
 .forma/index.summary.json
 ```
 
-The summary index is a discovery accelerator, not a knowledge store. Source
+Any summary index is a discovery accelerator, not a knowledge store. Source
 files win, and the index can always be regenerated from source files and shared
 configuration.
 
@@ -423,11 +431,11 @@ Behavior:
 - May emit diagnostics to the terminal or JSON operation result, but those
   diagnostics remain runtime-only.
 
-### `forma index check [--json]`
+### Optional `forma index check [--json]`
 
-`forma index check` regenerates the expected summary index in memory, compares
-it with the committed `.forma/index.summary.json`, and reports freshness
-diagnostics.
+`forma index check` should exist only when the workspace configures a persistent
+index path. It regenerates the expected summary index in memory, compares it
+with the configured persistent index, and reports freshness diagnostics.
 
 Behavior:
 
@@ -435,14 +443,15 @@ Behavior:
 - Reports `index.missing`, `index.invalid-json`, or `index.stale` when
   applicable.
 - Does not repair the index automatically.
-- Should recommend `forma index rebuild` when the committed summary index is
+- Should recommend `forma index rebuild` when the configured summary index is
   stale or missing.
 - Returns a non-zero exit code when error-severity diagnostics are present.
 
 ### `forma check [--json]`
 
 `forma check` is the default read-only workspace health operation. It recomputes
-runtime diagnostics and includes summary-index freshness by default.
+runtime diagnostics from a fresh scan. It includes summary-index freshness only
+when a persistent index path is configured.
 
 Behavior:
 

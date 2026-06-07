@@ -9,7 +9,8 @@ tags:
     - terminology
     - spaces
 supersedes: []
-superseded_by: []
+superseded_by:
+    - "[[decisions/use-settings-driven-taxonomy-and-navigation-model]]"
 ---
 
 # Use Space As Core Partition Model
@@ -76,3 +77,4 @@ schema, and documentation surface area.
 - [[architecture/forma-p0-schema-dsl-spec]]
 - [[architecture/webapp-v2-read-model-contract]]
 - [[decisions/forma-p0-core-architecture]]
+- [[decisions/use-settings-driven-taxonomy-and-navigation-model]]

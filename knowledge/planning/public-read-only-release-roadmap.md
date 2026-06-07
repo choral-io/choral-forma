@@ -57,11 +57,11 @@ The current implementation already includes the main read-only loop:
 - `forma serve` exposes WebApp assets, `/rpc`, and raw workspace resources.
 - The WebApp uses real Forma RPC. Demo and validation data should come from
   example workspaces served by the backend, not from product-side mock clients.
-- The primary routes are Dashboard, Documents, Document detail, Spaces, Space
-  detail, Views, and View detail.
-- Document detail uses client-side Markdown rendering from backend-provided
+- The current primary routes are Dashboard, Pages, Page detail, configured
+  taxonomy groups, Views, and View detail.
+- Page detail uses client-side Markdown rendering from backend-provided
   Markdown source, headings, references, and diagnostics.
-- Document context includes overview data, outgoing links, backlinks,
+- Page context includes overview data, outgoing links, backlinks,
   diagnostics, and an outline tab.
 - Small screens use a context sheet instead of pushing the context panel below
   the document body.

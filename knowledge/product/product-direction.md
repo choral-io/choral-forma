@@ -650,32 +650,31 @@ Runtime values are not written back into configuration files. They are available
 for interpolation, effective configuration inspection, health checks, and view
 or template rendering.
 
-Recommended initial layout:
+Recommended target layout:
 
 ```text
+.forma.yml
 .forma/
-  .gitignore
-  settings.yml
   types.yml
-  spaces.yml
+  taxonomies.yml
   views/
-    *.md
+    *.yml
   templates/
+assets/
 ```
 
-Local overrides are optional and should be created on demand at
-`.forma/overrides/local.yml`. A starter workspace should not commit that file,
-but should include a `.forma/.gitignore` rule equivalent to:
+Local overrides are optional and should be created only when the workspace
+configuration explicitly includes them. If the conventional `.forma/` support
+directory is used, it can include a `.gitignore` rule equivalent to:
 
 ```gitignore
 overrides/local.yml
 local/
 ```
 
-Root ignore rules can also provide a safety net, but the `.forma/` directory
-should make its local-only boundaries self-explanatory. The MVP does not need to
-create `.forma/local/`; that directory can be introduced later for local runtime
-state such as caches, locks, local indexes, or GUI state.
+Root ignore rules can also provide a safety net. The MVP does not need to create
+`.forma/local/`; that directory can be introduced later for local runtime state
+such as caches, locks, local indexes, or GUI state.
 
 The core P0 rule is: team shared config defines workspace meaning; local
 personal config defines private or temporary preference.
@@ -709,15 +708,18 @@ array append/remove: not supported
 same-layer conflict: invalid unless a file boundary explicitly owns it
 ```
 
-Configuration files should have clear responsibility boundaries:
+Configuration sections and included files should have clear responsibility
+boundaries:
 
 ```text
-settings.yml owns workspace identity, runtime values, and other global settings.
+.forma.yml owns the main configuration entry and includes.
+workspace owns identity, root, language, timezone, and logo.
+runtime owns runtime values.
 types.yml owns semantic types.
-spaces.yml owns space definitions and Forma Schema DSL constraints.
+taxonomies owns configured classification systems such as starter spaces.
 templates/ owns create-time content templates.
-overrides/local.yml owns local, private, and temporary overrides.
-views/ owns managed Markdown view definitions.
+views owns saved projection definitions.
+navigation owns sidebar and prominent route/page/view groups.
 ```
 
 The effective configuration should be inspectable instead of hidden. CLI and
@@ -764,15 +766,16 @@ view:
 
 The view data source should be the workspace. `source` selects the candidate
 file set; `query` filters normalized entries derived from those files.
-Space-oriented views may keep the direct `space` field as a readable
-shorthand, but it should be treated as a query shortcut rather than a separate
+Taxonomy-oriented views may keep a readable shorthand such as `taxonomy` and
+`term`, but it should be treated as a query shortcut rather than a separate
 source kind. This:
 
 ```yaml
 view:
     surface: page
     mode: table
-    space: todos
+    taxonomy: spaces
+    term: todos
 ```
 
 is equivalent to:
@@ -785,7 +788,7 @@ view:
         kind: workspace
     query:
         all:
-            - target: entry.space
+            - target: taxonomy.spaces
               op: equals
               value: todos
 ```
@@ -887,7 +890,9 @@ an entry record with stable namespaces such as:
 ```ts
 entry = {
     path: "todos/review-webapp.md",
-    space: "todos" | null,
+    taxonomies: {
+        spaces: "todos" | null,
+    },
     kind: "todo" | null,
     frontmatter: {},
     refs: {},
@@ -902,7 +907,7 @@ into the normalized entry record:
 ```yaml
 query:
     all:
-        - target: entry.space
+        - target: taxonomy.spaces
           op: equals
           value: todos
         - target: frontmatter.status
@@ -945,14 +950,14 @@ Markdown can be expressed without a special `missing` operator:
 ```yaml
 query:
     all:
-        - target: entry.space
+        - target: taxonomy.spaces
           op: exists
           value: false
 ```
 
 P0 can keep query support intentionally small: `source.kind: workspace`,
 `source.include`, `source.exclude`, `all`, `any`, `not`, `target:
-entry.space`, `target: frontmatter.<field>`, and the operations `equals`,
+taxonomy.<id>`, `target: frontmatter.<field>`, and the operations `equals`,
 `in`, `contains`, and `exists`. References, full-text predicates, date
 comparisons, diagnostic filters, and saved runtime query controls can remain P1
 unless needed by implementation evidence.
@@ -1406,11 +1411,10 @@ All read commands should support stable JSON output for GUI and Agent use.
 Human-oriented output should remain concise and explainable.
 
 `forma init` should create the P0 minimal starter without sample entries, create
-`.forma/.gitignore` rules for local-only Forma files, run the initial index
-rebuild, and fail if `.forma/` already exists. `forma create` should use
-space create inputs, defaults, transforms, and templates, fail on path
-conflicts, and report that the summary index is stale without rebuilding it
-automatically.
+`.forma.yml` and referenced support files, and fail on path conflicts. `forma
+create` should use configured create inputs, defaults, transforms, and
+templates, fail on path conflicts, and report any read-model refresh or
+persistent-index follow-up explicitly instead of rebuilding automatically.
 
 CLI confirmation should be based on operation risk. Read-only commands should
 not ask for confirmation. Single-file, predictable, non-destructive writes can
@@ -1420,7 +1424,7 @@ fixes, batch updates, and multi-file or reference-changing writes should require
 confirmation.
 
 In P0, only `forma init` requires confirmation because it creates the starter
-workspace structure and initial index. Interactive shells should show the
+workspace structure. Interactive shells should show the
 resolved initialization parameters and planned starter writes before asking for
 confirmation. Non-interactive shells such as CI should fail without writing
 unless `-y` or `--yes` is provided. `forma create` does not require confirmation
@@ -1488,18 +1492,24 @@ stale views, and other consequences before review or commit.
 
 ### Summary Index
 
-P0 should include a committed, deterministic, rebuildable summary index:
+The first public release should not require a committed summary index by
+default. The local server can scan source files and configuration at startup,
+then keep the read model in memory.
+
+A future workspace may opt into a committed, deterministic, rebuildable summary
+index:
 
 ```text
 .forma/index.summary.json
 ```
 
-The MVP should not include a local full index such as `.forma/local/index.json`.
-A local full index, SQLite backend, watcher, or vector index can be introduced
-later if workspace size, GUI latency, local overrides, or semantic search make
-them necessary.
+The MVP should not include a required committed summary index or a local full
+index such as `.forma/local/index.json`. A persistent summary index, local full
+index, SQLite backend, watcher, or vector index can be introduced later if
+workspace size, GUI latency, local overrides, or semantic search make them
+necessary.
 
-The summary index is a derived artifact, not a knowledge store:
+Any summary index is a derived artifact, not a knowledge store:
 
 ```text
 source files win
@@ -1581,10 +1591,10 @@ forma index rebuild
 forma index check
 ```
 
-`rebuild` should full-scan shared source files and shared configuration, then
-rewrite `.forma/index.summary.json`. P0 does not need true incremental indexing.
-`check` should verify the summary index is fresh by regenerating the expected
-summary in memory and comparing it to `.forma/index.summary.json`.
+By default, serve/check operations should full-scan shared source files and
+shared configuration into memory. P0 does not need true incremental indexing.
+Persistent `index rebuild` and `index check` behavior should be enabled only
+when a workspace explicitly configures an index path.
 
 `forma check` should include summary index freshness as a default read-only
 check. A stale summary index should fail checks, because Agents, reviews, and

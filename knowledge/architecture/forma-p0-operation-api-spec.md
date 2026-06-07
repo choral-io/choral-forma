@@ -153,21 +153,24 @@ CLI adapters should gate write operations by risk and predictability.
 
 P0 command classification:
 
-- `forma init` requires confirmation because it creates the workspace structure,
-  starter configuration, starter templates, starter views, and the initial
-  summary index. `-y` or `--yes` bypasses the prompt for scripts and CI.
+- `forma init` requires confirmation because it creates the workspace
+  structure, starter configuration, starter templates, and starter views. `-y`
+  or `--yes` bypasses the prompt for scripts and CI.
 - `forma create` does not require confirmation in P0 because it writes one new
   entry, uses space-defined inputs and templates, and fails on path
   conflicts.
-- `forma index rebuild` does not require confirmation in P0 because it writes
-  only the deterministic, rebuildable `.forma/index.summary.json` file.
+- `forma refresh` or an equivalent in-memory read-model rebuild operation does
+  not require confirmation because it writes nothing by default.
+- `forma index rebuild` should exist only when a workspace explicitly configures
+  a persistent index path. It does not require confirmation when it writes only
+  that deterministic, rebuildable configured index file.
 - `forma check`, `forma index check`, `forma config inspect`, `forma inspect`,
   `forma list`, and `forma serve` do not require confirmation because they are
   read-only in P0.
 - `forma config inspect --path <path>` may inspect only known configuration
-  source files reported by the operation, such as `.forma/settings.yml`,
-  `.forma/types.yml`, `.forma/spaces.yml`, and
-  `.forma/overrides/local.yml`. It is not a general workspace file read API.
+  source files reported by the operation, starting with `.forma.yml` and any
+  explicitly included configuration files. It is not a general workspace file
+  read API.
 
 Future command classification:
 
@@ -374,9 +377,10 @@ index files, diagnostics, or configuration references.
 
 ### Init
 
-`init` creates the P0 minimal starter, `.forma/.gitignore` rules for local-only
-Forma files, and an initial `.forma/index.summary.json`. It fails if `.forma/`
-already exists.
+`init` creates the P0 minimal starter from the settings-driven configuration
+model. It creates `.forma.yml`, conventional support files, starter templates,
+starter views, and content directories. It should fail on path conflicts instead
+of assuming `.forma/` is the only workspace boundary.
 
 Params:
 
@@ -390,7 +394,7 @@ Params:
 
 `timezone` is optional. When omitted, CLI initialization may detect the current
 environment timezone once, then write the resolved value into
-`.forma/settings.yml`.
+`.forma.yml`.
 
 The CLI adapter should require explicit confirmation before running `init`.
 Without `-y` or `--yes`, interactive shells should display the resolved init
@@ -410,12 +414,11 @@ Result outline:
         "name": "Acme Knowledge"
     },
     "created": [
-        ".forma/settings.yml",
-        ".forma/spaces.yml",
+        ".forma.yml",
+        ".forma/taxonomies.yml",
         ".forma/types.yml",
         ".forma/views/todos.md",
-        ".forma/templates/todo.md",
-        ".forma/index.summary.json"
+        ".forma/templates/todo.md"
     ],
     "summary": {
         "errors": 0,
@@ -428,8 +431,10 @@ Result outline:
 
 ### Check
 
-`check` recomputes runtime diagnostics, includes summary index freshness, and
-writes nothing.
+`check` recomputes runtime diagnostics and writes nothing. If a workspace
+configures a persistent index path, `check` may include index freshness
+diagnostics; otherwise it validates the in-memory read model derived from a
+fresh scan.
 
 Params:
 
@@ -459,7 +464,7 @@ Result outline:
         "entries": "failed",
         "references": "failed",
         "views": "passed",
-        "index": "failed"
+        "readModel": "failed"
     },
     "diagnostics": []
 }
@@ -476,7 +481,7 @@ Params:
 
 ```json
 {
-    "path": ".forma/spaces.yml"
+    "path": ".forma.yml"
 }
 ```
 
@@ -497,13 +502,14 @@ Result outline:
     "config": {
         "workspace": {},
         "types": {},
-        "spaces": [],
+        "taxonomies": [],
         "views": [],
+        "navigation": [],
         "runtime": {}
     },
     "sources": [
         {
-            "path": ".forma/settings.yml",
+            "path": ".forma.yml",
             "kind": "shared"
         },
         {
@@ -516,7 +522,7 @@ Result outline:
         {
             "name": "currentUserId",
             "status": "resolved",
-            "source": ".forma/settings.yml"
+            "source": ".forma.yml"
         }
     ],
     "summary": {
@@ -910,18 +916,19 @@ diagnostics that do not block creation may be returned as diagnostics.
 ### View Render
 
 `view.render` renders one declarative view for the local WebApp and HTTP API.
-It evaluates view parameters, workspace source filters, space shorthand,
-normalized-entry query definitions, sort definitions, display fields, table
-fields, kanban columns, and render mounts. It writes nothing and does not
+It evaluates view parameters, workspace source filters, taxonomy-term
+shortcuts, normalized-entry query definitions, sort definitions, display fields,
+table fields, kanban columns, and render mounts. It writes nothing and does not
 persist rendered view results.
 
 The source/query model is defined in [[architecture/forma-view-query-model]].
 
-The direct `view.space` field is a shorthand for a workspace-source query
-where `entry.space` equals the space id. Explicit queries should use
-`target` paths such as `entry.space` and `frontmatter.status`. P0 render
-support should cover `equals`, `in`, `contains`, and `exists`; unsupported
-targets or operators should return structured diagnostics.
+A starter `view.taxonomy` plus `view.term` pair is a shorthand for a
+workspace-source query where `taxonomy.<id>` equals the term id. Explicit
+queries should use `target` paths such as `taxonomy.spaces` and
+`frontmatter.status`. P0 render support should cover `equals`, `in`,
+`contains`, and `exists`; unsupported targets or operators should return
+structured diagnostics.
 
 Params:
 

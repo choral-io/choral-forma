@@ -43,15 +43,13 @@ The starter must not include:
 
 ## Starter File Tree
 
-`forma init --name "Acme Knowledge" --language en` should create this tree:
+`forma init --name "Acme Knowledge" --language en` should create a starter
+workspace from the settings-driven configuration model. The exact starter can
+evolve, but the target shape is:
 
 ```text
+.forma.yml
 .forma/
-  .gitignore
-  settings.yml
-  types.yml
-  spaces.yml
-  index.summary.json
   templates/
     note.md
     todo.md
@@ -60,41 +58,50 @@ The starter must not include:
     notes.md
     todos.md
     users.md
+assets/
 notes/
 todos/
 users/
 ```
 
 The content directories are created so editors can display the intended
-workspace shape, but the starter does not create sample entries. `forma init`
-should run the initial index rebuild so `.forma/index.summary.json` exists and
-records zero entries for each space.
+workspace shape, but the starter does not need to create sample entries.
+`forma init` should not require a committed index file in the first public
+release. `forma serve` can build the read model in memory at startup.
 
-## `.forma/.gitignore`
+## Local-Only Ignores
 
-The starter should commit `.forma/.gitignore` with local-only boundaries, while
-not creating the ignored paths by default:
+The starter should include local-only boundaries without making `.forma/` a
+privileged hidden store. If the starter uses `.forma/` for support files, it can
+commit `.forma/.gitignore` with:
 
 ```gitignore
 overrides/local.yml
 local/
 ```
 
-## `.forma/settings.yml`
+## `.forma.yml`
 
-`settings.yml` owns workspace identity, runtime values, and other global
-settings. The initialized file should contain concrete values from `forma init`
-inputs and the detected current environment timezone:
+`.forma.yml` is the main configuration entry. It owns workspace identity,
+runtime values, taxonomies, views, navigation, dashboard sections, and includes.
+The initialized file should contain concrete values from `forma init` inputs and
+the detected current environment timezone:
 
 ```yaml
 schemaVersion: 1
 
 workspace:
     name: Acme Knowledge
+    root: .
     canonicalLanguage: en
     supportedLanguages:
         - en
     timezone: Asia/Shanghai
+
+include:
+    - .forma/types.yml
+    - .forma/taxonomies.yml
+    - .forma/views/*.yml
 
 runtime:
     values:
@@ -109,6 +116,28 @@ runtime:
             key: user.name
             transform: slugify
             required: true
+
+taxonomies:
+    spaces:
+        title: Spaces
+        mode: primary
+
+navigation:
+    - type: route
+      title: Dashboard
+      path: /
+    - type: route
+      title: Pages
+      path: /pages
+    - type: group
+      title: Spaces
+      source:
+          type: taxonomy
+          taxonomy: spaces
+    - type: group
+      title: Views
+      source:
+          type: views
 ```
 
 `currentUserId` is a runtime value, not a special user system concept. If the
@@ -131,7 +160,7 @@ such as `2026-05-19T10:30:00` are invalid.
 
 `forma init` may default `workspace.timezone` from the current environment's
 timezone, but the generated workspace should still store the resolved timezone
-explicitly in `.forma/settings.yml`.
+explicitly in `.forma.yml`.
 
 `forma init` is a write-heavy operation and should require explicit
 confirmation. Unless the user passes `-y` or `--yes`, interactive shells should
@@ -140,30 +169,34 @@ starter files and directories that will be created before asking for
 confirmation. Non-interactive shells such as CI should fail without writing
 files unless `-y` or `--yes` is provided.
 
-## `.forma/types.yml`
+## Included Type Configuration
 
-`types.yml` owns semantic types. P0 uses static enums and space-backed
-types only:
+Type configuration owns semantic types. P0 uses static enums and taxonomy-backed
+or page-type-backed types only. A starter may keep this in `.forma/types.yml`
+via the `.forma.yml` `include` list:
 
 ```yaml
 schemaVersion: 1
 
 types:
     note:
-        kind: space
-        space: notes
+        kind: taxonomyTerm
+        taxonomy: spaces
+        term: notes
         input:
             transform: slugify
 
     todo:
-        kind: space
-        space: todos
+        kind: taxonomyTerm
+        taxonomy: spaces
+        term: todos
         input:
             transform: slugify
 
     user:
-        kind: space
-        space: users
+        kind: taxonomyTerm
+        taxonomy: spaces
+        term: users
         input:
             transform: slugify
 
@@ -175,46 +208,70 @@ types:
             - done
 ```
 
-The `user` type resolves entries from `users/`. P0 must not add a separate
-`username` field or a union type for assignees.
+The `user` type resolves pages classified with the `users` term. P0 must not add
+a separate `username` field or a union type for assignees.
 
-## `.forma/spaces.yml`
+## Taxonomy Configuration
 
-`spaces.yml` owns space definitions and inline Forma Schema DSL
-constraints. Schema fields use field-local `required`. Defaults live in create
-inputs and templates, not in schema fields.
+The starter "Spaces" experience should be a configured taxonomy, not a hardcoded
+core partition. Schema fields use field-local `required`. Defaults live in
+create inputs and templates, not in schema fields.
 
 ```yaml
 schemaVersion: 1
 
-spaces:
-    notes:
-        title: Notes
-        description: General knowledge notes.
-        include: notes/**/*.md
-        template: .forma/templates/note.md
-        create:
-            directory: notes
-            filename: "{{ input.slug }}.md"
-            inputs:
-                title:
-                    field: title
-                    required: true
-                summary:
-                    field: summary
-                    default: ""
-                slug:
-                    label: Slug
-                    type: string
-                    default: "{{ input.title }}"
-                    transform: slugify
-                createdAt:
-                    field: createdAt
-                    default: "{{ runtime.values.currentDateTime }}"
-        conventions:
-            titleField: title
-            summaryField: summary
-            createdAtField: createdAt
+taxonomies:
+    spaces:
+        title: Spaces
+        mode: primary
+        terms:
+            notes:
+                title: Notes
+                description: General knowledge notes.
+                include: notes/**/*.md
+                template: .forma/templates/note.md
+                create:
+                    directory: notes
+                    filename: "{{ input.slug }}.md"
+                display:
+                    order: 10
+                conventions:
+                    titleField: title
+                    summaryField: summary
+                    createdAtField: createdAt
+
+            todos:
+                title: Todos
+                description: Lightweight action items.
+                include: todos/**/*.md
+                template: .forma/templates/todo.md
+                create:
+                    directory: todos
+                    filename: "{{ input.slug }}.md"
+                display:
+                    order: 20
+                conventions:
+                    titleField: title
+                    summaryField: summary
+                    createdAtField: createdAt
+
+            users:
+                title: Users
+                description: People who can be referenced in this workspace.
+                include: users/**/*.md
+                template: .forma/templates/user.md
+                create:
+                    directory: users
+                    filename: "{{ input.slug }}.md"
+                display:
+                    order: 30
+                conventions:
+                    titleField: name
+                    summaryField: description
+                    createdAtField: createdAt
+
+pageTypes:
+    note:
         schema:
             type: object
             fields:
@@ -224,49 +281,14 @@ spaces:
                     required: true
                 title:
                     type: string
-                    label: Title
                     required: true
                 summary:
                     type: string
-                    label: Summary
                 createdAt:
                     type: datetime
-                    label: Created At
                     required: true
-                updatedAt:
-                    type: datetime
-                    label: Updated At
 
-    todos:
-        title: Todos
-        description: Lightweight action items.
-        include: todos/**/*.md
-        template: .forma/templates/todo.md
-        create:
-            directory: todos
-            filename: "{{ input.slug }}.md"
-            inputs:
-                title:
-                    field: title
-                    required: true
-                summary:
-                    field: summary
-                    default: ""
-                slug:
-                    label: Slug
-                    type: string
-                    default: "{{ input.title }}"
-                    transform: slugify
-                status:
-                    field: status
-                    default: todo
-                createdAt:
-                    field: createdAt
-                    default: "{{ runtime.values.currentDateTime }}"
-        conventions:
-            titleField: title
-            summaryField: summary
-            createdAtField: createdAt
+    todo:
         schema:
             type: object
             fields:
@@ -276,60 +298,18 @@ spaces:
                     required: true
                 title:
                     type: string
-                    label: Title
                     required: true
-                summary:
-                    type: string
-                    label: Summary
                 status:
                     type: enum
                     enum: todoStatus
-                    label: Status
                     required: true
                 assignees:
                     type: list
-                    label: Assignees
                     items:
                         type: ref
                         target: user
-                dueDate:
-                    type: date
-                    label: Due Date
-                createdAt:
-                    type: datetime
-                    label: Created At
-                    required: true
 
-    users:
-        title: Users
-        description: People who can be referenced in this workspace.
-        include: users/**/*.md
-        template: .forma/templates/user.md
-        create:
-            directory: users
-            filename: "{{ input.slug }}.md"
-            inputs:
-                name:
-                    field: name
-                    required: true
-                description:
-                    field: description
-                    default: ""
-                responsibilities:
-                    field: responsibilities
-                    default: ""
-                slug:
-                    label: Slug
-                    type: string
-                    default: "{{ input.name }}"
-                    transform: slugify
-                createdAt:
-                    field: createdAt
-                    default: "{{ runtime.values.currentDateTime }}"
-        conventions:
-            titleField: name
-            summaryField: description
-            createdAtField: createdAt
+    user:
         schema:
             type: object
             fields:
@@ -339,18 +319,9 @@ spaces:
                     required: true
                 name:
                     type: string
-                    label: Name
                     required: true
                 description:
                     type: string
-                    label: Description
-                responsibilities:
-                    type: string
-                    label: Responsibilities
-                createdAt:
-                    type: datetime
-                    label: Created At
-                    required: true
 ```
 
 ## Templates
@@ -403,11 +374,10 @@ createdAt: "{{ input.createdAt }}"
 
 ## P0 Page Views
 
-P0 starter views are managed Markdown definitions under `.forma/views/`.
-Space starter views have `surface: page`, use the `space` shorthand
-for a workspace query filtered by `entry.space`, and contain one
-`<!-- forma-view -->` mount point. The starter does not include embedded views
-or cross-space list, table, or kanban views.
+P0 starter views are managed projection definitions referenced by `.forma.yml`.
+The starter may store them under `.forma/views/` by convention. Views should
+filter by taxonomy terms or explicit query predicates, not by a hardcoded
+`entry.space` field.
 
 ### `.forma/views/notes.md`
 

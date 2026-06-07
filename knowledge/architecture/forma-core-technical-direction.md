@@ -179,15 +179,21 @@ P0 should use a serde-compatible YAML parser, with `serde_yml` as the preferred
 candidate, for structured configuration and frontmatter reads. Forma should
 split frontmatter and body itself before parsing YAML.
 
-P0 configuration files such as `.forma/settings.yml`, `.forma/types.yml`, and
-`.forma/spaces.yml` should parse into typed Rust structs where practical.
-Unknown config fields should produce diagnostics or warnings rather than
-immediate hard failures, so future-version or manually edited config can remain
-inspectable.
+The target configuration model should start from one explicit `.forma.yml`
+entry at the workspace configuration root. Supporting files may live anywhere
+that `.forma.yml` references. `.forma/` remains a recommended conventional
+support directory, but it should not be treated as a privileged store by itself.
 
-P0 entry frontmatter should parse into a generic YAML value before space
-schema validation. Space-specific Rust structs are not appropriate because
-spaces are user-defined.
+Configuration sections such as workspace identity, runtime values, taxonomies,
+templates, views, navigation, dashboard sections, and optional index settings
+should parse into typed Rust structs where practical. Unknown config fields
+should produce diagnostics or warnings rather than immediate hard failures, so
+future-version or manually edited config can remain inspectable.
+
+P0 entry frontmatter should parse into a generic YAML value before configured
+schema validation. Taxonomy terms, page types, and future user-defined
+classification systems are workspace-defined, so space-specific Rust structs are
+not appropriate.
 
 P0 should not modify existing frontmatter. It can generate new files from
 templates, but structured metadata edits such as `set`, `add`, `remove`, and
@@ -297,7 +303,11 @@ stable block identity model is designed.
 P0 should distinguish committed discovery artifacts from runtime diagnostic
 results.
 
-Persistent committed artifact:
+Default P0 behavior should avoid a required persisted index artifact. `forma
+serve` can scan source files at startup and keep a read model in memory. This
+keeps the first public release simple and avoids stale committed indexes.
+
+Optional future persistent committed artifact:
 
 ```text
 .forma/index.summary.json
@@ -331,9 +341,10 @@ enter `.forma/index.summary.json` and should not be written as a local result
 file. Future implementation caches may accelerate diagnostic computation, but
 they must be local-only, rebuildable, and invisible as product facts.
 
-The summary index is a deterministic committed discovery artifact. It contains
-resolved structure, not health state. It should only include successfully
-resolved references. Unresolved or ambiguous references are diagnostics only.
+If a persistent summary index is enabled later, it should be a deterministic
+committed discovery artifact. It contains resolved structure, not health state.
+It should only include successfully resolved references. Unresolved or ambiguous
+references are diagnostics only.
 
 P0 index references should distinguish intent:
 
@@ -365,16 +376,21 @@ P0 index references should distinguish intent:
 }
 ```
 
-P0 command behavior:
+Target command behavior:
 
-- `forma index rebuild` recomputes the summary index from source and writes
-  `.forma/index.summary.json`, but does not persist diagnostics.
-- `forma index check` recomputes the expected summary index, compares it with
-  the committed index, and emits runtime diagnostics.
+- `forma serve` scans the configured workspace root at startup and serves an
+  in-memory read model.
+- `forma refresh` or an equivalent explicit operation can rebuild the in-memory
+  read model without restarting the server.
+- `forma index rebuild` should exist only when a workspace explicitly configures
+  a persistent index path. It recomputes the summary index from source and
+  writes that configured path, but does not persist diagnostics.
+- `forma index check` should compare against a persistent index only when that
+  index is configured.
 - `forma check` recomputes diagnostics, includes index freshness diagnostics,
   and writes nothing.
-- `forma serve` may compute diagnostics in memory and expose index/check status
-  through the local API, but writes nothing in P0.
+- `forma serve` may compute diagnostics in memory and expose check status
+  through the local API, but writes nothing by default.
 
 ## Path Model
 
@@ -383,7 +399,6 @@ POSIX-style paths, regardless of host operating system:
 
 ```text
 todos/foo.md
-.forma/views/todos.md
 users/tiscs.md
 ```
 
