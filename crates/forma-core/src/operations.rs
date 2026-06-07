@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 use thiserror::Error;
 
-use crate::config::{ConfigError, LoadMode, load_workspace};
+use crate::config::{ConfigError, LoadMode, WorkspaceSettings, load_workspace};
 use crate::diagnostics::{Diagnostic, DiagnosticSummary, OperationStatus};
 use crate::index::{
     IndexEntry, IndexReference, ReferenceIntent, ReferenceSource, config_error_diagnostic,
@@ -17,8 +17,8 @@ use crate::index::{
 use crate::markdown::FormaMarkdownDocument;
 use crate::path::{
     FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH, FORMA_LOCAL_OVERRIDES_PATH,
-    FORMA_SPACES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR,
-    FORMA_WORKSPACE_PATH, PathError, WorkspacePath,
+    FORMA_SETTINGS_PATH, FORMA_SPACES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR,
+    PathError, WorkspacePath,
 };
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
@@ -29,6 +29,15 @@ use crate::schema::{
 pub struct WorkspaceSummary {
     pub root: String,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logo: Option<WorkspaceLogoSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceLogoSummary {
+    pub url: String,
+    pub alt: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -181,7 +190,7 @@ pub struct WorkspaceDashboardResult {
     pub status: OperationStatus,
     pub workspace: WorkspaceSummary,
     pub spaces: Vec<DashboardSpace>,
-    pub documents: Vec<DashboardDocumentSummary>,
+    pub entries: Vec<DashboardEntrySummary>,
     pub views: Vec<DashboardViewSummary>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
@@ -192,6 +201,11 @@ pub struct WorkspaceDashboardResult {
 pub struct DashboardSpace {
     pub id: String,
     pub title: String,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::config::DisplayOptions::is_empty"
+    )]
+    pub display: crate::config::DisplayOptions,
     pub include: String,
     pub entry_count: usize,
     pub status: OperationStatus,
@@ -199,9 +213,11 @@ pub struct DashboardSpace {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DashboardDocumentSummary {
+pub struct DashboardEntrySummary {
     pub id: String,
     pub path: String,
+    pub route_path: String,
+    pub raw_path: String,
     pub space: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
@@ -223,6 +239,11 @@ pub struct DashboardViewSummary {
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::config::DisplayOptions::is_empty"
+    )]
+    pub display: crate::config::DisplayOptions,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space: Option<String>,
 }
@@ -406,8 +427,8 @@ pub fn init_workspace(
     write_file(root, FORMA_GITIGNORE_PATH, STARTER_GITIGNORE, &mut created)?;
     write_file(
         root,
-        FORMA_WORKSPACE_PATH,
-        &starter_workspace_yml(name, language, &timezone),
+        FORMA_SETTINGS_PATH,
+        &starter_settings_yml(name, language, &timezone),
         &mut created,
     )?;
     write_file(root, FORMA_TYPES_PATH, STARTER_TYPES_YML, &mut created)?;
@@ -431,6 +452,7 @@ pub fn init_workspace(
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: name.to_string(),
+            logo: None,
         },
         created,
         summary: rebuild.summary,
@@ -549,6 +571,7 @@ pub fn create_entry(
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name,
+            logo: None,
         },
         created: CreatedEntry {
             path: public_path,
@@ -621,6 +644,7 @@ pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, 
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name,
+            logo: None,
         },
         space: ListedSpace {
             id: space_id.to_string(),
@@ -658,6 +682,7 @@ pub fn inspect_config(
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name,
+            logo: None,
         },
         config,
         sources: config_sources(root.as_ref()),
@@ -711,6 +736,7 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name,
+            logo: None,
         },
         files,
         summary,
@@ -740,6 +766,7 @@ pub fn workspace_dashboard(
         .map(|space| DashboardSpace {
             id: space.id.clone(),
             title: space.title.clone(),
+            display: space.display.clone(),
             include: space.include.clone(),
             entry_count: space.entry_count,
             status: status_for_paths(
@@ -754,13 +781,15 @@ pub fn workspace_dashboard(
         })
         .collect::<Vec<_>>();
 
-    let documents = discovery
+    let entries = discovery
         .index
         .entries
         .iter()
-        .map(|entry| DashboardDocumentSummary {
+        .map(|entry| DashboardEntrySummary {
             id: document_id_for_path(&entry.path),
             path: entry.path.clone(),
+            route_path: entry_route_path_for_path(&entry.path),
+            raw_path: entry_raw_path_for_path(&entry.path),
             space: entry.space.clone(),
             kind: entry.kind.clone(),
             title: entry.title.clone(),
@@ -780,6 +809,7 @@ pub fn workspace_dashboard(
             path: view.path.clone(),
             kind: view.mode.clone(),
             title: view.title.clone(),
+            display: view.display.clone(),
             space: view.space.clone(),
         })
         .collect::<Vec<_>>();
@@ -790,13 +820,34 @@ pub fn workspace_dashboard(
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
-            name: workspace.config.workspace.name,
+            name: workspace.config.workspace.name.clone(),
+            logo: workspace_logo_summary(&workspace.config.workspace),
         },
         spaces,
-        documents,
+        entries,
         views,
         summary,
         diagnostics,
+    })
+}
+
+fn workspace_logo_summary(workspace: &WorkspaceSettings) -> Option<WorkspaceLogoSummary> {
+    let logo = workspace.logo.as_ref()?;
+    let path = WorkspacePath::parse_config(&logo.path).ok()?;
+    let path = path.as_str();
+    if !is_raw_workspace_path_allowed(path) {
+        return None;
+    }
+    if !matches!(
+        media_type_for_workspace_path(path),
+        Some("image/png" | "image/jpeg" | "image/webp" | "image/svg+xml")
+    ) {
+        return None;
+    }
+
+    Some(WorkspaceLogoSummary {
+        url: format!("/raw/{path}"),
+        alt: logo.alt.clone().unwrap_or_else(|| workspace.name.clone()),
     })
 }
 
@@ -845,6 +896,7 @@ pub fn list_file_references(
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name,
+            logo: None,
         },
         file: ReferenceFile {
             path: index_entry.path.clone(),
@@ -918,6 +970,20 @@ fn document_id_for_path(path: &str) -> String {
     } else {
         id
     }
+}
+
+fn entry_route_path_for_path(path: &str) -> String {
+    let without_extension = path.strip_suffix(".md").unwrap_or(path);
+    let page_path = without_extension
+        .strip_suffix("/index")
+        .filter(|value| !value.is_empty())
+        .unwrap_or(without_extension);
+
+    format!("/pages/{page_path}")
+}
+
+fn entry_raw_path_for_path(path: &str) -> String {
+    format!("/raw/{path}")
 }
 
 fn file_modified_at(root: &Path, path: &str) -> Option<DateTime<Utc>> {
@@ -999,6 +1065,7 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name,
+            logo: None,
         },
         entry: InspectEntry {
             path: path.to_string(),
@@ -1021,7 +1088,7 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
 
 fn config_sources(root: &Path) -> Vec<ConfigSource> {
     [
-        (FORMA_WORKSPACE_PATH, ConfigSourceKind::Shared),
+        (FORMA_SETTINGS_PATH, ConfigSourceKind::Shared),
         (FORMA_TYPES_PATH, ConfigSourceKind::Shared),
         (FORMA_SPACES_PATH, ConfigSourceKind::Shared),
         (FORMA_LOCAL_OVERRIDES_PATH, ConfigSourceKind::Local),
@@ -1040,7 +1107,7 @@ fn validate_config_inspect_path(path: &str) -> Result<String, OperationError> {
     let path = path.as_str();
     if matches!(
         path,
-        FORMA_WORKSPACE_PATH | FORMA_TYPES_PATH | FORMA_SPACES_PATH | FORMA_LOCAL_OVERRIDES_PATH
+        FORMA_SETTINGS_PATH | FORMA_TYPES_PATH | FORMA_SPACES_PATH | FORMA_LOCAL_OVERRIDES_PATH
     ) {
         Ok(path.to_string())
     } else {
@@ -1123,7 +1190,7 @@ fn workspace_file_from_path(root: &Path, path: PathBuf) -> Option<WorkspaceFile>
         WorkspaceFileKind::Index
     } else if matches!(
         relative.as_str(),
-        FORMA_WORKSPACE_PATH | FORMA_TYPES_PATH | FORMA_SPACES_PATH
+        FORMA_SETTINGS_PATH | FORMA_TYPES_PATH | FORMA_SPACES_PATH
     ) {
         WorkspaceFileKind::Config
     } else if relative.starts_with(&format!("{FORMA_TEMPLATES_DIR}/"))
@@ -1174,7 +1241,7 @@ pub fn media_type_for_workspace_path(path: &str) -> Option<&'static str> {
 
 pub fn is_raw_workspace_path_allowed(path: &str) -> bool {
     let normalized = path.to_ascii_lowercase();
-    normalized != ".forma/overrides/local.yml" && !normalized.starts_with(".forma/local/")
+    !normalized.starts_with(".forma/")
 }
 
 fn features_for_media_type(kind: WorkspaceFileKind, media_type: &str) -> Vec<WorkspaceFileFeature> {
@@ -1276,8 +1343,8 @@ fn write_file(
     Ok(())
 }
 
-fn starter_workspace_yml(name: &str, language: &str, timezone: &str) -> String {
-    STARTER_WORKSPACE_YML
+fn starter_settings_yml(name: &str, language: &str, timezone: &str) -> String {
+    STARTER_SETTINGS_YML
         .replace("__WORKSPACE_NAME__", &yaml_string(name))
         .replace("__LANGUAGE__", &yaml_string(language))
         .replace("__TIMEZONE__", &yaml_string(timezone))
@@ -1402,7 +1469,7 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
 
 const STARTER_GITIGNORE: &str = "overrides/local.yml\nlocal/\n";
 
-const STARTER_WORKSPACE_YML: &str = r#"schemaVersion: 1
+const STARTER_SETTINGS_YML: &str = r#"schemaVersion: 1
 
 workspace:
   name: __WORKSPACE_NAME__
@@ -1632,9 +1699,12 @@ mod tests {
 
     use super::{
         OperationError, WorkspaceFileFeature, create_entry, init_workspace, inspect_config,
-        is_raw_workspace_path_allowed, list_file_references, list_files, workspace_dashboard,
+        is_raw_workspace_path_allowed, list_file_references, list_files, starter_spaces_yml,
+        workspace_dashboard,
     };
-    use crate::{OperationStatus, ReferenceIntent, WorkspaceFileKind};
+    use crate::{
+        FORMA_SPACES_PATH, FORMA_VIEWS_DIR, OperationStatus, ReferenceIntent, WorkspaceFileKind,
+    };
 
     #[test]
     fn config_inspect_returns_effective_config_sources_and_diagnostics() {
@@ -1655,7 +1725,7 @@ mod tests {
             result
                 .sources
                 .iter()
-                .any(|source| source.path == ".forma/workspace.yml" && source.present)
+                .any(|source| source.path == ".forma/settings.yml" && source.present)
         );
         assert!(
             result
@@ -1664,7 +1734,7 @@ mod tests {
                 .any(|source| source.path == ".forma/overrides/local.yml" && !source.present)
         );
 
-        let narrowed = inspect_config(&root, Some(".forma/workspace.yml")).unwrap();
+        let narrowed = inspect_config(&root, Some(".forma/settings.yml")).unwrap();
         assert_eq!(
             narrowed.config["workspace"]["name"],
             Value::String("Config Test".to_string())
@@ -1681,8 +1751,8 @@ mod tests {
     }
 
     #[test]
-    fn workspace_dashboard_uses_path_derived_document_ids() {
-        let root = fixture_root("dashboard-document-ids");
+    fn workspace_dashboard_uses_path_derived_entry_ids() {
+        let root = fixture_root("dashboard-entry-ids");
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Dashboard IDs", "en", Some("UTC")).unwrap();
         fs::write(
@@ -1698,13 +1768,82 @@ mod tests {
 
         let result = workspace_dashboard(&root).unwrap();
         let ids = result
-            .documents
+            .entries
             .iter()
-            .map(|document| document.id.as_str())
+            .map(|entry| entry.id.as_str())
             .collect::<Vec<_>>();
 
         assert!(ids.contains(&"notes--shared"));
         assert!(ids.contains(&"todos--shared"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_dashboard_exposes_page_and_raw_paths_for_markdown_entries() {
+        let root = fixture_root("dashboard-page-paths");
+        fs::create_dir_all(root.join("notes/nested")).unwrap();
+        init_workspace(&root, "Dashboard Page Paths", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/topic.md"),
+            "---\nkind: note\ntitle: Topic\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Topic\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/nested/index.md"),
+            "---\nkind: note\ntitle: Nested Topic\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Nested Topic\n",
+        )
+        .unwrap();
+
+        let result = workspace_dashboard(&root).unwrap();
+        let topic = result
+            .entries
+            .iter()
+            .find(|entry| entry.path == "notes/topic.md")
+            .unwrap();
+        let nested = result
+            .entries
+            .iter()
+            .find(|entry| entry.path == "notes/nested/index.md")
+            .unwrap();
+
+        assert_eq!(topic.route_path, "/pages/notes/topic");
+        assert_eq!(topic.raw_path, "/raw/notes/topic.md");
+        assert_eq!(nested.route_path, "/pages/notes/nested");
+        assert_eq!(nested.raw_path, "/raw/notes/nested/index.md");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_dashboard_exposes_configured_workspace_logo() {
+        let root = fixture_root("dashboard-workspace-logo");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Logo Workspace", "en", Some("UTC")).unwrap();
+        fs::create_dir_all(root.join("assets")).unwrap();
+        fs::write(
+            root.join(".forma/settings.yml"),
+            r#"schemaVersion: 1
+
+workspace:
+  name: "Logo Workspace"
+  canonicalLanguage: "en"
+  supportedLanguages:
+    - "en"
+  timezone: "UTC"
+  logo:
+    path: "assets/logo.svg"
+    alt: "Logo Alt"
+"#,
+        )
+        .unwrap();
+        fs::write(root.join("assets/logo.svg"), "<svg></svg>").unwrap();
+
+        let result = workspace_dashboard(&root).unwrap();
+        let logo = result.workspace.logo.unwrap();
+
+        assert_eq!(logo.url, "/raw/assets/logo.svg");
+        assert_eq!(logo.alt, "Logo Alt");
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1720,6 +1859,66 @@ mod tests {
         let value = serde_json::to_value(notes_view).unwrap();
 
         assert_eq!(value["space"], serde_json::json!("notes"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_dashboard_sorts_spaces_and_views_by_display_order() {
+        let root = fixture_root("dashboard-display-order");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Dashboard Display Order", "en", Some("UTC")).unwrap();
+
+        let spaces = starter_spaces_yml()
+            .replace(
+                "  notes:\n    title: Notes",
+                "  notes:\n    title: Notes\n    display:\n      order: 30",
+            )
+            .replace(
+                "  todos:\n    title: Todos",
+                "  todos:\n    title: Todos\n    display:\n      order: 10",
+            )
+            .replace(
+                "  users:\n    title: Users",
+                "  users:\n    title: Users\n    display:\n      order: 20",
+            );
+        fs::write(root.join(FORMA_SPACES_PATH), spaces).unwrap();
+        fs::remove_dir_all(root.join(FORMA_VIEWS_DIR)).unwrap();
+        fs::create_dir_all(root.join(FORMA_VIEWS_DIR)).unwrap();
+        fs::write(
+            root.join(format!("{FORMA_VIEWS_DIR}/alpha.md")),
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  title: Alpha\n  display:\n    order: 20\n  source:\n    kind: workspace\n---\n\n# Alpha\n\n<!-- forma-view -->\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(format!("{FORMA_VIEWS_DIR}/beta.md")),
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  title: Beta\n  source:\n    kind: workspace\n---\n\n# Beta\n\n<!-- forma-view -->\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(format!("{FORMA_VIEWS_DIR}/zeta.md")),
+            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: graph\n  title: Zeta\n  display:\n    order: 10\n  source:\n    kind: workspace\n---\n\n# Zeta\n\n<!-- forma-view -->\n",
+        )
+        .unwrap();
+
+        let result = workspace_dashboard(&root).unwrap();
+
+        assert_eq!(
+            result
+                .spaces
+                .iter()
+                .map(|space| space.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["todos", "users", "notes"]
+        );
+        assert_eq!(
+            result
+                .views
+                .iter()
+                .map(|view| view.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["zeta", "alpha", "beta"]
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1763,38 +1962,15 @@ mod tests {
                     .and_then(|value| value.get("title"))
                     == Some(&Value::String("Navigation Note".to_string()))
         }));
-        assert!(result.files.iter().any(|file| {
-            file.path == ".forma/views/notes.md"
-                && file.name == "notes.md"
-                && file.parent == ".forma/views"
-                && file.depth == 2
-                && file.kind == WorkspaceFileKind::View
-                && file.features
-                    == vec![
-                        WorkspaceFileFeature::RenderView,
-                        WorkspaceFileFeature::RenderSource,
-                    ]
-        }));
-        assert!(result.files.iter().any(|file| {
-            file.path == ".forma/templates/note.md"
-                && file.name == "note.md"
-                && file.parent == ".forma/templates"
-                && file.depth == 2
-                && file.kind == WorkspaceFileKind::Template
-                && file.features == vec![WorkspaceFileFeature::RenderSource]
-                && file
-                    .frontmatter
-                    .as_ref()
-                    .and_then(|value| value.get("kind"))
-                    == Some(&Value::String("note".to_string()))
-        }));
-        assert!(result.files.iter().any(|file| {
-            file.path == ".forma/index.summary.json"
-                && file.name == "index.summary.json"
-                && file.parent == ".forma"
-                && file.depth == 1
-                && file.kind == WorkspaceFileKind::Index
-                && file.features == vec![WorkspaceFileFeature::RenderSource]
+        assert!(result.files.iter().all(|file| {
+            !file.path.starts_with(".forma/")
+                && !matches!(
+                    file.kind,
+                    WorkspaceFileKind::View
+                        | WorkspaceFileKind::Template
+                        | WorkspaceFileKind::Index
+                        | WorkspaceFileKind::Config
+                )
         }));
 
         fs::remove_dir_all(root).unwrap();
@@ -1829,19 +2005,15 @@ mod tests {
         assert_eq!(knowledge.space.as_deref(), Some("notes"));
         assert_eq!(knowledge.title.as_deref(), Some("Neutral File Model"));
 
-        let view = result
-            .files
-            .iter()
-            .find(|file| file.path == ".forma/views/notes.md")
-            .unwrap();
-        assert_eq!(view.kind, WorkspaceFileKind::View);
-
-        let template = result
-            .files
-            .iter()
-            .find(|file| file.path == ".forma/templates/note.md")
-            .unwrap();
-        assert_eq!(template.kind, WorkspaceFileKind::Template);
+        assert!(result.files.iter().all(|file| {
+            !matches!(
+                file.kind,
+                WorkspaceFileKind::View
+                    | WorkspaceFileKind::Template
+                    | WorkspaceFileKind::Index
+                    | WorkspaceFileKind::Config
+            )
+        }));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1923,7 +2095,8 @@ mod tests {
     fn raw_workspace_path_policy_excludes_local_only_files() {
         assert!(!is_raw_workspace_path_allowed(".forma/overrides/local.yml"));
         assert!(!is_raw_workspace_path_allowed(".forma/local/cache.json"));
-        assert!(is_raw_workspace_path_allowed(".forma/workspace.yml"));
+        assert!(!is_raw_workspace_path_allowed(".forma/settings.yml"));
+        assert!(!is_raw_workspace_path_allowed(".forma/assets/logo.svg"));
         assert!(is_raw_workspace_path_allowed("notes/public.md"));
     }
 

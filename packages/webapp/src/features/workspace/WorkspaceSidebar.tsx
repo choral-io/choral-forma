@@ -8,7 +8,6 @@ import {
     LayoutDashboard,
     LibraryBig,
     LogOut,
-    Search,
     Sparkles,
     Workflow,
 } from "lucide-react";
@@ -18,14 +17,6 @@ import { Link, useLocation } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
-import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuGroup,
@@ -34,7 +25,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
     Sidebar,
     SidebarContent,
@@ -53,6 +43,7 @@ import {
     useSidebar,
 } from "@/components/ui/sidebar";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
+import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
 
 interface WorkspaceSidebarProps {
     dashboard: WorkspaceDashboard;
@@ -90,9 +81,7 @@ export function WorkspaceSidebar({ dashboard }: WorkspaceSidebarProps) {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" tooltip={dashboard.workspaceName}>
-                            <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg text-base font-semibold">
-                                F
-                            </div>
+                            <WorkspaceBrandLogo dashboard={dashboard} />
                             <div className="grid flex-1 text-left text-sm/tight">
                                 <span className="truncate font-medium">{dashboard.workspaceName}</span>
                                 <span className="truncate text-xs">Local repository workspace</span>
@@ -105,15 +94,15 @@ export function WorkspaceSidebar({ dashboard }: WorkspaceSidebarProps) {
                 <SidebarGroup>
                     <SidebarGroupContent>
                         <SidebarMenu className="gap-1">
-                            <SidebarMenuItem>
-                                <QuickOpenDialog dashboard={dashboard} />
+                            <SidebarMenuItem className="hidden md:block">
+                                <QuickOpenDialog dashboard={dashboard} trigger="sidebar" />
                             </SidebarMenuItem>
                             <SidebarItem active={pathname === "/"} icon={LayoutDashboard} label="Dashboard" to="/" />
                             <SidebarItem
-                                active={pathname.startsWith("/documents")}
+                                active={pathname.startsWith("/pages")}
                                 icon={FileText}
-                                label="Documents"
-                                to="/documents"
+                                label="Pages"
+                                to="/pages"
                             />
                             <SidebarTree
                                 active={pathname.startsWith("/spaces")}
@@ -163,77 +152,27 @@ export function WorkspaceSidebar({ dashboard }: WorkspaceSidebarProps) {
     );
 }
 
-function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    const [open, setOpen] = useState(false);
-    const [query, setQuery] = useState("");
-    const items = [
-        { href: "/", label: "Dashboard", meta: "route" },
-        { href: "/documents", label: "Documents", meta: "route" },
-        ...dashboard.documents.map((document) => ({
-            href: `/documents/${document.id}`,
-            label: document.title,
-            meta: document.path,
-        })),
-        { href: "/spaces", label: "Spaces", meta: "route" },
-        ...dashboard.spaces.map((space) => ({
-            href: `/spaces/${space.id}`,
-            label: space.title,
-            meta: space.path,
-        })),
-        { href: "/views", label: "Views", meta: "route" },
-        ...dashboard.views.map((view) => ({
-            href: `/views/${view.id}`,
-            label: view.title,
-            meta: view.kind,
-        })),
-    ];
-    const normalizedQuery = query.trim().toLowerCase();
-    const filteredItems = normalizedQuery
-        ? items.filter((item) => `${item.label} ${item.meta}`.toLowerCase().includes(normalizedQuery)).slice(0, 8)
-        : items.slice(0, 8);
+function WorkspaceBrandLogo({ dashboard }: { dashboard: WorkspaceDashboard }) {
+    const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+    const logo = dashboard.workspaceLogo;
+    const canUseLogo = logo !== undefined && failedLogoUrl !== logo.url;
+    const initial = dashboard.workspaceName.trim().charAt(0).toLocaleUpperCase() || "F";
 
     return (
-        <Dialog onOpenChange={setOpen} open={open}>
-            <DialogTrigger render={<SidebarMenuButton tooltip="Quick open" type="button" variant="outline" />}>
-                <Search />
-                <span>Quick open</span>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>Quick open</DialogTitle>
-                    <DialogDescription>Jump to workspace routes, spaces, documents, and views.</DialogDescription>
-                </DialogHeader>
-                <Input
-                    autoFocus
-                    onChange={(event) => {
-                        setQuery(event.target.value);
+        <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg text-base font-semibold">
+            {canUseLogo ? (
+                <img
+                    alt={logo.alt}
+                    className="size-full object-contain"
+                    onError={() => {
+                        setFailedLogoUrl(logo.url);
                     }}
-                    placeholder="Search workspace..."
-                    value={query}
+                    src={logo.url}
                 />
-                <div className="flex max-h-80 flex-col gap-1 overflow-auto">
-                    {filteredItems.map((item) => (
-                        <Link
-                            className="hover:bg-accent focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 text-sm outline-none focus-visible:ring-3"
-                            key={item.href}
-                            onClick={() => {
-                                setOpen(false);
-                                setQuery("");
-                            }}
-                            to={item.href}
-                        >
-                            <span className="min-w-0 truncate font-medium">{item.label}</span>
-                            <span className="text-muted-foreground shrink-0 truncate text-xs">{item.meta}</span>
-                        </Link>
-                    ))}
-                    {filteredItems.length === 0 && (
-                        <div className="text-muted-foreground rounded-lg border px-3 py-6 text-center text-sm">
-                            No matching routes.
-                        </div>
-                    )}
-                </div>
-            </DialogContent>
-        </Dialog>
+            ) : (
+                initial
+            )}
+        </div>
     );
 }
 

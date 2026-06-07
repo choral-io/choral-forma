@@ -2,7 +2,7 @@ import DOMPurify from "dompurify";
 import { Marked } from "marked";
 import { useEffect, useState } from "react";
 
-import type { DashboardDocument, DashboardDocumentHeading } from "@/data/workspace-client";
+import type { DashboardEntry, DashboardEntryHeading } from "@/data/workspace-client";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 
 import { markedShiki } from "./markdown-shiki";
@@ -12,12 +12,12 @@ marked.use(markedShiki);
 
 export interface MarkdownReaderProps {
     currentPath: string;
-    documents: DashboardDocument[];
-    headings: DashboardDocumentHeading[];
+    entries: DashboardEntry[];
+    headings: DashboardEntryHeading[];
     markdown: string;
 }
 
-export function MarkdownReader({ currentPath, documents, headings, markdown }: MarkdownReaderProps) {
+export function MarkdownReader({ currentPath, entries, headings, markdown }: MarkdownReaderProps) {
     const [html, setHtml] = useState("");
 
     useEffect(() => {
@@ -29,7 +29,7 @@ export function MarkdownReader({ currentPath, documents, headings, markdown }: M
                     return;
                 }
 
-                setHtml(postProcessMarkdownHtml(rendered, headings, currentPath, documents));
+                setHtml(postProcessMarkdownHtml(rendered, headings, currentPath, entries));
             })
             .catch((error: unknown) => {
                 console.warn("Markdown render failed.", error);
@@ -41,7 +41,7 @@ export function MarkdownReader({ currentPath, documents, headings, markdown }: M
         return () => {
             cancelled = true;
         };
-    }, [currentPath, documents, headings, markdown]);
+    }, [currentPath, entries, headings, markdown]);
 
     return (
         <div
@@ -54,9 +54,9 @@ export function MarkdownReader({ currentPath, documents, headings, markdown }: M
 
 function postProcessMarkdownHtml(
     html: string,
-    headings: DashboardDocumentHeading[],
+    headings: DashboardEntryHeading[],
     currentPath: string,
-    documents: DashboardDocument[],
+    entries: DashboardEntry[],
 ) {
     const parser = new DOMParser();
     const document = parser.parseFromString(html, "text/html");
@@ -75,10 +75,10 @@ function postProcessMarkdownHtml(
             continue;
         }
 
-        const targetPath = normalizeWorkspaceHref(href, currentPath, documents);
-        const targetDocument = documents.find((document) => document.path === targetPath.path);
-        if (targetDocument) {
-            anchor.setAttribute("href", `/documents/${targetDocument.id}${targetPath.hash}`);
+        const targetPath = normalizeWorkspaceHref(href, currentPath, entries);
+        const targetEntry = entries.find((entry) => entry.path === targetPath.path);
+        if (targetEntry) {
+            anchor.setAttribute("href", `${targetEntry.routePath}${targetPath.hash}`);
         }
     }
 
@@ -88,7 +88,7 @@ function postProcessMarkdownHtml(
             continue;
         }
 
-        const targetPath = normalizeWorkspaceHref(source, currentPath, documents);
+        const targetPath = normalizeWorkspaceHref(source, currentPath, entries);
         image.setAttribute("src", `/raw/${encodeURI(targetPath.path)}`);
     }
 

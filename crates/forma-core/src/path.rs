@@ -18,7 +18,7 @@ pub const FORMA_LOCAL_OVERRIDES_PATH: &str = forma_path!("/overrides/local.yml")
 pub const FORMA_TEMPLATES_DIR: &str = forma_path!("/templates");
 pub const FORMA_TYPES_PATH: &str = forma_path!("/types.yml");
 pub const FORMA_VIEWS_DIR: &str = forma_path!("/views");
-pub const FORMA_WORKSPACE_PATH: &str = forma_path!("/workspace.yml");
+pub const FORMA_SETTINGS_PATH: &str = forma_path!("/settings.yml");
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]

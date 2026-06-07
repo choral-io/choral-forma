@@ -39,9 +39,11 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
 function DialogContent({
     className,
     children,
+    placement = "center",
     showCloseButton = true,
     ...props
 }: DialogPrimitive.Popup.Props & {
+    placement?: "center" | "top";
     showCloseButton?: boolean;
 }) {
     return (
@@ -50,7 +52,9 @@ function DialogContent({
             <DialogPrimitive.Popup
                 data-slot="dialog-content"
                 className={cn(
-                    "bg-popover text-popover-foreground ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed inset-s-1/2 top-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-1/2 gap-4 rounded-xl p-4 text-sm ring-1 duration-100 outline-none sm:max-w-sm rtl:translate-x-1/2",
+                    "bg-popover text-popover-foreground ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed inset-s-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] gap-4 rounded-xl p-4 text-sm ring-1 duration-100 outline-none sm:max-w-sm rtl:translate-x-1/2",
+                    placement === "center" && "top-1/2 -translate-1/2",
+                    placement === "top" && "top-16 -translate-x-1/2 sm:top-24",
                     className,
                 )}
                 {...props}

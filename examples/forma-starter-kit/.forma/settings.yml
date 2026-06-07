@@ -1,0 +1,25 @@
+schemaVersion: 1
+
+workspace:
+  name: "Choral Forma Example"
+  canonicalLanguage: "en"
+  supportedLanguages:
+    - "en"
+  timezone: "Asia/Shanghai"
+  logo:
+    path: "assets/logo.svg"
+    alt: "Choral Forma Example"
+
+runtime:
+  values:
+    currentDate:
+      kind: currentDate
+    currentDateTime:
+      kind: currentDateTime
+    workspaceRoot:
+      kind: workspaceRoot
+    currentUserId:
+      kind: gitConfig
+      key: user.name
+      transform: slugify
+      required: true

@@ -1,0 +1,27 @@
+schemaVersion: 1
+
+types:
+  note:
+    kind: space
+    space: notes
+    input:
+      transform: slugify
+
+  todo:
+    kind: space
+    space: todos
+    input:
+      transform: slugify
+
+  user:
+    kind: space
+    space: users
+    input:
+      transform: slugify
+
+  todoStatus:
+    kind: enum
+    values:
+      - todo
+      - doing
+      - done

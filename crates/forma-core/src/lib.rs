@@ -24,19 +24,19 @@ pub use markdown::{
 };
 pub use operations::{
     ConfigInspectResult, ConfigSource, ConfigSourceKind, CreateIndexStatus, CreateInputResult,
-    CreateInputSource, CreateResult, CreatedEntry, DashboardDocumentSummary, DashboardSpace,
+    CreateInputSource, CreateResult, CreatedEntry, DashboardEntrySummary, DashboardSpace,
     DashboardViewSummary, FileReferencesResult, FilesListResult, InitResult, InspectEntry,
     InspectResult, ListEntry, ListResult, ListedSpace, OperationError, ReferenceEdge,
     ReferenceFile, WorkspaceDashboardResult, WorkspaceFile, WorkspaceFileFeature,
-    WorkspaceFileKind, WorkspaceSummary, create_entry, detect_environment_timezone, init_workspace,
-    inspect_config, inspect_entry_by_path, inspect_entry_by_space, is_raw_workspace_path_allowed,
-    list_file_references, list_files, list_space, media_type_for_workspace_path,
-    operation_error_diagnostic, workspace_dashboard,
+    WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary, create_entry,
+    detect_environment_timezone, init_workspace, inspect_config, inspect_entry_by_path,
+    inspect_entry_by_space, is_raw_workspace_path_allowed, list_file_references, list_files,
+    list_space, media_type_for_workspace_path, operation_error_diagnostic, workspace_dashboard,
 };
 pub use path::{
     FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH, FORMA_LOCAL_OVERRIDES_PATH,
-    FORMA_SPACES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR,
-    FORMA_WORKSPACE_PATH, PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,
+    FORMA_SETTINGS_PATH, FORMA_SPACES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR,
+    PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,
 };
 pub use render::{
     FileRenderOutput, FileRenderResult, GraphRenderEdge, GraphRenderNode, KanbanRenderColumn,

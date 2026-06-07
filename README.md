@@ -33,6 +33,8 @@ The current application code implements the P0 read, inspect, check, index, rend
 - `packages/shared/`: shared TypeScript RPC client and operation result types.
 - `packages/webapp/`: Vite React read-only WebApp for browsing configured Forma
   workspaces.
+- `examples/forma-starter-kit/`: committed starter workspace for demos, smoke
+  validation, and reader/view examples.
 - `.agents/skills/`: project-local Agent workflow skills.
 - `.agents/.local/`: local-only Agent runtime state, ignored by git.
 - `AGENTS.md`: repository instructions for AI agents.
@@ -85,6 +87,34 @@ Run all checks:
 ```sh
 mise run check
 ```
+
+## Run The Starter Kit
+
+`examples/forma-starter-kit/` is the default committed example workspace. It is
+separate from this repository's `knowledge/` development knowledge base and is
+intended for product demos, smoke validation, and reader/view fixtures.
+
+Refresh the example summary index after changing example content:
+
+```sh
+cargo run -p forma-cli -- --workspace examples/forma-starter-kit index rebuild
+```
+
+Check the example workspace:
+
+```sh
+cargo run -p forma-cli -- --workspace examples/forma-starter-kit check
+```
+
+Serve the read-only WebApp and RPC backend from the example workspace:
+
+```sh
+cargo run -p forma-cli -- --workspace examples/forma-starter-kit serve
+```
+
+Then open the printed local URL in a browser. Release builds embed the WebApp
+assets in the `forma` binary; development builds may show the embedded asset
+placeholder until `packages/webapp` has been built.
 
 ## Installing Forma
 

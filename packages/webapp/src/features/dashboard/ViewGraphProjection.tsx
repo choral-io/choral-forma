@@ -34,11 +34,12 @@ export function ViewGraphProjection({
             graph.addNode(node.id, {
                 space: node.space,
                 color: graphNodeColor(node.space, graphTheme),
-                documentId: node.documentId ?? "",
+                entryId: node.entryId ?? "",
                 hoverLabel: node.title,
                 label: node.title,
                 path: node.path,
-                size: node.documentId ? 9 : 7,
+                routePath: node.routePath ?? "",
+                size: node.entryId ? 9 : 7,
                 x: position.x,
                 y: position.y,
             });
@@ -123,13 +124,57 @@ export function ViewGraphProjection({
             renderer.refresh();
         });
         renderer.on("clickNode", ({ node }) => {
-            const documentId = graph.getNodeAttribute(node, "documentId") as string | undefined;
-            if (documentId) {
-                void navigate(`/documents/${documentId}`);
+            const routePath = graph.getNodeAttribute(node, "routePath") as string | undefined;
+            if (routePath) {
+                void navigate(routePath);
             }
         });
 
+        let resizeFrame = 0;
+        let resizeSettleTimeout: ReturnType<typeof setTimeout> | null = null;
+        let graphSize = {
+            height: container.offsetHeight,
+            width: container.offsetWidth,
+        };
+
+        const resizeGraph = () => {
+            const nextSize = {
+                height: container.offsetHeight,
+                width: container.offsetWidth,
+            };
+
+            if (nextSize.width <= 0 || nextSize.height <= 0) {
+                return;
+            }
+
+            if (nextSize.width === graphSize.width && nextSize.height === graphSize.height) {
+                renderer.scheduleRender();
+                return;
+            }
+
+            graphSize = nextSize;
+            renderer.resize().scheduleRender();
+        };
+
+        const resizeObserver = new ResizeObserver(() => {
+            cancelAnimationFrame(resizeFrame);
+            resizeFrame = requestAnimationFrame(() => {
+                resizeGraph();
+
+                if (resizeSettleTimeout) {
+                    clearTimeout(resizeSettleTimeout);
+                }
+                resizeSettleTimeout = setTimeout(resizeGraph, GRAPH_RESIZE_SETTLE_DELAY_MS);
+            });
+        });
+        resizeObserver.observe(container);
+
         return () => {
+            cancelAnimationFrame(resizeFrame);
+            if (resizeSettleTimeout) {
+                clearTimeout(resizeSettleTimeout);
+            }
+            resizeObserver.disconnect();
             renderer.kill();
         };
     }, [adjacentNodes, graphTheme, navigate, positions, projection.edges, projection.nodes]);
@@ -139,7 +184,7 @@ export function ViewGraphProjection({
             <div className="border-border bg-muted/20 overflow-hidden rounded-lg border">
                 <div
                     aria-label="Interactive graph preview"
-                    className="h-96 w-full outline-none"
+                    className="relative h-96 w-full outline-none"
                     ref={containerRef}
                     role="img"
                 />
@@ -173,6 +218,8 @@ export function ViewGraphProjection({
     );
 }
 
+const GRAPH_RESIZE_SETTLE_DELAY_MS = 150;
+
 function GraphNodeLink({ node }: { node: Extract<DashboardViewProjection, { kind: "graph" }>["nodes"][number] }) {
     const content = (
         <>
@@ -185,14 +232,14 @@ function GraphNodeLink({ node }: { node: Extract<DashboardViewProjection, { kind
         </>
     );
 
-    if (!node.documentId) {
+    if (!node.routePath) {
         return <div className="bg-card rounded-md border p-3 shadow-sm">{content}</div>;
     }
 
     return (
         <Link
             className="bg-card hover:bg-accent/50 focus-visible:ring-ring/50 rounded-md border p-3 shadow-sm transition-colors outline-none focus-visible:ring-3"
-            to={`/documents/${node.documentId}`}
+            to={node.routePath}
         >
             {content}
         </Link>
@@ -447,10 +494,11 @@ interface GraphThemeTokens {
 interface GraphNodeAttributes extends Record<string, unknown> {
     space: string;
     color: string;
-    documentId: string;
+    entryId: string;
     hoverLabel: string;
     label: string;
     path: string;
+    routePath: string;
     size: number;
     x: number;
     y: number;

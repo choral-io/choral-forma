@@ -495,11 +495,19 @@ async fn raw_workspace_file(
         return StatusCode::NOT_FOUND.into_response();
     };
 
-    let base = match state.workspace_root.canonicalize() {
+    serve_workspace_file(&state.workspace_root, &workspace_path, media_type).await
+}
+
+async fn serve_workspace_file(
+    workspace_root: &FsPath,
+    workspace_path: &str,
+    media_type: &'static str,
+) -> Response {
+    let base = match workspace_root.canonicalize() {
         Ok(base) => base,
         Err(_) => return StatusCode::NOT_FOUND.into_response(),
     };
-    let file_path = state.workspace_root.join(&workspace_path);
+    let file_path = workspace_root.join(workspace_path);
     let resolved = match file_path.canonicalize() {
         Ok(resolved) if resolved.starts_with(&base) && resolved.is_file() => resolved,
         _ => return StatusCode::NOT_FOUND.into_response(),
@@ -612,6 +620,17 @@ fn webapp_asset_response(path: &str, webapp_dir: Option<&FsPath>, root_path: &st
     }
 
     let Some(file) = WEBAPP_DIST.get_file(asset_path) else {
+        if should_serve_spa_index(asset_path) {
+            let Some(index_file) = WEBAPP_DIST.get_file("index.html") else {
+                return StatusCode::NOT_FOUND.into_response();
+            };
+            return webapp_file_response(
+                "index.html",
+                index_file.path().to_string_lossy().as_ref(),
+                index_file.contents(),
+                root_path,
+            );
+        }
         if should_redirect_to_app_root(asset_path) {
             return Redirect::temporary(&app_root_location(root_path)).into_response();
         }
@@ -641,6 +660,9 @@ fn external_webapp_asset_response(
     let candidate = base.join(&asset_path);
     let resolved = match candidate.canonicalize() {
         Ok(resolved) if resolved.starts_with(&base) => resolved,
+        _ if should_serve_spa_index(&asset_path) => {
+            return external_webapp_asset_response(webapp_dir, "index.html", root_path);
+        }
         _ if should_redirect_to_app_root(&asset_path) => {
             return Redirect::temporary(&app_root_location(root_path)).into_response();
         }
@@ -744,6 +766,14 @@ fn app_root_location(root_path: &str) -> String {
     } else {
         format!("{root_path}/")
     }
+}
+
+fn should_serve_spa_index(path: &str) -> bool {
+    let route = path.trim_matches('/');
+    matches!(route, "pages" | "spaces" | "views")
+        || route.starts_with("pages/")
+        || route.starts_with("spaces/")
+        || route.starts_with("views/")
 }
 
 fn should_redirect_to_app_root(path: &str) -> bool {
@@ -903,6 +933,25 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rpc_router_falls_back_spa_page_routes_to_index() {
+        let response = rpc_router()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/pages/notes/getting-started")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let body = String::from_utf8_lossy(&body);
+        assert!(body.contains(r#"<title>Choral Forma</title>"#));
+    }
+
+    #[tokio::test]
     async fn rpc_router_mounts_under_configured_root_path() {
         let router = rpc_router_with_options_and_root_path(None, Vec::new(), "/forma").unwrap();
 
@@ -972,6 +1021,24 @@ mod tests {
             bad_path_response.headers().get("location").unwrap(),
             "/forma/"
         );
+
+        let page_response = rpc_router_with_options_and_root_path(None, Vec::new(), "/forma")
+            .unwrap()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/forma/pages/notes/getting-started")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(page_response.status(), StatusCode::OK);
+        let page_body = to_bytes(page_response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let page_body = String::from_utf8_lossy(&page_body);
+        assert!(page_body.contains(r#"<base href="/forma/">"#));
     }
 
     #[tokio::test]
@@ -1009,6 +1076,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rpc_router_does_not_expose_public_forma_asset_route() {
+        let root = fixture_root("public-forma-asset-route-disabled");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "Public Forma Assets Disabled", "en", Some("UTC"))
+            .unwrap();
+        fs::create_dir_all(root.join(".forma/assets")).unwrap();
+        fs::write(root.join(".forma/assets/logo.svg"), "<svg></svg>").unwrap();
+
+        let app = rpc_router_with_dispatcher_and_workspace(
+            None,
+            Vec::new(),
+            Dispatcher::new(&root),
+            root.clone(),
+            "/forma".into(),
+        )
+        .unwrap();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/forma/_forma/assets/logo.svg")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn rpc_router_rejects_raw_workspace_path_traversal() {
         let root = fixture_root("raw-route-traversal");
         fs::create_dir_all(&root).unwrap();
@@ -1026,13 +1125,45 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/../.forma/workspace.yml")
+                    .uri("/forma/raw/../.forma/settings.yml")
                     .body(Body::empty())
                     .unwrap(),
             )
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rpc_router_rejects_raw_forma_internal_paths() {
+        let root = fixture_root("raw-route-rejects-forma-internal");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "Raw Forma Reject", "en", Some("UTC")).unwrap();
+        fs::create_dir_all(root.join(".forma/assets")).unwrap();
+        fs::write(root.join(".forma/assets/logo.svg"), "<svg></svg>").unwrap();
+
+        let app = rpc_router_with_dispatcher_and_workspace(
+            None,
+            Vec::new(),
+            Dispatcher::new(&root),
+            root.clone(),
+            "/forma".into(),
+        )
+        .unwrap();
+
+        for path in [
+            "/forma/raw/.forma/settings.yml",
+            "/forma/raw/.forma/assets/logo.svg",
+        ] {
+            let response = app
+                .clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        }
 
         fs::remove_dir_all(root).unwrap();
     }

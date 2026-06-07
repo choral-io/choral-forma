@@ -722,7 +722,7 @@ impl From<forma_core::WorkspaceDashboardResult> for OperationResult {
         let mut data = BTreeMap::new();
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("spaces".to_string(), json!(result.spaces));
-        data.insert("documents".to_string(), json!(result.documents));
+        data.insert("entries".to_string(), json!(result.entries));
         data.insert("views".to_string(), json!(result.views));
         Self {
             schema_version: result.schema_version,
@@ -1093,10 +1093,7 @@ mod tests {
             "Workspace Dashboard RPC"
         );
         assert!(response["result"]["spaces"].as_array().unwrap().len() >= 3);
-        assert_eq!(
-            response["result"]["documents"][0]["path"],
-            "notes/source.md"
-        );
+        assert_eq!(response["result"]["entries"][0]["path"], "notes/source.md");
         assert!(response["result"]["views"].as_array().unwrap().len() >= 3);
         assert!(
             response["result"]["views"]

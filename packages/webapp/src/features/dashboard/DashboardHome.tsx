@@ -28,9 +28,9 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
     DashboardDiagnostic,
-    DashboardDocument,
-    DashboardDocumentBlock,
-    DashboardDocumentLink,
+    DashboardEntry,
+    DashboardEntryBlock,
+    DashboardEntryLink,
     DashboardSpace,
     DashboardViewProjection,
     DashboardViewProjectionItem,
@@ -65,70 +65,70 @@ export function DashboardRoute() {
     );
 }
 
-export function DocumentsRoute() {
+export function PagesRoute() {
     const dashboard = useWorkspaceDashboard();
 
     return (
         <WorkspacePageShell
-            contextPanel={<DocumentsContextPanel dashboard={dashboard} />}
+            contextPanel={<PagesContextPanel dashboard={dashboard} />}
             dashboard={dashboard}
             eyebrow="Workspace"
-            title="Documents"
+            title="Pages"
         >
-            <DocumentsPage dashboard={dashboard} />
+            <PagesPage dashboard={dashboard} />
         </WorkspacePageShell>
     );
 }
 
-export function DocumentRoute() {
+export function EntryRoute() {
     const dashboard = useWorkspaceDashboard();
-    const { documentId } = useParams();
+    const params = useParams();
+    const routePath = `/pages/${params["*"] ?? ""}`;
     const [readingWidth, setReadingWidth] = useState<ReadingWidth>("standard");
-    const summaryDocument = dashboard.documents.find((item) => item.id === documentId);
-    const [documentDetail, setDocumentDetail] = useState<
+    const summaryEntry = dashboard.entries.find((item) => item.routePath === routePath);
+    const [entryDetail, setEntryDetail] = useState<
         | {
-              document: DashboardDocument;
-              documentId: string;
+              entry: DashboardEntry;
+              routePath: string;
           }
         | undefined
     >(undefined);
-    const document =
-        documentDetail && documentDetail.documentId === documentId ? documentDetail.document : summaryDocument;
-    const outline = document ? getDocumentOutline(document.body) : [];
+    const entry = entryDetail?.routePath === routePath ? entryDetail.entry : summaryEntry;
+    const outline = entry ? getEntryOutline(entry.body) : [];
 
     useEffect(() => {
-        if (!documentId) {
+        if (!summaryEntry) {
             return;
         }
 
         let cancelled = false;
         workspaceClient
-            .getDocument(documentId)
+            .getEntry(summaryEntry.id)
             .then((result) => {
                 if (!cancelled) {
-                    setDocumentDetail({ document: result, documentId });
+                    setEntryDetail({ entry: result, routePath });
                 }
             })
             .catch((error: unknown) => {
-                console.warn("Document detail failed to load.", error);
-                if (!cancelled && summaryDocument) {
-                    setDocumentDetail({
-                        document: {
-                            ...summaryDocument,
+                console.warn("Page detail failed to load.", error);
+                if (!cancelled) {
+                    setEntryDetail({
+                        entry: {
+                            ...summaryEntry,
                             diagnostics: [
-                                ...(summaryDocument.diagnostics ?? []),
+                                ...(summaryEntry.diagnostics ?? []),
                                 {
                                     severity: "warning",
-                                    code: "document-detail-load-failed",
+                                    code: "entry-detail-load-failed",
                                     message:
                                         error instanceof Error
                                             ? error.message
-                                            : "Document detail failed to load from the workspace backend.",
-                                    path: summaryDocument.path,
+                                            : "Page detail failed to load from the workspace backend.",
+                                    path: summaryEntry.path,
                                 },
                             ],
                         },
-                        documentId,
+                        routePath,
                     });
                 }
             });
@@ -136,11 +136,11 @@ export function DocumentRoute() {
         return () => {
             cancelled = true;
         };
-    }, [documentId, summaryDocument]);
+    }, [routePath, summaryEntry]);
 
-    if (!document) {
+    if (!entry) {
         return (
-            <WorkspacePageShell dashboard={dashboard} eyebrow="Documents" title="Not found">
+            <WorkspacePageShell dashboard={dashboard} eyebrow="Pages" title="Not found">
                 <EmptyPage />
             </WorkspacePageShell>
         );
@@ -150,23 +150,18 @@ export function DocumentRoute() {
         <WorkspacePageShell
             actions={
                 <>
-                    <DocumentViewOptions readingWidth={readingWidth} onReadingWidthChange={setReadingWidth} />
+                    <EntryViewOptions readingWidth={readingWidth} onReadingWidthChange={setReadingWidth} />
                     <WorkspaceRouteActions />
                 </>
             }
-            contextPanel={<DocumentContextPanel document={document} outline={outline} outlineDesktopOnly />}
+            contextPanel={<EntryContextPanel entry={entry} outline={outline} outlineDesktopOnly />}
             contentWidth="fluid"
             dashboard={dashboard}
-            eyebrow="Documents"
-            mobileContextPanel={<DocumentContextPanel document={document} outline={outline} />}
-            title={document.title}
+            eyebrow="Pages"
+            mobileContextPanel={<EntryContextPanel entry={entry} outline={outline} />}
+            title={entry.title}
         >
-            <DocumentPage
-                document={document}
-                documents={dashboard.documents}
-                outline={outline}
-                readingWidth={readingWidth}
-            />
+            <EntryPage entry={entry} entries={dashboard.entries} outline={outline} readingWidth={readingWidth} />
         </WorkspacePageShell>
     );
 }
@@ -185,7 +180,7 @@ export function SpaceRoute() {
     const dashboard = useWorkspaceDashboard();
     const { spaceId } = useParams();
     const space = dashboard.spaces.find((item) => item.id === spaceId);
-    const documents = space ? dashboard.documents.filter((document) => document.space === space.id) : [];
+    const entries = space ? dashboard.entries.filter((entry) => entry.space === space.id) : [];
 
     if (!space) {
         return (
@@ -197,12 +192,12 @@ export function SpaceRoute() {
 
     return (
         <WorkspacePageShell
-            contextPanel={<SpaceContextPanel dashboard={dashboard} documents={documents} space={space} />}
+            contextPanel={<SpaceContextPanel dashboard={dashboard} entries={entries} space={space} />}
             dashboard={dashboard}
             eyebrow="Spaces"
             title={space.title}
         >
-            <SpacePage documents={documents} space={space} />
+            <SpacePage entries={entries} space={space} />
         </WorkspacePageShell>
     );
 }
@@ -318,6 +313,7 @@ function WorkspacePageShell({
                 contextPanel ?? <ContextPanelTabs context={<WorkspaceDefaultContextPanel dashboard={dashboard} />} />
             }
             contentWidth={contentWidth}
+            dashboard={dashboard}
             eyebrow={eyebrow}
             mobileContextPanel={mobileContextPanel}
             title={title}
@@ -344,11 +340,11 @@ function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
                         to="/spaces"
                     />
                     <NavigationCard
-                        description="Open the global repository document index."
+                        description="Open the global repository page index."
                         icon={FileText}
-                        meta={`${String(dashboard.documents.length)} indexed`}
-                        title="Documents"
-                        to="/documents"
+                        meta={`${String(dashboard.entries.length)} indexed`}
+                        title="Pages"
+                        to="/pages"
                     />
                     <NavigationCard
                         description="Inspect saved read-only projections."
@@ -360,34 +356,34 @@ function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
                 </div>
             </RouteBodySection>
             <RouteBodySection
-                description="Most relevant repository documents from the current workspace index."
-                meta={`${String(dashboard.documents.length)} documents`}
-                title="Documents"
+                description="Most relevant repository pages from the current workspace index."
+                meta={`${String(dashboard.entries.length)} pages`}
+                title="Pages"
             >
-                <DocumentsList documents={dashboard.documents} />
+                <PagesList entries={dashboard.entries} />
             </RouteBodySection>
         </div>
     );
 }
 
-function DocumentsPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
+function PagesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
         <div className="flex flex-col gap-6">
-            <DocumentsOverview dashboard={dashboard} />
+            <PagesOverview dashboard={dashboard} />
             <RouteBodySection
-                description="Global document index across spaces from the workspace read model."
-                meta={`${String(dashboard.documents.length)} indexed`}
-                title="All documents"
+                description="Global page index across spaces from the workspace read model."
+                meta={`${String(dashboard.entries.length)} indexed`}
+                title="All pages"
             >
-                <DocumentsList documents={dashboard.documents} />
+                <PagesList entries={dashboard.entries} />
             </RouteBodySection>
         </div>
     );
 }
 
-function DocumentsContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    const warningCount = dashboard.documents.filter((document) => document.status !== "healthy").length;
-    const coveredSpaceCount = new Set(dashboard.documents.map((document) => document.space)).size;
+function PagesContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
+    const warningCount = dashboard.entries.filter((entry) => entry.status !== "healthy").length;
+    const coveredSpaceCount = new Set(dashboard.entries.map((entry) => entry.space)).size;
 
     return (
         <ContextPanelTabs
@@ -395,13 +391,13 @@ function DocumentsContextPanel({ dashboard }: { dashboard: WorkspaceDashboard })
                 <>
                     <section className="flex flex-col gap-3">
                         <div>
-                            <h2 className="text-sm font-semibold">Document Index</h2>
+                            <h2 className="text-sm font-semibold">Page Index</h2>
                             <p className="text-muted-foreground mt-1 text-sm/6">
-                                Route-level read model for the global document list.
+                                Route-level read model for the global page list.
                             </p>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                            <ContextStat label="Indexed" value={dashboard.documents.length} />
+                            <ContextStat label="Indexed" value={dashboard.entries.length} />
                             <ContextStat label="Spaces" value={coveredSpaceCount} />
                             <ContextStat label="Warnings" value={warningCount} />
                         </div>
@@ -416,18 +412,18 @@ function DocumentsContextPanel({ dashboard }: { dashboard: WorkspaceDashboard })
 
 type ReadingWidth = "full" | "standard" | "wide";
 
-interface DocumentOutlineItem {
+interface EntryOutlineItem {
     blockIndex: number;
     id: string;
     level: 2 | 3;
     text: string;
 }
 
-interface DocumentOutlineNode extends DocumentOutlineItem {
-    children: DocumentOutlineItem[];
+interface EntryOutlineNode extends EntryOutlineItem {
+    children: EntryOutlineItem[];
 }
 
-function getDocumentOutline(blocks: DashboardDocumentBlock[]): DocumentOutlineItem[] {
+function getEntryOutline(blocks: DashboardEntryBlock[]): EntryOutlineItem[] {
     const seen = new Map<string, number>();
 
     return blocks.flatMap((block, blockIndex) => {
@@ -457,8 +453,8 @@ function getDocumentOutline(blocks: DashboardDocumentBlock[]): DocumentOutlineIt
     });
 }
 
-function getDocumentOutlineTree(outline: DocumentOutlineItem[]): DocumentOutlineNode[] {
-    const tree: DocumentOutlineNode[] = [];
+function getEntryOutlineTree(outline: EntryOutlineItem[]): EntryOutlineNode[] {
+    const tree: EntryOutlineNode[] = [];
 
     for (const item of outline) {
         if (item.level === 2 || tree.length === 0) {
@@ -482,16 +478,16 @@ function slugifyHeading(text: string) {
     return slug || "section";
 }
 
-function getDocumentDiagnostics(document: DashboardDocument): DashboardDiagnostic[] {
-    const diagnostics: DashboardDiagnostic[] = [...(document.diagnostics ?? [])];
-    const unresolvedLinks = document.relations.outgoing.filter((link) => link.kind === "unresolved");
+function getEntryDiagnostics(entry: DashboardEntry): DashboardDiagnostic[] {
+    const diagnostics: DashboardDiagnostic[] = [...(entry.diagnostics ?? [])];
+    const unresolvedLinks = entry.relations.outgoing.filter((link) => link.kind === "unresolved");
 
-    if (document.status !== "healthy") {
+    if (entry.status !== "healthy") {
         diagnostics.push({
-            severity: document.status === "failed" ? "error" : "warning",
-            code: "document-status",
-            message: `This document is marked ${document.status} in the current read model.`,
-            path: document.path,
+            severity: entry.status === "failed" ? "error" : "warning",
+            code: "entry-status",
+            message: `This entry is marked ${entry.status} in the current read model.`,
+            path: entry.path,
         });
     }
 
@@ -499,7 +495,7 @@ function getDocumentDiagnostics(document: DashboardDocument): DashboardDiagnosti
         ...unresolvedLinks.map((link) => ({
             severity: "warning" as const,
             code: "unresolved-link",
-            message: `Outgoing reference "${link.label}" is not resolved by the current document index.`,
+            message: `Outgoing reference "${link.label}" is not resolved by the current page index.`,
             path: link.targetPath,
         })),
     );
@@ -516,7 +512,7 @@ const readingWidthOptions: {
     { label: "Full", value: "full" },
 ];
 
-function DocumentViewOptions({
+function EntryViewOptions({
     onReadingWidthChange,
     readingWidth,
 }: {
@@ -525,7 +521,7 @@ function DocumentViewOptions({
 }) {
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger render={<Button aria-label="Document view options" size="icon" variant="outline" />}>
+            <DropdownMenuTrigger render={<Button aria-label="Page view options" size="icon" variant="outline" />}>
                 <SlidersHorizontal data-icon="inline-start" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -552,15 +548,15 @@ function DocumentViewOptions({
     );
 }
 
-function DocumentPage({
-    document,
-    documents,
+function EntryPage({
+    entry,
+    entries,
     outline,
     readingWidth,
 }: {
-    document: DashboardDocument;
-    documents: DashboardDocument[];
-    outline: DocumentOutlineItem[];
+    entry: DashboardEntry;
+    entries: DashboardEntry[];
+    outline: EntryOutlineItem[];
     readingWidth: ReadingWidth;
 }) {
     const readingWidthClass = {
@@ -574,43 +570,38 @@ function DocumentPage({
             <Card>
                 <CardHeader>
                     <div className="min-w-0">
-                        <Badge variant={healthVariant(document.status)}>{document.status}</Badge>
-                        <CardTitle className="mt-4" id={document.id}>
-                            {document.title}
+                        <Badge variant={healthVariant(entry.status)}>{entry.status}</Badge>
+                        <CardTitle className="mt-4" id={entry.id}>
+                            {entry.title}
                         </CardTitle>
-                        <CardDescription className="mt-2">{document.summary}</CardDescription>
+                        <CardDescription className="mt-2">{entry.summary}</CardDescription>
                     </div>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <StatCell label="Space" value={document.space} />
+                    <StatCell label="Space" value={entry.space} />
                     <StatCell
                         label="Updated"
-                        title={formatAbsoluteDateTime(document.updatedAt)}
-                        value={document.updatedLabel}
+                        title={formatAbsoluteDateTime(entry.updatedAt)}
+                        value={entry.updatedLabel}
                     />
-                    <StatCell label="Status" value={document.status} />
+                    <StatCell label="Status" value={entry.status} />
                 </CardContent>
             </Card>
-            <DocumentReader
-                blocks={document.body}
-                currentPath={document.path}
-                documents={documents}
-                outline={outline}
-            />
+            <EntryReader blocks={entry.body} currentPath={entry.path} entries={entries} outline={outline} />
         </div>
     );
 }
 
-function DocumentReader({
+function EntryReader({
     blocks,
     currentPath,
-    documents,
+    entries,
     outline,
 }: {
-    blocks: DashboardDocumentBlock[];
+    blocks: DashboardEntryBlock[];
     currentPath: string;
-    documents: DashboardDocument[];
-    outline: DocumentOutlineItem[];
+    entries: DashboardEntry[];
+    outline: EntryOutlineItem[];
 }) {
     return (
         <div className="w-full border-y px-4 py-6 md:py-8">
@@ -619,10 +610,10 @@ function DocumentReader({
                     const headingId = outline.find((item) => item.blockIndex === index)?.id;
 
                     return (
-                        <DocumentBlockView
+                        <EntryBlockView
                             block={block}
                             currentPath={currentPath}
-                            documents={documents}
+                            entries={entries}
                             headingId={headingId}
                             key={`${block.type}-${String(index)}`}
                         />
@@ -633,22 +624,22 @@ function DocumentReader({
     );
 }
 
-function DocumentBlockView({
+function EntryBlockView({
     block,
     currentPath,
-    documents,
+    entries,
     headingId,
 }: {
-    block: DashboardDocumentBlock;
+    block: DashboardEntryBlock;
     currentPath: string;
-    documents: DashboardDocument[];
+    entries: DashboardEntry[];
     headingId?: string;
 }) {
     if (block.type === "markdown") {
         return (
             <MarkdownReader
                 currentPath={currentPath}
-                documents={documents}
+                entries={entries}
                 headings={block.outline}
                 markdown={block.markdown}
             />
@@ -747,16 +738,16 @@ function DocumentBlockView({
     );
 }
 
-function DocumentContextPanel({
-    document,
+function EntryContextPanel({
+    entry,
     outline,
     outlineDesktopOnly = false,
 }: {
-    document: DashboardDocument;
-    outline: DocumentOutlineItem[];
+    entry: DashboardEntry;
+    outline: EntryOutlineItem[];
     outlineDesktopOnly?: boolean;
 }) {
-    const diagnostics = getDocumentDiagnostics(document);
+    const diagnostics = getEntryDiagnostics(entry);
 
     return (
         <ContextPanelTabs
@@ -766,38 +757,38 @@ function DocumentContextPanel({
                         <div>
                             <h2 className="text-sm font-semibold">Overview</h2>
                             <p className="text-muted-foreground mt-1 text-sm/6">
-                                Basic read-model details for the selected document.
+                                Basic read-model details for the selected page.
                             </p>
                         </div>
                         <div className="border-border/80 bg-background/60 rounded-lg border p-3">
                             <span className="text-muted-foreground text-xs">Path</span>
                             <code
                                 className="text-muted-foreground mt-1 line-clamp-2 text-xs break-all"
-                                title={document.path}
+                                title={entry.path}
                             >
-                                {document.path}
+                                {entry.path}
                             </code>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <ContextStat
                                 label="Updated"
-                                title={formatAbsoluteDateTime(document.updatedAt)}
-                                value={document.updatedLabel}
+                                title={formatAbsoluteDateTime(entry.updatedAt)}
+                                value={entry.updatedLabel}
                             />
                         </div>
                     </section>
                     <Separator />
-                    <DocumentReferencesSection document={document} />
+                    <EntryReferencesSection entry={entry} />
                     <Separator />
                     <DiagnosticsPanel
-                        description="Document-level checks from the current read model."
+                        description="Page-level checks from the current read model."
                         diagnostics={diagnostics}
-                        emptyLabel="No document diagnostics found."
+                        emptyLabel="No page diagnostics found."
                         title="Diagnostics"
                     />
                 </>
             }
-            outline={<DocumentOutlineSection document={document} outline={outline} />}
+            outline={<EntryOutlineSection entry={entry} outline={outline} />}
             outlineDesktopOnly={outlineDesktopOnly}
         />
     );
@@ -853,23 +844,17 @@ function ContextPanelTabs({
     );
 }
 
-function DocumentOutlineSection({
-    document,
-    outline,
-}: {
-    document: DashboardDocument;
-    outline: DocumentOutlineItem[];
-}) {
-    const tree = getDocumentOutlineTree(outline);
+function EntryOutlineSection({ entry, outline }: { entry: DashboardEntry; outline: EntryOutlineItem[] }) {
+    const tree = getEntryOutlineTree(outline);
 
     return (
         <section className="flex flex-col gap-3">
             <div>
                 <h2 className="text-sm font-semibold">Outline</h2>
-                <p className="text-muted-foreground mt-1 text-sm/6">Headings from the current document.</p>
+                <p className="text-muted-foreground mt-1 text-sm/6">Headings from the current entry.</p>
             </div>
             {tree.length > 0 ? (
-                <OutlineNav document={document} tree={tree} />
+                <OutlineNav entry={entry} tree={tree} />
             ) : (
                 <p className="text-muted-foreground text-sm">No headings indexed.</p>
             )}
@@ -877,36 +862,36 @@ function DocumentOutlineSection({
     );
 }
 
-function OutlineNav({ document, tree }: { document: DashboardDocument; tree: DocumentOutlineNode[] }) {
+function OutlineNav({ entry, tree }: { entry: DashboardEntry; tree: EntryOutlineNode[] }) {
     return (
-        <nav aria-label="Document outline" className="flex flex-col gap-1">
-            <DocumentOutlineLink
+        <nav aria-label="Page outline" className="flex flex-col gap-1">
+            <EntryOutlineLink
                 className="text-foreground font-semibold"
-                href={`#${document.id}`}
+                href={`#${entry.id}`}
                 item={{
                     blockIndex: -1,
-                    id: document.id,
+                    id: entry.id,
                     level: 2,
-                    text: document.title,
+                    text: entry.title,
                 }}
             />
             <div className="ms-4 flex flex-col gap-1">
                 {tree.map((node) => (
-                    <DocumentOutlineTreeNode key={node.id} node={node} />
+                    <EntryOutlineTreeNode key={node.id} node={node} />
                 ))}
             </div>
         </nav>
     );
 }
 
-function DocumentOutlineTreeNode({ node }: { node: DocumentOutlineNode }) {
+function EntryOutlineTreeNode({ node }: { node: EntryOutlineNode }) {
     return (
         <div className="flex flex-col gap-1">
-            <DocumentOutlineLink item={node} />
+            <EntryOutlineLink item={node} />
             {node.children.length > 0 && (
                 <div className="ms-4 flex flex-col gap-1">
                     {node.children.map((child) => (
-                        <DocumentOutlineLink item={child} key={child.id} />
+                        <EntryOutlineLink item={child} key={child.id} />
                     ))}
                 </div>
             )}
@@ -914,15 +899,7 @@ function DocumentOutlineTreeNode({ node }: { node: DocumentOutlineNode }) {
     );
 }
 
-function DocumentOutlineLink({
-    className,
-    href,
-    item,
-}: {
-    className?: string;
-    href?: string;
-    item: DocumentOutlineItem;
-}) {
+function EntryOutlineLink({ className, href, item }: { className?: string; href?: string; item: EntryOutlineItem }) {
     return (
         <a
             className={cn(
@@ -938,7 +915,7 @@ function DocumentOutlineLink({
     );
 }
 
-function DocumentReferencesSection({ document }: { document: DashboardDocument }) {
+function EntryReferencesSection({ entry }: { entry: DashboardEntry }) {
     return (
         <section className="flex flex-col gap-3">
             <div>
@@ -947,13 +924,13 @@ function DocumentReferencesSection({ document }: { document: DashboardDocument }
                     Explicit links from Markdown and wikilink indexing.
                 </p>
             </div>
-            <OutgoingReferenceGroup links={document.relations.outgoing} />
-            <ReferenceGroup emptyLabel="No backlinks indexed." label="Backlinks" links={document.relations.backlinks} />
+            <OutgoingReferenceGroup links={entry.relations.outgoing} />
+            <ReferenceGroup emptyLabel="No backlinks indexed." label="Backlinks" links={entry.relations.backlinks} />
         </section>
     );
 }
 
-function OutgoingReferenceGroup({ links }: { links: DashboardDocumentLink[] }) {
+function OutgoingReferenceGroup({ links }: { links: DashboardEntryLink[] }) {
     return (
         <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
@@ -976,7 +953,7 @@ function ReferenceGroup({
 }: {
     emptyLabel: string;
     label: string;
-    links: DashboardDocumentLink[];
+    links: DashboardEntryLink[];
 }) {
     return (
         <div className="flex flex-col gap-2">
@@ -993,7 +970,7 @@ function ReferenceGroup({
     );
 }
 
-function ReferenceList({ links }: { links: DashboardDocumentLink[] }) {
+function ReferenceList({ links }: { links: DashboardEntryLink[] }) {
     if (links.length === 0) {
         return null;
     }
@@ -1005,7 +982,8 @@ function ReferenceList({ links }: { links: DashboardDocumentLink[] }) {
                     key={`reference-${link.targetPath}`}
                     kind={link.kind}
                     label={link.label}
-                    targetDocumentId={link.targetDocumentId}
+                    targetEntryId={link.targetEntryId}
+                    targetRoutePath={link.targetRoutePath}
                     targetPath={link.targetPath}
                 />
             ))}
@@ -1016,12 +994,14 @@ function ReferenceList({ links }: { links: DashboardDocumentLink[] }) {
 function RelationLink({
     kind,
     label,
-    targetDocumentId,
+    targetEntryId,
+    targetRoutePath,
     targetPath,
 }: {
-    kind: DashboardDocumentLink["kind"];
+    kind: DashboardEntryLink["kind"];
     label: string;
-    targetDocumentId?: string;
+    targetEntryId?: string;
+    targetRoutePath?: string;
     targetPath: string;
 }) {
     const content = (
@@ -1049,7 +1029,7 @@ function RelationLink({
         );
     }
 
-    if (!targetDocumentId) {
+    if (!targetEntryId || !targetRoutePath) {
         return (
             <div className="border-border/80 bg-background/60 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm">
                 {content}
@@ -1060,14 +1040,14 @@ function RelationLink({
     return (
         <Link
             className="border-border/80 bg-background/60 hover:bg-accent focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm outline-none focus-visible:ring-3"
-            to={`/documents/${targetDocumentId}`}
+            to={targetRoutePath}
         >
             {content}
         </Link>
     );
 }
 
-function ReferenceKindBadge({ kind }: { kind: DashboardDocumentLink["kind"] }) {
+function ReferenceKindBadge({ kind }: { kind: DashboardEntryLink["kind"] }) {
     if (kind === "internal") {
         return null;
     }
@@ -1094,22 +1074,22 @@ function SpacesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
     );
 }
 
-function SpacePage({ documents, space }: { documents: DashboardDocument[]; space: DashboardSpace }) {
+function SpacePage({ entries, space }: { entries: DashboardEntry[]; space: DashboardSpace }) {
     return (
         <div className="flex flex-col gap-6">
             <SpaceSummary space={space} />
             <RouteBodySection
-                description="Repository markdown entries in this knowledge partition."
-                meta={`${String(documents.length)} documents`}
-                title="Documents"
+                description="Repository-backed pages in this knowledge partition."
+                meta={`${String(entries.length)} pages`}
+                title="Pages"
             >
-                {documents.length > 0 ? (
-                    <DocumentsList documents={documents} />
+                {entries.length > 0 ? (
+                    <PagesList entries={entries} />
                 ) : (
                     <EmptyState
-                        description="The workspace index does not include documents for this space yet."
+                        description="The workspace index does not include pages for this space yet."
                         icon={FileText}
-                        title="No documents"
+                        title="No pages"
                     />
                 )}
             </RouteBodySection>
@@ -1119,11 +1099,11 @@ function SpacePage({ documents, space }: { documents: DashboardDocument[]; space
 
 function SpaceContextPanel({
     dashboard,
-    documents,
+    entries,
     space,
 }: {
     dashboard: WorkspaceDashboard;
-    documents: DashboardDocument[];
+    entries: DashboardEntry[];
     space: DashboardSpace;
 }) {
     return (
@@ -1138,8 +1118,8 @@ function SpaceContextPanel({
                             </p>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                            <ContextStat label="Entries" value={space.entryCount} />
-                            <ContextStat label="Documents" value={documents.length} />
+                            <ContextStat label="Pages" value={space.entryCount} />
+                            <ContextStat label="Indexed" value={entries.length} />
                             <ContextStat
                                 label="Updated"
                                 title={formatAbsoluteDateTime(space.updatedAt)}
@@ -1189,7 +1169,7 @@ function ViewsContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <ContextStat label="Views" value={dashboard.views.length} />
-                            <ContextStat label="Documents" value={dashboard.documents.length} />
+                            <ContextStat label="Pages" value={dashboard.entries.length} />
                             <ContextStat label="Spaces" value={dashboard.spaces.length} />
                         </div>
                     </section>
@@ -1210,8 +1190,8 @@ function ViewPage({
     projection?: DashboardViewProjection;
     view: WorkspaceDashboard["views"][number];
 }) {
-    const documents = documentsForView(dashboard, view);
-    const itemCount = projection ? projectionItemCount(projection) : documents.length;
+    const entries = entriesForView(dashboard, view);
+    const itemCount = projection ? projectionItemCount(projection) : entries.length;
 
     return (
         <div className="flex flex-col gap-6">
@@ -1232,7 +1212,7 @@ function ViewContextPanel({
     projection?: DashboardViewProjection;
     view: WorkspaceDashboard["views"][number];
 }) {
-    const itemCount = projection ? projectionItemCount(projection) : documentsForView(dashboard, view).length;
+    const itemCount = projection ? projectionItemCount(projection) : entriesForView(dashboard, view).length;
 
     return (
         <ContextPanelTabs
@@ -1362,7 +1342,7 @@ function SpacesGrid({ dashboard }: { dashboard: WorkspaceDashboard }) {
             {dashboard.spaces.map((space) => (
                 <SpaceCard
                     key={space.id}
-                    documentCount={dashboard.documents.filter((document) => document.space === space.id).length}
+                    entryCount={dashboard.entries.filter((entry) => entry.space === space.id).length}
                     space={space}
                 />
             ))}
@@ -1392,16 +1372,16 @@ function SpacesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <StatCell label="Spaces" value={dashboard.spaces.length} />
-                <StatCell label="Entries" value={totalEntries} />
+                <StatCell label="Pages" value={totalEntries} />
                 <StatCell label="Warnings" value={warningCount} />
             </CardContent>
         </Card>
     );
 }
 
-function DocumentsOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    const warningCount = dashboard.documents.filter((document) => document.status !== "healthy").length;
-    const coveredSpaceCount = new Set(dashboard.documents.map((document) => document.space)).size;
+function PagesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
+    const warningCount = dashboard.entries.filter((entry) => entry.status !== "healthy").length;
+    const coveredSpaceCount = new Set(dashboard.entries.map((entry) => entry.space)).size;
 
     return (
         <Card>
@@ -1409,9 +1389,9 @@ function DocumentsOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                         <Badge variant={warningCount > 0 ? "secondary" : "default"}>{dashboard.status}</Badge>
-                        <CardTitle className="mt-4">Documents overview</CardTitle>
+                        <CardTitle className="mt-4">Pages overview</CardTitle>
                         <CardDescription className="mt-2">
-                            Global read-only index for repository markdown files across all knowledge spaces.
+                            Global read-only index for repository pages across all knowledge spaces.
                         </CardDescription>
                     </div>
                     <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-md">
@@ -1420,7 +1400,7 @@ function DocumentsOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                 </div>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <StatCell label="Indexed" value={dashboard.documents.length} />
+                <StatCell label="Indexed" value={dashboard.entries.length} />
                 <StatCell label="Spaces" value={coveredSpaceCount} />
                 <StatCell label="Warnings" value={warningCount} />
             </CardContent>
@@ -1447,18 +1427,18 @@ function ViewsOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <StatCell label="Views" value={dashboard.views.length} />
-                <StatCell label="Documents" value={dashboard.documents.length} />
+                <StatCell label="Pages" value={dashboard.entries.length} />
                 <StatCell label="Spaces" value={dashboard.spaces.length} />
             </CardContent>
         </Card>
     );
 }
 
-function DocumentsList({ documents }: { documents: DashboardDocument[] }) {
+function PagesList({ entries }: { entries: DashboardEntry[] }) {
     return (
         <div className="grid gap-3">
-            {documents.map((document) => (
-                <DocumentRow document={document} key={document.path} />
+            {entries.map((entry) => (
+                <EntryRow entry={entry} key={entry.path} />
             ))}
         </div>
     );
@@ -1552,8 +1532,8 @@ function ViewProjectionRenderer({ projection }: { projection?: DashboardViewProj
     return <ViewTableProjection projection={projection} />;
 }
 
-function documentsForView(dashboard: WorkspaceDashboard, view: WorkspaceDashboard["views"][number]) {
-    return view.space ? dashboard.documents.filter((document) => document.space === view.space) : dashboard.documents;
+function entriesForView(dashboard: WorkspaceDashboard, view: WorkspaceDashboard["views"][number]) {
+    return view.space ? dashboard.entries.filter((entry) => entry.space === view.space) : dashboard.entries;
 }
 
 function projectionItemCount(projection: DashboardViewProjection) {
@@ -1609,14 +1589,14 @@ function ViewListProjectionRow({ item }: { item: DashboardViewProjectionItem }) 
         </>
     );
 
-    if (!item.documentId) {
+    if (!item.routePath) {
         return <div className="p-4">{content}</div>;
     }
 
     return (
         <Link
             className="hover:bg-accent/50 focus-visible:ring-ring/50 block p-4 transition-colors outline-none focus-visible:ring-3"
-            to={`/documents/${item.documentId}`}
+            to={item.routePath}
         >
             {content}
         </Link>
@@ -1655,10 +1635,6 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
 }
 
 function ViewProjectionCell({ column, item }: { column: string; item: DashboardViewProjectionItem }) {
-    if (column === "title") {
-        return <ViewProjectionItemLink item={item} />;
-    }
-
     if (column === "path") {
         return (
             <code className="text-muted-foreground block truncate text-xs" title={item.path}>
@@ -1673,32 +1649,6 @@ function ViewProjectionCell({ column, item }: { column: string; item: DashboardV
         <span className="text-muted-foreground block truncate" title={value}>
             {value || "—"}
         </span>
-    );
-}
-
-function ViewProjectionItemLink({ item }: { item: DashboardViewProjectionItem }) {
-    const content = (
-        <>
-            <span className="block truncate font-medium" title={item.title}>
-                {item.title}
-            </span>
-            <span className="text-muted-foreground mt-1 block truncate text-xs" title={item.path}>
-                {item.path}
-            </span>
-        </>
-    );
-
-    if (!item.documentId) {
-        return <div className="min-w-0">{content}</div>;
-    }
-
-    return (
-        <Link
-            className="focus-visible:ring-ring/50 block min-w-0 rounded-sm outline-none focus-visible:ring-3"
-            to={`/documents/${item.documentId}`}
-        >
-            {content}
-        </Link>
     );
 }
 
@@ -1750,14 +1700,14 @@ function ViewKanbanCard({ item }: { item: DashboardViewProjectionItem }) {
         </>
     );
 
-    if (!item.documentId) {
+    if (!item.routePath) {
         return <div className="bg-card rounded-md border p-3 shadow-sm">{content}</div>;
     }
 
     return (
         <Link
             className="bg-card hover:bg-accent/50 focus-visible:ring-ring/50 rounded-md border p-3 shadow-sm transition-colors outline-none focus-visible:ring-3"
-            to={`/documents/${item.documentId}`}
+            to={item.routePath}
         >
             {content}
         </Link>
@@ -1787,7 +1737,7 @@ function SpaceSummary({ space }: { space: DashboardSpace }) {
                 </div>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <StatCell label="Entries" value={space.entryCount} />
+                <StatCell label="Pages" value={space.entryCount} />
                 <StatCell label="Updated" title={formatAbsoluteDateTime(space.updatedAt)} value={space.updatedLabel} />
                 <StatCell label="Findings" value={space.status === "healthy" ? 0 : 1} />
             </CardContent>
@@ -1810,7 +1760,7 @@ function WorkspaceOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                     </div>
                 </div>
                 <div className="grid w-full grid-cols-2 gap-3 sm:w-72">
-                    <Metric icon={FileText} label="Documents" value={dashboard.documents.length} />
+                    <Metric icon={FileText} label="Pages" value={dashboard.entries.length} />
                     <Metric icon={ShieldCheck} label="Findings" value={dashboard.diagnostics.length} />
                     <Metric icon={Network} label="Views" value={dashboard.views.length} />
                     <Metric icon={ArrowUpRight} label="Spaces" value={dashboard.spaces.length} />
@@ -1852,7 +1802,7 @@ function StatCell({ label, title, value }: { label: string; title?: string; valu
     );
 }
 
-function SpaceCard({ documentCount, space }: { documentCount: number; space: DashboardSpace }) {
+function SpaceCard({ entryCount, space }: { entryCount: number; space: DashboardSpace }) {
     return (
         <Link className="group block rounded-lg outline-none" to={`/spaces/${space.id}`}>
             <Card className="group-hover:bg-accent/50 group-focus-visible:border-ring group-focus-visible:ring-ring/50 flex h-full flex-col transition-colors group-focus-visible:ring-3">
@@ -1873,8 +1823,8 @@ function SpaceCard({ documentCount, space }: { documentCount: number; space: Das
                         <code className="text-muted-foreground min-w-0 truncate text-xs">{space.path}</code>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
-                        <StatCell label="Entries" value={space.entryCount} />
-                        <StatCell label="Documents" value={documentCount} />
+                        <StatCell label="Pages" value={space.entryCount} />
+                        <StatCell label="Indexed" value={entryCount} />
                         <StatCell
                             label="Updated"
                             title={formatAbsoluteDateTime(space.updatedAt)}
@@ -1887,30 +1837,30 @@ function SpaceCard({ documentCount, space }: { documentCount: number; space: Das
     );
 }
 
-function DocumentRow({ document }: { document: DashboardDocument }) {
+function EntryRow({ entry }: { entry: DashboardEntry }) {
     return (
         <Link
             className="border-border bg-card group hover:bg-accent/50 focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 flex-col gap-3 rounded-lg border p-4 shadow-sm transition-colors outline-none focus-visible:ring-3 sm:flex-row sm:items-center"
-            to={`/documents/${document.id}`}
+            to={entry.routePath}
         >
             <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-md">
                 <FileText data-icon="inline-start" />
             </div>
             <div className="min-w-0 flex-1">
-                <h3 className="truncate font-medium" title={document.title}>
-                    {document.title}
+                <h3 className="truncate font-medium" title={entry.title}>
+                    {entry.title}
                 </h3>
-                <p className="text-muted-foreground truncate text-sm" title={document.summary}>
-                    {document.summary}
+                <p className="text-muted-foreground truncate text-sm" title={entry.summary}>
+                    {entry.summary}
                 </p>
-                <code className="text-muted-foreground mt-2 block truncate text-xs" title={document.path}>
-                    {document.path}
+                <code className="text-muted-foreground mt-2 block truncate text-xs" title={entry.path}>
+                    {entry.path}
                 </code>
             </div>
             <div className="flex shrink-0 items-center gap-2 sm:justify-end">
-                <Badge variant="outline">{document.space}</Badge>
-                <span className="text-muted-foreground text-xs" title={formatAbsoluteDateTime(document.updatedAt)}>
-                    {document.updatedLabel}
+                <Badge variant="outline">{entry.space}</Badge>
+                <span className="text-muted-foreground text-xs" title={formatAbsoluteDateTime(entry.updatedAt)}>
+                    {entry.updatedLabel}
                 </span>
             </div>
         </Link>

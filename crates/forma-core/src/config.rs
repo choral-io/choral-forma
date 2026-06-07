@@ -8,8 +8,8 @@ use thiserror::Error;
 
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::path::{
-    FORMA_DIR, FORMA_LOCAL_OVERRIDES_PATH, FORMA_SPACES_PATH, FORMA_TYPES_PATH,
-    FORMA_WORKSPACE_PATH, PathError, WorkspacePath,
+    FORMA_DIR, FORMA_LOCAL_OVERRIDES_PATH, FORMA_SETTINGS_PATH, FORMA_SPACES_PATH,
+    FORMA_TYPES_PATH, PathError, WorkspacePath,
 };
 use crate::schema::validate_space_schemas;
 
@@ -47,6 +47,16 @@ pub struct WorkspaceSettings {
     #[serde(default)]
     pub supported_languages: Vec<String>,
     pub timezone: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logo: Option<WorkspaceLogoConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceLogoConfig {
+    pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alt: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
@@ -100,6 +110,8 @@ pub struct TypeInput {
 #[serde(rename_all = "camelCase")]
 pub struct SpaceDefinition {
     pub title: String,
+    #[serde(default, skip_serializing_if = "DisplayOptions::is_empty")]
+    pub display: DisplayOptions,
     #[serde(default)]
     pub description: Option<String>,
     pub include: String,
@@ -109,6 +121,19 @@ pub struct SpaceDefinition {
     #[serde(default)]
     pub conventions: SpaceConventions,
     pub schema: Value,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisplayOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order: Option<i64>,
+}
+
+impl DisplayOptions {
+    pub fn is_empty(&self) -> bool {
+        self.order.is_none()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -174,7 +199,7 @@ pub enum ConfigError {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct WorkspaceFile {
+struct SettingsFile {
     schema_version: u64,
     workspace: WorkspaceSettings,
     #[serde(default)]
@@ -209,31 +234,31 @@ pub fn load_workspace(
         return Err(ConfigError::MissingFormaDirectory);
     }
 
-    let workspace_path = root.join(FORMA_WORKSPACE_PATH);
+    let settings_path = root.join(FORMA_SETTINGS_PATH);
     let types_path = root.join(FORMA_TYPES_PATH);
     let spaces_path = root.join(FORMA_SPACES_PATH);
 
-    let mut workspace_value = read_yaml_value(&workspace_path, FORMA_WORKSPACE_PATH)?;
+    let mut settings_value = read_yaml_value(&settings_path, FORMA_SETTINGS_PATH)?;
     if mode == LoadMode::WithLocalOverrides {
         let local_override_path = root.join(FORMA_LOCAL_OVERRIDES_PATH);
         if local_override_path.exists() {
             let local_value = read_yaml_value(&local_override_path, FORMA_LOCAL_OVERRIDES_PATH)?;
-            deep_merge(&mut workspace_value, local_value);
+            deep_merge(&mut settings_value, local_value);
         }
     }
 
-    let workspace_file: WorkspaceFile =
-        serde_yml::from_value(workspace_value).map_err(|source| ConfigError::Parse {
-            path: FORMA_WORKSPACE_PATH.to_string(),
+    let settings_file: SettingsFile =
+        serde_yml::from_value(settings_value).map_err(|source| ConfigError::Parse {
+            path: FORMA_SETTINGS_PATH.to_string(),
             source,
         })?;
     let types_file: TypesFile = read_yaml(&types_path, FORMA_TYPES_PATH)?;
     let spaces_file: SpacesFile = read_yaml(&spaces_path, FORMA_SPACES_PATH)?;
 
     let config = WorkspaceConfig {
-        schema_version: workspace_file.schema_version,
-        workspace: workspace_file.workspace,
-        runtime: workspace_file.runtime,
+        schema_version: settings_file.schema_version,
+        workspace: settings_file.workspace,
+        runtime: settings_file.runtime,
         types: types_file.types,
         spaces: spaces_file.spaces,
     };
@@ -344,8 +369,8 @@ mod tests {
 
     use super::{LoadMode, load_workspace};
     use crate::path::{
-        FORMA_LOCAL_OVERRIDES_PATH, FORMA_SPACES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH,
-        FORMA_WORKSPACE_PATH,
+        FORMA_LOCAL_OVERRIDES_PATH, FORMA_SETTINGS_PATH, FORMA_SPACES_PATH, FORMA_TEMPLATES_DIR,
+        FORMA_TYPES_PATH,
     };
 
     #[test]
@@ -411,7 +436,7 @@ mod tests {
     fn write_minimal_config(root: &Path, timezone: &str, include: &str) {
         fs::create_dir_all(root.join(FORMA_TEMPLATES_DIR)).unwrap();
         fs::write(
-            root.join(FORMA_WORKSPACE_PATH),
+            root.join(FORMA_SETTINGS_PATH),
             format!(
                 "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: {timezone}\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n"
             ),

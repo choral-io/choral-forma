@@ -6,6 +6,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { ThemeModeMenu } from "@/features/theme/ThemeModeMenu";
+import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { PanelRightIcon } from "lucide-react";
@@ -16,6 +17,7 @@ interface WorkspaceRouteFrameProps {
     actions?: ReactNode;
     children: ReactNode;
     contextPanel?: ReactNode;
+    dashboard: WorkspaceDashboard;
     mobileContextPanel?: ReactNode;
     contentWidth?: "default" | "fluid" | "readable";
     description?: string;
@@ -27,6 +29,7 @@ export function WorkspaceRouteFrame({
     actions,
     children,
     contextPanel,
+    dashboard,
     mobileContextPanel,
     contentWidth = "default",
     description,
@@ -64,6 +67,7 @@ export function WorkspaceRouteFrame({
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                         <SidebarTrigger className="lg:hidden" size="icon" variant="outline" />
+                        <QuickOpenDialog dashboard={dashboard} trigger="header" triggerClassName="md:hidden" />
                         {hasContextPanel && drawerContextPanel ? (
                             <ContextDrawer panel={drawerContextPanel} title={title} />
                         ) : null}

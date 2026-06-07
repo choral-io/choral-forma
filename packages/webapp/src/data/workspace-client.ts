@@ -1,30 +1,32 @@
 export type WorkspaceHealth = "healthy" | "warning" | "failed";
 
-export interface DashboardDocument {
+export interface DashboardEntry {
     id: string;
     kind?: string;
     path: string;
+    routePath: string;
+    rawPath: string;
     title: string;
     summary: string;
     space: string;
     updatedAt?: string;
     updatedLabel: string;
     status: WorkspaceHealth;
-    body: DashboardDocumentBlock[];
+    body: DashboardEntryBlock[];
     diagnostics?: DashboardDiagnostic[];
-    relations: DashboardDocumentRelations;
+    relations: DashboardEntryRelations;
 }
 
-export type DashboardDocumentBlock =
+export type DashboardEntryBlock =
     | {
           type: "markdown";
           markdown: string;
-          outline: DashboardDocumentHeading[];
+          outline: DashboardEntryHeading[];
       }
     | {
           type: "html";
           html: string;
-          outline: DashboardDocumentHeading[];
+          outline: DashboardEntryHeading[];
       }
     | {
           type: "heading";
@@ -54,27 +56,29 @@ export type DashboardDocumentBlock =
           rows: string[][];
       };
 
-export interface DashboardDocumentHeading {
+export interface DashboardEntryHeading {
     id: string;
     level: 2 | 3;
     text: string;
 }
 
-export interface DashboardDocumentLink {
+export interface DashboardEntryLink {
     kind: "external" | "internal" | "unresolved";
     label: string;
-    targetDocumentId?: string;
+    targetEntryId?: string;
+    targetRoutePath?: string;
     targetPath: string;
 }
 
-export interface DashboardDocumentRelations {
-    outgoing: DashboardDocumentLink[];
-    backlinks: DashboardDocumentLink[];
+export interface DashboardEntryRelations {
+    outgoing: DashboardEntryLink[];
+    backlinks: DashboardEntryLink[];
 }
 
 export interface DashboardSpace {
     id: string;
     title: string;
+    display?: DisplayOptions;
     description: string;
     entryCount: number;
     path: string;
@@ -102,13 +106,19 @@ export interface DashboardDiagnostic {
 export interface DashboardView {
     id: string;
     title: string;
+    display?: DisplayOptions;
     description: string;
     kind: "list" | "table" | "kanban" | "graph";
     space?: string;
 }
 
+export interface DisplayOptions {
+    order?: number;
+}
+
 export interface DashboardViewProjectionItem {
-    documentId?: string;
+    entryId?: string;
+    routePath?: string;
     fields: Record<string, string>;
     path: string;
     title: string;
@@ -116,7 +126,8 @@ export interface DashboardViewProjectionItem {
 
 export interface DashboardGraphNode {
     space: string;
-    documentId?: string;
+    entryId?: string;
+    routePath?: string;
     id: string;
     kind?: string;
     path: string;
@@ -159,16 +170,20 @@ export type DashboardViewProjection =
 
 export interface WorkspaceDashboard {
     workspaceName: string;
+    workspaceLogo?: {
+        url: string;
+        alt: string;
+    };
     tagline: string;
     status: WorkspaceHealth;
     spaces: DashboardSpace[];
-    documents: DashboardDocument[];
+    entries: DashboardEntry[];
     diagnostics: DashboardDiagnostic[];
     views: DashboardView[];
 }
 
 export interface WorkspaceClient {
     getDashboard(): Promise<WorkspaceDashboard>;
-    getDocument(documentId: string): Promise<DashboardDocument>;
+    getEntry(entryId: string): Promise<DashboardEntry>;
     getViewProjection(viewId: string): Promise<DashboardViewProjection>;
 }

@@ -43,6 +43,10 @@ export type Diagnostic = {
 export type WorkspaceSummary = {
     root: string;
     name: string;
+    logo?: {
+        url: string;
+        alt: string;
+    };
 };
 
 export type BaseOperationResult = {
@@ -57,6 +61,7 @@ export type BaseOperationResult = {
 export type IndexSpace = {
     id: string;
     title: string;
+    display?: DisplayOptions;
     include: string;
     entryCount: number;
 };
@@ -73,6 +78,11 @@ export type IndexView = {
         include?: string[];
         exclude?: string[];
     };
+    display?: DisplayOptions;
+};
+
+export type DisplayOptions = {
+    order?: number;
 };
 
 export type ListedEntry = {
@@ -269,14 +279,17 @@ export type FilesListResult = BaseOperationResult & {
 export type DashboardSpace = {
     id: string;
     title: string;
+    display?: DisplayOptions;
     include: string;
     entryCount: number;
     status: OperationStatus;
 };
 
-export type DashboardDocumentSummary = {
+export type DashboardEntrySummary = {
     id: string;
     path: string;
+    routePath: string;
+    rawPath: string;
     space: string;
     kind?: string;
     title?: string;
@@ -291,6 +304,7 @@ export type DashboardViewSummary = {
     path: string;
     kind: string;
     title?: string;
+    display?: DisplayOptions;
     space?: string;
 };
 
@@ -298,7 +312,7 @@ export type WorkspaceDashboardResult = BaseOperationResult & {
     operation: "workspace.dashboard";
     workspace: WorkspaceSummary;
     spaces: DashboardSpace[];
-    documents: DashboardDocumentSummary[];
+    entries: DashboardEntrySummary[];
     views: DashboardViewSummary[];
 };
 

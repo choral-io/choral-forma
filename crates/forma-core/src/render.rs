@@ -322,6 +322,7 @@ pub fn render_file(
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name,
+            logo: None,
         },
         file: RenderedFile {
             path,
@@ -362,6 +363,7 @@ fn render_source_file(
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name,
+            logo: None,
         },
         file: RenderedFile {
             path,
@@ -473,6 +475,7 @@ pub fn render_view(
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name,
+            logo: None,
         },
         view: view_definition
             .as_ref()
@@ -1285,10 +1288,10 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
 
-        let result = render_file(&root, ".forma/workspace.yml", "source").unwrap();
+        let result = render_file(&root, ".forma/settings.yml", "source").unwrap();
 
         assert_eq!(result.status, crate::OperationStatus::Passed);
-        assert_eq!(result.file.path, ".forma/workspace.yml");
+        assert_eq!(result.file.path, ".forma/settings.yml");
         assert_eq!(result.file.space, None);
         assert_eq!(result.render.format, "source");
         assert!(result.render.html.is_none());

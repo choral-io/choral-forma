@@ -6,7 +6,9 @@ use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
-use crate::config::{ConfigError, LoadMode, SemanticType, WorkspaceConfig, load_workspace};
+use crate::config::{
+    ConfigError, DisplayOptions, LoadMode, SemanticType, WorkspaceConfig, load_workspace,
+};
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
 use crate::path::{
@@ -38,6 +40,8 @@ pub struct IndexWorkspace {
 pub struct IndexSpace {
     pub id: String,
     pub title: String,
+    #[serde(default, skip_serializing_if = "DisplayOptions::is_empty")]
+    pub display: DisplayOptions,
     pub include: String,
     pub entry_count: usize,
 }
@@ -55,6 +59,8 @@ pub struct IndexView {
     pub source: Option<IndexViewSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "DisplayOptions::is_empty")]
+    pub display: DisplayOptions,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -220,16 +226,15 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
         .map(|(id, space)| IndexSpace {
             id: id.clone(),
             title: space.title.clone(),
+            display: space.display.clone(),
             include: space.include.clone(),
             entry_count: path_index.by_space.get(id).map(BTreeSet::len).unwrap_or(0),
         })
         .collect::<Vec<_>>();
-    spaces.sort_by(|left, right| left.id.cmp(&right.id));
+    spaces.sort_by(|left, right| space_sort_key(left).cmp(&space_sort_key(right)));
 
     let mut views = discover_views(&root, &config, &mut diagnostics);
-    views.sort_by(|left, right| {
-        (left.path.as_str(), left.id.as_str()).cmp(&(right.path.as_str(), right.id.as_str()))
-    });
+    views.sort_by(|left, right| view_sort_key(left).cmp(&view_sort_key(right)));
     diagnostics.extend(resource_description_diagnostics(&root));
     index_entries.sort_by(|left, right| left.path.cmp(&right.path));
 
@@ -468,6 +473,10 @@ fn discover_views(
         let source = parse_view_source(&value);
         let title =
             optional_string(&value, "view.title").or_else(|| optional_string(&value, "title"));
+        let display = DisplayOptions {
+            order: optional_i64(&value, "view.display.order")
+                .or_else(|| optional_i64(&value, "display.order")),
+        };
         let valid_space = space
             .as_ref()
             .is_none_or(|space| config.spaces.contains_key(space));
@@ -489,10 +498,30 @@ fn discover_views(
             space,
             source,
             title,
+            display,
         });
     }
 
     views
+}
+
+fn space_sort_key(space: &IndexSpace) -> (bool, i64, &str, &str) {
+    (
+        space.display.order.is_none(),
+        space.display.order.unwrap_or(0),
+        space.title.as_str(),
+        space.id.as_str(),
+    )
+}
+
+fn view_sort_key(view: &IndexView) -> (bool, i64, &str, &str, &str) {
+    (
+        view.display.order.is_none(),
+        view.display.order.unwrap_or(0),
+        view.title.as_deref().unwrap_or(view.id.as_str()),
+        view.id.as_str(),
+        view.path.as_str(),
+    )
 }
 
 fn resource_description_diagnostics(root: &Path) -> Vec<Diagnostic> {
@@ -912,6 +941,10 @@ fn optional_string(value: &Value, field: &str) -> Option<String> {
     required_string(value, field)
 }
 
+fn optional_i64(value: &Value, field: &str) -> Option<i64> {
+    value_at_path(value, field).and_then(Value::as_i64)
+}
+
 fn parse_view_source(value: &Value) -> Option<IndexViewSource> {
     let source = value_at_path(value, "view.source")?;
     let kind = optional_string(source, "kind")?;
@@ -1055,7 +1088,7 @@ mod tests {
 
     use super::*;
     use crate::path::{
-        FORMA_LOCAL_OVERRIDES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_WORKSPACE_PATH,
+        FORMA_LOCAL_OVERRIDES_PATH, FORMA_SETTINGS_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH,
     };
 
     #[test]
@@ -1414,7 +1447,7 @@ mod tests {
         fs::create_dir_all(root.join(FORMA_TEMPLATES_DIR)).unwrap();
         fs::create_dir_all(root.join(FORMA_VIEWS_DIR)).unwrap();
         fs::write(
-            root.join(FORMA_WORKSPACE_PATH),
+            root.join(FORMA_SETTINGS_PATH),
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n",
         )
         .unwrap();

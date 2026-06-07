@@ -10,7 +10,7 @@ use crate::config::{
     CreateInput, RuntimeValueProvider, SemanticType, SpaceDefinition, WorkspaceConfig,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
-use crate::path::{FORMA_SPACES_PATH, FORMA_WORKSPACE_PATH, slugify_path_segment};
+use crate::path::{FORMA_SETTINGS_PATH, FORMA_SPACES_PATH, slugify_path_segment};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -280,7 +280,7 @@ pub fn resolve_runtime_values(config: &WorkspaceConfig, workspace_root: &str) ->
                     "runtime.value.unresolved",
                     format!("Runtime value `{name}` could not be resolved."),
                 )
-                .with_path(FORMA_WORKSPACE_PATH)
+                .with_path(FORMA_SETTINGS_PATH)
                 .with_location(DiagnosticLocation::Config {
                     field: format!("runtime.values.{name}"),
                 })
@@ -293,7 +293,7 @@ pub fn resolve_runtime_values(config: &WorkspaceConfig, workspace_root: &str) ->
                             "runtime.value.unresolved",
                             format!("Required runtime value `{name}` could not be resolved."),
                         )
-                        .with_path(FORMA_WORKSPACE_PATH)
+                        .with_path(FORMA_SETTINGS_PATH)
                         .with_location(DiagnosticLocation::Config {
                             field: format!("runtime.values.{name}"),
                         }),
@@ -896,6 +896,7 @@ mod tests {
             schema_version: 1,
             workspace: WorkspaceSettings {
                 name: "Acme".to_string(),
+                logo: None,
                 canonical_language: "en".to_string(),
                 supported_languages: vec!["en".to_string()],
                 timezone: "UTC".to_string(),
@@ -922,6 +923,7 @@ mod tests {
                 "todos".to_string(),
                 SpaceDefinition {
                     title: "Todos".to_string(),
+                    display: crate::config::DisplayOptions::default(),
                     description: None,
                     include: "todos/**/*.md".to_string(),
                     template: format!("{FORMA_TEMPLATES_DIR}/todo.md"),

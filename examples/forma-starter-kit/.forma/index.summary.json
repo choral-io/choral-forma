@@ -1,0 +1,355 @@
+{
+  "schemaVersion": 1,
+  "workspace": {
+    "name": "Choral Forma Example",
+    "canonicalLanguage": "en",
+    "supportedLanguages": [
+      "en"
+    ]
+  },
+  "spaces": [
+    {
+      "id": "notes",
+      "title": "Notes",
+      "display": {
+        "order": 10
+      },
+      "include": "notes/**/*.md",
+      "entryCount": 6
+    },
+    {
+      "id": "todos",
+      "title": "Todos",
+      "display": {
+        "order": 20
+      },
+      "include": "todos/**/*.md",
+      "entryCount": 4
+    },
+    {
+      "id": "users",
+      "title": "Users",
+      "display": {
+        "order": 30
+      },
+      "include": "users/**/*.md",
+      "entryCount": 2
+    }
+  ],
+  "views": [
+    {
+      "id": "graph",
+      "path": ".forma/views/graph.md",
+      "surface": "page",
+      "mode": "graph",
+      "source": {
+        "kind": "workspace",
+        "include": [
+          "**/*.md"
+        ],
+        "exclude": [
+          ".forma/**"
+        ]
+      },
+      "title": "Graph",
+      "display": {
+        "order": 10
+      }
+    },
+    {
+      "id": "guide",
+      "path": ".forma/views/guide.md",
+      "surface": "page",
+      "mode": "graph",
+      "space": "notes",
+      "source": {
+        "kind": "workspace",
+        "include": [
+          "notes/**/*.md"
+        ]
+      },
+      "title": "Guide",
+      "display": {
+        "order": 20
+      }
+    },
+    {
+      "id": "notes",
+      "path": ".forma/views/notes.md",
+      "surface": "page",
+      "mode": "table",
+      "space": "notes",
+      "title": "Notes",
+      "display": {
+        "order": 30
+      }
+    },
+    {
+      "id": "recent",
+      "path": ".forma/views/recent.md",
+      "surface": "page",
+      "mode": "list",
+      "space": "notes",
+      "title": "Recent",
+      "display": {
+        "order": 40
+      }
+    },
+    {
+      "id": "todos",
+      "path": ".forma/views/todos.md",
+      "surface": "page",
+      "mode": "kanban",
+      "space": "todos",
+      "title": "Todos",
+      "display": {
+        "order": 50
+      }
+    },
+    {
+      "id": "users",
+      "path": ".forma/views/users.md",
+      "surface": "page",
+      "mode": "table",
+      "space": "users",
+      "title": "Users",
+      "display": {
+        "order": 60
+      }
+    }
+  ],
+  "entries": [
+    {
+      "path": "notes/connect-pages.md",
+      "space": "notes",
+      "kind": "note",
+      "title": "Connect Pages",
+      "summary": "Use Markdown links and wikilinks to create references, backlinks, and graph edges.",
+      "refs": [
+        {
+          "source": "body",
+          "targetPath": "notes/getting-started.md",
+          "targetTitle": "Getting Started",
+          "intent": "link"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/markdown-reader.md",
+          "targetTitle": "Markdown Reader",
+          "intent": "link"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/welcome-to-choral-forma.md",
+          "targetTitle": "Welcome to Choral Forma",
+          "intent": "link"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/saved-views.md",
+          "targetTitle": "Saved Views",
+          "intent": "link"
+        },
+        {
+          "source": "body",
+          "targetPath": "todos/review-starter-workspace.md",
+          "targetTitle": "Review Starter Workspace",
+          "intent": "link"
+        }
+      ]
+    },
+    {
+      "path": "notes/getting-started.md",
+      "space": "notes",
+      "kind": "note",
+      "title": "Getting Started",
+      "summary": "Run the starter workspace with forma serve and explore the WebApp.",
+      "refs": [
+        {
+          "source": "body",
+          "targetPath": "notes/welcome-to-choral-forma.md",
+          "targetTitle": "Welcome to Choral Forma",
+          "intent": "link"
+        }
+      ]
+    },
+    {
+      "path": "notes/markdown-reader.md",
+      "space": "notes",
+      "kind": "note",
+      "title": "Markdown Reader",
+      "summary": "A compact demonstration of Markdown rendering in the read-only WebApp.",
+      "refs": [
+        {
+          "source": "body",
+          "targetPath": "https://commonmark.org/",
+          "targetTitle": "CommonMark",
+          "intent": "link"
+        }
+      ]
+    },
+    {
+      "path": "notes/organize-with-spaces.md",
+      "space": "notes",
+      "kind": "note",
+      "title": "Organize With Spaces",
+      "summary": "Spaces are explicit partitions for notes, todos, users, or other page types."
+    },
+    {
+      "path": "notes/saved-views.md",
+      "space": "notes",
+      "kind": "note",
+      "title": "Saved Views",
+      "summary": "Saved views project the same Markdown workspace as lists, tables, kanban boards, or graphs.",
+      "refs": [
+        {
+          "source": "body",
+          "targetPath": "todos/add-team-notes.md",
+          "targetTitle": "Add Team Notes",
+          "intent": "link"
+        }
+      ]
+    },
+    {
+      "path": "notes/welcome-to-choral-forma.md",
+      "space": "notes",
+      "kind": "note",
+      "title": "Welcome to Choral Forma",
+      "summary": "A short tour of the starter workspace and read-only WebApp.",
+      "refs": [
+        {
+          "source": "body",
+          "targetPath": "notes/getting-started.md",
+          "targetTitle": "Getting Started",
+          "intent": "link"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/organize-with-spaces.md",
+          "targetTitle": "Organize With Spaces",
+          "intent": "link"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/markdown-reader.md",
+          "targetTitle": "Markdown Reader",
+          "intent": "link"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/connect-pages.md",
+          "targetTitle": "Connect Pages",
+          "intent": "link"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/saved-views.md",
+          "targetTitle": "Saved Views",
+          "intent": "link"
+        }
+      ]
+    },
+    {
+      "path": "todos/add-team-notes.md",
+      "space": "todos",
+      "kind": "todo",
+      "title": "Add Team Notes",
+      "summary": "Replace the starter guide with a few real team pages.",
+      "refs": [
+        {
+          "source": "frontmatter",
+          "field": "assignees",
+          "targetPath": "users/technical-writer.md",
+          "semanticType": "user",
+          "intent": "reference"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/organize-with-spaces.md",
+          "targetTitle": "Organize With Spaces",
+          "intent": "link"
+        }
+      ]
+    },
+    {
+      "path": "todos/connect-related-pages.md",
+      "space": "todos",
+      "kind": "todo",
+      "title": "Connect Related Pages",
+      "summary": "Add links between pages so references, backlinks, and graph views become useful.",
+      "refs": [
+        {
+          "source": "frontmatter",
+          "field": "assignees",
+          "targetPath": "users/product-lead.md",
+          "semanticType": "user",
+          "intent": "reference"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/connect-pages.md",
+          "targetTitle": "Connect Pages",
+          "intent": "link"
+        }
+      ]
+    },
+    {
+      "path": "todos/publish-read-only-workspace.md",
+      "space": "todos",
+      "kind": "todo",
+      "title": "Publish Read-only Workspace",
+      "summary": "Serve the workspace locally and share the read-only browser with the team.",
+      "refs": [
+        {
+          "source": "frontmatter",
+          "field": "assignees",
+          "targetPath": "users/technical-writer.md",
+          "semanticType": "user",
+          "intent": "reference"
+        }
+      ]
+    },
+    {
+      "path": "todos/review-starter-workspace.md",
+      "space": "todos",
+      "kind": "todo",
+      "title": "Review Starter Workspace",
+      "summary": "Walk through the guide notes and confirm the starter kit makes sense.",
+      "refs": [
+        {
+          "source": "frontmatter",
+          "field": "assignees",
+          "targetPath": "users/product-lead.md",
+          "semanticType": "user",
+          "intent": "reference"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/welcome-to-choral-forma.md",
+          "targetTitle": "Welcome to Choral Forma",
+          "intent": "link"
+        },
+        {
+          "source": "body",
+          "targetPath": "notes/markdown-reader.md",
+          "targetTitle": "Markdown Reader",
+          "intent": "link"
+        }
+      ]
+    },
+    {
+      "path": "users/product-lead.md",
+      "space": "users",
+      "kind": "user",
+      "title": "Product Lead",
+      "summary": "Owns the starter workspace structure and reader journey."
+    },
+    {
+      "path": "users/technical-writer.md",
+      "space": "users",
+      "kind": "user",
+      "title": "Technical Writer",
+      "summary": "Maintains readable Markdown examples and setup instructions."
+    }
+  ]
+}

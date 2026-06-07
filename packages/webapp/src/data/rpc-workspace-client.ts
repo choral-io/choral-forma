@@ -14,10 +14,10 @@ import { formatRelativeDateTime } from "@/lib/date-time";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 import type {
     DashboardDiagnostic,
-    DashboardDocument,
-    DashboardDocumentBlock,
-    DashboardDocumentHeading,
-    DashboardDocumentLink,
+    DashboardEntry,
+    DashboardEntryBlock,
+    DashboardEntryHeading,
+    DashboardEntryLink,
     DashboardSpace,
     DashboardView,
     DashboardViewProjection,
@@ -40,20 +40,20 @@ export class RpcWorkspaceClient implements WorkspaceClient {
         return this.#dashboard;
     }
 
-    async getDocument(documentId: string): Promise<DashboardDocument> {
+    async getEntry(entryId: string): Promise<DashboardEntry> {
         const dashboard = this.#dashboard ?? (await this.getDashboard());
-        const document = dashboard.documents.find((item) => item.id === documentId);
+        const entry = dashboard.entries.find((item) => item.id === entryId);
 
-        if (!document) {
-            throw new Error(`Document not found: ${documentId}`);
+        if (!entry) {
+            throw new Error(`Entry not found: ${entryId}`);
         }
 
         const [renderResult, referencesResult] = await Promise.all([
-            this.#rpc.renderFile(document.path),
-            this.#rpc.listFileReferences(document.path),
+            this.#rpc.renderFile(entry.path),
+            this.#rpc.listFileReferences(entry.path),
         ]);
 
-        return mapDocumentDetail(document, renderResult, referencesResult, dashboard.documents);
+        return mapEntryDetail(entry, renderResult, referencesResult, dashboard.entries);
     }
 
     async getViewProjection(viewId: string): Promise<DashboardViewProjection> {
@@ -64,31 +64,33 @@ export class RpcWorkspaceClient implements WorkspaceClient {
             throw new Error(`View render output not found: ${viewId}`);
         }
 
-        return mapViewProjection(result.render, dashboard.documents);
+        return mapViewProjection(result.render, dashboard.entries);
     }
 }
 
 function mapWorkspaceDashboard(result: WorkspaceDashboardResult): WorkspaceDashboard {
-    const documents = result.documents.map(mapDocument);
+    const entries = result.entries.map(mapEntry);
 
     return {
         workspaceName: result.workspace.name,
+        workspaceLogo: result.workspace.logo,
         tagline: "Repository-backed workspace knowledge.",
         status: mapStatus(result.status),
-        spaces: result.spaces.map((space) => mapSpace(space, documents)),
-        documents,
+        spaces: result.spaces.map((space) => mapSpace(space, entries)),
+        entries,
         diagnostics: (result.diagnostics ?? []).map(mapDiagnostic),
         views: result.views.map(mapView),
     };
 }
 
-function mapSpace(space: WorkspaceDashboardResult["spaces"][number], documents: DashboardDocument[]): DashboardSpace {
-    const updatedAt = latestUpdatedAt(documents.filter((document) => document.space === space.id));
+function mapSpace(space: WorkspaceDashboardResult["spaces"][number], entries: DashboardEntry[]): DashboardSpace {
+    const updatedAt = latestUpdatedAt(entries.filter((entry) => entry.space === space.id));
 
     return {
         id: space.id,
         title: space.title,
-        description: `Entries matched by ${space.include}.`,
+        display: space.display,
+        description: `Pages matched by ${space.include}.`,
         entryCount: space.entryCount,
         path: space.include,
         status: mapStatus(space.status),
@@ -97,23 +99,24 @@ function mapSpace(space: WorkspaceDashboardResult["spaces"][number], documents: 
     };
 }
 
-function mapDocument(document: WorkspaceDashboardResult["documents"][number]): DashboardDocument {
+function mapEntry(entry: WorkspaceDashboardResult["entries"][number]): DashboardEntry {
     return {
-        id: document.id,
-        kind: document.kind,
-        path: document.path,
-        title: document.title ?? document.path,
-        summary: document.summary ?? "No summary provided.",
-        space: document.space,
-        updatedAt: document.updatedAt,
-        updatedLabel: formatRelativeDateTime(document.updatedAt),
-        status: mapStatus(document.status),
+        id: entry.id,
+        kind: entry.kind,
+        path: entry.path,
+        routePath: entry.routePath,
+        rawPath: entry.rawPath,
+        title: entry.title ?? entry.path,
+        summary: entry.summary ?? "No summary provided.",
+        space: entry.space,
+        updatedAt: entry.updatedAt,
+        updatedLabel: formatRelativeDateTime(entry.updatedAt),
+        status: mapStatus(entry.status),
         body: [
             {
                 type: "paragraph",
                 text:
-                    document.summary ??
-                    "Document rendering will be loaded from file.render in the next backend wiring step.",
+                    entry.summary ?? "Entry rendering will be loaded from file.render in the next backend wiring step.",
             },
         ],
         diagnostics: [],
@@ -124,28 +127,28 @@ function mapDocument(document: WorkspaceDashboardResult["documents"][number]): D
     };
 }
 
-function mapDocumentDetail(
-    document: DashboardDocument,
+function mapEntryDetail(
+    entry: DashboardEntry,
     renderResult: FileRenderResult,
     referencesResult: FileReferencesResult,
-    documents: DashboardDocument[],
-): DashboardDocument {
+    entries: DashboardEntry[],
+): DashboardEntry {
     return {
-        ...document,
-        title: renderResult.file.title ?? document.title,
-        summary: document.summary,
-        space: renderResult.file.space ?? document.space,
+        ...entry,
+        title: renderResult.file.title ?? entry.title,
+        summary: entry.summary,
+        space: renderResult.file.space ?? entry.space,
         status: mapStatus(renderResult.status),
-        body: mapRenderedBody(renderResult, documents),
+        body: mapRenderedBody(renderResult, entries),
         diagnostics: mergeDiagnostics(renderResult.diagnostics, referencesResult.diagnostics),
         relations: {
-            outgoing: referencesResult.outgoing.map((edge) => mapReferenceEdge(edge, "outgoing", documents)),
-            backlinks: referencesResult.backlinks.map((edge) => mapReferenceEdge(edge, "backlink", documents)),
+            outgoing: referencesResult.outgoing.map((edge) => mapReferenceEdge(edge, "outgoing", entries)),
+            backlinks: referencesResult.backlinks.map((edge) => mapReferenceEdge(edge, "backlink", entries)),
         },
     };
 }
 
-function mapRenderedBody(result: FileRenderResult, documents: DashboardDocument[]): DashboardDocumentBlock[] {
+function mapRenderedBody(result: FileRenderResult, entries: DashboardEntry[]): DashboardEntryBlock[] {
     if (result.render.markdown) {
         return [
             {
@@ -157,7 +160,7 @@ function mapRenderedBody(result: FileRenderResult, documents: DashboardDocument[
     }
 
     if (result.render.html) {
-        return [htmlToDocumentBlock(result.render.html, result.render.headings ?? [], result.file.path, documents)];
+        return [htmlToEntryBlock(result.render.html, result.render.headings ?? [], result.file.path, entries)];
     }
 
     if (result.render.source) {
@@ -173,17 +176,17 @@ function mapRenderedBody(result: FileRenderResult, documents: DashboardDocument[
     return [
         {
             type: "paragraph",
-            text: "No renderable document body was returned by file.render.",
+            text: "No renderable entry body was returned by file.render.",
         },
     ];
 }
 
-function htmlToDocumentBlock(
+function htmlToEntryBlock(
     html: string,
-    headings: DashboardDocumentHeading[],
+    headings: DashboardEntryHeading[],
     currentPath: string,
-    documents: DashboardDocument[],
-): DashboardDocumentBlock {
+    entries: DashboardEntry[],
+): DashboardEntryBlock {
     const parser = new DOMParser();
     const document = parser.parseFromString(html, "text/html");
 
@@ -205,10 +208,10 @@ function htmlToDocumentBlock(
             continue;
         }
 
-        const targetPath = normalizeWorkspaceHref(href, currentPath, documents);
-        const targetDocument = documents.find((document) => document.path === targetPath.path);
-        if (targetDocument) {
-            anchor.setAttribute("href", `/documents/${targetDocument.id}${targetPath.hash}`);
+        const targetPath = normalizeWorkspaceHref(href, currentPath, entries);
+        const targetEntry = entries.find((entry) => entry.path === targetPath.path);
+        if (targetEntry) {
+            anchor.setAttribute("href", `${targetEntry.routePath}${targetPath.hash}`);
         }
     }
 
@@ -222,26 +225,24 @@ function htmlToDocumentBlock(
 function mapReferenceEdge(
     edge: ReferenceEdge,
     direction: "outgoing" | "backlink",
-    documents: DashboardDocument[],
-): DashboardDocumentLink {
+    entries: DashboardEntry[],
+): DashboardEntryLink {
     const targetPath = direction === "outgoing" ? edge.targetPath : edge.sourcePath;
     const targetTitle =
         direction === "outgoing" ? (edge.targetTitle ?? edge.targetPath) : (edge.sourceTitle ?? edge.sourcePath);
-    const targetDocument = documents.find((document) => document.path === targetPath);
+    const targetEntry = entries.find((entry) => entry.path === targetPath);
 
     return {
-        kind: mapReferenceKind(edge, targetDocument),
+        kind: mapReferenceKind(edge, targetEntry),
         label: targetTitle,
-        targetDocumentId: targetDocument?.id,
+        targetEntryId: targetEntry?.id,
+        targetRoutePath: targetEntry?.routePath,
         targetPath,
     };
 }
 
-function mapReferenceKind(
-    edge: ReferenceEdge,
-    targetDocument: DashboardDocument | undefined,
-): DashboardDocumentLink["kind"] {
-    if (targetDocument) {
+function mapReferenceKind(edge: ReferenceEdge, targetEntry: DashboardEntry | undefined): DashboardEntryLink["kind"] {
+    if (targetEntry) {
         return "internal";
     }
 
@@ -252,17 +253,18 @@ function mapView(view: WorkspaceDashboardResult["views"][number]): DashboardView
     return {
         id: view.id,
         title: view.title ?? view.id,
+        display: view.display,
         space: view.space,
         description: view.space ? `Configured ${view.kind} view over ${view.space}.` : `Configured ${view.kind} view.`,
         kind: mapViewKind(view.kind),
     };
 }
 
-function mapViewProjection(render: ViewRenderOutput, documents: DashboardDocument[]): DashboardViewProjection {
+function mapViewProjection(render: ViewRenderOutput, entries: DashboardEntry[]): DashboardViewProjection {
     if (render.kind === "list") {
         return {
             kind: "list",
-            items: render.items.map((item) => mapViewProjectionItem(item, documents)),
+            items: render.items.map((item) => mapViewProjectionItem(item, entries)),
         };
     }
 
@@ -272,7 +274,7 @@ function mapViewProjection(render: ViewRenderOutput, documents: DashboardDocumen
             columns: render.columns.map((column) => ({
                 id: column.id,
                 label: column.label,
-                items: column.items.map((item) => mapViewProjectionItem(item, documents)),
+                items: column.items.map((item) => mapViewProjectionItem(item, entries)),
             })),
         };
     }
@@ -281,15 +283,16 @@ function mapViewProjection(render: ViewRenderOutput, documents: DashboardDocumen
         return {
             kind: "graph",
             nodes: render.nodes.map((node) => {
-                const document = documents.find((document) => document.path === node.path);
+                const entry = entries.find((entry) => entry.path === node.path);
 
                 return {
                     space: node.space,
-                    documentId: document?.id,
+                    entryId: entry?.id,
+                    routePath: entry?.routePath,
                     id: node.id,
                     kind: node.kind,
                     path: node.path,
-                    title: node.title ?? document?.title ?? node.path,
+                    title: node.title ?? entry?.title ?? node.path,
                 };
             }),
             edges: render.edges.map((edge) => ({
@@ -307,20 +310,21 @@ function mapViewProjection(render: ViewRenderOutput, documents: DashboardDocumen
     return {
         kind: "table",
         columns: render.columns,
-        items: render.items.map((item) => mapViewProjectionItem(item, documents)),
+        items: render.items.map((item) => mapViewProjectionItem(item, entries)),
     };
 }
 
-function mapViewProjectionItem(item: ViewRenderItem, documents: DashboardDocument[]): DashboardViewProjectionItem {
-    const document = documents.find((document) => document.path === item.path);
+function mapViewProjectionItem(item: ViewRenderItem, entries: DashboardEntry[]): DashboardViewProjectionItem {
+    const entry = entries.find((entry) => entry.path === item.path);
 
     return {
-        documentId: document?.id,
+        entryId: entry?.id,
+        routePath: entry?.routePath,
         fields: Object.fromEntries(
             Object.entries(item.fields ?? {}).map(([key, value]) => [key, formatViewField(key, value)]),
         ),
         path: item.path,
-        title: item.title ?? document?.title ?? item.path,
+        title: item.title ?? entry?.title ?? item.path,
     };
 }
 
@@ -406,9 +410,9 @@ function mapViewKind(kind: string): DashboardView["kind"] {
     return kind === "table" || kind === "kanban" || kind === "graph" || kind === "list" ? kind : "list";
 }
 
-function latestUpdatedAt(documents: DashboardDocument[]): string | undefined {
-    return documents
-        .map((document) => document.updatedAt)
+function latestUpdatedAt(entries: DashboardEntry[]): string | undefined {
+    return entries
+        .map((entry) => entry.updatedAt)
         .filter((value): value is string => Boolean(value))
         .sort((left, right) => new Date(right).valueOf() - new Date(left).valueOf())[0];
 }
