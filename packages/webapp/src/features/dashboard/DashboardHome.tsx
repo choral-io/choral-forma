@@ -52,6 +52,7 @@ import {
 import { formatAbsoluteDateTime } from "@/lib/date-time";
 import { cn } from "@/lib/utils";
 
+import { formatEntrySupportedLanguages } from "./entry-languages";
 import { MarkdownReader } from "./MarkdownReader";
 import { ViewGraphProjection } from "./ViewGraphProjection";
 
@@ -577,8 +578,13 @@ function EntryPage({
                         <CardDescription className="mt-2">{entry.summary}</CardDescription>
                     </div>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                     <StatCell label="Space" value={entry.space} />
+                    <StatCell
+                        label="Languages"
+                        title={formatEntrySupportedLanguages(entry)}
+                        value={formatEntrySupportedLanguages(entry)}
+                    />
                     <StatCell
                         label="Updated"
                         title={formatAbsoluteDateTime(entry.updatedAt)}
@@ -770,6 +776,7 @@ function EntryContextPanel({
                             </code>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
+                            <ContextStat label="Languages" value={formatEntrySupportedLanguages(entry)} />
                             <ContextStat
                                 label="Updated"
                                 title={formatAbsoluteDateTime(entry.updatedAt)}

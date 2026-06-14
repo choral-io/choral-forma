@@ -152,7 +152,8 @@ Document detail should keep reading at the center:
 
 - rendered Markdown as the default view;
 - source preview as a deliberate secondary view;
-- metadata summary;
+- metadata summary, including the canonical page language and available
+  language variants when the read model exposes them;
 - backlinks and outgoing references;
 - diagnostics attached to the document;
 - resource preview for supported media files.
@@ -162,7 +163,8 @@ The document surface should not become a Markdown editor.
 The right-side document panel should be route context, not a second body
 column. For document routes it uses a compact tabbed structure:
 
-- `Context`: overview fields, explicit references, backlinks, and diagnostics;
+- `Context`: overview fields including supported languages, explicit
+  references, backlinks, and diagnostics;
 - `Outline`: the current document title plus heading navigation.
 
 On smaller screens the context panel should become a sheet-style overlay
