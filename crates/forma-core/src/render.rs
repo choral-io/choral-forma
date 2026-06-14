@@ -106,7 +106,7 @@ pub enum ViewRenderOutput {
         items: Vec<ViewRenderItem>,
     },
     Table {
-        columns: Vec<String>,
+        columns: Vec<ViewRenderColumn>,
         items: Vec<ViewRenderItem>,
     },
     Kanban {
@@ -126,6 +126,13 @@ pub struct ViewRenderItem {
     pub title: Option<String>,
     #[serde(default)]
     pub fields: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewRenderColumn {
+    pub field: String,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -164,15 +171,10 @@ pub struct GraphRenderEdge {
     pub field: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ViewFile {
-    view: Option<ViewDefinition>,
-}
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ViewDefinition {
+    #[serde(default = "default_view_surface")]
     surface: String,
     mode: String,
     space: Option<String>,
@@ -184,21 +186,54 @@ struct ViewDefinition {
     sort: Vec<SortDefinition>,
 }
 
+fn default_view_surface() -> String {
+    "page".to_string()
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ViewSource {
-    pub kind: String,
+    #[serde(rename = "type")]
+    pub source_type: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub include: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exclude: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub taxonomy: BTreeMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TableDefinition {
     #[serde(default)]
-    columns: Vec<String>,
+    columns: Vec<TableColumnDefinition>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum TableColumnDefinition {
+    Field(String),
+    Object { field: String, label: String },
+}
+
+impl TableColumnDefinition {
+    fn field(&self) -> &str {
+        match self {
+            Self::Field(field) => field,
+            Self::Object { field, .. } => field,
+        }
+    }
+
+    fn into_render_column(self) -> ViewRenderColumn {
+        match self {
+            Self::Field(field) => ViewRenderColumn {
+                label: field.clone(),
+                field,
+            },
+            Self::Object { field, label } => ViewRenderColumn { field, label },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -207,6 +242,8 @@ struct SortDefinition {
     field: String,
     #[serde(default)]
     direction: SortDirection,
+    #[serde(default)]
+    order: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
@@ -231,6 +268,8 @@ struct KanbanColumnDefinition {
     label: String,
     icon: Option<String>,
     query: Option<QueryDefinition>,
+    #[serde(default)]
+    sort: Vec<SortDefinition>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -421,7 +460,7 @@ pub fn render_view(
     let view_definition = parse_view_definition(&document, &view_path, &mut diagnostics);
     let has_mount = document.references.iter().any(|reference| {
         reference.intent == FormaReferenceIntent::View && reference.target.is_empty()
-    });
+    }) || document.body.contains("<!-- forma:content -->");
     if !has_mount {
         diagnostics.push(
             Diagnostic::error(
@@ -497,12 +536,7 @@ fn parse_view_definition(
         );
         return None;
     };
-    let Ok(file) = serde_yml::from_value::<ViewFile>(value) else {
-        diagnostics
-            .push(Diagnostic::error("view.invalid", "View definition is invalid.").with_path(path));
-        return None;
-    };
-    let Some(view) = file.view else {
+    let Ok(view) = serde_yml::from_value::<ViewDefinition>(value) else {
         diagnostics
             .push(Diagnostic::error("view.invalid", "View definition is invalid.").with_path(path));
         return None;
@@ -526,7 +560,7 @@ fn view_definition_is_valid(
         valid = false;
     }
     if let Some(source) = &definition.source
-        && source.kind != "workspace"
+        && source.source_type != "pages"
     {
         valid = false;
     }
@@ -606,13 +640,13 @@ fn query_node_is_valid(node: &QueryNode, path: &str, diagnostics: &mut Vec<Diagn
         );
         return false;
     }
-    if let Some(target) = &node.target
+    if let Some(target) = query_node_target(node)
         && !is_supported_target(target)
     {
         diagnostics.push(
             Diagnostic::error("view.queryInvalid", "View query target is invalid.")
                 .with_path(path)
-                .with_actual(target.clone()),
+                .with_actual(target.to_string()),
         );
         valid = false;
     }
@@ -635,7 +669,7 @@ fn is_supported_target(target: &str) -> bool {
     matches!(
         target,
         "entry.space" | "entry.path" | "entry.kind" | "entry.title"
-    ) || target.starts_with("frontmatter.")
+    ) || target.starts_with("fields.")
 }
 
 fn rendered_view(
@@ -663,9 +697,10 @@ fn rendered_view(
 
 fn workspace_source() -> ViewSource {
     ViewSource {
-        kind: "workspace".to_string(),
+        source_type: "pages".to_string(),
         include: Vec::new(),
         exclude: Vec::new(),
+        taxonomy: BTreeMap::new(),
     }
 }
 
@@ -697,8 +732,13 @@ fn render_view_definition(
                 .as_ref()
                 .map(|table| table.columns.clone())
                 .unwrap_or_default();
+            let render_columns = columns
+                .iter()
+                .cloned()
+                .map(TableColumnDefinition::into_render_column)
+                .collect();
             Some(ViewRenderOutput::Table {
-                columns: columns.clone(),
+                columns: render_columns,
                 items: items
                     .into_iter()
                     .map(|item| item.into_view_item(&columns))
@@ -715,10 +755,10 @@ fn render_view_definition(
                         id: column.id.clone(),
                         label: column.label.clone(),
                         icon: column.icon.clone(),
-                        items: items
-                            .iter()
+                        items: sorted_column_items(&items, column)
+                            .into_iter()
                             .filter(|item| column_matches(item, column))
-                            .map(|item| item.clone().into_all_fields_view_item())
+                            .map(RenderCandidate::into_all_fields_view_item)
                             .collect(),
                     })
                     .collect(),
@@ -806,13 +846,12 @@ impl RenderCandidate {
         })
     }
 
-    fn into_view_item(self, columns: &[String]) -> ViewRenderItem {
+    fn into_view_item(self, columns: &[TableColumnDefinition]) -> ViewRenderItem {
         let fields = columns
             .iter()
             .filter_map(|column| {
-                value_at_path(&self.metadata, column)
-                    .cloned()
-                    .map(|value| (column.clone(), value))
+                let field = column.field();
+                value_for_target(&self, field).map(|value| (field.to_string(), value))
             })
             .collect();
         ViewRenderItem {
@@ -846,9 +885,15 @@ fn read_entry_metadata(root: &Path, path: &str) -> Option<Value> {
 fn apply_sort(items: &mut [RenderCandidate], sort: &[SortDefinition]) {
     for sort in sort.iter().rev() {
         items.sort_by(|left, right| {
-            let left_value = comparable_value(value_at_path(&left.metadata, &sort.field));
-            let right_value = comparable_value(value_at_path(&right.metadata, &sort.field));
-            let ordering = left_value.cmp(&right_value);
+            let ordering = if sort.order.is_empty() {
+                let left_value = comparable_value(value_for_target(left, &sort.field).as_ref());
+                let right_value = comparable_value(value_for_target(right, &sort.field).as_ref());
+                left_value.cmp(&right_value)
+            } else {
+                ordered_value_rank(value_for_target(left, &sort.field).as_ref(), &sort.order).cmp(
+                    &ordered_value_rank(value_for_target(right, &sort.field).as_ref(), &sort.order),
+                )
+            };
             if sort.direction == SortDirection::Desc {
                 ordering.reverse()
             } else {
@@ -856,6 +901,25 @@ fn apply_sort(items: &mut [RenderCandidate], sort: &[SortDefinition]) {
             }
         });
     }
+}
+
+fn sorted_column_items(
+    items: &[RenderCandidate],
+    column: &KanbanColumnDefinition,
+) -> Vec<RenderCandidate> {
+    let mut items = items.to_vec();
+    apply_sort(&mut items, &column.sort);
+    items
+}
+
+fn ordered_value_rank(value: Option<&Value>, order: &[String]) -> usize {
+    let Some(value) = value.and_then(Value::as_str) else {
+        return order.len();
+    };
+    order
+        .iter()
+        .position(|candidate| candidate == value)
+        .unwrap_or(order.len())
 }
 
 fn column_matches(item: &RenderCandidate, column: &KanbanColumnDefinition) -> bool {
@@ -866,7 +930,7 @@ fn column_matches(item: &RenderCandidate, column: &KanbanColumnDefinition) -> bo
 }
 
 fn view_candidate_matches(item: &RenderCandidate, definition: &ViewDefinition) -> bool {
-    if !source_matches(&item.path, definition.source.as_ref()) {
+    if !source_matches(item, definition.source.as_ref()) {
         return false;
     }
     if let Some(space) = &definition.space
@@ -880,16 +944,26 @@ fn view_candidate_matches(item: &RenderCandidate, definition: &ViewDefinition) -
         .is_none_or(|query| query_matches(item, query))
 }
 
-fn source_matches(path: &str, source: Option<&ViewSource>) -> bool {
+fn source_matches(item: &RenderCandidate, source: Option<&ViewSource>) -> bool {
     let Some(source) = source else {
         return true;
     };
-    if source.kind != "workspace" {
+    if source.source_type != "pages" {
         return false;
     }
-    let include_match = source.include.is_empty() || path_matches_any(path, &source.include);
-    let exclude_match = path_matches_any(path, &source.exclude);
-    include_match && !exclude_match
+    let include_match = source.include.is_empty() || path_matches_any(&item.path, &source.include);
+    let exclude_match = path_matches_any(&item.path, &source.exclude);
+    include_match && !exclude_match && source_taxonomy_matches(item, source)
+}
+
+fn source_taxonomy_matches(item: &RenderCandidate, source: &ViewSource) -> bool {
+    source.taxonomy.iter().all(|(taxonomy, terms)| {
+        if taxonomy == "spaces" {
+            terms.is_empty() || terms.iter().any(|term| term == &item.space)
+        } else {
+            true
+        }
+    })
 }
 
 fn path_matches_any(path: &str, patterns: &[String]) -> bool {
@@ -973,10 +1047,11 @@ fn value_for_target(item: &RenderCandidate, target: &str) -> Option<Value> {
     if target == "entry.title" {
         return item.title.clone().map(Value::String);
     }
-    target
-        .strip_prefix("frontmatter.")
-        .and_then(|field| value_at_path(&item.metadata, field).cloned())
-        .or_else(|| value_at_path(&item.metadata, target).cloned())
+    normalized_field_path(target).and_then(|field| value_at_path(&item.metadata, field).cloned())
+}
+
+fn normalized_field_path(target: &str) -> Option<&str> {
+    target.strip_prefix("fields.")
 }
 
 fn value_contains(actual: &Value, expected: &Value) -> bool {
@@ -1288,10 +1363,10 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
 
-        let result = render_file(&root, ".forma/settings.yml", "source").unwrap();
+        let result = render_file(&root, ".forma.yml", "source").unwrap();
 
         assert_eq!(result.status, crate::OperationStatus::Passed);
-        assert_eq!(result.file.path, ".forma/settings.yml");
+        assert_eq!(result.file.path, ".forma.yml");
         assert_eq!(result.file.space, None);
         assert_eq!(result.render.format, "source");
         assert!(result.render.html.is_none());
@@ -1400,7 +1475,13 @@ mod tests {
         let Some(ViewRenderOutput::Table { columns, items }) = empty.render else {
             panic!("expected table render");
         };
-        assert_eq!(columns, vec!["title", "summary", "createdAt"]);
+        assert_eq!(
+            columns
+                .iter()
+                .map(|column| column.field.as_str())
+                .collect::<Vec<_>>(),
+            vec!["fields.title", "fields.summary", "fields.updatedAt"]
+        );
         assert!(items.is_empty());
 
         create_entry(
@@ -1415,7 +1496,7 @@ mod tests {
         };
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].path, "notes/alpha-note.md");
-        assert_eq!(items[0].fields["title"], "Alpha Note");
+        assert_eq!(items[0].fields["fields.title"], "Alpha Note");
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1477,7 +1558,7 @@ mod tests {
         .unwrap();
         fs::write(
             root.join(".forma/views/recent.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: list\n  title: Recent Workspace Items\n  source:\n    kind: workspace\n    include:\n      - \"**/*.md\"\n  query:\n    all:\n      - target: frontmatter.title\n        op: contains\n        value: brief\n---\n\n# Recent Workspace Items\n\n<!-- forma-view -->\n",
+            "---\nkind: view\nmode: list\ntitle: Recent Workspace Items\nsource:\n  type: pages\n  include:\n    - \"**/*.md\"\nquery:\n  all:\n    - field: fields.title\n      op: contains\n      value: brief\n---\n\n# Recent Workspace Items\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 
@@ -1511,7 +1592,7 @@ mod tests {
         .unwrap();
         fs::write(
             root.join(".forma/views/knowledge-graph.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: graph\n  title: Knowledge Graph\n  source:\n    kind: workspace\n    include:\n      - \"notes/**/*.md\"\n---\n\n# Knowledge Graph\n\n<!-- forma-view -->\n",
+            "---\nkind: view\nmode: graph\ntitle: Knowledge Graph\nsource:\n  type: pages\n  include:\n    - \"notes/**/*.md\"\n---\n\n# Knowledge Graph\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 
@@ -1557,7 +1638,7 @@ mod tests {
         .unwrap();
         fs::write(
             root.join(".forma/views/active-todos.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  title: Active Todos\n  source:\n    kind: workspace\n    include:\n      - \"**/*.md\"\n  query:\n    all:\n      - target: entry.space\n        op: equals\n        value: todos\n      - target: frontmatter.status\n        op: in\n        value: [todo, doing]\n  table:\n    columns:\n      - title\n---\n\n# Active Todos\n\n<!-- forma-view -->\n",
+            "---\nkind: view\nmode: table\ntitle: Active Todos\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - todos\nquery:\n  all:\n    - field: fields.status\n      op: in\n      value: [todo, doing]\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Active Todos\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 
@@ -1568,7 +1649,7 @@ mod tests {
 
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].path, "todos/draft-brief.md");
-        assert_eq!(items[0].fields["title"], "Draft brief");
+        assert_eq!(items[0].fields["fields.title"], "Draft brief");
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1580,7 +1661,7 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
             root.join(".forma/views/notes.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  title: Notes\n  query:\n    all:\n      - target: metadata.status\n        op: equals\n        value: todo\n  table:\n    columns:\n      - title\n---\n\n# Notes\n\n<!-- forma-view -->\n",
+            "---\nkind: view\nmode: table\ntitle: Notes\nquery:\n  all:\n    - field: metadata.status\n      op: equals\n      value: todo\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Notes\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 
@@ -1605,7 +1686,7 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
             root.join(".forma/views/notes.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  space: notes\n  title: Notes\n  table:\n    columns:\n      - title\n---\n\n# Notes\n",
+            "---\nkind: view\nmode: table\ntitle: Notes\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Notes\n",
         )
         .unwrap();
 
@@ -1629,7 +1710,7 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
             root.join(".forma/views/notes.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  space: notes\n  table: broken\n---\n\n# Notes\n\n<!-- forma-view -->\n",
+            "---\nkind: view\nmode: table\ntable: broken\n---\n\n# Notes\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 
@@ -1653,7 +1734,7 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
             root.join(".forma/views/notes.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  space: missing\n  table:\n    columns:\n      - title\n---\n\n# Notes\n\n<!-- forma-view -->\n",
+            "---\nkind: view\nmode: table\nspace: missing\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Notes\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 

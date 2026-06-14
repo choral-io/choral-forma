@@ -10,7 +10,7 @@ use crate::config::{
     CreateInput, RuntimeValueProvider, SemanticType, SpaceDefinition, WorkspaceConfig,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
-use crate::path::{FORMA_SETTINGS_PATH, FORMA_SPACES_PATH, slugify_path_segment};
+use crate::path::{FORMA_CONFIG_PATH, slugify_path_segment};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -235,13 +235,13 @@ pub fn validate_space_schemas(config: &WorkspaceConfig) -> Vec<Diagnostic> {
             Ok(schema) => validate_schema_node(
                 config,
                 &schema,
-                FORMA_SPACES_PATH,
+                FORMA_CONFIG_PATH,
                 &field_path,
                 &mut diagnostics,
             ),
             Err(error) => diagnostics.push(
                 Diagnostic::error("schema.invalid", "Space schema is invalid.")
-                    .with_path(FORMA_SPACES_PATH)
+                    .with_path(FORMA_CONFIG_PATH)
                     .with_location(DiagnosticLocation::Config { field: field_path })
                     .with_actual(error),
             ),
@@ -280,7 +280,7 @@ pub fn resolve_runtime_values(config: &WorkspaceConfig, workspace_root: &str) ->
                     "runtime.value.unresolved",
                     format!("Runtime value `{name}` could not be resolved."),
                 )
-                .with_path(FORMA_SETTINGS_PATH)
+                .with_path(FORMA_CONFIG_PATH)
                 .with_location(DiagnosticLocation::Config {
                     field: format!("runtime.values.{name}"),
                 })
@@ -293,7 +293,7 @@ pub fn resolve_runtime_values(config: &WorkspaceConfig, workspace_root: &str) ->
                             "runtime.value.unresolved",
                             format!("Required runtime value `{name}` could not be resolved."),
                         )
-                        .with_path(FORMA_SETTINGS_PATH)
+                        .with_path(FORMA_CONFIG_PATH)
                         .with_location(DiagnosticLocation::Config {
                             field: format!("runtime.values.{name}"),
                         }),
@@ -366,12 +366,13 @@ impl TemplateValueResolver<'_> {
             return None;
         };
 
-        let resolved = input
-            .default
-            .as_deref()
-            .and_then(|default| self.render_template(default))
-            .map(Value::String)
-            .and_then(|value| self.apply_input_transform(name, value));
+        let resolved = input.default.clone().and_then(|default| {
+            let value = match default {
+                Value::String(default) => self.render_template(&default).map(Value::String)?,
+                value => value,
+            };
+            self.apply_input_transform(name, value)
+        });
 
         self.resolving.remove(name);
 
@@ -1240,7 +1241,7 @@ scheduledAt: "2026-05-19T10:30:00"
             (
                 "slug".to_string(),
                 CreateInput {
-                    default: Some("{{ input.title }}".to_string()),
+                    default: Some(Value::String("{{ input.title }}".to_string())),
                     transform: Some("slugify".to_string()),
                     ..CreateInput::default()
                 },
@@ -1248,14 +1249,16 @@ scheduledAt: "2026-05-19T10:30:00"
             (
                 "filename".to_string(),
                 CreateInput {
-                    default: Some("{{ input.slug }}.md".to_string()),
+                    default: Some(Value::String("{{ input.slug }}.md".to_string())),
                     ..CreateInput::default()
                 },
             ),
             (
                 "createdAt".to_string(),
                 CreateInput {
-                    default: Some("{{ runtime.values.currentDateTime }}".to_string()),
+                    default: Some(Value::String(
+                        "{{ runtime.values.currentDateTime }}".to_string(),
+                    )),
                     ..CreateInput::default()
                 },
             ),
@@ -1295,7 +1298,7 @@ scheduledAt: "2026-05-19T10:30:00"
             (
                 "a".to_string(),
                 CreateInput {
-                    default: Some("{{ input.b }}".to_string()),
+                    default: Some(Value::String("{{ input.b }}".to_string())),
                     required: true,
                     ..CreateInput::default()
                 },
@@ -1303,7 +1306,7 @@ scheduledAt: "2026-05-19T10:30:00"
             (
                 "b".to_string(),
                 CreateInput {
-                    default: Some("{{ input.a }}".to_string()),
+                    default: Some(Value::String("{{ input.a }}".to_string())),
                     required: true,
                     ..CreateInput::default()
                 },
@@ -1350,7 +1353,7 @@ scheduledAt: "2026-05-19T10:30:00"
         let inputs = BTreeMap::from([(
             "slug".to_string(),
             CreateInput {
-                default: Some("User Registration".to_string()),
+                default: Some(Value::String("User Registration".to_string())),
                 transform: Some("unknownTransform".to_string()),
                 ..CreateInput::default()
             },
@@ -1372,7 +1375,7 @@ scheduledAt: "2026-05-19T10:30:00"
         let unclosed_inputs = BTreeMap::from([(
             "title".to_string(),
             CreateInput {
-                default: Some("{{ input.slug".to_string()),
+                default: Some(Value::String("{{ input.slug".to_string())),
                 ..CreateInput::default()
             },
         )]);
@@ -1380,14 +1383,14 @@ scheduledAt: "2026-05-19T10:30:00"
             (
                 "title".to_string(),
                 CreateInput {
-                    default: Some("{{ config.title }}".to_string()),
+                    default: Some(Value::String("{{ config.title }}".to_string())),
                     ..CreateInput::default()
                 },
             ),
             (
                 "summary".to_string(),
                 CreateInput {
-                    default: Some("{{ runtime.values.missing }}".to_string()),
+                    default: Some(Value::String("{{ runtime.values.missing }}".to_string())),
                     ..CreateInput::default()
                 },
             ),
@@ -1421,7 +1424,7 @@ scheduledAt: "2026-05-19T10:30:00"
         let inputs = BTreeMap::from([(
             "summaryLine".to_string(),
             CreateInput {
-                default: Some("Summary: {{ input.summary }}".to_string()),
+                default: Some(Value::String("Summary: {{ input.summary }}".to_string())),
                 ..CreateInput::default()
             },
         )]);
@@ -1451,7 +1454,9 @@ scheduledAt: "2026-05-19T10:30:00"
         let inputs = BTreeMap::from([(
             "ownerLine".to_string(),
             CreateInput {
-                default: Some("Owner: {{ runtime.values.owner }}".to_string()),
+                default: Some(Value::String(
+                    "Owner: {{ runtime.values.owner }}".to_string(),
+                )),
                 ..CreateInput::default()
             },
         )]);

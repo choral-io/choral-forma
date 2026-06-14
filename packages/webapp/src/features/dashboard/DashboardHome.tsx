@@ -1611,8 +1611,8 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
                     <thead className="bg-muted/60 text-muted-foreground">
                         <tr className="border-border border-b">
                             {projection.columns.map((column) => (
-                                <th className="px-4 py-3 text-start font-medium" key={column}>
-                                    {formatViewColumnLabel(column)}
+                                <th className="px-4 py-3 text-start font-medium" key={column.field}>
+                                    {column.label}
                                 </th>
                             ))}
                         </tr>
@@ -1621,7 +1621,7 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
                         {projection.items.map((item) => (
                             <tr className="border-border hover:bg-accent/50 border-b last:border-b-0" key={item.path}>
                                 {projection.columns.map((column) => (
-                                    <td className="max-w-80 px-4 py-3 align-top" key={`${item.path}-${column}`}>
+                                    <td className="max-w-80 px-4 py-3 align-top" key={`${item.path}-${column.field}`}>
                                         <ViewProjectionCell column={column} item={item} />
                                     </td>
                                 ))}
@@ -1634,8 +1634,14 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
     );
 }
 
-function ViewProjectionCell({ column, item }: { column: string; item: DashboardViewProjectionItem }) {
-    if (column === "path") {
+function ViewProjectionCell({
+    column,
+    item,
+}: {
+    column: Extract<DashboardViewProjection, { kind: "table" }>["columns"][number];
+    item: DashboardViewProjectionItem;
+}) {
+    if (column.field === "path") {
         return (
             <code className="text-muted-foreground block truncate text-xs" title={item.path}>
                 {item.path}
@@ -1643,7 +1649,7 @@ function ViewProjectionCell({ column, item }: { column: string; item: DashboardV
         );
     }
 
-    const value = item.fields[column] ?? "";
+    const value = item.fields[column.field] ?? "";
 
     return (
         <span className="text-muted-foreground block truncate" title={value}>
@@ -1712,13 +1718,6 @@ function ViewKanbanCard({ item }: { item: DashboardViewProjectionItem }) {
             {content}
         </Link>
     );
-}
-
-function formatViewColumnLabel(column: string) {
-    return column
-        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-        .replace(/[-_]+/g, " ")
-        .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function SpaceSummary({ space }: { space: DashboardSpace }) {

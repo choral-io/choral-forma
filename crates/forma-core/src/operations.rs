@@ -16,9 +16,8 @@ use crate::index::{
 };
 use crate::markdown::FormaMarkdownDocument;
 use crate::path::{
-    FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH, FORMA_LOCAL_OVERRIDES_PATH,
-    FORMA_SETTINGS_PATH, FORMA_SPACES_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH, FORMA_VIEWS_DIR,
-    PathError, WorkspacePath,
+    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH,
+    FORMA_LOCAL_OVERRIDES_PATH, FORMA_VIEWS_DIR, PathError, WorkspacePath,
 };
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
@@ -412,7 +411,8 @@ pub fn init_workspace(
 
     for directory in [
         FORMA_DIR,
-        FORMA_TEMPLATES_DIR,
+        ".forma/spaces",
+        ".forma/spaces/templates",
         FORMA_VIEWS_DIR,
         "notes",
         "todos",
@@ -427,12 +427,13 @@ pub fn init_workspace(
     write_file(root, FORMA_GITIGNORE_PATH, STARTER_GITIGNORE, &mut created)?;
     write_file(
         root,
-        FORMA_SETTINGS_PATH,
-        &starter_settings_yml(name, language, &timezone),
+        FORMA_CONFIG_PATH,
+        &starter_config_yml(name, language, &timezone),
         &mut created,
     )?;
-    write_file(root, FORMA_TYPES_PATH, STARTER_TYPES_YML, &mut created)?;
-    write_file(root, FORMA_SPACES_PATH, &starter_spaces_yml(), &mut created)?;
+    for (path, source) in starter_space_nodes() {
+        write_file(root, &path, source, &mut created)?;
+    }
     for (path, source) in starter_templates() {
         write_file(root, &path, source, &mut created)?;
     }
@@ -810,7 +811,7 @@ pub fn workspace_dashboard(
             kind: view.mode.clone(),
             title: view.title.clone(),
             display: view.display.clone(),
-            space: view.space.clone(),
+            space: view.space.clone().or_else(|| view_taxonomy_space(view)),
         })
         .collect::<Vec<_>>();
 
@@ -829,6 +830,11 @@ pub fn workspace_dashboard(
         summary,
         diagnostics,
     })
+}
+
+fn view_taxonomy_space(view: &crate::index::IndexView) -> Option<String> {
+    let terms = view.source.as_ref()?.taxonomy.get("spaces")?;
+    (terms.len() == 1).then(|| terms[0].clone())
 }
 
 fn workspace_logo_summary(workspace: &WorkspaceSettings) -> Option<WorkspaceLogoSummary> {
@@ -1088,9 +1094,7 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
 
 fn config_sources(root: &Path) -> Vec<ConfigSource> {
     [
-        (FORMA_SETTINGS_PATH, ConfigSourceKind::Shared),
-        (FORMA_TYPES_PATH, ConfigSourceKind::Shared),
-        (FORMA_SPACES_PATH, ConfigSourceKind::Shared),
+        (FORMA_CONFIG_PATH, ConfigSourceKind::Shared),
         (FORMA_LOCAL_OVERRIDES_PATH, ConfigSourceKind::Local),
     ]
     .into_iter()
@@ -1105,10 +1109,7 @@ fn config_sources(root: &Path) -> Vec<ConfigSource> {
 fn validate_config_inspect_path(path: &str) -> Result<String, OperationError> {
     let path = WorkspacePath::parse_cli(path)?;
     let path = path.as_str();
-    if matches!(
-        path,
-        FORMA_SETTINGS_PATH | FORMA_TYPES_PATH | FORMA_SPACES_PATH | FORMA_LOCAL_OVERRIDES_PATH
-    ) {
+    if matches!(path, FORMA_CONFIG_PATH | FORMA_LOCAL_OVERRIDES_PATH) {
         Ok(path.to_string())
     } else {
         Err(OperationError::ConfigPathNotInspectable(path.to_string()))
@@ -1188,14 +1189,9 @@ fn workspace_file_from_path(root: &Path, path: PathBuf) -> Option<WorkspaceFile>
     let media_type = media_type_for_workspace_path(&relative)?;
     let kind = if relative == FORMA_INDEX_SUMMARY_PATH {
         WorkspaceFileKind::Index
-    } else if matches!(
-        relative.as_str(),
-        FORMA_SETTINGS_PATH | FORMA_TYPES_PATH | FORMA_SPACES_PATH
-    ) {
+    } else if matches!(relative.as_str(), FORMA_CONFIG_PATH) {
         WorkspaceFileKind::Config
-    } else if relative.starts_with(&format!("{FORMA_TEMPLATES_DIR}/"))
-        && media_type == "text/markdown"
-    {
+    } else if relative.starts_with(".forma/spaces/templates/") && media_type == "text/markdown" {
         WorkspaceFileKind::Template
     } else if media_type == "text/markdown" {
         WorkspaceFileKind::Markdown
@@ -1241,7 +1237,7 @@ pub fn media_type_for_workspace_path(path: &str) -> Option<&'static str> {
 
 pub fn is_raw_workspace_path_allowed(path: &str) -> bool {
     let normalized = path.to_ascii_lowercase();
-    !normalized.starts_with(".forma/")
+    normalized != FORMA_CONFIG_PATH && !normalized.starts_with(".forma/")
 }
 
 fn features_for_media_type(kind: WorkspaceFileKind, media_type: &str) -> Vec<WorkspaceFileFeature> {
@@ -1343,30 +1339,38 @@ fn write_file(
     Ok(())
 }
 
-fn starter_settings_yml(name: &str, language: &str, timezone: &str) -> String {
+fn starter_config_yml(name: &str, language: &str, timezone: &str) -> String {
     STARTER_SETTINGS_YML
         .replace("__WORKSPACE_NAME__", &yaml_string(name))
         .replace("__LANGUAGE__", &yaml_string(language))
         .replace("__TIMEZONE__", &yaml_string(timezone))
 }
 
-fn starter_spaces_yml() -> String {
-    STARTER_SPACES_YML.replace("__TEMPLATES_DIR__", FORMA_TEMPLATES_DIR)
+fn starter_space_nodes() -> Vec<(String, &'static str)> {
+    vec![
+        (
+            ".forma/spaces/index.md".to_string(),
+            STARTER_SPACES_INDEX_MD,
+        ),
+        (".forma/spaces/notes.md".to_string(), STARTER_NOTES_TERM_MD),
+        (".forma/spaces/todos.md".to_string(), STARTER_TODOS_TERM_MD),
+        (".forma/spaces/users.md".to_string(), STARTER_USERS_TERM_MD),
+    ]
 }
 
 fn starter_templates() -> Vec<(String, &'static str)> {
     vec![
         (
-            format!("{FORMA_TEMPLATES_DIR}/note.md"),
-            "---\nkind: note\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\ncreatedAt: \"{{ input.createdAt }}\"\n---\n\n# {{ input.title }}\n",
+            ".forma/spaces/templates/note.md".to_string(),
+            "---\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
         ),
         (
-            format!("{FORMA_TEMPLATES_DIR}/todo.md"),
-            "---\nkind: todo\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\nassignees: []\ncreatedAt: \"{{ input.createdAt }}\"\n---\n\n# {{ input.title }}\n",
+            ".forma/spaces/templates/todo.md".to_string(),
+            "---\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\npriority: \"{{ input.priority }}\"\nassignees: []\ndueDate: \"{{ input.dueDate }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
         ),
         (
-            format!("{FORMA_TEMPLATES_DIR}/user.md"),
-            "---\nkind: user\nname: \"{{ input.name }}\"\ndescription: \"{{ input.description }}\"\nresponsibilities: \"{{ input.responsibilities }}\"\ncreatedAt: \"{{ input.createdAt }}\"\n---\n\n# {{ input.name }}\n",
+            ".forma/spaces/templates/user.md".to_string(),
+            "---\nkind: user\nname: \"{{ input.name }}\"\ndescription: \"{{ input.description }}\"\nresponsibilities: \"{{ input.responsibilities }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.name }}\n",
         ),
     ]
 }
@@ -1375,15 +1379,15 @@ fn starter_views() -> Vec<(String, &'static str)> {
     vec![
         (
             format!("{FORMA_VIEWS_DIR}/notes.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  space: notes\n  title: Notes\n  description: General knowledge notes.\n  table:\n    columns:\n      - title\n      - summary\n      - createdAt\n  sort:\n    - field: createdAt\n      direction: desc\n---\n\n# Notes\n\n<!-- forma-view -->\n",
+            "---\nschemaVersion: 1\nkind: view\nmode: table\ntitle: Notes\ndisplay:\n  order: 30\ndescription: Starter guide pages.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - notes\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n    - field: fields.summary\n      label: Summary\n    - field: fields.updatedAt\n      label: Updated\nsort:\n  - field: fields.updatedAt\n    direction: desc\n  - field: fields.createdAt\n    direction: desc\n---\n\n# Notes\n\nBrowse starter guide pages.\n\n<!-- forma:content -->\n",
         ),
         (
             format!("{FORMA_VIEWS_DIR}/todos.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: kanban\n  space: todos\n  title: Todos\n  description: Lightweight action items.\n  kanban:\n    card:\n      titleField: title\n      subtitleFields:\n        - summary\n        - assignees\n      badgeFields:\n        - dueDate\n    columns:\n      - id: todo\n        label: To Do\n        query:\n          all:\n            - target: frontmatter.status\n              op: equals\n              value: todo\n      - id: doing\n        label: Doing\n        query:\n          all:\n            - target: frontmatter.status\n              op: equals\n              value: doing\n      - id: done\n        label: Done\n        query:\n          all:\n            - target: frontmatter.status\n              op: equals\n              value: done\n---\n\n# Todos\n\n<!-- forma-view -->\n",
+            "---\nschemaVersion: 1\nkind: view\nmode: kanban\ntitle: Todos\ndisplay:\n  order: 50\ndescription: Example onboarding tasks.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - todos\nkanban:\n  card:\n    titleField: fields.title\n    subtitleFields:\n      - fields.summary\n      - fields.assignees\n    badgeFields:\n      - fields.priority\n      - fields.dueDate\n  columns:\n    - id: todo\n      label: To Do\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: todo\n      sort:\n        - field: fields.priority\n          order:\n            - high\n            - medium\n            - low\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: doing\n      label: Doing\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: doing\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: done\n      label: Done\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: done\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n---\n\n# Todos\n\nTrack onboarding tasks by workflow state.\n\n<!-- forma:content -->\n",
         ),
         (
             format!("{FORMA_VIEWS_DIR}/users.md"),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  space: users\n  title: Users\n  description: People referenced by this workspace.\n  table:\n    columns:\n      - name\n      - description\n      - createdAt\n  sort:\n    - field: name\n      direction: asc\n---\n\n# Users\n\n<!-- forma-view -->\n",
+            "---\nschemaVersion: 1\nkind: view\nmode: table\ntitle: Users\ndisplay:\n  order: 60\ndescription: Example people referenced by tasks and pages.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - users\ntable:\n  columns:\n    - field: fields.name\n      label: Name\n    - field: fields.description\n      label: Description\n    - field: fields.updatedAt\n      label: Updated\nsort:\n  - field: fields.name\n    direction: asc\n---\n\n# Users\n\nBrowse people referenced by pages.\n\n<!-- forma:content -->\n",
         ),
     ]
 }
@@ -1467,21 +1471,27 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
     }
 }
 
-const STARTER_GITIGNORE: &str = "overrides/local.yml\nlocal/\n";
+const STARTER_GITIGNORE: &str = "local/\nindex.summary.json\n";
 
 const STARTER_SETTINGS_YML: &str = r#"schemaVersion: 1
 
 workspace:
   name: __WORKSPACE_NAME__
+  root: "."
   canonicalLanguage: __LANGUAGE__
   supportedLanguages:
     - __LANGUAGE__
   timezone: __TIMEZONE__
 
+include:
+  - ".forma/dashboard.md"
+  - ".forma/spaces/*.md"
+  - ".forma/views/*.md"
+  - ".forma/local/*.yml"
+  - ".forma/local/*.md"
+
 runtime:
   values:
-    currentDate:
-      kind: currentDate
     currentDateTime:
       kind: currentDateTime
     workspaceRoot:
@@ -1493,201 +1503,172 @@ runtime:
       required: true
 "#;
 
-const STARTER_TYPES_YML: &str = r#"schemaVersion: 1
+const STARTER_SPACES_INDEX_MD: &str = r#"---
+schemaVersion: 1
+kind: taxonomy
+title: Spaces
+mode: primary
+display:
+  order: 30
+description: Primary workspace sections for the starter pages.
+---
 
-types:
-  note:
-    kind: space
-    space: notes
-    input:
-      transform: slugify
+# Spaces
 
-  todo:
-    kind: space
-    space: todos
-    input:
-      transform: slugify
+Browse this workspace by the configured primary taxonomy.
 
-  user:
-    kind: space
-    space: users
-    input:
-      transform: slugify
-
-  todoStatus:
-    kind: enum
-    values:
-      - todo
-      - doing
-      - done
+<!-- forma:content -->
 "#;
 
-const STARTER_SPACES_YML: &str = r#"schemaVersion: 1
+const STARTER_NOTES_TERM_MD: &str = r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Notes
+display:
+  order: 10
+description: Starter guide pages and lightweight knowledge notes.
+include:
+  - "notes/**/*.md"
+create:
+  directory: "notes"
+  filename: "{{ input.slug }}.md"
+  template: ".forma/spaces/templates/note.md"
+  inputs:
+    title:
+      required: true
+    summary:
+      default: ""
+    slug:
+      type: string
+      default: "{{ input.title }}"
+      transform: slugify
+    createdAt:
+      default: "{{ runtime.values.currentDateTime }}"
+    updatedAt:
+      default: "{{ runtime.values.currentDateTime }}"
+conventions:
+  titleField: fields.title
+  summaryField: fields.summary
+  createdAtField: fields.createdAt
+  updatedAtField: fields.updatedAt
+---
 
-spaces:
-  notes:
-    title: Notes
-    description: General knowledge notes.
-    include: notes/**/*.md
-    template: __TEMPLATES_DIR__/note.md
-    create:
-      directory: notes
-      filename: "{{ input.slug }}.md"
-      inputs:
-        title:
-          field: title
-          required: true
-        summary:
-          field: summary
-          default: ""
-        slug:
-          label: Slug
-          type: string
-          default: "{{ input.title }}"
-          transform: slugify
-        createdAt:
-          field: createdAt
-          default: "{{ runtime.values.currentDateTime }}"
-    conventions:
-      titleField: title
-      summaryField: summary
-      createdAtField: createdAt
-    schema:
-      type: object
-      fields:
-        kind:
-          type: const
-          value: note
-          required: true
-        title:
-          type: string
-          label: Title
-          required: true
-        summary:
-          type: string
-          label: Summary
-        createdAt:
-          type: datetime
-          label: Created At
-          required: true
-        updatedAt:
-          type: datetime
-          label: Updated At
+# Notes
 
-  todos:
-    title: Todos
-    description: Lightweight action items.
-    include: todos/**/*.md
-    template: __TEMPLATES_DIR__/todo.md
-    create:
-      directory: todos
-      filename: "{{ input.slug }}.md"
-      inputs:
-        title:
-          field: title
-          required: true
-        summary:
-          field: summary
-          default: ""
-        slug:
-          label: Slug
-          type: string
-          default: "{{ input.title }}"
-          transform: slugify
-        status:
-          field: status
-          default: todo
-        createdAt:
-          field: createdAt
-          default: "{{ runtime.values.currentDateTime }}"
-    conventions:
-      titleField: title
-      summaryField: summary
-      createdAtField: createdAt
-    schema:
-      type: object
-      fields:
-        kind:
-          type: const
-          value: todo
-          required: true
-        title:
-          type: string
-          label: Title
-          required: true
-        summary:
-          type: string
-          label: Summary
-        status:
-          type: enum
-          enum: todoStatus
-          label: Status
-          required: true
-        assignees:
-          type: list
-          label: Assignees
-          items:
-            type: ref
-            target: user
-        dueDate:
-          type: date
-          label: Due Date
-        createdAt:
-          type: datetime
-          label: Created At
-          required: true
+Starter guide pages and lightweight knowledge notes.
 
-  users:
-    title: Users
-    description: People who can be referenced in this workspace.
-    include: users/**/*.md
-    template: __TEMPLATES_DIR__/user.md
-    create:
-      directory: users
-      filename: "{{ input.slug }}.md"
-      inputs:
-        name:
-          field: name
-          required: true
-        description:
-          field: description
-          default: ""
-        responsibilities:
-          field: responsibilities
-          default: ""
-        slug:
-          label: Slug
-          type: string
-          default: "{{ input.name }}"
-          transform: slugify
-        createdAt:
-          field: createdAt
-          default: "{{ runtime.values.currentDateTime }}"
-    conventions:
-      titleField: name
-      summaryField: description
-      createdAtField: createdAt
-    schema:
-      type: object
-      fields:
-        kind:
-          type: const
-          value: user
-          required: true
-        name:
-          type: string
-          label: Name
-          required: true
-        description:
-          type: string
-          label: Description
-        responsibilities:
-          type: string
-          label: Responsibilities
-        createdAt:
-          type: datetime
-          label: Created At
-          required: true
+<!-- forma:content -->
+"#;
+
+const STARTER_TODOS_TERM_MD: &str = r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Todos
+display:
+  order: 20
+description: Example onboarding and workspace setup tasks.
+include:
+  - "todos/**/*.md"
+create:
+  directory: "todos"
+  filename: "{{ input.slug }}.md"
+  template: ".forma/spaces/templates/todo.md"
+  inputs:
+    title:
+      required: true
+    summary:
+      default: ""
+    slug:
+      type: string
+      default: "{{ input.title }}"
+      transform: slugify
+    status:
+      type: select
+      default: todo
+      options:
+        - value: todo
+          label: To Do
+        - value: doing
+          label: Doing
+        - value: done
+          label: Done
+    priority:
+      type: select
+      default: medium
+      options:
+        - value: high
+          label: High
+        - value: medium
+          label: Medium
+        - value: low
+          label: Low
+    assignees:
+      type: list
+      default: []
+    dueDate:
+      type: date
+      default: ""
+    createdAt:
+      default: "{{ runtime.values.currentDateTime }}"
+    updatedAt:
+      default: "{{ runtime.values.currentDateTime }}"
+conventions:
+  titleField: fields.title
+  summaryField: fields.summary
+  createdAtField: fields.createdAt
+  updatedAtField: fields.updatedAt
+---
+
+# Todos
+
+Example onboarding and workspace setup tasks.
+
+<!-- forma:content -->
+"#;
+
+const STARTER_USERS_TERM_MD: &str = r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Users
+display:
+  order: 30
+description: Example people referenced by tasks and pages.
+include:
+  - "users/**/*.md"
+create:
+  directory: "users"
+  filename: "{{ input.slug }}.md"
+  template: ".forma/spaces/templates/user.md"
+  inputs:
+    name:
+      required: true
+    description:
+      default: ""
+    responsibilities:
+      default: ""
+    slug:
+      type: string
+      default: "{{ input.name }}"
+      transform: slugify
+    createdAt:
+      default: "{{ runtime.values.currentDateTime }}"
+    updatedAt:
+      default: "{{ runtime.values.currentDateTime }}"
+conventions:
+  titleField: fields.name
+  summaryField: fields.description
+  createdAtField: fields.createdAt
+  updatedAtField: fields.updatedAt
+---
+
+# Users
+
+Example people referenced by tasks and pages.
+
+<!-- forma:content -->
 "#;
 
 #[cfg(test)]
@@ -1699,12 +1680,9 @@ mod tests {
 
     use super::{
         OperationError, WorkspaceFileFeature, create_entry, init_workspace, inspect_config,
-        is_raw_workspace_path_allowed, list_file_references, list_files, starter_spaces_yml,
-        workspace_dashboard,
+        is_raw_workspace_path_allowed, list_file_references, list_files, workspace_dashboard,
     };
-    use crate::{
-        FORMA_SPACES_PATH, FORMA_VIEWS_DIR, OperationStatus, ReferenceIntent, WorkspaceFileKind,
-    };
+    use crate::{FORMA_VIEWS_DIR, OperationStatus, ReferenceIntent, WorkspaceFileKind};
 
     #[test]
     fn config_inspect_returns_effective_config_sources_and_diagnostics() {
@@ -1725,21 +1703,21 @@ mod tests {
             result
                 .sources
                 .iter()
-                .any(|source| source.path == ".forma/settings.yml" && source.present)
+                .any(|source| source.path == ".forma.yml" && source.present)
         );
         assert!(
             result
                 .sources
                 .iter()
-                .any(|source| source.path == ".forma/overrides/local.yml" && !source.present)
+                .any(|source| source.path == ".forma/local/local.yml" && !source.present)
         );
 
-        let narrowed = inspect_config(&root, Some(".forma/settings.yml")).unwrap();
+        let narrowed = inspect_config(&root, Some(".forma.yml")).unwrap();
         assert_eq!(
             narrowed.config["workspace"]["name"],
             Value::String("Config Test".to_string())
         );
-        assert!(narrowed.config.get("spaces").is_none());
+        assert!(narrowed.config.get("include").is_some());
 
         fs::write(root.join("notes.yml"), "secret: value").unwrap();
         assert!(matches!(
@@ -1822,7 +1800,7 @@ mod tests {
         init_workspace(&root, "Logo Workspace", "en", Some("UTC")).unwrap();
         fs::create_dir_all(root.join("assets")).unwrap();
         fs::write(
-            root.join(".forma/settings.yml"),
+            root.join(".forma.yml"),
             r#"schemaVersion: 1
 
 workspace:
@@ -1834,6 +1812,9 @@ workspace:
   logo:
     path: "assets/logo.svg"
     alt: "Logo Alt"
+include:
+  - ".forma/spaces/*.md"
+  - ".forma/views/*.md"
 "#,
         )
         .unwrap();
@@ -1869,35 +1850,36 @@ workspace:
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Dashboard Display Order", "en", Some("UTC")).unwrap();
 
-        let spaces = starter_spaces_yml()
-            .replace(
-                "  notes:\n    title: Notes",
-                "  notes:\n    title: Notes\n    display:\n      order: 30",
+        for (path, order) in [
+            (".forma/spaces/notes.md", 30),
+            (".forma/spaces/todos.md", 10),
+            (".forma/spaces/users.md", 20),
+        ] {
+            let source = fs::read_to_string(root.join(path)).unwrap();
+            fs::write(
+                root.join(path),
+                source.replace(
+                    "display:\n  order:",
+                    &format!("display:\n  order: {order}\n#"),
+                ),
             )
-            .replace(
-                "  todos:\n    title: Todos",
-                "  todos:\n    title: Todos\n    display:\n      order: 10",
-            )
-            .replace(
-                "  users:\n    title: Users",
-                "  users:\n    title: Users\n    display:\n      order: 20",
-            );
-        fs::write(root.join(FORMA_SPACES_PATH), spaces).unwrap();
+            .unwrap();
+        }
         fs::remove_dir_all(root.join(FORMA_VIEWS_DIR)).unwrap();
         fs::create_dir_all(root.join(FORMA_VIEWS_DIR)).unwrap();
         fs::write(
             root.join(format!("{FORMA_VIEWS_DIR}/alpha.md")),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  title: Alpha\n  display:\n    order: 20\n  source:\n    kind: workspace\n---\n\n# Alpha\n\n<!-- forma-view -->\n",
+            "---\nkind: view\nmode: table\ntitle: Alpha\ndisplay:\n  order: 20\nsource:\n  type: pages\n---\n\n# Alpha\n\n<!-- forma:content -->\n",
         )
         .unwrap();
         fs::write(
             root.join(format!("{FORMA_VIEWS_DIR}/beta.md")),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: table\n  title: Beta\n  source:\n    kind: workspace\n---\n\n# Beta\n\n<!-- forma-view -->\n",
+            "---\nkind: view\nmode: table\ntitle: Beta\nsource:\n  type: pages\n---\n\n# Beta\n\n<!-- forma:content -->\n",
         )
         .unwrap();
         fs::write(
             root.join(format!("{FORMA_VIEWS_DIR}/zeta.md")),
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: graph\n  title: Zeta\n  display:\n    order: 10\n  source:\n    kind: workspace\n---\n\n# Zeta\n\n<!-- forma-view -->\n",
+            "---\nkind: view\nmode: graph\ntitle: Zeta\ndisplay:\n  order: 10\nsource:\n  type: pages\n---\n\n# Zeta\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 
@@ -2076,8 +2058,8 @@ workspace:
         let root = fixture_root("files-list-local-only");
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Local Only Test", "en", Some("UTC")).unwrap();
-        fs::create_dir_all(root.join(".forma/overrides")).unwrap();
-        fs::write(root.join(".forma/overrides/local.yml"), "spaces: {}\n").unwrap();
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(root.join(".forma/local/local.yml"), "spaces: {}\n").unwrap();
 
         let result = list_files(&root).unwrap();
 
@@ -2085,7 +2067,7 @@ workspace:
             !result
                 .files
                 .iter()
-                .any(|file| file.path == ".forma/overrides/local.yml")
+                .any(|file| file.path == ".forma/local/local.yml")
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -2093,9 +2075,9 @@ workspace:
 
     #[test]
     fn raw_workspace_path_policy_excludes_local_only_files() {
-        assert!(!is_raw_workspace_path_allowed(".forma/overrides/local.yml"));
+        assert!(!is_raw_workspace_path_allowed(".forma/local/local.yml"));
         assert!(!is_raw_workspace_path_allowed(".forma/local/cache.json"));
-        assert!(!is_raw_workspace_path_allowed(".forma/settings.yml"));
+        assert!(!is_raw_workspace_path_allowed(".forma.yml"));
         assert!(!is_raw_workspace_path_allowed(".forma/assets/logo.svg"));
         assert!(is_raw_workspace_path_allowed("notes/public.md"));
     }

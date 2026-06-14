@@ -1,7 +1,7 @@
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use forma_core::{FORMA_INDEX_SUMMARY_PATH, FORMA_SETTINGS_PATH};
+use forma_core::{FORMA_CONFIG_PATH, FORMA_INDEX_SUMMARY_PATH};
 
 #[test]
 fn prints_placeholder_version() {
@@ -72,7 +72,7 @@ fn init_create_list_inspect_and_index_check_use_operation_json() {
     let init_stdout = String::from_utf8_lossy(&init.stdout);
     assert!(init_stdout.contains(r#""operation":"init""#));
     assert!(init_stdout.contains(r#""status":"passed""#));
-    assert!(root.join(FORMA_SETTINGS_PATH).is_file());
+    assert!(root.join(FORMA_CONFIG_PATH).is_file());
     assert!(root.join(FORMA_INDEX_SUMMARY_PATH).is_file());
     assert!(root.join("notes").is_dir());
 
@@ -184,8 +184,8 @@ fn global_workspace_option_selects_operation_root() {
         "{}",
         String::from_utf8_lossy(&init.stderr)
     );
-    assert!(workspace.join(FORMA_SETTINGS_PATH).is_file());
-    assert!(!cwd.join(FORMA_SETTINGS_PATH).exists());
+    assert!(workspace.join(FORMA_CONFIG_PATH).is_file());
+    assert!(!cwd.join(FORMA_CONFIG_PATH).exists());
 
     let create = forma(&cwd)
         .args([

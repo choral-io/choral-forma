@@ -12,7 +12,7 @@ use crate::config::{
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
 use crate::path::{
-    FORMA_DIR, FORMA_INDEX_SUMMARY_PATH, FORMA_SPACES_PATH, FORMA_VIEWS_DIR, WorkspacePath,
+    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_INDEX_SUMMARY_PATH, FORMA_VIEWS_DIR, WorkspacePath,
     slugify_path_segment,
 };
 use crate::schema::{SchemaNode, parse_space_schema, validate_schema_value};
@@ -66,11 +66,14 @@ pub struct IndexView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexViewSource {
-    pub kind: String,
+    #[serde(rename = "type")]
+    pub source_type: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub include: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exclude: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub taxonomy: BTreeMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -389,7 +392,7 @@ fn build_space_matchers(
             }
             Err(error) => diagnostics.push(
                 Diagnostic::error("config.globInvalid", "Space include glob is invalid.")
-                    .with_path(FORMA_SPACES_PATH)
+                    .with_path(FORMA_CONFIG_PATH)
                     .with_location(DiagnosticLocation::Config {
                         field: format!("spaces.{space_id}.include"),
                     })
@@ -465,12 +468,14 @@ fn discover_views(
             );
             continue;
         };
-        let surface =
-            required_string(&value, "view.surface").or_else(|| required_string(&value, "surface"));
+        let surface = required_string(&value, "surface").unwrap_or_else(|| "page".to_string());
         let mode = required_string(&value, "view.mode").or_else(|| required_string(&value, "mode"));
-        let space =
+        let mut space =
             required_string(&value, "view.space").or_else(|| required_string(&value, "space"));
         let source = parse_view_source(&value);
+        if space.is_none() {
+            space = source.as_ref().and_then(source_taxonomy_space);
+        }
         let title =
             optional_string(&value, "view.title").or_else(|| optional_string(&value, "title"));
         let display = DisplayOptions {
@@ -482,8 +487,8 @@ fn discover_views(
             .is_none_or(|space| config.spaces.contains_key(space));
         let valid_source = source
             .as_ref()
-            .is_none_or(|source| source.kind == "workspace");
-        if surface.is_none() || mode.is_none() || !valid_space || !valid_source {
+            .is_none_or(|source| source.source_type == "pages");
+        if mode.is_none() || !valid_space || !valid_source {
             diagnostics.push(
                 Diagnostic::error("view.invalid", "View definition is invalid.")
                     .with_path(relative.clone()),
@@ -493,7 +498,7 @@ fn discover_views(
         views.push(IndexView {
             id: view_id(&relative),
             path: relative,
-            surface: surface.unwrap(),
+            surface,
             mode: mode.unwrap(),
             space,
             source,
@@ -677,7 +682,8 @@ fn resolve_frontmatter_ref_value(
         return;
     };
     let mut target = strip_reference_markup(raw_target);
-    if let Some(transform) = field.transform.as_deref() {
+    let should_transform = !is_explicit_path_reference(raw_target, &target);
+    if should_transform && let Some(transform) = field.transform.as_deref() {
         match apply_input_transform(transform, &target) {
             Ok(transformed) => target = transformed,
             Err(message) => {
@@ -754,7 +760,7 @@ fn resolve_body_refs(
             });
             continue;
         }
-        match path_index.resolve(&reference.target, None) {
+        match path_index.resolve_from(&reference.target, source_path, None) {
             ResolveResult::Resolved(target_path) => refs.push(IndexReference {
                 source: ReferenceSource::Body,
                 field: None,
@@ -835,21 +841,39 @@ impl PathIndex {
     }
 
     fn resolve(&self, raw_target: &str, space: Option<&str>) -> ResolveResult {
+        self.resolve_candidates(candidate_paths(&strip_reference_markup(raw_target)), space)
+    }
+
+    fn resolve_from(
+        &self,
+        raw_target: &str,
+        source_path: &str,
+        space: Option<&str>,
+    ) -> ResolveResult {
         let target = strip_reference_markup(raw_target);
-        let candidates = candidate_paths(&target);
-        for candidate in candidates {
+        if let Some(relative) = relative_reference_path(&target, source_path) {
+            let result = self.resolve_candidates(candidate_paths(&relative), space);
+            if !matches!(result, ResolveResult::Unresolved) {
+                return result;
+            }
+        }
+        self.resolve_candidates(candidate_paths(&target), space)
+    }
+
+    fn resolve_candidates(&self, candidates: Vec<String>, space: Option<&str>) -> ResolveResult {
+        for candidate in &candidates {
             if self.path_allowed(&candidate, space) {
-                return ResolveResult::Resolved(candidate);
+                return ResolveResult::Resolved(candidate.clone());
             }
         }
 
-        if target.contains('/') {
+        if candidates.iter().any(|candidate| candidate.contains('/')) {
             return ResolveResult::Unresolved;
         }
 
         let matches = self
             .by_basename
-            .get(&target)
+            .get(candidates[0].strip_suffix(".md").unwrap_or(&candidates[0]))
             .into_iter()
             .flatten()
             .filter(|path| self.path_allowed(path, space))
@@ -884,6 +908,33 @@ fn candidate_paths(target: &str) -> Vec<String> {
     } else {
         vec![format!("{target}.md"), target.to_string()]
     }
+}
+
+fn relative_reference_path(target: &str, source_path: &str) -> Option<String> {
+    if !(target.starts_with("./") || target.starts_with("../")) {
+        return None;
+    }
+
+    let source_dir = source_path.rsplit_once('/').map_or("", |(dir, _)| dir);
+    normalize_posix_path(&format!("{source_dir}/{target}"))
+}
+
+fn normalize_posix_path(path: &str) -> Option<String> {
+    let mut parts = Vec::new();
+    for part in path.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            value => parts.push(value),
+        }
+    }
+    Some(parts.join("/"))
+}
+
+fn is_explicit_path_reference(raw_target: &str, target: &str) -> bool {
+    (raw_target.starts_with("[[") || raw_target.starts_with("![[")) && target.contains('/')
 }
 
 fn basename_id(path: &str) -> String {
@@ -946,13 +997,42 @@ fn optional_i64(value: &Value, field: &str) -> Option<i64> {
 }
 
 fn parse_view_source(value: &Value) -> Option<IndexViewSource> {
-    let source = value_at_path(value, "view.source")?;
-    let kind = optional_string(source, "kind")?;
+    let source = value_at_path(value, "source").or_else(|| value_at_path(value, "view.source"))?;
+    let source_type = optional_string(source, "type")?;
     Some(IndexViewSource {
-        kind,
+        source_type,
         include: string_sequence(source, "include"),
         exclude: string_sequence(source, "exclude"),
+        taxonomy: taxonomy_filter(source),
     })
+}
+
+fn source_taxonomy_space(source: &IndexViewSource) -> Option<String> {
+    let terms = source.taxonomy.get("spaces")?;
+    (terms.len() == 1).then(|| terms[0].clone())
+}
+
+fn taxonomy_filter(value: &Value) -> BTreeMap<String, Vec<String>> {
+    let Some(taxonomy) = value_at_path(value, "taxonomy") else {
+        return BTreeMap::new();
+    };
+    let Some(mapping) = taxonomy.as_mapping() else {
+        return BTreeMap::new();
+    };
+    mapping
+        .iter()
+        .filter_map(|(key, value)| {
+            Some((
+                key.as_str()?.to_string(),
+                value
+                    .as_sequence()?
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(ToOwned::to_owned)
+                    .collect(),
+            ))
+        })
+        .collect()
 }
 
 fn string_sequence(value: &Value, field: &str) -> Vec<String> {
@@ -1087,9 +1167,7 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
-    use crate::path::{
-        FORMA_LOCAL_OVERRIDES_PATH, FORMA_SETTINGS_PATH, FORMA_TEMPLATES_DIR, FORMA_TYPES_PATH,
-    };
+    use crate::path::{FORMA_CONFIG_PATH, FORMA_LOCAL_OVERRIDES_PATH};
 
     #[test]
     fn builds_deterministic_summary_index_with_resolved_refs() {
@@ -1108,18 +1186,22 @@ mod tests {
         write_entry(
             &root,
             "todos/user-registration.md",
-            "---\nkind: todo\ntitle: User registration\nsummary: Register users\nassignees:\n  - Tiscs\n---\nSee [[notes/account-model]] and ![[users/tiscs]].\n",
+            "---\nkind: todo\ntitle: User registration\nsummary: Register users\nassignees:\n  - \"[[users/tiscs]]\"\n---\nSee [[notes/account-model]] and ![[users/tiscs]].\n",
         );
         write_view(
             &root,
             "todos.md",
-            "---\ntitle: Todos\nsurface: page\nmode: kanban\nspace: todos\n---\n<!-- forma-view -->\n",
+            "---\nkind: view\ntitle: Todos\nmode: kanban\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - todos\n---\n<!-- forma:content -->\n",
         );
 
         let discovery = discover_workspace(&root).unwrap();
         let json = summary_index_json(&discovery.index);
 
-        assert!(discovery.diagnostics.is_empty());
+        assert!(
+            discovery.diagnostics.is_empty(),
+            "{:#?}",
+            discovery.diagnostics
+        );
         assert_eq!(discovery.index.entries.len(), 3);
         assert_eq!(discovery.index.spaces[0].id, "notes");
         let expected_json = r#"{
@@ -1158,6 +1240,14 @@ mod tests {
       "surface": "page",
       "mode": "kanban",
       "space": "todos",
+      "source": {
+        "type": "pages",
+        "taxonomy": {
+          "spaces": [
+            "todos"
+          ]
+        }
+      },
       "title": "Todos"
     }
   ],
@@ -1213,6 +1303,38 @@ mod tests {
     }
 
     #[test]
+    fn resolves_body_markdown_links_relative_to_source_file() {
+        let root = fixture_root("relative-links");
+        write_workspace(&root);
+        write_entry(
+            &root,
+            "notes/guide/start.md",
+            "---\nkind: note\ntitle: Start\n---\n[Next](./next.md)\n",
+        );
+        write_entry(
+            &root,
+            "notes/guide/next.md",
+            "---\nkind: note\ntitle: Next\n---\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+        let entry = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "notes/guide/start.md")
+            .unwrap();
+
+        assert!(
+            discovery.diagnostics.is_empty(),
+            "{:#?}",
+            discovery.diagnostics
+        );
+        assert_eq!(entry.refs[0].target_path, "notes/guide/next.md");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn check_reports_missing_stale_and_invalid_index() {
         let root = fixture_root("freshness");
         write_workspace(&root);
@@ -1242,7 +1364,7 @@ mod tests {
         write_view(
             &root,
             "knowledge-graph.md",
-            "---\nkind: forma-view\n\nview:\n  surface: page\n  mode: graph\n  title: Knowledge Graph\n  source:\n    kind: workspace\n    include:\n      - \"**/*.md\"\n    exclude:\n      - \".forma/**\"\n      - \"**/local/**\"\n---\n\n# Knowledge Graph\n\n<!-- forma-view -->\n",
+            "---\nkind: view\nmode: graph\ntitle: Knowledge Graph\nsource:\n  type: pages\n  include:\n    - \"**/*.md\"\n  exclude:\n    - \".forma/**\"\n    - \"**/local/**\"\n---\n\n# Knowledge Graph\n\n<!-- forma:content -->\n",
         );
 
         let discovery = discover_workspace(&root).unwrap();
@@ -1257,8 +1379,10 @@ mod tests {
         assert_eq!(view.mode, "graph");
         assert_eq!(view.space, None);
         assert_eq!(
-            view.source.as_ref().map(|source| source.kind.as_str()),
-            Some("workspace")
+            view.source
+                .as_ref()
+                .map(|source| source.source_type.as_str()),
+            Some("pages")
         );
         fs::remove_dir_all(root).unwrap();
     }
@@ -1363,7 +1487,7 @@ mod tests {
     fn invalid_config_produces_runtime_diagnostic() {
         let root = fixture_root("invalid-config");
         write_workspace(&root);
-        fs::write(root.join(FORMA_SPACES_PATH), "schemaVersion: [broken\n").unwrap();
+        fs::write(root.join(FORMA_CONFIG_PATH), "schemaVersion: [broken\n").unwrap();
 
         let result = check_workspace(&root);
 
@@ -1372,7 +1496,7 @@ mod tests {
         assert_eq!(result.diagnostics[0].code, "config.parseFailed");
         assert_eq!(
             result.diagnostics[0].path.as_deref(),
-            Some(FORMA_SPACES_PATH)
+            Some(FORMA_CONFIG_PATH)
         );
         fs::remove_dir_all(root).unwrap();
     }
@@ -1444,23 +1568,61 @@ mod tests {
     }
 
     fn write_workspace(root: &Path) {
-        fs::create_dir_all(root.join(FORMA_TEMPLATES_DIR)).unwrap();
+        fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
         fs::create_dir_all(root.join(FORMA_VIEWS_DIR)).unwrap();
         fs::write(
-            root.join(FORMA_SETTINGS_PATH),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n",
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
         )
         .unwrap();
-        fs::write(
-            root.join(FORMA_TYPES_PATH),
-            "schemaVersion: 1\ntypes:\n  note:\n    kind: space\n    space: notes\n  todo:\n    kind: space\n    space: todos\n  user:\n    kind: space\n    space: users\n    input:\n      transform: slugify\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join(FORMA_SPACES_PATH),
-            format!(
-                "schemaVersion: 1\nspaces:\n  notes:\n    title: Notes\n    include: notes/**/*.md\n    template: {FORMA_TEMPLATES_DIR}/note.md\n    conventions:\n      titleField: title\n      summaryField: summary\n    schema:\n      type: object\n      fields:\n        kind:\n          type: const\n          value: note\n        title:\n          type: string\n  todos:\n    title: Todos\n    include: todos/**/*.md\n    template: {FORMA_TEMPLATES_DIR}/todo.md\n    conventions:\n      titleField: title\n      summaryField: summary\n    schema:\n      type: object\n      fields:\n        kind:\n          type: const\n          value: todo\n        title:\n          type: string\n          required: true\n        summary:\n          type: string\n        assignees:\n          type: list\n          items:\n            type: ref\n            target: user\n  users:\n    title: Users\n    include: users/**/*.md\n    template: {FORMA_TEMPLATES_DIR}/user.md\n    conventions:\n      titleField: title\n    schema:\n      type: object\n      fields:\n        kind:\n          type: const\n          value: user\n        title:\n          type: string\n"
+        for (path, title, include, template, title_field, summary_field) in [
+            (
+                ".forma/spaces/notes.md",
+                "Notes",
+                "notes/**/*.md",
+                ".forma/spaces/templates/note.md",
+                "fields.title",
+                "fields.summary",
             ),
+            (
+                ".forma/spaces/todos.md",
+                "Todos",
+                "todos/**/*.md",
+                ".forma/spaces/templates/todo.md",
+                "fields.title",
+                "fields.summary",
+            ),
+            (
+                ".forma/spaces/users.md",
+                "Users",
+                "users/**/*.md",
+                ".forma/spaces/templates/user.md",
+                "fields.title",
+                "fields.summary",
+            ),
+        ] {
+            fs::write(
+                root.join(path),
+                format!(
+                    "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: {title}\ninclude:\n  - {include}\ncreate:\n  directory: {}\n  filename: \"{{{{ input.slug }}}}.md\"\n  template: {template}\n  inputs:\n    title:\n      required: true\n    slug:\n      default: \"{{{{ input.title }}}}\"\n      transform: slugify\nconventions:\n  titleField: {title_field}\n  summaryField: {summary_field}\n---\n\n# {title}\n",
+                    include.split('/').next().unwrap_or("notes")
+                ),
+            )
+            .unwrap();
+        }
+        fs::write(
+            root.join(".forma/spaces/templates/note.md"),
+            "---\ntitle: !expr input.title\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/templates/todo.md"),
+            "---\ntitle: !expr input.title\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/templates/user.md"),
+            "---\ntitle: !expr input.title\n---\n",
         )
         .unwrap();
     }

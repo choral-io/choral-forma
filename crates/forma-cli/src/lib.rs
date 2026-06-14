@@ -1125,7 +1125,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/../.forma/settings.yml")
+                    .uri("/forma/raw/../.forma.yml")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -1153,10 +1153,7 @@ mod tests {
         )
         .unwrap();
 
-        for path in [
-            "/forma/raw/.forma/settings.yml",
-            "/forma/raw/.forma/assets/logo.svg",
-        ] {
+        for path in ["/forma/raw/.forma.yml", "/forma/raw/.forma/assets/logo.svg"] {
             let response = app
                 .clone()
                 .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())

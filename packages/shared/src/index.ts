@@ -74,9 +74,10 @@ export type IndexView = {
     space?: string;
     title?: string;
     source?: {
-        kind: string;
+        type: string;
         include?: string[];
         exclude?: string[];
+        taxonomy?: Record<string, string[]>;
     };
     display?: DisplayOptions;
 };
@@ -188,9 +189,10 @@ export type RenderedView = {
     title?: string;
     space?: string;
     source?: {
-        kind: string;
+        type: string;
         include?: string[];
         exclude?: string[];
+        taxonomy?: Record<string, string[]>;
     };
     params?: Record<string, unknown>;
 };
@@ -199,6 +201,11 @@ export type ViewRenderItem = {
     path: string;
     title?: string;
     fields?: Record<string, unknown>;
+};
+
+export type ViewRenderColumn = {
+    field: string;
+    label: string;
 };
 
 export type GraphRenderNode = {
@@ -227,7 +234,7 @@ export type ViewRenderOutput =
       }
     | {
           kind: "table";
-          columns: string[];
+          columns: ViewRenderColumn[];
           items: ViewRenderItem[];
       }
     | {

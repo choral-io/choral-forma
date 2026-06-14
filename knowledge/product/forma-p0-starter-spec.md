@@ -193,8 +193,8 @@ privileged hidden store. If the starter uses `.forma/` for support files, it can
 commit `.forma/.gitignore` with:
 
 ```gitignore
-overrides/local.yml
 local/
+index.summary.json
 ```
 
 ## `.forma.yml`
@@ -216,9 +216,11 @@ workspace:
     timezone: Asia/Shanghai
 
 include:
-    - .forma/types.yml
-    - .forma/taxonomies.yml
-    - .forma/views/*.yml
+    - .forma/dashboard.md
+    - .forma/spaces/*.md
+    - .forma/views/*.md
+    - .forma/local/*.yml
+    - .forma/local/*.md
 
 runtime:
     values:
@@ -233,11 +235,6 @@ runtime:
             key: user.name
             transform: slugify
             required: true
-
-taxonomies:
-    spaces:
-        title: Spaces
-        mode: primary
 
 navigation:
     - type: route
@@ -286,160 +283,66 @@ starter files and directories that will be created before asking for
 confirmation. Non-interactive shells such as CI should fail without writing
 files unless `-y` or `--yes` is provided.
 
-## Included Type Configuration
+## Included Markdown Configuration
 
-Type configuration owns semantic types. P0 uses static enums and taxonomy-backed
-or page-type-backed types only. A starter may keep this in `.forma/types.yml`
-via the `.forma.yml` `include` list:
+The starter "Spaces" experience should be a configured taxonomy projection, not
+a hardcoded core partition. P0 starter configuration uses included Markdown
+nodes under `.forma/spaces/` for taxonomy terms. Each term node carries
+frontmatter configuration and a normal Markdown body with a `<!-- forma:content
+-->` mount.
 
-```yaml
+### `.forma/spaces/todos.md`
+
+```markdown
+---
 schemaVersion: 1
-
-types:
-    note:
-        kind: taxonomyTerm
-        taxonomy: spaces
-        term: notes
-        input:
+kind: term
+taxonomy: spaces
+title: Todos
+display:
+    order: 20
+description: Lightweight action items.
+include:
+    - todos/**/*.md
+create:
+    directory: todos
+    filename: "{{ input.slug }}.md"
+    template: .forma/spaces/templates/todo.md
+    inputs:
+        title:
+            required: true
+        summary:
+            default: ""
+        slug:
+            type: string
+            default: "{{ input.title }}"
             transform: slugify
+        status:
+            type: select
+            default: todo
+            options:
+                - value: todo
+                  label: To Do
+                - value: doing
+                  label: Doing
+                - value: done
+                  label: Done
+conventions:
+    titleField: fields.title
+    summaryField: fields.summary
+    createdAtField: fields.createdAt
+---
 
-    todo:
-        kind: taxonomyTerm
-        taxonomy: spaces
-        term: todos
-        input:
-            transform: slugify
+# Todos
 
-    user:
-        kind: taxonomyTerm
-        taxonomy: spaces
-        term: users
-        input:
-            transform: slugify
-
-    todoStatus:
-        kind: enum
-        values:
-            - todo
-            - doing
-            - done
+<!-- forma:content -->
 ```
 
-The `user` type resolves pages classified with the `users` term. P0 must not add
-a separate `username` field or a union type for assignees.
-
-## Taxonomy Configuration
-
-The starter "Spaces" experience should be a configured taxonomy, not a hardcoded
-core partition. Schema fields use field-local `required`. Defaults live in
-create inputs and templates, not in schema fields.
-
-```yaml
-schemaVersion: 1
-
-taxonomies:
-    spaces:
-        title: Spaces
-        mode: primary
-        terms:
-            notes:
-                title: Notes
-                description: General knowledge notes.
-                include: notes/**/*.md
-                template: .forma/templates/note.md
-                create:
-                    directory: notes
-                    filename: "{{ input.slug }}.md"
-                display:
-                    order: 10
-                conventions:
-                    titleField: title
-                    summaryField: summary
-                    createdAtField: createdAt
-
-            todos:
-                title: Todos
-                description: Lightweight action items.
-                include: todos/**/*.md
-                template: .forma/templates/todo.md
-                create:
-                    directory: todos
-                    filename: "{{ input.slug }}.md"
-                display:
-                    order: 20
-                conventions:
-                    titleField: title
-                    summaryField: summary
-                    createdAtField: createdAt
-
-            users:
-                title: Users
-                description: People who can be referenced in this workspace.
-                include: users/**/*.md
-                template: .forma/templates/user.md
-                create:
-                    directory: users
-                    filename: "{{ input.slug }}.md"
-                display:
-                    order: 30
-                conventions:
-                    titleField: name
-                    summaryField: description
-                    createdAtField: createdAt
-
-pageTypes:
-    note:
-        schema:
-            type: object
-            fields:
-                kind:
-                    type: const
-                    value: note
-                    required: true
-                title:
-                    type: string
-                    required: true
-                summary:
-                    type: string
-                createdAt:
-                    type: datetime
-                    required: true
-
-    todo:
-        schema:
-            type: object
-            fields:
-                kind:
-                    type: const
-                    value: todo
-                    required: true
-                title:
-                    type: string
-                    required: true
-                status:
-                    type: enum
-                    enum: todoStatus
-                    required: true
-                assignees:
-                    type: list
-                    items:
-                        type: ref
-                        target: user
-
-    user:
-        schema:
-            type: object
-            fields:
-                kind:
-                    type: const
-                    value: user
-                    required: true
-                name:
-                    type: string
-                    required: true
-                description:
-                    type: string
-```
+The current backend may synthesize compatibility semantic types from included
+`taxonomy: spaces` terms until the final runtime object model is designed. For
+example, the `users` term can back the current `user` reference target used by
+starter todo assignees. P0 must not add a separate `username` field or a union
+type for assignees.
 
 ## Templates
 
@@ -447,7 +350,7 @@ Templates use simple `{{ ... }}` path placeholders only. They do not support
 functions, filters, loops, conditionals, includes, shell execution, JavaScript,
 or arbitrary expressions.
 
-### `.forma/templates/note.md`
+### `.forma/spaces/templates/note.md`
 
 ```markdown
 ---
@@ -460,7 +363,7 @@ createdAt: "{{ input.createdAt }}"
 # {{ input.title }}
 ```
 
-### `.forma/templates/todo.md`
+### `.forma/spaces/templates/todo.md`
 
 ```markdown
 ---
@@ -475,7 +378,7 @@ createdAt: "{{ input.createdAt }}"
 # {{ input.title }}
 ```
 
-### `.forma/templates/user.md`
+### `.forma/spaces/templates/user.md`
 
 ```markdown
 ---
@@ -500,76 +403,83 @@ filter by taxonomy terms or explicit query predicates, not by a hardcoded
 
 ```markdown
 ---
-kind: forma-view
-
-view:
-    surface: page
-    mode: table
-    space: notes
-    title: Notes
-    description: General knowledge notes.
-    table:
-        columns:
-            - title
-            - summary
-            - createdAt
-    sort:
-        - field: createdAt
-          direction: desc
+kind: view
+surface: page
+mode: table
+title: Notes
+description: General knowledge notes.
+source:
+    type: pages
+    taxonomy:
+        spaces:
+            - notes
+table:
+    columns:
+        - field: fields.title
+          label: Title
+        - field: fields.summary
+          label: Summary
+        - field: fields.createdAt
+          label: Created
+sort:
+    - field: fields.createdAt
+      direction: desc
 ---
 
 # Notes
 
-<!-- forma-view -->
+<!-- forma:content -->
 ```
 
 ### `.forma/views/todos.md`
 
 ```markdown
 ---
-kind: forma-view
-
-view:
-    surface: page
-    mode: kanban
-    space: todos
-    title: Todos
-    description: Lightweight action items.
-    kanban:
-        card:
-            titleField: title
-            subtitleFields:
-                - summary
-                - assignees
-            badgeFields:
-                - dueDate
-        columns:
-            - id: todo
-              label: To Do
-              query:
-                  all:
-                      - target: frontmatter.status
-                        op: equals
-                        value: todo
-            - id: doing
-              label: Doing
-              query:
-                  all:
-                      - target: frontmatter.status
-                        op: equals
-                        value: doing
-            - id: done
-              label: Done
-              query:
-                  all:
-                      - target: frontmatter.status
-                        op: equals
-                        value: done
+kind: view
+surface: page
+mode: kanban
+title: Todos
+description: Lightweight action items.
+source:
+    type: pages
+    taxonomy:
+        spaces:
+            - todos
+kanban:
+    card:
+        titleField: fields.title
+        subtitleFields:
+            - fields.summary
+            - fields.assignees
+        badgeFields:
+            - fields.dueDate
+    columns:
+        - id: todo
+          label: To Do
+          query:
+              all:
+                  - field: fields.status
+                    op: equals
+                    value: todo
+        - id: doing
+          label: Doing
+          query:
+              all:
+                  - field: fields.status
+                    op: equals
+                    value: doing
+        - id: done
+          label: Done
+          query:
+              all:
+                  - field: fields.status
+                    op: equals
+                    value: done
 ---
 
 # Todos
 
-<!-- forma-view -->
+<!-- forma:content -->
 ```
 
 P0 GUI is read-only. Kanban drag/drop mutation semantics such as `onDrop.set`
@@ -579,27 +489,32 @@ are intentionally left for a later write-capable surface.
 
 ```markdown
 ---
-kind: forma-view
-
-view:
-    surface: page
-    mode: table
-    space: users
-    title: Users
-    description: People referenced by this workspace.
-    table:
-        columns:
-            - name
-            - description
-            - createdAt
-    sort:
-        - field: name
-          direction: asc
+kind: view
+surface: page
+mode: table
+title: Users
+description: People referenced by this workspace.
+source:
+    type: pages
+    taxonomy:
+        spaces:
+            - users
+table:
+    columns:
+        - field: fields.name
+          label: Name
+        - field: fields.description
+          label: Description
+        - field: fields.createdAt
+          label: Created
+sort:
+    - field: fields.name
+      direction: asc
 ---
 
 # Users
 
-<!-- forma-view -->
+<!-- forma:content -->
 ```
 
 ### Candidate `.forma/views/knowledge-graph.md`
@@ -611,25 +526,18 @@ file scope.
 
 ```markdown
 ---
-kind: forma-view
-
-view:
-    surface: page
-    mode: graph
-    title: Knowledge Graph
-    description: Repository-wide knowledge graph.
-    source:
-        kind: workspace
-        include:
-            - "**/*.md"
-        exclude:
-            - ".forma/**"
-            - "**/local/**"
+kind: view
+surface: page
+mode: graph
+title: Knowledge Graph
+description: Repository-wide knowledge graph.
+source:
+    type: pages
 ---
 
 # Knowledge Graph
 
-<!-- forma-view -->
+<!-- forma:content -->
 ```
 
 ## Behavior
@@ -639,7 +547,7 @@ view:
 1. Fail if `.forma/` already exists.
 2. Require confirmation in CLI adapters unless `-y` or `--yes` is provided.
 3. Create the starter file tree.
-4. Render concrete `settings.yml` values from init inputs.
+4. Render concrete `.forma.yml` values from init inputs.
 5. Create no sample entries.
 6. Create no `.forma/local/` or `.forma/overrides/local.yml`.
 7. Run `forma index rebuild`.

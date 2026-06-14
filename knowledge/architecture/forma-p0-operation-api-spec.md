@@ -415,10 +415,11 @@ Result outline:
     },
     "created": [
         ".forma.yml",
-        ".forma/taxonomies.yml",
-        ".forma/types.yml",
+        ".forma/spaces/notes.md",
+        ".forma/spaces/todos.md",
+        ".forma/spaces/users.md",
         ".forma/views/todos.md",
-        ".forma/templates/todo.md"
+        ".forma/spaces/templates/todo.md"
     ],
     "summary": {
         "errors": 0,
@@ -786,12 +787,12 @@ Result outline:
             }
         },
         {
-            "path": ".forma/templates/todo.md",
+            "path": ".forma/spaces/templates/todo.md",
             "kind": "template",
             "mediaType": "text/markdown",
             "name": "todo.md",
-            "parent": ".forma/templates",
-            "depth": 2,
+            "parent": ".forma/spaces/templates",
+            "depth": 3,
             "features": ["render.source"],
             "frontmatter": {
                 "kind": "todo"
@@ -870,7 +871,7 @@ Result outline:
     "created": {
         "path": "todos/draft-reference-model.md",
         "space": "todos",
-        "template": ".forma/templates/todo.md"
+        "template": ".forma/spaces/templates/todo.md"
     },
     "inputs": {
         "title": {
@@ -958,7 +959,10 @@ Result outline:
         "title": "Todos",
         "space": "todos",
         "source": {
-            "kind": "workspace"
+            "type": "pages",
+            "taxonomy": {
+                "spaces": ["todos"]
+            }
         },
         "params": {}
     },

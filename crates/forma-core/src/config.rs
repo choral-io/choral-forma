@@ -2,14 +2,14 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use globset::{Glob, GlobSetBuilder};
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 use thiserror::Error;
 
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::path::{
-    FORMA_DIR, FORMA_LOCAL_OVERRIDES_PATH, FORMA_SETTINGS_PATH, FORMA_SPACES_PATH,
-    FORMA_TYPES_PATH, PathError, WorkspacePath,
+    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_LOCAL_OVERRIDES_PATH, PathError, WorkspacePath,
 };
 use crate::schema::validate_space_schemas;
 
@@ -155,7 +155,7 @@ pub struct CreateInput {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub value_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub default: Option<String>,
+    pub default: Option<Value>,
     #[serde(default)]
     pub required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -199,29 +199,44 @@ pub enum ConfigError {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SettingsFile {
+struct ConfigFile {
     schema_version: u64,
     workspace: WorkspaceSettings,
+    #[serde(default)]
+    include: Vec<String>,
     #[serde(default)]
     runtime: RuntimeConfig,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct TypesFile {
-    #[allow(dead_code)]
-    schema_version: u64,
+struct ConfigNode {
     #[serde(default)]
-    types: BTreeMap<String, SemanticType>,
+    kind: Option<String>,
+    #[serde(default)]
+    taxonomy: Option<String>,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    display: DisplayOptions,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    include: Vec<String>,
+    #[serde(default)]
+    create: Option<TermCreateDefinition>,
+    #[serde(default)]
+    conventions: SpaceConventions,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SpacesFile {
-    #[allow(dead_code)]
-    schema_version: u64,
+struct TermCreateDefinition {
+    directory: String,
+    filename: String,
+    template: String,
     #[serde(default)]
-    spaces: BTreeMap<String, SpaceDefinition>,
+    inputs: BTreeMap<String, CreateInput>,
 }
 
 pub fn load_workspace(
@@ -234,33 +249,31 @@ pub fn load_workspace(
         return Err(ConfigError::MissingFormaDirectory);
     }
 
-    let settings_path = root.join(FORMA_SETTINGS_PATH);
-    let types_path = root.join(FORMA_TYPES_PATH);
-    let spaces_path = root.join(FORMA_SPACES_PATH);
+    let config_path = root.join(FORMA_CONFIG_PATH);
 
-    let mut settings_value = read_yaml_value(&settings_path, FORMA_SETTINGS_PATH)?;
+    let mut config_value = read_yaml_value(&config_path, FORMA_CONFIG_PATH)?;
     if mode == LoadMode::WithLocalOverrides {
         let local_override_path = root.join(FORMA_LOCAL_OVERRIDES_PATH);
         if local_override_path.exists() {
             let local_value = read_yaml_value(&local_override_path, FORMA_LOCAL_OVERRIDES_PATH)?;
-            deep_merge(&mut settings_value, local_value);
+            deep_merge(&mut config_value, local_value);
         }
     }
 
-    let settings_file: SettingsFile =
-        serde_yml::from_value(settings_value).map_err(|source| ConfigError::Parse {
-            path: FORMA_SETTINGS_PATH.to_string(),
+    let config_file: ConfigFile =
+        serde_yml::from_value(config_value).map_err(|source| ConfigError::Parse {
+            path: FORMA_CONFIG_PATH.to_string(),
             source,
         })?;
-    let types_file: TypesFile = read_yaml(&types_path, FORMA_TYPES_PATH)?;
-    let spaces_file: SpacesFile = read_yaml(&spaces_path, FORMA_SPACES_PATH)?;
+
+    let (types, spaces) = load_config_nodes(root, &config_file)?;
 
     let config = WorkspaceConfig {
-        schema_version: settings_file.schema_version,
-        workspace: settings_file.workspace,
-        runtime: settings_file.runtime,
-        types: types_file.types,
-        spaces: spaces_file.spaces,
+        schema_version: config_file.schema_version,
+        workspace: config_file.workspace,
+        runtime: config_file.runtime,
+        types,
+        spaces,
     };
     let mut diagnostics = validate_config_paths(&config);
     diagnostics.extend(validate_space_schemas(&config));
@@ -270,6 +283,142 @@ pub fn load_workspace(
         config,
         diagnostics,
     })
+}
+
+fn load_config_nodes(
+    root: &Path,
+    config_file: &ConfigFile,
+) -> Result<
+    (
+        BTreeMap<String, SemanticType>,
+        BTreeMap<String, SpaceDefinition>,
+    ),
+    ConfigError,
+> {
+    let mut types = BTreeMap::new();
+    let mut spaces = BTreeMap::new();
+
+    for public_path in included_markdown_config_paths(root, &config_file.include) {
+        let source =
+            fs::read_to_string(root.join(&public_path)).map_err(|source| ConfigError::Read {
+                path: public_path.clone(),
+                source,
+            })?;
+        let document = crate::markdown::FormaMarkdownDocument::parse(&source);
+        let Some(frontmatter) = document.frontmatter.value else {
+            continue;
+        };
+        let node: ConfigNode =
+            serde_yml::from_value(frontmatter).map_err(|source| ConfigError::Parse {
+                path: public_path.clone(),
+                source,
+            })?;
+        if node.kind.as_deref() != Some("term") || node.taxonomy.as_deref() != Some("spaces") {
+            continue;
+        }
+        let Some(space_id) = Path::new(&public_path)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .map(ToOwned::to_owned)
+        else {
+            continue;
+        };
+        let Some(include) = node.include.first().cloned() else {
+            continue;
+        };
+        let Some(create) = node.create else {
+            continue;
+        };
+        types.insert(
+            semantic_type_id_for_space(&space_id),
+            SemanticType::Space {
+                space: space_id.clone(),
+                input: TypeInput {
+                    transform: Some("slugify".to_string()),
+                },
+            },
+        );
+        let schema = starter_term_schema(&space_id);
+        spaces.insert(
+            space_id,
+            SpaceDefinition {
+                title: node.title.unwrap_or_else(|| public_path.clone()),
+                display: node.display,
+                description: node.description,
+                include,
+                template: create.template,
+                create: Some(CreateDefinition {
+                    directory: create.directory,
+                    filename: create.filename,
+                    inputs: create.inputs,
+                }),
+                conventions: node.conventions,
+                schema,
+            },
+        );
+    }
+
+    Ok((types, spaces))
+}
+
+fn semantic_type_id_for_space(space_id: &str) -> String {
+    space_id.strip_suffix('s').unwrap_or(space_id).to_string()
+}
+
+fn starter_term_schema(space_id: &str) -> Value {
+    let schema = if space_id == "todos" {
+        "type: object\nfields:\n  kind:\n    type: string\n  assignees:\n    type: list\n    items:\n      type: ref\n      target: user\n"
+    } else {
+        "type: object\nfields:\n  kind:\n    type: string\n"
+    };
+    serde_yml::from_str(schema).expect("built-in starter term schema is valid YAML")
+}
+
+fn included_markdown_config_paths(root: &Path, include: &[String]) -> Vec<String> {
+    let mut builder = GlobSetBuilder::new();
+    for pattern in include {
+        if let Ok(glob) = Glob::new(pattern) {
+            builder.add(glob);
+        }
+    }
+    let Ok(globs) = builder.build() else {
+        return Vec::new();
+    };
+
+    let mut paths = Vec::new();
+    collect_included_files(root, root, &globs, &mut paths);
+    paths.sort();
+    paths
+}
+
+fn collect_included_files(
+    root: &Path,
+    dir: &Path,
+    globs: &globset::GlobSet,
+    paths: &mut Vec<String>,
+) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if path.is_dir() {
+            if matches!(name, ".git" | "target" | "node_modules") {
+                continue;
+            }
+            collect_included_files(root, &path, globs, paths);
+        } else if path.extension().and_then(|extension| extension.to_str()) == Some("md")
+            && let Some(relative) = path.strip_prefix(root).ok().and_then(|path| path.to_str())
+        {
+            let relative = relative.replace('\\', "/");
+            if globs.is_match(&relative) {
+                paths.push(relative);
+            }
+        }
+    }
 }
 
 fn read_yaml<T: for<'de> Deserialize<'de>>(
@@ -352,7 +501,7 @@ fn push_path_diagnostic(
                 "config.pathInvalid",
                 format!("Space `{space_id}` has invalid `{field}` path: {error}."),
             )
-            .with_path(FORMA_SPACES_PATH)
+            .with_path(FORMA_CONFIG_PATH)
             .with_location(DiagnosticLocation::Config {
                 field: format!("spaces.{space_id}.{field}"),
             })
@@ -368,10 +517,33 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{LoadMode, load_workspace};
-    use crate::path::{
-        FORMA_LOCAL_OVERRIDES_PATH, FORMA_SETTINGS_PATH, FORMA_SPACES_PATH, FORMA_TEMPLATES_DIR,
-        FORMA_TYPES_PATH,
-    };
+    use crate::path::{FORMA_CONFIG_PATH, FORMA_LOCAL_OVERRIDES_PATH};
+
+    #[test]
+    fn loads_repository_starter_kit_config() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/forma-starter-kit");
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert_eq!(workspace.config.workspace.name, "Choral Forma Example");
+        assert_eq!(workspace.config.workspace.timezone, "UTC");
+        assert_eq!(workspace.config.spaces["todos"].include, "todos/**/*.md");
+        assert_eq!(
+            workspace.config.spaces["todos"].template,
+            ".forma/spaces/templates/todo.md"
+        );
+        assert_eq!(
+            workspace.config.spaces["todos"]
+                .conventions
+                .title_field
+                .as_deref(),
+            Some("fields.title")
+        );
+        assert_eq!(workspace.config.types["todo"].space(), Some("todos"));
+        assert!(workspace.diagnostics.is_empty());
+    }
 
     #[test]
     fn loads_starter_style_config() {
@@ -427,31 +599,31 @@ mod tests {
         assert_eq!(workspace.diagnostics[0].code, "config.pathInvalid");
         assert_eq!(
             workspace.diagnostics[0].path.as_deref(),
-            Some(FORMA_SPACES_PATH)
+            Some(FORMA_CONFIG_PATH)
         );
 
         fs::remove_dir_all(root).unwrap();
     }
 
     fn write_minimal_config(root: &Path, timezone: &str, include: &str) {
-        fs::create_dir_all(root.join(FORMA_TEMPLATES_DIR)).unwrap();
+        fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
         fs::write(
-            root.join(FORMA_SETTINGS_PATH),
+            root.join(FORMA_CONFIG_PATH),
             format!(
-                "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: {timezone}\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n"
+                "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: {timezone}\ninclude:\n  - \".forma/spaces/*.md\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n"
             ),
         )
         .unwrap();
         fs::write(
-            root.join(FORMA_TYPES_PATH),
-            "schemaVersion: 1\ntypes:\n  note:\n    kind: space\n    space: notes\n",
+            root.join(".forma/spaces/notes.md"),
+            format!(
+                "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - {include}\ncreate:\n  directory: notes\n  filename: \"{{{{ input.slug }}}}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: fields.title\n  summaryField: fields.summary\n---\n\n# Notes\n"
+            ),
         )
         .unwrap();
         fs::write(
-            root.join(FORMA_SPACES_PATH),
-            format!(
-                "schemaVersion: 1\nspaces:\n  notes:\n    title: Notes\n    include: {include}\n    template: {FORMA_TEMPLATES_DIR}/note.md\n    create:\n      directory: notes\n      filename: \"{{{{ input.slug }}}}.md\"\n    schema:\n      type: object\n      fields:\n        title:\n          type: string\n"
-            ),
+            root.join(".forma/spaces/templates/note.md"),
+            "---\ntitle: !expr input.title\n---\n\n# {{ input.title }}\n",
         )
         .unwrap();
     }

@@ -144,6 +144,11 @@ export interface DashboardGraphEdge {
     targetPath: string;
 }
 
+export interface DashboardViewColumn {
+    field: string;
+    label: string;
+}
+
 export type DashboardViewProjection =
     | {
           kind: "list";
@@ -151,7 +156,7 @@ export type DashboardViewProjection =
       }
     | {
           kind: "table";
-          columns: string[];
+          columns: DashboardViewColumn[];
           items: DashboardViewProjectionItem[];
       }
     | {
