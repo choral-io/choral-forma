@@ -22,6 +22,123 @@ This specification closes the starter-content question in
 [Product direction](product-direction.md) while staying inside
 [Forma P0 core architecture](../decisions/forma-p0-core-architecture.md).
 
+## Current Baseline
+
+As of the current starter-kit design pass, `examples/forma-starter-kit/` is the
+evaluation baseline for the first public configuration shape. The example is a
+user-facing guide and feature demonstration, not a test fixture and not mock
+data embedded in product code.
+
+The starter kit should be stabilized first. The backend, WebApp contracts, and
+documentation should then be refactored backward from this example. Existing
+implementation code and older product documentation may still lag behind this
+baseline.
+
+The current starter shape uses one root configuration entry:
+
+```yaml
+schemaVersion: 1
+
+workspace:
+    name: "Choral Forma Example"
+    root: "."
+    canonicalLanguage: "en"
+    supportedLanguages:
+        - "en"
+        - "zh-Hans"
+    timezone: "UTC"
+    logo:
+        path: "assets/logo.svg"
+        alt: "Choral Forma Example"
+
+include:
+    - ".forma/dashboard.md"
+    - ".forma/spaces/*.md"
+    - ".forma/views/*.md"
+    - ".forma/local/*.yml"
+    - ".forma/local/*.md"
+
+runtime:
+    values:
+        currentDateTime:
+            kind: currentDateTime
+        workspaceRoot:
+            kind: workspaceRoot
+        currentUserId:
+            kind: gitConfig
+            key: user.name
+            transform: slugify
+            required: true
+```
+
+Important constraints:
+
+- `.forma.yml` is the main configuration entry.
+- `.forma/` is a conventional support directory, not a privileged workspace
+  root.
+- `.forma/dashboard.md`, `.forma/spaces/*.md`, and `.forma/views/*.md` are
+  Markdown configuration nodes: frontmatter is configuration and the Markdown
+  body is the node's render template.
+- `<!-- forma:content -->` is the generated-content slot. If the slot is
+  omitted, Forma may append generated content after the node body.
+- `.forma/local/*.yml` and `.forma/local/*.md` are local-only extension points
+  loaded after committed configuration files.
+- Starter templates are colocated near the taxonomy that owns the create flow,
+  such as `.forma/spaces/templates/todo.md`. Template files do not need a
+  `kind` field.
+- The starter does not use `navigation.yml`, `types.yml`, `definitions.yml`,
+  `pageTypes`, `render/*.md`, or a committed persistent index.
+
+The configured "Spaces" experience is produced by a taxonomy node at
+`.forma/spaces/index.md` and term nodes such as `.forma/spaces/notes.md`. It is
+not a hardcoded product concept.
+
+Views are Markdown configuration nodes under `.forma/views/` by convention.
+Ordinary projections use `source.type: pages`. Taxonomy filters use list values:
+
+```yaml
+source:
+    type: pages
+    taxonomy:
+        spaces:
+            - notes
+```
+
+View field references currently use explicit binding paths such as
+`fields.title`, `fields.updatedAt`, and `fields.status`. This is a starter-kit
+baseline, not a final runtime object model decision. The runtime binding model
+should be revisited during the backend and WebApp refactor.
+
+Create templates use YAML-native `!expr` tagged values in frontmatter and
+`{{ ... }}` interpolation in Markdown body content:
+
+```yaml
+---
+title: !expr input.title
+assignees: !expr input.assignees
+createdAt: !expr input.createdAt
+updatedAt: !expr input.updatedAt
+---
+# {{ input.title }}
+```
+
+Initial transform helpers should stay small and reviewable: `trim`, `lower`,
+`upper`, `default`, `join`, `yaml`, `json`, and `slugify`. More helpers should
+be added only when the starter or create flows need them.
+
+The starter demonstrates multilingual variants with `en` and `zh-Hans`.
+Configuration values use BCP 47 casing such as `zh-Hans`; filename suffixes use
+lowercase such as `welcome-to-choral-forma.zh-hans.md`. The
+`entry-name.<language>.md` convention can identify variants without requiring
+extra frontmatter. Explicit variant metadata can be added later for content
+that cannot use the naming convention.
+
+## Outdated Sections
+
+The sections below preserve earlier starter-spec material and are due for
+cleanup after the starter-kit baseline is accepted. When they conflict with
+the current baseline above, the current baseline wins.
+
 ## Scope
 
 The P0 starter includes only these spaces:

@@ -16,19 +16,22 @@ tags:
 The WebApp V2 fake-data shell has stabilized enough to switch from renderer
 polish to real backend integration. The next implementation phase should make
 the Rust backend provide the read-only data needed by the GUI instead of
-continuing to grow WebApp-local mock projections.
+continuing to grow WebApp-local mock projections. Product code should not carry
+a mock-data switch; demonstrations should run the backend against a real example
+workspace such as `examples/forma-starter-kit/`.
 
 The WebApp remains a lightweight standalone knowledge browser. It should consume
 shared Forma operations and must not infer diagnostics, evaluate view queries,
 or duplicate reference resolution in the browser. Markdown rendering is a
-client concern for the WebApp reader, while Markdown analysis, indexing,
-diagnostics, and reference resolution remain backend concerns.
+client concern for the WebApp reader, while Markdown analysis, read-model
+construction, diagnostics, and reference resolution remain backend concerns.
 
 ## Goals
 
 - Provide the minimum read model needed to replace deterministic WebApp mock
   data.
-- Keep repository Markdown and `.forma/**` configuration as the source of truth.
+- Keep repository Markdown and `.forma.yml`-included configuration as the
+  source of truth.
 - Keep WebApp rendering read-only until reviewable write operations are
   designed.
 - Reuse existing operation semantics where possible: `files.list`,
@@ -54,7 +57,7 @@ The shell needs one route-independent snapshot:
 
 - workspace name and root display label;
 - workspace status derived from diagnostics;
-- spaces or configured knowledge partitions;
+- configured taxonomies and terms needed for sidebar and route context;
 - saved views with `id`, `path`, title, description, and renderer kind;
 - global document count;
 - workspace diagnostics summary;
@@ -64,37 +67,44 @@ The shell needs one route-independent snapshot:
 This should be delivered by a backend aggregate instead of making the WebApp
 coordinate many low-level calls on initial load.
 
-### Spaces
+### Taxonomies And Terms
 
-The `Spaces` route needs:
+The current starter kit configures a primary taxonomy named `spaces`, but the
+WebApp read model should not require `spaces` as a hardcoded product concept.
+Routes and labels may still show "Spaces" for the starter when that taxonomy is
+configured.
 
-- list of configured spaces;
-- title, path/include pattern, entry count, status, and updated label;
-- documents belonging to the selected space.
+The taxonomy route needs:
 
-`workspace.dashboard` is a WebApp-facing read model and should expose `spaces`
-directly. View summaries that target a configured partition should use the same
-`space` field as the backend operation model.
+- list of configured taxonomies and terms that the WebApp chooses to surface;
+- title, description, display order, page count, status, and updated label;
+- pages belonging to the selected term.
 
-### Documents
+`workspace.dashboard` is a WebApp-facing read model and should expose taxonomy
+summaries in the same terminology used by configuration. View summaries that
+target a configured taxonomy term should use the same taxonomy/term read-model
+shape as other routes.
 
-The `Documents` route needs:
+### Pages
 
-- global document list across spaces;
+The `Pages` route needs:
+
+- global page list across configured taxonomies;
 - stable document id for routing;
 - workspace path;
-- title, summary, space id, kind, status, updated label;
+- title, summary, primary taxonomy term when available, kind/status fields when
+  present, and updated label;
 - render capability flags when a file cannot be rendered as a Markdown
-  document.
+  page.
 
 The route should not depend on filesystem walking in the browser.
 
-### Document Detail
+### Page Detail
 
-The document route needs:
+The page route needs:
 
-- metadata summary for the selected document;
-- Markdown source for the selected document body;
+- metadata summary for the selected page;
+- Markdown source for the selected page body;
 - backend-derived heading outline, explicit references, backlinks, and
   diagnostics;
 - optional source text only when source mode is explicitly supported;

@@ -14,14 +14,14 @@ tags:
 
 ## Context
 
-Forma views are managed Markdown definitions under `.forma/views/**/*.md`.
-They render structured knowledge from repository-backed Markdown files without
-turning view definitions into ordinary domain notes.
+Forma views are managed Markdown configuration nodes under `.forma/views/*.md`
+by convention. They render structured knowledge from repository-backed Markdown
+pages without turning view definitions into ordinary domain notes.
 
-The initial design previously leaned toward collection-bound views. The
-accepted model is broader: a view starts from a workspace data source, narrows
-candidate files with `source`, then filters normalized entry records with
-`query`. A space view is a common shortcut, not a separate source model.
+The initial design previously leaned toward collection-bound views and then a
+workspace-file source model. The current starter-kit baseline is broader and
+more semantic: a view starts from pages in the Forma read model, then filters
+those pages by taxonomy membership or query predicates.
 
 ## Goals
 
@@ -43,116 +43,103 @@ candidate files with `source`, then filters normalized entry records with
   personal view controls, or cross-space table joins.
 - P0 does not make graph a global special feature outside the view system.
 
+## Current Starter-Kit Baseline
+
+The current starter kit uses this shape:
+
+```yaml
+---
+kind: view
+title: Notes
+description: Configured table view over notes.
+mode: table
+display:
+    order: 30
+
+source:
+    type: pages
+    taxonomy:
+        spaces:
+            - notes
+
+table:
+    columns:
+        - field: fields.title
+          label: Title
+        - field: fields.summary
+          label: Summary
+        - field: fields.createdAt
+          label: Created At
+
+sort:
+    - field: fields.createdAt
+      direction: desc
+---
+# Notes
+
+<!-- forma:content -->
+```
+
+Rules from the current baseline:
+
+- `source.type` is the canonical field name.
+- Ordinary projections use `source.type: pages`.
+- The global graph view can use only `source.type: pages` with no taxonomy
+  filter.
+- Taxonomy filters use a map-to-list shape, even for one term.
+- Predicate and display field references use `field`, not `target`.
+- Table columns are objects so labels and future display options can be added
+  without changing the column shape.
+- Table and list sort stay view-level.
+- Kanban columns may define local sort because each column is a separate result
+  group.
+- `sort.order` can define explicit enum order for fields such as priority.
+
+The current examples use binding paths such as `fields.title`,
+`fields.updatedAt`, and `fields.status`. These paths document the current
+starter-kit baseline only. The full runtime object model still needs a separate
+design pass during the backend and WebApp refactor.
+
 ## Proposed Architecture
 
 ### Source Before Query
 
 View evaluation has two layers:
 
-1. `source` selects candidate files.
-2. `query` filters normalized entry records derived from those files.
+1. `source` selects candidate pages.
+2. `query` filters normalized page records derived from those pages.
 
-`source.kind: workspace` is the only P0 source kind. It reads Markdown files
-from the current Forma workspace and may use `include` and `exclude` globs:
+The older `source.kind: workspace` shape is superseded for the starter-kit
+baseline. P0 implementation may still contain transitional code, but the target
+configuration should use `source.type: pages`.
 
-```yaml
-view:
-    source:
-        kind: workspace
-        include:
-            - "**/*.md"
-        exclude:
-            - ".forma/**"
-            - "**/local/**"
-```
+### Taxonomy Filters
 
-The `source.kind` field is intentionally explicit. P0 implements only
-`workspace`, but the shape leaves room for future external render inputs. Those
-future inputs should be treated as view inputs, not as durable workspace truth,
-unless a separate import or promotion flow writes them into repository files.
-
-### Space Shorthand
-
-The direct `view.space` field remains valid because it is readable and
-useful for starter views:
+The older direct `view.space` shorthand is superseded. A view scoped to starter
+notes should filter through taxonomy membership:
 
 ```yaml
-view:
-    surface: page
-    mode: table
-    space: todos
+source:
+    type: pages
+    taxonomy:
+        spaces:
+            - notes
 ```
 
-It is equivalent to a workspace-source query over the normalized
-`entry.space` field:
-
-```yaml
-view:
-    surface: page
-    mode: table
-    source:
-        kind: workspace
-    query:
-        all:
-            - target: entry.space
-              op: equals
-              value: todos
-```
-
-Runtime behavior should treat `space` as an additional filter. It should
-not prevent graph views, file navigation views, or uncatalogued-document views
-from using the same workspace source model.
-
-### Normalized Entry Record
-
-Queries operate on normalized entry records, not directly on raw Markdown text.
-The exact internal representation can evolve, but the stable conceptual shape
-is:
-
-```ts
-entry = {
-    path: "todos/review-webapp.md",
-    space: "todos" | null,
-    kind: "todo" | null,
-    title: "Review WebApp" | null,
-    frontmatter: {},
-    refs: {},
-    text: {},
-};
-```
-
-The stable P0 target namespaces are:
-
-- `entry.space`
-- `entry.path`
-- `entry.kind`
-- `entry.title`
-- `frontmatter.<field>`
-
-Future targets such as `refs.*`, `text.*`, `diagnostics.*`, or derived fields
-should be added only after their data shape and diagnostics are clear.
+This avoids making `spaces` a built-in runtime concept. Other taxonomies can
+use the same shape later.
 
 ### Query AST
 
-The query model is a structured AST with boolean composition:
+The query model remains a structured AST with boolean composition. The starter
+baseline uses `field` for leaf predicates:
 
 ```yaml
 query:
     all:
-        - target: entry.space
+        - field: fields.status
           op: equals
-          value: todos
-        - any:
-              - target: frontmatter.status
-                op: equals
-                value: todo
-              - target: frontmatter.status
-                op: equals
-                value: doing
-        - not:
-              - target: frontmatter.archived
-                op: equals
-                value: true
+          value: todo
 ```
 
 The semantics are:
@@ -161,7 +148,7 @@ The semantics are:
 - `any`: at least one child must match; an empty `any` should be neutral only
   when the query node is otherwise empty by implementation convention.
 - `not`: every child must not match.
-- Leaf predicates use `target`, `op`, and optional `value`.
+- Leaf predicates use `field`, `op`, and optional `value`.
 
 P0 supports these operators:
 
@@ -169,17 +156,6 @@ P0 supports these operators:
 - `in`
 - `contains`
 - `exists`
-
-`exists` uses an explicit boolean value. Missing fields are represented without
-a special `missing` operator:
-
-```yaml
-query:
-    all:
-        - target: entry.space
-          op: exists
-          value: false
-```
 
 Additional operators can be introduced later when runtime typing and
 diagnostics justify them:
@@ -195,9 +171,9 @@ diagnostics justify them:
 
 ### Mode-Specific Query Use
 
-List and table views use the top-level `view.query` as their candidate filter.
+List and table views use the top-level `query` as their candidate filter.
 
-Kanban views first apply the top-level `view.query`, then evaluate
+Kanban views first apply the top-level `query`, then evaluate
 `kanban.columns[].query` in column order. The first matching column wins. Health
 checks should warn about overlapping column queries and unmatched items.
 
@@ -208,47 +184,45 @@ cross-space table join.
 Example global graph view:
 
 ```yaml
-view:
-    surface: page
-    mode: graph
-    title: Knowledge Graph
-    source:
-        kind: workspace
-        include:
-            - "**/*.md"
-        exclude:
-            - ".forma/**"
-            - "**/local/**"
+---
+kind: view
+title: Graph
+description: Workspace page relationship graph.
+mode: graph
+
+source:
+    type: pages
+---
 ```
 
 Graph should be opened through normal view navigation, tabs, or links. It is a
 view mode, not a separate global product surface. Relationship panels may show
-backlinks, outgoing links, and mentions for the current document, but they are
-not the primary graph surface.
+backlinks and outgoing links for the current page, but they are not the primary
+graph surface.
 
 ## Interfaces And Contracts
 
 `view.render` should evaluate:
 
 - view parameters;
-- workspace source filters;
-- space shorthand;
-- normalized-entry query definitions;
+- page source filters;
+- taxonomy filters;
+- normalized-page query definitions;
 - sort definitions;
 - display fields;
 - table configuration;
 - kanban column configuration;
 - render mount points.
 
-`index.rebuild` should include valid view metadata in
-`.forma/index.summary.json`, including workspace-source graph views without a
-space filter. The index should not persist rendered query results.
+The first public release does not require a committed persistent index. The
+serve process can build the read model in memory and expose valid view metadata,
+including page-source graph views without taxonomy filters.
 
 `check` should report structured diagnostics for:
 
-- unsupported `source.kind`;
+- unsupported `source.type`;
 - invalid source globs;
-- invalid query targets;
+- invalid query fields;
 - unsupported operators;
 - incompatible operator/value combinations;
 - missing referenced spaces, fields, or parameters when the view requires
@@ -261,21 +235,17 @@ misrendering.
 
 ## P0 Scope
 
-P0 implements:
+P0 should implement the starter-kit baseline:
 
-- `source.kind: workspace`;
-- `source.include`;
-- `source.exclude`;
+- `source.type: pages`;
+- taxonomy filters using map-to-list values;
 - `query.all`;
 - `query.any`;
 - `query.not`;
-- targets `entry.space`, `entry.path`, `entry.kind`, `entry.title`, and
-  `frontmatter.<field>`;
+- `field` references over the currently supported starter bindings;
 - operators `equals`, `in`, `contains`, and `exists`;
-- `view.space` as shorthand for `entry.space`;
-- table and kanban rendering over this model;
-- graph view discovery and indexing, but not necessarily interactive graph
-  rendering.
+- table, list, kanban, and graph rendering over this model;
+- graph view discovery without making graph a special built-in route.
 
 ## Later Scope
 
