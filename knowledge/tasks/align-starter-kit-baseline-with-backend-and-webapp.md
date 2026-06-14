@@ -18,7 +18,7 @@ tags:
     - webapp
 
 effort: L
-readiness: needs-refinement
+readiness: ready
 sprint:
 
 blocked_by: []

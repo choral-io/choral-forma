@@ -10,7 +10,6 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Backlog
 
-- [ ] [[tasks/align-starter-kit-baseline-with-backend-and-webapp|Align Starter Kit Baseline With Backend And WebApp]]
 - [ ] [[tasks/stabilize-public-read-only-webapp-release|Stabilize Public Read-only WebApp Release]]
 - [ ] [[tasks/design-reviewable-operation-proposal-flow|Design Reviewable Operation Proposal Flow]]
 - [ ] [[tasks/design-ai-chat-interaction-model|Design AI Chat Interaction Model]]
@@ -24,6 +23,8 @@ Rules: `.workflow/rules/delivery.md`
 - [ ] [[tasks/design-reviewable-knowledge-change-proposals|Design Reviewable Knowledge Change Proposals]]
 
 ## Ready
+
+- [ ] [[tasks/align-starter-kit-baseline-with-backend-and-webapp|Align Starter Kit Baseline With Backend And WebApp]]
 
 ## Doing
 
