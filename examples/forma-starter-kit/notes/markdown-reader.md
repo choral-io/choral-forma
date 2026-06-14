@@ -2,33 +2,29 @@
 kind: note
 title: "Markdown Reader"
 summary: "A compact demonstration of Markdown rendering in the read-only WebApp."
-createdAt: "2026-06-01T09:30:00+08:00"
-updatedAt: "2026-06-01T09:30:00+08:00"
+createdAt: "2026-06-03T18:00:00Z"
+updatedAt: "2026-06-03T18:00:00Z"
 ---
 
 # Markdown Reader
 
-The reader renders ordinary Markdown. Choral Forma does not require proprietary
-page syntax for the common cases shown here.
+The reader renders ordinary Markdown. Choral Forma does not require proprietary page syntax for the common cases shown here.
 
 ## Inline Text
 
-Paragraphs can include **strong text**, _emphasized text_, `inline code`,
-~~strikethrough text~~, and external links such as
-[CommonMark](https://commonmark.org/).
+Paragraphs can include **strong text**, _emphasized text_, `inline code`, ~~strikethrough text~~, and external links such as [CommonMark](https://commonmark.org/).
 
-Long inline values should wrap naturally, including paths such as
-`examples/forma-starter-kit/notes/markdown-reader.md`.
+Long inline values should wrap naturally, including paths such as `examples/forma-starter-kit/notes/markdown-reader.md`.
 
 ## Lists
 
 - Keep notes short and scannable.
 - Link related pages when the relationship matters.
-    - Nested lists are useful for examples and checklists.
-    - Inline code such as `.forma/spaces.yml` should remain readable.
+  - Nested lists are useful for examples and checklists.
+  - Inline code such as `.forma.yml` should remain readable.
 
 1. Edit Markdown files in your normal editor.
-2. Rebuild the summary index.
+2. Run the local Forma server.
 3. Refresh the WebApp.
 
 - [x] Read the starter guide
@@ -36,8 +32,7 @@ Long inline values should wrap naturally, including paths such as
 
 ## Blockquote
 
-> Repository Markdown remains the source of truth. The WebApp should explain it
-> without creating hidden application state.
+> Repository Markdown remains the source of truth. The WebApp should explain it without creating hidden application state.
 
 ## Code Blocks
 
@@ -61,7 +56,6 @@ const sourceOfTruth = "repository-markdown";
 
 ## Image
 
-Images can live beside the Markdown files and be referenced with ordinary
-relative paths.
+Images can live beside the Markdown files and be referenced with ordinary relative paths.
 
 ![Choral Forma knowledge workspace hero](../assets/markdown-hero.png)

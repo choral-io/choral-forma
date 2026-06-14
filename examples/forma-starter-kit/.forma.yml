@@ -2,18 +2,25 @@ schemaVersion: 1
 
 workspace:
   name: "Choral Forma Example"
+  root: "."
   canonicalLanguage: "en"
   supportedLanguages:
     - "en"
-  timezone: "Asia/Shanghai"
+    - "zh-Hans"
+  timezone: "UTC"
   logo:
     path: "assets/logo.svg"
     alt: "Choral Forma Example"
 
+include:
+  - ".forma/dashboard.md"
+  - ".forma/spaces/*.md"
+  - ".forma/views/*.md"
+  - ".forma/local/*.yml"
+  - ".forma/local/*.md"
+
 runtime:
   values:
-    currentDate:
-      kind: currentDate
     currentDateTime:
       kind: currentDateTime
     workspaceRoot:

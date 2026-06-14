@@ -1,21 +1,17 @@
 ---
-kind: forma-view
-
-view:
-    surface: page
-    mode: graph
-    title: Graph
-    display:
-        order: 10
-    description: Graph links across notes, todos, and referenced people.
-    source:
-        kind: workspace
-        include:
-            - "**/*.md"
-        exclude:
-            - ".forma/**"
+schemaVersion: 1
+kind: view
+mode: graph
+title: Graph
+display:
+  order: 10
+description: Graph links across notes, todos, and referenced people.
+source:
+  type: pages
 ---
 
 # Graph
 
-<!-- forma-view -->
+Explore how pages, tasks, and people connect across the starter workspace.
+
+<!-- forma:content -->

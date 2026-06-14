@@ -1,24 +1,31 @@
 ---
-kind: forma-view
-
-view:
-    surface: page
-    mode: table
-    space: users
-    title: Users
-    display:
-        order: 60
-    description: Example people referenced by the starter workspace.
-    table:
-        columns:
-            - name
-            - description
-            - createdAt
-    sort:
-        - field: name
-          direction: asc
+schemaVersion: 1
+kind: view
+mode: table
+title: Users
+display:
+  order: 60
+description: Example people referenced by the starter workspace.
+source:
+  type: pages
+  taxonomy:
+    spaces:
+      - users
+table:
+  columns:
+    - field: fields.name
+      label: Name
+    - field: fields.description
+      label: Description
+    - field: fields.createdAt
+      label: Created
+sort:
+  - field: fields.name
+    direction: asc
 ---
 
 # Users
 
-<!-- forma-view -->
+List example people referenced by starter tasks and pages.
+
+<!-- forma:content -->

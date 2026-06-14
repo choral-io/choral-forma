@@ -5,4 +5,12 @@ export default {
     printWidth: 120,
     quoteProps: "consistent",
     organizeImportsSkipDestructiveCodeActions: true,
+    overrides: [
+        {
+            files: "examples/forma-starter-kit/**/*.md",
+            options: {
+                proseWrap: "never",
+            },
+        },
+    ],
 };
