@@ -322,6 +322,11 @@ fn discover_entries(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<CandidateEntry> {
     let markdown_files = collect_markdown_files(root);
+    let markdown_paths = markdown_files
+        .iter()
+        .filter_map(|path| workspace_relative_path(root, path))
+        .collect::<BTreeSet<_>>();
+    let supported_language_suffixes = supported_language_suffixes(config);
     let matchers = build_space_matchers(config, diagnostics);
     let mut entries = Vec::new();
 
@@ -345,6 +350,22 @@ fn discover_entries(
                 )
                 .with_path(relative),
             );
+            continue;
+        }
+        if let Some((language, canonical_path)) =
+            language_variant_canonical_path(&relative, &supported_language_suffixes)
+        {
+            if !markdown_paths.contains(&canonical_path) {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        "languageVariant.canonicalMissing",
+                        "Language variant does not have a canonical page.",
+                    )
+                    .with_path(relative)
+                    .with_actual(language)
+                    .with_expected(canonical_path),
+                );
+            }
             continue;
         }
 
@@ -374,6 +395,47 @@ fn discover_entries(
 
     entries.sort_by(|left, right| left.path.cmp(&right.path));
     entries
+}
+
+fn supported_language_suffixes(config: &WorkspaceConfig) -> Vec<String> {
+    let mut suffixes = config
+        .workspace
+        .supported_languages
+        .iter()
+        .chain(std::iter::once(&config.workspace.canonical_language))
+        .map(|language| language.to_ascii_lowercase())
+        .filter(|language| !language.trim().is_empty())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    suffixes.sort_by_key(|language| std::cmp::Reverse(language.len()));
+    suffixes
+}
+
+fn language_variant_canonical_path(
+    path: &str,
+    language_suffixes: &[String],
+) -> Option<(String, String)> {
+    let Some(stem) = path.strip_suffix(".md") else {
+        return None;
+    };
+    let (directory, filename_stem) = stem.rsplit_once('/').unwrap_or(("", stem));
+    for language in language_suffixes {
+        let suffix = format!(".{language}");
+        let Some(canonical_stem) = filename_stem.strip_suffix(&suffix) else {
+            continue;
+        };
+        if canonical_stem.is_empty() {
+            continue;
+        }
+        let canonical_path = if directory.is_empty() {
+            format!("{canonical_stem}.md")
+        } else {
+            format!("{directory}/{canonical_stem}.md")
+        };
+        return Some((language.clone(), canonical_path));
+    }
+    None
 }
 
 fn build_space_matchers(
@@ -1299,6 +1361,76 @@ mod tests {
         );
         assert_eq!(json, expected_json);
         assert_eq!(json, summary_index_json(&discovery.index));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn language_variant_files_do_not_become_primary_index_entries() {
+        let root = fixture_root("language-variants");
+        write_workspace(&root);
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+        )
+        .unwrap();
+        write_entry(
+            &root,
+            "notes/getting-started.md",
+            "---\nkind: note\ntitle: Getting Started\n---\n",
+        );
+        write_entry(
+            &root,
+            "notes/getting-started.zh-hans.md",
+            "---\nkind: note\ntitle: 快速开始\n---\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+
+        assert!(
+            discovery.diagnostics.is_empty(),
+            "{:#?}",
+            discovery.diagnostics
+        );
+        assert_eq!(
+            discovery
+                .index
+                .entries
+                .iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["notes/getting-started.md"]
+        );
+        assert_eq!(discovery.index.spaces[0].entry_count, 1);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn language_variant_without_canonical_page_reports_diagnostic() {
+        let root = fixture_root("language-variant-missing-canonical");
+        write_workspace(&root);
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+        )
+        .unwrap();
+        write_entry(
+            &root,
+            "notes/missing.zh-hans.md",
+            "---\nkind: note\ntitle: Missing Canonical\n---\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+
+        assert!(discovery.index.entries.is_empty());
+        assert_eq!(discovery.index.spaces[0].entry_count, 0);
+        assert_eq!(discovery.diagnostics.len(), 1);
+        let diagnostic = &discovery.diagnostics[0];
+        assert_eq!(diagnostic.code, "languageVariant.canonicalMissing");
+        assert_eq!(diagnostic.path.as_deref(), Some("notes/missing.zh-hans.md"));
+        assert_eq!(diagnostic.actual.as_deref(), Some("zh-hans"));
+        assert_eq!(diagnostic.expected.as_deref(), Some("notes/missing.md"));
+
         fs::remove_dir_all(root).unwrap();
     }
 

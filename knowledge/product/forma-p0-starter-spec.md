@@ -133,6 +133,13 @@ lowercase such as `welcome-to-choral-forma.zh-hans.md`. The
 extra frontmatter. Explicit variant metadata can be added later for content
 that cannot use the naming convention.
 
+Read-model lists, space counts, and saved view results should treat the
+canonical-language page as the page identity. Other language files are variants
+of that canonical page and should not appear as separate primary pages. A later
+WebApp language switcher can choose which variant supplies display text for a
+listed page; when the selected language variant is missing, the canonical page
+remains the fallback.
+
 ## Outdated Sections
 
 The sections below preserve earlier starter-spec material and are due for
