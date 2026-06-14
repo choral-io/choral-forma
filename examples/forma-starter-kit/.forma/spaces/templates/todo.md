@@ -1,12 +1,13 @@
 ---
-title: !expr input.title
-summary: !expr input.summary
-status: !expr input.status
-priority: !expr input.priority
-assignees: !expr input.assignees
-dueDate: !expr input.dueDate
-createdAt: !expr input.createdAt
-updatedAt: !expr input.updatedAt
+kind: todo
+title: "{{ input.title }}"
+summary: "{{ input.summary }}"
+status: "{{ input.status }}"
+priority: "{{ input.priority }}"
+assignees: []
+dueDate: "{{ input.dueDate }}"
+createdAt: "{{ input.createdAt }}"
+updatedAt: "{{ input.updatedAt }}"
 ---
 
 # {{ input.title }}

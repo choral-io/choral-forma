@@ -1,8 +1,9 @@
 ---
-title: !expr input.title
-summary: !expr input.summary
-createdAt: !expr input.createdAt
-updatedAt: !expr input.updatedAt
+kind: note
+title: "{{ input.title }}"
+summary: "{{ input.summary }}"
+createdAt: "{{ input.createdAt }}"
+updatedAt: "{{ input.updatedAt }}"
 ---
 
 # {{ input.title }}

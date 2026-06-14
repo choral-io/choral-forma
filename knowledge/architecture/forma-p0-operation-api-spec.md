@@ -502,10 +502,10 @@ Result outline:
     },
     "config": {
         "workspace": {},
+        "dashboard": {},
+        "taxonomies": {},
+        "spaces": {},
         "types": {},
-        "taxonomies": [],
-        "views": [],
-        "navigation": [],
         "runtime": {}
     },
     "sources": [
@@ -514,16 +514,9 @@ Result outline:
             "kind": "shared"
         },
         {
-            "path": ".forma/overrides/local.yml",
+            "path": ".forma/local/local.yml",
             "kind": "local",
             "present": false
-        }
-    ],
-    "runtimeValues": [
-        {
-            "name": "currentUserId",
-            "status": "resolved",
-            "source": ".forma.yml"
         }
     ],
     "summary": {

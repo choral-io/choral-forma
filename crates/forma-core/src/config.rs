@@ -33,6 +33,10 @@ pub struct WorkspaceConfig {
     pub workspace: WorkspaceSettings,
     #[serde(default)]
     pub runtime: RuntimeConfig,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub dashboard: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub taxonomies: BTreeMap<String, Value>,
     #[serde(default)]
     pub types: BTreeMap<String, SemanticType>,
     #[serde(default)]
@@ -266,12 +270,14 @@ pub fn load_workspace(
             source,
         })?;
 
-    let (types, spaces) = load_config_nodes(root, &config_file)?;
+    let (dashboard, taxonomies, types, spaces) = load_config_nodes(root, &config_file)?;
 
     let config = WorkspaceConfig {
         schema_version: config_file.schema_version,
         workspace: config_file.workspace,
         runtime: config_file.runtime,
+        dashboard,
+        taxonomies,
         types,
         spaces,
     };
@@ -290,11 +296,15 @@ fn load_config_nodes(
     config_file: &ConfigFile,
 ) -> Result<
     (
+        BTreeMap<String, Value>,
+        BTreeMap<String, Value>,
         BTreeMap<String, SemanticType>,
         BTreeMap<String, SpaceDefinition>,
     ),
     ConfigError,
 > {
+    let mut dashboard = BTreeMap::new();
+    let mut taxonomies = BTreeMap::new();
     let mut types = BTreeMap::new();
     let mut spaces = BTreeMap::new();
 
@@ -309,10 +319,18 @@ fn load_config_nodes(
             continue;
         };
         let node: ConfigNode =
-            serde_yml::from_value(frontmatter).map_err(|source| ConfigError::Parse {
+            serde_yml::from_value(frontmatter.clone()).map_err(|source| ConfigError::Parse {
                 path: public_path.clone(),
                 source,
             })?;
+        if node.kind.as_deref() == Some("dashboard") {
+            dashboard.insert(view_id_from_config_path(&public_path), frontmatter);
+            continue;
+        }
+        if node.kind.as_deref() == Some("taxonomy") {
+            taxonomies.insert(view_id_from_config_path(&public_path), frontmatter);
+            continue;
+        }
         if node.kind.as_deref() != Some("term") || node.taxonomy.as_deref() != Some("spaces") {
             continue;
         }
@@ -358,7 +376,15 @@ fn load_config_nodes(
         );
     }
 
-    Ok((types, spaces))
+    Ok((dashboard, taxonomies, types, spaces))
+}
+
+fn view_id_from_config_path(path: &str) -> String {
+    Path::new(path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(path)
+        .to_string()
 }
 
 fn semantic_type_id_for_space(space_id: &str) -> String {
@@ -516,6 +542,8 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use serde_yml::Value;
+
     use super::{LoadMode, load_workspace};
     use crate::path::{FORMA_CONFIG_PATH, FORMA_LOCAL_OVERRIDES_PATH};
 
@@ -540,6 +568,14 @@ mod tests {
                 .title_field
                 .as_deref(),
             Some("fields.title")
+        );
+        assert_eq!(
+            workspace.config.dashboard["dashboard"]["kind"],
+            Value::String("dashboard".to_string())
+        );
+        assert_eq!(
+            workspace.config.taxonomies["index"]["kind"],
+            Value::String("taxonomy".to_string())
         );
         assert_eq!(workspace.config.types["todo"].space(), Some("todos"));
         assert!(workspace.diagnostics.is_empty());
@@ -623,7 +659,7 @@ mod tests {
         .unwrap();
         fs::write(
             root.join(".forma/spaces/templates/note.md"),
-            "---\ntitle: !expr input.title\n---\n\n# {{ input.title }}\n",
+            "---\nkind: note\ntitle: \"{{ input.title }}\"\n---\n\n# {{ input.title }}\n",
         )
         .unwrap();
     }

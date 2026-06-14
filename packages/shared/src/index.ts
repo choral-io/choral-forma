@@ -266,7 +266,9 @@ export type ConfigInspectResult = BaseOperationResult & {
             supportedLanguages?: string[];
             timezone?: string;
         };
+        dashboard?: Record<string, unknown>;
         spaces?: Record<string, unknown>;
+        taxonomies?: Record<string, unknown>;
         runtime?: Record<string, unknown>;
         types?: Record<string, unknown>;
     };

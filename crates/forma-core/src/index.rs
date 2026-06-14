@@ -1612,17 +1612,17 @@ mod tests {
         }
         fs::write(
             root.join(".forma/spaces/templates/note.md"),
-            "---\ntitle: !expr input.title\n---\n",
+            "---\nkind: note\ntitle: \"{{ input.title }}\"\n---\n",
         )
         .unwrap();
         fs::write(
             root.join(".forma/spaces/templates/todo.md"),
-            "---\ntitle: !expr input.title\n---\n",
+            "---\nkind: todo\ntitle: \"{{ input.title }}\"\n---\n",
         )
         .unwrap();
         fs::write(
             root.join(".forma/spaces/templates/user.md"),
-            "---\ntitle: !expr input.title\n---\n",
+            "---\nkind: user\ntitle: \"{{ input.title }}\"\n---\n",
         )
         .unwrap();
     }

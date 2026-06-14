@@ -20,10 +20,11 @@ Each term can define:
 For example, `.forma/spaces/todos.md` points to `.forma/spaces/templates/todo.md`. The term defines inputs such as title, status, priority, assignees, and due date. The template turns those inputs into ordinary Markdown frontmatter and body content.
 
 ```yaml
-title: !expr input.title
-status: !expr input.status
-priority: !expr input.priority
-assignees: !expr input.assignees
+kind: todo
+title: "{{ input.title }}"
+status: "{{ input.status }}"
+priority: "{{ input.priority }}"
+assignees: []
 ```
 
 The generated page is still just a Markdown file under `todos/`. It can be edited in a normal editor and later appears in the Todos space and kanban view.

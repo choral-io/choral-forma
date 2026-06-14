@@ -1362,11 +1362,11 @@ fn starter_templates() -> Vec<(String, &'static str)> {
     vec![
         (
             ".forma/spaces/templates/note.md".to_string(),
-            "---\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
+            "---\nkind: note\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
         ),
         (
             ".forma/spaces/templates/todo.md".to_string(),
-            "---\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\npriority: \"{{ input.priority }}\"\nassignees: []\ndueDate: \"{{ input.dueDate }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
+            "---\nkind: todo\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\npriority: \"{{ input.priority }}\"\nassignees: []\ndueDate: \"{{ input.dueDate }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
         ),
         (
             ".forma/spaces/templates/user.md".to_string(),
@@ -1674,6 +1674,7 @@ Example people referenced by tasks and pages.
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use serde_yml::Value;
@@ -1959,6 +1960,68 @@ include:
     }
 
     #[test]
+    fn create_entry_from_repository_starter_templates_rebuilds_index() {
+        let root = fixture_root("repository-starter-create");
+        copy_dir_all(repository_root().join("examples/forma-starter-kit"), &root).unwrap();
+
+        create_entry(
+            &root,
+            "todos",
+            [(
+                "title".to_string(),
+                Value::String("Review Starter Create".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap();
+        let source = fs::read_to_string(root.join("todos/review-starter-create.md")).unwrap();
+        assert!(source.contains("kind: todo"));
+        assert!(source.contains("title: \"Review Starter Create\""));
+        assert!(source.contains("assignees: []"));
+
+        let result = crate::index::index_rebuild(&root).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert!(result.diagnostics.is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn init_create_templates_preserve_entry_kind() {
+        let root = fixture_root("init-create-kind");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Template Kind Test", "en", Some("UTC")).unwrap();
+
+        create_entry(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Kinded Note".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap();
+        create_entry(
+            &root,
+            "todos",
+            [(
+                "title".to_string(),
+                Value::String("Kinded Todo".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap();
+
+        let note = fs::read_to_string(root.join("notes/kinded-note.md")).unwrap();
+        let todo = fs::read_to_string(root.join("todos/kinded-todo.md")).unwrap();
+        assert!(note.contains("kind: note"));
+        assert!(todo.contains("kind: todo"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn files_list_returns_workspace_files_with_neutral_kinds() {
         let root = fixture_root("workspace-file-kinds");
         fs::create_dir_all(&root).unwrap();
@@ -2201,7 +2264,30 @@ include:
         fs::remove_dir_all(root).unwrap();
     }
 
-    fn fixture_root(name: &str) -> std::path::PathBuf {
+    fn repository_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("crate should live under repository crates directory")
+            .to_path_buf()
+    }
+
+    fn copy_dir_all(source: impl AsRef<Path>, target: impl AsRef<Path>) -> std::io::Result<()> {
+        fs::create_dir_all(target.as_ref())?;
+        for entry in fs::read_dir(source)? {
+            let entry = entry?;
+            let file_type = entry.file_type()?;
+            let target_path = target.as_ref().join(entry.file_name());
+            if file_type.is_dir() {
+                copy_dir_all(entry.path(), target_path)?;
+            } else {
+                fs::copy(entry.path(), target_path)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn fixture_root(name: &str) -> PathBuf {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()

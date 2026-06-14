@@ -97,6 +97,11 @@ fn init_create_list_inspect_and_index_check_use_operation_json() {
     assert!(create_stdout.contains(r#""status":"warning""#));
     assert!(create_stdout.contains(r#""code":"index.stale""#));
     assert!(root.join("todos/user-registration.md").is_file());
+    assert!(
+        std::fs::read_to_string(root.join("todos/user-registration.md"))
+            .unwrap()
+            .contains("kind: todo")
+    );
 
     let stale = forma(&root)
         .args(["index", "check", "--json"])

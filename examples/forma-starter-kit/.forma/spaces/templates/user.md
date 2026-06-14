@@ -1,9 +1,10 @@
 ---
-name: !expr input.name
-description: !expr input.description
-responsibilities: !expr input.responsibilities
-createdAt: !expr input.createdAt
-updatedAt: !expr input.updatedAt
+kind: user
+name: "{{ input.name }}"
+description: "{{ input.description }}"
+responsibilities: "{{ input.responsibilities }}"
+createdAt: "{{ input.createdAt }}"
+updatedAt: "{{ input.updatedAt }}"
 ---
 
 # {{ input.name }}

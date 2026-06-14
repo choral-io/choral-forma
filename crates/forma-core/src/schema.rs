@@ -903,6 +903,8 @@ mod tests {
                 timezone: "UTC".to_string(),
             },
             runtime: RuntimeConfig::default(),
+            dashboard: BTreeMap::new(),
+            taxonomies: BTreeMap::new(),
             types: BTreeMap::from([
                 (
                     "todoStatus".to_string(),

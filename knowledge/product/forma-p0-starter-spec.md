@@ -109,21 +109,21 @@ View field references currently use explicit binding paths such as
 baseline, not a final runtime object model decision. The runtime binding model
 should be revisited during the backend and WebApp refactor.
 
-Create templates use YAML-native `!expr` tagged values in frontmatter and
-`{{ ... }}` interpolation in Markdown body content:
+Create templates use simple `{{ ... }}` interpolation in frontmatter and
+Markdown body content:
 
 ```yaml
 ---
-title: !expr input.title
-assignees: !expr input.assignees
-createdAt: !expr input.createdAt
-updatedAt: !expr input.updatedAt
+title: "{{ input.title }}"
+assignees: []
+createdAt: "{{ input.createdAt }}"
+updatedAt: "{{ input.updatedAt }}"
 ---
 # {{ input.title }}
 ```
 
-Initial transform helpers should stay small and reviewable: `trim`, `lower`,
-`upper`, `default`, `join`, `yaml`, `json`, and `slugify`. More helpers should
+Initial transform helpers should stay small and reviewable. The P0 starter
+currently depends on `slugify`; more helpers should
 be added only when the starter or create flows need them.
 
 The starter demonstrates multilingual variants with `en` and `zh-Hans`.
@@ -327,10 +327,31 @@ create:
                   label: Doing
                 - value: done
                   label: Done
+        priority:
+            type: select
+            default: medium
+            options:
+                - value: high
+                  label: High
+                - value: medium
+                  label: Medium
+                - value: low
+                  label: Low
+        assignees:
+            type: list
+            default: []
+        dueDate:
+            type: date
+            default: ""
+        createdAt:
+            default: "{{ runtime.values.currentDateTime }}"
+        updatedAt:
+            default: "{{ runtime.values.currentDateTime }}"
 conventions:
     titleField: fields.title
     summaryField: fields.summary
     createdAtField: fields.createdAt
+    updatedAtField: fields.updatedAt
 ---
 
 # Todos
@@ -358,6 +379,7 @@ kind: note
 title: "{{ input.title }}"
 summary: "{{ input.summary }}"
 createdAt: "{{ input.createdAt }}"
+updatedAt: "{{ input.updatedAt }}"
 ---
 
 # {{ input.title }}
@@ -371,8 +393,11 @@ kind: todo
 title: "{{ input.title }}"
 summary: "{{ input.summary }}"
 status: "{{ input.status }}"
+priority: "{{ input.priority }}"
 assignees: []
+dueDate: "{{ input.dueDate }}"
 createdAt: "{{ input.createdAt }}"
+updatedAt: "{{ input.updatedAt }}"
 ---
 
 # {{ input.title }}
@@ -387,6 +412,7 @@ name: "{{ input.name }}"
 description: "{{ input.description }}"
 responsibilities: "{{ input.responsibilities }}"
 createdAt: "{{ input.createdAt }}"
+updatedAt: "{{ input.updatedAt }}"
 ---
 
 # {{ input.name }}

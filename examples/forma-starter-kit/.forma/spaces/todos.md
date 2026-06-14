@@ -46,6 +46,7 @@ create:
       default: []
     dueDate:
       type: date
+      default: ""
     createdAt:
       default: "{{ runtime.values.currentDateTime }}"
     updatedAt:

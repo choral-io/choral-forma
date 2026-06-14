@@ -40,20 +40,11 @@ Markdown configuration nodes can use `<!-- forma:content -->` as the explicit sl
 
 Saved views use `source.type: pages` for ordinary projections over recognized pages. Page-source views filter by higher-level semantics such as taxonomy values rather than file globs. Taxonomy filters use list values, even when matching a single term. Table columns are objects so labels and future display options can be added without changing the column shape. Runtime field bindings use explicit paths: user frontmatter fields are addressed as `fields.*`, file facts as `source.*`, primary taxonomy data as `taxonomy.*`, and full taxonomy membership as `taxonomies.*`. Queries use `field`, matching table columns and sort entries, rather than a separate `target` key. Result ordering remains a view-level `sort` block; kanban columns may define their own local `sort` because each column is a separate result group.
 
-Create templates use YAML-native `!expr` tagged values in frontmatter and `{{ ... }}` text interpolation in Markdown body content. This keeps unrendered templates valid YAML while avoiding quote-removal or indentation tricks:
+Create templates use simple quoted `{{ ... }}` placeholders in frontmatter and Markdown body content. Generated list or object fields can use ordinary YAML defaults from term inputs when they should stay structured values:
 
 ```yml
-title: !expr input.title
-assignees: !expr input.assignees
+title: "{{ input.title }}"
+assignees: []
 ```
 
-The expression result replaces the whole tagged node, so arrays and objects can be written without text-level indentation tricks. The initial expression helper set should stay small:
-
-- `trim`: remove leading and trailing whitespace.
-- `lower`: convert text to lowercase.
-- `upper`: convert text to uppercase.
-- `default`: provide a fallback for empty values.
-- `join`: render list values with a separator.
-- `yaml`: render a value as a YAML node.
-- `json`: render a value as JSON.
-- `slugify`: convert display text into a path-friendly slug.
+The initial transform helper set should stay small. The starter currently depends on `slugify` for filename input defaults.

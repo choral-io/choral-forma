@@ -1443,7 +1443,7 @@ mod tests {
         );
 
         assert!(matches!(
-            render_file(&root, ".forma/templates/note.md", "html"),
+            render_file(&root, ".forma/spaces/templates/note.md", "html"),
             Err(OperationError::EntryNotFound)
         ));
 
