@@ -88,7 +88,22 @@ pub struct IndexEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<IndexEntryVariant>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refs: Vec<IndexReference>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexEntryVariant {
+    pub language: String,
+    pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -152,6 +167,20 @@ struct CandidateEntry {
     path: String,
     space: String,
     document: FormaMarkdownDocument,
+    variants: Vec<CandidateVariant>,
+}
+
+#[derive(Debug, Clone)]
+struct CandidateVariant {
+    language: String,
+    path: String,
+    document: FormaMarkdownDocument,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LanguageSuffix {
+    suffix: String,
+    language: String,
 }
 
 #[derive(Debug, Clone)]
@@ -213,12 +242,27 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
         ));
 
         let frontmatter_value = entry.document.frontmatter.value.as_ref();
+        let variants = entry
+            .variants
+            .iter()
+            .map(|variant| {
+                let frontmatter_value = variant.document.frontmatter.value.as_ref();
+                IndexEntryVariant {
+                    language: variant.language.clone(),
+                    path: variant.path.clone(),
+                    kind: scalar_field(frontmatter_value, "kind"),
+                    title: title_for_entry(frontmatter_value, space),
+                    summary: summary_for_entry(frontmatter_value, space),
+                }
+            })
+            .collect();
         index_entries.push(IndexEntry {
             path: entry.path.clone(),
             space: entry.space.clone(),
             kind: scalar_field(frontmatter_value, "kind"),
             title: title_for_entry(frontmatter_value, space),
             summary: summary_for_entry(frontmatter_value, space),
+            variants,
             refs,
         });
     }
@@ -329,6 +373,7 @@ fn discover_entries(
     let supported_language_suffixes = supported_language_suffixes(config);
     let matchers = build_space_matchers(config, diagnostics);
     let mut entries = Vec::new();
+    let mut variants_by_canonical = BTreeMap::<String, Vec<CandidateVariant>>::new();
 
     for path in markdown_files {
         let Some(relative) = workspace_relative_path(root, &path) else {
@@ -365,6 +410,32 @@ fn discover_entries(
                     .with_actual(language)
                     .with_expected(canonical_path),
                 );
+                continue;
+            }
+            match fs::read_to_string(&path) {
+                Ok(source) => {
+                    let document = FormaMarkdownDocument::parse(&source);
+                    diagnostics.extend(
+                        document
+                            .diagnostics
+                            .iter()
+                            .cloned()
+                            .map(|diagnostic| diagnostic.with_path(relative.clone())),
+                    );
+                    variants_by_canonical
+                        .entry(canonical_path)
+                        .or_default()
+                        .push(CandidateVariant {
+                            language,
+                            path: relative,
+                            document,
+                        });
+                }
+                Err(error) => diagnostics.push(
+                    Diagnostic::error("file.readFailed", "Workspace file could not be read.")
+                        .with_path(relative)
+                        .with_actual(error.to_string()),
+                ),
             }
             continue;
         }
@@ -383,6 +454,7 @@ fn discover_entries(
                     path: relative,
                     space: matched[0].clone(),
                     document,
+                    variants: Vec::new(),
                 });
             }
             Err(error) => diagnostics.push(
@@ -393,35 +465,47 @@ fn discover_entries(
         }
     }
 
+    for entry in &mut entries {
+        if let Some(mut variants) = variants_by_canonical.remove(&entry.path) {
+            variants.sort_by(|left, right| {
+                (left.language.as_str(), left.path.as_str())
+                    .cmp(&(right.language.as_str(), right.path.as_str()))
+            });
+            entry.variants = variants;
+        }
+    }
     entries.sort_by(|left, right| left.path.cmp(&right.path));
     entries
 }
 
-fn supported_language_suffixes(config: &WorkspaceConfig) -> Vec<String> {
+fn supported_language_suffixes(config: &WorkspaceConfig) -> Vec<LanguageSuffix> {
     let mut suffixes = config
         .workspace
         .supported_languages
         .iter()
         .chain(std::iter::once(&config.workspace.canonical_language))
-        .map(|language| language.to_ascii_lowercase())
-        .filter(|language| !language.trim().is_empty())
-        .collect::<BTreeSet<_>>()
+        .filter_map(|language| {
+            let suffix = language.to_ascii_lowercase();
+            (!suffix.trim().is_empty()).then(|| (suffix, language.clone()))
+        })
+        .collect::<BTreeMap<_, _>>()
         .into_iter()
+        .map(|(suffix, language)| LanguageSuffix { suffix, language })
         .collect::<Vec<_>>();
-    suffixes.sort_by_key(|language| std::cmp::Reverse(language.len()));
+    suffixes.sort_by_key(|language| std::cmp::Reverse(language.suffix.len()));
     suffixes
 }
 
 fn language_variant_canonical_path(
     path: &str,
-    language_suffixes: &[String],
+    language_suffixes: &[LanguageSuffix],
 ) -> Option<(String, String)> {
     let Some(stem) = path.strip_suffix(".md") else {
         return None;
     };
     let (directory, filename_stem) = stem.rsplit_once('/').unwrap_or(("", stem));
     for language in language_suffixes {
-        let suffix = format!(".{language}");
+        let suffix = format!(".{}", language.suffix);
         let Some(canonical_stem) = filename_stem.strip_suffix(&suffix) else {
             continue;
         };
@@ -433,7 +517,7 @@ fn language_variant_canonical_path(
         } else {
             format!("{directory}/{canonical_stem}.md")
         };
-        return Some((language.clone(), canonical_path));
+        return Some((language.language.clone(), canonical_path));
     }
     None
 }
@@ -1406,6 +1490,49 @@ mod tests {
     }
 
     #[test]
+    fn canonical_entries_include_available_language_variants() {
+        let root = fixture_root("language-variant-metadata");
+        write_workspace(&root);
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+        )
+        .unwrap();
+        write_entry(
+            &root,
+            "notes/getting-started.md",
+            "---\nkind: note\ntitle: Getting Started\nsummary: Canonical summary\n---\n",
+        );
+        write_entry(
+            &root,
+            "notes/getting-started.zh-hans.md",
+            "---\nkind: note\ntitle: Getting Started ZH\nsummary: Variant summary\n---\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+        let entry = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "notes/getting-started.md")
+            .unwrap();
+
+        assert_eq!(entry.variants.len(), 1);
+        assert_eq!(entry.variants[0].language, "zh-Hans");
+        assert_eq!(entry.variants[0].path, "notes/getting-started.zh-hans.md");
+        assert_eq!(
+            entry.variants[0].title.as_deref(),
+            Some("Getting Started ZH")
+        );
+        assert_eq!(
+            entry.variants[0].summary.as_deref(),
+            Some("Variant summary")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn language_variant_without_canonical_page_reports_diagnostic() {
         let root = fixture_root("language-variant-missing-canonical");
         write_workspace(&root);
@@ -1428,7 +1555,7 @@ mod tests {
         let diagnostic = &discovery.diagnostics[0];
         assert_eq!(diagnostic.code, "languageVariant.canonicalMissing");
         assert_eq!(diagnostic.path.as_deref(), Some("notes/missing.zh-hans.md"));
-        assert_eq!(diagnostic.actual.as_deref(), Some("zh-hans"));
+        assert_eq!(diagnostic.actual.as_deref(), Some("zh-Hans"));
         assert_eq!(diagnostic.expected.as_deref(), Some("notes/missing.md"));
 
         fs::remove_dir_all(root).unwrap();

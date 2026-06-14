@@ -112,6 +112,15 @@ function mapEntry(entry: WorkspaceDashboardResult["entries"][number]): Dashboard
         updatedAt: entry.updatedAt,
         updatedLabel: formatRelativeDateTime(entry.updatedAt),
         status: mapStatus(entry.status),
+        variants: (entry.variants ?? []).map((variant) => ({
+            language: variant.language,
+            path: variant.path,
+            routePath: variant.routePath,
+            rawPath: variant.rawPath,
+            kind: variant.kind,
+            title: variant.title,
+            summary: variant.summary,
+        })),
         body: [
             {
                 type: "paragraph",

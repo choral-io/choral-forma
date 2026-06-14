@@ -94,6 +94,9 @@ The `Pages` route needs:
 - workspace path;
 - title, summary, primary taxonomy term when available, kind/status fields when
   present, and updated label;
+- available language variants for each canonical page, including language tags
+  and variant route/raw paths, while keeping variants out of the primary page
+  row set;
 - render capability flags when a file cannot be rendered as a Markdown
   page.
 

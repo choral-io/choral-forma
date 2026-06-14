@@ -224,10 +224,27 @@ pub struct DashboardEntrySummary {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<DashboardEntryVariant>,
     pub status: OperationStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
     pub renderable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardEntryVariant {
+    pub language: String,
+    pub path: String,
+    pub route_path: String,
+    pub raw_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -795,6 +812,19 @@ pub fn workspace_dashboard(
             kind: entry.kind.clone(),
             title: entry.title.clone(),
             summary: entry.summary.clone(),
+            variants: entry
+                .variants
+                .iter()
+                .map(|variant| DashboardEntryVariant {
+                    language: variant.language.clone(),
+                    path: variant.path.clone(),
+                    route_path: entry_route_path_for_path(&variant.path),
+                    raw_path: entry_raw_path_for_path(&variant.path),
+                    kind: variant.kind.clone(),
+                    title: variant.title.clone(),
+                    summary: variant.summary.clone(),
+                })
+                .collect(),
             status: status_for_paths(&diagnostics, std::iter::once(entry.path.as_str())),
             updated_at: file_modified_at(root.as_ref(), &entry.path),
             renderable: true,
@@ -1790,6 +1820,59 @@ mod tests {
         assert_eq!(topic.raw_path, "/raw/notes/topic.md");
         assert_eq!(nested.route_path, "/pages/notes/nested");
         assert_eq!(nested.raw_path, "/raw/notes/nested/index.md");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_dashboard_exposes_language_variants_for_canonical_entries() {
+        let root = fixture_root("dashboard-language-variants");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Dashboard Language Variants", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join(".forma.yml"),
+            r#"schemaVersion: 1
+workspace:
+  name: Dashboard Language Variants
+  canonicalLanguage: en
+  supportedLanguages:
+    - en
+    - zh-Hans
+  timezone: UTC
+include:
+  - .forma/spaces/*.md
+  - .forma/views/*.md
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/topic.md"),
+            "---\nkind: note\ntitle: Topic\nsummary: Canonical summary\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Topic\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/topic.zh-hans.md"),
+            "---\nkind: note\ntitle: Topic ZH\nsummary: Variant summary\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Topic ZH\n",
+        )
+        .unwrap();
+
+        let result = workspace_dashboard(&root).unwrap();
+        let topic = result
+            .entries
+            .iter()
+            .find(|entry| entry.path == "notes/topic.md")
+            .unwrap();
+
+        assert_eq!(topic.variants.len(), 1);
+        assert_eq!(topic.variants[0].language, "zh-Hans");
+        assert_eq!(topic.variants[0].path, "notes/topic.zh-hans.md");
+        assert_eq!(topic.variants[0].route_path, "/pages/notes/topic.zh-hans");
+        assert_eq!(topic.variants[0].raw_path, "/raw/notes/topic.zh-hans.md");
+        assert_eq!(topic.variants[0].title.as_deref(), Some("Topic ZH"));
+        assert_eq!(
+            topic.variants[0].summary.as_deref(),
+            Some("Variant summary")
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

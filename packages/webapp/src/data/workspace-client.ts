@@ -15,6 +15,17 @@ export interface DashboardEntry {
     body: DashboardEntryBlock[];
     diagnostics?: DashboardDiagnostic[];
     relations: DashboardEntryRelations;
+    variants: DashboardEntryVariant[];
+}
+
+export interface DashboardEntryVariant {
+    language: string;
+    path: string;
+    routePath: string;
+    rawPath: string;
+    kind?: string;
+    title?: string;
+    summary?: string;
 }
 
 export type DashboardEntryBlock =

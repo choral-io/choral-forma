@@ -303,9 +303,20 @@ export type DashboardEntrySummary = {
     kind?: string;
     title?: string;
     summary?: string;
+    variants?: DashboardEntryVariant[];
     status: OperationStatus;
     updatedAt?: string;
     renderable: boolean;
+};
+
+export type DashboardEntryVariant = {
+    language: string;
+    path: string;
+    routePath: string;
+    rawPath: string;
+    kind?: string;
+    title?: string;
+    summary?: string;
 };
 
 export type DashboardViewSummary = {
