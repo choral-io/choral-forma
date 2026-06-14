@@ -8,7 +8,8 @@ module: app
 
 owners:
     - "[[members/Tiscs]]"
-assignees: []
+assignees:
+    - "[[members/Tiscs]]"
 reviewers: []
 tags:
     - forma

@@ -24,9 +24,9 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Ready
 
-- [ ] [[tasks/align-starter-kit-baseline-with-backend-and-webapp|Align Starter Kit Baseline With Backend And WebApp]]
-
 ## Doing
+
+- [ ] [[tasks/align-starter-kit-baseline-with-backend-and-webapp|Align Starter Kit Baseline With Backend And WebApp]]
 
 ## Reviewing
 
