@@ -426,6 +426,26 @@ mod tests {
     }
 
     #[test]
+    fn preserves_yaml_tagged_expression_frontmatter_values() {
+        let document = FormaMarkdownDocument::parse(
+            "---\ntitle: !expr input.title\nassignees: !expr input.assignees\n---\nBody\n",
+        );
+
+        assert!(document.diagnostics.is_empty());
+        let frontmatter = document.frontmatter.value.as_ref().unwrap();
+        let assignees = frontmatter.get("assignees").unwrap();
+        let serde_yml::Value::Tagged(tagged) = assignees else {
+            panic!("expected tagged YAML value");
+        };
+
+        assert_eq!(tagged.tag.to_string(), "!expr");
+        assert_eq!(
+            tagged.value,
+            serde_yml::Value::String("input.assignees".to_string())
+        );
+    }
+
+    #[test]
     fn parses_markdown_links_after_wikilinks_in_same_paragraph() {
         let document = FormaMarkdownDocument::parse(
             "See [[notes/target|Target]], [[notes/other|Other\nTarget]], and [external](https://example.com/guide/).\n",
