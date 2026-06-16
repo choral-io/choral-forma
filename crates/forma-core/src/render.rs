@@ -286,7 +286,6 @@ struct QueryDefinition {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct QueryNode {
-    target: Option<String>,
     field: Option<String>,
     op: Option<QueryOperator>,
     value: Option<Value>,
@@ -1031,7 +1030,7 @@ fn query_node_matches(item: &RenderCandidate, node: &QueryNode) -> bool {
 }
 
 fn query_node_target(node: &QueryNode) -> Option<&str> {
-    node.target.as_deref().or_else(|| node.field.as_deref())
+    node.field.as_deref()
 }
 
 fn value_for_target(item: &RenderCandidate, target: &str) -> Option<Value> {
@@ -1666,6 +1665,43 @@ mod tests {
         .unwrap();
 
         let result = render_view(&root, "notes", BTreeMap::new()).unwrap();
+
+        assert_eq!(result.status, crate::OperationStatus::Failed);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "view.queryInvalid")
+        );
+        assert!(result.render.is_none());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_legacy_target_query_predicates() {
+        let root = fixture_root("view-legacy-target");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        create_entry(
+            &root,
+            "todos",
+            BTreeMap::from([
+                (
+                    "title".to_string(),
+                    Value::String("Draft brief".to_string()),
+                ),
+                ("status".to_string(), Value::String("doing".to_string())),
+            ]),
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/active-todos.md"),
+            "---\nkind: view\nmode: table\ntitle: Active Todos\nquery:\n  all:\n    - target: fields.status\n      op: equals\n      value: doing\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Active Todos\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "active-todos", BTreeMap::new()).unwrap();
 
         assert_eq!(result.status, crate::OperationStatus::Failed);
         assert!(

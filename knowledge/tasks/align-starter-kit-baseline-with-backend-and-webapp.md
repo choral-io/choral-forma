@@ -147,6 +147,12 @@ not reopen that task. The older task captured a previous transition path; this
 task aligns the implementation with the newer settings-driven starter-kit
 baseline.
 
+## Implementation Notes
+
+- Removed the backend view-query compatibility path that accepted legacy
+  `target` predicates. View query predicates now use the starter-facing `field`
+  key only, and a regression test covers rejection of `target: fields.status`.
+
 ## Open Questions
 
 - None.
