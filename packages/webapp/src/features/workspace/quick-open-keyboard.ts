@@ -1,7 +1,7 @@
 export type QuickOpenKeyboardAction =
     | {
           activeIndex: number;
-          kind: "activate" | "move";
+          kind: "activate" | "block" | "move";
       }
     | {
           activeIndex: number;
@@ -48,6 +48,13 @@ export function getQuickOpenKeyboardAction({
         return {
             activeIndex: (normalizedActiveIndex - 1 + itemCount) % itemCount,
             kind: "move",
+        };
+    }
+
+    if (key === "Tab") {
+        return {
+            activeIndex: normalizedActiveIndex,
+            kind: "block",
         };
     }
 

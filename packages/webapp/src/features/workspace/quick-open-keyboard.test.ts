@@ -56,7 +56,7 @@ describe("getQuickOpenKeyboardAction", () => {
         });
     });
 
-    it("leaves Tab available for normal focus navigation", () => {
+    it("blocks Tab focus movement without changing the active result", () => {
         expect(
             getQuickOpenKeyboardAction({
                 activeIndex: 0,
@@ -66,7 +66,7 @@ describe("getQuickOpenKeyboardAction", () => {
             }),
         ).toEqual({
             activeIndex: 0,
-            kind: "none",
+            kind: "block",
         });
     });
 });

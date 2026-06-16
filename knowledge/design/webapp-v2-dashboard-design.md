@@ -98,8 +98,9 @@ yet.
 
 Quick open should follow command-palette keyboard behavior: the first visible
 result is active by default, ArrowUp and ArrowDown move the active result, Enter
-opens it when text composition is not in progress, and Tab remains normal focus
-navigation.
+opens it when text composition is not in progress, result items stay out of the
+Tab order, and Tab is handled as a no-op while the input is focused so the
+display remains stable.
 
 ### L2 Deferred Interactive Functions
 

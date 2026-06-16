@@ -140,6 +140,10 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
                             return;
                         }
 
+                        if (action.kind === "block") {
+                            return;
+                        }
+
                         const item = filteredItems[action.activeIndex];
                         if (item !== undefined) {
                             openItem(item.href);
@@ -163,6 +167,7 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
                                 closeQuickOpen();
                             }}
                             role="option"
+                            tabIndex={-1}
                             to={item.href}
                         >
                             <span className="min-w-0 truncate font-medium">{item.label}</span>
