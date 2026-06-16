@@ -96,6 +96,11 @@ These controls should either operate only on local UI state, open read-only
 inspection surfaces, or clearly communicate that the operation is not available
 yet.
 
+Quick open should follow command-palette keyboard behavior: the first visible
+result is active by default, ArrowUp and ArrowDown move the active result, Enter
+opens it when text composition is not in progress, and Tab remains normal focus
+navigation.
+
 ### L2 Deferred Interactive Functions
 
 The following work is deferred until the read-only browser is complete:
