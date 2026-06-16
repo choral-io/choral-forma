@@ -1865,11 +1865,6 @@ function EntryRow({ entry }: { entry: DashboardEntry }) {
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                 <Badge variant="outline">{entry.space}</Badge>
-                {entry.variants.map((variant) => (
-                    <Badge key={`${entry.id}-${variant.language}`} variant="secondary">
-                        {variant.language}
-                    </Badge>
-                ))}
                 <span className="text-muted-foreground text-xs" title={formatAbsoluteDateTime(entry.updatedAt)}>
                     {entry.updatedLabel}
                 </span>
