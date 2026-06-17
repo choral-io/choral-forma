@@ -82,8 +82,6 @@ forma-core
     List
     Create
     ConfigInspect
-    IndexRebuild
-    IndexCheck
     ViewRender
 
 forma-rpc

@@ -655,10 +655,12 @@ Recommended target layout:
 ```text
 .forma.yml
 .forma/
-  types.yml
-  taxonomies.yml
+  pages/
+    *.md
+  spaces/
+    *.md
   views/
-    *.yml
+    *.md
   templates/
 assets/
 ```
@@ -715,11 +717,11 @@ boundaries:
 .forma.yml owns the main configuration entry and includes.
 workspace owns identity, root, language, timezone, and logo.
 runtime owns runtime values.
-types.yml owns semantic types.
-taxonomies owns configured classification systems such as starter spaces.
-templates/ owns create-time content templates.
-views owns saved projection definitions.
-navigation owns sidebar and prominent route/page/view groups.
+Markdown config nodes under .forma/pages/ own page schemas.
+Markdown config nodes under .forma/spaces/ own starter space taxonomy terms.
+Markdown config nodes under .forma/templates/ own create-time content templates.
+Markdown config nodes under .forma/views/ own saved projection definitions.
+Navigation configuration owns sidebar and prominent route/page/view groups.
 ```
 
 The effective configuration should be inspectable instead of hidden. CLI and
@@ -743,59 +745,43 @@ The durable architecture for view sources and queries is captured in
 [[architecture/forma-view-query-model]]. This section keeps the product-facing
 behavior and examples aligned with that model.
 
-Shared view definitions should live under `.forma/views/`, not in the ordinary
-knowledge content tree. A view is configuration for rendering, filtering, and
-organizing knowledge; it is not itself a domain knowledge entry. Keeping view
-definitions under `.forma/` preserves the file-as-fact principle while making
-the boundary clear.
+Shared view definitions should live as Markdown configuration nodes under
+`.forma/views/`, not in the ordinary knowledge content tree. A view is
+configuration for rendering, filtering, and organizing knowledge; it is not
+itself a domain knowledge entry. Keeping view definitions under `.forma/`
+preserves the file-as-fact principle while making the boundary clear.
 
 The view file should be recognizable through explicit frontmatter:
 
 ```yaml
 ---
-kind: forma-view
-
-view:
-    surface: page
-    mode: table
-    space: todos
-    title: My Todos
-    description: Active todos assigned to the current user.
+kind: view
+surface: page
+mode: table
+title: My Todos
+description: Active todos assigned to the current user.
+source:
+    type: pages
+    taxonomy:
+        spaces:
+            - todos
 ---
 ```
 
-The view data source should be the workspace. `source` selects the candidate
-file set; `query` filters normalized entries derived from those files.
-Taxonomy-oriented views may keep a readable shorthand such as `taxonomy` and
-`term`, but it should be treated as a query shortcut rather than a separate
-source kind. This:
+The view data source should be recognized pages. `source` selects the candidate
+page set; `query` filters normalized entries derived from those pages.
+Taxonomy-oriented views should use list-valued taxonomy filters. This:
 
 ```yaml
-view:
-    surface: page
-    mode: table
-    taxonomy: spaces
-    term: todos
+source:
+    type: pages
+    taxonomy:
+        spaces:
+            - todos
 ```
 
-is equivalent to:
-
-```yaml
-view:
-    surface: page
-    mode: table
-    source:
-        kind: workspace
-    query:
-        all:
-            - target: taxonomy.spaces
-              op: equals
-              value: todos
-```
-
-This keeps graph, file navigation, uncatalogued documents, and future
-repository-wide renderings on the same source model without forcing every view
-through space-specific semantics.
+filters recognized pages before query predicates run. This keeps taxonomy
+filters explicit while avoiding a separate hardcoded `entry.space` field.
 
 The Markdown body should not contain query logic. It can include a render mount
 point:
@@ -838,17 +824,16 @@ user-defined semantic types, can have defaults, and can be referenced from view
 metadata, query values, mode-specific configuration, and body text:
 
 ```yaml
-view:
-    params:
-        user:
-            label: User
-            type: user
-            required: true
-            default: "{{ runtime.values.currentUserId }}"
-        date:
-            label: Date
-            type: date
-            default: "{{ runtime.values.currentDate }}"
+params:
+    user:
+        label: User
+        type: user
+        required: true
+        default: "{{ runtime.values.currentUserId }}"
+    date:
+        label: Date
+        type: date
+        default: "{{ runtime.values.currentDate }}"
 ```
 
 Page view parameter values can come from defaults, URL or GUI state, or CLI
@@ -891,33 +876,35 @@ an entry record with stable namespaces such as:
 entry = {
     path: "todos/review-webapp.md",
     taxonomies: {
-        spaces: "todos" | null,
+        spaces: ["todos"],
     },
     kind: "todo" | null,
-    frontmatter: {},
+    fields: {},
     refs: {},
     text: {},
 };
 ```
 
 The query model should use structured `all` / `any` / `not` nodes rather than a
-text query DSL in the MVP. Query predicates should use explicit `target` paths
+text query DSL in the MVP. Query predicates should use explicit `field` paths
 into the normalized entry record:
 
 ```yaml
+source:
+    type: pages
+    taxonomy:
+        spaces:
+            - todos
 query:
     all:
-        - target: taxonomy.spaces
-          op: equals
-          value: todos
-        - target: frontmatter.status
+        - field: fields.status
           op: in
           value: [todo, doing]
         - any:
-              - target: frontmatter.priority
+              - field: fields.priority
                 op: equals
                 value: high
-              - target: frontmatter.blocked
+              - field: fields.blocked
                 op: equals
                 value: true
 ```
@@ -945,19 +932,18 @@ afterOrEqual
 ```
 
 `exists` should use an explicit boolean `value`. For example, uncatalogued
-Markdown can be expressed without a special `missing` operator:
+field values can be expressed without a special `missing` operator:
 
 ```yaml
 query:
     all:
-        - target: taxonomy.spaces
+        - field: fields.dueDate
           op: exists
           value: false
 ```
 
-P0 can keep query support intentionally small: `source.kind: workspace`,
-`source.include`, `source.exclude`, `all`, `any`, `not`, `target:
-taxonomy.<id>`, `target: frontmatter.<field>`, and the operations `equals`,
+P0 can keep query support intentionally small: `source.type: pages`,
+`source.taxonomy`, `all`, `any`, `not`, `field: fields.<name>`, and the operations `equals`,
 `in`, `contains`, and `exists`. References, full-text predicates, date
 comparisons, diagnostic filters, and saved runtime query controls can remain P1
 unless needed by implementation evidence.
@@ -975,27 +961,23 @@ rendering intent. Bottom relationship panels can show backlinks, outgoing links,
 and mentions for the current document, but they should not be the primary graph
 surface.
 
-Graph views can use the same workspace source without a space filter. For
-example, an initialized workspace can include a global graph view:
+Graph views can use the same page source without a space filter. For example,
+an initialized workspace can include a global graph view:
 
 ```yaml
-view:
-    surface: page
-    mode: graph
-    title: Knowledge Graph
-    source:
-        kind: workspace
-        include:
-            - "**/*.md"
-        exclude:
-            - ".forma/**"
-            - "**/local/**"
+---
+kind: view
+surface: page
+mode: graph
+title: Knowledge Graph
+source:
+    type: pages
+---
 ```
 
 This is not a cross-space table query. It is a graph rendering over the
-workspace file inventory and reference index, so it can include space
-entries, uncatalogued Markdown documents, and cross-space links without
-making every view mode support arbitrary space joins.
+recognized page set and reference graph, so it can include cross-space links
+without making every view mode support arbitrary space joins.
 
 List and table views can use shared `query` and `sort` fields, plus
 mode-specific rendering options such as title fields, subtitle fields, metadata
@@ -1010,18 +992,28 @@ should warn about overlapping columns and unmatched items.
 Example kanban configuration:
 
 ```yaml
+---
+kind: view
+surface: page
+mode: kanban
+title: Todos
+source:
+    type: pages
+    taxonomy:
+        spaces:
+            - todos
 kanban:
     card:
-        titleField: title
-        subtitleFields: [project, assignees]
-        badgeFields: [priority, dueDate]
+        titleField: fields.title
+        subtitleFields: [fields.project, fields.assignees]
+        badgeFields: [fields.priority, fields.dueDate]
     columns:
         - id: todo
           label: To Do
           icon: circle
           query:
               all:
-                  - target: frontmatter.status
+                  - field: fields.status
                     op: equals
                     value: todo
           onDrop:
@@ -1032,12 +1024,13 @@ kanban:
           icon: octagon-alert
           query:
               all:
-                  - target: frontmatter.blocked
+                  - field: fields.blocked
                     op: equals
                     value: true
           onDrop:
               set:
                   blocked: true
+---
 ```
 
 Drag-and-drop mutation should be explicit. If a column has complex matching

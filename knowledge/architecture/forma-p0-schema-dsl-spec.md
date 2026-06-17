@@ -110,10 +110,13 @@ controls and do not prevent a user from editing files directly.
 
 ## Semantic Types
 
-Semantic types are declared in `.forma/types.yml`. They give names to reusable
-value meanings such as space references and static enums.
+The P0 starter does not require a standalone semantic type file. It keeps
+create inputs, select options, and taxonomy membership on the relevant Markdown
+configuration nodes, such as `.forma/spaces/*.md`.
 
-P0 supports:
+Future semantic type configuration can use Markdown configuration nodes if the
+workspace needs reusable value meanings beyond inline create inputs. The first
+useful kinds are likely:
 
 - `kind: space`: values resolve to entries in a space.
 - `kind: enum`: values must be one of a static list.
@@ -121,33 +124,21 @@ P0 supports:
 Example:
 
 ```yaml
-types:
-    note:
-        kind: space
-        space: notes
-        input:
-            transform: slugify
-    todo:
-        kind: space
-        space: todos
-        input:
-            transform: slugify
-    user:
-        kind: space
-        space: users
-        input:
-            transform: slugify
-    todoStatus:
-        kind: enum
-        values:
-            - todo
-            - doing
-            - done
+---
+schemaVersion: 1
+kind: semantic-type
+title: Todo Status
+type: enum
+values:
+    - todo
+    - doing
+    - done
+---
 ```
 
-`types.*.input.transform` describes how human-provided locator input may be
-normalized before matching the type. It applies to CLI, GUI, view controls, and
-future structured operations that accept a value for that semantic type.
+Input `transform` settings describe how human-provided locator input may be
+normalized before matching a value. They apply to CLI, GUI, view controls, and
+future structured operations that accept values from the configured input.
 
 P0 should keep matching explicit and deterministic:
 

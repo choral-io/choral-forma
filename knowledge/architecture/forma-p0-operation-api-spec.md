@@ -793,18 +793,17 @@ diagnostics that do not block creation may be returned as diagnostics.
 ### View Render
 
 `view.render` renders one declarative view for the local WebApp and HTTP API.
-It evaluates view parameters, workspace source filters, taxonomy-term
-shortcuts, normalized-entry query definitions, sort definitions, display fields,
-table fields, kanban columns, and render mounts. It writes nothing and does not
+It evaluates view parameters, page source filters, taxonomy source filters,
+normalized-entry query definitions, sort definitions, display fields, table
+fields, kanban columns, and render mounts. It writes nothing and does not
 persist rendered view results.
 
 The source/query model is defined in [[architecture/forma-view-query-model]].
 
-A starter `view.taxonomy` plus `view.term` pair is a shorthand for a
-workspace-source query where `taxonomy.<id>` equals the term id. Explicit
-queries should use `target` paths such as `taxonomy.spaces` and
-`frontmatter.status`. P0 render support should cover `equals`, `in`,
-`contains`, and `exists`; unsupported targets or operators should return
+Starter views should use `source.type: pages` plus `source.taxonomy` filters
+for taxonomy-scoped projections. Explicit query predicates should use `field`
+paths such as `fields.status`. P0 render support should cover `equals`, `in`,
+`contains`, and `exists`; unsupported fields or operators should return
 structured diagnostics.
 
 Params:
