@@ -47,9 +47,12 @@ fn check_json_prints_direct_operation_result() {
 #[test]
 fn init_create_list_and_inspect_use_operation_json_without_persistent_index() {
     let root = fixture_root("starter-flow");
+    let home = fixture_root("starter-flow-home-without-git-config");
     std::fs::create_dir_all(&root).unwrap();
+    std::fs::create_dir_all(&home).unwrap();
 
     let init = forma(&root)
+        .env("HOME", &home)
         .args([
             "init",
             "--name",
@@ -77,6 +80,7 @@ fn init_create_list_and_inspect_use_operation_json_without_persistent_index() {
     assert!(root.join("notes").is_dir());
 
     let create = forma(&root)
+        .env("HOME", &home)
         .args([
             "create",
             "todos",
@@ -148,6 +152,7 @@ fn init_create_list_and_inspect_use_operation_json_without_persistent_index() {
     assert!(config_stdout.contains(r#""timezone":"UTC""#));
 
     std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(home).unwrap();
 }
 
 #[test]

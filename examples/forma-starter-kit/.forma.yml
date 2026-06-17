@@ -29,4 +29,3 @@ runtime:
       kind: gitConfig
       key: user.name
       transform: slugify
-      required: true

@@ -1505,7 +1505,6 @@ runtime:
       kind: gitConfig
       key: user.name
       transform: slugify
-      required: true
 "#;
 
 const STARTER_SPACES_INDEX_MD: &str = r#"---
