@@ -60,8 +60,8 @@ existing focused evidence to an explicit release cutline.
   packaging/build readiness.
 - Create a temporary starter workspace and smoke-test the P0 user flows:
   `forma init`, `forma config inspect`, `forma create`, `forma inspect`,
-  `forma list`, `forma check`, `forma index rebuild`, `forma index check`, and
-  local WebApp serving/build readiness where practical.
+  `forma list`, `forma check`, and local WebApp serving/build readiness where
+  practical.
 - Verify generated or temporary smoke-test artifacts are not left in the shared
   repository.
 - Record exact command results, failures, environment limits, and the final
@@ -81,11 +81,10 @@ existing focused evidence to an explicit release cutline.
 - The candidate branch and commit are recorded.
 - `git status --short --branch` is recorded before and after validation.
 - The validation matrix result is recorded for:
-    - `mise run check:knowledge`
     - `mise run check:rust`
     - `mise run test:rust`
-    - `mise run check:web`
-    - `mise run build:web`
+    - `mise run check:pnpm`
+    - `mise run build:pnpm`
     - `mise run check`
 - A starter workspace smoke test records the commands run and whether they
   passed.
@@ -104,60 +103,72 @@ move of [[tasks/audit-p0-release-scope-and-roadmap]] to Done.
 
 ## Validation Notes
 
+### 2026-06-17 Internal Release Candidate
+
 Candidate cutline:
 
-- Branch: `main`
-- Commit: `bb996c1ee18a3d54af6f97e51e9e426e1cef3df7`
-- Initial status: `## main...origin/main [ahead 5]`
-- Tags at HEAD: none.
+- Branch: `codex/webapp-v2-dashboard`
+- Code/documentation baseline before recording this validation note:
+  `5d7f347 docs: align starter configuration references`
+- Initial status before release-prep commit:
+  `## codex/webapp-v2-dashboard...origin/codex/webapp-v2-dashboard [ahead 12]`
+- Initial uncommitted files before release-prep commit: README and knowledge
+  release documentation updates plus `pnpm-lock.yaml`.
+- Latest tag before this candidate: `v0.1.0-alpha.4`.
 
 Validation matrix:
 
-- `mise run check:knowledge`: passed.
-- `mise run check:rust`: passed; rebuilt WebApp assets first, then ran Rust
+- `mise run format:pnpm`: passed.
+- `mise run check:pnpm`: passed.
+- `mise run build:pnpm`: passed. Vite reported chunk-size warnings for large
+  generated chunks, but exited 0.
+- `mise run check:rust`: passed. This rebuilt WebApp assets, then ran Rust
   formatting and workspace checks.
-- `mise run test:rust`: passed; workspace tests passed across `forma-cli`,
+- `mise run test:rust`: passed. Rust tests passed across `forma-cli`,
   `forma-core`, and `forma-rpc`.
-- `mise run check:web`: passed.
-- `mise run build:web`: passed.
-- `mise run check`: passed.
+- `mise run check`: passed. pnpm tests reported 4 files and 12 tests passed;
+  Rust workspace tests reported `forma-cli` 20 unit tests plus 9 CLI tests,
+  `forma-core` 85 tests, and `forma-rpc` 15 tests passed.
 
 Starter workspace smoke test:
 
-- Temporary workspace: `/private/tmp/forma-p0-cutline.fQS1M5`
-- `forma init` with name `P0 Cutline`, language `en`, timezone
-  `Asia/Shanghai`, `-y`, and `--json`: passed.
+- Temporary workspace: `/private/tmp/forma-internal-release.q0xC65`
+- `forma init` with name `Internal Release`, language `en`, timezone
+  `Asia/Shanghai`, `-y`, and `--json`: passed. The created file list did not
+  include `.forma/index.summary.json`.
 - `forma config inspect --json`: passed.
 - `forma create notes --input title=Alpha --input summary=Smoke --json`: passed
-  with expected `index.stale` warning after writing the entry.
+  without index-stale warnings.
 - `forma inspect notes/alpha.md --json`: passed.
 - `forma list --space notes --json`: passed and returned one note.
-- `forma check --json`: passed with expected stale-index warning before rebuild.
-- `forma index rebuild --json`: passed.
-- `forma index check --json`: passed after rebuild.
-- `forma serve --bind 127.0.0.1:0`: sandboxed bind failed with
-  `Operation not permitted`; reran with approved localhost binding and passed.
+- `forma check --json`: passed with zero errors, warnings, and infos.
+- `forma --help`: passed and did not list an `index` command.
+- `forma index rebuild --json`: rejected with `unrecognized subcommand 'index'`.
+- `forma serve --bind 127.0.0.1:0`: required approved localhost binding and
+  passed at `http://127.0.0.1:59759`.
 - HTTP root smoke check returned the WebApp HTML shell.
-- JSON-RPC `list` smoke check returned the `notes` space and the created
-  `Alpha` note.
+- JSON-RPC `workspace.dashboard` returned status `passed`, the `notes`,
+  `todos`, and `users` spaces, and the created `Alpha` note.
+- JSON-RPC `view.render` for `notes` returned status `passed`, table columns,
+  and the created `Alpha` row.
+- JSON-RPC `file.render` for `notes/alpha.md` in Markdown format returned
+  status `passed` and Markdown for `# Alpha`.
 
 Artifact check:
 
-- `git status --short --branch` after validation reported
-  `## main...origin/main [ahead 5]`.
-- `git diff --stat HEAD` after validation was empty before recording these
-  notes.
-- Smoke-test artifacts stayed under `/private/tmp/forma-p0-cutline.fQS1M5`; no
-  generated starter files were left in the shared repository.
+- `git status --short --branch` after smoke validation reported only the
+  intended release-prep documentation updates and `pnpm-lock.yaml`.
+- Smoke-test artifacts stayed under
+  `/private/tmp/forma-internal-release.q0xC65`; no generated starter files were
+  left in the shared repository.
 
 Release decision:
 
-- The local P0 cutline is validated for internal-test release publishing as a
-  separate approved action.
-- Publishing is not yet source-stable because `main` is still ahead of
-  `origin/main` and HEAD has no release tag.
-- Recommended publication target: push current `main`, then publish
-  `v0.1.0-alpha.4` from the pushed HEAD.
+- The local branch is validated for the next internal-test release candidate
+  after committing these release-prep notes and lockfile updates.
+- Publishing remains a separate approved action: do not tag or push as part of
+  this validation step.
+- Recommended next internal tag after review and push: `v0.1.0-alpha.5`.
 
 ## Open Questions
 

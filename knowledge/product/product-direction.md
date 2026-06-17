@@ -1677,9 +1677,9 @@ The product can support multiple surfaces:
 
 P0 GUI should be a local webapp served by `forma serve`. It should browse
 spaces and page views, render table and kanban views, inspect entry
-metadata and Markdown bodies, show resolved references, and display check/index
-status. It should not create, edit, delete, move, rename, deprecate, rebuild the
-index, mutate kanban cards, edit settings or schemas, run Git operations, or
+metadata and Markdown bodies, show resolved references, and display check
+status. It should not create, edit, delete, move, rename, deprecate, mutate
+kanban cards, edit settings or schemas, run Git operations, or
 perform fixes in P0.
 
 The user-facing experience should not require users to understand Git branches,
@@ -1693,8 +1693,8 @@ those operations when they are needed.
 - Human-readable and Agent-friendly repository knowledge.
 - Agent-friendly CLI and skills for health checks, validation, workflow
   execution, and safe maintenance.
-- CLI interfaces for init, config inspection, index rebuild/check, check,
-  inspect, list, create, and serving a local read-only webapp.
+- CLI interfaces for init, config inspection, check, inspect, list, create, and
+  serving a local read-only webapp.
 - Read-only local browser GUI for browsing spaces and views, rendering
   entries, inspecting metadata, and viewing diagnostics.
 - Structured views over files without requiring custom executable scripts.

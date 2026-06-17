@@ -32,7 +32,7 @@ source stability, full validation evidence, and an explicit release cutline.
 
 The remaining Backlog is mostly P1/P2 follow-up work. Resource-description
 health diagnostics are useful and already ready, but they are not part of the
-minimum release bar described by the current P0 product, operation, check/index,
+minimum release bar described by the current P0 product, operation, check,
 starter, and view-query documents.
 
 ## Completed P0 Capability Baseline
@@ -46,10 +46,10 @@ starter, and view-query documents.
 - Markdown parsing, frontmatter parsing, FormaAST enrichment, reference
   extraction, rendering inputs, and diagnostic source locations.
 - Operation and RPC foundation shared by CLI, local HTTP, and WebApp callers.
-- `check`, `index.rebuild`, and `index.check` diagnostics with committed summary
-  index behavior and stale-index reporting.
+- `check` diagnostics over source files and configuration without a committed
+  persistent index.
 - Starter flows for `forma init`, `forma create`, `forma inspect`, `forma list`,
-  workspace checks, and index rebuild/check behavior.
+  and workspace checks.
 - View discovery, view metadata, table and kanban rendering, and graph view
   discovery/indexing without requiring interactive graph rendering in P0.
 - Read-only local WebApp for browsing spaces, views, files, rendered
@@ -74,8 +74,8 @@ starter, and view-query documents.
 - Confirm the release cutline does not include uncommitted implementation,
   generated, ignored, or local-only artifacts.
 - Confirm P0 operations still match the documented boundary: CLI init,
-  config inspect, index rebuild/check, check, inspect, list, create, serve, and
-  WebApp-backed read-only file/view/reference operations.
+  config inspect, check, inspect, list, create, serve, and WebApp-backed
+  read-only file/view/reference operations.
 
 ### Should Have
 

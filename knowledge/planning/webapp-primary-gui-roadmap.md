@@ -69,7 +69,7 @@ semantics that belong in shared Forma operations.
 3. Reconnect the dashboard through a WebApp workspace client backed by Forma RPC.
 4. Add diagnostics and knowledge health surfaces over existing and new checks.
 5. Add graph view render data and a minimal graph surface.
-6. Add quick switcher and entry search over the summary index.
+6. Add quick switcher and entry search over the in-memory read model.
 7. Design reviewable operation proposals for interactive GUI actions.
 8. Design the AI Chat interaction model around explain, draft, dry-run, and
    propose modes.

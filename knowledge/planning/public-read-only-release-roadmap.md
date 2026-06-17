@@ -113,7 +113,8 @@ Primary task:
 Promote diagnostics from a generic side panel into a useful health surface.
 
 - Show unresolved and ambiguous references.
-- Show stale index state.
+- Show current diagnostics produced from source files and the in-memory read
+  model.
 - Show document-level diagnostics with navigation to affected documents.
 - Show weak or isolated documents only when the signal is cheap and reliable.
 - Do not implement automatic fixes or proposals in the first public release.
@@ -145,7 +146,7 @@ Keep Quick Open as the primary lightweight in-app discovery entry point.
 - For the public release, Quick Open may continue to use dashboard data when it
   is clearly scoped to route, space, document, and view navigation.
 - If Quick Open becomes a public search feature, add a shared `search.entries`
-  operation over the summary index.
+  operation over the in-memory read model.
 - Do not imply full-text search until a real search backend exists.
 
 Primary task:

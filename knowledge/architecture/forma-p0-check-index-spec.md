@@ -394,7 +394,7 @@ workspace location instead of inventing offsets.
 
 All JSON output should be stable and schema-versioned where it represents a
 public operation result. Human output should be concise and should explain the
-next useful command when a stale index or fixable issue is found.
+next useful command when a fixable issue is found.
 
 ### `forma check [--json]`
 

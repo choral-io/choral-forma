@@ -428,7 +428,7 @@ Suggested fixture shape:
 ```text
 tests/fixtures/
   minimal-valid/
-  stale-index/
+  current-source/
   unresolved-ref/
   ambiguous-ref/
   invalid-frontmatter/

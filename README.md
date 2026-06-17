@@ -16,9 +16,9 @@ This repository is in P0 internal-test stabilization. It contains:
 - Editor integration for VS Code, Foam, Obsidian-readable Markdown, and Zed.
 - A Rust workspace for the `forma` binary under `crates/`.
 - A pnpm web workspace for the local read-only WebApp under `packages/`.
-- Project tool versions declared through `package.json` and `rust-toolchain.toml`, with mise tasks for knowledge, Rust, and web checks.
+- Project tool versions declared through `package.json` and `rust-toolchain.toml`, with mise tasks for Rust and web checks.
 
-The current application code implements the P0 read, inspect, check, index, render, serve, create, resource-preview, reference-navigation, and read-only WebApp surfaces. It is an internal-test candidate, not a production release.
+The current application code implements the P0 read, inspect, check, render, serve, create, resource-preview, reference-navigation, and read-only WebApp surfaces. It is an internal-test candidate, not a production release.
 
 ## Repository Layout
 
@@ -93,12 +93,6 @@ mise run check
 `examples/forma-starter-kit/` is the default committed example workspace. It is
 separate from this repository's `knowledge/` development knowledge base and is
 intended for product demos, smoke validation, and reader/view fixtures.
-
-Refresh the example summary index after changing example content:
-
-```sh
-cargo run -p forma-cli -- --workspace examples/forma-starter-kit index rebuild
-```
 
 Check the example workspace:
 
