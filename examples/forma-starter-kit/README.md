@@ -28,7 +28,7 @@ Serve it locally with:
 cargo run -p forma-cli -- --workspace examples/forma-starter-kit serve
 ```
 
-The target public release should build its read model by scanning this workspace at serve time. The starter does not require a committed persistent index.
+The target public release should build its read model by scanning this workspace at serve time. The starter does not use a committed persistent index.
 
 The WebApp owns navigation composition. It can derive the default sidebar from system routes, configured taxonomies, and configured views; the service configuration does not need a navigation node.
 

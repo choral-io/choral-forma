@@ -178,14 +178,8 @@ static assets from the Rust binary or release package.
 
 ## Index And Diagnostics
 
-P0 should distinguish committed discovery artifacts from runtime diagnostic
-results.
-
-Committed artifact:
-
-```text
-.forma/index.summary.json
-```
+P0 should distinguish repository source files from runtime diagnostic results.
+The first public implementation does not use a committed discovery index.
 
 Optional local configuration:
 
@@ -199,18 +193,19 @@ Future local caches:
 .forma/local/cache/
 ```
 
-The summary index is a deterministic committed discovery artifact. It contains
-resolved structure, not health state. It should include workspace summary,
-spaces, views, entries, and successfully resolved references. It must not
-contain diagnostics, check summaries, last check status, health summaries,
-effective config, runtime values, rendered views, local paths, private local
-files, full frontmatter, full Markdown bodies, or user behavior traces.
+The read model is rebuilt in memory from Markdown files and shared
+configuration. It contains resolved structure, not health state. Runtime
+projections can include workspace summary, spaces, views, entries, and
+successfully resolved references. They must not persist diagnostics, check
+summaries, last check status, health summaries, effective config, runtime
+values, rendered views, local paths, private local files, full frontmatter, full
+Markdown bodies, or user behavior traces.
 
 Diagnostics are runtime results. They are recomputed by `forma check`,
 `forma serve`, or the shared RPC dispatcher. They should not enter
-`.forma/index.summary.json` and should not be persisted as local result files.
-Future implementation caches may accelerate diagnostic computation, but caches
-must be local-only, rebuildable, and invisible as product facts.
+source files and should not be persisted as local result files. Future
+implementation caches may accelerate diagnostic computation, but caches must be
+local-only, rebuildable, and invisible as product facts.
 
 P0 index refs should distinguish `intent: reference | link | embed`.
 

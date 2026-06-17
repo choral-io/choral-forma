@@ -12,8 +12,7 @@ use crate::config::{
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
 use crate::path::{
-    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_INDEX_SUMMARY_PATH, FORMA_VIEWS_DIR, WorkspacePath,
-    slugify_path_segment,
+    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_VIEWS_DIR, WorkspacePath, slugify_path_segment,
 };
 use crate::schema::{SchemaNode, parse_space_schema, validate_schema_value};
 
@@ -141,17 +140,6 @@ pub struct CheckResult {
     pub schema_version: u16,
     pub operation: String,
     pub status: OperationStatus,
-    pub summary: DiagnosticSummary,
-    pub diagnostics: Vec<Diagnostic>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IndexRebuildResult {
-    pub schema_version: u16,
-    pub operation: String,
-    pub status: OperationStatus,
-    pub path: String,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -303,48 +291,16 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
 
 pub fn check_workspace(root: impl AsRef<Path>) -> CheckResult {
     let mut diagnostics = match discover_workspace(root.as_ref()) {
-        Ok(discovery) => {
-            let mut diagnostics = discovery.diagnostics;
-            diagnostics.extend(index_freshness_diagnostics(root.as_ref(), &discovery.index));
-            diagnostics
-        }
+        Ok(discovery) => discovery.diagnostics,
         Err(error) => vec![config_error_diagnostic(error)],
     };
     diagnostics.sort_by_key(diagnostic_sort_key);
     check_result("check", diagnostics)
 }
 
-pub fn index_check(root: impl AsRef<Path>) -> CheckResult {
-    let diagnostics = match discover_workspace(root.as_ref()) {
-        Ok(discovery) => index_freshness_diagnostics(root.as_ref(), &discovery.index),
-        Err(error) => vec![config_error_diagnostic(error)],
-    };
-    check_result("index.check", diagnostics)
-}
-
-pub fn index_rebuild(root: impl AsRef<Path>) -> Result<IndexRebuildResult, ConfigError> {
-    let discovery = discover_workspace(root.as_ref())?;
-    let summary = DiagnosticSummary::from_diagnostics(&discovery.diagnostics);
-    if summary.errors == 0 {
-        let json = summary_index_json(&discovery.index);
-        let path = root.as_ref().join(FORMA_INDEX_SUMMARY_PATH);
-        fs::write(&path, json).map_err(|source| ConfigError::Write {
-            path: FORMA_INDEX_SUMMARY_PATH.to_string(),
-            source,
-        })?;
-    }
-    Ok(IndexRebuildResult {
-        schema_version: 1,
-        operation: "index.rebuild".to_string(),
-        status: summary.status(),
-        path: FORMA_INDEX_SUMMARY_PATH.to_string(),
-        summary,
-        diagnostics: discovery.diagnostics,
-    })
-}
-
-pub fn summary_index_json(index: &SummaryIndex) -> String {
-    let mut output = serde_json::to_string_pretty(index).expect("summary index should serialize");
+#[cfg(test)]
+fn read_model_json(index: &SummaryIndex) -> String {
+    let mut output = serde_json::to_string_pretty(index).expect("read model should serialize");
     output.push('\n');
     output
 }
@@ -1248,33 +1204,6 @@ fn view_id(path: &str) -> String {
         .to_string()
 }
 
-fn index_freshness_diagnostics(root: &Path, index: &SummaryIndex) -> Vec<Diagnostic> {
-    let path = root.join(FORMA_INDEX_SUMMARY_PATH);
-    let expected = summary_index_json(index);
-    let Ok(actual) = fs::read_to_string(&path) else {
-        return vec![
-            Diagnostic::warning("index.missing", "Summary index is missing.")
-                .with_path(FORMA_INDEX_SUMMARY_PATH),
-        ];
-    };
-
-    if serde_json::from_str::<SummaryIndex>(&actual).is_err() {
-        return vec![
-            Diagnostic::error("index.invalid", "Summary index is invalid JSON.")
-                .with_path(FORMA_INDEX_SUMMARY_PATH),
-        ];
-    }
-
-    if actual != expected {
-        return vec![
-            Diagnostic::warning("index.stale", "Summary index is stale.")
-                .with_path(FORMA_INDEX_SUMMARY_PATH),
-        ];
-    }
-
-    Vec::new()
-}
-
 pub(crate) fn config_error_diagnostic(error: ConfigError) -> Diagnostic {
     match error {
         ConfigError::MissingFormaDirectory => Diagnostic::error(
@@ -1341,7 +1270,7 @@ mod tests {
         );
 
         let discovery = discover_workspace(&root).unwrap();
-        let json = summary_index_json(&discovery.index);
+        let json = read_model_json(&discovery.index);
 
         assert!(
             discovery.diagnostics.is_empty(),
@@ -1444,7 +1373,7 @@ mod tests {
             &format!("{FORMA_VIEWS_DIR}/todos.md"),
         );
         assert_eq!(json, expected_json);
-        assert_eq!(json, summary_index_json(&discovery.index));
+        assert_eq!(json, read_model_json(&discovery.index));
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1594,24 +1523,18 @@ mod tests {
     }
 
     #[test]
-    fn check_reports_missing_stale_and_invalid_index() {
+    fn check_ignores_persistent_index_file_by_default() {
         let root = fixture_root("freshness");
         write_workspace(&root);
         write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
 
-        let missing = index_check(&root);
-        assert_eq!(missing.status, OperationStatus::Warning);
-        assert_eq!(missing.diagnostics[0].code, "index.missing");
-
-        index_rebuild(&root).unwrap();
+        fs::write(root.join(".forma/index.summary.json"), "{").unwrap();
         write_entry(&root, "notes/b.md", "---\nkind: note\ntitle: B\n---\n");
-        let stale = index_check(&root);
-        assert_eq!(stale.diagnostics[0].code, "index.stale");
 
-        fs::write(root.join(FORMA_INDEX_SUMMARY_PATH), "{").unwrap();
-        let invalid = index_check(&root);
-        assert_eq!(invalid.status, OperationStatus::Failed);
-        assert_eq!(invalid.diagnostics[0].code, "index.invalid");
+        let result = check_workspace(&root);
+
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert!(result.diagnostics.is_empty(), "{:#?}", result.diagnostics);
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1643,29 +1566,6 @@ mod tests {
                 .map(|source| source.source_type.as_str()),
             Some("pages")
         );
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn index_rebuild_does_not_rewrite_when_errors_are_present() {
-        let root = fixture_root("rebuild-errors");
-        write_workspace(&root);
-        write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
-        index_rebuild(&root).unwrap();
-        let original = fs::read_to_string(root.join(FORMA_INDEX_SUMMARY_PATH)).unwrap();
-
-        write_entry(&root, "notes/broken.md", "---\ntitle: [broken\n---\nBody\n");
-        let result = index_rebuild(&root).unwrap();
-        let after_failed_rebuild = fs::read_to_string(root.join(FORMA_INDEX_SUMMARY_PATH)).unwrap();
-
-        assert_eq!(result.status, OperationStatus::Failed);
-        assert!(
-            result
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "markdown.frontmatter.invalidYaml")
-        );
-        assert_eq!(after_failed_rebuild, original);
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1804,7 +1704,7 @@ mod tests {
         let discovery = discover_workspace(&root).unwrap();
 
         assert_eq!(discovery.index.entries[0].path, "notes/nested/path.md");
-        assert!(!summary_index_json(&discovery.index).contains(root.to_string_lossy().as_ref()));
+        assert!(!read_model_json(&discovery.index).contains(root.to_string_lossy().as_ref()));
         fs::remove_dir_all(root).unwrap();
     }
 

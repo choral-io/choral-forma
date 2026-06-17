@@ -300,18 +300,11 @@ stable block identity model is designed.
 
 ## Index And Diagnostics Direction
 
-P0 should distinguish committed discovery artifacts from runtime diagnostic
-results.
+P0 should distinguish source files from runtime diagnostic results.
 
-Default P0 behavior should avoid a required persisted index artifact. `forma
-serve` can scan source files at startup and keep a read model in memory. This
-keeps the first public release simple and avoids stale committed indexes.
-
-Optional future persistent committed artifact:
-
-```text
-.forma/index.summary.json
-```
+Default P0 behavior has no persisted index artifact. `forma serve` scans source
+files at startup and keeps a read model in memory. This keeps the first public
+release simple and avoids stale indexes.
 
 Persistent local configuration, optional and ignored:
 
@@ -336,15 +329,10 @@ The following results should not be persisted:
 - Runtime values.
 
 Diagnostics are runtime results. They are recomputed by `forma check`,
-`forma serve`, or the shared RPC operation dispatcher. Diagnostics should never
-enter `.forma/index.summary.json` and should not be written as a local result
-file. Future implementation caches may accelerate diagnostic computation, but
-they must be local-only, rebuildable, and invisible as product facts.
-
-If a persistent summary index is enabled later, it should be a deterministic
-committed discovery artifact. It contains resolved structure, not health state.
-It should only include successfully resolved references. Unresolved or ambiguous
-references are diagnostics only.
+`forma serve`, or the shared RPC operation dispatcher. Diagnostics should not be
+written as a local result file. Future implementation caches may accelerate
+diagnostic computation, but they must be local-only, rebuildable, and invisible
+as product facts.
 
 P0 index references should distinguish intent:
 
@@ -382,13 +370,8 @@ Target command behavior:
   in-memory read model.
 - `forma refresh` or an equivalent explicit operation can rebuild the in-memory
   read model without restarting the server.
-- `forma index rebuild` should exist only when a workspace explicitly configures
-  a persistent index path. It recomputes the summary index from source and
-  writes that configured path, but does not persist diagnostics.
-- `forma index check` should compare against a persistent index only when that
-  index is configured.
-- `forma check` recomputes diagnostics, includes index freshness diagnostics,
-  and writes nothing.
+- P0 does not expose `forma index rebuild` or `forma index check`.
+- `forma check` recomputes diagnostics from source files and writes nothing.
 - `forma serve` may compute diagnostics in memory and expose check status
   through the local API, but writes nothing by default.
 

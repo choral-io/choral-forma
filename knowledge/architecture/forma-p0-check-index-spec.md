@@ -16,9 +16,9 @@ tags:
 
 Choral Forma P0 needs stable read, check, inspect, list, and serve behavior
 over repository-backed Markdown. Repository files remain the source of truth.
-The first public release should not require a committed summary index by
-default; `forma serve` can scan source files at startup and maintain an
-in-memory read model.
+The first public release does not use a committed summary index. `forma serve`,
+CLI reads, and RPC operations scan source files and maintain an in-memory read
+model.
 
 This specification refines the P0 check/index pipeline described in
 [../product/product-direction.md](../product/product-direction.md),
@@ -31,24 +31,22 @@ accepted decision
 - Define one shared pipeline for CLI commands, `forma serve`, and the shared RPC
   operation dispatcher.
 - Define the default in-memory read-model contract.
-- Reserve a deterministic persistent index contract for future opt-in use.
-- Keep diagnostics runtime-only and separate from committed discovery state.
-- Define deterministic ordering so committed index diffs are stable.
-- Define command behavior for P0 index, check, inspect, list, and serve
-  commands.
+- Keep diagnostics runtime-only and separate from source files.
+- Define deterministic ordering for in-memory read-model projections.
+- Define command behavior for P0 check, inspect, list, and serve commands.
 - Define the P0 diagnostic JSON contract, diagnostic code families, and source
   location rules.
 - Reserve `.forma/local/cache/` for future local-only rebuildable caches.
 
 ## Non-Goals
 
-- No mandatory committed index file in the first public release.
+- No committed index file in the first public release.
 - No local full index such as `.forma/local/index.json` in P0.
 - No SQLite, filesystem watcher, vector index, or incremental indexing in P0.
 - No persisted diagnostic result file, health summary, last check status, or
   effective configuration file.
-- No automatic repair in `forma check`, `forma index check`, `forma inspect`,
-  `forma list`, or `forma serve`.
+- No automatic repair in `forma check`, `forma inspect`, `forma list`, or
+  `forma serve`.
 - No expansion of embedded Markdown content in P0. Embedded references are
   recorded as intent and may render as links or placeholders.
 
@@ -80,8 +78,7 @@ Pipeline phases:
 12. Build the in-memory read-model projection from successfully resolved
     discovery facts.
 13. Build runtime diagnostics from configuration, parsing, schema, membership,
-    references, index freshness, view, template, create, runtime, and privacy
-    checks.
+    references, view, template, create, runtime, and privacy checks.
 14. Project the operation result for CLI JSON, human CLI output, local HTTP RPC,
     or WebApp consumption.
 
@@ -92,23 +89,13 @@ discovery and parse facts, then return diagnostics from phase 13.
 View source and query validation follows
 [[architecture/forma-view-query-model]].
 
-## Summary Index
+## In-Memory Read Model
 
-P0 should not require a committed summary index by default. The default read
-model is rebuilt in memory by scanning source files and configuration.
+P0 rebuilds the read model in memory by scanning source files and
+configuration. Repository Markdown and `.forma.yml`-included configuration are
+the only shared source of truth for discovery facts.
 
-Future work may add an opt-in committed, deterministic, rebuildable summary
-index:
-
-```text
-.forma/index.summary.json
-```
-
-Any summary index is a discovery accelerator, not a knowledge store. Source
-files win, and the index can always be regenerated from source files and shared
-configuration.
-
-The summary index must include only deterministic, shared discovery facts:
+The read model includes deterministic, shared discovery facts:
 
 - Workspace summary.
 - Space summaries.
@@ -116,7 +103,7 @@ The summary index must include only deterministic, shared discovery facts:
 - Entry summaries.
 - Successfully resolved references.
 
-The summary index must not include:
+The read model must not persist:
 
 - Diagnostics, check summaries, last check status, or health state.
 - Effective configuration or local override results.
@@ -216,9 +203,8 @@ index, rendered HTML, or exported Markdown.
 
 ## Deterministic Sorting
 
-`forma index rebuild` must produce byte-stable JSON for unchanged workspace
-inputs. Determinism is required because the index is committed and may be used
-by Agents, reviews, and CI.
+Read-model projections must be deterministic for unchanged workspace inputs.
+Determinism keeps CLI/RPC output stable for Agents, reviews, and tests.
 
 Sorting rules:
 
@@ -232,23 +218,22 @@ Sorting rules:
 - Sort `entries[].refs` by `intent`, then `targetPath`, then `source`, then
   `field` when present, then source location when available.
 - Sort any future schema-owned arrays with documented semantics. If order has
-  no semantic meaning, sort deterministically before writing the index.
+  no semantic meaning, sort deterministically before returning the projection.
 - Use workspace-relative POSIX paths exactly as public identity strings. Do not
   case-fold paths, expand symlinks into absolute paths, or apply Unicode
   normalization for public identity.
 
-The writer should use a stable indentation style and final newline. It should
-avoid timestamps, host-specific values, random ids, and filesystem traversal
-order as output inputs.
+Serialized operation output should use stable field ordering where the public
+schema defines it. It should avoid timestamps, host-specific values, random ids,
+and filesystem traversal order as output inputs.
 
 ## Runtime Diagnostics
 
 Diagnostics are runtime operation results. They are recomputed by `forma check`,
-`forma index check`, `forma serve`, `forma inspect`, `forma list`, or the shared
-RPC dispatcher as needed.
+`forma serve`, `forma inspect`, `forma list`, or the shared RPC dispatcher as
+needed.
 
-Diagnostics must not be written into `.forma/index.summary.json`. They also
-must not be persisted as a separate diagnostics result file. Future
+Diagnostics must not be persisted as a separate diagnostics result file. Future
 implementation caches may accelerate diagnostic computation, but cached data is
 local-only, rebuildable, and not a product fact.
 
@@ -346,9 +331,6 @@ example:
 - `ref.case-mismatch`
 - `resource.description.missingTarget`
 - `view.invalid`
-- `index.missing`
-- `index.stale`
-- `index.invalid-json`
 - `privacy.local-leak`
 
 Codes are public Script, Agent, and GUI contract. Rename a code only with an
@@ -414,54 +396,17 @@ All JSON output should be stable and schema-versioned where it represents a
 public operation result. Human output should be concise and should explain the
 next useful command when a stale index or fixable issue is found.
 
-### `forma index rebuild`
-
-`forma index rebuild` full-scans shared source files and shared configuration,
-builds the deterministic summary-index projection, and writes
-`.forma/index.summary.json`.
-
-Behavior:
-
-- Writes only `.forma/index.summary.json`.
-- Does not persist diagnostics.
-- Does not write `.forma/local/`.
-- Does not read local caches as product facts.
-- Should fail without rewriting the committed index when configuration or source
-  parsing errors make a trustworthy index impossible.
-- May emit diagnostics to the terminal or JSON operation result, but those
-  diagnostics remain runtime-only.
-
-### Optional `forma index check [--json]`
-
-`forma index check` should exist only when the workspace configures a persistent
-index path. It regenerates the expected summary index in memory, compares it
-with the configured persistent index, and reports freshness diagnostics.
-
-Behavior:
-
-- Read-only.
-- Reports `index.missing`, `index.invalid-json`, or `index.stale` when
-  applicable.
-- Does not repair the index automatically.
-- Should recommend `forma index rebuild` when the configured summary index is
-  stale or missing.
-- Returns a non-zero exit code when error-severity diagnostics are present.
-
 ### `forma check [--json]`
 
 `forma check` is the default read-only workspace health operation. It recomputes
-runtime diagnostics from a fresh scan. It includes summary-index freshness only
-when a persistent index path is configured.
+runtime diagnostics from a fresh scan.
 
 Behavior:
 
 - Read-only.
 - Runs diagnostics over shared configuration, space membership, schemas,
-  entries, references, views, templates where relevant, privacy boundaries, and
-  index freshness.
-- Does not write repairs, caches, local results, or the summary index.
-- Reports the explicit follow-up command `forma index rebuild` when the summary
-  index is stale.
+  entries, references, views, templates where relevant, and privacy boundaries.
+- Does not write repairs, caches, local results, or a persistent index.
 - Returns zero for `passed` and `warning`; returns non-zero for `failed`.
 
 ### `forma serve`
@@ -473,11 +418,9 @@ the shared dispatcher.
 Behavior:
 
 - Read-only in P0.
-- May compute diagnostics and index/check status in memory.
+- May compute diagnostics and check status in memory.
 - Exposes workspace overview, space listing, entry inspection, Markdown
-  rendering, view rendering, diagnostics, and index status through the local
-  API.
-- Does not rebuild `.forma/index.summary.json` automatically.
+  rendering, view rendering, and diagnostics through the local API.
 - Does not persist diagnostics or create local caches in P0.
 - Keeps workspace diagnostics as operation results, not JSON-RPC transport
   errors.
@@ -496,7 +439,7 @@ Behavior:
   applicable.
 - Should inspect imperfect files when possible and include diagnostics instead
   of failing early for every workspace issue.
-- Does not rebuild the summary index or persist diagnostics.
+- Does not persist diagnostics or runtime read-model results.
 
 ### `forma inspect --space <space> <entry> [--json]`
 
@@ -511,7 +454,7 @@ Behavior:
 - Space-backed type normalization may apply to bare entry names when such a
   type exists.
 - Path-like locators remain exact and are not normalized.
-- Does not rebuild the summary index or persist diagnostics.
+- Does not persist diagnostics or runtime read-model results.
 
 ### `forma list --space <space> [--json]`
 
@@ -524,7 +467,7 @@ Behavior:
 - Returns deterministic entry ordering by workspace-relative `path`.
 - Includes the space id, entry count, and entry summaries.
 - May include relevant space-level diagnostics in JSON output.
-- Does not rebuild the summary index or persist diagnostics.
+- Does not persist diagnostics or runtime read-model results.
 
 ## Cache Rules
 
@@ -547,8 +490,8 @@ Future cache rules:
 - Never required for correctness.
 - Never committed.
 - Safe to delete at any time.
-- Must not leak into `.forma/index.summary.json`, diagnostics paths, or public
-  JSON output as host-specific source paths.
+- Must not leak into diagnostics paths or public JSON output as host-specific
+  source paths.
 
 ## Related Decisions
 

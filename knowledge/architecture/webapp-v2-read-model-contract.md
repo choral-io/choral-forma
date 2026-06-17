@@ -35,7 +35,7 @@ construction, diagnostics, and reference resolution remain backend concerns.
 - Keep WebApp rendering read-only until reviewable write operations are
   designed.
 - Reuse existing operation semantics where possible: `files.list`,
-  `file.render`, `file.references`, `check`, `index.check`, and `view.render`.
+  `file.render`, `file.references`, `check`, and `view.render`.
 - Add aggregate read operations only when the GUI needs route-level data that is
   awkward or inefficient to compose in the browser.
 
@@ -200,7 +200,7 @@ frontmatter fields, expected values, or source locations from diagnostic text.
 Document route operations such as `file.render` and `file.references` should
 report diagnostics scoped to the selected document path. Workspace-wide health
 and unrelated document diagnostics belong to aggregate operations such as
-`workspace.dashboard`, `check`, or `index.check`.
+`workspace.dashboard` or `check`.
 
 ## Proposed Operations
 
@@ -213,7 +213,7 @@ the route need:
 - `file.render`: document detail source and render analysis;
 - `file.references`: outgoing links and backlinks;
 - `view.render`: list, table, and kanban view detail;
-- `check` and `index.check`: diagnostics and health state;
+- `check`: diagnostics and health state;
 - `config.inspect`: workspace metadata and configured spaces.
 
 The WebApp V2 shell has started consuming real operation output through its

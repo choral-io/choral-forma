@@ -1,7 +1,7 @@
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use forma_core::{FORMA_CONFIG_PATH, FORMA_INDEX_SUMMARY_PATH};
+use forma_core::FORMA_CONFIG_PATH;
 
 #[test]
 fn prints_placeholder_version() {
@@ -45,7 +45,7 @@ fn check_json_prints_direct_operation_result() {
 }
 
 #[test]
-fn init_create_list_inspect_and_index_check_use_operation_json() {
+fn init_create_list_and_inspect_use_operation_json_without_persistent_index() {
     let root = fixture_root("starter-flow");
     std::fs::create_dir_all(&root).unwrap();
 
@@ -73,7 +73,7 @@ fn init_create_list_inspect_and_index_check_use_operation_json() {
     assert!(init_stdout.contains(r#""operation":"init""#));
     assert!(init_stdout.contains(r#""status":"passed""#));
     assert!(root.join(FORMA_CONFIG_PATH).is_file());
-    assert!(root.join(FORMA_INDEX_SUMMARY_PATH).is_file());
+    assert!(!root.join(".forma/index.summary.json").exists());
     assert!(root.join("notes").is_dir());
 
     let create = forma(&root)
@@ -94,26 +94,15 @@ fn init_create_list_inspect_and_index_check_use_operation_json() {
     );
     let create_stdout = String::from_utf8_lossy(&create.stdout);
     assert!(create_stdout.contains(r#""operation":"create""#));
-    assert!(create_stdout.contains(r#""status":"warning""#));
-    assert!(create_stdout.contains(r#""code":"index.stale""#));
+    assert!(create_stdout.contains(r#""status":"passed""#));
+    assert!(!create_stdout.contains(r#""index""#));
+    assert!(!root.join(".forma/index.summary.json").exists());
     assert!(root.join("todos/user-registration.md").is_file());
     assert!(
         std::fs::read_to_string(root.join("todos/user-registration.md"))
             .unwrap()
             .contains("kind: todo")
     );
-
-    let stale = forma(&root)
-        .args(["index", "check", "--json"])
-        .output()
-        .expect("forma index check should run");
-
-    assert!(
-        stale.status.success(),
-        "{}",
-        String::from_utf8_lossy(&stale.stderr)
-    );
-    assert!(String::from_utf8_lossy(&stale.stdout).contains(r#""code":"index.stale""#));
 
     let list = forma(&root)
         .args(["list", "--space", "todos", "--json"])

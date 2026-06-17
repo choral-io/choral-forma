@@ -1384,8 +1384,6 @@ starter can be used end to end. Required P0 commands:
 - forma init --name <name> [--language <tag>] [--timezone <iana>] [-y|--yes]
 - forma config inspect [--json]
 - forma config inspect --path <path> [--json]
-- forma index rebuild
-- forma index check [--json]
 - forma check [--json]
 - forma inspect <path> [--json]
 - forma inspect --space <space> <entry> [--json]
@@ -1490,35 +1488,26 @@ Direct filesystem edits should remain allowed. `forma check` should detect
 broken references, invalid space membership, ambiguous short wikilinks,
 stale views, and other consequences before review or commit.
 
-### Summary Index
+### In-Memory Read Model
 
-The first public release should not require a committed summary index by
-default. The local server can scan source files and configuration at startup,
-then keep the read model in memory.
+The first public release should not use a committed summary index. The local
+server and read operations scan source files and configuration, then keep the
+read model in memory.
 
-A future workspace may opt into a committed, deterministic, rebuildable summary
-index:
+The MVP should not include a committed summary index or a local full index such
+as `.forma/local/index.json`. A persistent index, SQLite backend, watcher, or
+vector index can be introduced later only after a fresh design if workspace
+size, GUI latency, local overrides, or semantic search make them necessary.
 
-```text
-.forma/index.summary.json
-```
-
-The MVP should not include a required committed summary index or a local full
-index such as `.forma/local/index.json`. A persistent summary index, local full
-index, SQLite backend, watcher, or vector index can be introduced later if
-workspace size, GUI latency, local overrides, or semantic search make them
-necessary.
-
-Any summary index is a derived artifact, not a knowledge store:
+The read model is derived runtime state, not a knowledge store:
 
 ```text
 source files win
-summary index accelerates discovery, graph traversal, and context selection
-summary index can always be rebuilt
+read model supports discovery, graph traversal, and context selection
+read model can always be rebuilt in memory
 ```
 
-The summary index should be committed only if it is deterministic and free of
-local or private data. It should not contain absolute paths, local override
+Runtime read-model projections should not contain absolute paths, local override
 results, private local files, runtime identity, user behavior traces, full
 frontmatter, full Markdown bodies, diagnostics, check summaries, health state,
 effective config, rendered HTML, or rendered view results.
@@ -1584,36 +1573,13 @@ Recommended shape:
 }
 ```
 
-P0 commands can remain small:
-
-```sh
-forma index rebuild
-forma index check
-```
-
 By default, serve/check operations should full-scan shared source files and
 shared configuration into memory. P0 does not need true incremental indexing.
-Persistent `index rebuild` and `index check` behavior should be enabled only
-when a workspace explicitly configures an index path.
+P0 should not expose persistent `index rebuild` or `index check` behavior.
 
-`forma check` should include summary index freshness as a default read-only
-check. A stale summary index should fail checks, because Agents, reviews, and
-CI may rely on it for fast orientation. Staleness includes missing index, added
-or removed spaces, views, or entries, changed title, summary, references,
-space membership, or other discovery-index content.
-
-`forma check` should report the fix instead of writing automatically:
-
-```sh
-forma index rebuild
-```
-
-GUI and Agent workflows may offer to run the rebuild as an explicit follow-up
-action, but check itself should stay read-only.
-
-The summary index is for discovery only. Diagnostics are runtime results that
-belong to `forma check`, `forma serve`, or shared RPC responses; they should not
-be persisted in the summary index or as a separate diagnostics result file.
+Diagnostics are runtime results that belong to `forma check`, `forma serve`, or
+shared RPC responses; they should not be persisted as a separate diagnostics
+result file.
 Effective configuration belongs to `forma config inspect`; view results belong
 to view rendering.
 
@@ -1752,11 +1718,10 @@ those operations when they are needed.
 - Limited `{{ ... }}` runtime interpolation for configuration and templates.
 - Create inputs with explicit field binding, operation-level defaults,
   dependency-graph resolution, and a small `slugify` transform.
-- Committed summary index at `.forma/index.summary.json` with check-time
-  freshness validation.
-- P0 CLI for init, config inspection, index rebuild/check, workspace checks,
-  entry inspection, space listing, entry creation, and read-only local GUI
-  serving.
+- Runtime in-memory read model rebuilt from source files and shared
+  configuration.
+- P0 CLI for init, config inspection, workspace checks, entry inspection, space
+  listing, entry creation, and read-only local GUI serving.
 
 ## Out Of Scope
 

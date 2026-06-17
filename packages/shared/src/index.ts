@@ -101,7 +101,7 @@ export type ListedSpace = {
     entryCount: number;
 };
 
-export type WorkspaceFileKind = "knowledge" | "view" | "template" | "markdown" | "config" | "index" | "resource";
+export type WorkspaceFileKind = "knowledge" | "view" | "template" | "markdown" | "config" | "resource";
 
 export type WorkspaceFileFeature = "render.markdown" | "render.source" | "render.view" | "preview.media";
 
@@ -253,7 +253,7 @@ export type ViewRenderOutput =
       };
 
 export type CheckResult = BaseOperationResult & {
-    operation: "check" | "index.check";
+    operation: "check";
 };
 
 export type ConfigInspectResult = BaseOperationResult & {
@@ -464,10 +464,6 @@ export class FormaRpcClient {
 
     check() {
         return this.call<CheckResult>("check");
-    }
-
-    indexCheck() {
-        return this.call<CheckResult>("index.check");
     }
 
     configInspect() {

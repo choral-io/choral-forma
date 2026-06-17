@@ -214,7 +214,7 @@ graph surface.
 - kanban column configuration;
 - render mount points.
 
-The first public release does not require a committed persistent index. The
+The first public release does not use a committed persistent index. The
 serve process can build the read model in memory and expose valid view metadata,
 including page-source graph views without taxonomy filters.
 

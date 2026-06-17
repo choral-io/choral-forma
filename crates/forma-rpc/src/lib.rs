@@ -24,10 +24,6 @@ pub enum Operation {
     FilesList,
     #[serde(rename = "workspace.dashboard")]
     WorkspaceDashboard,
-    #[serde(rename = "index.check")]
-    IndexCheck,
-    #[serde(rename = "index.rebuild")]
-    IndexRebuild,
     #[serde(rename = "inspect")]
     Inspect,
     #[serde(rename = "list")]
@@ -50,8 +46,6 @@ impl Operation {
             Self::ConfigInspect => "config.inspect",
             Self::FilesList => "files.list",
             Self::WorkspaceDashboard => "workspace.dashboard",
-            Self::IndexCheck => "index.check",
-            Self::IndexRebuild => "index.rebuild",
             Self::Inspect => "inspect",
             Self::List => "list",
             Self::Create => "create",
@@ -69,8 +63,6 @@ pub enum OperationRequest {
     ConfigInspect(ConfigInspectRequest),
     FilesList(FilesListRequest),
     WorkspaceDashboard(WorkspaceDashboardRequest),
-    IndexCheck(IndexCheckRequest),
-    IndexRebuild(IndexRebuildRequest),
     Inspect(InspectRequest),
     List(ListRequest),
     Create(CreateRequest),
@@ -94,16 +86,6 @@ pub struct InitRequest {
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckRequest {}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-pub struct IndexCheckRequest {}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-pub struct IndexRebuildRequest {}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -263,12 +245,6 @@ impl Dispatcher {
             OperationRequest::WorkspaceDashboard(_) => forma_core::workspace_dashboard(root)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::WorkspaceDashboard, error))),
-            OperationRequest::IndexCheck(_) => {
-                Ok(OperationResult::from(forma_core::index_check(root)))
-            }
-            OperationRequest::IndexRebuild(_) => forma_core::index_rebuild(root)
-                .map(OperationResult::from)
-                .map_err(|_| OperationError::Failed),
             OperationRequest::Inspect(request) => {
                 match (request.path, request.space, request.entry) {
                     (Some(path), None, None) => forma_core::inspect_entry_by_path(root, &path)
@@ -457,24 +433,6 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
-        "index.check" => serde_json::from_value::<IndexCheckRequest>(params)
-            .map(OperationRequest::IndexCheck)
-            .map_err(|_| {
-                JsonRpcFailure::without_id(
-                    JsonRpcErrorCode::InvalidParams,
-                    "Invalid params.",
-                    "params.invalid",
-                )
-            }),
-        "index.rebuild" => serde_json::from_value::<IndexRebuildRequest>(params)
-            .map(OperationRequest::IndexRebuild)
-            .map_err(|_| {
-                JsonRpcFailure::without_id(
-                    JsonRpcErrorCode::InvalidParams,
-                    "Invalid params.",
-                    "params.invalid",
-                )
-            }),
         "init" => serde_json::from_value::<InitRequest>(params)
             .map(OperationRequest::Init)
             .map_err(|_| {
@@ -597,20 +555,6 @@ impl From<forma_core::CheckResult> for OperationResult {
     }
 }
 
-impl From<forma_core::IndexRebuildResult> for OperationResult {
-    fn from(result: forma_core::IndexRebuildResult) -> Self {
-        Self {
-            schema_version: result.schema_version,
-            operation: result.operation,
-            status: result.status,
-            summary: Some(result.summary),
-            diagnostics: result.diagnostics,
-            path: Some(result.path),
-            data: BTreeMap::new(),
-        }
-    }
-}
-
 impl From<forma_core::InitResult> for OperationResult {
     fn from(result: forma_core::InitResult) -> Self {
         let mut data = BTreeMap::new();
@@ -634,7 +578,6 @@ impl From<forma_core::CreateResult> for OperationResult {
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("created".to_string(), json!(result.created));
         data.insert("inputs".to_string(), json!(result.inputs));
-        data.insert("index".to_string(), json!(result.index));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1155,14 +1098,6 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::Operation::WorkspaceDashboard).unwrap(),
             "workspace.dashboard"
-        );
-        assert_eq!(
-            serde_json::to_value(super::Operation::IndexCheck).unwrap(),
-            "index.check"
-        );
-        assert_eq!(
-            serde_json::to_value(super::Operation::IndexRebuild).unwrap(),
-            "index.rebuild"
         );
         assert_eq!(
             serde_json::to_value(super::Operation::Inspect).unwrap(),

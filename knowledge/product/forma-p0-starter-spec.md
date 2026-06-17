@@ -203,7 +203,6 @@ commit `.forma/.gitignore` with:
 
 ```gitignore
 local/
-index.summary.json
 ```
 
 ## `.forma.yml`
@@ -585,11 +584,10 @@ source:
 4. Render concrete `.forma.yml` values from init inputs.
 5. Create no sample entries.
 6. Create no `.forma/local/` or `.forma/overrides/local.yml`.
-7. Run `forma index rebuild`.
 
 `forma create <space>` should use the target space's create inputs,
-create filename rule, and template. It should fail on path conflicts and report
-that `.forma/index.summary.json` is stale after writing the new entry.
+create filename rule, and template. It should fail on path conflicts and leave
+the read model to be rebuilt in memory by the next operation or server refresh.
 
 `forma serve` should expose the starter spaces and page views through the
 read-only local WebApp. The P0 WebApp should guide users toward structured

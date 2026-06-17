@@ -14,29 +14,28 @@ pub use diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
 };
 pub use index::{
-    CheckResult, Discovery, IndexEntry, IndexRebuildResult, IndexReference, IndexSpace, IndexView,
-    IndexWorkspace, ReferenceIntent, ReferenceSource, SummaryIndex, check_workspace,
-    discover_workspace, index_check, index_rebuild, summary_index_json,
+    CheckResult, Discovery, IndexEntry, IndexReference, IndexSpace, IndexView, IndexWorkspace,
+    ReferenceIntent, ReferenceSource, SummaryIndex, check_workspace, discover_workspace,
 };
 pub use markdown::{
     FormaMarkdownDocument, FormaReference, FormaReferenceIntent, FormaReferenceSource,
     FormaReferenceSyntax, ParsedFrontmatter, SourceSpan, split_frontmatter,
 };
 pub use operations::{
-    ConfigInspectResult, ConfigSource, ConfigSourceKind, CreateIndexStatus, CreateInputResult,
-    CreateInputSource, CreateResult, CreatedEntry, DashboardEntrySummary, DashboardSpace,
-    DashboardViewSummary, FileReferencesResult, FilesListResult, InitResult, InspectEntry,
-    InspectResult, ListEntry, ListResult, ListedSpace, OperationError, ReferenceEdge,
-    ReferenceFile, WorkspaceDashboardResult, WorkspaceFile, WorkspaceFileFeature,
-    WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary, create_entry,
-    detect_environment_timezone, init_workspace, inspect_config, inspect_entry_by_path,
-    inspect_entry_by_space, is_raw_workspace_path_allowed, list_file_references, list_files,
-    list_space, media_type_for_workspace_path, operation_error_diagnostic, workspace_dashboard,
+    ConfigInspectResult, ConfigSource, ConfigSourceKind, CreateInputResult, CreateInputSource,
+    CreateResult, CreatedEntry, DashboardEntrySummary, DashboardSpace, DashboardViewSummary,
+    FileReferencesResult, FilesListResult, InitResult, InspectEntry, InspectResult, ListEntry,
+    ListResult, ListedSpace, OperationError, ReferenceEdge, ReferenceFile,
+    WorkspaceDashboardResult, WorkspaceFile, WorkspaceFileFeature, WorkspaceFileKind,
+    WorkspaceLogoSummary, WorkspaceSummary, create_entry, detect_environment_timezone,
+    init_workspace, inspect_config, inspect_entry_by_path, inspect_entry_by_space,
+    is_raw_workspace_path_allowed, list_file_references, list_files, list_space,
+    media_type_for_workspace_path, operation_error_diagnostic, workspace_dashboard,
 };
 pub use path::{
-    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH,
-    FORMA_LOCAL_OVERRIDES_PATH, FORMA_TEMPLATES_DIR, FORMA_VIEWS_DIR, PathError, WorkspacePath,
-    normalize_cli_path, slugify_path_segment,
+    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_LOCAL_OVERRIDES_PATH,
+    FORMA_TEMPLATES_DIR, FORMA_VIEWS_DIR, PathError, WorkspacePath, normalize_cli_path,
+    slugify_path_segment,
 };
 pub use render::{
     FileRenderOutput, FileRenderResult, GraphRenderEdge, GraphRenderNode, KanbanRenderColumn,

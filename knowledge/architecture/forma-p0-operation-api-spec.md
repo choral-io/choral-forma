@@ -54,8 +54,6 @@ names use stable lower camel case in JSON-facing APIs.
 | -------------- | ----------------- | ----------------------------------------------------------------------------- | ------------ |
 | Init           | `init`            | `forma init --name <name> [--language <tag>] [--timezone <iana>] [-y\|--yes]` | Yes          |
 | ConfigInspect  | `config.inspect`  | `forma config inspect [--path <path>] [--json]`                               | No           |
-| IndexRebuild   | `index.rebuild`   | `forma index rebuild [--json]`                                                | Yes          |
-| IndexCheck     | `index.check`     | `forma index check [--json]`                                                  | No           |
 | Check          | `check`           | `forma check [--json]`                                                        | No           |
 | Inspect        | `inspect`         | `forma inspect <path> [--json]`                                               | No           |
 | Inspect        | `inspect`         | `forma inspect --space <space> <entry> --json`                                | No           |
@@ -69,8 +67,8 @@ names use stable lower camel case in JSON-facing APIs.
 
 `Serve` is a CLI mode, not a domain operation. The server exposes operation
 methods through `POST /rpc` and serves static WebApp assets. It may compute
-diagnostics in memory and expose check/index status through operation results,
-but it must not write files in P0.
+diagnostics in memory and expose check status through operation results, but it
+must not write files in P0.
 
 `ViewRender` is required for the P0 WebApp and local HTTP API so the GUI can
 render page, table, and kanban views. View metadata should also allow graph
@@ -84,13 +82,12 @@ command for file rendering can wait until there is product demand.
 `FilesList` is required for the P0 WebApp file navigation mode. It is a
 read-only inventory operation over display-safe workspace files, not a general
 filesystem API. It should classify knowledge files, views, Markdown files,
-configuration files, resources, and the summary index using workspace-relative
-POSIX paths.
+configuration files, and resources using workspace-relative POSIX paths.
 
 `FileReferences` is required for the read-only bidirectional note navigation
 baseline. It is a read-only operation for one indexed knowledge file. It returns
 outgoing references from that file plus backlinks from other indexed knowledge
-files, using resolved reference data from the summary index. It should include
+files, using resolved reference data from the in-memory read model. It should include
 display-safe source and target paths, available titles, reference source,
 optional field and semantic type, and intent `reference | link | embed`. It
 should not scan raw Markdown in the WebApp, persist relationship results, or
@@ -161,11 +158,8 @@ P0 command classification:
   conflicts.
 - `forma refresh` or an equivalent in-memory read-model rebuild operation does
   not require confirmation because it writes nothing by default.
-- `forma index rebuild` should exist only when a workspace explicitly configures
-  a persistent index path. It does not require confirmation when it writes only
-  that deterministic, rebuildable configured index file.
-- `forma check`, `forma index check`, `forma config inspect`, `forma inspect`,
-  `forma list`, and `forma serve` do not require confirmation because they are
+- `forma check`, `forma config inspect`, `forma inspect`, `forma list`, and
+  `forma serve` do not require confirmation because they are
   read-only in P0.
 - `forma config inspect --path <path>` may inspect only known configuration
   source files reported by the operation, starting with `.forma.yml` and any
@@ -276,7 +270,6 @@ Examples of diagnostics-as-result:
 - Unresolved or ambiguous references.
 - Missing resource targets for Markdown resource description documents.
 - Unknown configuration fields that leave the workspace inspectable.
-- Missing or stale `.forma/index.summary.json`.
 - Invalid views, missing fields, invalid params, or overlapping kanban columns.
 - Required runtime values that are unresolved but do not block the operation.
 
@@ -288,7 +281,7 @@ Examples of transport, protocol, dispatch, or execution errors:
 - Invalid operation params.
 - Workspace root cannot be accessed.
 - Requested path is absolute or traverses outside the workspace.
-- `create` or `index.rebuild` cannot write its target file.
+- `create` cannot write its target file.
 - Unexpected internal failure.
 
 Diagnostic severity values:
@@ -432,10 +425,8 @@ Result outline:
 
 ### Check
 
-`check` recomputes runtime diagnostics and writes nothing. If a workspace
-configures a persistent index path, `check` may include index freshness
-diagnostics; otherwise it validates the in-memory read model derived from a
-fresh scan.
+`check` recomputes runtime diagnostics from a fresh source scan and writes
+nothing.
 
 Params:
 
@@ -525,97 +516,6 @@ Result outline:
         "infos": 0
     },
     "diagnostics": []
-}
-```
-
-### Index Rebuild
-
-`index.rebuild` full-scans shared source files and shared configuration, then
-rewrites `.forma/index.summary.json`. It does not persist diagnostics.
-
-Params:
-
-```json
-{}
-```
-
-Result outline:
-
-```json
-{
-    "schemaVersion": 1,
-    "operation": "index.rebuild",
-    "status": "passed",
-    "workspace": {
-        "root": ".",
-        "name": "Acme Knowledge"
-    },
-    "index": {
-        "path": ".forma/index.summary.json",
-        "schemaVersion": 1,
-        "spaces": 4,
-        "views": 4,
-        "entries": 12,
-        "refs": 18,
-        "written": true
-    },
-    "summary": {
-        "errors": 0,
-        "warnings": 0,
-        "infos": 0
-    },
-    "diagnostics": []
-}
-```
-
-### Index Check
-
-`index.check` regenerates the expected summary index in memory, compares it to
-`.forma/index.summary.json`, emits runtime diagnostics, and writes nothing.
-
-Params:
-
-```json
-{}
-```
-
-Result outline:
-
-```json
-{
-    "schemaVersion": 1,
-    "operation": "index.check",
-    "status": "failed",
-    "workspace": {
-        "root": ".",
-        "name": "Acme Knowledge"
-    },
-    "index": {
-        "path": ".forma/index.summary.json",
-        "present": true,
-        "fresh": false,
-        "expectedSchemaVersion": 1,
-        "actualSchemaVersion": 1
-    },
-    "summary": {
-        "errors": 1,
-        "warnings": 0,
-        "infos": 0
-    },
-    "diagnostics": [
-        {
-            "severity": "error",
-            "code": "index.stale",
-            "message": "Summary index is stale.",
-            "path": ".forma/index.summary.json",
-            "suggestions": [
-                {
-                    "label": "Rebuild summary index",
-                    "command": "forma index rebuild"
-                }
-            ]
-        }
-    ]
 }
 ```
 
@@ -856,7 +756,7 @@ Result outline:
 {
     "schemaVersion": 1,
     "operation": "create",
-    "status": "warning",
+    "status": "passed",
     "workspace": {
         "root": ".",
         "name": "Acme Knowledge"
@@ -877,29 +777,12 @@ Result outline:
             "transform": "slugify"
         }
     },
-    "index": {
-        "stale": true,
-        "suggestedCommand": "forma index rebuild"
-    },
     "summary": {
         "errors": 0,
-        "warnings": 1,
+        "warnings": 0,
         "infos": 0
     },
-    "diagnostics": [
-        {
-            "severity": "warning",
-            "code": "index.stale",
-            "message": "Summary index is stale after creating an entry.",
-            "path": ".forma/index.summary.json",
-            "suggestions": [
-                {
-                    "label": "Rebuild summary index",
-                    "command": "forma index rebuild"
-                }
-            ]
-        }
-    ]
+    "diagnostics": []
 }
 ```
 
@@ -1089,9 +972,10 @@ Result outline:
 }
 ```
 
-`file.references` should use resolved reference data from the summary index and
-should not scan raw Markdown in the WebApp or expose absolute host paths. The
-result uses a top-level `file` payload for the requested knowledge file.
+`file.references` should use resolved reference data from the in-memory read
+model and should not scan raw Markdown in the WebApp or expose absolute host
+paths. The result uses a top-level `file` payload for the requested knowledge
+file.
 
 ## Serve API
 
@@ -1151,7 +1035,7 @@ operations.
 
 ## Resolved P0 Questions
 
-- `index.rebuild --json` is part of P0.
+- P0 does not expose `index.rebuild` or `index.check`.
 - The WebApp landing view should compose existing operations instead of adding
   a separate `workspace.inspect` operation.
 - Individual workspace file rendering is handled by `file.render`.

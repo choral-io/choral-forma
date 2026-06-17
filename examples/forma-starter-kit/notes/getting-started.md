@@ -22,7 +22,7 @@ Open the printed local URL in your browser. The WebApp uses the same workspace f
 
 Forma reads `.forma.yml`, follows its includes, scans the configured Markdown files, and builds the read model for pages, taxonomies, views, references, diagnostics, and WebApp navigation context.
 
-The starter does not require a committed persistent index. When the local server starts, it can rebuild the read model from repository files.
+The starter does not use a committed persistent index. When the local server starts, it can rebuild the read model from repository files.
 
 ## Language Variants
 

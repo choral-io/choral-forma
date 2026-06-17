@@ -12,12 +12,12 @@ use crate::config::{ConfigError, LoadMode, WorkspaceSettings, load_workspace};
 use crate::diagnostics::{Diagnostic, DiagnosticSummary, OperationStatus};
 use crate::index::{
     IndexEntry, IndexReference, ReferenceIntent, ReferenceSource, config_error_diagnostic,
-    discover_workspace, index_rebuild,
+    discover_workspace,
 };
 use crate::markdown::FormaMarkdownDocument;
 use crate::path::{
-    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_INDEX_SUMMARY_PATH,
-    FORMA_LOCAL_OVERRIDES_PATH, FORMA_VIEWS_DIR, PathError, WorkspacePath,
+    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_LOCAL_OVERRIDES_PATH,
+    FORMA_VIEWS_DIR, PathError, WorkspacePath,
 };
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
@@ -60,7 +60,6 @@ pub struct CreateResult {
     pub workspace: WorkspaceSummary,
     pub created: CreatedEntry,
     pub inputs: BTreeMap<String, CreateInputResult>,
-    pub index: CreateIndexStatus,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -87,13 +86,6 @@ pub struct CreateInputResult {
 pub enum CreateInputSource {
     Explicit,
     Default,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateIndexStatus {
-    pub stale: bool,
-    pub suggested_command: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -336,7 +328,6 @@ pub enum WorkspaceFileKind {
     Template,
     Markdown,
     Config,
-    Index,
     Resource,
 }
 
@@ -458,23 +449,21 @@ pub fn init_workspace(
         write_file(root, &path, source, &mut created)?;
     }
 
-    let rebuild = index_rebuild(root)?;
-    if !created.iter().any(|path| path == FORMA_INDEX_SUMMARY_PATH) {
-        created.push(FORMA_INDEX_SUMMARY_PATH.to_string());
-    }
+    let diagnostics = Vec::new();
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
 
     Ok(InitResult {
         schema_version: 1,
         operation: "init".to_string(),
-        status: rebuild.status,
+        status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: name.to_string(),
             logo: None,
         },
         created,
-        summary: rebuild.summary,
-        diagnostics: rebuild.diagnostics,
+        summary,
+        diagnostics,
     })
 }
 
@@ -549,13 +538,6 @@ pub fn create_entry(
         source,
     })?;
 
-    diagnostics.push(
-        Diagnostic::warning(
-            "index.stale",
-            "Summary index is stale after creating an entry.",
-        )
-        .with_path(FORMA_INDEX_SUMMARY_PATH),
-    );
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
 
     let inputs = resolved
@@ -597,10 +579,6 @@ pub fn create_entry(
             template: space.template.clone(),
         },
         inputs,
-        index: CreateIndexStatus {
-            stale: true,
-            suggested_command: "forma index rebuild".to_string(),
-        },
         summary,
         diagnostics,
     })
@@ -1217,9 +1195,7 @@ fn workspace_file_from_path(root: &Path, path: PathBuf) -> Option<WorkspaceFile>
         return None;
     }
     let media_type = media_type_for_workspace_path(&relative)?;
-    let kind = if relative == FORMA_INDEX_SUMMARY_PATH {
-        WorkspaceFileKind::Index
-    } else if matches!(relative.as_str(), FORMA_CONFIG_PATH) {
+    let kind = if matches!(relative.as_str(), FORMA_CONFIG_PATH) {
         WorkspaceFileKind::Config
     } else if relative.starts_with(".forma/spaces/templates/") && media_type == "text/markdown" {
         WorkspaceFileKind::Template
@@ -1280,10 +1256,9 @@ fn features_for_media_type(kind: WorkspaceFileKind, media_type: &str) -> Vec<Wor
             WorkspaceFileFeature::RenderView,
             WorkspaceFileFeature::RenderSource,
         ],
-        WorkspaceFileKind::Template
-        | WorkspaceFileKind::Markdown
-        | WorkspaceFileKind::Config
-        | WorkspaceFileKind::Index => vec![WorkspaceFileFeature::RenderSource],
+        WorkspaceFileKind::Template | WorkspaceFileKind::Markdown | WorkspaceFileKind::Config => {
+            vec![WorkspaceFileFeature::RenderSource]
+        }
         WorkspaceFileKind::Resource
             if media_type.starts_with("image/")
                 || media_type.starts_with("audio/")
@@ -1501,7 +1476,7 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
     }
 }
 
-const STARTER_GITIGNORE: &str = "local/\nindex.summary.json\n";
+const STARTER_GITIGNORE: &str = "local/\n";
 
 const STARTER_SETTINGS_YML: &str = r#"schemaVersion: 1
 
@@ -2034,7 +2009,6 @@ include:
                     file.kind,
                     WorkspaceFileKind::View
                         | WorkspaceFileKind::Template
-                        | WorkspaceFileKind::Index
                         | WorkspaceFileKind::Config
                 )
         }));
@@ -2043,11 +2017,12 @@ include:
     }
 
     #[test]
-    fn create_entry_from_repository_starter_templates_rebuilds_index() {
+    fn create_entry_from_repository_starter_templates_uses_in_memory_index() {
         let root = fixture_root("repository-starter-create");
         copy_dir_all(repository_root().join("examples/forma-starter-kit"), &root).unwrap();
+        let _ = fs::remove_file(root.join(".forma/index.summary.json"));
 
-        create_entry(
+        let result = create_entry(
             &root,
             "todos",
             [(
@@ -2062,10 +2037,27 @@ include:
         assert!(source.contains("title: \"Review Starter Create\""));
         assert!(source.contains("assignees: []"));
 
-        let result = crate::index::index_rebuild(&root).unwrap();
-
         assert_eq!(result.status, OperationStatus::Passed);
         assert!(result.diagnostics.is_empty());
+        assert!(!root.join(".forma/index.summary.json").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn init_workspace_does_not_create_persistent_index_file() {
+        let root = fixture_root("init-no-persistent-index");
+        fs::create_dir_all(&root).unwrap();
+
+        let result = init_workspace(&root, "No Index Workspace", "en", Some("UTC")).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert!(!root.join(".forma/index.summary.json").exists());
+        assert!(
+            !result
+                .created
+                .iter()
+                .any(|path| path == ".forma/index.summary.json")
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -2136,10 +2128,7 @@ include:
         assert!(result.files.iter().all(|file| {
             !matches!(
                 file.kind,
-                WorkspaceFileKind::View
-                    | WorkspaceFileKind::Template
-                    | WorkspaceFileKind::Index
-                    | WorkspaceFileKind::Config
+                WorkspaceFileKind::View | WorkspaceFileKind::Template | WorkspaceFileKind::Config
             )
         }));
 

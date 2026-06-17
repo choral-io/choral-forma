@@ -15,8 +15,8 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use clap::{Parser, Subcommand};
 use forma_rpc::{
-    CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, IndexCheckRequest,
-    IndexRebuildRequest, InitRequest, InspectRequest, ListRequest, Operation, OperationRequest,
+    CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest, InspectRequest,
+    ListRequest, Operation, OperationRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -85,10 +85,6 @@ enum Command {
         #[command(subcommand)]
         command: ConfigCommand,
     },
-    Index {
-        #[command(subcommand)]
-        command: IndexCommand,
-    },
     Serve {
         #[arg(long, default_value = "127.0.0.1:0")]
         bind: SocketAddr,
@@ -98,18 +94,6 @@ enum Command {
         webapp_dir: Option<PathBuf>,
         #[arg(long = "cors-origin")]
         cors_origins: Vec<String>,
-    },
-}
-
-#[derive(Debug, Subcommand)]
-enum IndexCommand {
-    Check {
-        #[arg(long)]
-        json: bool,
-    },
-    Rebuild {
-        #[arg(long)]
-        json: bool,
     },
 }
 
@@ -229,23 +213,6 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 Ok(())
             }
         },
-        Some(Command::Index { command }) => match command {
-            IndexCommand::Check { json } => {
-                let result = dispatcher
-                    .dispatch(OperationRequest::IndexCheck(IndexCheckRequest::default()))?;
-                print_result(&result, json, "index check");
-                exit_if_failed(&result);
-                Ok(())
-            }
-            IndexCommand::Rebuild { json } => {
-                let result = dispatcher.dispatch(OperationRequest::IndexRebuild(
-                    IndexRebuildRequest::default(),
-                ))?;
-                print_result(&result, json, "index rebuild");
-                exit_if_failed(&result);
-                Ok(())
-            }
-        },
         Some(Command::Serve {
             bind,
             root_path,
@@ -272,14 +239,6 @@ fn print_result(result: &forma_rpc::OperationResult, json: bool, label: &str) {
         println!("{label} {}", result.status_label());
         for diagnostic in &result.diagnostics {
             print_diagnostic(diagnostic);
-        }
-        if result.status == forma_core::OperationStatus::Warning {
-            for diagnostic in &result.diagnostics {
-                if diagnostic.code == "index.stale" {
-                    println!("run `forma index rebuild` to refresh the summary index");
-                    break;
-                }
-            }
         }
     }
 }
@@ -328,7 +287,7 @@ fn init_confirmation_result(
     writeln!(stderr, "  timezone: {resolved_timezone}")?;
     writeln!(
         stderr,
-        "It will create .forma/ configuration, starter templates, starter views, content directories, and .forma/index.summary.json."
+        "It will create .forma/ configuration, starter templates, starter views, and content directories."
     )?;
     write!(stderr, "Continue? [y/N] ")?;
     stderr.flush()?;
