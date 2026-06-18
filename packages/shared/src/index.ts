@@ -63,6 +63,7 @@ export type IndexSpace = {
     title: string;
     display?: DisplayOptions;
     include: string;
+    includePatterns: string[];
     entryCount: number;
 };
 
@@ -98,6 +99,7 @@ export type ListedSpace = {
     id: string;
     title: string;
     include: string;
+    includePatterns: string[];
     entryCount: number;
 };
 
@@ -292,6 +294,7 @@ export type DashboardSpace = {
     title: string;
     display?: DisplayOptions;
     include: string;
+    includePatterns: string[];
     entryCount: number;
     status: OperationStatus;
 };

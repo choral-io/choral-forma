@@ -18,12 +18,20 @@ Use this skill when work should be grounded in Forma product operations through 
 
 ## Read Commands
 
-- `cargo run -p forma-cli -- check --json`
 - `cargo run -p forma-cli -- tasks list --json`
 - `cargo run -p forma-cli -- tasks inspect knowledge/tasks/example.md --json`
 - `cargo run -p forma-cli -- board show --json`
 - `cargo run -p forma-cli -- knowledge health --json`
 - `cargo run -p forma-cli -- inspect knowledge/product/product-direction.md --json`
+
+## Strict Validation
+
+- `cargo run -p forma-cli -- check --json`
+
+Use `check --json` when strict workspace validation is the goal. It may return
+`status: failed` and a non-zero exit code for unresolved references or other
+blocking diagnostics; do not use it as the default read path for task selection,
+board inspection, or page inspection.
 
 ## Write Boundary
 

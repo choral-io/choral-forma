@@ -42,6 +42,7 @@ pub struct IndexSpace {
     #[serde(default, skip_serializing_if = "DisplayOptions::is_empty")]
     pub display: DisplayOptions,
     pub include: String,
+    pub include_patterns: Vec<String>,
     pub entry_count: usize,
 }
 
@@ -264,6 +265,7 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
             title: space.title.clone(),
             display: space.display.clone(),
             include: space.include.clone(),
+            include_patterns: space.include_patterns.clone(),
             entry_count: path_index.by_space.get(id).map(BTreeSet::len).unwrap_or(0),
         })
         .collect::<Vec<_>>();
@@ -1326,18 +1328,27 @@ mod tests {
       "id": "notes",
       "title": "Notes",
       "include": "notes/**/*.md",
+      "includePatterns": [
+        "notes/**/*.md"
+      ],
       "entryCount": 1
     },
     {
       "id": "todos",
       "title": "Todos",
       "include": "todos/**/*.md",
+      "includePatterns": [
+        "todos/**/*.md"
+      ],
       "entryCount": 1
     },
     {
       "id": "users",
       "title": "Users",
       "include": "users/**/*.md",
+      "includePatterns": [
+        "users/**/*.md"
+      ],
       "entryCount": 1
     }
   ],

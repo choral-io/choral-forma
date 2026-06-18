@@ -346,9 +346,6 @@ fn load_config_nodes(
         let Some(include) = node.include.first().cloned() else {
             continue;
         };
-        let Some(create) = node.create else {
-            continue;
-        };
         types.insert(
             semantic_type_id_for_space(&space_id),
             SemanticType::Space {
@@ -367,8 +364,12 @@ fn load_config_nodes(
                 description: node.description,
                 include,
                 include_patterns: node.include,
-                template: create.template,
-                create: Some(CreateDefinition {
+                template: node
+                    .create
+                    .as_ref()
+                    .map(|create| create.template.clone())
+                    .unwrap_or_default(),
+                create: node.create.map(|create| CreateDefinition {
                     directory: create.directory,
                     filename: create.filename,
                     inputs: create.inputs,
@@ -497,15 +498,14 @@ fn validate_config_paths(config: &WorkspaceConfig) -> Vec<Diagnostic> {
                 WorkspacePath::parse_config(include),
             );
         }
-        push_path_diagnostic(
-            &mut diagnostics,
-            space_id,
-            "template",
-            &space.template,
-            WorkspacePath::parse_config(&space.template),
-        );
-
         if let Some(create) = &space.create {
+            push_path_diagnostic(
+                &mut diagnostics,
+                space_id,
+                "template",
+                &space.template,
+                WorkspacePath::parse_config(&space.template),
+            );
             push_path_diagnostic(
                 &mut diagnostics,
                 space_id,

@@ -198,6 +198,7 @@ pub struct DashboardSpace {
     )]
     pub display: crate::config::DisplayOptions,
     pub include: String,
+    pub include_patterns: Vec<String>,
     pub entry_count: usize,
     pub status: OperationStatus,
 }
@@ -382,6 +383,7 @@ pub struct ListedSpace {
     pub id: String,
     pub title: String,
     pub include: String,
+    pub include_patterns: Vec<String>,
     pub entry_count: usize,
 }
 
@@ -746,6 +748,7 @@ pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, 
             id: space_id.to_string(),
             title: space.title.clone(),
             include: space.include.clone(),
+            include_patterns: space.include_patterns.clone(),
             entry_count: entries.len(),
         },
         entries,
@@ -970,6 +973,7 @@ pub fn workspace_dashboard(
             title: space.title.clone(),
             display: space.display.clone(),
             include: space.include.clone(),
+            include_patterns: space.include_patterns.clone(),
             entry_count: space.entry_count,
             status: status_for_paths(
                 &diagnostics,

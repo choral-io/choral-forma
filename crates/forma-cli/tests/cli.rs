@@ -508,6 +508,19 @@ affected_area: ""
 "#,
     )
     .unwrap();
+    std::fs::write(
+        root.join("knowledge/product/direction.md"),
+        r#"---
+schemaVersion: 1
+kind: note
+title: Product Direction
+summary: Current product direction.
+---
+
+# Product Direction
+"#,
+    )
+    .unwrap();
 
     let check = forma(&root)
         .args(["check", "--json"])
@@ -531,6 +544,21 @@ affected_area: ""
     let stdout = String::from_utf8_lossy(&list.stdout);
     assert!(stdout.contains(r#""path":"knowledge/tasks/replace-skills.md""#));
     assert!(stdout.contains(r#""title":"Replace Knowledge Workflow Skills""#));
+
+    let knowledge_list = forma(&root)
+        .args(["list", "--space", "knowledge", "--json"])
+        .output()
+        .expect("forma list --space knowledge should run");
+
+    assert!(
+        knowledge_list.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&knowledge_list.stdout),
+        String::from_utf8_lossy(&knowledge_list.stderr)
+    );
+    let knowledge_stdout = String::from_utf8_lossy(&knowledge_list.stdout);
+    assert!(knowledge_stdout.contains(r#""path":"knowledge/product/direction.md""#));
+    assert!(knowledge_stdout.contains(r#""includePatterns":["knowledge/architecture/**/*.md","knowledge/concepts/**/*.md","knowledge/decisions/**/*.md","knowledge/design/**/*.md","knowledge/discovery/**/*.md","knowledge/planning/**/*.md","knowledge/product/**/*.md","knowledge/proposals/**/*.md","knowledge/research/**/*.md","knowledge/guidelines/**/*.md"]"#));
 
     std::fs::remove_dir_all(root).unwrap();
 }
