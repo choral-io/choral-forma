@@ -311,6 +311,42 @@ Heading or block references should not be valid for space entry reference fields
 
 Internally, Choral Forma should normalize path refs into typed resolved references. The initial resolved identity can be the target file path. Queries, views, health checks, and Agent tools should compare resolved references rather than raw string syntax.
 
+### Body Link And Reference Forms
+
+Forma should support multiple body-level link and reference forms without making Obsidian, Foam, or another editor the compatibility target. The product-owned model is a resolved reference with source, intent, target kind, path, optional fragment, optional display text, and optional relationship metadata.
+
+The first supported set should include:
+
+| Form | Example syntax | Required support |
+| --- | --- | --- |
+| Path-qualified page wikilink | `\[\[notes/project-brief\]\]` | Resolve to a page target and record `intent: link`. |
+| Wikilink alias | `\[\[notes/project-brief\|Project Brief\]\]` | Resolve by path and use the alias as display text. |
+| Heading fragment | `\[\[notes/project-brief#Goals\]\]` | Resolve the page separately from the heading fragment. Heading validation and scroll targeting can be phased in after page resolution exists. |
+| Same-page heading fragment | `\[\[#Goals\]\]` | Treat the current page as the target path and resolve the heading fragment. |
+| Block fragment | `\[\[notes/project-brief#^risk-block\]\]` | Resolve the page separately from the block fragment. Block identity validation can wait until Forma has a stable block anchor model. |
+| Same-page block fragment | `\[\[#^risk-block\]\]` | Treat the current page as the target path and resolve the block fragment. |
+| Wikilink embed | `!\[\[notes/project-brief\]\]` | Record `intent: embed` without expanding embedded content in P0. |
+| Heading or block embed | `!\[\[notes/project-brief#Goals\]\]` | Record `intent: embed` with the resolved page and fragment; actual transclusion can wait. |
+| Markdown link to workspace page | `[Project Brief](notes/project-brief.md)` | Resolve workspace-relative Markdown links into the same reference model as wikilinks. |
+| Markdown link with fragment | `[Goals](notes/project-brief.md#goals)` | Resolve the page and fragment separately. |
+| Resource or attachment link | `[Spec](assets/spec.pdf)` or `!\[\[assets/diagram.png\]\]` | Resolve as a resource target rather than a page target when the path is not an indexed knowledge entry. |
+| Field reference relation | `assignees: [users/tiscs.md]` | Resolve through schema-declared field semantics and record `intent: reference`. |
+
+The following forms remain tentative until product evidence or implementation constraints justify them:
+
+| Form | Example syntax | Tentative status |
+| --- | --- | --- |
+| Unqualified title or basename wikilink | `\[\[Project Brief\]\]` | Useful for hand-authored notes, but should only resolve when unique and should not be emitted by Forma writes. |
+| Case-insensitive or slug-normalized matching | `\[\[Members/tiscs\]\]` | Can produce diagnostics and suggestions, but should not silently resolve because filesystem behavior differs by platform. |
+| Heading subtree transclusion | `!\[\[notes/project-brief#Goals\]\]` | Rendering the whole section under a heading is a reader/transclusion feature, not just reference resolution. |
+| Full Obsidian block-id compatibility | `\[\[notes/project-brief#^risk-block\]\]` | Forma may read common `^id` anchors, but should define its own block identity rules before promising compatibility. |
+| Query or Dataview-style embeds | query blocks or plugin-specific syntax | Forma should use its own view/query model instead of adopting plugin-specific query languages. |
+| Tag links as graph edges | `#priority` | Tags can support filtering and search, but should become graph relations only through explicit graph edge configuration. |
+| Bare URL graph relations | `https://example.com` | External URLs should be recognized as external links but not rendered as internal graph edges by default. |
+| Proprietary editor graph formats | Canvas or block-graph files | Out of scope unless they can be represented as normal repository files and explicit Forma view/config data. |
+
+Fragment support should split target resolution into a page/resource path and a fragment component. A fragment link should not be resolved as a literal filename containing `#`. Health checks should distinguish a missing page, an unsupported fragment kind, and an unresolved fragment within an existing page.
+
 ### Schema Format
 
 Choral Forma should not use code-based schema frameworks as the user-facing schema configuration format in the product direction for the visible future.
