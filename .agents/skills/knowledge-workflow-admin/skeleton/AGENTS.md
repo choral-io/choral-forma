@@ -4,7 +4,9 @@
 
 This repository uses Knowledge Workflow.
 
-Resolve `<knowledge_dir>` from repository root `.knowledge-workflow` when present. If it is absent, use default `knowledge` only when `knowledge/.workflow/runtime.md` and `knowledge/.workflow/manifest.yml` both exist. Then read `<knowledge_dir>/.workflow/runtime.md` before workflow work. Runtime, manifest, rules, schemas, and Skill instructions are the source of truth.
+Resolve the target project directory from the explicit user-provided path for the current operation, or otherwise use the current working directory. If the target project directory cannot be determined, ask for it before resolving Knowledge Workflow state.
+
+Resolve `<knowledge_dir>` from target project directory `.knowledge-workflow` when present. If it is absent, use default `knowledge` only when `knowledge/.workflow/runtime.md` and `knowledge/.workflow/manifest.yml` both exist. Then read `<knowledge_dir>/.workflow/runtime.md` before workflow work. Runtime, manifest, rules, schemas, and Skill instructions are the source of truth. Never search upward or downward outside the resolved target project directory for `.knowledge-workflow` or `knowledge/.workflow/*`.
 
 Core boundaries:
 

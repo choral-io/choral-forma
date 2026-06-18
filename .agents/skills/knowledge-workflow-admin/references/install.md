@@ -153,7 +153,7 @@ Missing required Skills are warnings, not blockers. Conflicts in managed target 
 
 ## Check Workflow
 
-1. Resolve `<knowledge_dir>` using runtime bootstrap rules: read repository root `.knowledge-workflow` when present; otherwise use default `knowledge` only when `knowledge/.workflow/runtime.md` and `knowledge/.workflow/manifest.yml` both exist.
+1. Resolve `<knowledge_dir>` using runtime bootstrap rules: first resolve the target project directory; read target project directory `.knowledge-workflow` when present; otherwise use default `knowledge` only when `knowledge/.workflow/runtime.md` and `knowledge/.workflow/manifest.yml` both exist.
 2. Read `<knowledge_dir>/.workflow/runtime.md` and `<knowledge_dir>/.workflow/manifest.yml`.
 3. Validate required manifest fields, grouped managed/protected/local-only shapes, current baseline entries, and the marked platform hint block.
 4. Read `agent_skills.required`.

@@ -4,7 +4,7 @@ This file is the cross-Agent runtime entry for Knowledge Workflow.
 
 ## Bootstrap
 
-Start from the repository root.
+Start from the target project directory. Use the explicit user-provided path for the current operation when present; otherwise use the current working directory. If the target project directory cannot be determined, stop and ask the user for it.
 
 If `.knowledge-workflow` exists, read it. Its first non-empty line is the normalized repository-relative `knowledge_dir` value. Common values are:
 
@@ -28,7 +28,7 @@ knowledge/.workflow/runtime.md
 knowledge/.workflow/manifest.yml
 ```
 
-If those files are missing, treat the repository as uninitialized and route to `knowledge-workflow-admin:init` or repair guidance. Do not search arbitrary directories for a knowledge base.
+If those files are missing, treat the repository as uninitialized and route to `knowledge-workflow-admin:init` or repair guidance. Do not search arbitrary directories for a knowledge base. Never search upward or downward outside the resolved target project directory for `.knowledge-workflow` or `knowledge/.workflow/*`.
 
 After resolving `<knowledge_dir>`, read:
 
