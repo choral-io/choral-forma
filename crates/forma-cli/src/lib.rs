@@ -744,6 +744,25 @@ fn webapp_file_response(
 
 fn inject_base_href(html: &str, root_path: &str) -> String {
     let base = format!(r#"<base href="{}">"#, app_root_location(root_path));
+    if let Some(base_index) = html.find("<base") {
+        let end_index = html[base_index..]
+            .find('>')
+            .map(|offset| base_index + offset + 1)
+            .unwrap_or(base_index);
+        let mut output = String::with_capacity(html.len() + base.len());
+        output.push_str(&html[..base_index]);
+        output.push_str(&base);
+        output.push_str(&html[end_index..]);
+        return output;
+    }
+    if let Some(insert_at) = first_resource_tag_index(html) {
+        let mut output = String::with_capacity(html.len() + base.len() + 1);
+        output.push_str(&html[..insert_at]);
+        output.push_str(&base);
+        output.push('\n');
+        output.push_str(&html[insert_at..]);
+        return output;
+    }
     if let Some(head_index) = html.find("<head>") {
         let insert_at = head_index + "<head>".len();
         let mut output = String::with_capacity(html.len() + base.len() + 1);
@@ -755,6 +774,13 @@ fn inject_base_href(html: &str, root_path: &str) -> String {
     } else {
         format!("{base}\n{html}")
     }
+}
+
+fn first_resource_tag_index(html: &str) -> Option<usize> {
+    ["<script", "<link", "<style"]
+        .into_iter()
+        .filter_map(|needle| html.find(needle))
+        .min()
 }
 
 fn safe_asset_path(path: &str) -> Option<String> {
@@ -861,9 +887,34 @@ mod tests {
     use tower::ServiceExt;
 
     use super::{
-        rpc_router, rpc_router_with_dispatcher, rpc_router_with_dispatcher_and_workspace,
-        rpc_router_with_options, rpc_router_with_options_and_root_path,
+        inject_base_href, rpc_router, rpc_router_with_dispatcher,
+        rpc_router_with_dispatcher_and_workspace, rpc_router_with_options,
+        rpc_router_with_options_and_root_path,
     };
+
+    #[test]
+    fn inject_base_href_inserts_before_resource_tags() {
+        let html = r#"<html><head><link rel="modulepreload" href="/assets/app.js"><script src="/assets/app.js"></script></head></html>"#;
+
+        let output = inject_base_href(html, "/forma");
+
+        assert!(output.contains(r#"<base href="/forma/">"#));
+        assert!(
+            output.find(r#"<base href="/forma/">"#)
+                < output.find("<link").or_else(|| output.find("<script"))
+        );
+    }
+
+    #[test]
+    fn inject_base_href_replaces_existing_base_tag() {
+        let html = r#"<html><head><base href="/old/"><link rel="stylesheet" href="style.css"></head></html>"#;
+
+        let output = inject_base_href(html, "/forma");
+
+        assert!(output.contains(r#"<base href="/forma/">"#));
+        assert!(!output.contains(r#"<base href="/old/">"#));
+        assert_eq!(output.matches("<base").count(), 1);
+    }
 
     #[tokio::test]
     async fn rpc_router_exposes_json_rpc_handler() {
@@ -1010,12 +1061,12 @@ mod tests {
             .unwrap();
         let index_body = String::from_utf8_lossy(&index_body);
         assert!(index_body.contains(r#"<base href="/forma/">"#));
-        assert!(
-            index_body.find(r#"<base href="/forma/">"#)
-                < index_body
-                    .find("<script")
-                    .or_else(|| index_body.find("<link"))
-        );
+        if let Some(first_resource) = index_body
+            .find("<script")
+            .or_else(|| index_body.find("<link"))
+        {
+            assert!(index_body.find(r#"<base href="/forma/">"#) < Some(first_resource));
+        }
 
         let rpc_response = router
             .clone()
