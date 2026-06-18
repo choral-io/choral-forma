@@ -347,6 +347,10 @@ The following forms remain tentative until product evidence or implementation co
 
 Fragment support should split target resolution into a page/resource path and a fragment component. A fragment link should not be resolved as a literal filename containing `#`. Health checks should distinguish a missing page, an unsupported fragment kind, and an unresolved fragment within an existing page.
 
+Body reference scanning should ignore wikilink and embed examples inside fenced code blocks and inline code spans. Code examples are documentation content, not knowledge relationships.
+
+Forma should later consider an explicit diagnostic suppression syntax for intentional health exceptions. The first design should be narrow and reviewable, for example `forma-ignore-next-line`, `forma-ignore-start`, and `forma-ignore-end` HTML comments that require a diagnostic code and a short reason. Suppression should normally affect diagnostics rather than raw reference extraction, and health output should be able to report suppressed diagnostics instead of silently hiding them. File-level suppression should wait until there is evidence that line-level and region-level suppression are insufficient.
+
 ### Schema Format
 
 Choral Forma should not use code-based schema frameworks as the user-facing schema configuration format in the product direction for the visible future.

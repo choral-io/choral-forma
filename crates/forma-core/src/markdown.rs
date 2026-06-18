@@ -284,7 +284,7 @@ fn scan_forma_references(body: &str) -> Vec<FormaReference> {
 }
 
 fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
-    let code_fences = fenced_code_block_ranges(body);
+    let ignored_ranges = ignored_code_ranges(body);
     let mut offset = 0;
     while let Some(relative_start) = body[offset..].find("[[") {
         let start = offset + relative_start;
@@ -298,7 +298,7 @@ fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
         let end = content_end + 2;
         let content = &body[content_start..content_end];
 
-        if ranges_contain(&code_fences, marker_start) {
+        if ranges_contain(&ignored_ranges, marker_start) {
             offset = end;
             continue;
         }
@@ -325,6 +325,13 @@ fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
 
         offset = end;
     }
+}
+
+fn ignored_code_ranges(body: &str) -> Vec<(usize, usize)> {
+    let mut ranges = fenced_code_block_ranges(body);
+    ranges.extend(inline_code_ranges(body, &ranges));
+    ranges.sort_unstable();
+    ranges
 }
 
 fn fenced_code_block_ranges(body: &str) -> Vec<(usize, usize)> {
@@ -365,6 +372,67 @@ fn fenced_code_block_ranges(body: &str) -> Vec<(usize, usize)> {
     }
 
     ranges
+}
+
+fn inline_code_ranges(body: &str, fenced_ranges: &[(usize, usize)]) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let bytes = body.as_bytes();
+    let mut offset = 0;
+
+    while offset < body.len() {
+        if ranges_contain(fenced_ranges, offset) {
+            offset += 1;
+            continue;
+        }
+        if bytes[offset] != b'`' {
+            offset += 1;
+            continue;
+        }
+
+        let count = count_repeated_byte(bytes, offset, b'`');
+        if count == 0 {
+            offset += 1;
+            continue;
+        }
+        let content_start = offset + count;
+        let Some(end) = find_inline_code_end(bytes, content_start, count, fenced_ranges) else {
+            offset = content_start;
+            continue;
+        };
+        ranges.push((offset, end + count));
+        offset = end + count;
+    }
+
+    ranges
+}
+
+fn find_inline_code_end(
+    bytes: &[u8],
+    mut offset: usize,
+    count: usize,
+    fenced_ranges: &[(usize, usize)],
+) -> Option<usize> {
+    while offset < bytes.len() {
+        if ranges_contain(fenced_ranges, offset) {
+            offset += 1;
+            continue;
+        }
+        if bytes[offset] == b'\n' {
+            return None;
+        }
+        if bytes[offset] == b'`' && count_repeated_byte(bytes, offset, b'`') == count {
+            return Some(offset);
+        }
+        offset += 1;
+    }
+    None
+}
+
+fn count_repeated_byte(bytes: &[u8], offset: usize, byte: u8) -> usize {
+    bytes[offset..]
+        .iter()
+        .take_while(|candidate| **candidate == byte)
+        .count()
 }
 
 fn opens_fence(trimmed_line: &str) -> Option<String> {
@@ -569,6 +637,21 @@ mod tests {
     fn ignores_wikilinks_and_embeds_inside_fenced_code_blocks() {
         let document = FormaMarkdownDocument::parse(
             "Before [[notes/real]].\n\n```md\n[[notes/example]]\n![[notes/embed-example]]\n```\n\nAfter [[notes/also-real]].\n",
+        );
+
+        let targets = document
+            .references
+            .iter()
+            .map(|reference| reference.target.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(targets, vec!["notes/real", "notes/also-real"]);
+    }
+
+    #[test]
+    fn ignores_wikilinks_and_embeds_inside_inline_code() {
+        let document = FormaMarkdownDocument::parse(
+            "Before [[notes/real]], use `[[notes/example]]` and `![[notes/embed-example]]`, then [[notes/also-real]].\n",
         );
 
         let targets = document
