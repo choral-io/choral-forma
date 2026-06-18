@@ -1,0 +1,15 @@
+schemaVersion: 1
+
+workspace:
+  name: "Choral Forma Project Knowledge"
+  root: "."
+  canonicalLanguage: "en"
+  supportedLanguages:
+    - "en"
+    - "zh-Hans"
+  timezone: "Asia/Shanghai"
+
+include:
+  - ".forma/dashboard.md"
+  - ".forma/spaces/*.md"
+  - ".forma/views/*.md"
