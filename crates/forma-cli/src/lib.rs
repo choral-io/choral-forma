@@ -15,9 +15,9 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use clap::{Parser, Subcommand};
 use forma_rpc::{
-    CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest, InspectRequest,
-    KnowledgeHealthRequest, ListRequest, Operation, OperationRequest, TasksInspectRequest,
-    TasksListRequest,
+    BoardShowRequest, CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest,
+    InspectRequest, KnowledgeHealthRequest, ListRequest, Operation, OperationRequest,
+    TasksInspectRequest, TasksListRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -86,6 +86,10 @@ enum Command {
         #[command(subcommand)]
         command: TasksCommand,
     },
+    Board {
+        #[command(subcommand)]
+        command: BoardCommand,
+    },
     Config {
         #[command(subcommand)]
         command: ConfigCommand,
@@ -124,6 +128,14 @@ enum TasksCommand {
     },
     Inspect {
         path_or_id: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum BoardCommand {
+    Show {
         #[arg(long)]
         json: bool,
     },
@@ -246,6 +258,15 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                         path_or_id,
                     }))?;
                 print_result(&result, json, "tasks inspect");
+                exit_if_failed(&result);
+                Ok(())
+            }
+        },
+        Some(Command::Board { command }) => match command {
+            BoardCommand::Show { json } => {
+                let result =
+                    dispatcher.dispatch(OperationRequest::BoardShow(BoardShowRequest {}))?;
+                print_result(&result, json, "board show");
                 exit_if_failed(&result);
                 Ok(())
             }

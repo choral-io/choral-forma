@@ -413,6 +413,26 @@ pub struct TasksListResult {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct BoardShowResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub columns: Vec<BoardColumn>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardColumn {
+    pub id: String,
+    pub title: String,
+    pub tasks: Vec<TaskSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TasksInspectResult {
     pub schema_version: u16,
     pub operation: String,
@@ -763,6 +783,51 @@ pub fn tasks_list(root: impl AsRef<Path>) -> Result<TasksListResult, OperationEr
         tasks,
         summary,
         diagnostics,
+    })
+}
+
+pub fn board_show(root: impl AsRef<Path>) -> Result<BoardShowResult, OperationError> {
+    let tasks = tasks_list(root)?;
+    let mut needs_refinement = Vec::new();
+    let mut ready = Vec::new();
+    let mut blocked = Vec::new();
+
+    for task in tasks.tasks {
+        match board_column_id(task.readiness.as_deref()) {
+            "ready" => ready.push(task),
+            "blocked" => blocked.push(task),
+            _ => needs_refinement.push(task),
+        }
+    }
+
+    needs_refinement.sort_by(|left, right| left.path.cmp(&right.path));
+    ready.sort_by(|left, right| left.path.cmp(&right.path));
+    blocked.sort_by(|left, right| left.path.cmp(&right.path));
+
+    Ok(BoardShowResult {
+        schema_version: tasks.schema_version,
+        operation: "board.show".to_string(),
+        status: tasks.status,
+        workspace: tasks.workspace,
+        columns: vec![
+            BoardColumn {
+                id: "needs-refinement".to_string(),
+                title: "Needs Refinement".to_string(),
+                tasks: needs_refinement,
+            },
+            BoardColumn {
+                id: "ready".to_string(),
+                title: "Ready".to_string(),
+                tasks: ready,
+            },
+            BoardColumn {
+                id: "blocked".to_string(),
+                title: "Blocked".to_string(),
+                tasks: blocked,
+            },
+        ],
+        summary: tasks.summary,
+        diagnostics: tasks.diagnostics,
     })
 }
 
@@ -1609,6 +1674,14 @@ fn task_basename(path: &str) -> String {
         .to_string()
 }
 
+fn board_column_id(readiness: Option<&str>) -> &'static str {
+    match readiness {
+        Some("ready") => "ready",
+        Some("blocked") => "blocked",
+        _ => "needs-refinement",
+    }
+}
+
 fn string_field_with_fallback(value: &Value, fields: &[&str]) -> Option<String> {
     fields
         .iter()
@@ -2222,7 +2295,7 @@ mod tests {
     use serde_yml::Value;
 
     use super::{
-        KnowledgeHealthCategory, OperationError, WorkspaceFileFeature,
+        KnowledgeHealthCategory, OperationError, WorkspaceFileFeature, board_show,
         build_knowledge_health_result, create_entry, init_workspace, inspect_config,
         is_raw_workspace_path_allowed, knowledge_health, list_file_references, list_files,
         tasks_inspect, tasks_list, workspace_dashboard,
@@ -2866,6 +2939,92 @@ fields:
             tasks_inspect(&root, "missing"),
             Err(OperationError::EntryNotFound)
         ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn board_show_groups_tasks_by_readiness() {
+        let root = fixture_root("board-show-operations");
+        fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
+        fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
+        fs::write(
+            root.join(".forma.yml"),
+            r#"schemaVersion: 1
+workspace:
+  name: Board Operations
+  canonicalLanguage: en
+  supportedLanguages:
+    - en
+  timezone: UTC
+include:
+  - .forma/spaces/*.md
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/tasks.md"),
+            r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Tasks
+include:
+  - knowledge/tasks/**/*.md
+create:
+  directory: knowledge/tasks
+  filename: "{{ input.slug }}.md"
+  template: .forma/spaces/templates/task.md
+  inputs:
+    title:
+      required: true
+    slug:
+      default: "{{ input.title }}"
+      transform: slugify
+conventions:
+  titleField: title
+  summaryField: summary
+---
+
+# Tasks
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/templates/task.md"),
+            "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"\"\n---\n\n# {{ input.title }}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/tasks/charlie.md"),
+            "---\nschemaVersion: 1\nkind: task\ntitle: Charlie\nsummary: Blocked\nreadiness: blocked\n---\n\n# Charlie\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/tasks/alpha.md"),
+            "---\nschemaVersion: 1\nkind: task\ntitle: Alpha\nsummary: Needs refinement\n---\n\n# Alpha\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/tasks/bravo.md"),
+            "---\nschemaVersion: 1\nkind: task\ntitle: Bravo\nsummary: Ready\nreadiness: ready\n---\n\n# Bravo\n",
+        )
+        .unwrap();
+
+        let result = board_show(&root).unwrap();
+        assert_eq!(result.operation, "board.show");
+        assert_eq!(result.columns.len(), 3);
+        assert_eq!(result.columns[0].id, "needs-refinement");
+        assert_eq!(result.columns[0].title, "Needs Refinement");
+        assert_eq!(result.columns[0].tasks.len(), 1);
+        assert_eq!(result.columns[0].tasks[0].path, "knowledge/tasks/alpha.md");
+        assert_eq!(result.columns[1].id, "ready");
+        assert_eq!(result.columns[1].tasks[0].path, "knowledge/tasks/bravo.md");
+        assert_eq!(result.columns[2].id, "blocked");
+        assert_eq!(
+            result.columns[2].tasks[0].path,
+            "knowledge/tasks/charlie.md"
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

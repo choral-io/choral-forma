@@ -30,6 +30,8 @@ pub enum Operation {
     List,
     #[serde(rename = "tasks.list")]
     TasksList,
+    #[serde(rename = "board.show")]
+    BoardShow,
     #[serde(rename = "tasks.inspect")]
     TasksInspect,
     #[serde(rename = "create")]
@@ -55,6 +57,7 @@ impl Operation {
             Self::Inspect => "inspect",
             Self::List => "list",
             Self::TasksList => "tasks.list",
+            Self::BoardShow => "board.show",
             Self::TasksInspect => "tasks.inspect",
             Self::Create => "create",
             Self::ViewRender => "view.render",
@@ -75,6 +78,7 @@ pub enum OperationRequest {
     Inspect(InspectRequest),
     List(ListRequest),
     TasksList(TasksListRequest),
+    BoardShow(BoardShowRequest),
     TasksInspect(TasksInspectRequest),
     Create(CreateRequest),
     ViewRender(ViewRenderRequest),
@@ -140,6 +144,11 @@ pub struct ListRequest {
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct TasksListRequest {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardShowRequest {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -293,6 +302,9 @@ impl Dispatcher {
             OperationRequest::TasksList(_) => forma_core::tasks_list(root)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::TasksList, error))),
+            OperationRequest::BoardShow(_) => forma_core::board_show(root)
+                .map(OperationResult::from)
+                .or_else(|error| Ok(core_error_result(Operation::BoardShow, error))),
             OperationRequest::TasksInspect(request) => {
                 forma_core::tasks_inspect(root, &request.path_or_id)
                     .map(OperationResult::from)
@@ -509,6 +521,15 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "board.show" => serde_json::from_value::<BoardShowRequest>(params)
+            .map(OperationRequest::BoardShow)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         "tasks.inspect" => serde_json::from_value::<TasksInspectRequest>(params)
             .map(OperationRequest::TasksInspect)
             .map_err(|_| {
@@ -697,6 +718,23 @@ impl From<forma_core::TasksListResult> for OperationResult {
         let mut data = BTreeMap::new();
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("tasks".to_string(), json!(result.tasks));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::BoardShowResult> for OperationResult {
+    fn from(result: forma_core::BoardShowResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("columns".to_string(), json!(result.columns));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1245,6 +1283,67 @@ mod tests {
     }
 
     #[test]
+    fn json_rpc_dispatches_board_show() {
+        let root = fixture_root("board-show-rpc");
+        fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
+        fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
+        fs::write(
+            root.join(".forma.yml"),
+            "schemaVersion: 1\nworkspace:\n  name: Board RPC\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/tasks.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Tasks\ninclude:\n  - knowledge/tasks/**/*.md\ncreate:\n  directory: knowledge/tasks\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/task.md\n  inputs:\n    title:\n      required: true\n    slug:\n      default: \"{{ input.title }}\"\n      transform: slugify\nconventions:\n  titleField: title\n  summaryField: summary\n---\n\n# Tasks\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/templates/task.md"),
+            "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"\"\n---\n\n# {{ input.title }}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/tasks/alpha.md"),
+            "---\nschemaVersion: 1\nkind: task\ntitle: Alpha\nsummary: Needs refinement\n---\n\n# Alpha\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/tasks/bravo.md"),
+            "---\nschemaVersion: 1\nkind: task\ntitle: Bravo\nsummary: Ready\nreadiness: ready\n---\n\n# Bravo\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/tasks/charlie.md"),
+            "---\nschemaVersion: 1\nkind: task\ntitle: Charlie\nsummary: Blocked\nreadiness: blocked\n---\n\n# Charlie\n",
+        )
+        .unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"board.show","params":{}}"#,
+        );
+        assert_eq!(response["result"]["operation"], "board.show");
+        assert_eq!(response["result"]["workspace"]["name"], "Board RPC");
+        assert_eq!(response["result"]["columns"][0]["id"], "needs-refinement");
+        assert_eq!(
+            response["result"]["columns"][0]["tasks"][0]["path"],
+            "knowledge/tasks/alpha.md"
+        );
+        assert_eq!(response["result"]["columns"][1]["id"], "ready");
+        assert_eq!(
+            response["result"]["columns"][1]["tasks"][0]["path"],
+            "knowledge/tasks/bravo.md"
+        );
+        assert_eq!(response["result"]["columns"][2]["id"], "blocked");
+        assert_eq!(
+            response["result"]["columns"][2]["tasks"][0]["path"],
+            "knowledge/tasks/charlie.md"
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn json_rpc_file_render_invalid_format_reports_neutral_input_diagnostic() {
         let root = fixture_root("file-render-invalid-format");
         fs::create_dir_all(&root).unwrap();
@@ -1305,6 +1404,10 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::Operation::TasksList).unwrap(),
             "tasks.list"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::BoardShow).unwrap(),
+            "board.show"
         );
         assert_eq!(
             serde_json::to_value(super::Operation::TasksInspect).unwrap(),

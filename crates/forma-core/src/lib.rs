@@ -22,16 +22,16 @@ pub use markdown::{
     FormaReferenceSyntax, ParsedFrontmatter, SourceSpan, split_frontmatter,
 };
 pub use operations::{
-    ConfigInspectResult, ConfigSource, ConfigSourceKind, CreateInputResult, CreateInputSource,
-    CreateResult, CreatedEntry, DashboardEntrySummary, DashboardSpace, DashboardViewSummary,
-    FileReferencesResult, FilesListResult, InitResult, InspectEntry, InspectResult, ListEntry,
-    ListResult, ListedSpace, OperationError, ReferenceEdge, ReferenceFile, TaskSummary,
-    TasksInspectResult, TasksListResult, WorkspaceDashboardResult, WorkspaceFile,
-    WorkspaceFileFeature, WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary, create_entry,
-    detect_environment_timezone, init_workspace, inspect_config, inspect_entry_by_path,
-    inspect_entry_by_space, is_raw_workspace_path_allowed, list_file_references, list_files,
-    list_space, media_type_for_workspace_path, operation_error_diagnostic, tasks_inspect,
-    tasks_list, workspace_dashboard,
+    BoardColumn, BoardShowResult, ConfigInspectResult, ConfigSource, ConfigSourceKind,
+    CreateInputResult, CreateInputSource, CreateResult, CreatedEntry, DashboardEntrySummary,
+    DashboardSpace, DashboardViewSummary, FileReferencesResult, FilesListResult, InitResult,
+    InspectEntry, InspectResult, ListEntry, ListResult, ListedSpace, OperationError, ReferenceEdge,
+    ReferenceFile, TaskSummary, TasksInspectResult, TasksListResult, WorkspaceDashboardResult,
+    WorkspaceFile, WorkspaceFileFeature, WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary,
+    board_show, create_entry, detect_environment_timezone, init_workspace, inspect_config,
+    inspect_entry_by_path, inspect_entry_by_space, is_raw_workspace_path_allowed,
+    list_file_references, list_files, list_space, media_type_for_workspace_path,
+    operation_error_diagnostic, tasks_inspect, tasks_list, workspace_dashboard,
 };
 pub use path::{
     FORMA_CONFIG_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_LOCAL_OVERRIDES_PATH,

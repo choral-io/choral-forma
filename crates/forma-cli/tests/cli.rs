@@ -653,6 +653,138 @@ assignees:
 }
 
 #[test]
+fn board_show_groups_tasks_by_readiness() {
+    let root = fixture_root("board-show");
+    std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
+    std::fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
+
+    std::fs::write(
+        root.join(".forma.yml"),
+        r#"schemaVersion: 1
+
+workspace:
+  name: "Task Board"
+  root: "."
+  canonicalLanguage: "en"
+  supportedLanguages:
+    - "en"
+  timezone: "UTC"
+
+include:
+  - ".forma/spaces/*.md"
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join(".forma/spaces/tasks.md"),
+        r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Tasks
+include:
+  - "knowledge/tasks/**/*.md"
+create:
+  directory: knowledge/tasks
+  filename: "{{ input.slug }}.md"
+  template: .forma/spaces/templates/task.md
+  inputs:
+    title:
+      required: true
+    slug:
+      default: "{{ input.title }}"
+      transform: slugify
+conventions:
+  titleField: title
+  summaryField: summary
+---
+
+# Tasks
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join(".forma/spaces/templates/task.md"),
+        "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"\"\n---\n\n# {{ input.title }}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("knowledge/tasks/alpha.md"),
+        r#"---
+schemaVersion: 1
+kind: task
+title: Alpha
+summary: Needs refinement by default.
+---
+
+# Alpha
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("knowledge/tasks/bravo.md"),
+        r#"---
+schemaVersion: 1
+kind: task
+title: Bravo
+summary: Ready task.
+readiness: ready
+---
+
+# Bravo
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("knowledge/tasks/charlie.md"),
+        r#"---
+schemaVersion: 1
+kind: task
+title: Charlie
+summary: Blocked task.
+readiness: blocked
+---
+
+# Charlie
+"#,
+    )
+    .unwrap();
+
+    let output = forma(&root)
+        .args(["board", "show", "--json"])
+        .output()
+        .expect("forma board show --json should run");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(r#""operation":"board.show""#));
+    assert!(stdout.contains(r#""id":"needs-refinement""#));
+    assert!(stdout.contains(r#""title":"Needs Refinement""#));
+    assert!(stdout.contains(r#""id":"ready""#));
+    assert!(stdout.contains(r#""title":"Ready""#));
+    assert!(stdout.contains(r#""id":"blocked""#));
+    assert!(stdout.contains(r#""title":"Blocked""#));
+    assert!(stdout.contains(r#""path":"knowledge/tasks/alpha.md""#));
+    assert!(stdout.contains(r#""path":"knowledge/tasks/bravo.md""#));
+    assert!(stdout.contains(r#""path":"knowledge/tasks/charlie.md""#));
+    assert!(!root.join(".forma/index.summary.json").exists());
+
+    let needs_refinement_index = stdout.find(r#""id":"needs-refinement""#).unwrap();
+    let ready_index = stdout.find(r#""id":"ready""#).unwrap();
+    let blocked_index = stdout.find(r#""id":"blocked""#).unwrap();
+    assert!(needs_refinement_index < ready_index);
+    assert!(ready_index < blocked_index);
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn global_workspace_option_selects_operation_root() {
     let cwd = fixture_root("workspace-option-cwd");
     let workspace = fixture_root("workspace-option-root");
