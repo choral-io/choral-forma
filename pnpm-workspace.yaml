@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
 minimumReleaseAge: 4320
+pmOnFail: warn
 savePrefix: "~"
 allowBuilds:
   esbuild: true

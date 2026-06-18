@@ -14,8 +14,8 @@
   ],
   "formatter": {
     "external": {
-      "command": "pnpm",
-      "arguments": ["exec", "prettier", "--stdin-filepath", "{buffer_path}"]
+      "command": "./node_modules/.bin/prettier",
+      "arguments": ["--stdin-filepath", "{buffer_path}"]
     }
   },
   "format_on_save": "on",
