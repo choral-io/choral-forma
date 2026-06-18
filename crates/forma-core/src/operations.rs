@@ -712,15 +712,6 @@ pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, 
         .get(space_id)
         .ok_or_else(|| OperationError::SpaceNotFound(space_id.to_string()))?;
     let discovery = discover_workspace(root.as_ref())?;
-    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
-    diagnostics.sort_by_key(|diagnostic| {
-        (
-            diagnostic.path.clone().unwrap_or_default(),
-            diagnostic.code.clone(),
-            diagnostic.message.clone(),
-        )
-    });
-    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
     let entries = discovery
         .index
         .entries
@@ -734,6 +725,12 @@ pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, 
             fields: Value::Mapping(Default::default()),
         })
         .collect::<Vec<_>>();
+    let mut diagnostics = read_operation_diagnostics_for_paths(
+        discovery.diagnostics,
+        entries.iter().map(|entry| entry.path.as_str()),
+    );
+    diagnostics.sort_by_key(diagnostic_sort_key);
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
 
     Ok(ListResult {
         schema_version: 1,
@@ -761,7 +758,10 @@ pub fn tasks_list(root: impl AsRef<Path>) -> Result<TasksListResult, OperationEr
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
     let discovery = discover_workspace(root.as_ref())?;
     let task_entries = selected_task_entries(&discovery.index.entries);
-    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
+    let mut diagnostics = read_operation_diagnostics_for_paths(
+        discovery.diagnostics,
+        task_entries.iter().map(|entry| entry.path.as_str()),
+    );
     let mut tasks = Vec::with_capacity(task_entries.len());
 
     for entry in task_entries {
@@ -842,7 +842,10 @@ pub fn tasks_inspect(
     let discovery = discover_workspace(root.as_ref())?;
     let task_entries = selected_task_entries(&discovery.index.entries);
     let entry = resolve_task_entry(task_entries, path_or_id)?;
-    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
+    let mut diagnostics = read_operation_diagnostics_for_paths(
+        discovery.diagnostics,
+        std::iter::once(entry.path.as_str()),
+    );
     let (task, task_diagnostics) = task_summary_from_entry(root.as_ref(), entry)?;
     diagnostics.extend(task_diagnostics);
     diagnostics.sort_by_key(diagnostic_sort_key);
@@ -1434,6 +1437,22 @@ fn read_operation_diagnostics(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
         .collect()
 }
 
+fn read_operation_diagnostics_for_paths<'a>(
+    diagnostics: Vec<Diagnostic>,
+    paths: impl IntoIterator<Item = &'a str>,
+) -> Vec<Diagnostic> {
+    let paths = paths.into_iter().collect::<BTreeSet<_>>();
+    read_operation_diagnostics(diagnostics)
+        .into_iter()
+        .filter(|diagnostic| {
+            diagnostic
+                .path
+                .as_deref()
+                .is_some_and(|path| paths.contains(path))
+        })
+        .collect()
+}
+
 fn is_config_health_diagnostic(diagnostic: &Diagnostic) -> bool {
     matches!(
         diagnostic.code.split('.').next(),
@@ -1535,7 +1554,8 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
             source,
         })?;
     let document = FormaMarkdownDocument::parse(&source);
-    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
+    let mut diagnostics =
+        read_operation_diagnostics_for_paths(discovery.diagnostics, std::iter::once(path));
     diagnostics.extend(
         document
             .diagnostics
@@ -2978,6 +2998,9 @@ fields:
         );
 
         let legacy = tasks_inspect(&root, "legacy").unwrap();
+        assert_eq!(legacy.status, OperationStatus::Passed);
+        assert_eq!(legacy.summary.warnings, 0);
+        assert!(legacy.diagnostics.is_empty());
         assert_eq!(legacy.task.path, "knowledge/tasks/subgroup/legacy.md");
         assert_eq!(legacy.task.status.as_deref(), Some("todo"));
         assert!(matches!(
