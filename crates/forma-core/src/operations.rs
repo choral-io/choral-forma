@@ -9,7 +9,7 @@ use serde_yml::Value;
 use thiserror::Error;
 
 use crate::config::{ConfigError, LoadMode, WorkspaceSettings, load_workspace};
-use crate::diagnostics::{Diagnostic, DiagnosticSummary, OperationStatus};
+use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::index::{
     IndexEntry, IndexReference, ReferenceIntent, ReferenceSource, config_error_diagnostic,
     discover_workspace,
@@ -268,6 +268,39 @@ pub struct FileReferencesResult {
     pub backlinks: Vec<ReferenceEdge>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeHealthResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub findings: Vec<KnowledgeHealthFinding>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeHealthFinding {
+    pub category: KnowledgeHealthCategory,
+    pub severity: DiagnosticSeverity,
+    pub path: String,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum KnowledgeHealthCategory {
+    BrokenReference,
+    AmbiguousReference,
+    NoOutgoingReferences,
+    NoBacklinks,
+    ConfigDiagnostic,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -925,6 +958,133 @@ pub fn list_file_references(
     })
 }
 
+pub fn knowledge_health(root: impl AsRef<Path>) -> Result<KnowledgeHealthResult, OperationError> {
+    let workspace = match load_workspace(root.as_ref(), LoadMode::SharedOnly) {
+        Ok(workspace) => workspace,
+        Err(error) => {
+            return Ok(knowledge_health_failure_result(
+                "Unknown Workspace",
+                config_error_diagnostic(error),
+            ));
+        }
+    };
+    let discovery = match discover_workspace(root.as_ref()) {
+        Ok(discovery) => discovery,
+        Err(error) => {
+            return Ok(knowledge_health_failure_result(
+                &workspace.config.workspace.name,
+                config_error_diagnostic(error),
+            ));
+        }
+    };
+    Ok(build_knowledge_health_result(
+        &workspace.config.workspace.name,
+        &discovery.index.entries,
+        &discovery.diagnostics,
+    ))
+}
+
+fn knowledge_health_failure_result(
+    workspace_name: &str,
+    diagnostic: Diagnostic,
+) -> KnowledgeHealthResult {
+    let finding = knowledge_health_config_finding_from_diagnostic(&diagnostic);
+    let diagnostics = vec![knowledge_health_diagnostic(&finding)];
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+
+    KnowledgeHealthResult {
+        schema_version: 1,
+        operation: "knowledge.health".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace_name.to_string(),
+            logo: None,
+        },
+        findings: vec![finding],
+        summary,
+        diagnostics,
+    }
+}
+
+fn build_knowledge_health_result(
+    workspace_name: &str,
+    entries: &[IndexEntry],
+    discovery_diagnostics: &[Diagnostic],
+) -> KnowledgeHealthResult {
+    let mut findings = discovery_diagnostics
+        .iter()
+        .filter_map(knowledge_health_finding_from_diagnostic)
+        .collect::<Vec<_>>();
+    let reference_problem_paths = discovery_diagnostics
+        .iter()
+        .filter(|diagnostic| is_reference_problem_diagnostic(diagnostic))
+        .filter_map(|diagnostic| diagnostic.path.clone())
+        .collect::<BTreeSet<_>>();
+
+    let mut inbound_counts = BTreeMap::<String, usize>::new();
+
+    for entry in entries {
+        let internal_targets = unique_internal_non_self_reference_targets(&entry.path, &entry.refs);
+        if internal_targets.is_empty() && !reference_problem_paths.contains(&entry.path) {
+            findings.push(KnowledgeHealthFinding {
+                category: KnowledgeHealthCategory::NoOutgoingReferences,
+                severity: DiagnosticSeverity::Warning,
+                path: entry.path.clone(),
+                message: "Entry has no outgoing internal references.".to_string(),
+                target: None,
+            });
+        }
+
+        for target in internal_targets {
+            *inbound_counts.entry(target).or_default() += 1;
+        }
+    }
+
+    for entry in entries {
+        if inbound_counts.get(&entry.path).copied().unwrap_or_default() == 0
+            && !reference_problem_paths.contains(&entry.path)
+        {
+            findings.push(KnowledgeHealthFinding {
+                category: KnowledgeHealthCategory::NoBacklinks,
+                severity: DiagnosticSeverity::Warning,
+                path: entry.path.clone(),
+                message: "Entry has no inbound internal references.".to_string(),
+                target: None,
+            });
+        }
+    }
+
+    findings.sort_by_key(knowledge_health_finding_sort_key);
+
+    let mut diagnostics = findings
+        .iter()
+        .map(knowledge_health_diagnostic)
+        .collect::<Vec<_>>();
+    diagnostics.extend(
+        discovery_diagnostics
+            .iter()
+            .filter(|diagnostic| knowledge_health_finding_from_diagnostic(diagnostic).is_none())
+            .cloned(),
+    );
+    diagnostics.sort_by_key(knowledge_health_diagnostic_sort_key);
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+
+    KnowledgeHealthResult {
+        schema_version: 1,
+        operation: "knowledge.health".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace_name.to_string(),
+            logo: None,
+        },
+        findings,
+        summary,
+        diagnostics,
+    }
+}
+
 fn unique_references_by_target<'a>(
     references: impl IntoIterator<Item = &'a IndexReference>,
 ) -> Vec<&'a IndexReference> {
@@ -1037,6 +1197,138 @@ fn reference_edge_sort_key(
         edge.target_path.clone(),
         edge.intent,
         edge.source,
+    )
+}
+
+fn knowledge_health_finding_from_diagnostic(
+    diagnostic: &Diagnostic,
+) -> Option<KnowledgeHealthFinding> {
+    let path = diagnostic.path.clone().unwrap_or_else(|| ".".to_string());
+    match diagnostic.code.as_str() {
+        "ref.unresolved" => Some(KnowledgeHealthFinding {
+            category: KnowledgeHealthCategory::BrokenReference,
+            severity: DiagnosticSeverity::Warning,
+            path,
+            message: "Reference cannot be resolved.".to_string(),
+            target: diagnostic.actual.clone(),
+        }),
+        "ref.ambiguous" => Some(KnowledgeHealthFinding {
+            category: KnowledgeHealthCategory::AmbiguousReference,
+            severity: DiagnosticSeverity::Warning,
+            path,
+            message: "Reference resolves to multiple entries.".to_string(),
+            target: diagnostic.actual.clone(),
+        }),
+        _ if is_config_health_diagnostic(diagnostic) => {
+            Some(knowledge_health_config_finding_from_diagnostic(diagnostic))
+        }
+        _ => None,
+    }
+}
+
+fn knowledge_health_config_finding_from_diagnostic(
+    diagnostic: &Diagnostic,
+) -> KnowledgeHealthFinding {
+    KnowledgeHealthFinding {
+        category: KnowledgeHealthCategory::ConfigDiagnostic,
+        severity: diagnostic.severity,
+        path: diagnostic.path.clone().unwrap_or_else(|| ".".to_string()),
+        message: diagnostic.message.clone(),
+        target: diagnostic.actual.clone(),
+    }
+}
+
+fn is_reference_problem_diagnostic(diagnostic: &Diagnostic) -> bool {
+    matches!(
+        diagnostic.code.as_str(),
+        "ref.unresolved" | "ref.ambiguous" | "ref.transformFailed"
+    )
+}
+
+fn is_config_health_diagnostic(diagnostic: &Diagnostic) -> bool {
+    matches!(
+        diagnostic.code.split('.').next(),
+        Some("config" | "workspace" | "path" | "space" | "schema" | "taxonomy" | "view")
+    )
+}
+
+fn unique_internal_non_self_reference_targets(
+    source_path: &str,
+    references: &[IndexReference],
+) -> BTreeSet<String> {
+    references
+        .iter()
+        .filter(|reference| {
+            !is_external_reference_target(&reference.target_path)
+                && reference.target_path != source_path
+        })
+        .map(|reference| reference.target_path.clone())
+        .collect()
+}
+
+fn is_external_reference_target(target: &str) -> bool {
+    target.starts_with("http://")
+        || target.starts_with("https://")
+        || target.starts_with("mailto:")
+        || target.starts_with('#')
+}
+
+fn knowledge_health_finding_sort_key(
+    finding: &KnowledgeHealthFinding,
+) -> (String, KnowledgeHealthCategory, String, Option<String>) {
+    (
+        finding.path.clone(),
+        finding.category,
+        finding.message.clone(),
+        finding.target.clone(),
+    )
+}
+
+fn knowledge_health_diagnostic(finding: &KnowledgeHealthFinding) -> Diagnostic {
+    let diagnostic = match finding.severity {
+        DiagnosticSeverity::Error => {
+            Diagnostic::error(knowledge_health_diagnostic_code(finding.category), &finding.message)
+        }
+        DiagnosticSeverity::Warning => Diagnostic::warning(
+            knowledge_health_diagnostic_code(finding.category),
+            &finding.message,
+        ),
+        DiagnosticSeverity::Info => Diagnostic {
+            severity: DiagnosticSeverity::Info,
+            code: knowledge_health_diagnostic_code(finding.category).to_string(),
+            message: finding.message.clone(),
+            path: None,
+            location: None,
+            actual: None,
+            expected: None,
+        },
+    };
+
+    let diagnostic = diagnostic.with_path(finding.path.clone());
+    if let Some(target) = &finding.target {
+        diagnostic.with_actual(target.clone())
+    } else {
+        diagnostic
+    }
+}
+
+fn knowledge_health_diagnostic_code(category: KnowledgeHealthCategory) -> &'static str {
+    match category {
+        KnowledgeHealthCategory::BrokenReference => "knowledgeHealth.brokenReference",
+        KnowledgeHealthCategory::AmbiguousReference => "knowledgeHealth.ambiguousReference",
+        KnowledgeHealthCategory::NoOutgoingReferences => {
+            "knowledgeHealth.noOutgoingReferences"
+        }
+        KnowledgeHealthCategory::NoBacklinks => "knowledgeHealth.noBacklinks",
+        KnowledgeHealthCategory::ConfigDiagnostic => "knowledgeHealth.configDiagnostic",
+    }
+}
+
+fn knowledge_health_diagnostic_sort_key(diagnostic: &Diagnostic) -> (String, String, String) {
+    (
+        diagnostic.path.clone().unwrap_or_default(),
+        diagnostic.code.clone(),
+        diagnostic.message.clone(),
     )
 }
 
@@ -1684,10 +1976,15 @@ mod tests {
     use serde_yml::Value;
 
     use super::{
-        OperationError, WorkspaceFileFeature, create_entry, init_workspace, inspect_config,
-        is_raw_workspace_path_allowed, list_file_references, list_files, workspace_dashboard,
+        KnowledgeHealthCategory, OperationError, WorkspaceFileFeature,
+        build_knowledge_health_result, create_entry, init_workspace, inspect_config,
+        is_raw_workspace_path_allowed, knowledge_health, list_file_references, list_files,
+        workspace_dashboard,
     };
-    use crate::{FORMA_VIEWS_DIR, OperationStatus, ReferenceIntent, WorkspaceFileKind};
+    use crate::{
+        Diagnostic, FORMA_VIEWS_DIR, IndexEntry, OperationStatus, ReferenceIntent,
+        WorkspaceFileKind,
+    };
 
     #[test]
     fn config_inspect_returns_effective_config_sources_and_diagnostics() {
@@ -2331,6 +2628,214 @@ include:
             list_file_references(&root, "notes/missing.md"),
             Err(OperationError::EntryNotFound)
         ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn knowledge_health_reports_broken_references_and_orphan_pages() {
+        let root = fixture_root("knowledge-health-broken");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Knowledge Health Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/linked.md"),
+            "---\nkind: note\ntitle: Linked\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Linked\n\nMissing [[notes/missing]].\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/orphan.md"),
+            "---\nkind: note\ntitle: Orphan\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Orphan\n",
+        )
+        .unwrap();
+
+        let result = knowledge_health(&root).unwrap();
+
+        assert_eq!(result.operation, "knowledge.health");
+        assert_eq!(result.status, OperationStatus::Warning);
+        assert_eq!(result.workspace.root, ".");
+        assert_eq!(result.workspace.name, "Knowledge Health Test");
+        assert!(
+            result.findings.iter().any(|finding| {
+                finding.category == KnowledgeHealthCategory::BrokenReference
+                    && finding.path == "notes/linked.md"
+            })
+        );
+        assert!(
+            !result.findings.iter().any(|finding| {
+                finding.category == KnowledgeHealthCategory::NoOutgoingReferences
+                    && finding.path == "notes/linked.md"
+            })
+        );
+        assert!(
+            !result.findings.iter().any(|finding| {
+                finding.category == KnowledgeHealthCategory::NoBacklinks
+                    && finding.path == "notes/linked.md"
+            })
+        );
+        assert!(
+            result.findings.iter().any(|finding| {
+                finding.category == KnowledgeHealthCategory::NoBacklinks
+                    && finding.path == "notes/orphan.md"
+            })
+        );
+        assert!(!root.join(".forma/index.summary.json").exists());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn knowledge_health_reports_self_links_as_isolated() {
+        let root = fixture_root("knowledge-health-self-link");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Knowledge Health Self Link", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/self.md"),
+            "---\nkind: note\ntitle: Self\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Self\n\nSee [[notes/self]].\n",
+        )
+        .unwrap();
+
+        let result = knowledge_health(&root).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Warning);
+        assert!(
+            result.findings.iter().any(|finding| {
+                finding.category == KnowledgeHealthCategory::NoOutgoingReferences
+                    && finding.path == "notes/self.md"
+            })
+        );
+        assert!(
+            result.findings.iter().any(|finding| {
+                finding.category == KnowledgeHealthCategory::NoBacklinks
+                    && finding.path == "notes/self.md"
+            })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn knowledge_health_reports_config_diagnostic_for_missing_workspace_root() {
+        let root = fixture_root("knowledge-health-missing-forma");
+        fs::create_dir_all(&root).unwrap();
+
+        let result = knowledge_health(&root).unwrap();
+
+        assert_eq!(result.operation, "knowledge.health");
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert_eq!(result.workspace.root, ".");
+        assert_eq!(result.workspace.name, "Unknown Workspace");
+        assert_eq!(result.findings.len(), 1);
+        assert_eq!(
+            result.findings[0].category,
+            KnowledgeHealthCategory::ConfigDiagnostic
+        );
+        assert_eq!(result.findings[0].path, ".");
+        assert_eq!(result.summary.errors, 1);
+        assert_eq!(result.summary.warnings, 0);
+        assert_eq!(result.diagnostics.len(), 1);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn knowledge_health_passes_for_clean_workspace() {
+        let root = fixture_root("knowledge-health-clean");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Knowledge Health Clean", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/alpha.md"),
+            "---\nkind: note\ntitle: Alpha\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Alpha\n\nSee [[notes/beta]].\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/beta.md"),
+            "---\nkind: note\ntitle: Beta\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Beta\n\nSee [[notes/alpha]].\n",
+        )
+        .unwrap();
+
+        let result = knowledge_health(&root).unwrap();
+
+        assert_eq!(result.operation, "knowledge.health");
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert!(result.findings.is_empty());
+        assert!(result.diagnostics.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn knowledge_health_preserves_transform_failed_diagnostics_without_isolation_findings() {
+        let entries = vec![IndexEntry {
+            path: "notes/linked.md".to_string(),
+            space: "notes".to_string(),
+            kind: Some("note".to_string()),
+            title: Some("Linked".to_string()),
+            summary: None,
+            variants: Vec::new(),
+            refs: Vec::new(),
+        }];
+        let diagnostics = vec![
+            Diagnostic::error("ref.transformFailed", "Reference input transform failed.")
+                .with_path("notes/linked.md")
+                .with_actual("unknown transform `badTransform`"),
+        ];
+
+        let result = build_knowledge_health_result("Synthetic Workspace", &entries, &diagnostics);
+
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "ref.transformFailed")
+        );
+        assert!(
+            !result.findings.iter().any(|finding| {
+                finding.category == KnowledgeHealthCategory::ConfigDiagnostic
+                    && finding.path == "notes/linked.md"
+            })
+        );
+        assert!(
+            !result.findings.iter().any(|finding| {
+                finding.category == KnowledgeHealthCategory::NoOutgoingReferences
+                    && finding.path == "notes/linked.md"
+            })
+        );
+        assert!(
+            !result.findings.iter().any(|finding| {
+                finding.category == KnowledgeHealthCategory::NoBacklinks
+                    && finding.path == "notes/linked.md"
+            })
+        );
+    }
+
+    #[test]
+    fn knowledge_health_preserves_unclassified_discovery_diagnostics() {
+        let root = fixture_root("knowledge-health-unclassified-diagnostic");
+        fs::create_dir_all(root.join("assets")).unwrap();
+        init_workspace(&root, "Knowledge Health Unclassified", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("assets/missing.png.md"),
+            "---\nkind: resourceDescription\ntitle: Missing Image\n---\n\n# Missing Image\n",
+        )
+        .unwrap();
+
+        let result = knowledge_health(&root).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "resource.description.missingTarget")
+        );
+        assert!(
+            !result.findings.iter().any(|finding| {
+                finding.category == KnowledgeHealthCategory::ConfigDiagnostic
+                    && finding.path == "assets/missing.png.md"
+            })
+        );
+        assert_eq!(result.summary.errors, 1);
 
         fs::remove_dir_all(root).unwrap();
     }
