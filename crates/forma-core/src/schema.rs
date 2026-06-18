@@ -929,6 +929,7 @@ mod tests {
                     display: crate::config::DisplayOptions::default(),
                     description: None,
                     include: "todos/**/*.md".to_string(),
+                    include_patterns: vec!["todos/**/*.md".to_string()],
                     template: format!("{FORMA_TEMPLATES_DIR}/todo.md"),
                     create: None,
                     conventions: SpaceConventions::default(),

@@ -119,6 +119,8 @@ pub struct SpaceDefinition {
     #[serde(default)]
     pub description: Option<String>,
     pub include: String,
+    #[serde(default, skip)]
+    pub include_patterns: Vec<String>,
     pub template: String,
     #[serde(default)]
     pub create: Option<CreateDefinition>,
@@ -364,6 +366,7 @@ fn load_config_nodes(
                 display: node.display,
                 description: node.description,
                 include,
+                include_patterns: node.include,
                 template: create.template,
                 create: Some(CreateDefinition {
                     directory: create.directory,
@@ -485,13 +488,15 @@ fn validate_config_paths(config: &WorkspaceConfig) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     for (space_id, space) in &config.spaces {
-        push_path_diagnostic(
-            &mut diagnostics,
-            space_id,
-            "include",
-            &space.include,
-            WorkspacePath::parse_config(&space.include),
-        );
+        for include in &space.include_patterns {
+            push_path_diagnostic(
+                &mut diagnostics,
+                space_id,
+                "include",
+                include,
+                WorkspacePath::parse_config(include),
+            );
+        }
         push_path_diagnostic(
             &mut diagnostics,
             space_id,
@@ -593,6 +598,30 @@ mod tests {
         assert_eq!(workspace.config.types["note"].space(), Some("notes"));
         assert_eq!(workspace.config.spaces["notes"].include, "notes/**/*.md");
         assert!(workspace.diagnostics.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn loads_all_space_include_patterns() {
+        let root = fixture_root("space-include-patterns");
+        write_minimal_config(
+            &root,
+            "UTC",
+            "notes/**/*.md\n  - product/**/*.md\n  - decisions/**/*.md",
+        );
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert_eq!(workspace.config.spaces["notes"].include, "notes/**/*.md");
+        assert_eq!(
+            workspace.config.spaces["notes"].include_patterns,
+            vec![
+                "notes/**/*.md".to_string(),
+                "product/**/*.md".to_string(),
+                "decisions/**/*.md".to_string(),
+            ]
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

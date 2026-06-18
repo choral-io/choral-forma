@@ -710,7 +710,7 @@ pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, 
         .get(space_id)
         .ok_or_else(|| OperationError::SpaceNotFound(space_id.to_string()))?;
     let discovery = discover_workspace(root.as_ref())?;
-    let mut diagnostics = discovery.diagnostics;
+    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     diagnostics.sort_by_key(|diagnostic| {
         (
             diagnostic.path.clone().unwrap_or_default(),
@@ -758,7 +758,7 @@ pub fn tasks_list(root: impl AsRef<Path>) -> Result<TasksListResult, OperationEr
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
     let discovery = discover_workspace(root.as_ref())?;
     let task_entries = selected_task_entries(&discovery.index.entries);
-    let mut diagnostics = task_operation_diagnostics(discovery.diagnostics);
+    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     let mut tasks = Vec::with_capacity(task_entries.len());
 
     for entry in task_entries {
@@ -839,7 +839,7 @@ pub fn tasks_inspect(
     let discovery = discover_workspace(root.as_ref())?;
     let task_entries = selected_task_entries(&discovery.index.entries);
     let entry = resolve_task_entry(task_entries, path_or_id)?;
-    let mut diagnostics = task_operation_diagnostics(discovery.diagnostics);
+    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     let (task, task_diagnostics) = task_summary_from_entry(root.as_ref(), entry)?;
     diagnostics.extend(task_diagnostics);
     diagnostics.sort_by_key(diagnostic_sort_key);
@@ -896,7 +896,7 @@ pub fn inspect_config(
 pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
     let discovery = discover_workspace(root.as_ref())?;
-    let mut diagnostics = discovery.diagnostics;
+    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     diagnostics.sort_by_key(|diagnostic| {
         (
             diagnostic.path.clone().unwrap_or_default(),
@@ -951,7 +951,7 @@ pub fn workspace_dashboard(
 ) -> Result<WorkspaceDashboardResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
     let discovery = discover_workspace(root.as_ref())?;
-    let mut diagnostics = discovery.diagnostics;
+    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     diagnostics.sort_by_key(|diagnostic| {
         (
             diagnostic.path.clone().unwrap_or_default(),
@@ -1418,7 +1418,7 @@ fn is_reference_problem_diagnostic(diagnostic: &Diagnostic) -> bool {
     )
 }
 
-fn task_operation_diagnostics(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
+fn read_operation_diagnostics(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
     diagnostics
         .into_iter()
         .map(|mut diagnostic| {
@@ -1531,7 +1531,7 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
             source,
         })?;
     let document = FormaMarkdownDocument::parse(&source);
-    let mut diagnostics = discovery.diagnostics;
+    let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     diagnostics.extend(
         document
             .diagnostics
@@ -1641,6 +1641,7 @@ fn task_summary_from_entry(
             source,
         })?;
     let document = FormaMarkdownDocument::parse(&source);
+    let fallback_title = first_top_level_heading(&document);
     let metadata = document
         .frontmatter
         .value
@@ -1656,7 +1657,8 @@ fn task_summary_from_entry(
             path: entry.path.clone(),
             id: task_id_from_path(&entry.path),
             title: string_field_with_fallback(&metadata, &["title", "fields.title"])
-                .or_else(|| entry.title.clone()),
+                .or_else(|| entry.title.clone())
+                .or(fallback_title),
             summary: string_field_with_fallback(&metadata, &["summary", "fields.summary"])
                 .or_else(|| entry.summary.clone()),
             status: string_field_with_fallback(&metadata, &["status", "fields.status"]),
@@ -1671,6 +1673,22 @@ fn task_summary_from_entry(
         },
         diagnostics,
     ))
+}
+
+fn first_top_level_heading(document: &FormaMarkdownDocument) -> Option<String> {
+    document
+        .headings
+        .iter()
+        .find(|heading| heading.level == 1)
+        .map(|heading| heading.text.clone())
+        .or_else(|| {
+            document.body.lines().find_map(|line| {
+                let heading = line.strip_prefix("# ")?;
+                let heading = heading.trim();
+                (!heading.is_empty()).then(|| heading.to_string())
+            })
+        })
+        .filter(|heading| !heading.trim().is_empty())
 }
 
 fn task_id_from_path(path: &str) -> String {
@@ -2892,7 +2910,6 @@ conventions:
             r#"---
 schemaVersion: 1
 kind: task
-title: Ship CLI
 summary: Add CLI task inventory commands.
 readiness: ready
 priority: P0
@@ -2951,6 +2968,10 @@ fields:
         assert_eq!(inspect.summary.warnings, 1);
         assert_eq!(inspect.task.path, "knowledge/tasks/ship-cli.md");
         assert_eq!(inspect.task.title.as_deref(), Some("Ship CLI"));
+        assert_eq!(
+            inspect.task.summary.as_deref(),
+            Some("Add CLI task inventory commands.")
+        );
 
         let legacy = tasks_inspect(&root, "legacy").unwrap();
         assert_eq!(legacy.task.path, "knowledge/tasks/subgroup/legacy.md");

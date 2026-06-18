@@ -174,6 +174,7 @@ struct LanguageSuffix {
 #[derive(Debug, Clone)]
 struct PathIndex {
     all_paths: BTreeSet<String>,
+    by_suffix: BTreeMap<String, Vec<String>>,
     by_basename: BTreeMap<String, Vec<String>>,
     by_space: BTreeMap<String, BTreeSet<String>>,
 }
@@ -485,21 +486,30 @@ fn build_space_matchers(
     let mut matchers = Vec::new();
     for (space_id, space) in &config.spaces {
         let mut builder = GlobSetBuilder::new();
-        match Glob::new(&space.include) {
-            Ok(glob) => {
-                builder.add(glob);
-                if let Ok(set) = builder.build() {
-                    matchers.push((space_id.clone(), set));
+        let include_patterns = if space.include_patterns.is_empty() {
+            std::slice::from_ref(&space.include)
+        } else {
+            space.include_patterns.as_slice()
+        };
+        let mut has_valid_pattern = false;
+        for include in include_patterns {
+            match Glob::new(include) {
+                Ok(glob) => {
+                    builder.add(glob);
+                    has_valid_pattern = true;
                 }
+                Err(error) => diagnostics.push(
+                    Diagnostic::error("config.globInvalid", "Space include glob is invalid.")
+                        .with_path(FORMA_CONFIG_PATH)
+                        .with_location(DiagnosticLocation::Config {
+                            field: format!("spaces.{space_id}.include"),
+                        })
+                        .with_actual(error.to_string()),
+                ),
             }
-            Err(error) => diagnostics.push(
-                Diagnostic::error("config.globInvalid", "Space include glob is invalid.")
-                    .with_path(FORMA_CONFIG_PATH)
-                    .with_location(DiagnosticLocation::Config {
-                        field: format!("spaces.{space_id}.include"),
-                    })
-                    .with_actual(error.to_string()),
-            ),
+        }
+        if has_valid_pattern && let Ok(set) = builder.build() {
+            matchers.push((space_id.clone(), set));
         }
     }
     matchers
@@ -919,11 +929,18 @@ enum ResolveResult {
 impl PathIndex {
     fn from_entries(entries: &[CandidateEntry]) -> Self {
         let mut all_paths = BTreeSet::new();
+        let mut by_suffix: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut by_basename: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut by_space: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
         for entry in entries {
             all_paths.insert(entry.path.clone());
+            if let Some((_, suffix)) = entry.path.split_once('/') {
+                by_suffix
+                    .entry(suffix.to_string())
+                    .or_default()
+                    .push(entry.path.clone());
+            }
             let basename = basename_id(&entry.path);
             by_basename
                 .entry(basename)
@@ -937,6 +954,7 @@ impl PathIndex {
 
         Self {
             all_paths,
+            by_suffix,
             by_basename,
             by_space,
         }
@@ -967,6 +985,21 @@ impl PathIndex {
             if self.path_allowed(&candidate, space) {
                 return ResolveResult::Resolved(candidate.clone());
             }
+        }
+
+        let suffix_matches = candidates
+            .iter()
+            .filter_map(|candidate| self.by_suffix.get(candidate))
+            .flatten()
+            .filter(|path| self.path_allowed(path, space))
+            .cloned()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        match suffix_matches.len() {
+            1 => return ResolveResult::Resolved(suffix_matches[0].clone()),
+            2.. => return ResolveResult::Ambiguous,
+            0 => {}
         }
 
         if candidates.iter().any(|candidate| candidate.contains('/')) {
@@ -1519,6 +1552,46 @@ mod tests {
             discovery.diagnostics
         );
         assert_eq!(entry.refs[0].target_path, "notes/guide/next.md");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn resolves_unique_suffix_paths_for_repository_root_workspaces() {
+        let root = fixture_root("repository-root-suffix-links");
+        write_workspace(&root);
+        fs::write(
+            root.join(".forma/spaces/project.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Project\ninclude:\n  - knowledge/**/*.md\ncreate:\n  directory: knowledge\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\n    slug:\n      default: \"{{ input.title }}\"\n      transform: slugify\n---\n\n# Project\n",
+        )
+        .unwrap();
+        write_entry(
+            &root,
+            "knowledge/tasks/ship-cli.md",
+            "---\nkind: task\ntitle: Ship CLI\n---\nSee [[product/product-direction]].\n",
+        );
+        write_entry(
+            &root,
+            "knowledge/product/product-direction.md",
+            "---\nkind: note\ntitle: Product Direction\n---\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+        let task = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "knowledge/tasks/ship-cli.md")
+            .unwrap();
+
+        assert!(
+            discovery.diagnostics.is_empty(),
+            "{:#?}",
+            discovery.diagnostics
+        );
+        assert_eq!(
+            task.refs[0].target_path,
+            "knowledge/product/product-direction.md"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
