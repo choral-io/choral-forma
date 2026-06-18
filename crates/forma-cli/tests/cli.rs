@@ -45,6 +45,58 @@ fn check_json_prints_direct_operation_result() {
 }
 
 #[test]
+fn knowledge_health_json_uses_operation_result_shape() {
+    let root = knowledge_health_warning_fixture("knowledge-health-json");
+
+    let output = forma(&root)
+        .args(["knowledge", "health", "--json"])
+        .output()
+        .expect("forma knowledge health --json should run");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(r#""schemaVersion":1"#));
+    assert!(stdout.contains(r#""operation":"knowledge.health""#));
+    assert!(stdout.contains(r#""status":"warning""#));
+    assert!(stdout.contains(r#""category":"brokenReference""#));
+    assert!(!stdout.contains(r#""jsonrpc""#));
+    assert!(!root.join(".forma/index.summary.json").exists());
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn knowledge_health_human_output_reports_warning_summary() {
+    let root = knowledge_health_warning_fixture("knowledge-health-human");
+
+    let output = forma(&root)
+        .args(["knowledge", "health"])
+        .output()
+        .expect("forma knowledge health should run");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("knowledge health warning"));
+    assert!(stdout.contains("warning knowledgeHealth.brokenReference"));
+    assert!(stdout.contains("notes/a.md"));
+    assert!(!root.join(".forma/index.summary.json").exists());
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn init_create_list_and_inspect_use_operation_json_without_persistent_index() {
     let root = fixture_root("starter-flow");
     let home = fixture_root("starter-flow-home-without-git-config");
@@ -678,6 +730,84 @@ fn forma(root: &std::path::Path) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_forma"));
     command.current_dir(root);
     command
+}
+
+fn knowledge_health_warning_fixture(name: &str) -> std::path::PathBuf {
+    let root = fixture_root(name);
+    std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
+    std::fs::create_dir_all(root.join("notes")).unwrap();
+
+    std::fs::write(
+        root.join(".forma.yml"),
+        r#"schemaVersion: 1
+
+workspace:
+  name: "Knowledge Health"
+  root: "."
+  canonicalLanguage: "en"
+  supportedLanguages:
+    - "en"
+  timezone: "UTC"
+
+include:
+  - ".forma/spaces/*.md"
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join(".forma/spaces/notes.md"),
+        r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Notes
+display:
+  order: 10
+description: Notes
+include:
+  - "notes/**/*.md"
+create:
+  directory: "notes"
+  filename: "{{ input.slug }}.md"
+  template: ".forma/spaces/templates/note.md"
+  inputs:
+    title:
+      required: true
+    summary:
+      default: ""
+    slug:
+      type: string
+      default: "{{ input.title }}"
+      transform: slugify
+conventions:
+  titleField: fields.title
+  summaryField: fields.summary
+---
+
+# Notes
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join(".forma/spaces/templates/note.md"),
+        r#"---
+schemaVersion: 1
+kind: note
+title: "{{ input.title }}"
+summary: "{{ input.summary }}"
+---
+
+# {{ input.title }}
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("notes/a.md"),
+        "---\nschemaVersion: 1\nkind: note\ntitle: A\nsummary: \"\"\n---\n\n# A\n\nSee [[notes/missing.md]].\n",
+    )
+    .unwrap();
+
+    root
 }
 
 fn fixture_root(name: &str) -> std::path::PathBuf {

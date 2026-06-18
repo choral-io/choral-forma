@@ -36,6 +36,8 @@ pub enum Operation {
     FileRender,
     #[serde(rename = "file.references")]
     FileReferences,
+    #[serde(rename = "knowledge.health")]
+    KnowledgeHealth,
 }
 
 impl Operation {
@@ -52,6 +54,7 @@ impl Operation {
             Self::ViewRender => "view.render",
             Self::FileRender => "file.render",
             Self::FileReferences => "file.references",
+            Self::KnowledgeHealth => "knowledge.health",
         }
     }
 }
@@ -69,6 +72,7 @@ pub enum OperationRequest {
     ViewRender(ViewRenderRequest),
     FileRender(FileRenderRequest),
     FileReferences(FileReferencesRequest),
+    KnowledgeHealth(KnowledgeHealthRequest),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -157,6 +161,11 @@ pub struct FileRenderRequest {
 pub struct FileReferencesRequest {
     pub path: String,
 }
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeHealthRequest {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -281,6 +290,9 @@ impl Dispatcher {
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::FileReferences, error)))
             }
+            OperationRequest::KnowledgeHealth(_) => forma_core::operations::knowledge_health(root)
+                .map(OperationResult::from)
+                .or_else(|error| Ok(core_error_result(Operation::KnowledgeHealth, error))),
         }
     }
 
@@ -524,6 +536,15 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "knowledge.health" => serde_json::from_value::<KnowledgeHealthRequest>(params)
+            .map(OperationRequest::KnowledgeHealth)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         "workspace.dashboard" => serde_json::from_value::<WorkspaceDashboardRequest>(params)
             .map(OperationRequest::WorkspaceDashboard)
             .map_err(|_| {
@@ -726,6 +747,23 @@ impl From<forma_core::FileReferencesResult> for OperationResult {
         data.insert("file".to_string(), json!(result.file));
         data.insert("outgoing".to_string(), json!(result.outgoing));
         data.insert("backlinks".to_string(), json!(result.backlinks));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::operations::KnowledgeHealthResult> for OperationResult {
+    fn from(result: forma_core::operations::KnowledgeHealthResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("findings".to_string(), json!(result.findings));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1050,6 +1088,36 @@ mod tests {
     }
 
     #[test]
+    fn json_rpc_dispatches_knowledge_health() {
+        let root = fixture_root("knowledge-health-rpc");
+        fs::create_dir_all(&root).unwrap();
+        forma_core::init_workspace(&root, "Knowledge Health RPC", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n\nMissing [[notes/missing]].\n",
+        )
+        .unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"knowledge.health","params":{}}"#,
+        );
+
+        assert_eq!(response["result"]["operation"], "knowledge.health");
+        assert_eq!(
+            response["result"]["workspace"]["name"],
+            "Knowledge Health RPC"
+        );
+        assert_eq!(response["result"]["status"], "warning");
+        assert_eq!(
+            response["result"]["findings"][0]["category"],
+            "brokenReference"
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn json_rpc_file_render_invalid_format_reports_neutral_input_diagnostic() {
         let root = fixture_root("file-render-invalid-format");
         fs::create_dir_all(&root).unwrap();
@@ -1122,6 +1190,10 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::Operation::FileReferences).unwrap(),
             "file.references"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::KnowledgeHealth).unwrap(),
+            "knowledge.health"
         );
     }
 

@@ -16,7 +16,7 @@ use axum::routing::{get, post};
 use clap::{Parser, Subcommand};
 use forma_rpc::{
     CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest, InspectRequest,
-    ListRequest, Operation, OperationRequest,
+    KnowledgeHealthRequest, ListRequest, Operation, OperationRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -85,6 +85,10 @@ enum Command {
         #[command(subcommand)]
         command: ConfigCommand,
     },
+    Knowledge {
+        #[command(subcommand)]
+        command: KnowledgeCommand,
+    },
     Serve {
         #[arg(long, default_value = "127.0.0.1:0")]
         bind: SocketAddr,
@@ -102,6 +106,14 @@ enum ConfigCommand {
     Inspect {
         #[arg(long)]
         path: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum KnowledgeCommand {
+    Health {
         #[arg(long)]
         json: bool,
     },
@@ -209,6 +221,16 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                         path,
                     }))?;
                 print_result(&result, json, "config inspect");
+                exit_if_failed(&result);
+                Ok(())
+            }
+        },
+        Some(Command::Knowledge { command }) => match command {
+            KnowledgeCommand::Health { json } => {
+                let result = dispatcher.dispatch(OperationRequest::KnowledgeHealth(
+                    KnowledgeHealthRequest::default(),
+                ))?;
+                print_result(&result, json, "knowledge health");
                 exit_if_failed(&result);
                 Ok(())
             }
