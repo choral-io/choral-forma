@@ -409,6 +409,8 @@ When Agents assist with workflows such as conflict resolution, pull requests, sc
 
 Agent and Skill flows should be an assistance layer over stable product capabilities. Core actions such as creating spaces, editing semantic types, building views, inspecting effective config, and running health checks should be available through GUI and CLI. Agents can suggest, explain, draft, orchestrate, and repair, but the product should not depend on Agents as the only way to use these capabilities.
 
+Forma operations are the durable product surface for knowledge management. Agent skills should call those operations and keep only orchestration policy, review discipline, and user-specific workflow behavior. MCP should be treated as a transport adapter over stable operations, not the first implementation target for replacing local skill mechanics.
+
 Manual edits, Git merges, incomplete drafts, stale derived artifacts, and Agent work-in-progress may create temporary inconsistencies. Choral Forma should read and inspect imperfect files with diagnostics where possible. Product commands should avoid knowingly writing invalid content, while `forma check` should make workspace inconsistencies explicit enough for humans or Agents to repair manually or through future reviewable repair workflows.
 
 ### Executable Knowledge
