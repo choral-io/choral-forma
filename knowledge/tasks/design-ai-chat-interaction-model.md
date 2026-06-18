@@ -37,9 +37,7 @@ affected_area: WebApp AI Chat
 
 ## Goal
 
-Design the WebApp AI Chat model for explaining, navigating, diagnosing, and
-proposing knowledge maintenance actions without bypassing repository review
-boundaries.
+Design the WebApp AI Chat model for explaining, navigating, diagnosing, and proposing knowledge maintenance actions without bypassing repository review boundaries.
 
 ## Sources
 
@@ -50,19 +48,13 @@ boundaries.
 
 ## Context
 
-AI Chat is a natural fit for the primary WebApp GUI because it can see workspace
-state, diagnostics, references, views, and user-selected context. It also
-creates safety risk if suggestions are treated as direct writes. The first model
-should define Chat modes and boundaries before implementation.
+AI Chat is a natural fit for the primary WebApp GUI because it can see workspace state, diagnostics, references, views, and user-selected context. It also creates safety risk if suggestions are treated as direct writes. The first model should define Chat modes and boundaries before implementation.
 
 ## In Scope
 
-- Define supported AI Chat modes such as explain, find, diagnose, draft, dry-run,
-  and propose.
-- Define what workspace context the Chat surface can read from existing and
-  future Forma operations.
-- Define how Chat suggestions become operation proposals rather than direct file
-  writes.
+- Define supported AI Chat modes such as explain, find, diagnose, draft, dry-run, and propose.
+- Define what workspace context the Chat surface can read from existing and future Forma operations.
+- Define how Chat suggestions become operation proposals rather than direct file writes.
 - Define privacy, local-only, confirmation, and audit boundaries for Chat.
 - Identify backend operation needs and follow-up implementation tasks.
 
@@ -84,10 +76,8 @@ should define Chat modes and boundaries before implementation.
 
 ## Relationship Notes
 
-This task depends on the proposal flow because Chat should produce explainable
-plans or proposals before any write-capable implementation is considered.
+This task depends on the proposal flow because Chat should produce explainable plans or proposals before any write-capable implementation is considered.
 
 ## Open Questions
 
-- Should the first Chat implementation be provider-agnostic shell design only,
-  or include a local/manual mock provider for dogfooding?
+- Should the first Chat implementation be provider-agnostic shell design only, or include a local/manual mock provider for dogfooding?

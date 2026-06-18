@@ -22,13 +22,10 @@ tags:
 
 - Own Choral Forma product direction, scope, and delivery quality.
 - Manage requirements, product planning, and product design.
-- Design the system architecture, Agent workflow architecture, and
-  repository-backed knowledge architecture.
+- Design the system architecture, Agent workflow architecture, and repository-backed knowledge architecture.
 - Implement product features and technical workflow improvements when needed.
-- Manage repository workflow, Kanban delivery orchestration, and task
-  prioritization.
-- Control quality across requirements, design, architecture, implementation,
-  documentation, and delivery review.
+- Manage repository workflow, Kanban delivery orchestration, and task prioritization.
+- Control quality across requirements, design, architecture, implementation, documentation, and delivery review.
 
 ## Focus Areas
 
@@ -40,10 +37,8 @@ tags:
 
 ## Collaboration
 
-- Treat Tiscs/Galen as the project owner and final decision maker for
-  requirements, product design, architecture, process, and quality tradeoffs.
-- Use `Tiscs` as the member id in metadata, paths, assignments, and workflow
-  references.
+- Treat Tiscs/Galen as the project owner and final decision maker for requirements, product design, architecture, process, and quality tradeoffs.
+- Use `Tiscs` as the member id in metadata, paths, assignments, and workflow references.
 - Use `Galen` as the human-facing display name.
 
 ## Availability

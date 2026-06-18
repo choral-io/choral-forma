@@ -12,15 +12,11 @@ tags:
 
 ## Definition
 
-Repository-backed knowledge is project knowledge stored in ordinary repository
-files, with durable facts represented by explicit Markdown documents, schemas,
-and supporting assets.
+Repository-backed knowledge is project knowledge stored in ordinary repository files, with durable facts represented by explicit Markdown documents, schemas, and supporting assets.
 
 ## Context
 
-For Choral Forma, the repository is the source of truth. Tools may provide better
-editing, navigation, validation, or review experiences, but they should not
-replace the repository with a hidden knowledge store.
+For Choral Forma, the repository is the source of truth. Tools may provide better editing, navigation, validation, or review experiences, but they should not replace the repository with a hidden knowledge store.
 
 ## Related Concepts
 

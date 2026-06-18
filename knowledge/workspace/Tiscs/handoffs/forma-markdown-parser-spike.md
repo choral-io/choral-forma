@@ -17,10 +17,7 @@ tags:
 
 ## Purpose
 
-Hand off a focused technical spike for another Agent to evaluate Rust Markdown
-parser options for Choral Forma. The main conversation will continue product and
-architecture design in parallel; this handoff should let the spike proceed
-without blocking that discussion.
+Hand off a focused technical spike for another Agent to evaluate Rust Markdown parser options for Choral Forma. The main conversation will continue product and architecture design in parallel; this handoff should let the spike proceed without blocking that discussion.
 
 ## Source Context
 
@@ -35,12 +32,10 @@ Current technical direction:
 - Forma core is provisionally planned in Rust.
 - Forma is not Markdown-editor-first; it is parser-and-renderer-first.
 - P0 should reuse existing editors for writing.
-- P0 should parse and render Markdown for knowledge understanding, checks,
-  indexing, and read-only GUI rendering.
+- P0 should parse and render Markdown for knowledge understanding, checks, indexing, and read-only GUI rendering.
 - P0 should not rewrite existing Markdown bodies.
 - P0 should use `FormaAST = Markdown AST + Forma extensions`.
-- P0 should parse Obsidian-style embeds such as `![[note]]` as embedded
-  reference intent, but render them as normal links or linked placeholders.
+- P0 should parse Obsidian-style embeds such as `![[note]]` as embedded reference intent, but render them as normal links or linked placeholders.
 
 ## Materials
 
@@ -51,13 +46,11 @@ Candidate Rust Markdown parser libraries:
 - `pulldown-cmark` as an event-stream fallback
 - `tree-sitter-markdown` only as future context, not the primary P0 candidate
 
-Candidate YAML/frontmatter libraries may be noted if discovered, but the primary
-spike is Markdown parsing and rendering.
+Candidate YAML/frontmatter libraries may be noted if discovered, but the primary spike is Markdown parsing and rendering.
 
 ## Actions Requested
 
-Create a small Rust spike that compares at least `markdown-rs` and `comrak`
-against Forma's P0 needs.
+Create a small Rust spike that compares at least `markdown-rs` and `comrak` against Forma's P0 needs.
 
 Use a sample Markdown document covering:
 
@@ -102,8 +95,7 @@ Compare these capabilities:
 
 ## Decisions Made
 
-The spike should not decide broader product scope. It should only recommend the
-Markdown parser strategy for P0.
+The spike should not decide broader product scope. It should only recommend the Markdown parser strategy for P0.
 
 Expected recommendation categories:
 
@@ -117,15 +109,12 @@ Expected recommendation categories:
 
 - Final local service and GUI design is still under discussion.
 - Final index/check data structures are still under discussion.
-- P0 does not yet require MCP or editor extensions, but future compatibility
-  matters.
+- P0 does not yet require MCP or editor extensions, but future compatibility matters.
 
 ## Risks
 
-- Do not overfit the spike to editing use cases. Forma is not trying to build a
-  Markdown editor in P0.
-- Do not assume parser support for Obsidian wikilinks; custom scanning may be
-  acceptable.
+- Do not overfit the spike to editing use cases. Forma is not trying to build a Markdown editor in P0.
+- Do not assume parser support for Obsidian wikilinks; custom scanning may be acceptable.
 - Do not turn the spike into a full application scaffold.
 
 ## Next Action
@@ -139,9 +128,7 @@ Run the spike and produce a short report with:
 
 ## Acceptance Criteria
 
-This handoff is complete when the receiving Agent provides a clear parser
-recommendation or identifies specific blocking gaps that require further
-architecture discussion.
+This handoff is complete when the receiving Agent provides a clear parser recommendation or identifies specific blocking gaps that require further architecture discussion.
 
 ## Response
 

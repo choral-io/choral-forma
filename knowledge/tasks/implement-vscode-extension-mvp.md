@@ -35,8 +35,7 @@ affected_area: VS Code extension
 
 ## Goal
 
-Implement a thin VS Code adapter for Forma after the editor extension adapter
-contract is accepted.
+Implement a thin VS Code adapter for Forma after the editor extension adapter contract is accepted.
 
 ## Sources
 
@@ -47,19 +46,13 @@ contract is accepted.
 
 ## Context
 
-VS Code is the first editor extension target because the repository already has
-VS Code/Foam-oriented Markdown integration. The extension should not duplicate
-the WebApp. It should bridge the editor workspace and current file into the
-Forma local service and primary GUI.
+VS Code is the first editor extension target because the repository already has VS Code/Foam-oriented Markdown integration. The extension should not duplicate the WebApp. It should bridge the editor workspace and current file into the Forma local service and primary GUI.
 
 ## In Scope
 
-- Add a VS Code extension workspace/package scaffold when the adapter contract
-  is ready.
-- Connect to or launch the Forma local service according to the accepted
-  adapter contract.
-- Provide commands to open the WebApp for the current workspace and current
-  file.
+- Add a VS Code extension workspace/package scaffold when the adapter contract is ready.
+- Connect to or launch the Forma local service according to the accepted adapter contract.
+- Provide commands to open the WebApp for the current workspace and current file.
 - Show Forma status and diagnostics at a minimal level.
 - Reuse shared operation/RPC types where practical.
 - Add focused extension build/type checks.
@@ -74,8 +67,7 @@ Forma local service and primary GUI.
 
 ## Acceptance Criteria
 
-- The VS Code extension can connect a workspace to Forma according to the
-  accepted adapter contract.
+- The VS Code extension can connect a workspace to Forma according to the accepted adapter contract.
 - Users can open the primary WebApp from VS Code.
 - Current file context can be passed to WebApp-backed workflows when supported.
 - Extension checks pass.

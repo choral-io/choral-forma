@@ -33,8 +33,7 @@ affected_area: Operation dispatch, CLI, and local HTTP RPC
 
 ## Goal
 
-Implement the typed operation dispatcher, CLI JSON behavior, and minimal
-JSON-RPC HTTP foundation for P0.
+Implement the typed operation dispatcher, CLI JSON behavior, and minimal JSON-RPC HTTP foundation for P0.
 
 ## Sources
 
@@ -44,24 +43,20 @@ JSON-RPC HTTP foundation for P0.
 
 ## Context
 
-CLI, local HTTP API, future MCP, and future editor integrations should call the
-same operation model. P0 local HTTP uses a strict minimal JSON-RPC 2.0 shape.
+CLI, local HTTP API, future MCP, and future editor integrations should call the same operation model. P0 local HTTP uses a strict minimal JSON-RPC 2.0 shape.
 
 ## In Scope
 
 - Define typed operation request/result/error structures.
 - Route CLI handlers through the shared dispatcher.
 - Implement direct JSON output for CLI `--json`.
-- Implement `POST /rpc` with minimal strict JSON-RPC 2.0 request/response
-  behavior.
+- Implement `POST /rpc` with minimal strict JSON-RPC 2.0 request/response behavior.
 - Distinguish workspace diagnostics from JSON-RPC transport/protocol errors.
-- Add tests for JSON-RPC parse errors, invalid requests, invalid params,
-  unknown methods, and successful dispatch.
+- Add tests for JSON-RPC parse errors, invalid requests, invalid params, unknown methods, and successful dispatch.
 
 ## Out Of Scope
 
-- MCP, stdio JSON-RPC, batch requests, notifications, subscriptions, or server
-  push.
+- MCP, stdio JSON-RPC, batch requests, notifications, subscriptions, or server push.
 - Full product operation implementations beyond stub dispatch wiring.
 - Parallel REST endpoints for product operations.
 
@@ -70,13 +65,11 @@ same operation model. P0 local HTTP uses a strict minimal JSON-RPC 2.0 shape.
 - CLI JSON outputs direct operation result objects with `schemaVersion`.
 - HTTP RPC success and error envelopes follow JSON-RPC 2.0 shapes.
 - Product operations can be registered without duplicating adapter semantics.
-- Protocol errors use standard JSON-RPC error codes and Forma-specific codes in
-  `error.data`.
+- Protocol errors use standard JSON-RPC error codes and Forma-specific codes in `error.data`.
 
 ## Relationship Notes
 
-Blocked by workspace scaffold. Product commands can be wired after core
-operation implementations are available.
+Blocked by workspace scaffold. Product commands can be wired after core operation implementations are available.
 
 ## Open Questions
 

@@ -118,14 +118,10 @@ Agents should treat plain Markdown files, `<knowledge_dir>/.workflow/rules/*.md`
 
 Project wikilink rules:
 
-- Use wikilinks for knowledge references, such as member, group, task, decision,
-  and related-knowledge fields.
-- Use workspace-relative paths, not wikilinks, for file, resource, and
-  configuration path fields.
-- Manual short wikilinks such as `[[note-id]]` are valid only when they resolve
-  uniquely in the expected relationship scope.
-- Tool-written links and examples should prefer path-qualified wikilinks such as
-  `[[groups/review-board]]` or `[[tasks/example-delivery-task]]`.
+- Use wikilinks for knowledge references, such as member, group, task, decision, and related-knowledge fields.
+- Use workspace-relative paths, not wikilinks, for file, resource, and configuration path fields.
+- Manual short wikilinks such as `[[note-id]]` are valid only when they resolve uniquely in the expected relationship scope.
+- Tool-written links and examples should prefer path-qualified wikilinks such as `[[groups/review-board]]` or `[[tasks/example-delivery-task]]`.
 - Use display aliases only for human-readable labels, such as `[[tasks/example-delivery-task|Example delivery task]]`.
 - Kanban card wikilinks resolve to `<knowledge_dir>/tasks/<task-id>.md` by default.
 - If a wikilink can resolve to multiple canonical files, report the ambiguity instead of guessing.

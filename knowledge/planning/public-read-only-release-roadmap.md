@@ -22,13 +22,9 @@ sources:
 
 ## Goal
 
-Define the remaining work needed to turn the current RPC-backed WebApp into the
-first public Choral Forma release.
+Define the remaining work needed to turn the current RPC-backed WebApp into the first public Choral Forma release.
 
-The first public release should ship as a local, read-only, repository-backed
-knowledge browser. It should make workspace structure, documents, references,
-views, and diagnostics understandable without requiring editor integration or
-write-capable workflows.
+The first public release should ship as a local, read-only, repository-backed knowledge browser. It should make workspace structure, documents, references, views, and diagnostics understandable without requiring editor integration or write-capable workflows.
 
 ## Release Positioning
 
@@ -36,8 +32,7 @@ The first public release is:
 
 - a local `forma serve` WebApp for browsing a repository workspace;
 - a read-only knowledge client over explicit Forma RPC operations;
-- a document-centered Markdown reader with references, backlinks, outline, and
-  diagnostics;
+- a document-centered Markdown reader with references, backlinks, outline, and diagnostics;
 - a view browser for configured `list`, `table`, `kanban`, and `graph` views;
 - a foundation for future lightweight interactions and editor adapters.
 
@@ -55,20 +50,13 @@ The first public release is not:
 The current implementation already includes the main read-only loop:
 
 - `forma serve` exposes WebApp assets, `/rpc`, and raw workspace resources.
-- The WebApp uses real Forma RPC. Demo and validation data should come from
-  example workspaces served by the backend, not from product-side mock clients.
-- The current primary routes are Dashboard, Pages, Page detail, configured
-  taxonomy groups, Views, and View detail.
-- Page detail uses client-side Markdown rendering from backend-provided
-  Markdown source, headings, references, and diagnostics.
-- Page context includes overview data, outgoing links, backlinks,
-  diagnostics, and an outline tab.
-- Small screens use a context sheet instead of pushing the context panel below
-  the document body.
-- Saved views can render first-pass `list`, `table`, `kanban`, and `graph`
-  projections.
-- Quick Open exists as a WebApp-local navigation affordance over the current
-  dashboard data.
+- The WebApp uses real Forma RPC. Demo and validation data should come from example workspaces served by the backend, not from product-side mock clients.
+- The current primary routes are Dashboard, Pages, Page detail, configured taxonomy groups, Views, and View detail.
+- Page detail uses client-side Markdown rendering from backend-provided Markdown source, headings, references, and diagnostics.
+- Page context includes overview data, outgoing links, backlinks, diagnostics, and an outline tab.
+- Small screens use a context sheet instead of pushing the context panel below the document body.
+- Saved views can render first-pass `list`, `table`, `kanban`, and `graph` projections.
+- Quick Open exists as a WebApp-local navigation affordance over the current dashboard data.
 
 ## Public Release Work Packages
 
@@ -76,15 +64,10 @@ The current implementation already includes the main read-only loop:
 
 Stabilize the public read-only contract before adding more product surfaces.
 
-- Confirm the public status of `workspace.dashboard`, `file.render`,
-  `file.references`, and `view.render`.
-- Document response shapes, date-time formatting expectations, diagnostics,
-  path semantics, and empty/error result behavior.
-- Keep mock data out of the product fallback path and product WebApp bundle.
-  Use committed example workspaces served by the backend for demos and design
-  review.
-- Keep legacy or compatibility behavior out of the public contract unless it is
-  intentionally documented.
+- Confirm the public status of `workspace.dashboard`, `file.render`, `file.references`, and `view.render`.
+- Document response shapes, date-time formatting expectations, diagnostics, path semantics, and empty/error result behavior.
+- Keep mock data out of the product fallback path and product WebApp bundle. Use committed example workspaces served by the backend for demos and design review.
+- Keep legacy or compatibility behavior out of the public contract unless it is intentionally documented.
 
 Primary task:
 
@@ -95,14 +78,9 @@ Primary task:
 Make the Markdown reader good enough for ordinary repository Markdown.
 
 - Keep persisted content ordinary Markdown.
-- Keep backend responsibilities focused on source, references, headings, and
-  diagnostics.
-- Keep WebApp responsibilities focused on HTML rendering, sanitization,
-  syntax highlighting, theme-aware styling, image loading, and reader
-  presentation.
-- Validate tables, task lists, blockquotes, code blocks, images, headings,
-  internal links, external links, and long content on desktop and small
-  screens.
+- Keep backend responsibilities focused on source, references, headings, and diagnostics.
+- Keep WebApp responsibilities focused on HTML rendering, sanitization, syntax highlighting, theme-aware styling, image loading, and reader presentation.
+- Validate tables, task lists, blockquotes, code blocks, images, headings, internal links, external links, and long content on desktop and small screens.
 
 Primary task:
 
@@ -113,8 +91,7 @@ Primary task:
 Promote diagnostics from a generic side panel into a useful health surface.
 
 - Show unresolved and ambiguous references.
-- Show current diagnostics produced from source files and the in-memory read
-  model.
+- Show current diagnostics produced from source files and the in-memory read model.
 - Show document-level diagnostics with navigation to affected documents.
 - Show weak or isolated documents only when the signal is cheap and reliable.
 - Do not implement automatic fixes or proposals in the first public release.
@@ -128,12 +105,9 @@ Primary task:
 Treat views as configured read-only projections.
 
 - Keep `graph` as a normal configured view renderer.
-- Keep graph data derived from backend view render output, not browser-side
-  Markdown scanning.
-- Validate first-pass `list`, `table`, `kanban`, and `graph` behavior with
-  representative fixtures.
-- Improve graph readability, empty states, error states, theme behavior, and
-  navigation without turning it into a separate global graph product.
+- Keep graph data derived from backend view render output, not browser-side Markdown scanning.
+- Validate first-pass `list`, `table`, `kanban`, and `graph` behavior with representative fixtures.
+- Improve graph readability, empty states, error states, theme behavior, and navigation without turning it into a separate global graph product.
 
 Primary task:
 
@@ -143,10 +117,8 @@ Primary task:
 
 Keep Quick Open as the primary lightweight in-app discovery entry point.
 
-- For the public release, Quick Open may continue to use dashboard data when it
-  is clearly scoped to route, space, document, and view navigation.
-- If Quick Open becomes a public search feature, add a shared `search.entries`
-  operation over the in-memory read model.
+- For the public release, Quick Open may continue to use dashboard data when it is clearly scoped to route, space, document, and view navigation.
+- If Quick Open becomes a public search feature, add a shared `search.entries` operation over the in-memory read model.
 - Do not imply full-text search until a real search backend exists.
 
 Primary task:
@@ -158,13 +130,10 @@ Primary task:
 Make the release installable, explainable, and repeatable.
 
 - Rebuild and embed WebApp assets for `forma serve`.
-- Create or promote a committed example workspace for demos and smoke
-  validation, excluding local-only state and legacy collection configuration.
+- Create or promote a committed example workspace for demos and smoke validation, excluding local-only state and legacy collection configuration.
 - Document starter workspace creation, serving, and WebApp access.
-- Add release smoke coverage for dashboard, documents, document detail,
-  spaces, views, graph, and raw resource loading.
-- Record known limitations, including read-only scope, no editor extensions,
-  no AI Chat, and no write-capable proposal flow.
+- Add release smoke coverage for dashboard, documents, document detail, spaces, views, graph, and raw resource loading.
+- Record known limitations, including read-only scope, no editor extensions, no AI Chat, and no write-capable proposal flow.
 
 Primary task:
 

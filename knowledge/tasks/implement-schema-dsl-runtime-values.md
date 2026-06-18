@@ -33,8 +33,7 @@ affected_area: Schema validation and create input resolution
 
 ## Goal
 
-Implement the P0 Forma Schema DSL, semantic types, placeholder resolution,
-`slugify`, and runtime value providers.
+Implement the P0 Forma Schema DSL, semantic types, placeholder resolution, `slugify`, and runtime value providers.
 
 ## Sources
 
@@ -44,31 +43,24 @@ Implement the P0 Forma Schema DSL, semantic types, placeholder resolution,
 
 ## Context
 
-The Schema DSL is the P0 user-authored object constraint language. Runtime
-values are explicit `runtime.values.*` definitions, and current-user behavior is
-modeled as a normal runtime value.
+The Schema DSL is the P0 user-authored object constraint language. Runtime values are explicit `runtime.values.*` definitions, and current-user behavior is modeled as a normal runtime value.
 
 ## In Scope
 
-- Implement Schema DSL node types: `object`, `string`, `number`, `integer`,
-  `boolean`, `date`, `datetime`, `const`, `enum`, `ref`, and `list`.
+- Implement Schema DSL node types: `object`, `string`, `number`, `integer`, `boolean`, `date`, `datetime`, `const`, `enum`, `ref`, and `list`.
 - Implement field-local `required: true`, `readonly`, and `hidden` hints.
 - Implement semantic types for static enums and space-backed references.
-- Implement simple `{{ path.to.value }}` placeholder resolution with cycle
-  detection.
+- Implement simple `{{ path.to.value }}` placeholder resolution with cycle detection.
 - Implement `slugify` transform.
-- Implement runtime providers: `const`, `gitConfig`, `currentDate`,
-  `currentDateTime`, and `workspaceRoot`.
+- Implement runtime providers: `const`, `gitConfig`, `currentDate`, `currentDateTime`, and `workspaceRoot`.
 - Make `currentDate` and `currentDateTime` use effective `workspace.timezone`.
-- Add tests for defaults, transforms, dependency resolution, cycles, and
-  unresolved required runtime values.
+- Add tests for defaults, transforms, dependency resolution, cycles, and unresolved required runtime values.
 
 ## Out Of Scope
 
 - JSON Schema authoring files.
 - Custom validators, executable plugins, or script hooks.
-- Union reference types, groups, lifecycle/deprecation, maps, or polymorphic
-  object schemas.
+- Union reference types, groups, lifecycle/deprecation, maps, or polymorphic object schemas.
 
 ## Acceptance Criteria
 
@@ -76,8 +68,7 @@ modeled as a normal runtime value.
 - Invalid enum, ref, required, and type cases produce structured diagnostics.
 - Runtime values can be resolved from shared config and local overrides.
 - Placeholder cycles and missing required dependencies produce diagnostics.
-- `slugify` handles whitespace, reserved path characters, empty output, and
-  Windows reserved names.
+- `slugify` handles whitespace, reserved path characters, empty output, and Windows reserved names.
 
 ## Relationship Notes
 
@@ -85,6 +76,4 @@ Blocked by config/path model. Downstream work can be derived from task items who
 
 ## Follow-up Notes
 
-`date` and `datetime` lexical formats were fixed during implementation:
-persisted `date` values use `YYYY-MM-DD`, and persisted `datetime` values use
-RFC3339 with explicit `Z` or numeric offset.
+`date` and `datetime` lexical formats were fixed during implementation: persisted `date` values use `YYYY-MM-DD`, and persisted `datetime` values use RFC3339 with explicit `Z` or numeric offset.

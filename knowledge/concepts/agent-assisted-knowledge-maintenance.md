@@ -12,15 +12,11 @@ tags:
 
 ## Definition
 
-Agent-assisted knowledge maintenance is the use of software agents to help route,
-write, validate, and update repository knowledge while following explicit
-schemas, workflow rules, and privacy boundaries.
+Agent-assisted knowledge maintenance is the use of software agents to help route, write, validate, and update repository knowledge while following explicit schemas, workflow rules, and privacy boundaries.
 
 ## Context
 
-In Choral Forma, agents should make knowledge work easier without weakening human
-review, ownership, or repository transparency. Local member notes and runtime
-state remain local unless intentionally promoted into shared knowledge.
+In Choral Forma, agents should make knowledge work easier without weakening human review, ownership, or repository transparency. Local member notes and runtime state remain local unless intentionally promoted into shared knowledge.
 
 ## Related Concepts
 

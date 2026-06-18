@@ -37,8 +37,7 @@ affected_area: Editor extension adapter contract
 
 ## Goal
 
-Design the shared adapter contract that future VS Code and Zed extensions should
-use to connect editor context to the Forma local service and primary WebApp.
+Design the shared adapter contract that future VS Code and Zed extensions should use to connect editor context to the Forma local service and primary WebApp.
 
 ## Sources
 
@@ -49,17 +48,13 @@ use to connect editor context to the Forma local service and primary WebApp.
 
 ## Context
 
-Editor extensions are no longer the P1 main product surface. They should become
-thin adapters after the WebApp GUI and shared operation contracts stabilize.
-Designing the adapter contract first avoids duplicating GUI logic separately in
-VS Code and Zed.
+Editor extensions are no longer the P1 main product surface. They should become thin adapters after the WebApp GUI and shared operation contracts stabilize. Designing the adapter contract first avoids duplicating GUI logic separately in VS Code and Zed.
 
 ## In Scope
 
 - Define editor extension responsibilities and non-responsibilities.
 - Define how an editor extension locates, starts, or connects to `forma serve`.
-- Define how current workspace and current file context are sent to the WebApp
-  or shared operations.
+- Define how current workspace and current file context are sent to the WebApp or shared operations.
 - Define status, diagnostics, command palette, and open-in-WebApp behavior.
 - Identify shared TypeScript or RPC client reuse opportunities.
 - Split VS Code and Zed implementation follow-ups.
@@ -73,19 +68,15 @@ VS Code and Zed.
 
 ## Acceptance Criteria
 
-- The adapter contract states what functionality belongs in extensions versus
-  the WebApp.
+- The adapter contract states what functionality belongs in extensions versus the WebApp.
 - VS Code and Zed MVP tasks can share the same behavior model.
 - Required RPC/CLI capabilities are listed.
 - Security, workspace-root, and local service lifecycle boundaries are explicit.
 
 ## Relationship Notes
 
-This task should stay behind the WebApp V2 dashboard shell and primary GUI
-client work. It prepares editor extension implementation without making
-extensions the main product path.
+This task should stay behind the WebApp V2 dashboard shell and primary GUI client work. It prepares editor extension implementation without making extensions the main product path.
 
 ## Open Questions
 
-- Should extensions launch `forma serve` themselves, or only connect to an
-  already-running local service in the MVP?
+- Should extensions launch `forma serve` themselves, or only connect to an already-running local service in the MVP?
