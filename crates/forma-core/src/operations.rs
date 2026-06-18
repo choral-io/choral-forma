@@ -758,7 +758,7 @@ pub fn tasks_list(root: impl AsRef<Path>) -> Result<TasksListResult, OperationEr
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
     let discovery = discover_workspace(root.as_ref())?;
     let task_entries = selected_task_entries(&discovery.index.entries);
-    let mut diagnostics = discovery.diagnostics;
+    let mut diagnostics = task_operation_diagnostics(discovery.diagnostics);
     let mut tasks = Vec::with_capacity(task_entries.len());
 
     for entry in task_entries {
@@ -839,7 +839,7 @@ pub fn tasks_inspect(
     let discovery = discover_workspace(root.as_ref())?;
     let task_entries = selected_task_entries(&discovery.index.entries);
     let entry = resolve_task_entry(task_entries, path_or_id)?;
-    let mut diagnostics = discovery.diagnostics;
+    let mut diagnostics = task_operation_diagnostics(discovery.diagnostics);
     let (task, task_diagnostics) = task_summary_from_entry(root.as_ref(), entry)?;
     diagnostics.extend(task_diagnostics);
     diagnostics.sort_by_key(diagnostic_sort_key);
@@ -1416,6 +1416,18 @@ fn is_reference_problem_diagnostic(diagnostic: &Diagnostic) -> bool {
         diagnostic.code.as_str(),
         "ref.unresolved" | "ref.ambiguous" | "ref.transformFailed"
     )
+}
+
+fn task_operation_diagnostics(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
+    diagnostics
+        .into_iter()
+        .map(|mut diagnostic| {
+            if matches!(diagnostic.code.as_str(), "ref.unresolved" | "ref.ambiguous") {
+                diagnostic.severity = DiagnosticSeverity::Warning;
+            }
+            diagnostic
+        })
+        .collect()
 }
 
 fn is_config_health_diagnostic(diagnostic: &Diagnostic) -> bool {
@@ -2890,6 +2902,8 @@ assignees: []
 ---
 
 # Ship CLI
+
+See [[knowledge/tasks/missing-task]].
 "#,
         )
         .unwrap();
@@ -2914,6 +2928,9 @@ fields:
 
         let list = tasks_list(&root).unwrap();
         assert_eq!(list.operation, "tasks.list");
+        assert_eq!(list.status, OperationStatus::Warning);
+        assert_eq!(list.summary.errors, 0);
+        assert_eq!(list.summary.warnings, 1);
         assert_eq!(list.tasks.len(), 2);
         assert_eq!(list.tasks[0].path, "knowledge/tasks/ship-cli.md");
         assert_eq!(list.tasks[0].id, "knowledge/tasks/ship-cli");
@@ -2929,6 +2946,9 @@ fields:
 
         let inspect = tasks_inspect(&root, "ship-cli").unwrap();
         assert_eq!(inspect.operation, "tasks.inspect");
+        assert_eq!(inspect.status, OperationStatus::Warning);
+        assert_eq!(inspect.summary.errors, 0);
+        assert_eq!(inspect.summary.warnings, 1);
         assert_eq!(inspect.task.path, "knowledge/tasks/ship-cli.md");
         assert_eq!(inspect.task.title.as_deref(), Some("Ship CLI"));
 
