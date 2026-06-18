@@ -284,6 +284,7 @@ fn scan_forma_references(body: &str) -> Vec<FormaReference> {
 }
 
 fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
+    let code_fences = fenced_code_block_ranges(body);
     let mut offset = 0;
     while let Some(relative_start) = body[offset..].find("[[") {
         let start = offset + relative_start;
@@ -296,6 +297,11 @@ fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
         let content_end = content_start + relative_end;
         let end = content_end + 2;
         let content = &body[content_start..content_end];
+
+        if ranges_contain(&code_fences, marker_start) {
+            offset = end;
+            continue;
+        }
 
         if !content.trim().is_empty() {
             let (target, label) = split_wikilink_content(content);
@@ -319,6 +325,68 @@ fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
 
         offset = end;
     }
+}
+
+fn fenced_code_block_ranges(body: &str) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let mut in_fence: Option<(String, usize)> = None;
+    let mut offset = 0;
+
+    while offset <= body.len() {
+        let line_end = body[offset..]
+            .find('\n')
+            .map(|index| offset + index)
+            .unwrap_or(body.len());
+        let line = body[offset..line_end].trim_end_matches('\r');
+        let trimmed = line.trim_start();
+
+        if let Some((marker, start)) = &in_fence {
+            if closes_fence(trimmed, marker) {
+                let end = if line_end < body.len() {
+                    line_end + 1
+                } else {
+                    line_end
+                };
+                ranges.push((*start, end));
+                in_fence = None;
+            }
+        } else if let Some(marker) = opens_fence(trimmed) {
+            in_fence = Some((marker, offset));
+        }
+
+        if line_end == body.len() {
+            break;
+        }
+        offset = line_end + 1;
+    }
+
+    if let Some((_, start)) = in_fence {
+        ranges.push((start, body.len()));
+    }
+
+    ranges
+}
+
+fn opens_fence(trimmed_line: &str) -> Option<String> {
+    let marker = trimmed_line
+        .strip_prefix("```")
+        .map(|_| '`')
+        .or_else(|| trimmed_line.strip_prefix("~~~").map(|_| '~'))?;
+    let count = trimmed_line
+        .chars()
+        .take_while(|character| *character == marker)
+        .count();
+    (count >= 3).then(|| marker.to_string().repeat(count))
+}
+
+fn closes_fence(trimmed_line: &str, marker: &str) -> bool {
+    trimmed_line.starts_with(marker)
+}
+
+fn ranges_contain(ranges: &[(usize, usize)], offset: usize) -> bool {
+    ranges
+        .iter()
+        .any(|(start, end)| *start <= offset && offset < *end)
 }
 
 fn split_wikilink_content(content: &str) -> (String, Option<String>) {
@@ -495,6 +563,21 @@ mod tests {
         assert_eq!(reference.intent, FormaReferenceIntent::Link);
         assert_eq!(reference.target, "notes/parser");
         assert_eq!(reference.label, None);
+    }
+
+    #[test]
+    fn ignores_wikilinks_and_embeds_inside_fenced_code_blocks() {
+        let document = FormaMarkdownDocument::parse(
+            "Before [[notes/real]].\n\n```md\n[[notes/example]]\n![[notes/embed-example]]\n```\n\nAfter [[notes/also-real]].\n",
+        );
+
+        let targets = document
+            .references
+            .iter()
+            .map(|reference| reference.target.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(targets, vec!["notes/real", "notes/also-real"]);
     }
 
     #[test]
