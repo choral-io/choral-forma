@@ -536,6 +536,123 @@ affected_area: ""
 }
 
 #[test]
+fn tasks_list_and_inspect_read_task_metadata() {
+    let root = fixture_root("tasks-list-and-inspect");
+    std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
+    std::fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
+
+    std::fs::write(
+        root.join(".forma.yml"),
+        r#"schemaVersion: 1
+
+workspace:
+  name: "Task Inventory"
+  root: "."
+  canonicalLanguage: "en"
+  supportedLanguages:
+    - "en"
+  timezone: "UTC"
+
+include:
+  - ".forma/spaces/*.md"
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join(".forma/spaces/tasks.md"),
+        r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Tasks
+include:
+  - "knowledge/tasks/**/*.md"
+create:
+  directory: knowledge/tasks
+  filename: "{{ input.slug }}.md"
+  template: .forma/spaces/templates/task.md
+  inputs:
+    title:
+      required: true
+    slug:
+      default: "{{ input.title }}"
+      transform: slugify
+conventions:
+  titleField: title
+  summaryField: summary
+---
+
+# Tasks
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join(".forma/spaces/templates/task.md"),
+        "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"\"\n---\n\n# {{ input.title }}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("knowledge/tasks/ship-cli.md"),
+        r#"---
+schemaVersion: 1
+kind: task
+title: Ship CLI
+summary: Add CLI task inventory commands.
+readiness: ready
+priority: P0
+owner: Tiscs
+owners:
+  - Tiscs
+  - Mira
+assignees:
+  - Tiscs
+---
+
+# Ship CLI
+"#,
+    )
+    .unwrap();
+
+    let list = forma(&root)
+        .args(["tasks", "list", "--json"])
+        .output()
+        .expect("forma tasks list should run");
+
+    assert!(
+        list.status.success(),
+        "{}",
+        String::from_utf8_lossy(&list.stderr)
+    );
+    assert!(list.stderr.is_empty());
+    let list_stdout = String::from_utf8_lossy(&list.stdout);
+    assert!(list_stdout.contains(r#""operation":"tasks.list""#));
+    assert!(list_stdout.contains(r#""path":"knowledge/tasks/ship-cli.md""#));
+    assert!(list_stdout.contains(r#""readiness":"ready""#));
+    assert!(list_stdout.contains(r#""priority":"P0""#));
+
+    let inspect = forma(&root)
+        .args(["tasks", "inspect", "knowledge/tasks/ship-cli.md", "--json"])
+        .output()
+        .expect("forma tasks inspect should run");
+
+    assert!(
+        inspect.status.success(),
+        "{}",
+        String::from_utf8_lossy(&inspect.stderr)
+    );
+    assert!(inspect.stderr.is_empty());
+    let inspect_stdout = String::from_utf8_lossy(&inspect.stdout);
+    assert!(inspect_stdout.contains(r#""operation":"tasks.inspect""#));
+    assert!(inspect_stdout.contains(r#""title":"Ship CLI""#));
+    assert!(inspect_stdout.contains(r#""priority":"P0""#));
+    assert!(inspect_stdout.contains(r#""owner":"Tiscs""#));
+
+    assert!(!root.join(".forma/index.summary.json").exists());
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn global_workspace_option_selects_operation_root() {
     let cwd = fixture_root("workspace-option-cwd");
     let workspace = fixture_root("workspace-option-root");

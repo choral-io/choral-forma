@@ -399,6 +399,53 @@ pub struct ListEntry {
     pub fields: Value,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TasksListResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub tasks: Vec<TaskSummary>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TasksInspectResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub task: TaskSummary,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskSummary {
+    pub path: String,
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readiness: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owners: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignees: Option<Vec<String>>,
+}
+
 #[derive(Debug, Error)]
 pub enum OperationError {
     #[error("configuration error: {0}")]
@@ -682,6 +729,67 @@ pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, 
             entry_count: entries.len(),
         },
         entries,
+        summary,
+        diagnostics,
+    })
+}
+
+pub fn tasks_list(root: impl AsRef<Path>) -> Result<TasksListResult, OperationError> {
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let discovery = discover_workspace(root.as_ref())?;
+    let task_entries = selected_task_entries(&discovery.index.entries);
+    let mut diagnostics = discovery.diagnostics;
+    let mut tasks = Vec::with_capacity(task_entries.len());
+
+    for entry in task_entries {
+        let (task, task_diagnostics) = task_summary_from_entry(root.as_ref(), entry)?;
+        diagnostics.extend(task_diagnostics);
+        tasks.push(task);
+    }
+
+    diagnostics.sort_by_key(diagnostic_sort_key);
+    tasks.sort_by(|left, right| left.path.cmp(&right.path));
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+
+    Ok(TasksListResult {
+        schema_version: 1,
+        operation: "tasks.list".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace.config.workspace.name,
+            logo: None,
+        },
+        tasks,
+        summary,
+        diagnostics,
+    })
+}
+
+pub fn tasks_inspect(
+    root: impl AsRef<Path>,
+    path_or_id: &str,
+) -> Result<TasksInspectResult, OperationError> {
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let discovery = discover_workspace(root.as_ref())?;
+    let task_entries = selected_task_entries(&discovery.index.entries);
+    let entry = resolve_task_entry(task_entries, path_or_id)?;
+    let mut diagnostics = discovery.diagnostics;
+    let (task, task_diagnostics) = task_summary_from_entry(root.as_ref(), entry)?;
+    diagnostics.extend(task_diagnostics);
+    diagnostics.sort_by_key(diagnostic_sort_key);
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+
+    Ok(TasksInspectResult {
+        schema_version: 1,
+        operation: "tasks.inspect".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace.config.workspace.name,
+            logo: None,
+        },
+        task,
         summary,
         diagnostics,
     })
@@ -1391,6 +1499,145 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
     })
 }
 
+fn selected_task_entries(entries: &[IndexEntry]) -> Vec<&IndexEntry> {
+    entries
+        .iter()
+        .filter(|entry| entry.kind.as_deref() == Some("task") || entry.space == "tasks")
+        .collect()
+}
+
+fn resolve_task_entry<'a>(
+    entries: Vec<&'a IndexEntry>,
+    path_or_id: &str,
+) -> Result<&'a IndexEntry, OperationError> {
+    let normalized = normalize_entry_path(path_or_id).ok();
+    let normalized_without_extension = normalized
+        .as_deref()
+        .and_then(|path| path.strip_suffix(".md"))
+        .map(ToString::to_string);
+    let raw_without_extension = path_or_id
+        .strip_suffix(".md")
+        .unwrap_or(path_or_id)
+        .to_string();
+
+    let exact = entries.iter().copied().find(|entry| {
+        entry.path == path_or_id || normalized.as_deref() == Some(entry.path.as_str())
+    });
+    if let Some(entry) = exact {
+        return Ok(entry);
+    }
+
+    let id_matches = entries
+        .iter()
+        .copied()
+        .filter(|entry| {
+            let id = task_id_from_path(&entry.path);
+            id == raw_without_extension
+                || normalized_without_extension.as_deref() == Some(id.as_str())
+        })
+        .collect::<Vec<_>>();
+    match id_matches.len() {
+        1 => return Ok(id_matches[0]),
+        2.. => return Err(OperationError::EntryAmbiguous),
+        0 => {}
+    }
+
+    let basename_matches = entries
+        .iter()
+        .copied()
+        .filter(|entry| task_basename(&entry.path) == raw_without_extension)
+        .collect::<Vec<_>>();
+    match basename_matches.len() {
+        0 => Err(OperationError::EntryNotFound),
+        1 => Ok(basename_matches[0]),
+        _ => Err(OperationError::EntryAmbiguous),
+    }
+}
+
+fn task_summary_from_entry(
+    root: &Path,
+    entry: &IndexEntry,
+) -> Result<(TaskSummary, Vec<Diagnostic>), OperationError> {
+    let source =
+        fs::read_to_string(root.join(&entry.path)).map_err(|source| OperationError::Io {
+            path: entry.path.clone(),
+            source,
+        })?;
+    let document = FormaMarkdownDocument::parse(&source);
+    let metadata = document
+        .frontmatter
+        .value
+        .unwrap_or(Value::Mapping(Default::default()));
+    let diagnostics = document
+        .diagnostics
+        .into_iter()
+        .map(|diagnostic| diagnostic.with_path(entry.path.clone()))
+        .collect::<Vec<_>>();
+
+    Ok((
+        TaskSummary {
+            path: entry.path.clone(),
+            id: task_id_from_path(&entry.path),
+            title: string_field_with_fallback(&metadata, &["title", "fields.title"])
+                .or_else(|| entry.title.clone()),
+            summary: string_field_with_fallback(&metadata, &["summary", "fields.summary"])
+                .or_else(|| entry.summary.clone()),
+            status: string_field_with_fallback(&metadata, &["status", "fields.status"]),
+            readiness: string_field_with_fallback(&metadata, &["readiness", "fields.readiness"]),
+            priority: string_field_with_fallback(&metadata, &["priority", "fields.priority"]),
+            owner: string_field_with_fallback(&metadata, &["owner", "fields.owner"]),
+            owners: string_list_field_with_fallback(&metadata, &["owners", "fields.owners"]),
+            assignees: string_list_field_with_fallback(
+                &metadata,
+                &["assignees", "fields.assignees"],
+            ),
+        },
+        diagnostics,
+    ))
+}
+
+fn task_id_from_path(path: &str) -> String {
+    path.strip_suffix(".md").unwrap_or(path).to_string()
+}
+
+fn task_basename(path: &str) -> String {
+    path.rsplit('/')
+        .next()
+        .unwrap_or(path)
+        .strip_suffix(".md")
+        .unwrap_or(path.rsplit('/').next().unwrap_or(path))
+        .to_string()
+}
+
+fn string_field_with_fallback(value: &Value, fields: &[&str]) -> Option<String> {
+    fields
+        .iter()
+        .find_map(|field| value_at_path(value, field).and_then(|value| value.as_str()))
+        .map(ToString::to_string)
+}
+
+fn string_list_field_with_fallback(value: &Value, fields: &[&str]) -> Option<Vec<String>> {
+    fields.iter().find_map(|field| {
+        let values = value_at_path(value, field)?
+            .as_sequence()?
+            .iter()
+            .filter_map(Value::as_str)
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>();
+        Some(values)
+    })
+}
+
+fn value_at_path<'a>(value: &'a Value, field: &str) -> Option<&'a Value> {
+    let mut current = value;
+    for segment in field.split('.') {
+        current = current
+            .as_mapping()?
+            .get(Value::String(segment.to_string()))?;
+    }
+    Some(current)
+}
+
 fn config_sources(root: &Path) -> Vec<ConfigSource> {
     [
         (FORMA_CONFIG_PATH, ConfigSourceKind::Shared),
@@ -1978,7 +2225,7 @@ mod tests {
         KnowledgeHealthCategory, OperationError, WorkspaceFileFeature,
         build_knowledge_health_result, create_entry, init_workspace, inspect_config,
         is_raw_workspace_path_allowed, knowledge_health, list_file_references, list_files,
-        workspace_dashboard,
+        tasks_inspect, tasks_list, workspace_dashboard,
     };
     use crate::{
         Diagnostic, FORMA_VIEWS_DIR, IndexEntry, OperationStatus, ReferenceIntent,
@@ -2499,6 +2746,126 @@ include:
                 .iter()
                 .any(|file| file.path == ".forma/local/local.yml")
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn tasks_list_and_inspect_read_frontmatter_metadata() {
+        let root = fixture_root("tasks-operations");
+        fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
+        fs::create_dir_all(root.join("knowledge/tasks/subgroup")).unwrap();
+        fs::write(
+            root.join(".forma.yml"),
+            r#"schemaVersion: 1
+workspace:
+  name: Task Operations
+  canonicalLanguage: en
+  supportedLanguages:
+    - en
+  timezone: UTC
+include:
+  - .forma/spaces/*.md
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/tasks.md"),
+            r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Tasks
+include:
+  - knowledge/tasks/**/*.md
+create:
+  directory: knowledge/tasks
+  filename: "{{ input.slug }}.md"
+  template: .forma/spaces/templates/task.md
+  inputs:
+    title:
+      required: true
+    slug:
+      default: "{{ input.title }}"
+      transform: slugify
+conventions:
+  titleField: title
+  summaryField: summary
+---
+
+# Tasks
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/templates/task.md"),
+            "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"\"\n---\n\n# {{ input.title }}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/tasks/ship-cli.md"),
+            r#"---
+schemaVersion: 1
+kind: task
+title: Ship CLI
+summary: Add CLI task inventory commands.
+readiness: ready
+priority: P0
+owner: Tiscs
+owners: []
+assignees: []
+---
+
+# Ship CLI
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/tasks/subgroup/legacy.md"),
+            r#"---
+schemaVersion: 1
+kind: note
+fields:
+  title: Legacy Task
+  summary: Support fixture compatibility.
+  status: todo
+  priority: P2
+  owners: []
+  assignees: []
+---
+
+# Legacy Task
+"#,
+        )
+        .unwrap();
+
+        let list = tasks_list(&root).unwrap();
+        assert_eq!(list.operation, "tasks.list");
+        assert_eq!(list.tasks.len(), 2);
+        assert_eq!(list.tasks[0].path, "knowledge/tasks/ship-cli.md");
+        assert_eq!(list.tasks[0].id, "knowledge/tasks/ship-cli");
+        assert_eq!(list.tasks[0].readiness.as_deref(), Some("ready"));
+        assert_eq!(list.tasks[0].priority.as_deref(), Some("P0"));
+        assert_eq!(list.tasks[0].owner.as_deref(), Some("Tiscs"));
+        assert_eq!(list.tasks[0].owners, Some(Vec::new()));
+        assert_eq!(list.tasks[0].assignees, Some(Vec::new()));
+        assert_eq!(list.tasks[1].path, "knowledge/tasks/subgroup/legacy.md");
+        assert_eq!(list.tasks[1].status.as_deref(), Some("todo"));
+        assert_eq!(list.tasks[1].owners, Some(Vec::new()));
+        assert_eq!(list.tasks[1].assignees, Some(Vec::new()));
+
+        let inspect = tasks_inspect(&root, "ship-cli").unwrap();
+        assert_eq!(inspect.operation, "tasks.inspect");
+        assert_eq!(inspect.task.path, "knowledge/tasks/ship-cli.md");
+        assert_eq!(inspect.task.title.as_deref(), Some("Ship CLI"));
+
+        let legacy = tasks_inspect(&root, "legacy").unwrap();
+        assert_eq!(legacy.task.path, "knowledge/tasks/subgroup/legacy.md");
+        assert_eq!(legacy.task.status.as_deref(), Some("todo"));
+        assert!(matches!(
+            tasks_inspect(&root, "missing"),
+            Err(OperationError::EntryNotFound)
+        ));
 
         fs::remove_dir_all(root).unwrap();
     }

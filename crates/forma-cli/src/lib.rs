@@ -16,7 +16,8 @@ use axum::routing::{get, post};
 use clap::{Parser, Subcommand};
 use forma_rpc::{
     CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest, InspectRequest,
-    KnowledgeHealthRequest, ListRequest, Operation, OperationRequest,
+    KnowledgeHealthRequest, ListRequest, Operation, OperationRequest, TasksInspectRequest,
+    TasksListRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -81,6 +82,10 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    Tasks {
+        #[command(subcommand)]
+        command: TasksCommand,
+    },
     Config {
         #[command(subcommand)]
         command: ConfigCommand,
@@ -106,6 +111,19 @@ enum ConfigCommand {
     Inspect {
         #[arg(long)]
         path: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum TasksCommand {
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    Inspect {
+        path_or_id: String,
         #[arg(long)]
         json: bool,
     },
@@ -214,6 +232,24 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             exit_if_failed(&result);
             Ok(())
         }
+        Some(Command::Tasks { command }) => match command {
+            TasksCommand::List { json } => {
+                let result = dispatcher
+                    .dispatch(OperationRequest::TasksList(TasksListRequest::default()))?;
+                print_result(&result, json, "tasks list");
+                exit_if_failed(&result);
+                Ok(())
+            }
+            TasksCommand::Inspect { path_or_id, json } => {
+                let result =
+                    dispatcher.dispatch(OperationRequest::TasksInspect(TasksInspectRequest {
+                        path_or_id,
+                    }))?;
+                print_result(&result, json, "tasks inspect");
+                exit_if_failed(&result);
+                Ok(())
+            }
+        },
         Some(Command::Config { command }) => match command {
             ConfigCommand::Inspect { path, json } => {
                 let result =
