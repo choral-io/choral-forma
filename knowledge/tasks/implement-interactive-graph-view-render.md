@@ -37,8 +37,7 @@ affected_area: Graph views
 
 ## Goal
 
-Stabilize graph view data and the first interactive WebApp graph renderer for
-the public read-only release.
+Stabilize graph view data and the first interactive WebApp graph renderer for the public read-only release.
 
 ## Sources
 
@@ -52,36 +51,27 @@ the public read-only release.
 
 ## Context
 
-The accepted view query model treats graph as a view mode rather than a global
-special feature. A graph view should use normal view navigation, tabs, or links,
-and should remain a query over workspace files instead of a separate product
-subsystem.
+The accepted view query model treats graph as a view mode rather than a global special feature. A graph view should use normal view navigation, tabs, or links, and should remain a query over workspace files instead of a separate product subsystem.
 
 The current implementation already has the first baseline:
 
-- `view.render` can return `graph` nodes and edges from configured view source
-  and resolved index references.
+- `view.render` can return `graph` nodes and edges from configured view source and resolved index references.
 - The WebApp renders graph views through Sigma.js.
 - Graph nodes can navigate to indexed documents.
 - Theme-aware graph colors and hover labels have a first-pass implementation.
 
-The remaining task is public-release hardening, not proving that graph rendering
-is possible.
+The remaining task is public-release hardening, not proving that graph rendering is possible.
 
 ## In Scope
 
-- Review and stabilize the graph render result shape for `view.render` as a
-  public read-only contract.
-- Keep graph nodes and edges derived from existing workspace source/query
-  semantics and resolved index reference data.
+- Review and stabilize the graph render result shape for `view.render` as a public read-only contract.
+- Keep graph nodes and edges derived from existing workspace source/query semantics and graph edge configuration over resolved reference data.
+- Support explicit graph edge configuration for body wikilinks, embeds, and structured field references, with optional user-facing labels for configured edges.
 - Harden the WebApp graph surface for desktop and small-screen review.
-- Validate node navigation, empty states, error states, theme switching, and
-  long labels.
+- Validate node navigation, empty states, error states, theme switching, and long labels.
 - Preserve graph as a normal view mode.
-- Add or update tests for graph render data and invalid graph-view definitions
-  when the contract changes.
-- Update architecture or product knowledge if the graph render contract
-  changes.
+- Add or update tests for graph render data and invalid graph-view definitions when the contract changes.
+- Update architecture or product knowledge if the graph render contract changes.
 
 ## Out Of Scope
 
@@ -94,25 +84,19 @@ is possible.
 ## Acceptance Criteria
 
 - A configured graph view can be opened through normal WebApp navigation.
-- Graph render output contains enough node and edge data for the WebApp to
-  display a meaningful minimal graph or graph-ready data surface.
-- Graph view source/query behavior follows the existing view source query
-  model.
-- Graph edges are derived from resolved index references rather than ad hoc
-  Markdown scanning in the WebApp.
+- Graph render output contains enough node and edge data for the WebApp to display a meaningful minimal graph or graph-ready data surface.
+- Graph view source/query behavior follows the existing view source query model.
+- Graph edges are derived from configured graph edges over resolved references rather than ad hoc Markdown scanning in the WebApp.
+- Body and field graph edges use configured or fallback labels rather than raw syntax intents or field names.
 - Invalid graph definitions produce diagnostics rather than panics.
 - The WebApp graph renderer remains readable in light and dark themes.
-- Empty graph views and graph views with unresolved targets produce clear UI
-  states.
+- Empty graph views and graph views with unresolved targets produce clear UI states.
 - Focused Rust and Web checks pass for changed behavior.
 
 ## Relationship Notes
 
-This task builds on completed view query, view render, WebApp work, and the
-reference navigation baseline. It remains Backlog as a public-release hardening
-item for graph views.
+This task builds on completed view query, view render, WebApp work, and the reference navigation baseline. It remains Backlog as a public-release hardening item for graph views.
 
 ## Open Questions
 
-- Should the first graph view include uncatalogued Markdown files by default
-  when using `source.kind: workspace`?
+- Should the first graph view include uncatalogued Markdown files by default when using `source.kind: workspace`?

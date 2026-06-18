@@ -149,6 +149,9 @@ export interface DashboardGraphEdge {
     id: string;
     intent: "reference" | "link" | "embed";
     referenceSource: "frontmatter" | "body";
+    label: string;
+    field?: string;
+    semanticType?: string;
     source: string;
     sourcePath: string;
     target: string;

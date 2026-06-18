@@ -5,7 +5,7 @@ summary: "Replace the starter guide with a few real team pages."
 status: "todo"
 priority: "high"
 assignees:
-  - "[[users/sam-rivera]]"
+  - users/sam-rivera.md
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 dueDate: "2026-06-12"

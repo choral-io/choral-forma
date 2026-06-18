@@ -2,7 +2,7 @@
 
 Choral Forma is an early-stage exploration of a lightweight, editor-independent team knowledge application.
 
-The project is currently knowledge-first: product direction, reusable concepts, decisions, planning, and delivery workflow live in repository Markdown while the application code remains a minimal scaffold. The long-term product direction is to keep Markdown files and explicit schemas as the source of truth, rather than hiding team knowledge in a proprietary store.
+The project is knowledge-first: product direction, reusable concepts, decisions, planning, and delivery workflow live in repository Markdown while the application reads and writes explicit Markdown files and schemas. The long-term product direction is to keep Markdown files and explicit schemas as the source of truth, rather than hiding team knowledge in a proprietary store.
 
 The current `knowledge/` directory is the development knowledge base for this repository. It guides Choral Forma project development, planning, and delivery; it is not the same thing as a future Choral Forma user workspace, and its workflow rules should not be treated as automatic product requirements.
 
@@ -31,10 +31,8 @@ The current application code implements the P0 read, inspect, check, render, ser
 - `crates/forma-rpc/`: shared operation dispatcher and minimal JSON-RPC 2.0 adapter model.
 - `crates/forma-cli/`: Rust `forma` binary, CLI handlers, local HTTP server, and embedded WebApp asset serving.
 - `packages/shared/`: shared TypeScript RPC client and operation result types.
-- `packages/webapp/`: Vite React read-only WebApp for browsing configured Forma
-  workspaces.
-- `examples/forma-starter-kit/`: committed starter workspace for demos, smoke
-  validation, and reader/view examples.
+- `packages/webapp/`: Vite React read-only WebApp for browsing configured Forma workspaces.
+- `examples/forma-starter-kit/`: committed starter workspace for demos, smoke validation, and reader/view examples.
 - `.agents/skills/`: project-local Agent workflow skills.
 - `.agents/.local/`: local-only Agent runtime state, ignored by git.
 - `AGENTS.md`: repository instructions for AI agents.
@@ -90,9 +88,7 @@ mise run check
 
 ## Run The Starter Kit
 
-`examples/forma-starter-kit/` is the default committed example workspace. It is
-separate from this repository's `knowledge/` development knowledge base and is
-intended for product demos, smoke validation, and reader/view fixtures.
+`examples/forma-starter-kit/` is the default committed example workspace. It is separate from this repository's `knowledge/` development knowledge base and is intended for product demos, smoke validation, and reader/view fixtures.
 
 Check the example workspace:
 
@@ -106,9 +102,7 @@ Serve the read-only WebApp and RPC backend from the example workspace:
 cargo run -p forma-cli -- --workspace examples/forma-starter-kit serve
 ```
 
-Then open the printed local URL in a browser. Release builds embed the WebApp
-assets in the `forma` binary; development builds may show the embedded asset
-placeholder until `packages/webapp` has been built.
+Then open the printed local URL in a browser. Release builds embed the WebApp assets in the `forma` binary; development builds may show the embedded asset placeholder until `packages/webapp` has been built.
 
 ## Installing Forma
 

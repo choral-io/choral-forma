@@ -224,7 +224,9 @@ export type GraphRenderEdge = {
     targetPath: string;
     intent: "reference" | "link" | "embed";
     referenceSource: "frontmatter" | "body";
+    label: string;
     field?: string;
+    semanticType?: string;
 };
 
 export type ViewRenderOutput =

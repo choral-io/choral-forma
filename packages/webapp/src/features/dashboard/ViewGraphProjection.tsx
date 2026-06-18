@@ -52,7 +52,7 @@ export function ViewGraphProjection({
 
             graph.addDirectedEdgeWithKey(edge.id, edge.source, edge.target, {
                 color: graphTheme.edge,
-                label: edge.intent,
+                label: edge.label,
                 size: edge.referenceSource === "body" ? 1.2 : 0.8,
             });
         }

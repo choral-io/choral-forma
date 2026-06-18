@@ -167,8 +167,11 @@ pub struct GraphRenderEdge {
     pub target_path: String,
     pub intent: ReferenceIntent,
     pub reference_source: ReferenceSource,
+    pub label: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub semantic_type: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -182,6 +185,7 @@ struct ViewDefinition {
     query: Option<QueryDefinition>,
     table: Option<TableDefinition>,
     kanban: Option<KanbanDefinition>,
+    graph: Option<GraphDefinition>,
     #[serde(default)]
     sort: Vec<SortDefinition>,
 }
@@ -259,6 +263,29 @@ enum SortDirection {
 struct KanbanDefinition {
     #[serde(default)]
     columns: Vec<KanbanColumnDefinition>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphDefinition {
+    #[serde(default)]
+    edges: Vec<GraphEdgeDefinition>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphEdgeDefinition {
+    source: GraphEdgeSource,
+    intent: Option<ReferenceIntent>,
+    field: Option<String>,
+    label: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum GraphEdgeSource {
+    Body,
+    Fields,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -763,12 +790,20 @@ fn render_view_definition(
                     .collect(),
             })
         }
-        "graph" => Some(render_graph_view(&items, entries)),
+        "graph" => Some(render_graph_view(
+            &items,
+            entries,
+            definition.graph.as_ref(),
+        )),
         _ => None,
     }
 }
 
-fn render_graph_view(items: &[RenderCandidate], entries: &[IndexEntry]) -> ViewRenderOutput {
+fn render_graph_view(
+    items: &[RenderCandidate],
+    entries: &[IndexEntry],
+    graph: Option<&GraphDefinition>,
+) -> ViewRenderOutput {
     let included_paths = items
         .iter()
         .map(|item| item.path.as_str())
@@ -789,6 +824,13 @@ fn render_graph_view(items: &[RenderCandidate], entries: &[IndexEntry]) -> ViewR
         })
         .collect();
 
+    let default_rules;
+    let rules = if let Some(graph) = graph {
+        graph.edges.as_slice()
+    } else {
+        default_rules = default_graph_edges();
+        default_rules.as_slice()
+    };
     let mut seen_edges = BTreeSet::<String>::new();
     let mut edges = Vec::new();
     for item in items {
@@ -797,40 +839,120 @@ fn render_graph_view(items: &[RenderCandidate], entries: &[IndexEntry]) -> ViewR
         };
 
         for reference in &entry.refs {
-            if reference.source != ReferenceSource::Body {
-                continue;
-            }
-
             if !included_paths.contains(reference.target_path.as_str()) {
                 continue;
             }
 
-            let key = format!(
-                "{}->{}:{:?}:{:?}:{}",
-                entry.path,
-                reference.target_path,
-                reference.intent,
-                reference.source,
-                reference.field.as_deref().unwrap_or_default()
-            );
-            if !seen_edges.insert(key.clone()) {
-                continue;
-            }
+            for rule in rules {
+                if !graph_edge_rule_matches(rule, reference) {
+                    continue;
+                }
 
-            edges.push(GraphRenderEdge {
-                id: key,
-                source: entry.path.clone(),
-                target: reference.target_path.clone(),
-                source_path: entry.path.clone(),
-                target_path: reference.target_path.clone(),
-                intent: reference.intent,
-                reference_source: reference.source,
-                field: reference.field.clone(),
-            });
+                let label = graph_edge_label(rule, reference);
+                let key = format!(
+                    "{}->{}:{:?}:{:?}:{}:{}",
+                    entry.path,
+                    reference.target_path,
+                    reference.intent,
+                    reference.source,
+                    reference.field.as_deref().unwrap_or_default(),
+                    label
+                );
+                if !seen_edges.insert(key.clone()) {
+                    continue;
+                }
+
+                edges.push(GraphRenderEdge {
+                    id: key,
+                    source: entry.path.clone(),
+                    target: reference.target_path.clone(),
+                    source_path: entry.path.clone(),
+                    target_path: reference.target_path.clone(),
+                    intent: reference.intent,
+                    reference_source: reference.source,
+                    label,
+                    field: reference.field.clone(),
+                    semantic_type: reference.semantic_type.clone(),
+                });
+            }
         }
     }
 
     ViewRenderOutput::Graph { nodes, edges }
+}
+
+fn default_graph_edges() -> Vec<GraphEdgeDefinition> {
+    vec![
+        GraphEdgeDefinition {
+            source: GraphEdgeSource::Body,
+            intent: Some(ReferenceIntent::Link),
+            field: None,
+            label: None,
+        },
+        GraphEdgeDefinition {
+            source: GraphEdgeSource::Body,
+            intent: Some(ReferenceIntent::Embed),
+            field: None,
+            label: None,
+        },
+    ]
+}
+
+fn graph_edge_rule_matches(rule: &GraphEdgeDefinition, reference: &IndexReference) -> bool {
+    match rule.source {
+        GraphEdgeSource::Body => {
+            reference.source == ReferenceSource::Body
+                && rule.intent.is_none_or(|intent| intent == reference.intent)
+        }
+        GraphEdgeSource::Fields => {
+            reference.source == ReferenceSource::Frontmatter
+                && rule
+                    .field
+                    .as_ref()
+                    .is_some_and(|field| reference.field.as_ref() == Some(field))
+                && rule.intent.is_none_or(|intent| intent == reference.intent)
+        }
+    }
+}
+
+fn graph_edge_label(rule: &GraphEdgeDefinition, reference: &IndexReference) -> String {
+    if let Some(label) = rule.label.as_ref().filter(|label| !label.trim().is_empty()) {
+        return label.clone();
+    }
+
+    match rule.source {
+        GraphEdgeSource::Body => match reference.intent {
+            ReferenceIntent::Link => "links to".to_string(),
+            ReferenceIntent::Embed => "embeds".to_string(),
+            ReferenceIntent::Reference => "references".to_string(),
+        },
+        GraphEdgeSource::Fields => rule
+            .field
+            .as_deref()
+            .or(reference.field.as_deref())
+            .map(field_label)
+            .unwrap_or_else(|| "references".to_string()),
+    }
+}
+
+fn field_label(field: &str) -> String {
+    field
+        .split('.')
+        .next_back()
+        .unwrap_or(field)
+        .chars()
+        .enumerate()
+        .fold(String::new(), |mut label, (index, character)| {
+            if index > 0 && character.is_uppercase() {
+                label.push(' ');
+            }
+            if index == 0 {
+                label.extend(character.to_uppercase());
+            } else {
+                label.push(character);
+            }
+            label
+        })
 }
 
 impl RenderCandidate {
@@ -1608,6 +1730,46 @@ mod tests {
         assert_eq!(edges[0].target, "notes/target.md");
         assert_eq!(edges[0].intent, ReferenceIntent::Link);
         assert_eq!(edges[0].reference_source, ReferenceSource::Body);
+        assert_eq!(edges[0].label, "links to");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renders_configured_graph_edges_from_frontmatter_fields() {
+        let root = fixture_root("graph-view-field-render");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        fs::write(
+            root.join("users/mira-chen.md"),
+            "---\nkind: user\nname: Mira Chen\n---\n\n# Mira Chen\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("todos/connect-related-pages.md"),
+            "---\nkind: todo\ntitle: Connect Related Pages\nassignees:\n  - users/mira-chen.md\n---\n\n# Connect Related Pages\n\nSee [[users/mira-chen]].\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/people-graph.md"),
+            "---\nkind: view\nmode: graph\ntitle: People Graph\nsource:\n  type: pages\ngraph:\n  edges:\n    - source: fields\n      field: assignees\n      label: assigned to\n---\n\n# People Graph\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "people-graph", BTreeMap::new()).unwrap();
+        let Some(ViewRenderOutput::Graph { nodes, edges }) = result.render else {
+            panic!("expected graph render");
+        };
+
+        assert_eq!(nodes.len(), 2);
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].source, "todos/connect-related-pages.md");
+        assert_eq!(edges[0].target, "users/mira-chen.md");
+        assert_eq!(edges[0].intent, ReferenceIntent::Reference);
+        assert_eq!(edges[0].reference_source, ReferenceSource::Frontmatter);
+        assert_eq!(edges[0].field.as_deref(), Some("assignees"));
+        assert_eq!(edges[0].label, "assigned to");
+        assert_eq!(edges[0].semantic_type.as_deref(), Some("user"));
 
         fs::remove_dir_all(root).unwrap();
     }

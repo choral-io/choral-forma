@@ -8,6 +8,17 @@ display:
 description: Graph links across notes, todos, and referenced people.
 source:
   type: pages
+graph:
+  edges:
+    - source: body
+      intent: link
+      label: links to
+    - source: body
+      intent: embed
+      label: embeds
+    - source: fields
+      field: assignees
+      label: assigned to
 ---
 
 # Graph

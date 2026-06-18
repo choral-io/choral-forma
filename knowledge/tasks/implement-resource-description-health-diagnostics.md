@@ -45,28 +45,17 @@ Detect resource description documents whose target resource file is missing.
 
 ## Context
 
-Workspace resource routes and resource file inventory are separate from
-knowledge-entry checks. A non-Markdown resource such as `assets/logo.png` may
-exist without a Markdown description document. When a description document such
-as `assets/logo.png.md` exists, it represents knowledge about the resource and
-the described target should exist.
+Workspace resource routes and resource file inventory are separate from knowledge-entry checks. A non-Markdown resource such as `assets/logo.png` may exist without a Markdown description document. When a description document such as `assets/logo.png.md` exists, it represents knowledge about the resource and the described target should exist.
 
-The raw route/resource inventory baseline does not need to own this health
-rule. The rule belongs with diagnostic and health behavior so users can find
-broken resource documentation without making resources part of spaces,
-graph nodes, backlinks, or normal knowledge-entry validation.
+The raw route/resource inventory baseline does not need to own this health rule. The rule belongs with diagnostic and health behavior so users can find broken resource documentation without making resources part of spaces, graph nodes, backlinks, or normal knowledge-entry validation.
 
 ## In Scope
 
-- Detect Markdown resource description documents whose filename-derived target
-  resource is missing.
-- Emit a diagnostic such as `resource.description.missingTarget` with the
-  description document path and missing target path.
-- Keep resource files themselves out of spaces, graph nodes, backlinks,
-  and knowledge-entry checks by default.
+- Detect Markdown resource description documents whose filename-derived target resource is missing.
+- Emit a diagnostic such as `resource.description.missingTarget` with the description document path and missing target path.
+- Keep resource files themselves out of spaces, graph nodes, backlinks, and knowledge-entry checks by default.
 - Add focused Rust coverage for present-resource and missing-resource cases.
-- Update operation or health documentation if the diagnostic becomes an API
-  contract.
+- Update operation or health documentation if the diagnostic becomes an API contract.
 
 ## Out Of Scope
 
@@ -78,35 +67,28 @@ graph nodes, backlinks, or normal knowledge-entry validation.
 
 ## Acceptance Criteria
 
-- `assets/logo.png.md` with an existing `assets/logo.png` does not produce a
-  missing-target diagnostic.
-- `assets/logo.png.md` without `assets/logo.png` produces a
-  `resource.description.missingTarget` diagnostic.
+- `assets/logo.png.md` with an existing `assets/logo.png` does not produce a missing-target diagnostic.
+- `assets/logo.png.md` without `assets/logo.png` produces a `resource.description.missingTarget` diagnostic.
 - The diagnostic uses workspace-relative POSIX paths only.
-- Non-Markdown resources do not become space entries, graph nodes, or
-  backlink participants because of this check.
+- Non-Markdown resources do not become space entries, graph nodes, or backlink participants because of this check.
 - Focused Rust checks pass for the changed diagnostic behavior.
 
 ## Relationship Notes
 
-This task follows the raw route/resource inventory baseline. The
-`blocked_by` entry records dependency history and is resolved once
-[[tasks/implement-workspace-resource-routes]] is in Done.
+This task follows the raw route/resource inventory baseline. The `blocked_by` entry records dependency history and is resolved once [[tasks/implement-workspace-resource-routes]] is in Done.
 
 It can feed the read-only knowledge health WebApp task.
 
 ## Validation Notes
 
 - Implemented `resource.description.missingTarget` in core workspace discovery.
-- Added focused Rust coverage for present-resource and missing-resource
-  description documents.
-- Updated check/index and operation API architecture docs for the new diagnostic
-  contract.
+- Added focused Rust coverage for present-resource and missing-resource description documents.
+- Updated check/index and operation API architecture docs for the new diagnostic contract.
 - Validation passed on 2026-05-25:
     - `cargo test -p forma-core resource_description_documents_report_missing_targets`
     - `cargo test -p forma-core`
     - `cargo test -p forma-rpc`
-    - `mise run check:knowledge`
+    - `pnpm exec prettier --check "knowledge/**/*.md"`
     - `mise run check:rust`
     - `git diff --check`
 

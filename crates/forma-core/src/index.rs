@@ -783,8 +783,8 @@ fn resolve_frontmatter_ref_value(
     let Some(raw_target) = value.as_str() else {
         return;
     };
-    let mut target = strip_reference_markup(raw_target);
-    let should_transform = !is_explicit_path_reference(raw_target, &target);
+    let mut target = raw_target.trim().to_string();
+    let should_transform = !is_explicit_path_reference(&target);
     if should_transform && let Some(transform) = field.transform.as_deref() {
         match apply_input_transform(transform, &target) {
             Ok(transformed) => target = transformed,
@@ -943,7 +943,7 @@ impl PathIndex {
     }
 
     fn resolve(&self, raw_target: &str, space: Option<&str>) -> ResolveResult {
-        self.resolve_candidates(candidate_paths(&strip_reference_markup(raw_target)), space)
+        self.resolve_candidates(candidate_paths(raw_target), space)
     }
 
     fn resolve_from(
@@ -1035,8 +1035,8 @@ fn normalize_posix_path(path: &str) -> Option<String> {
     Some(parts.join("/"))
 }
 
-fn is_explicit_path_reference(raw_target: &str, target: &str) -> bool {
-    (raw_target.starts_with("[[") || raw_target.starts_with("![[")) && target.contains('/')
+fn is_explicit_path_reference(target: &str) -> bool {
+    target.contains('/') || target.ends_with(".md")
 }
 
 fn basename_id(path: &str) -> String {
@@ -1261,7 +1261,7 @@ mod tests {
         write_entry(
             &root,
             "todos/user-registration.md",
-            "---\nkind: todo\ntitle: User registration\nsummary: Register users\nassignees:\n  - \"[[users/tiscs]]\"\n---\nSee [[notes/account-model]] and ![[users/tiscs]].\n",
+            "---\nkind: todo\ntitle: User registration\nsummary: Register users\nassignees:\n  - users/tiscs.md\n---\nSee [[notes/account-model]] and ![[users/tiscs]].\n",
         );
         write_view(
             &root,
@@ -1610,6 +1610,40 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.code == "ref.ambiguous")
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn frontmatter_refs_do_not_accept_wikilink_markup() {
+        let root = fixture_root("frontmatter-wikilink-ref");
+        write_workspace(&root);
+        write_entry(
+            &root,
+            "users/tiscs.md",
+            "---\nkind: user\ntitle: Tiscs\n---\n",
+        );
+        write_entry(
+            &root,
+            "todos/broken.md",
+            "---\nkind: todo\ntitle: Broken\nassignees:\n  - \"[[users/tiscs]]\"\n---\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+        let todo = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "todos/broken.md")
+            .unwrap();
+
+        assert!(todo.refs.is_empty());
+        assert!(discovery.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "ref.unresolved"
+                && diagnostic
+                    .actual
+                    .as_deref()
+                    .is_some_and(|actual| actual == "[[users/tiscs]]")
+        }));
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -13,66 +13,39 @@ tags:
 
 ## Goal
 
-Choral Forma should make complex project knowledge easier to maintain, read, and
-reuse by both humans and AI Agents.
+Choral Forma should make complex project knowledge easier to maintain, read, and reuse by both humans and AI Agents.
 
-The product should help people maintain a structured, normalized, versioned
-knowledge base that is friendly for human reading and reliable as Agent context.
-Many human and Agent mistakes begin with insufficient context or low-quality
-context; Choral Forma should reduce that failure mode.
+The product should help people maintain a structured, normalized, versioned knowledge base that is friendly for human reading and reliable as Agent context. Many human and Agent mistakes begin with insufficient context or low-quality context; Choral Forma should reduce that failure mode.
 
 ## Users
 
-Choral Forma should serve teams and individuals doing complex, process-heavy
-work. This includes software, internet products, scientific research, sales,
-manufacturing, operations, and one-person company workflows.
+Choral Forma should serve teams and individuals doing complex, process-heavy work. This includes software, internet products, scientific research, sales, manufacturing, operations, and one-person company workflows.
 
-The product should not assume one team type, one industry, or one canonical
-information architecture. It should be simple at the core and flexible enough
-for users to create their own structures, schemas, modes, and templates.
+The product should not assume one team type, one industry, or one canonical information architecture. It should be simple at the core and flexible enough for users to create their own structures, schemas, modes, and templates.
 
 ## Product Principles
 
-Choral Forma should not be treated as only a Markdown editor. It should become a
-repository-backed knowledge compiler that continuously turns raw sources, human
-decisions, Agent analysis, and project artifacts into auditable, linked,
-maintainable canonical knowledge.
+Choral Forma should not be treated as only a Markdown editor. It should become a repository-backed knowledge compiler that continuously turns raw sources, human decisions, Agent analysis, and project artifacts into auditable, linked, maintainable canonical knowledge.
 
-- Keep the core simple, like a general note or knowledge app, while allowing
-  many usage patterns to emerge.
-- Treat repository files as durable state, but do not assume users understand
-  Git concepts.
-- Support human-readable knowledge and Agent-friendly context as equally
-  important outputs.
+- Keep the core simple, like a general note or knowledge app, while allowing many usage patterns to emerge.
+- Treat repository files as durable state, but do not assume users understand Git concepts.
+- Support human-readable knowledge and Agent-friendly context as equally important outputs.
 - Make structured knowledge approachable for non-software professional users.
 - Prefer user-configurable structures over hard-coded product assumptions.
 - Make hidden context, stale context, and poor context quality visible.
-- Treat validation as diagnostic-first rather than enforcement-first because
-  repository files remain directly editable throughout the product lifecycle.
-- Model repeatable note types as spaces: a named set of related entries
-  with a source location, schema, templates, references, and views.
-- Keep spaces thin. They should explain files, not become a heavyweight
-  database, permission, or workflow engine.
-- Support user-defined semantic types instead of hard-coding product concepts
-  such as people, projects, statuses, priorities, customers, or machines.
-- Treat GUI and CLI as first-class product interfaces. Agent and Skill flows
-  should assist and orchestrate product capabilities, not replace them.
+- Treat validation as diagnostic-first rather than enforcement-first because repository files remain directly editable throughout the product lifecycle.
+- Model repeatable note types as spaces: a named set of related entries with a source location, schema, templates, references, and views.
+- Keep spaces thin. They should explain files, not become a heavyweight database, permission, or workflow engine.
+- Support user-defined semantic types instead of hard-coding product concepts such as people, projects, statuses, priorities, customers, or machines.
+- Treat GUI and CLI as first-class product interfaces. Agent and Skill flows should assist and orchestrate product capabilities, not replace them.
 
 ## Relationship To Current Knowledge Workflow
 
-The current `knowledge/` directory is not a direct product specification for a
-future Choral Forma user workspace. It is the development knowledge base for
-this repository and has its own workflow rules, schemas, member conventions,
-planning model, and Agent skills.
+The current `knowledge/` directory is not a direct product specification for a future Choral Forma user workspace. It is the development knowledge base for this repository and has its own workflow rules, schemas, member conventions, planning model, and Agent skills.
 
-At the same time, this repository's knowledge workflow is an early practice
-ground for Choral Forma's product thesis. It should be treated as dogfooding,
-prototype practice, and an evidence source for product design.
+At the same time, this repository's knowledge workflow is an early practice ground for Choral Forma's product thesis. It should be treated as dogfooding, prototype practice, and an evidence source for product design.
 
-Practices that prove useful in this workflow should become candidates for
-Choral Forma capabilities. Practices that are shaped by the current repository's
-toolchain, historical choices, or development-team context should be abstracted
-before being promoted into product requirements.
+Practices that prove useful in this workflow should become candidates for Choral Forma capabilities. Practices that are shaped by the current repository's toolchain, historical choices, or development-team context should be abstracted before being promoted into product requirements.
 
 Working rule:
 
@@ -81,11 +54,7 @@ current knowledge-workflow = early practice and evidence
 future Choral Forma = productized capabilities abstracted from practice
 ```
 
-The current workflow can therefore inform product design, but it should not
-automatically constrain product workspaces. When a current workflow convention
-conflicts with a cleaner product model, the product design should identify the
-underlying user value, compatibility need, and migration cost before adopting or
-rejecting that convention.
+The current workflow can therefore inform product design, but it should not automatically constrain product workspaces. When a current workflow convention conflicts with a cleaner product model, the product design should identify the underlying user value, compatibility need, and migration cost before adopting or rejecting that convention.
 
 ## Relationship To Choral Flows
 
@@ -106,43 +75,25 @@ Choral Forma should not be treated only as a companion tool for Choral Flows. It
 
 A Choral Forma repository may also be consumed by Choral Flows as a Git-backed knowledge source. In that model, Forma remains the professional authoring and governance source, while Flows installs the repository as a Workspace Data Source and governs operational use through Workspace, Project, Matter, Agent, Skill, and permission policies. This should be treated as integration, not full migration from Forma into Flows.
 
-Choral Flows does not face the same direct-file inconsistency problem because
-users operate through product surfaces and knowledge documents are handled by
-the server. Choral Forma has a larger inconsistency surface because repository
-files remain directly editable. It should still borrow Choral Flows' broader
-workflow idea: maintenance problems should become observable, attributable,
-diagnosable, and repairable through structured findings, reviewable changes,
-tasks, or Agent workflows instead of only being printed as errors.
+Choral Flows does not face the same direct-file inconsistency problem because users operate through product surfaces and knowledge documents are handled by the server. Choral Forma has a larger inconsistency surface because repository files remain directly editable. It should still borrow Choral Flows' broader workflow idea: maintenance problems should become observable, attributable, diagnosable, and repairable through structured findings, reviewable changes, tasks, or Agent workflows instead of only being printed as errors.
 
 ## Behavior
 
 ### Flexible Knowledge Spaces
 
-Choral Forma should let users define structures that fit their own work. A
-future workspace may use notes, tasks, processes, decisions, research, meeting
-records, designs, operating procedures, sales workflows, manufacturing checklists,
-or other domain-specific documents.
+Choral Forma should let users define structures that fit their own work. A future workspace may use notes, tasks, processes, decisions, research, meeting records, designs, operating procedures, sales workflows, manufacturing checklists, or other domain-specific documents.
 
-Default templates and schemas can help users get started, but the product should
-allow custom structures, schemas, modes, and templates instead of forcing the
-current repository's `knowledge/` layout onto every user.
+Default templates and schemas can help users get started, but the product should allow custom structures, schemas, modes, and templates instead of forcing the current repository's `knowledge/` layout onto every user.
 
-Astro Content Spaces are a useful reference for this model. In Choral Forma, a space should mean a group of related knowledge entries with a
-defined source, schema, template, references, and view behavior. A space
-could represent decisions, experiments, customer notes, manufacturing issues,
-sales opportunities, operating procedures, or any domain-specific note type.
+Astro Content Spaces are a useful reference for this model. In Choral Forma, a space should mean a group of related knowledge entries with a defined source, schema, template, references, and view behavior. A space could represent decisions, experiments, customer notes, manufacturing issues, sales opportunities, operating procedures, or any domain-specific note type.
 
-The important product idea is not Astro compatibility. The useful idea is that
-"a pile of Markdown files" can become a typed, validated, queryable set without
-turning Markdown into a database export format.
+The important product idea is not Astro compatibility. The useful idea is that "a pile of Markdown files" can become a typed, validated, queryable set without turning Markdown into a database export format.
 
 ### Spaces And Schemas
 
-Spaces should provide the bridge between a simple note app and structured
-knowledge work.
+Spaces should provide the bridge between a simple note app and structured knowledge work.
 
-Current product direction favors a thin space model. A space
-definition should initially focus on:
+Current product direction favors a thin space model. A space definition should initially focus on:
 
 - A name and human-readable purpose.
 - A file source expressed as workspace-relative include and exclude globs.
@@ -152,14 +103,9 @@ definition should initially focus on:
 - Field semantic mapping and create-time defaults.
 - Managed views such as list, table, kanban, and later calendar.
 
-Schemas should make structure visible and checkable, but should not force every
-workspace into one information architecture. Users should be able to start with
-plain notes, then promote repeated patterns into spaces when the structure
-becomes valuable.
+Schemas should make structure visible and checkable, but should not force every workspace into one information architecture. Users should be able to start with plain notes, then promote repeated patterns into spaces when the structure becomes valuable.
 
-More advanced concepts such as lifecycle rules, permissions, strict process
-automation, complex loaders, and deep validation should remain outside the thin
-space core until the product has stronger evidence.
+More advanced concepts such as lifecycle rules, permissions, strict process automation, complex loaders, and deep validation should remain outside the thin space core until the product has stronger evidence.
 
 Recommended MVP space responsibilities:
 
@@ -168,35 +114,17 @@ Recommended MVP space responsibilities:
 - Create new entries.
 - Explain field semantics.
 
-The space model should not become the first place for lifecycle policy,
-permissions, workflow automation, executable hooks, or external data loading.
+The space model should not become the first place for lifecycle policy, permissions, workflow automation, executable hooks, or external data loading.
 
-`include` should be the primary source field name rather than `path`. It should
-be a required workspace-relative glob. The MVP can start with one include glob
-string per space. `exclude` should be an optional list of workspace-relative
-globs.
+`include` should be the primary source field name rather than `path`. It should be a required workspace-relative glob. The MVP can start with one include glob string per space. `exclude` should be an optional list of workspace-relative globs.
 
-A file should match at most one space after excludes are applied. Multiple
-space matches should be reported as health issues. Candidate files that
-match `include` and are not removed by `exclude` should then be checked against
-the space's schema. P0 space schemas should use a `kind` const field
-as the frontmatter discriminator.
+A file should match at most one space after excludes are applied. Multiple space matches should be reported as health issues. Candidate files that match `include` and are not removed by `exclude` should then be checked against the space's schema. P0 space schemas should use a `kind` const field as the frontmatter discriminator.
 
-The Markdown body should remain free-form. Body structure constraints should be
-expressed through templates and guidance rather than hard validation in the
-space MVP. Health checks may warn about empty or obviously incomplete
-bodies, but a file should not fail space membership only because its
-headings differ from a template.
+The Markdown body should remain free-form. Body structure constraints should be expressed through templates and guidance rather than hard validation in the space MVP. Health checks may warn about empty or obviously incomplete bodies, but a file should not fail space membership only because its headings differ from a template.
 
-P0 should use a Forma-native YAML Schema DSL as the canonical object constraint
-language. JSON Schema should not be the P0 authoring format. Runtime tools may
-derive internal validation plans or exported JSON Schema from the Forma Schema
-DSL when useful.
+P0 should use a Forma-native YAML Schema DSL as the canonical object constraint language. JSON Schema should not be the P0 authoring format. Runtime tools may derive internal validation plans or exported JSON Schema from the Forma Schema DSL when useful.
 
-The Schema DSL should be used wherever Choral Forma needs object structure or
-field constraints, not only for space entries. Future create inputs, update
-inputs, view params, workflow inputs, starter manifests, and diagnostics can use
-the same schema primitives instead of inventing separate constraint syntaxes.
+The Schema DSL should be used wherever Choral Forma needs object structure or field constraints, not only for space entries. Future create inputs, update inputs, view params, workflow inputs, starter manifests, and diagnostics can use the same schema primitives instead of inventing separate constraint syntaxes.
 
 Example P0 starter space:
 
@@ -253,14 +181,9 @@ spaces:
                         target: user
 ```
 
-Space paths such as `template`, `create.directory`, and `create.filename`
-should be workspace-relative paths, not knowledge wikilinks.
-The default starter layout above means a todo entry for a user registration task
-is `todos/user-registration.md`: `todos` is the space id, and `todos/` is
-the space's default entry directory.
+Space paths such as `template`, `create.directory`, and `create.filename` should be workspace-relative paths, not knowledge wikilinks. The default starter layout above means a todo entry for a user registration task is `todos/user-registration.md`: `todos` is the space id, and `todos/` is the space's default entry directory.
 
-Space `schema` should describe entry metadata structure, user-facing
-labels, and semantic field constraints. Useful P0 field properties include:
+Space `schema` should describe entry metadata structure, user-facing labels, and semantic field constraints. Useful P0 field properties include:
 
 ```yaml
 status:
@@ -273,8 +196,7 @@ status:
     hidden: false
 ```
 
-Use `label` for fields, enum values, buttons, and parameters. Use `title` for
-content objects, spaces, views, and pages.
+Use `label` for fields, enum values, buttons, and parameters. Use `title` for content objects, spaces, views, and pages.
 
 P0 Schema DSL primitives can include:
 
@@ -292,51 +214,26 @@ ref
 list
 ```
 
-`required` should be field-local in the Forma Schema DSL, such as
-`schema.fields.title.required: true`, rather than a JSON Schema-style
-`required: [title]` array. Field-local required constraints are easier to merge,
-patch, review, and edit with Agents.
+`required` should be field-local in the Forma Schema DSL, such as `schema.fields.title.required: true`, rather than a JSON Schema-style `required: [title]` array. Field-local required constraints are easier to merge, patch, review, and edit with Agents.
 
-`default` does not belong in space schema fields in P0. Defaults are
-operation-level behavior and should live in create or update input
-configuration, templates, runtime values, or later migration rules. `readonly`
-and `hidden` should be treated as product and tool behavior hints, not security
-permissions.
+`default` does not belong in space schema fields in P0. Defaults are operation-level behavior and should live in create or update input configuration, templates, runtime values, or later migration rules. `readonly` and `hidden` should be treated as product and tool behavior hints, not security permissions.
 
-Space `conventions` can name common semantic fields such as `titleField`,
-`summaryField`, and `createdAtField`. These conventions should help creation,
-display, and Agent explanation, but they should not define view layouts. Health
-checks should validate referenced schema fields. Fallbacks are allowed when no
-convention exists, but they should be explainable; for example, title can fall
-back from `title` to `name`, `displayName`, and finally the file basename.
+Space `conventions` can name common semantic fields such as `titleField`, `summaryField`, and `createdAtField`. These conventions should help creation, display, and Agent explanation, but they should not define view layouts. Health checks should validate referenced schema fields. Fallbacks are allowed when no convention exists, but they should be explainable; for example, title can fall back from `title` to `name`, `displayName`, and finally the file basename.
 
-Views should reference spaces by id. They should not redefine space
-schema fields. Spaces should not define view layouts. Query operators
-should be validated from space schema field types and cardinality. Display
-fields, sort fields, kanban fields, and parameter references should be checked
-against the target space and view parameter definitions.
+Views should reference spaces by id. They should not redefine space schema fields. Spaces should not define view layouts. Query operators should be validated from space schema field types and cardinality. Display fields, sort fields, kanban fields, and parameter references should be checked against the target space and view parameter definitions.
 
 ### Semantic Types
 
-Choral Forma should keep built-in data types small and allow users to define
-domain semantics through configuration.
+Choral Forma should keep built-in data types small and allow users to define domain semantics through configuration.
 
-Base types can include strings, numbers, integers, booleans, dates, datetimes,
-objects, lists, maps, and paths. Product concepts such as `user`, `group`,
-`project`, `customer`, `machine`, `priority`, or `taskStatus` should be
-user-defined semantic types rather than hard-coded system primitives.
+Base types can include strings, numbers, integers, booleans, dates, datetimes, objects, lists, maps, and paths. Product concepts such as `user`, `group`, `project`, `customer`, `machine`, `priority`, or `taskStatus` should be user-defined semantic types rather than hard-coded system primitives.
 
 Semantic types can be backed by:
 
-- Static enums declared in configuration, such as status, priority, risk level,
-  or review state.
-- Entries from a space, such as users, customers, accounts, machines, or
-  projects.
+- Static enums declared in configuration, such as status, priority, risk level, or review state.
+- Entries from a space, such as users, customers, accounts, machines, or projects.
 
-Space-backed types make a space's entries available as a type. For
-example, a `users` space can define the allowed values for a `user`
-semantic type. Other schemas can then use that type as a single value, a list
-value, or a map key or value.
+Space-backed types make a space's entries available as a type. For example, a `users` space can define the allowed values for a `user` semantic type. Other schemas can then use that type as a single value, a list value, or a map key or value.
 
 The MVP type model should support:
 
@@ -353,17 +250,11 @@ types:
             transform: slugify
 ```
 
-Enum values can start as simple scalar values. Later versions can allow richer
-value objects with label, icon, color, description, or ordering metadata.
+Enum values can start as simple scalar values. Later versions can allow richer value objects with label, icon, color, description, or ordering metadata.
 
-Space-backed types imply knowledge reference behavior. Union types are a
-useful future capability for closely related reference classes, such as users
-and groups in an assignee field, but they should not be part of P0. When union
-types are introduced, they should be constrained enough to remain explainable
-and should not become a general-purpose way to combine unrelated data shapes.
+Space-backed types imply knowledge reference behavior. Union types are a useful future capability for closely related reference classes, such as users and groups in an assignee field, but they should not be part of P0. When union types are introduced, they should be constrained enough to remain explainable and should not become a general-purpose way to combine unrelated data shapes.
 
-Space-backed types may define input normalization for bare user-entered
-values:
+Space-backed types may define input normalization for bare user-entered values:
 
 ```yaml
 types:
@@ -374,98 +265,59 @@ types:
             transform: slugify
 ```
 
-This applies only while parsing bare GUI, CLI, or Agent input. It does not change
-stored ids, stored references, path matching, wikilink matching, schema
-validation, template rendering, or exact reference comparison.
+This applies only while parsing bare GUI, CLI, or Agent input. It does not change stored ids, stored references, path matching, Markdown-body wikilink matching, schema validation, template rendering, or exact reference comparison.
 
 Example behavior:
 
 ```text
 Galen -> slugify -> galen -> users/galen.md
 users/Galen -> exact path-like input
-[[users/Galen]] -> exact wikilink target
 ```
 
-This is not title search. It only helps map human-entered labels to path ids
-when the workspace follows slug conventions. P0 should support `slugify` as the
-only type input transform.
+This is not title search. It only helps map human-entered labels to path ids when the workspace follows slug conventions. P0 should support `slugify` as the only type input transform.
 
-Cardinality belongs on fields rather than type definitions. The same semantic
-type can be used as a single value in one field and a space of values in
-another field.
+Cardinality belongs on fields rather than type definitions. The same semantic type can be used as a single value in one field and a space of values in another field.
 
-This lets Choral Forma support many domains without embedding industry-specific
-objects in the product. The system provides composition mechanisms; users define
-their own vocabulary.
+This lets Choral Forma support many domains without embedding industry-specific objects in the product. The system provides composition mechanisms; users define their own vocabulary.
 
 ### References In Metadata
 
-Choral Forma should distinguish knowledge references from file, resource, and
-configuration path references.
+Choral Forma should distinguish knowledge references from file, resource, and configuration path references.
 
-Knowledge references point to knowledge entries, such as users, groups,
-projects, tasks, decisions, customers, machines, topics, or other user-defined
-spaces. Fields with space-backed semantic types are knowledge
-reference fields.
+Knowledge references point to knowledge entries, such as users, groups, projects, tasks, decisions, customers, machines, topics, or other user-defined spaces. Fields with space-backed semantic types are knowledge reference fields.
 
-Knowledge reference fields may use wikilink syntax in Markdown metadata because
-the user intent is to refer to a knowledge object, not to manipulate a raw file
-path:
+Knowledge reference fields should store workspace-relative path-qualified refs in Markdown metadata because the user intent is to refer to a typed knowledge object, not to encode an editor-specific link syntax:
 
 ```yaml
 assignees:
-    - "[[users/tiscs]]"
-project: "[[projects/choral-forma]]"
+    - users/tiscs.md
+project: projects/choral-forma.md
 ```
 
-The product should use read-wide, write-strict behavior. Manually authored short
-wikilinks such as `[[tiscs]]` are valid when they resolve uniquely within the
-field's allowed target spaces. GUI, CLI, and Agent writes should prefer
-path-qualified wikilinks such as `[[users/tiscs]]` to avoid ambiguity and make
-diffs clearer.
+The product should use read-wide, write-strict behavior. GUI, CLI, Agent, and editor-extension writes should always write canonical path refs. If the product chooses to accept manually authored wikilinks in metadata, that should be a reader convenience and health-check surface, not the canonical storage format or a commitment to Obsidian/Foam compatibility.
 
-The resolver scope should come from the field's semantic type. For example,
-`assignees` can resolve only against allowed user spaces in P0, rather
-than searching the whole workspace. Ambiguous short wikilinks should produce a
-health check finding instead of being guessed.
+The resolver scope should come from the field's semantic type. For example, `assignees` can resolve only against allowed user spaces in P0, rather than searching the whole workspace. Ambiguous bare or non-canonical references should produce a health check finding instead of being guessed.
 
-File, resource, and configuration references should use workspace-relative path
-strings instead of wikilinks:
+File, resource, and configuration references should also use workspace-relative path strings. Their field schema, not the string syntax, should distinguish them from knowledge entry references:
 
 ```yaml
 template: .forma/templates/task.md
 source_file: attachments/acme-contract.pdf
 ```
 
-The WebApp should treat WorkspaceFile as the first-class navigation object.
-Knowledge documents, views, templates, config files, generated indexes, and
-resources share the same file inventory shape, while server-assigned features
-drive render and preview affordances.
+The WebApp should treat WorkspaceFile as the first-class navigation object. Knowledge documents, views, templates, config files, generated indexes, and resources share the same file inventory shape, while server-assigned features drive render and preview affordances.
 
-Heading or block wikilinks should not be valid for space entry references
-in the MVP. Alias wikilinks may be accepted where useful for display, but the
-identity should resolve from the target part.
+Heading or block references should not be valid for space entry reference fields in the MVP. They can remain body-link features, but metadata references should resolve to entry identities.
 
-Internally, Choral Forma should normalize both short and path-qualified
-knowledge wikilinks into typed resolved references. The initial resolved
-identity can be the target file path. Queries, views, health checks, and Agent
-tools should compare resolved references rather than raw string syntax.
+Internally, Choral Forma should normalize path refs into typed resolved references. The initial resolved identity can be the target file path. Queries, views, health checks, and Agent tools should compare resolved references rather than raw string syntax.
 
 ### Schema Format
 
-Choral Forma should not use code-based schema frameworks as the user-facing
-schema configuration format in the product direction for the visible future.
+Choral Forma should not use code-based schema frameworks as the user-facing schema configuration format in the product direction for the visible future.
 
-Forma Schema DSL should be the user-visible schema layer. It avoids making
-Node.js or a JavaScript runtime a hard dependency, keeps object constraints in
-YAML alongside space configuration, and lets Choral Forma express product
-semantics such as references, labels, readonly fields, and hidden fields without
-custom JSON Schema extension keys.
+Forma Schema DSL should be the user-visible schema layer. It avoids making Node.js or a JavaScript runtime a hard dependency, keeps object constraints in YAML alongside space configuration, and lets Choral Forma express product semantics such as references, labels, readonly fields, and hidden fields without custom JSON Schema extension keys.
 
-JSON Schema can remain an export, compatibility, or advanced integration format
-later, but it should not be required in the P0 minimal starter. Forma can derive
-internal validation plans or exported JSON Schema from the Forma Schema DSL when
-useful.
+JSON Schema can remain an export, compatibility, or advanced integration format later, but it should not be required in the P0 minimal starter. Forma can derive internal validation plans or exported JSON Schema from the Forma Schema DSL when useful.
 
 ### Git-Backed Starter Kit Registry
 
@@ -507,9 +359,7 @@ Starter Kits may initialize Agent compatibility content. Choral Forma should tre
 
 Choral Forma targets professional users and may assume a development-like environment where repository-local symlinks are supported. Import wrappers or generated copies are exceptional compatibility fallbacks, not baseline product behavior. Compatibility entrypoints should derive from the canonical Agent layer rather than becoming independent sources of truth.
 
-The P0 minimal starter should include enough structure to demonstrate Choral
-Forma's knowledge, action, and lightweight collaboration model without becoming
-an opinionated project-management workflow.
+The P0 minimal starter should include enough structure to demonstrate Choral Forma's knowledge, action, and lightweight collaboration model without becoming an opinionated project-management workflow.
 
 Recommended P0 minimal starter spaces:
 
@@ -519,13 +369,9 @@ todos
 users
 ```
 
-`notes` represents general knowledge notes. `todos` represents lightweight
-action items. `users` represents people who can be referenced in the workspace.
+`notes` represents general knowledge notes. `todos` represents lightweight action items. `users` represents people who can be referenced in the workspace.
 
-The P0 starter should not include `groups` or union semantic types. Groups
-introduce membership, responsibility, and organizational modeling that should
-wait until P1. Todo assignment should still be modeled in a future-compatible
-way:
+The P0 starter should not include `groups` or union semantic types. Groups introduce membership, responsibility, and organizational modeling that should wait until P1. Todo assignment should still be modeled in a future-compatible way:
 
 ```yaml
 assignees:
@@ -536,24 +382,15 @@ assignees:
         target: user
 ```
 
-When groups are added later, the `assignees` field can keep its name and list
-shape while its item target evolves to an `assignee` union over `user` and
-`group`.
+When groups are added later, the `assignees` field can keep its name and list shape while its item target evolves to an `assignee` union over `user` and `group`.
 
-The P0 `users` space should keep identity lightweight. A user entry's
-stable id comes from its path, such as `users/tiscs.md`. P0 should not include a
-separate `username` field because it would act like a field-level override for
-path identity. Runtime current-user matching should use the user id directly.
+The P0 `users` space should keep identity lightweight. A user entry's stable id comes from its path, such as `users/tiscs.md`. P0 should not include a separate `username` field because it would act like a field-level override for path identity. Runtime current-user matching should use the user id directly.
 
-`forma init` should not treat the current user as a special system value. If an
-initial user entry is created during initialization, it should be handled as
-ordinary starter input and created through the same space create pipeline
-as any other user entry.
+`forma init` should not treat the current user as a special system value. If an initial user entry is created during initialization, it should be handled as ordinary starter input and created through the same space create pipeline as any other user entry.
 
 ### Product Naming In Workspace Surfaces
 
-Choral is the brand name; Forma is the product name. Product-specific workspace
-surfaces should use Forma naming:
+Choral is the brand name; Forma is the product name. Product-specific workspace surfaces should use Forma naming:
 
 ```text
 CLI command: forma
@@ -562,83 +399,45 @@ product docs: Choral Forma
 brand and ecosystem references: Choral
 ```
 
-The `choral` name should remain available for brand-level or future cross-product
-capabilities instead of being consumed by the Forma MVP.
+The `choral` name should remain available for brand-level or future cross-product capabilities instead of being consumed by the Forma MVP.
 
 ### Human And Agent Collaboration
 
-The product should help humans and AI Agents maintain a shared context base.
-Agents should be able to search, inspect, validate, summarize, and update
-knowledge through explicit files, schemas, CLI commands, and skills.
+The product should help humans and AI Agents maintain a shared context base. Agents should be able to search, inspect, validate, summarize, and update knowledge through explicit files, schemas, CLI commands, and skills.
 
-When Agents assist with workflows such as conflict resolution, pull requests,
-schema checks, or knowledge health checks, the product should guide the human
-without requiring them to understand the underlying Git mechanics.
+When Agents assist with workflows such as conflict resolution, pull requests, schema checks, or knowledge health checks, the product should guide the human without requiring them to understand the underlying Git mechanics.
 
-Agent and Skill flows should be an assistance layer over stable product
-capabilities. Core actions such as creating spaces, editing semantic types,
-building views, inspecting effective config, and running health checks should be
-available through GUI and CLI. Agents can suggest, explain, draft, orchestrate,
-and repair, but the product should not depend on Agents as the only way to use
-these capabilities.
+Agent and Skill flows should be an assistance layer over stable product capabilities. Core actions such as creating spaces, editing semantic types, building views, inspecting effective config, and running health checks should be available through GUI and CLI. Agents can suggest, explain, draft, orchestrate, and repair, but the product should not depend on Agents as the only way to use these capabilities.
 
-Manual edits, Git merges, incomplete drafts, stale derived artifacts, and Agent
-work-in-progress may create temporary inconsistencies. Choral Forma should read
-and inspect imperfect files with diagnostics where possible. Product commands
-should avoid knowingly writing invalid content, while `forma check` should make
-workspace inconsistencies explicit enough for humans or Agents to repair
-manually or through future reviewable repair workflows.
+Manual edits, Git merges, incomplete drafts, stale derived artifacts, and Agent work-in-progress may create temporary inconsistencies. Choral Forma should read and inspect imperfect files with diagnostics where possible. Product commands should avoid knowingly writing invalid content, while `forma check` should make workspace inconsistencies explicit enough for humans or Agents to repair manually or through future reviewable repair workflows.
 
 ### Executable Knowledge
 
-Some process definitions should be stored as structured knowledge. Humans and
-Agents should be able to follow those definitions to move work forward.
+Some process definitions should be stored as structured knowledge. Humans and Agents should be able to follow those definitions to move work forward.
 
-This should be treated as a product concept: process knowledge can define
-expected inputs, states, checks, transitions, review points, and outputs. It is
-not application code, but it should be executable enough for people and Agents
-to coordinate consistent work.
+This should be treated as a product concept: process knowledge can define expected inputs, states, checks, transitions, review points, and outputs. It is not application code, but it should be executable enough for people and Agents to coordinate consistent work.
 
 ### Shared And Personal Boundaries
 
-The product must distinguish shared team knowledge, shared personal knowledge,
-and local personal knowledge.
+The product must distinguish shared team knowledge, shared personal knowledge, and local personal knowledge.
 
-Shared team knowledge is committed to the repository and represents team-level
-facts, structures, processes, decisions, or work context.
+Shared team knowledge is committed to the repository and represents team-level facts, structures, processes, decisions, or work context.
 
-Shared personal knowledge is also committed to the repository, but remains
-owned by or associated with a person. It can include public working style,
-public research summaries, handoffs, responsibility notes, or personal context
-that the team and Agents may safely use.
+Shared personal knowledge is also committed to the repository, but remains owned by or associated with a person. It can include public working style, public research summaries, handoffs, responsibility notes, or personal context that the team and Agents may safely use.
 
-Local personal knowledge is not committed to the repository. It is for private
-drafts, local execution plans, scratchpads, local preferences, and Agent runtime
-state.
+Local personal knowledge is not committed to the repository. It is for private drafts, local execution plans, scratchpads, local preferences, and Agent runtime state.
 
-Personal content can be promoted into shared personal or shared team content
-when it becomes useful beyond the local workspace. Shared content can also be
-converted or split into personal working material when a person needs a local
-execution plan, draft, scratchpad, or private context.
+Personal content can be promoted into shared personal or shared team content when it becomes useful beyond the local workspace. Shared content can also be converted or split into personal working material when a person needs a local execution plan, draft, scratchpad, or private context.
 
 The product should make these transitions explicit and reviewable.
 
 ### Team And Local Configuration
 
-The product should support team shared configuration and local personal
-configuration in P0. Shared personal configuration has product value, but it
-should remain a P1 or later capability until there are enough durable personal
-preferences to justify the extra configuration layer.
+The product should support team shared configuration and local personal configuration in P0. Shared personal configuration has product value, but it should remain a P1 or later capability until there are enough durable personal preferences to justify the extra configuration layer.
 
-Team shared configuration is committed to the repository and defines workspace
-meaning: spaces, semantic types, schemas, templates, shared views, and
-baseline health checks. Team-level changes should be made directly in the shared
-base configuration; the MVP should not include shared team overrides.
+Team shared configuration is committed to the repository and defines workspace meaning: spaces, semantic types, schemas, templates, shared views, and baseline health checks. Team-level changes should be made directly in the shared base configuration; the MVP should not include shared team overrides.
 
-Local personal configuration is not committed to the repository. It can store
-temporary or sensitive preferences such as machine-local paths, private Agent
-preferences, local scratch locations, UI state, secrets, or private connection
-details.
+Local personal configuration is not committed to the repository. It can store temporary or sensitive preferences such as machine-local paths, private Agent preferences, local scratch locations, UI state, secrets, or private connection details.
 
 The P0 merge order should be:
 
@@ -646,9 +445,7 @@ The P0 merge order should be:
 team shared config -> local personal overrides -> runtime values
 ```
 
-Runtime values are not written back into configuration files. They are available
-for interpolation, effective configuration inspection, health checks, and view
-or template rendering.
+Runtime values are not written back into configuration files. They are available for interpolation, effective configuration inspection, health checks, and view or template rendering.
 
 Recommended target layout:
 
@@ -665,37 +462,26 @@ Recommended target layout:
 assets/
 ```
 
-Local overrides are optional and should be created only when the workspace
-configuration explicitly includes them. If the conventional `.forma/` support
-directory is used, it can include a `.gitignore` rule equivalent to:
+Local overrides are optional and should be created only when the workspace configuration explicitly includes them. If the conventional `.forma/` support directory is used, it can include a `.gitignore` rule equivalent to:
 
 ```gitignore
 overrides/local.yml
 local/
 ```
 
-Root ignore rules can also provide a safety net. The MVP does not need to create
-`.forma/local/`; that directory can be introduced later for local runtime state
-such as caches, locks, local indexes, or GUI state.
+Root ignore rules can also provide a safety net. The MVP does not need to create `.forma/local/`; that directory can be introduced later for local runtime state such as caches, locks, local indexes, or GUI state.
 
-The core P0 rule is: team shared config defines workspace meaning; local
-personal config defines private or temporary preference.
+The core P0 rule is: team shared config defines workspace meaning; local personal config defines private or temporary preference.
 
-Future shared personal configuration can use the same override mechanism when
-the product has enough committed, non-sensitive personal preferences to justify
-it. A likely future path is:
+Future shared personal configuration can use the same override mechanism when the product has enough committed, non-sensitive personal preferences to justify it. A likely future path is:
 
 ```text
 .forma/overrides/users/<user-id>.yml
 ```
 
-If introduced, shared personal overrides would sit between team shared config
-and local personal overrides in the merge order.
+If introduced, shared personal overrides would sit between team shared config and local personal overrides in the merge order.
 
-Strict team enforcement is not an initial requirement. The more important need
-is a clear merge model and Agent-friendly CLI or skills that can explain the
-effective configuration, show where each value came from, and check knowledge
-health, configuration consistency, schema validity, and local override effects.
+Strict team enforcement is not an initial requirement. The more important need is a clear merge model and Agent-friendly CLI or skills that can explain the effective configuration, show where each value came from, and check knowledge health, configuration consistency, schema validity, and local override effects.
 
 MVP override semantics should remain simple and explainable:
 
@@ -710,8 +496,7 @@ array append/remove: not supported
 same-layer conflict: invalid unless a file boundary explicitly owns it
 ```
 
-Configuration sections and included files should have clear responsibility
-boundaries:
+Configuration sections and included files should have clear responsibility boundaries:
 
 ```text
 .forma.yml owns the main configuration entry and includes.
@@ -724,32 +509,17 @@ Markdown config nodes under .forma/views/ own saved projection definitions.
 Navigation configuration owns sidebar and prominent route/page/view groups.
 ```
 
-The effective configuration should be inspectable instead of hidden. CLI and
-Agent-facing interfaces should be able to show the merged configuration, explain
-which source produced a specific value, and check for merge conflicts, invalid
-types, circular references, local-only leakage, and values that depend on the
-current machine.
+The effective configuration should be inspectable instead of hidden. CLI and Agent-facing interfaces should be able to show the merged configuration, explain which source produced a specific value, and check for merge conflicts, invalid types, circular references, local-only leakage, and values that depend on the current machine.
 
-The product should avoid writing an effective configuration file as a durable
-source of truth. If caching becomes necessary, caches should live under
-`.forma/local/cache/` and remain uncommitted.
+The product should avoid writing an effective configuration file as a durable source of truth. If caching becomes necessary, caches should live under `.forma/local/cache/` and remain uncommitted.
 
 ### Managed Views
 
-Views should be managed Markdown definitions under `.forma/views/**/*.md`.
-They are file-based facts, but not ordinary knowledge notes. Their frontmatter
-defines rendering behavior; their Markdown body explains purpose, usage, and
-maintenance context.
+Views should be managed Markdown definitions under `.forma/views/**/*.md`. They are file-based facts, but not ordinary knowledge notes. Their frontmatter defines rendering behavior; their Markdown body explains purpose, usage, and maintenance context.
 
-The durable architecture for view sources and queries is captured in
-[[architecture/forma-view-query-model]]. This section keeps the product-facing
-behavior and examples aligned with that model.
+The durable architecture for view sources and queries is captured in [[architecture/forma-view-query-model]]. This section keeps the product-facing behavior and examples aligned with that model.
 
-Shared view definitions should live as Markdown configuration nodes under
-`.forma/views/`, not in the ordinary knowledge content tree. A view is
-configuration for rendering, filtering, and organizing knowledge; it is not
-itself a domain knowledge entry. Keeping view definitions under `.forma/`
-preserves the file-as-fact principle while making the boundary clear.
+Shared view definitions should live as Markdown configuration nodes under `.forma/views/`, not in the ordinary knowledge content tree. A view is configuration for rendering, filtering, and organizing knowledge; it is not itself a domain knowledge entry. Keeping view definitions under `.forma/` preserves the file-as-fact principle while making the boundary clear.
 
 The view file should be recognizable through explicit frontmatter:
 
@@ -768,9 +538,7 @@ source:
 ---
 ```
 
-The view data source should be recognized pages. `source` selects the candidate
-page set; `query` filters normalized entries derived from those pages.
-Taxonomy-oriented views should use list-valued taxonomy filters. This:
+The view data source should be recognized pages. `source` selects the candidate page set; `query` filters normalized entries derived from those pages. Taxonomy-oriented views should use list-valued taxonomy filters. This:
 
 ```yaml
 source:
@@ -780,18 +548,15 @@ source:
             - todos
 ```
 
-filters recognized pages before query predicates run. This keeps taxonomy
-filters explicit while avoiding a separate hardcoded `entry.space` field.
+filters recognized pages before query predicates run. This keeps taxonomy filters explicit while avoiding a separate hardcoded `entry.space` field.
 
-The Markdown body should not contain query logic. It can include a render mount
-point:
+The Markdown body should not contain query logic. It can include a render mount point:
 
 ```markdown
 <!-- forma-view -->
 ```
 
-If no mount point exists, the rendered view should appear after the Markdown
-body. If multiple mount points exist, health checks should report the problem.
+If no mount point exists, the rendered view should appear after the Markdown body. If multiple mount points exist, health checks should report the problem.
 
 Views should have a surface:
 
@@ -800,28 +565,15 @@ page
 embed
 ```
 
-P0 managed views should only require directly accessible `page` views. `embed`
-views and view embedding syntax are important P1 design targets, captured here
-to protect the model, but they should not be treated as required for the P0
-starter or first implementation.
+P0 managed views should only require directly accessible `page` views. `embed` views and view embedding syntax are important P1 design targets, captured here to protect the model, but they should not be treated as required for the P0 starter or first implementation.
 
-`page` views are directly accessible full views. They can appear in view
-navigation, have complete page layout, and expose filtering or sorting controls
-where the mode supports them.
+`page` views are directly accessible full views. They can appear in view navigation, have complete page layout, and expose filtering or sorting controls where the mode supports them.
 
-`embed` views are reusable view fragments intended for inclusion inside other
-Markdown documents. They should not appear in ordinary view navigation by
-default. They can still be inspected or previewed for maintenance.
+`embed` views are reusable view fragments intended for inclusion inside other Markdown documents. They should not appear in ordinary view navigation by default. They can still be inspected or previewed for maintenance.
 
-The MVP should keep one primary surface per view file. If a team needs both a
-page view and an embedded fragment, it can define two view files with related
-queries. Shared query abstraction can wait until there is stronger evidence.
+The MVP should keep one primary surface per view file. If a team needs both a page view and an embedded fragment, it can define two view files with related queries. Shared query abstraction can wait until there is stronger evidence.
 
-View definitions may support declared parameters. P0 page views may omit
-parameters entirely. View parameters are optional for P0 page views and should
-be required when P1 embedded views ship. Parameters can have base types or
-user-defined semantic types, can have defaults, and can be referenced from view
-metadata, query values, mode-specific configuration, and body text:
+View definitions may support declared parameters. P0 page views may omit parameters entirely. View parameters are optional for P0 page views and should be required when P1 embedded views ship. Parameters can have base types or user-defined semantic types, can have defaults, and can be referenced from view metadata, query values, mode-specific configuration, and body text:
 
 ```yaml
 params:
@@ -836,30 +588,18 @@ params:
         default: "{{ runtime.values.currentDate }}"
 ```
 
-Page view parameter values can come from defaults, URL or GUI state, or CLI
-parameters. Embedded view parameter values should come from the embedding
-comment, falling back to defaults where available. Unknown parameters, missing
-required parameters, and invalid parameter values should be diagnostics.
+Page view parameter values can come from defaults, URL or GUI state, or CLI parameters. Embedded view parameter values should come from the embedding comment, falling back to defaults where available. Unknown parameters, missing required parameters, and invalid parameter values should be diagnostics.
 
-Embedded view parameters are required for a useful embed model. Without them,
-teams would need one view definition for every member, project, or reporting
-period. P1 embedded views should therefore include parameter support rather than
-shipping fixed-only embeddings.
+Embedded view parameters are required for a useful embed model. Without them, teams would need one view definition for every member, project, or reporting period. P1 embedded views should therefore include parameter support rather than shipping fixed-only embeddings.
 
-Knowledge documents should be able to embed existing views with Markdown HTML
-comments:
+Knowledge documents should be able to embed existing views with Markdown HTML comments:
 
 ```markdown
 <!-- forma-view: user-active-todos user="users/tiscs" -->
 <!-- forma-view: project-open-tasks project="{{ params.project }}" -->
 ```
 
-The identifier should resolve to a view file, such as
-`.forma/views/user-active-todos.md`. Embed arguments should be type-checked
-against the target view's `view.params`. The initial argument model should stay
-small: string, number, boolean, date, semantic reference literals, and `{{ ... }}`
-path placeholders. It should not support expressions, loops, conditions, or
-complex object literals.
+The identifier should resolve to a view file, such as `.forma/views/user-active-todos.md`. Embed arguments should be type-checked against the target view's `view.params`. The initial argument model should stay small: string, number, boolean, date, semantic reference literals, and `{{ ... }}` path placeholders. It should not support expressions, loops, conditions, or complex object literals.
 
 Definitions and embeddings are separate concepts:
 
@@ -868,9 +608,7 @@ Definitions and embeddings are separate concepts:
 knowledge Markdown comments = view embedding sites
 ```
 
-View queries should operate on normalized entry records, not directly on raw
-Markdown files. The runtime should first parse each candidate Markdown file into
-an entry record with stable namespaces such as:
+View queries should operate on normalized entry records, not directly on raw Markdown files. The runtime should first parse each candidate Markdown file into an entry record with stable namespaces such as:
 
 ```ts
 entry = {
@@ -885,9 +623,7 @@ entry = {
 };
 ```
 
-The query model should use structured `all` / `any` / `not` nodes rather than a
-text query DSL in the MVP. Query predicates should use explicit `field` paths
-into the normalized entry record:
+The query model should use structured `all` / `any` / `not` nodes rather than a text query DSL in the MVP. Query predicates should use explicit `field` paths into the normalized entry record:
 
 ```yaml
 source:
@@ -909,10 +645,7 @@ query:
                 value: true
 ```
 
-This query model should be treated as the internal query AST. A future text DSL
-can compile to the same model if product evidence justifies it, but the MVP
-should avoid taking on parser, type-checking, error-reporting, and GUI
-round-tripping complexity too early.
+This query model should be treated as the internal query AST. A future text DSL can compile to the same model if product evidence justifies it, but the MVP should avoid taking on parser, type-checking, error-reporting, and GUI round-tripping complexity too early.
 
 Initial query operations can include:
 
@@ -931,8 +664,7 @@ after
 afterOrEqual
 ```
 
-`exists` should use an explicit boolean `value`. For example, uncatalogued
-field values can be expressed without a special `missing` operator:
+`exists` should use an explicit boolean `value`. For example, uncatalogued field values can be expressed without a special `missing` operator:
 
 ```yaml
 query:
@@ -942,27 +674,13 @@ query:
           value: false
 ```
 
-P0 can keep query support intentionally small: `source.type: pages`,
-`source.taxonomy`, `all`, `any`, `not`, `field: fields.<name>`, and the operations `equals`,
-`in`, `contains`, and `exists`. References, full-text predicates, date
-comparisons, diagnostic filters, and saved runtime query controls can remain P1
-unless needed by implementation evidence.
+P0 can keep query support intentionally small: `source.type: pages`, `source.taxonomy`, `all`, `any`, `not`, `field: fields.<name>`, and the operations `equals`, `in`, `contains`, and `exists`. References, full-text predicates, date comparisons, diagnostic filters, and saved runtime query controls can remain P1 unless needed by implementation evidence.
 
-View modes should start with `list`, `table`, and `kanban`. Calendar views are
-valuable for daily, weekly, monthly, and time-based workflows, but should remain
-P1 unless implementation capacity proves otherwise.
+View modes should start with `list`, `table`, and `kanban`. Calendar views are valuable for daily, weekly, monthly, and time-based workflows, but should remain P1 unless implementation capacity proves otherwise.
 
-Graph should also be treated as a view mode, not as a separate global product
-surface. Users should open graph views through normal view navigation, tabs, or
-links, the same way they open table or kanban views. A graph view can visualize
-references, backlinks, relationship fields, or a scoped subset of entries, but
-it should still be described by a view definition with explicit scope and
-rendering intent. Bottom relationship panels can show backlinks, outgoing links,
-and mentions for the current document, but they should not be the primary graph
-surface.
+Graph should also be treated as a view mode, not as a separate global product surface. Users should open graph views through normal view navigation, tabs, or links, the same way they open table or kanban views. A graph view can visualize references, backlinks, relationship fields, or a scoped subset of entries, but it should still be described by a view definition with explicit scope and rendering intent. Bottom relationship panels can show backlinks, outgoing links, and mentions for the current document, but they should not be the primary graph surface.
 
-Graph views can use the same page source without a space filter. For example,
-an initialized workspace can include a global graph view:
+Graph views can use the same page source without a space filter. For example, an initialized workspace can include a global graph view:
 
 ```yaml
 ---
@@ -972,22 +690,53 @@ mode: graph
 title: Knowledge Graph
 source:
     type: pages
+graph:
+    edges:
+        - source: body
+          intent: link
+          label: links to
+        - source: body
+          intent: embed
+          label: embeds
 ---
 ```
 
-This is not a cross-space table query. It is a graph rendering over the
-recognized page set and reference graph, so it can include cross-space links
-without making every view mode support arbitrary space joins.
+This is not a cross-space table query. It is a graph rendering over the recognized page set and reference graph, so it can include cross-space links without making every view mode support arbitrary space joins.
 
-List and table views can use shared `query` and `sort` fields, plus
-mode-specific rendering options such as title fields, subtitle fields, metadata
-fields, or table columns.
+Graph edge selection should be view configuration, not a global hard-coded rule. The read model can resolve all body and field references, but each graph view should choose which relation classes become rendered edges. Body wikilinks and embeds are relations too, so they should use the same edge configuration shape as structured field references:
 
-Kanban views should support richer configuration because process-heavy work is
-central to the product. A kanban view should first select candidate cards with
-the top-level `query`, then assign cards to columns with `kanban.columns[].query`.
-Columns are evaluated in order and the first matching column wins. Health checks
-should warn about overlapping columns and unmatched items.
+```yaml
+graph:
+    edges:
+        - source: body
+          intent: link
+          label: links to
+        - source: body
+          intent: embed
+          label: embeds
+```
+
+Structured field references should also be configured as edge rules rather than selected by a plain field-name list. `source: fields` means the `field` value is relative to the entry's normalized `fields` object, so `assignees` is preferred over `fields.assignees`. Each configured field edge may name its graph label so the rendered edge has user-facing meaning:
+
+```yaml
+graph:
+    edges:
+        - source: fields
+          field: project
+          label: belongs to
+        - source: fields
+          field: assignees
+          label: assigned to
+        - source: fields
+          field: blockedBy
+          label: blocked by
+```
+
+`label` is optional. If it is absent, body edges can fall back from `intent`, and field edges can fall back from the schema field label before using the raw field name. The configured field must resolve to a schema-declared reference field. Health checks should report graph edge fields that are missing, not reference typed, ambiguous, or outside the view's source/query scope. The graph render result should carry the resolved edge label, source kind, reference intent, field when present, and semantic type so the WebApp can style, filter, and explain edges without guessing from raw syntax or field names.
+
+List and table views can use shared `query` and `sort` fields, plus mode-specific rendering options such as title fields, subtitle fields, metadata fields, or table columns.
+
+Kanban views should support richer configuration because process-heavy work is central to the product. A kanban view should first select candidate cards with the top-level `query`, then assign cards to columns with `kanban.columns[].query`. Columns are evaluated in order and the first matching column wins. Health checks should warn about overlapping columns and unmatched items.
 
 Example kanban configuration:
 
@@ -1033,30 +782,15 @@ kanban:
 ---
 ```
 
-Drag-and-drop mutation should be explicit. If a column has complex matching
-logic, the product should not guess how to update a card. `onDrop.set` should
-declare the exact field changes that moving a card into the column will make.
+Drag-and-drop mutation should be explicit. If a column has complex matching logic, the product should not guess how to update a card. `onDrop.set` should declare the exact field changes that moving a card into the column will make.
 
-View health checks should report missing spaces, missing fields, missing
-parameters, incompatible operators, invalid default or query values, invalid
-sort or display fields, invalid kanban `onDrop.set` fields, overlapping kanban
-columns, unmatched kanban items, and multiple render mount points.
+View health checks should report missing spaces, missing fields, missing parameters, incompatible operators, invalid default or query values, invalid sort or display fields, invalid kanban `onDrop.set` fields, overlapping kanban columns, unmatched kanban items, and multiple render mount points.
 
-Cross-space list, table, and kanban views should remain out of the MVP.
-The initial space view model should make one space understandable and
-useful before trying to join multiple spaces. This limitation does not
-prevent graph views from using the workspace source without a space filter.
+Cross-space list, table, and kanban views should remain out of the MVP. The initial space view model should make one space understandable and useful before trying to join multiple spaces. This limitation does not prevent graph views from using the workspace source without a space filter.
 
-Runtime temporary query controls, runtime filters, runtime group-by controls,
-runtime sort overrides, and saved personal view controls are not part of the
-current direction. Future table views may add advanced table features, but that
-should be discussed separately from the P0 managed view model.
+Runtime temporary query controls, runtime filters, runtime group-by controls, runtime sort overrides, and saved personal view controls are not part of the current direction. Future table views may add advanced table features, but that should be discussed separately from the P0 managed view model.
 
-Agents should read the same view definitions that human-facing UI uses. View
-definitions should not contain a separate Agent-only context policy. Agents can
-use `view.query`, `view.params`, space schema fields, semantic types, and
-future view rendering APIs to find candidate entries, then decide which entries
-to inspect based on the task.
+Agents should read the same view definitions that human-facing UI uses. View definitions should not contain a separate Agent-only context policy. Agents can use `view.query`, `view.params`, space schema fields, semantic types, and future view rendering APIs to find candidate entries, then decide which entries to inspect based on the task.
 
 This keeps responsibility clear:
 
@@ -1065,19 +799,13 @@ View = selection and display definition.
 Agent = task-specific context choice using the same workspace structures.
 ```
 
-Agent-friendly output formats such as `--json` are product interfaces, not a
-second configuration model. Agent-only workspace configuration should be avoided
-unless there is a strong safety, permission, or interoperability reason.
+Agent-friendly output formats such as `--json` are product interfaces, not a second configuration model. Agent-only workspace configuration should be avoided unless there is a strong safety, permission, or interoperability reason.
 
 ### Runtime Interpolation
 
-Configuration files and template files should support limited runtime
-interpolation with `{{ ... }}` placeholders.
+Configuration files and template files should support limited runtime interpolation with `{{ ... }}` placeholders.
 
-Interpolation should initially be path lookup only. It should not support
-expression evaluation, function calls, loops, conditionals, shell execution,
-JavaScript execution, arbitrary environment access, file reads, or network
-requests.
+Interpolation should initially be path lookup only. It should not support expression evaluation, function calls, loops, conditionals, shell execution, JavaScript execution, arbitrary environment access, file reads, or network requests.
 
 MVP placeholders can include:
 
@@ -1089,15 +817,9 @@ MVP placeholders can include:
 - `{{ runtime.values.currentUserId }}`
 - `{{ config.<dotted.path> }}`
 
-Configuration references should resolve against the effective config after team
-shared config and local personal overrides are merged. The resolver must detect
-circular references and report them clearly instead of silently producing
-partial values.
+Configuration references should resolve against the effective config after team shared config and local personal overrides are merged. The resolver must detect circular references and report them clearly instead of silently producing partial values.
 
-Runtime values should be explicit definitions under `runtime.values.*`. In
-configuration files, `runtime.values.<name>` defines how to resolve the value.
-In templates, view params, and resolved contexts, `runtime.values.<name>` reads
-the resolved value.
+Runtime values should be explicit definitions under `runtime.values.*`. In configuration files, `runtime.values.<name>` defines how to resolve the value. In templates, view params, and resolved contexts, `runtime.values.<name>` reads the resolved value.
 
 P0 runtime value kinds can include:
 
@@ -1137,25 +859,13 @@ runtime:
             transform: slugify
 ```
 
-P0 should not include a separate `memberIdResolver` concept. Current-user
-identity should instead be modeled as `runtime.values.currentUserId`, a normal runtime
-value whose provider can normalize environment data into a user id. Member-like
-or user-like behavior should be derived from spaces, semantic types, and
-runtime values rather than hard-coded resolver names.
+P0 should not include a separate `memberIdResolver` concept. Current-user identity should instead be modeled as `runtime.values.currentUserId`, a normal runtime value whose provider can normalize environment data into a user id. Member-like or user-like behavior should be derived from spaces, semantic types, and runtime values rather than hard-coded resolver names.
 
-The resolver chain should remain explicit and inspectable. CLI and Agent tools
-should report which runtime value definition produced a value, which definition
-source won after overrides, and why a value is unresolved.
+The resolver chain should remain explicit and inspectable. CLI and Agent tools should report which runtime value definition produced a value, which definition source won after overrides, and why a value is unresolved.
 
-Template files can use runtime placeholders when creating new entries.
-Committed knowledge entries should generally store resolved concrete values
-rather than dynamic placeholders as durable facts.
+Template files can use runtime placeholders when creating new entries. Committed knowledge entries should generally store resolved concrete values rather than dynamic placeholders as durable facts.
 
-Hugo is a useful reference for mature file-based templates, but Choral Forma P0
-should not adopt Hugo's full template expression model. P0 templates should use
-simple path placeholders only. They should not support default operators,
-filters, functions, conditionals, loops, includes, partials, expression
-evaluation, or arbitrary scripting.
+Hugo is a useful reference for mature file-based templates, but Choral Forma P0 should not adopt Hugo's full template expression model. P0 templates should use simple path placeholders only. They should not support default operators, filters, functions, conditionals, loops, includes, partials, expression evaluation, or arbitrary scripting.
 
 Create input defaults can use the same simple placeholder syntax:
 
@@ -1174,8 +884,7 @@ Template placeholders should then stay simple:
 date: "{{ input.date }}"
 ```
 
-This keeps defaults inspectable in space configuration instead of burying
-them in template expressions.
+This keeps defaults inspectable in space configuration instead of burying them in template expressions.
 
 Create inputs may also define a small operation-level transform:
 
@@ -1192,19 +901,9 @@ create:
             transform: slugify
 ```
 
-Transforms are not template functions. They normalize final input values during
-the create pipeline before filename and template rendering. Runtime value
-definitions can also use transforms to normalize provider output before the
-resolved value is exposed to templates or views. P0 should only support a
-`slugify` transform. `slugify` should be deterministic and safe for filenames:
-trim, lowercase where applicable, normalize whitespace to hyphens, remove path
-separators and reserved filesystem characters, collapse repeated hyphens, strip
-leading and trailing hyphens, keep Unicode letters and numbers, and fail if the
-result is empty.
+Transforms are not template functions. They normalize final input values during the create pipeline before filename and template rendering. Runtime value definitions can also use transforms to normalize provider output before the resolved value is exposed to templates or views. P0 should only support a `slugify` transform. `slugify` should be deterministic and safe for filenames: trim, lowercase where applicable, normalize whitespace to hyphens, remove path separators and reserved filesystem characters, collapse repeated hyphens, strip leading and trailing hyphens, keep Unicode letters and numbers, and fail if the result is empty.
 
-Future versions may introduce a small declarative DSL for lightweight type
-conversion, data-structure transformation, filtering, or cleanup. This should
-remain separate from arbitrary scripting.
+Future versions may introduce a small declarative DSL for lightweight type conversion, data-structure transformation, filtering, or cleanup. This should remain separate from arbitrary scripting.
 
 ### Create, Edit, And Inspect Flows
 
@@ -1226,14 +925,9 @@ Example:
 forma create tasks --title "Draft reference model"
 ```
 
-Creation should use `space.create.directory` and
-`space.create.filename`. `input.*` placeholders are create-time values only.
-Templates can use input, runtime, and configuration placeholders, but committed
-knowledge entries should store resolved concrete values where possible.
+Creation should use `space.create.directory` and `space.create.filename`. `input.*` placeholders are create-time values only. Templates can use input, runtime, and configuration placeholders, but committed knowledge entries should store resolved concrete values where possible.
 
-Create inputs are operation parameters, not runtime space schema
-definitions. Space schema fields and create inputs are separate namespaces.
-A create input may explicitly bind to a schema field:
+Create inputs are operation parameters, not runtime space schema definitions. Space schema fields and create inputs are separate namespaces. A create input may explicitly bind to a schema field:
 
 ```yaml
 create:
@@ -1243,11 +937,7 @@ create:
             required: true
 ```
 
-The binding explains that the input corresponds to `space.schema.fields.title` for
-type checking, GUI labels, Agent explanation, and diagnostics. Same-name inputs
-and schema fields do not bind implicitly. If `field` is absent, the input is a
-create-only parameter even when it has the same name as a schema field.
-Templates still decide how inputs are written into generated files.
+The binding explains that the input corresponds to `space.schema.fields.title` for type checking, GUI labels, Agent explanation, and diagnostics. Same-name inputs and schema fields do not bind implicitly. If `field` is absent, the input is a create-only parameter even when it has the same name as a schema field. Templates still decide how inputs are written into generated files.
 
 P0 create input properties can include:
 
@@ -1277,19 +967,13 @@ Input resolution should treat inputs as a dependency graph:
 6. Apply the input `transform`, if configured, to explicit or defaulted values.
 7. Type-check final values and enforce `input.required`.
 
-Dependencies read another input's final value after its transform. Template and
-filename rendering happens only after all inputs are resolved.
+Dependencies read another input's final value after its transform. Template and filename rendering happens only after all inputs are resolved.
 
-Semantic field context should control serialization. For example, if
-`assignees` is a many-valued `user` reference field, a user id can be serialized
-as a path-qualified user wikilink. The write should fail before creating an
-invalid space entry.
+Semantic field context should control serialization. For example, if `assignees` is a many-valued `user` reference field, a user id can be serialized as a path-qualified user ref. The write should fail before creating an invalid space entry.
 
-The MVP should not require bulk creation, loops, executable hooks, overwrite
-modes, or multi-file transactions.
+The MVP should not require bulk creation, loops, executable hooks, overwrite modes, or multi-file transactions.
 
-Editing should prefer typed patches first and raw edits second. The product
-should support three levels:
+Editing should prefer typed patches first and raw edits second. The product should support three levels:
 
 - Structured edit for normal use.
 - Raw metadata edit for advanced users and tools.
@@ -1304,24 +988,13 @@ forma remove todos/foo.md assignees users/tiscs
 forma unset todos/foo.md dueDate
 ```
 
-`set` should replace a single-value field or replace the whole value of a
-many-valued field. `add` and `remove` should operate on many-valued fields.
-`unset` should remove a field. A later `clear` command can explicitly set a
-field to null if that distinction becomes important.
+`set` should replace a single-value field or replace the whole value of a many-valued field. `add` and `remove` should operate on many-valued fields. `unset` should remove a field. A later `clear` command can explicitly set a field to null if that distinction becomes important.
 
-Reference input should be permissive when the field context is known. Users and
-Agents may provide values such as `tiscs`, `users/tiscs`, `[[tiscs]]`, or
-`[[users/tiscs]]` for an assignees field. Product writes should normalize
-resolved references to path-qualified wikilinks. Many-valued reference fields
-should deduplicate by resolved identity, not by raw string.
+Reference input should be permissive when the field context is known. Users and Agents may provide values such as `tiscs`, `users/tiscs`, or `users/tiscs.md` for an assignees field. Product writes should normalize resolved references to path-qualified refs. Many-valued reference fields should deduplicate by resolved identity, not by raw string.
 
-Edits should preserve YAML ordering, unknown fields, comments where practical,
-and the Markdown body. The product should avoid full-document rewrites for small
-metadata changes. Validation should run before writing, and force writes should
-remain out of the MVP.
+Edits should preserve YAML ordering, unknown fields, comments where practical, and the Markdown body. The product should avoid full-document rewrites for small metadata changes. Validation should run before writing, and force writes should remain out of the MVP.
 
-P0 Agent-facing tooling should use stable read, check, and create commands such
-as:
+P0 Agent-facing tooling should use stable read, check, and create commands such as:
 
 ```sh
 forma config inspect
@@ -1344,8 +1017,7 @@ Entry locators should support:
 
 - Workspace-relative Markdown paths.
 - Workspace-relative paths with the `.md` extension omitted.
-- Explicit space-scoped lookup with `--space <space-id>
-<entry-name>`.
+- Explicit space-scoped lookup with `--space <space-id> <entry-name>`.
 
 Recommended Agent-safe form:
 
@@ -1353,25 +1025,13 @@ Recommended Agent-safe form:
 forma inspect --space todos user-registration --json
 ```
 
-For space-scoped lookup, `<entry-name>` should mean a file basename without
-`.md` inside the space's include and exclude result. No-match and
-multiple-match cases should be errors with suggestions to use a path locator or
-create a new entry.
+For space-scoped lookup, `<entry-name>` should mean a file basename without `.md` inside the space's include and exclude result. No-match and multiple-match cases should be errors with suggestions to use a path locator or create a new entry.
 
-Space-scoped bare entry locators may use the corresponding
-space-backed type input normalization when such a type exists. For example,
-`forma inspect --space notes "Meeting Notes"` can normalize the bare entry
-name to `meeting-notes` before exact lookup. Path-like locators remain exact and
-should not be normalized.
+Space-scoped bare entry locators may use the corresponding space-backed type input normalization when such a type exists. For example, `forma inspect --space notes "Meeting Notes"` can normalize the bare entry name to `meeting-notes` before exact lookup. Path-like locators remain exact and should not be normalized.
 
-With the starter todos space, `forma inspect todos/user-registration` is a
-path-like locator for `todos/user-registration.md`, while
-`forma inspect --space todos user-registration` resolves the same entry
-through the `todos` space.
+With the starter todos space, `forma inspect todos/user-registration` is a path-like locator for `todos/user-registration.md`, while `forma inspect --space todos user-registration` resolves the same entry through the `todos` space.
 
-P0 CLI should prioritize reading, indexing, checking, and inspection before safe
-write operations, while still including initialization and minimal create so the
-starter can be used end to end. Required P0 commands:
+P0 CLI should prioritize reading, indexing, checking, and inspection before safe write operations, while still including initialization and minimal create so the starter can be used end to end. Required P0 commands:
 
 ```text
 - forma init --name <name> [--language <tag>] [--timezone <iana>] [-y|--yes]
@@ -1398,43 +1058,21 @@ P1:
 - local full index
 ```
 
-All read commands should support stable JSON output for GUI and Agent use.
-Human-oriented output should remain concise and explainable.
+All read commands should support stable JSON output for GUI and Agent use. Human-oriented output should remain concise and explainable.
 
-`forma init` should create the P0 minimal starter without sample entries, create
-`.forma.yml` and referenced support files, and fail on path conflicts. `forma
-create` should use configured create inputs, defaults, transforms, and
-templates, fail on path conflicts, and report any read-model refresh or
-persistent-index follow-up explicitly instead of rebuilding automatically.
+`forma init` should create the P0 minimal starter without sample entries, create `.forma.yml` and referenced support files, and fail on path conflicts. `forma create` should use configured create inputs, defaults, transforms, and templates, fail on path conflicts, and report any read-model refresh or persistent-index follow-up explicitly instead of rebuilding automatically.
 
-CLI confirmation should be based on operation risk. Read-only commands should
-not ask for confirmation. Single-file, predictable, non-destructive writes can
-avoid confirmation when they fail on conflicts or invalid inputs. Initialization,
-physical deletion, path moves or renames that change references, automatic
-fixes, batch updates, and multi-file or reference-changing writes should require
-confirmation.
+CLI confirmation should be based on operation risk. Read-only commands should not ask for confirmation. Single-file, predictable, non-destructive writes can avoid confirmation when they fail on conflicts or invalid inputs. Initialization, physical deletion, path moves or renames that change references, automatic fixes, batch updates, and multi-file or reference-changing writes should require confirmation.
 
-In P0, only `forma init` requires confirmation because it creates the starter
-workspace structure. Interactive shells should show the
-resolved initialization parameters and planned starter writes before asking for
-confirmation. Non-interactive shells such as CI should fail without writing
-unless `-y` or `--yes` is provided. `forma create` does not require confirmation
-in P0 because it writes one new entry and fails on path conflicts.
+In P0, only `forma init` requires confirmation because it creates the starter workspace structure. Interactive shells should show the resolved initialization parameters and planned starter writes before asking for confirmation. Non-interactive shells such as CI should fail without writing unless `-y` or `--yes` is provided. `forma create` does not require confirmation in P0 because it writes one new entry and fails on path conflicts.
 
 ### Lifecycle And Deletion
 
 Entry lifecycle should distinguish knowledge status from file operations.
 
-Lifecycle should remain outside the P0 minimal starter until its field model,
-view behavior, check behavior, and Agent context behavior are designed together.
-The product should avoid adding implicit lifecycle semantics to ordinary schema
-fields. If lifecycle interpretation is introduced later, it should be configured
-explicitly rather than inferred only from a field name.
+Lifecycle should remain outside the P0 minimal starter until its field model, view behavior, check behavior, and Agent context behavior are designed together. The product should avoid adding implicit lifecycle semantics to ordinary schema fields. If lifecycle interpretation is introduced later, it should be configured explicitly rather than inferred only from a field name.
 
-Deprecation remains an important future lifecycle operation. A deprecated file
-should stay at its original path and remain readable, searchable, and directly
-openable, while future views or context builders can explicitly decide whether
-to include it.
+Deprecation remains an important future lifecycle operation. A deprecated file should stay at its original path and remain readable, searchable, and directly openable, while future views or context builders can explicitly decide whether to include it.
 
 The dedicated deprecation command should be P1, earlier than archive or merge:
 
@@ -1444,17 +1082,9 @@ forma deprecate decisions/old-auth.md --replaced-by decisions/new-auth.md
 forma deprecate --space decisions old-auth --replaced-by decisions/new-auth
 ```
 
-The exact lifecycle schema, replacement relationship, view filtering, and
-context behavior should be decided with the P1 deprecation design. A separate
-`undeprecate` command is not required in the initial deprecation design;
-restoring active status can remain a deliberate metadata edit until product
-evidence justifies a first-class command.
+The exact lifecycle schema, replacement relationship, view filtering, and context behavior should be decided with the P1 deprecation design. A separate `undeprecate` command is not required in the initial deprecation design; restoring active status can remain a deliberate metadata edit until product evidence justifies a first-class command.
 
-Delete should be a dangerous but legitimate future first-class action. Choral
-Forma is intended for professional, repository-backed workspaces, so the product
-does not need a heavy application-level recycle bin. Physical deletion should be
-allowed once the command is designed, and version control can provide history
-where users adopt it.
+Delete should be a dangerous but legitimate future first-class action. Choral Forma is intended for professional, repository-backed workspaces, so the product does not need a heavy application-level recycle bin. Physical deletion should be allowed once the command is designed, and version control can provide history where users adopt it.
 
 Deletion still needs explicit tooling because it affects references:
 
@@ -1463,34 +1093,22 @@ forma delete decisions/old-note.md
 forma delete decisions/old-note.md --replace-with decisions/new-note.md
 ```
 
-P1 delete behavior should inspect affected references, show the planned change,
-physically delete the file when confirmed, and run or recommend a follow-up
-check. `--replace-with` should rewrite references that can be safely resolved
-and report anything ambiguous. More advanced reference cleanup options can wait.
+P1 delete behavior should inspect affected references, show the planned change, physically delete the file when confirmed, and run or recommend a follow-up check. `--replace-with` should rewrite references that can be safely resolved and report anything ambiguous. More advanced reference cleanup options can wait.
 
-Path should remain the default entry identity in the MVP. Controlled move and
-rename commands should be the preferred migration path because they can update
-references and keep space membership valid:
+Path should remain the default entry identity in the MVP. Controlled move and rename commands should be the preferred migration path because they can update references and keep space membership valid:
 
 ```sh
 forma move todos/old-name.md todos/new-name.md
 forma rename --space todos old-name new-name
 ```
 
-Direct filesystem edits should remain allowed. `forma check` should detect
-broken references, invalid space membership, ambiguous short wikilinks,
-stale views, and other consequences before review or commit.
+Direct filesystem edits should remain allowed. `forma check` should detect broken references, invalid space membership, ambiguous non-canonical references, stale views, and other consequences before review or commit.
 
 ### In-Memory Read Model
 
-The first public release should not use a committed summary index. The local
-server and read operations scan source files and configuration, then keep the
-read model in memory.
+The first public release should not use a committed summary index. The local server and read operations scan source files and configuration, then keep the read model in memory.
 
-The MVP should not include a committed summary index or a local full index such
-as `.forma/local/index.json`. A persistent index, SQLite backend, watcher, or
-vector index can be introduced later only after a fresh design if workspace
-size, GUI latency, local overrides, or semantic search make them necessary.
+The MVP should not include a committed summary index or a local full index such as `.forma/local/index.json`. A persistent index, SQLite backend, watcher, or vector index can be introduced later only after a fresh design if workspace size, GUI latency, local overrides, or semantic search make them necessary.
 
 The read model is derived runtime state, not a knowledge store:
 
@@ -1500,10 +1118,7 @@ read model supports discovery, graph traversal, and context selection
 read model can always be rebuilt in memory
 ```
 
-Runtime read-model projections should not contain absolute paths, local override
-results, private local files, runtime identity, user behavior traces, full
-frontmatter, full Markdown bodies, diagnostics, check summaries, health state,
-effective config, rendered HTML, or rendered view results.
+Runtime read-model projections should not contain absolute paths, local override results, private local files, runtime identity, user behavior traces, full frontmatter, full Markdown bodies, diagnostics, check summaries, health state, effective config, rendered HTML, or rendered view results.
 
 Recommended shape:
 
@@ -1566,25 +1181,15 @@ Recommended shape:
 }
 ```
 
-By default, serve/check operations should full-scan shared source files and
-shared configuration into memory. P0 does not need true incremental indexing.
-P0 should not expose persistent `index rebuild` or `index check` behavior.
+By default, serve/check operations should full-scan shared source files and shared configuration into memory. P0 does not need true incremental indexing. P0 should not expose persistent `index rebuild` or `index check` behavior.
 
-Diagnostics are runtime results that belong to `forma check`, `forma serve`, or
-shared RPC responses; they should not be persisted as a separate diagnostics
-result file.
-Effective configuration belongs to `forma config inspect`; view results belong
-to view rendering.
+Diagnostics are runtime results that belong to `forma check`, `forma serve`, or shared RPC responses; they should not be persisted as a separate diagnostics result file. Effective configuration belongs to `forma config inspect`; view results belong to view rendering.
 
-Future implementation caches may accelerate checks, parsing, or diagnostics, but
-they should be local-only, rebuildable, and stored under `.forma/local/cache/`.
-They must not become product facts or public Script/Agent interfaces.
+Future implementation caches may accelerate checks, parsing, or diagnostics, but they should be local-only, rebuildable, and stored under `.forma/local/cache/`. They must not become product facts or public Script/Agent interfaces.
 
 ### Check Diagnostics
 
-`forma check` should be read-only and diagnostic-first. It should not repair
-files in P0. Human output should be concise, while `--json` should provide
-stable structure for Agents, scripts, and GUI.
+`forma check` should be read-only and diagnostic-first. It should not repair files in P0. Human output should be concise, while `--json` should provide stable structure for Agents, scripts, and GUI.
 
 Recommended P0 JSON shape:
 
@@ -1623,9 +1228,7 @@ Recommended P0 JSON shape:
 }
 ```
 
-P0 diagnostic fields should include `severity`, `code`, `message`, `path`,
-`location`, `actual`, `expected`, and `suggestions` where applicable.
-Suggestions are advisory only and should not contain patches in P0.
+P0 diagnostic fields should include `severity`, `code`, `message`, `path`, `location`, `actual`, `expected`, and `suggestions` where applicable. Suggestions are advisory only and should not contain patches in P0.
 
 P0 severity values:
 
@@ -1643,9 +1246,7 @@ warning = warnings but no errors
 failed = at least one error
 ```
 
-Warnings should not cause a non-zero exit code in P0. Errors should. A required
-runtime value that cannot resolve should be a warning unless it blocks a
-specific operation.
+Warnings should not cause a non-zero exit code in P0. Errors should. A required runtime value that cannot resolve should be a warning unless it blocks a specific operation.
 
 P0 diagnostic code families can include:
 
@@ -1669,98 +1270,61 @@ The product can support multiple surfaces:
 
 - VS Code or Zed extensions.
 - A local service started from the product CLI and accessed through a browser.
-- A read-only GUI for browsing, rendering, inspecting, and diagnostics over a
-  local repository workspace.
-- CLI commands for inspection, validation, generation, repair assistance, and
-  automation.
+- A read-only GUI for browsing, rendering, inspecting, and diagnostics over a local repository workspace.
+- CLI commands for inspection, validation, generation, repair assistance, and automation.
 - Agent and Skill wrappers over GUI, CLI, and repository operations.
 
-P0 GUI should be a local webapp served by `forma serve`. It should browse
-spaces and page views, render table and kanban views, inspect entry
-metadata and Markdown bodies, show resolved references, and display check
-status. It should not create, edit, delete, move, rename, deprecate, mutate
-kanban cards, edit settings or schemas, run Git operations, or
-perform fixes in P0.
+P0 GUI should be a local webapp served by `forma serve`. It should browse spaces and page views, render table and kanban views, inspect entry metadata and Markdown bodies, show resolved references, and display check status. It should not create, edit, delete, move, rename, deprecate, mutate kanban cards, edit settings or schemas, run Git operations, or perform fixes in P0.
 
-The user-facing experience should not require users to understand Git branches,
-merge conflicts, pull requests, or commits. Agents and skills can assist with
-those operations when they are needed.
+The user-facing experience should not require users to understand Git branches, merge conflicts, pull requests, or commits. Agents and skills can assist with those operations when they are needed.
 
 ## In Scope
 
-- Thin configurable spaces, schemas, semantic types, modes, views, and
-  templates.
+- Thin configurable spaces, schemas, semantic types, modes, views, and templates.
 - Human-readable and Agent-friendly repository knowledge.
-- Agent-friendly CLI and skills for health checks, validation, workflow
-  execution, and safe maintenance.
-- CLI interfaces for init, config inspection, check, inspect, list, create, and
-  serving a local read-only webapp.
-- Read-only local browser GUI for browsing spaces and views, rendering
-  entries, inspecting metadata, and viewing diagnostics.
+- Agent-friendly CLI and skills for health checks, validation, workflow execution, and safe maintenance.
+- CLI interfaces for init, config inspection, check, inspect, list, create, and serving a local read-only webapp.
+- Read-only local browser GUI for browsing spaces and views, rendering entries, inspecting metadata, and viewing diagnostics.
 - Structured views over files without requiring custom executable scripts.
-- Forma-native YAML Schema DSL as the initial user-visible object constraint
-  format.
+- Forma-native YAML Schema DSL as the initial user-visible object constraint format.
 - Explicit promotion and splitting between personal and shared content.
-- Three knowledge visibility scopes: shared team, shared personal, and local
-  personal.
+- Three knowledge visibility scopes: shared team, shared personal, and local personal.
 - P0 configuration scopes: team shared and local personal.
-- Guidance for non-software users around repository operations that would
-  otherwise require Git knowledge.
-- Optional date-based workflows such as daily, weekly, or monthly reports where
-  they fit a user's workspace.
+- Guidance for non-software users around repository operations that would otherwise require Git knowledge.
+- Optional date-based workflows such as daily, weekly, or monthly reports where they fit a user's workspace.
 - Limited `{{ ... }}` runtime interpolation for configuration and templates.
-- Create inputs with explicit field binding, operation-level defaults,
-  dependency-graph resolution, and a small `slugify` transform.
-- Runtime in-memory read model rebuilt from source files and shared
-  configuration.
-- P0 CLI for init, config inspection, workspace checks, entry inspection, space
-  listing, entry creation, and read-only local GUI serving.
+- Create inputs with explicit field binding, operation-level defaults, dependency-graph resolution, and a small `slugify` transform.
+- Runtime in-memory read model rebuilt from source files and shared configuration.
+- P0 CLI for init, config inspection, workspace checks, entry inspection, space listing, entry creation, and read-only local GUI serving.
 
 ## Out Of Scope
 
-- Full import or migration compatibility with specific note-taking products.
-- Complete compatibility with every Obsidian, Foam, Logseq, or Notion feature.
+- Full import or migration compatibility with specific third-party note-taking products.
+- Feature parity with third-party note-taking products or editor plugins.
 - Custom executable query scripts in the initial product direction.
 - Code-based schema configuration as the user-facing schema format.
 - Required JSON Schema authoring files in the P0 minimal starter.
-- Arbitrary expression evaluation, filters, loops, conditionals, includes,
-  partials, or scripting inside template placeholders.
+- Arbitrary expression evaluation, filters, loops, conditionals, includes, partials, or scripting inside template placeholders.
 - `default` in space schema fields for P0.
 - Publishing systems in the initial product direction.
-- Assuming the current repository's `knowledge/` layout is the default or only
-  future workspace structure.
+- Assuming the current repository's `knowledge/` layout is the default or only future workspace structure.
 - Assuming all users understand Git concepts.
-- Shared team overrides in the MVP. Team-level configuration changes should edit
-  the shared base config directly.
+- Shared team overrides in the MVP. Team-level configuration changes should edit the shared base config directly.
 - Shared personal overrides in P0. They remain a P1 or later capability.
-- Agent-only product capabilities. Agent and Skill flows should not be the only
-  way to create, inspect, validate, or maintain knowledge structures.
-- Local full index, SQLite index backend, filesystem watcher, or vector index in
-  P0.
+- Agent-only product capabilities. Agent and Skill flows should not be the only way to create, inspect, validate, or maintain knowledge structures.
+- Local full index, SQLite index backend, filesystem watcher, or vector index in P0.
 - Heavy archive, merge, provenance, or recycle-bin workflows in the MVP.
-- First-class deprecate, delete, move, rename, search/query, and fix commands in
-  the initial required P0 command set.
+- First-class deprecate, delete, move, rename, search/query, and fix commands in the initial required P0 command set.
 
 ## Open Questions
 
-- What exact P0 starter file contents should initialize `notes`, `todos`, and
-  `users` without constraining advanced workspaces?
-- What exact P0 Schema DSL, semantic type, template, and view configuration
-  syntax should be implemented first?
-- When should loaders or integrations become necessary beyond declarative
-  space configuration?
-- How should Forma package or expose repository-backed knowledge so operational
-  systems such as Choral Flows can consume it as a Git-backed knowledge source
-  without turning Forma into a Flows backend or losing repository authorship?
-- How should the product model promotion workflows from personal content to
-  shared content?
-- How should shared content be split into personal work material without losing
-  provenance?
-- What exact CLI, JSON result, and future skill interfaces are needed for Agents
-  to check knowledge health?
-- What conflict and pull request workflows can be made understandable for
-  non-software users?
-- Which future shared personal configuration fields are safe to commit, and when
-  is that extra layer justified?
-- Which runtime values should be available in P0, and how should custom runtime
-  value providers be configured safely later?
+- What exact P0 starter file contents should initialize `notes`, `todos`, and `users` without constraining advanced workspaces?
+- What exact P0 Schema DSL, semantic type, template, and view configuration syntax should be implemented first?
+- When should loaders or integrations become necessary beyond declarative space configuration?
+- How should Forma package or expose repository-backed knowledge so operational systems such as Choral Flows can consume it as a Git-backed knowledge source without turning Forma into a Flows backend or losing repository authorship?
+- How should the product model promotion workflows from personal content to shared content?
+- How should shared content be split into personal work material without losing provenance?
+- What exact CLI, JSON result, and future skill interfaces are needed for Agents to check knowledge health?
+- What conflict and pull request workflows can be made understandable for non-software users?
+- Which future shared personal configuration fields are safe to commit, and when is that extra layer justified?
+- Which runtime values should be available in P0, and how should custom runtime value providers be configured safely later?

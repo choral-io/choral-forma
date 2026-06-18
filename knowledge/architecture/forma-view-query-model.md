@@ -14,33 +14,23 @@ tags:
 
 ## Context
 
-Forma views are managed Markdown configuration nodes under `.forma/views/*.md`
-by convention. They render structured knowledge from repository-backed Markdown
-pages without turning view definitions into ordinary domain notes.
+Forma views are managed Markdown configuration nodes under `.forma/views/*.md` by convention. They render structured knowledge from repository-backed Markdown pages without turning view definitions into ordinary domain notes.
 
-The initial design previously leaned toward collection-bound views and then a
-workspace-file source model. The current starter-kit baseline is broader and
-more semantic: a view starts from pages in the Forma read model, then filters
-those pages by taxonomy membership or query predicates.
+The initial design previously leaned toward collection-bound views and then a workspace-file source model. The current starter-kit baseline is broader and more semantic: a view starts from pages in the Forma read model, then filters those pages by taxonomy membership or query predicates.
 
 ## Goals
 
 - Keep view behavior explicit, file-backed, and reviewable.
-- Support space views, uncatalogued file views, and graph views with one
-  source/query model.
-- Keep P0 query support small enough for robust diagnostics and GUI
-  round-tripping.
-- Leave room for future external render inputs without treating them as durable
-  knowledge truth.
+- Support space views, uncatalogued file views, and graph views with one source/query model.
+- Keep P0 query support small enough for robust diagnostics and GUI round-tripping.
+- Leave room for future external render inputs without treating them as durable knowledge truth.
 - Avoid executable scripts or arbitrary code in view definitions.
 
 ## Non-Goals
 
 - P0 does not include a text query DSL.
 - P0 does not support DataviewJS-style or trusted JavaScript queries.
-- P0 does not implement full-text predicates, date comparisons, reference
-  predicates, diagnostic filters, runtime temporary query controls, saved
-  personal view controls, or cross-space table joins.
+- P0 does not implement full-text predicates, date comparisons, reference predicates, diagnostic filters, runtime temporary query controls, saved personal view controls, or cross-space table joins.
 - P0 does not make graph a global special feature outside the view system.
 
 ## Current Starter-Kit Baseline
@@ -84,21 +74,15 @@ Rules from the current baseline:
 
 - `source.type` is the canonical field name.
 - Ordinary projections use `source.type: pages`.
-- The global graph view can use only `source.type: pages` with no taxonomy
-  filter.
+- The global graph view can use only `source.type: pages` with no taxonomy filter.
 - Taxonomy filters use a map-to-list shape, even for one term.
 - Predicate and display field references use `field`, not `target`.
-- Table columns are objects so labels and future display options can be added
-  without changing the column shape.
+- Table columns are objects so labels and future display options can be added without changing the column shape.
 - Table and list sort stay view-level.
-- Kanban columns may define local sort because each column is a separate result
-  group.
+- Kanban columns may define local sort because each column is a separate result group.
 - `sort.order` can define explicit enum order for fields such as priority.
 
-The current examples use binding paths such as `fields.title`,
-`fields.updatedAt`, and `fields.status`. These paths document the current
-starter-kit baseline only. The full runtime object model still needs a separate
-design pass during the backend and WebApp refactor.
+The current examples use binding paths such as `fields.title`, `fields.updatedAt`, and `fields.status`. These paths document the current starter-kit baseline only. The full runtime object model still needs a separate design pass during the backend and WebApp refactor.
 
 ## Proposed Architecture
 
@@ -109,14 +93,11 @@ View evaluation has two layers:
 1. `source` selects candidate pages.
 2. `query` filters normalized page records derived from those pages.
 
-The older `source.kind: workspace` shape is superseded for the starter-kit
-baseline. P0 implementation may still contain transitional code, but the target
-configuration should use `source.type: pages`.
+Starter-kit views should use `source.type: pages` as the target source shape.
 
 ### Taxonomy Filters
 
-The older direct `view.space` shorthand is superseded. A view scoped to starter
-notes should filter through taxonomy membership:
+A view scoped to starter notes should filter through taxonomy membership:
 
 ```yaml
 source:
@@ -126,13 +107,11 @@ source:
             - notes
 ```
 
-This avoids making `spaces` a built-in runtime concept. Other taxonomies can
-use the same shape later.
+This avoids making `spaces` a built-in runtime concept. Other taxonomies can use the same shape later.
 
 ### Query AST
 
-The query model remains a structured AST with boolean composition. The starter
-baseline uses `field` for leaf predicates:
+The query model remains a structured AST with boolean composition. The starter baseline uses `field` for leaf predicates:
 
 ```yaml
 query:
@@ -145,8 +124,7 @@ query:
 The semantics are:
 
 - `all`: every child must match.
-- `any`: at least one child must match; an empty `any` should be neutral only
-  when the query node is otherwise empty by implementation convention.
+- `any`: at least one child must match; an empty `any` should be neutral only when the query node is otherwise empty by implementation convention.
 - `not`: every child must not match.
 - Leaf predicates use `field`, `op`, and optional `value`.
 
@@ -157,8 +135,7 @@ P0 supports these operators:
 - `contains`
 - `exists`
 
-Additional operators can be introduced later when runtime typing and
-diagnostics justify them:
+Additional operators can be introduced later when runtime typing and diagnostics justify them:
 
 - `notEquals`
 - `notIn`
@@ -173,13 +150,9 @@ diagnostics justify them:
 
 List and table views use the top-level `query` as their candidate filter.
 
-Kanban views first apply the top-level `query`, then evaluate
-`kanban.columns[].query` in column order. The first matching column wins. Health
-checks should warn about overlapping column queries and unmatched items.
+Kanban views first apply the top-level `query`, then evaluate `kanban.columns[].query` in column order. The first matching column wins. Health checks should warn about overlapping column queries and unmatched items.
 
-Graph views use `source` and optional `query` to define the graph scope, but
-their rendering semantics are graph-specific. A repository-wide graph is not a
-cross-space table join.
+Graph views use `source` and optional `query` to define the graph scope, but their rendering semantics are graph-specific. A repository-wide graph is not a cross-space table join.
 
 Example global graph view:
 
@@ -192,13 +165,26 @@ mode: graph
 
 source:
     type: pages
+
+graph:
+    edges:
+        - source: body
+          intent: link
+          label: links to
+        - source: fields
+          field: project
+          label: belongs to
+        - source: fields
+          field: assignees
+          label: assigned to
 ---
 ```
 
-Graph should be opened through normal view navigation, tabs, or links. It is a
-view mode, not a separate global product surface. Relationship panels may show
-backlinks and outgoing links for the current page, but they are not the primary
-graph surface.
+Graph should be opened through normal view navigation, tabs, or links. It is a view mode, not a separate global product surface. Relationship panels may show backlinks and outgoing links for the current page, but they are not the primary graph surface.
+
+`graph.edges` configures which resolved references become graph edges. Wikilinks, embeds, and structured field references are all relation rules. Body edges declare at least `source` and `intent`. Field edges declare at least `source` and `field`; with `source: fields`, the field value is relative to the normalized `fields` object, such as `assignees` rather than `fields.assignees`. `label` is optional. A plain list of fields is not sufficient because field names such as `assignees` or `blockedBy` do not always define the edge label shown to users.
+
+Health checks should validate that configured relation fields exist, are reference-typed according to the resolved space schema, and can produce workspace-relative target paths. `view.render` should include edge source kind, intent, field when present, resolved edge label, and semantic type in graph edge output.
 
 ## Interfaces And Contracts
 
@@ -214,9 +200,7 @@ graph surface.
 - kanban column configuration;
 - render mount points.
 
-The first public release does not use a committed persistent index. The
-serve process can build the read model in memory and expose valid view metadata,
-including page-source graph views without taxonomy filters.
+The first public release does not use a committed persistent index. The serve process can build the read model in memory and expose valid view metadata, including page-source graph views without taxonomy filters.
 
 `check` should report structured diagnostics for:
 
@@ -225,13 +209,11 @@ including page-source graph views without taxonomy filters.
 - invalid query fields;
 - unsupported operators;
 - incompatible operator/value combinations;
-- missing referenced spaces, fields, or parameters when the view requires
-  them;
+- missing referenced spaces, fields, or parameters when the view requires them;
 - invalid kanban column queries;
 - overlapping or unmatched kanban items when enough information is available.
 
-Invalid queries should produce diagnostics instead of panics or silent
-misrendering.
+Invalid queries should produce diagnostics instead of panics or silent misrendering.
 
 ## P0 Scope
 

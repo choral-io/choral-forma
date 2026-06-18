@@ -34,8 +34,7 @@ affected_area: Summary index and workspace diagnostics
 
 ## Goal
 
-Implement the shared discovery, check, diagnostics, and summary-index pipeline
-for P0.
+Implement the shared discovery, check, diagnostics, and in-memory summary projection pipeline for P0.
 
 ## Sources
 
@@ -45,42 +44,32 @@ for P0.
 
 ## Context
 
-`.forma/index.summary.json` is a committed deterministic discovery artifact.
-Diagnostics are runtime operation results and must not be persisted.
+P0 no longer writes or requires a committed `.forma/index.summary.json` file. Operations discover workspace state at runtime and build deterministic in-memory projections for checks, list views, renders, and RPC responses. Diagnostics are runtime operation results and must not be persisted.
 
 ## In Scope
 
 - Discover spaces, views, entries, and successfully resolved references.
-- Generate deterministic `.forma/index.summary.json`.
-- Implement in-memory index freshness comparison.
-- Implement diagnostic result shape, status values, diagnostic code families,
-  and location objects.
-- Ensure unresolved and ambiguous references appear as diagnostics, not index
-  refs.
-- Add golden JSON fixtures for valid, stale-index, unresolved-ref,
-  ambiguous-ref, invalid-frontmatter, invalid-config, invalid-view, and
-  path-cases workspaces.
+- Build deterministic in-memory summary projections without writing them to disk.
+- Implement diagnostic result shape, status values, diagnostic code families, and location objects.
+- Ensure unresolved and ambiguous references appear as diagnostics, not resolved refs.
+- Add golden JSON fixtures for valid, unresolved-ref, ambiguous-ref, invalid-frontmatter, invalid-config, invalid-view, and path-cases workspaces.
 
 ## Out Of Scope
 
-- Local full index, SQLite, vector search, filesystem watchers, or incremental
-  indexing.
+- Local full index, SQLite, vector search, filesystem watchers, or incremental indexing.
 - Persisted diagnostic result files.
 - Automatic repair or fix commands.
 
 ## Acceptance Criteria
 
-- `index rebuild` output is byte-stable for unchanged fixtures.
-- `index check` detects missing, invalid, and stale summary indexes.
-- `check` reports diagnostics without writing files.
+- `check` builds discovery state in memory and reports diagnostics without writing files.
+- No operation writes or requires `.forma/index.summary.json`.
 - Public JSON contains workspace-relative POSIX paths only.
-- Golden tests cover deterministic ordering and exclusion of diagnostics from
-  the summary index.
+- Golden tests cover deterministic ordering and exclusion of diagnostics from resolved refs and in-memory projections.
 
 ## Relationship Notes
 
-Previously blocked by Schema DSL/runtime values and Markdown FormaAST parser;
-both prerequisites are now done.
+Previously blocked by Schema DSL/runtime values and Markdown FormaAST parser; both prerequisites are now done.
 
 ## Open Questions
 

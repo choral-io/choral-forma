@@ -5,7 +5,7 @@ summary: "Add links between pages so references, backlinks, and graph views beco
 status: "todo"
 priority: "medium"
 assignees:
-  - "[[users/mira-chen]]"
+  - users/mira-chen.md
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 dueDate: "2026-06-14"

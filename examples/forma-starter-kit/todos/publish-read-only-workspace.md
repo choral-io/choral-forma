@@ -5,7 +5,7 @@ summary: "Serve the workspace locally and share the read-only browser with the t
 status: "done"
 priority: "low"
 assignees:
-  - "[[users/sam-rivera]]"
+  - users/sam-rivera.md
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 dueDate: "2026-06-01"

@@ -36,8 +36,7 @@ affected_area: Entry rendering and declarative views
 
 ## Goal
 
-Implement P0 read-only render operations for Markdown entries and declarative
-page views.
+Implement P0 read-only render operations for Markdown entries and declarative page views.
 
 ## Sources
 
@@ -47,9 +46,7 @@ page views.
 
 ## Context
 
-The P0 WebApp should read through operations, not directly from files. Entry
-rendering and view rendering are separate operation surfaces so inspection can
-stay metadata-focused.
+The P0 WebApp should read through operations, not directly from files. Entry rendering and view rendering are separate operation surfaces so inspection can stay metadata-focused.
 
 ## In Scope
 
@@ -59,8 +56,7 @@ stay metadata-focused.
 - Render kanban views from space entries and column `query.all` filters.
 - Support `<!-- forma-view -->` as the view mount point.
 - Render Obsidian-style embeds as links or placeholders, not expanded content.
-- Add golden tests for table, kanban, entry HTML, missing mount points, invalid
-  view fields, and unresolved references.
+- Add golden tests for table, kanban, entry HTML, missing mount points, invalid view fields, and unresolved references.
 
 ## Out Of Scope
 
@@ -75,7 +71,7 @@ stay metadata-focused.
 - `file.render` and `view.render` return stable JSON result shapes.
 - P0 starter views render with zero entries and with fixture entries.
 - Invalid views produce structured diagnostics.
-- Rendered output does not persist to disk or enter `.forma/index.summary.json`.
+- Rendered output does not persist to disk or enter any persistent index artifact.
 
 ## Relationship Notes
 
@@ -83,5 +79,4 @@ Blocked by parser, check/index, and operation dispatch foundation.
 
 ## Open Questions
 
-- Exact HTML sanitization/rendering library choice can be made during
-  implementation.
+- Exact HTML sanitization/rendering library choice can be made during implementation.

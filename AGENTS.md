@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-Choral Forma is a new project for exploring a lightweight, editor-independent team knowledge application. The repository remains intentionally knowledge-first: product direction, concepts, decisions, task planning, and delivery workflow should be captured in `knowledge/`, while current application code is still only a minimal scaffold.
+Choral Forma is a project for exploring a lightweight, editor-independent team knowledge application. The repository remains intentionally knowledge-first: product direction, concepts, decisions, task planning, and delivery workflow should be captured in `knowledge/`, while application code should keep Markdown files and explicit schemas as the source of truth.
 
-The long-term product should treat repository Markdown as the source of truth. Application code, when added, should read from and write to explicit files and schemas rather than creating a hidden proprietary knowledge store.
+The product should treat repository Markdown as the source of truth. Application code should read from and write to explicit files and schemas rather than creating a hidden proprietary knowledge store.
 
 The current `knowledge/` directory is the development knowledge base for this repository. It guides Choral Forma project development, planning, and delivery; it is not the same thing as a future Choral Forma user workspace, and its workflow rules should not be treated as automatic product requirements.
 
@@ -15,9 +15,9 @@ The current `knowledge/` directory is the development knowledge base for this re
 - `.worktrees/`: local-only worktrees; `.worktrees/.gitignore` remains trackable.
 - `.claude/skills`: symlink to `.agents/skills` for Claude Code compatibility.
 - `CLAUDE.md`: symlink to `AGENTS.md` for Claude Code compatibility.
-- `crates/`: Rust workspace crates for the future Forma core, RPC model, and CLI.
-- `packages/`: pnpm workspace packages for shared TypeScript code and the future WebApp.
-- `.vscode/` and `.zed/`: editor integration for Markdown, Foam, and Prettier.
+- `crates/`: Rust workspace crates for the Forma core, RPC model, CLI, local HTTP server, and embedded WebApp serving.
+- `packages/`: pnpm workspace packages for shared TypeScript code and the WebApp.
+- `.vscode/` and `.zed/`: editor integration for Markdown and Prettier.
 - `mise.toml`: project tool and task configuration.
 
 ## Tooling
@@ -44,12 +44,11 @@ Tool versions are declared in the idiomatic project files: Node.js and pnpm in r
 - Keep Rust crates aligned with the accepted architecture in `knowledge/decisions/forma-p0-core-architecture.md`.
 - Keep Web packages aligned with the accepted architecture in `knowledge/architecture/forma-core-technical-direction.md`.
 - Do not commit secrets, local worklists, local Agent state, or personal editor caches.
-- Keep `knowledge/` Foam-compatible and Obsidian-readable, but do not rely on editor-specific plugin syntax for project facts.
+- Keep `knowledge/` readable as plain Markdown, but do not rely on editor-specific plugin syntax for project facts.
 
 ## Git And Commits
 
-- Commit messages must start with a type-enum prefix such as `chore:`,
-  `docs:`, `feat:`, `fix:`, `refactor:`, or `test:`.
+- Commit messages must start with a type-enum prefix such as `chore:`, `docs:`, `feat:`, `fix:`, `refactor:`, or `test:`.
 
 <!-- knowledge-workflow:start -->
 
@@ -73,6 +72,6 @@ Core boundaries:
 Project-specific rules may specialize workflow behavior, but they must not weaken runtime, safety, ownership, privacy, local-only, approval, or review rules.
 
 - Use `mise run format:pnpm` for pnpm-managed formatting and `mise run check:pnpm` for check-only validation of non-Rust files.
-- Keep `knowledge/` Foam-compatible and Obsidian-readable, but do not make project knowledge depend on Foam-only or Obsidian-plugin-only syntax for project facts.
+- Keep `knowledge/` readable as plain Markdown, but do not make project knowledge depend on Foam-only, Obsidian-only, or other editor-plugin syntax for project facts.
 
 <!-- knowledge-workflow:end -->
