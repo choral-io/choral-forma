@@ -147,6 +147,8 @@ Recommended P0 JSON shape:
                 {
                     "source": "body",
                     "targetPath": "notes/project-brief.md",
+                    "fragment": "Goals",
+                    "fragmentKind": "heading",
                     "semanticType": "note",
                     "intent": "embed"
                 }
@@ -165,6 +167,8 @@ Index references must distinguish intent:
 - `embed`: wikilink embedded reference such as `![[notes/project-brief]]`.
 
 P0 validates embed targets like ordinary references and records `intent: "embed"` when resolved. P0 does not expand embedded content into the index, rendered HTML, or exported Markdown.
+
+Body references may include fragments. The resolver must split the page or resource path from the fragment before resolving the target path. `fragmentKind: "heading"` represents heading fragments such as `#Goals`; `fragmentKind: "block"` represents block fragments such as `#^risk-block`. P0 resolves the target page and records fragment metadata, but does not need to validate heading or block existence before the reader and block identity model are complete.
 
 ## Deterministic Sorting
 

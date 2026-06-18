@@ -114,6 +114,10 @@ pub struct IndexReference {
     pub field: Option<String>,
     pub target_path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment_kind: Option<ReferenceFragmentKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub target_title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub semantic_type: Option<String>,
@@ -133,6 +137,13 @@ pub enum ReferenceIntent {
     Reference,
     Link,
     Embed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ReferenceFragmentKind {
+    Heading,
+    Block,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -819,6 +830,8 @@ fn resolve_frontmatter_ref_value(
             source: ReferenceSource::Frontmatter,
             field: Some(field.field.clone()),
             target_path,
+            fragment: None,
+            fragment_kind: None,
             target_title: None,
             semantic_type: Some(field.semantic_type.clone()),
             intent: ReferenceIntent::Reference,
@@ -853,9 +866,7 @@ fn resolve_body_refs(
 ) -> Vec<IndexReference> {
     let mut refs = Vec::new();
     for reference in &document.references {
-        if matches!(reference.intent, FormaReferenceIntent::View)
-            || reference.target.starts_with('#')
-        {
+        if matches!(reference.intent, FormaReferenceIntent::View) {
             continue;
         }
         let intent = match reference.intent {
@@ -868,17 +879,22 @@ fn resolve_body_refs(
                 source: ReferenceSource::Body,
                 field: None,
                 target_path: reference.target.clone(),
+                fragment: None,
+                fragment_kind: None,
                 target_title: non_empty_string(reference.label.clone()),
                 semantic_type: None,
                 intent,
             });
             continue;
         }
-        match path_index.resolve_from(&reference.target, source_path, None) {
+        let target = split_reference_target(&reference.target, source_path);
+        match path_index.resolve_from(&target.path, source_path, None) {
             ResolveResult::Resolved(target_path) => refs.push(IndexReference {
                 source: ReferenceSource::Body,
                 field: None,
                 target_path,
+                fragment: target.fragment,
+                fragment_kind: target.fragment_kind,
                 target_title: non_empty_string(reference.label.clone()),
                 semantic_type: None,
                 intent,
@@ -920,6 +936,50 @@ fn resolve_body_refs(
         }
     }
     refs
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SplitReferenceTarget {
+    path: String,
+    fragment: Option<String>,
+    fragment_kind: Option<ReferenceFragmentKind>,
+}
+
+fn split_reference_target(raw_target: &str, source_path: &str) -> SplitReferenceTarget {
+    let trimmed = raw_target.trim();
+    let (raw_path, raw_fragment) = trimmed.split_once('#').unwrap_or((trimmed, ""));
+    let path = if raw_path.is_empty() {
+        source_path.to_string()
+    } else {
+        raw_path.to_string()
+    };
+    let (fragment, fragment_kind) = reference_fragment(raw_fragment);
+
+    SplitReferenceTarget {
+        path,
+        fragment,
+        fragment_kind,
+    }
+}
+
+fn reference_fragment(raw_fragment: &str) -> (Option<String>, Option<ReferenceFragmentKind>) {
+    let fragment = raw_fragment.trim();
+    if fragment.is_empty() {
+        return (None, None);
+    }
+    if let Some(block) = fragment.strip_prefix('^') {
+        let block = block.trim();
+        if block.is_empty() {
+            (None, None)
+        } else {
+            (Some(block.to_string()), Some(ReferenceFragmentKind::Block))
+        }
+    } else {
+        (
+            Some(fragment.to_string()),
+            Some(ReferenceFragmentKind::Heading),
+        )
+    }
 }
 
 enum ResolveResult {
@@ -1212,10 +1272,7 @@ fn apply_input_transform(transform: &str, value: &str) -> Result<String, String>
 }
 
 fn is_external_target(target: &str) -> bool {
-    target.starts_with("http://")
-        || target.starts_with("https://")
-        || target.starts_with("mailto:")
-        || target.starts_with('#')
+    target.starts_with("http://") || target.starts_with("https://") || target.starts_with("mailto:")
 }
 
 fn workspace_relative_path(root: &Path, path: &Path) -> Option<String> {
@@ -1563,6 +1620,63 @@ mod tests {
             discovery.diagnostics
         );
         assert_eq!(entry.refs[0].target_path, "notes/guide/next.md");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn resolves_wikilink_fragments_against_page_targets() {
+        let root = fixture_root("wikilink-fragments");
+        write_workspace(&root);
+        write_entry(
+            &root,
+            "notes/source.md",
+            "---\nkind: note\ntitle: Source\n---\nSee [[notes/project-brief#Goals]], [[notes/project-brief#^risk-block]], [[#Local]], and [[#^local-block]].\n\n## Local\n\nLocal. ^local-block\n",
+        );
+        write_entry(
+            &root,
+            "notes/project-brief.md",
+            "---\nkind: note\ntitle: Project Brief\n---\n## Goals\n\nRisk. ^risk-block\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+        let entry = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "notes/source.md")
+            .unwrap();
+
+        assert!(
+            discovery.diagnostics.is_empty(),
+            "{:#?}",
+            discovery.diagnostics
+        );
+        assert_eq!(entry.refs.len(), 4);
+        assert_eq!(entry.refs[0].target_path, "notes/project-brief.md");
+        assert_eq!(entry.refs[0].fragment.as_deref(), Some("Goals"));
+        assert_eq!(
+            entry.refs[0].fragment_kind,
+            Some(ReferenceFragmentKind::Heading)
+        );
+        assert_eq!(entry.refs[1].target_path, "notes/project-brief.md");
+        assert_eq!(entry.refs[1].fragment.as_deref(), Some("risk-block"));
+        assert_eq!(
+            entry.refs[1].fragment_kind,
+            Some(ReferenceFragmentKind::Block)
+        );
+        assert_eq!(entry.refs[2].target_path, "notes/source.md");
+        assert_eq!(entry.refs[2].fragment.as_deref(), Some("Local"));
+        assert_eq!(
+            entry.refs[2].fragment_kind,
+            Some(ReferenceFragmentKind::Heading)
+        );
+        assert_eq!(entry.refs[3].target_path, "notes/source.md");
+        assert_eq!(entry.refs[3].fragment.as_deref(), Some("local-block"));
+        assert_eq!(
+            entry.refs[3].fragment_kind,
+            Some(ReferenceFragmentKind::Block)
+        );
+
         fs::remove_dir_all(root).unwrap();
     }
 

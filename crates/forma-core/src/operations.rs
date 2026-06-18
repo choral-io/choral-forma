@@ -325,6 +325,10 @@ pub struct ReferenceEdge {
     pub source_kind: Option<String>,
     pub target_path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment_kind: Option<crate::index::ReferenceFragmentKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub target_title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_kind: Option<String>,
@@ -1358,6 +1362,8 @@ fn reference_edge(
         source_title: source_entry.title.clone(),
         source_kind: source_entry.kind.clone(),
         target_path: reference.target_path.clone(),
+        fragment: reference.fragment.clone(),
+        fragment_kind: reference.fragment_kind,
         target_title: target_entry
             .and_then(|entry| entry.title.clone())
             .or_else(|| reference.target_title.clone()),

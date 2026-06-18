@@ -165,6 +165,10 @@ pub struct GraphRenderEdge {
     pub target: String,
     pub source_path: String,
     pub target_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment_kind: Option<crate::index::ReferenceFragmentKind>,
     pub intent: ReferenceIntent,
     pub reference_source: ReferenceSource,
     pub label: String,
@@ -868,6 +872,8 @@ fn render_graph_view(
                     target: reference.target_path.clone(),
                     source_path: entry.path.clone(),
                     target_path: reference.target_path.clone(),
+                    fragment: reference.fragment.clone(),
+                    fragment_kind: reference.fragment_kind,
                     intent: reference.intent,
                     reference_source: reference.source,
                     label,

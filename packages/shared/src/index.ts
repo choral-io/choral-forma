@@ -138,6 +138,8 @@ export type IndexReference = {
     source: "frontmatter" | "body";
     field?: string;
     targetPath: string;
+    fragment?: string;
+    fragmentKind?: "heading" | "block";
     targetTitle?: string;
     semanticType?: string;
     intent: "reference" | "link" | "embed";
@@ -175,6 +177,8 @@ export type ReferenceEdge = {
     sourceTitle?: string;
     sourceKind?: string;
     targetPath: string;
+    fragment?: string;
+    fragmentKind?: "heading" | "block";
     targetTitle?: string;
     targetKind?: string;
     source: "frontmatter" | "body";
@@ -224,6 +228,8 @@ export type GraphRenderEdge = {
     target: string;
     sourcePath: string;
     targetPath: string;
+    fragment?: string;
+    fragmentKind?: "heading" | "block";
     intent: "reference" | "link" | "embed";
     referenceSource: "frontmatter" | "body";
     label: string;
