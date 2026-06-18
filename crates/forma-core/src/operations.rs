@@ -1286,9 +1286,10 @@ fn knowledge_health_finding_sort_key(
 
 fn knowledge_health_diagnostic(finding: &KnowledgeHealthFinding) -> Diagnostic {
     let diagnostic = match finding.severity {
-        DiagnosticSeverity::Error => {
-            Diagnostic::error(knowledge_health_diagnostic_code(finding.category), &finding.message)
-        }
+        DiagnosticSeverity::Error => Diagnostic::error(
+            knowledge_health_diagnostic_code(finding.category),
+            &finding.message,
+        ),
         DiagnosticSeverity::Warning => Diagnostic::warning(
             knowledge_health_diagnostic_code(finding.category),
             &finding.message,
@@ -1316,9 +1317,7 @@ fn knowledge_health_diagnostic_code(category: KnowledgeHealthCategory) -> &'stat
     match category {
         KnowledgeHealthCategory::BrokenReference => "knowledgeHealth.brokenReference",
         KnowledgeHealthCategory::AmbiguousReference => "knowledgeHealth.ambiguousReference",
-        KnowledgeHealthCategory::NoOutgoingReferences => {
-            "knowledgeHealth.noOutgoingReferences"
-        }
+        KnowledgeHealthCategory::NoOutgoingReferences => "knowledgeHealth.noOutgoingReferences",
         KnowledgeHealthCategory::NoBacklinks => "knowledgeHealth.noBacklinks",
         KnowledgeHealthCategory::ConfigDiagnostic => "knowledgeHealth.configDiagnostic",
     }
@@ -2654,30 +2653,22 @@ include:
         assert_eq!(result.status, OperationStatus::Warning);
         assert_eq!(result.workspace.root, ".");
         assert_eq!(result.workspace.name, "Knowledge Health Test");
-        assert!(
-            result.findings.iter().any(|finding| {
-                finding.category == KnowledgeHealthCategory::BrokenReference
-                    && finding.path == "notes/linked.md"
-            })
-        );
-        assert!(
-            !result.findings.iter().any(|finding| {
-                finding.category == KnowledgeHealthCategory::NoOutgoingReferences
-                    && finding.path == "notes/linked.md"
-            })
-        );
-        assert!(
-            !result.findings.iter().any(|finding| {
-                finding.category == KnowledgeHealthCategory::NoBacklinks
-                    && finding.path == "notes/linked.md"
-            })
-        );
-        assert!(
-            result.findings.iter().any(|finding| {
-                finding.category == KnowledgeHealthCategory::NoBacklinks
-                    && finding.path == "notes/orphan.md"
-            })
-        );
+        assert!(result.findings.iter().any(|finding| {
+            finding.category == KnowledgeHealthCategory::BrokenReference
+                && finding.path == "notes/linked.md"
+        }));
+        assert!(!result.findings.iter().any(|finding| {
+            finding.category == KnowledgeHealthCategory::NoOutgoingReferences
+                && finding.path == "notes/linked.md"
+        }));
+        assert!(!result.findings.iter().any(|finding| {
+            finding.category == KnowledgeHealthCategory::NoBacklinks
+                && finding.path == "notes/linked.md"
+        }));
+        assert!(result.findings.iter().any(|finding| {
+            finding.category == KnowledgeHealthCategory::NoBacklinks
+                && finding.path == "notes/orphan.md"
+        }));
         assert!(!root.join(".forma/index.summary.json").exists());
 
         fs::remove_dir_all(root).unwrap();
@@ -2697,18 +2688,14 @@ include:
         let result = knowledge_health(&root).unwrap();
 
         assert_eq!(result.status, OperationStatus::Warning);
-        assert!(
-            result.findings.iter().any(|finding| {
-                finding.category == KnowledgeHealthCategory::NoOutgoingReferences
-                    && finding.path == "notes/self.md"
-            })
-        );
-        assert!(
-            result.findings.iter().any(|finding| {
-                finding.category == KnowledgeHealthCategory::NoBacklinks
-                    && finding.path == "notes/self.md"
-            })
-        );
+        assert!(result.findings.iter().any(|finding| {
+            finding.category == KnowledgeHealthCategory::NoOutgoingReferences
+                && finding.path == "notes/self.md"
+        }));
+        assert!(result.findings.iter().any(|finding| {
+            finding.category == KnowledgeHealthCategory::NoBacklinks
+                && finding.path == "notes/self.md"
+        }));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -2789,24 +2776,18 @@ include:
                 .iter()
                 .any(|diagnostic| diagnostic.code == "ref.transformFailed")
         );
-        assert!(
-            !result.findings.iter().any(|finding| {
-                finding.category == KnowledgeHealthCategory::ConfigDiagnostic
-                    && finding.path == "notes/linked.md"
-            })
-        );
-        assert!(
-            !result.findings.iter().any(|finding| {
-                finding.category == KnowledgeHealthCategory::NoOutgoingReferences
-                    && finding.path == "notes/linked.md"
-            })
-        );
-        assert!(
-            !result.findings.iter().any(|finding| {
-                finding.category == KnowledgeHealthCategory::NoBacklinks
-                    && finding.path == "notes/linked.md"
-            })
-        );
+        assert!(!result.findings.iter().any(|finding| {
+            finding.category == KnowledgeHealthCategory::ConfigDiagnostic
+                && finding.path == "notes/linked.md"
+        }));
+        assert!(!result.findings.iter().any(|finding| {
+            finding.category == KnowledgeHealthCategory::NoOutgoingReferences
+                && finding.path == "notes/linked.md"
+        }));
+        assert!(!result.findings.iter().any(|finding| {
+            finding.category == KnowledgeHealthCategory::NoBacklinks
+                && finding.path == "notes/linked.md"
+        }));
     }
 
     #[test]
@@ -2829,12 +2810,10 @@ include:
                 .iter()
                 .any(|diagnostic| diagnostic.code == "resource.description.missingTarget")
         );
-        assert!(
-            !result.findings.iter().any(|finding| {
-                finding.category == KnowledgeHealthCategory::ConfigDiagnostic
-                    && finding.path == "assets/missing.png.md"
-            })
-        );
+        assert!(!result.findings.iter().any(|finding| {
+            finding.category == KnowledgeHealthCategory::ConfigDiagnostic
+                && finding.path == "assets/missing.png.md"
+        }));
         assert_eq!(result.summary.errors, 1);
 
         fs::remove_dir_all(root).unwrap();
