@@ -1781,6 +1781,56 @@ mod tests {
     }
 
     #[test]
+    fn renders_graph_field_edges_from_user_authored_space_schema() {
+        let root = fixture_root("graph-view-custom-field-schema");
+        fs::create_dir_all(&root).unwrap();
+        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        fs::create_dir_all(root.join("projects")).unwrap();
+        fs::create_dir_all(root.join("notes")).unwrap();
+        fs::write(
+            root.join(".forma/spaces/projects.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Projects\ninclude:\n  - projects/**/*.md\ncreate:\n  directory: projects\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: title\nschema:\n  type: object\n  fields:\n    kind:\n      type: const\n      value: project\n    title:\n      type: string\n---\n\n# Projects\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\ncreate:\n  directory: notes\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: title\nschema:\n  type: object\n  fields:\n    kind:\n      type: const\n      value: note\n    title:\n      type: string\n    project:\n      type: ref\n      target: project\n---\n\n# Notes\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("projects/migration.md"),
+            "---\nkind: project\ntitle: Migration\n---\n\n# Migration\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/plan.md"),
+            "---\nkind: note\ntitle: Plan\nproject: projects/migration.md\n---\n\n# Plan\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/project-graph.md"),
+            "---\nkind: view\nmode: graph\ntitle: Project Graph\nsource:\n  type: pages\ngraph:\n  edges:\n    - source: fields\n      field: project\n      label: belongs to\n---\n\n# Project Graph\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "project-graph", BTreeMap::new()).unwrap();
+        let Some(ViewRenderOutput::Graph { nodes, edges }) = result.render else {
+            panic!("expected graph render");
+        };
+
+        assert_eq!(nodes.len(), 2);
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].source, "notes/plan.md");
+        assert_eq!(edges[0].target, "projects/migration.md");
+        assert_eq!(edges[0].reference_source, ReferenceSource::Frontmatter);
+        assert_eq!(edges[0].field.as_deref(), Some("project"));
+        assert_eq!(edges[0].semantic_type.as_deref(), Some("project"));
+        assert_eq!(edges[0].label, "belongs to");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn renders_explicit_workspace_source_and_normalized_query_targets() {
         let root = fixture_root("workspace-source-view-render");
         fs::create_dir_all(&root).unwrap();

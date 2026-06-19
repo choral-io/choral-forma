@@ -21,7 +21,6 @@ Rules: `.workflow/rules/delivery.md`
 - [ ] [[tasks/implement-zed-extension-mvp|Implement Zed Extension MVP]]
 - [ ] [[tasks/design-metadata-edit-deprecate-operations|Design Metadata Edit And Deprecate Operations]]
 - [ ] [[tasks/design-reviewable-knowledge-change-proposals|Design Reviewable Knowledge Change Proposals]]
-- [ ] [[tasks/load-user-authored-space-schemas|Load User Authored Space Schemas]]
 - [ ] [[tasks/migrate-repository-knowledge-content|Migrate Repository Knowledge Content]]
 - [ ] [[tasks/normalize-repository-forma-knowledge-health|Normalize Repository Forma Knowledge Health]]
 
@@ -34,6 +33,7 @@ Rules: `.workflow/rules/delivery.md`
 ## Reviewing
 
 - [ ] [[tasks/migrate-repository-knowledge-to-forma-workspace|Migrate Repository Knowledge To Forma Workspace]]
+- [ ] [[tasks/load-user-authored-space-schemas|Load User Authored Space Schemas]]
 
 ## Blocked
 

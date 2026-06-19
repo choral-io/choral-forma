@@ -233,6 +233,8 @@ struct ConfigNode {
     create: Option<TermCreateDefinition>,
     #[serde(default)]
     conventions: SpaceConventions,
+    #[serde(default)]
+    schema: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -355,7 +357,10 @@ fn load_config_nodes(
                 },
             },
         );
-        let schema = starter_term_schema(&space_id);
+        let schema = node
+            .schema
+            .clone()
+            .unwrap_or_else(|| starter_term_schema(&space_id));
         spaces.insert(
             space_id,
             SpaceDefinition {
@@ -649,6 +654,41 @@ mod tests {
                 .values
                 .contains_key("currentUserId")
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn loads_schema_from_space_definition_frontmatter() {
+        let root = fixture_root("space-frontmatter-schema");
+        write_minimal_config(&root, "UTC", "notes/**/*.md");
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\ncreate:\n  directory: notes\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: title\n  summaryField: summary\nschema:\n  type: object\n  fields:\n    kind:\n      type: const\n      value: note\n      required: true\n    title:\n      type: string\n      required: true\n---\n\n# Notes\n",
+        )
+        .unwrap();
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        let expected_schema: Value = serde_yml::from_str(
+            "type: object\nfields:\n  kind:\n    type: const\n    value: note\n    required: true\n  title:\n    type: string\n    required: true\n",
+        )
+        .unwrap();
+        assert_eq!(workspace.config.spaces["notes"].schema, expected_schema);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn keeps_starter_schema_fallback_when_space_has_no_schema() {
+        let root = fixture_root("space-schema-fallback");
+        write_minimal_config(&root, "UTC", "notes/**/*.md");
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        let expected_schema: Value =
+            serde_yml::from_str("type: object\nfields:\n  kind:\n    type: string\n").unwrap();
+        assert_eq!(workspace.config.spaces["notes"].schema, expected_schema);
 
         fs::remove_dir_all(root).unwrap();
     }

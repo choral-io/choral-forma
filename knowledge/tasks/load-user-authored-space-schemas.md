@@ -18,7 +18,7 @@ tags:
     - migration
 
 effort: M
-readiness: needs-refinement
+readiness: ready
 sprint:
 
 blocked_by: []
@@ -63,3 +63,20 @@ Load and validate schema definitions from `.forma/spaces/*.md` so repository mig
 - Existing starter workspaces without explicit schemas continue to load.
 - Graph views can render `source: fields` edges from schema-declared reference fields.
 - Focused tests cover schema loading, fallback behavior, and at least one field-relation graph edge.
+
+## Implementation Notes
+
+- `crates/forma-core/src/config.rs` now prefers user-authored `schema` frontmatter from space definition files.
+- Spaces without an explicit `schema` still use the existing starter fallback schema.
+- `crates/forma-core/src/render.rs` has a graph rendering regression test that proves a custom `project` reference field from a user-authored space schema can produce a configured `source: fields` edge.
+
+## Review Readiness
+
+| Field | Evidence |
+| --- | --- |
+| Scope completed | User-authored space schemas load into runtime config; fallback behavior is preserved; schema-declared ref fields can drive graph field edges. |
+| Files changed | `crates/forma-core/src/config.rs`, `crates/forma-core/src/render.rs`, this task, and `knowledge/planning/KANBAN.md`. |
+| Knowledge updated | Yes: this task records implementation notes and review evidence. |
+| Checks run | `cargo test`, Prettier check for changed knowledge files, `forma check --json`, `forma config inspect --json`, `forma board show --json`, and `forma knowledge health --json` passed or returned the existing accepted health warning baseline. |
+| Residual risks | Existing repository task metadata still uses wikilink strings; enabling stricter ref schemas for the real repository spaces should wait for content migration/normalization. |
+| Suggested review | Verify the schema-loading fallback path and the custom field-relation graph test. |
