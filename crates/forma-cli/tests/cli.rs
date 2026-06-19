@@ -247,6 +247,14 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
     let tasks_stdout = String::from_utf8_lossy(&tasks_list.stdout);
     assert!(tasks_stdout.contains(r#""path":"knowledge/tasks/"#));
 
+    let product_list = forma(&root)
+        .args(["list", "--space", "product", "--json"])
+        .output()
+        .expect("forma list --space product should run");
+    assert!(product_list.status.success());
+    let product_stdout = String::from_utf8_lossy(&product_list.stdout);
+    assert!(product_stdout.contains(r#""path":"knowledge/product/"#));
+
     let design_list = forma(&root)
         .args(["list", "--space", "design", "--json"])
         .output()
