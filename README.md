@@ -4,7 +4,7 @@ Choral Forma is an early-stage exploration of a lightweight, editor-independent 
 
 The project is knowledge-first: product direction, reusable concepts, decisions, planning, and delivery workflow live in repository Markdown while the application reads and writes explicit Markdown files and schemas. The long-term product direction is to keep Markdown files and explicit schemas as the source of truth, rather than hiding team knowledge in a proprietary store.
 
-The current `knowledge/` directory is the development knowledge base for this repository. It guides Choral Forma project development, planning, and delivery; it is not the same thing as a future Choral Forma user workspace, and its workflow rules should not be treated as automatic product requirements.
+The current `knowledge/` directory is the development knowledge base for this repository. It guides Choral Forma project development, planning, and delivery; it is not the same thing as a future user workspace, and operational guidance is now managed through Forma and `forma-cli`.
 
 ## Current Status
 
@@ -13,7 +13,7 @@ This repository is in P0 internal-test stabilization. It contains:
 - A repository-backed knowledge base under `knowledge/`.
 - Workflow schemas for product, concepts, decisions, planning, tasks, members, and workspace material.
 - Project-local Agent skills under `.agents/skills/` for knowledge workflow, planning, review, and maintenance.
-- Editor integration for VS Code, Foam, Obsidian-readable Markdown, and Zed.
+- Editor integration for VS Code, Zed, and the read-only Forma WebApp.
 - A Rust workspace for the `forma` binary under `crates/`.
 - A pnpm web workspace for the local read-only WebApp under `packages/`.
 - Project tool versions declared through `package.json` and `rust-toolchain.toml`, with mise tasks for Rust and web checks.
@@ -160,11 +160,17 @@ GitHub Actions runs three baseline check jobs:
 
 ## Working With Knowledge
 
-Start with [knowledge/README.md](knowledge/README.md) for the knowledge base structure and source-of-truth rules.
+Use the local Forma config as the active knowledge operating context:
 
-Product context begins in [knowledge/product/choral-forma.md](knowledge/product/choral-forma.md). The initial reusable concepts are in [knowledge/concepts/](knowledge/concepts/).
+- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- tasks list --json`
+- `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>`
+- `cargo run -q -p forma-cli -- board show --json`
+- `cargo run -q -p forma-cli -- list --space tasks --json`
+- `cargo run -q -p forma-cli -- inspect --space tasks <task-id-or-path> --json`
 
-Keep durable project facts in `knowledge/`. Keep local personal notes and Agent runtime state out of git.
+For project context, start with [knowledge/README.md](knowledge/README.md). Keep durable project facts in `knowledge/` and keep local personal notes and Agent runtime state out of git.
 
 ## Commit Messages
 

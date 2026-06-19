@@ -50,28 +50,22 @@ Tool versions are declared in the idiomatic project files: Node.js and pnpm in r
 
 - Commit messages must start with a type-enum prefix such as `chore:`, `docs:`, `feat:`, `fix:`, `refactor:`, or `test:`.
 
-<!-- knowledge-workflow:start -->
+## Forma Knowledge Management
 
-## Knowledge Workflow
+This repository uses Forma-managed knowledge runtime in the repository Markdown and `.forma` config.
 
-This repository uses Knowledge Workflow.
-
-Resolve `<knowledge_dir>` from repository root `.knowledge-workflow` when present. If it is absent, use default `knowledge` only when `knowledge/.workflow/runtime.md` and `knowledge/.workflow/manifest.yml` both exist. Then read `<knowledge_dir>/.workflow/runtime.md` before workflow work. Runtime, manifest, rules, schemas, and Skill instructions are the source of truth.
-
-Core boundaries:
-
-- Do not guess workflow paths, current member id, or local-only paths.
-- Do not write shared knowledge, Kanban, task metadata, or workflow state without the owning Skill and required approval.
-- Keep `<knowledge_dir>/.workflow/local.yml`, `<knowledge_dir>/.feedback/`, `<knowledge_dir>/workspace/*/local/`, and worktree contents under `<worktrees_dir>/` local-only.
-- When Knowledge Workflow guides Superpowers brainstorming or writing-plans output, prefer `<knowledge_dir>/workspace/<member-id>/local/superpowers/specs/` for specs and `<knowledge_dir>/workspace/<member-id>/local/superpowers/plans/` for plans unless the user explicitly specifies another safe path; local-only Superpowers output must not be committed.
-- Use `knowledge-assistant` for workflow help, routing, recovery, and project rules explanation; otherwise use the specific Skill whose description matches the request.
-- Use `knowledge-workflow-admin` only for explicit maintainer setup, check, migration, manifest, or approved configuration work.
-
-### Project-Specific Rules
-
-Project-specific rules may specialize workflow behavior, but they must not weaken runtime, safety, ownership, privacy, local-only, approval, or review rules.
-
-- Use `mise run format:pnpm` for pnpm-managed formatting and `mise run check:pnpm` for check-only validation of non-Rust files.
-- Keep `knowledge/` readable as plain Markdown, but do not make project knowledge depend on Foam-only, Obsidian-only, or other editor-plugin syntax for project facts.
-
-<!-- knowledge-workflow:end -->
+- Source of truth:
+    - Markdown documents under `knowledge/`
+    - `.forma.yml`
+    - `.forma/spaces/*.md` (as configured workspace spaces)
+    - `.forma/views/*.md` (where applicable)
+- Use these bootstrap checks before knowledge reads or workflow actions:
+    - `cargo run -q -p forma-cli -- config inspect --json`
+    - `cargo run -q -p forma-cli -- knowledge health --json`
+- Use the project-local `forma-cli` skill for:
+    - knowledge health checks;
+    - task list/inspect and board review;
+    - review prep and knowledge-readability diagnosis.
+- Do not write shared knowledge, task metadata, `.forma` config, or workflow state without explicit user approval.
+- Keep local-only state out of commits: `knowledge/workspace/*/local/`, `.forma/local.yml`, generated caches, worktrees, and browser state.
+- Do not treat legacy `.knowledge-workflow` or `.workflow/**` paths/files as current runtime requirements; they are historical/migration context only.

@@ -1,45 +1,63 @@
 ---
 name: forma-cli
-description: Use when managing repository-backed Forma knowledge through the local forma CLI, including workspace checks, task inventory, task board reads, knowledge health, page inspection, and JSON outputs for Agent reasoning.
+description: Use for project-local Forma knowledge operations and agent-facing read workflows through the local `forma` binary.
 ---
 
-# Forma CLI
+# Forma CLI Agent Entrypoint
 
-## Purpose
+## Scope
 
-Use this skill when work should be grounded in Forma product operations through the local CLI instead of hand-parsing the knowledge base.
+This skill is the project-local replacement for prior Knowledge Workflow read/audit/status/task-selection/review-prep entrypoints when working in this repository.
 
-## Preconditions
+Use it for:
 
-- Run commands from the repository root by default; if another workspace is explicitly named, run in that workspace context.
-- Prefer `--json` outputs for Agent reasoning and downstream interpretation.
-- Do not rely on hidden persistent indexes; work against repository files and CLI JSON.
-- Do not treat Knowledge Workflow process files as product requirements.
+- workflow bootstrap checks;
+- shared knowledge health review;
+- task inventory and task-card inspection;
+- board review for delivery state;
+- read-only review prep and evidence collection.
+
+## Bootstrap (required before knowledge workflow actions)
+
+Run both:
+
+- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- knowledge health --json`
+
+Add `--workspace <path>` when operating on a non-default workspace.
 
 ## Read Commands
 
-- `cargo run -p forma-cli -- tasks list --json`
-- `cargo run -p forma-cli -- tasks inspect knowledge/tasks/example.md --json`
-- `cargo run -p forma-cli -- board show --json`
-- `cargo run -p forma-cli -- knowledge health --json`
-- `cargo run -p forma-cli -- inspect knowledge/product/product-direction.md --json`
+- `cargo run -q -p forma-cli -- check --json`
+- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- tasks list --json`
+- `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>`
+- `cargo run -q -p forma-cli -- board show --json`
+- `cargo run -q -p forma-cli -- list --space <space-id> --json`
+- `cargo run -q -p forma-cli -- inspect --space <space-id> <path-or-id> --json`
 
-## Strict Validation
-
-- `cargo run -p forma-cli -- check --json`
-
-Use `check --json` when strict workspace validation is the goal. It may return
-`status: failed` and a non-zero exit code for unresolved references or other
-blocking diagnostics; do not use it as the default read path for task selection,
-board inspection, or page inspection.
+Use `--json` in machine-facing checks and for any operation that will feed review notes.
 
 ## Write Boundary
 
-This release uses the CLI for read, audit, and selection workflows. All knowledge edits still happen through explicit Markdown file changes, followed by CLI verification of resulting state.
+- Do not modify shared knowledge, task metadata, board state, `.forma.yml`, `.forma/spaces/**/*.md`, or workflow state unless the user gives explicit approval.
+- This skill prefers read-only operation; any requested write should be routed through the owning repository workflow process after explicit approval.
 
-## Response Rules
+## Local-Only Boundary
 
-- Summarize relevant fields from CLI JSON output and call out key findings directly.
-- Always include any diagnostics (codes and file paths) when present.
-- Never report healthy/clean state when output status is `warning` or `failed`.
-- If a CLI command is unavailable, fall back to direct Markdown reads and clearly state what is missing from the CLI path.
+Do not commit:
+
+- `knowledge/workspace/*/local/`
+- `.agents/*/local`
+- `.worktrees/`
+- `.forma/local.yml`
+- generated caches (including `target/`, `node_modules/`, and tool caches).
+
+## Direct Markdown Edits
+
+When the user asks for repository knowledge updates:
+
+1. Edit shared Markdown in an explicit file.
+2. Verify with `cargo run -q -p forma-cli -- check --json`.
+3. Verify health with `cargo run -q -p forma-cli -- knowledge health --json`.
+4. If the user asked for review prep, add concise review evidence from the commands above and report the resulting status.
