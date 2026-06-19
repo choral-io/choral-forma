@@ -1,6 +1,0 @@
-interface:
-  display_name: "Delivery Implementation"
-  short_description: "Implement Kanban cards safely"
-  default_prompt: "Use $delivery-implementation to implement this selected delivery card."
-policy:
-  allow_implicit_invocation: true
