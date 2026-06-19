@@ -18,16 +18,19 @@ tags:
     - workspace
 
 effort: L
-readiness: blocked
+readiness: ready
 sprint:
 
-blocked_by:
-    - "[[tasks/replace-knowledge-workflow-mechanics-with-forma-cli]]"
+blocked_by: []
 related_to:
     - "[[product/product-direction]]"
     - "[[architecture/forma-p0-check-index-spec]]"
     - "[[architecture/forma-p0-operation-api-spec]]"
     - "[[tasks/align-starter-kit-baseline-with-backend-and-webapp]]"
+    - "[[tasks/replace-knowledge-workflow-mechanics-with-forma-cli]]"
+    - "[[tasks/load-user-authored-space-schemas]]"
+    - "[[tasks/migrate-repository-knowledge-content]]"
+    - "[[tasks/normalize-repository-forma-knowledge-health]]"
 
 reported_by:
 affected_area: Repository knowledge workspace structure and migration
@@ -37,13 +40,14 @@ affected_area: Repository knowledge workspace structure and migration
 
 ## Goal
 
-Migrate this repository's current development knowledge base into a Forma-native workspace shape by designing the target `.forma/` configuration first, then migrating content into that structure, and only then normalizing migrated content against Forma health and schema rules.
+Prepare this repository's current development knowledge base for migration into a Forma-native workspace shape by designing the target `.forma/` configuration first, adding the current runnable review surface, and splitting broad content migration and normalization into follow-up tasks.
 
 ## Sources
 
 - [[product/product-direction]]
 - [[architecture/forma-p0-check-index-spec]]
 - [[architecture/forma-p0-operation-api-spec]]
+- [[architecture/repository-forma-workspace-migration-design]]
 - [[tasks/replace-knowledge-workflow-mechanics-with-forma-cli]]
 - [[tasks/align-starter-kit-baseline-with-backend-and-webapp]]
 
@@ -55,26 +59,19 @@ The migration should avoid optimizing around the old workflow's incidental layou
 
 ## In Scope
 
-- Design the target repository Forma workspace structure before changing content:
-    - `.forma.yml`
-    - `.forma/spaces/*.md`
-    - `.forma/spaces/templates/*.md`
-    - `.forma/views/*.md`
-    - schema, conventions, graph edge rules, and health rule choices
+- Design the target repository Forma workspace structure before changing content.
 - Decide which current `knowledge/` areas become Forma spaces, which become support/archive inputs, and which should be rewritten or removed.
 - Define migration rules for frontmatter, relationship fields, path-qualified references, body links, workspace member content, handoffs, research, task items, and planning files.
-- Migrate current content into the target spaces and schemas without promising old Knowledge Workflow compatibility.
-- Normalize migrated content after migration:
-    - canonical path references
-    - owners, assignees, reviewers, sources, related links, and graph edge fields
-    - body link/reference forms
-    - health warnings that remain meaningful under the target Forma rules
-- Produce a short migration report covering changed paths, intentionally dropped compatibility assumptions, remaining warnings, and follow-up tasks.
+- Add a currently runnable review surface for the repository graph using supported body-reference graph edges.
+- Split schema runtime support, broad content migration, and health normalization into follow-up tasks.
+- Record residual warnings and follow-up work instead of preserving old Knowledge Workflow compatibility behavior.
 
 ## Out of Scope
 
 - Preserving the old Knowledge Workflow layout as a compatibility requirement.
 - Guaranteeing that old frontmatter fields, old link syntax, old task metadata, or old workspace paths remain unchanged.
+- Broadly moving or rewriting repository knowledge content in this slice.
+- Implementing user-authored space schema loading in this slice.
 - Implementing Forma MCP.
 - Implementing write-capable repair automation beyond explicit repository file edits.
 - Migrating third-party note app formats or promising Obsidian/Foam compatibility.
@@ -96,7 +93,11 @@ Expected design outputs:
 - graph edge configuration for body links, embeds, and schema-declared field relations;
 - health rule policy for broken references, unsupported fragments, isolated entries, local-only files, archived content, members, tasks, and external-source-heavy research documents.
 
-### Phase 2: Content Migration
+### Follow-Up Phase 2: Space Schema Runtime Support
+
+Implement [[tasks/load-user-authored-space-schemas]] before relying on field-reference graph edges or target per-space schemas for migrated repository content.
+
+### Follow-Up Phase 3: Content Migration
 
 Move or rewrite current knowledge content into the target model.
 
@@ -109,7 +110,9 @@ Migration should:
 - rewrite or archive obsolete Knowledge Workflow process details instead of keeping historical compatibility notes;
 - update task and planning content so delivery state is represented by the target Forma workspace model, not by incidental old workflow mechanics.
 
-### Phase 3: Normalization And Validation
+This phase is tracked by [[tasks/migrate-repository-knowledge-content]].
+
+### Follow-Up Phase 4: Normalization And Validation
 
 After migration, run Forma checks and normalize only the migrated target workspace.
 
@@ -120,16 +123,29 @@ Normalization should:
 - verify that list, board, inspect, file references, graph, and knowledge health operations describe the migrated workspace accurately;
 - record remaining follow-up tasks instead of preserving old compatibility behavior.
 
+This phase is tracked by [[tasks/normalize-repository-forma-knowledge-health]].
+
 ## Acceptance Criteria
 
 - The target `.forma/` structure is documented and committed before broad content migration begins.
-- Current repository knowledge content is migrated according to target spaces and schemas rather than preserved as an unchanged legacy layout.
-- `.forma` space definitions, templates, views, graph edge rules, and health rules are sufficient to browse and inspect the migrated knowledge base through Forma CLI/WebApp read operations.
-- Migrated frontmatter relationship fields use canonical path-qualified references where Forma controls writes.
-- Body links and embeds remain body references and follow the supported body link/reference model.
-- `forma knowledge health --json` reports only meaningful warnings under the target workspace policy; old Knowledge Workflow compatibility warnings are not treated as blockers.
-- The migration report identifies intentionally removed compatibility assumptions, remaining warnings, and follow-up tasks.
+- The design defines target spaces, schema expectations, graph edge policy, health policy, and content mapping.
+- A runnable `Knowledge Graph` view exists for currently supported body-reference graph edges.
+- Follow-up tasks exist for user-authored space schema loading, broad content migration, and post-migration health normalization.
+- `forma check --json`, `forma config inspect --json`, `forma tasks list --json`, `forma board show --json`, and `forma knowledge health --json` run against the review surface.
+- The graph view is present in `.forma/views/knowledge-graph.md` for runtimes and clients that consume configured views; a direct `forma view render` CLI command remains outside this slice.
+- The task records that old Knowledge Workflow compatibility assumptions are migration inputs, not target requirements.
 
 ## Relationship Notes
 
-This task should be executed after the CLI read-side replacement work is complete enough to inspect tasks, board state, page references, and knowledge health through Forma operations. It should not block narrowly scoped CLI implementation fixes that are still needed to make migration observable.
+This task is the reviewable Phase 1 migration preparation slice. The CLI read-side replacement work is treated as sufficiently observable for this slice because task inventory, board state, graph rendering, and knowledge health all run through Forma CLI operations in this branch.
+
+## Review Readiness
+
+| Field | Evidence |
+| --- | --- |
+| Scope completed | Target workspace migration design, runnable graph view config, and follow-up task split are present. |
+| Files changed | `.forma/views/knowledge-graph.md`, [[architecture/repository-forma-workspace-migration-design]], this task, follow-up task items, and the Kanban card move. |
+| Knowledge updated | Yes: target migration design and follow-up task graph are recorded in canonical knowledge. |
+| Checks run | Prettier, `forma check --json`, `forma config inspect --json`, `forma tasks list --json`, `forma board show --json`, and `forma knowledge health --json`. |
+| Residual risks | Broad content migration is intentionally deferred to [[tasks/migrate-repository-knowledge-content]]. User-authored space schema loading is deferred to [[tasks/load-user-authored-space-schemas]]. |
+| Suggested review | Review the target structure, scope split, and whether the migration avoids preserving old Knowledge Workflow assumptions by accident. |
