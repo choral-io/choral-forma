@@ -7,7 +7,7 @@ value: M
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,10 +21,10 @@ readiness: ready
 sprint:
 
 blocked_by:
-    - "[[tasks/implement-workspace-resource-routes]]"
+    - "tasks/implement-workspace-resource-routes"
 related_to:
-    - "[[tasks/expose-read-only-knowledge-health-in-webapp]]"
-    - "[[tasks/implement-check-index-diagnostics]]"
+    - "tasks/expose-read-only-knowledge-health-in-webapp"
+    - "tasks/implement-check-index-diagnostics"
 
 reported_by:
 affected_area: Resource health diagnostics

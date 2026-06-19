@@ -2,7 +2,7 @@
 scope: project
 type: roadmap
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -11,11 +11,11 @@ tags:
     - gui
     - roadmap
 sources:
-    - "[[decisions/webapp-primary-gui-client]]"
-    - "[[product/choral-forma]]"
-    - "[[product/product-direction]]"
-    - "[[architecture/forma-core-technical-direction]]"
-    - "[[planning/KANBAN]]"
+    - "decisions/webapp-primary-gui-client"
+    - "product/choral-forma"
+    - "product/product-direction"
+    - "architecture/forma-core-technical-direction"
+    - "planning/KANBAN"
 ---
 
 # WebApp Primary GUI Roadmap

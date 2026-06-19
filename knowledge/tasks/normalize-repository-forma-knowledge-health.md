@@ -7,7 +7,7 @@ value: M
 module: knowledge
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,10 +21,10 @@ readiness: blocked
 sprint:
 
 blocked_by:
-    - "[[tasks/migrate-repository-knowledge-content]]"
+    - "tasks/migrate-repository-knowledge-content"
 related_to:
-    - "[[architecture/repository-forma-workspace-migration-design]]"
-    - "[[tasks/migrate-repository-knowledge-to-forma-workspace]]"
+    - "architecture/repository-forma-workspace-migration-design"
+    - "tasks/migrate-repository-knowledge-to-forma-workspace"
 
 reported_by:
 affected_area: Repository knowledge health normalization

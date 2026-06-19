@@ -7,7 +7,7 @@ value: L
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,11 +21,11 @@ readiness: blocked
 sprint:
 
 blocked_by:
-    - "[[tasks/design-editor-extension-adapter-contract]]"
-    - "[[tasks/implement-vscode-extension-mvp]]"
+    - "tasks/design-editor-extension-adapter-contract"
+    - "tasks/implement-vscode-extension-mvp"
 related_to:
-    - "[[decisions/webapp-primary-gui-client]]"
-    - "[[planning/webapp-primary-gui-roadmap]]"
+    - "decisions/webapp-primary-gui-client"
+    - "planning/webapp-primary-gui-roadmap"
 
 reported_by:
 affected_area: Zed extension

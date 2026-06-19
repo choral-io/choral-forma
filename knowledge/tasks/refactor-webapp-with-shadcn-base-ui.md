@@ -7,7 +7,7 @@ value: M
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -23,9 +23,9 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[tasks/implement-read-only-webapp]]"
-    - "[[decisions/forma-p0-core-architecture]]"
-    - "[[architecture/forma-core-technical-direction]]"
+    - "tasks/implement-read-only-webapp"
+    - "decisions/forma-p0-core-architecture"
+    - "architecture/forma-core-technical-direction"
 
 reported_by:
 affected_area: WebApp UI foundation

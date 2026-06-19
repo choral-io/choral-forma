@@ -7,9 +7,9 @@ value: H
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -23,10 +23,10 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[tasks/implement-read-only-webapp]]"
-    - "[[tasks/implement-view-entry-render]]"
-    - "[[tasks/implement-starter-init-create-inspect-list]]"
-    - "[[tasks/implement-check-index-diagnostics]]"
+    - "tasks/implement-read-only-webapp"
+    - "tasks/implement-view-entry-render"
+    - "tasks/implement-starter-init-create-inspect-list"
+    - "tasks/implement-check-index-diagnostics"
 
 reported_by:
 affected_area: View source, query model, starter views, and view rendering

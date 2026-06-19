@@ -7,7 +7,7 @@ value: H
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -22,8 +22,8 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[tasks/implement-read-only-webapp]]"
-    - "[[tasks/implement-check-index-diagnostics]]"
+    - "tasks/implement-read-only-webapp"
+    - "tasks/implement-check-index-diagnostics"
 
 reported_by:
 affected_area: Reference navigation

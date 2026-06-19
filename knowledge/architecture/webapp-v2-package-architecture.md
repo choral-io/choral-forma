@@ -2,7 +2,7 @@
 scope: project
 type: technical-design
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -11,10 +11,10 @@ tags:
     - ui
     - architecture
 sources:
-    - "[[decisions/webapp-primary-gui-client]]"
-    - "[[planning/webapp-primary-gui-roadmap]]"
-    - "[[design/webapp-v2-dashboard-design]]"
-    - "[[architecture/forma-core-technical-direction]]"
+    - "decisions/webapp-primary-gui-client"
+    - "planning/webapp-primary-gui-roadmap"
+    - "design/webapp-v2-dashboard-design"
+    - "architecture/forma-core-technical-direction"
 ---
 
 # WebApp V2 Package Architecture

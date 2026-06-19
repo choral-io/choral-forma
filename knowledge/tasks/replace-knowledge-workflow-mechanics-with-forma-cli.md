@@ -7,9 +7,9 @@ value: H
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -23,10 +23,10 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[product/product-direction]]"
-    - "[[architecture/forma-p0-operation-api-spec]]"
-    - "[[tasks/expose-read-only-knowledge-health-in-webapp]]"
-    - "[[tasks/design-reviewable-operation-proposal-flow]]"
+    - "product/product-direction"
+    - "architecture/forma-p0-operation-api-spec"
+    - "tasks/expose-read-only-knowledge-health-in-webapp"
+    - "tasks/design-reviewable-operation-proposal-flow"
 
 reported_by:
 affected_area: Forma CLI, Agent skills, repository knowledge management

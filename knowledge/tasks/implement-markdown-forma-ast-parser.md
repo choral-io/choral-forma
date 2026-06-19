@@ -7,7 +7,7 @@ value: H
 module: api
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,10 +21,10 @@ readiness: ready
 sprint:
 
 blocked_by:
-    - "[[tasks/scaffold-forma-workspace]]"
+    - "tasks/scaffold-forma-workspace"
 related_to:
-    - "[[architecture/forma-core-technical-direction]]"
-    - "[[workspace/Tiscs/research/forma-markdown-parser-spike-report]]"
+    - "architecture/forma-core-technical-direction"
+    - "workspace/Tiscs/research/forma-markdown-parser-spike-report"
 
 reported_by:
 affected_area: Markdown parsing and FormaAST enrichment

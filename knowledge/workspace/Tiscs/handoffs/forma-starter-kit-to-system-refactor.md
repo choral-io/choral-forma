@@ -2,7 +2,7 @@
 scope: member
 type: handoff
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:

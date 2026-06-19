@@ -7,7 +7,7 @@ value: H
 module: knowledge
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -22,10 +22,10 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[tasks/implement-ci-release-baseline]]"
-    - "[[tasks/implement-read-only-webapp]]"
-    - "[[tasks/implement-reference-navigation-baseline]]"
-    - "[[tasks/implement-workspace-resource-routes]]"
+    - "tasks/implement-ci-release-baseline"
+    - "tasks/implement-read-only-webapp"
+    - "tasks/implement-reference-navigation-baseline"
+    - "tasks/implement-workspace-resource-routes"
 
 reported_by:
 affected_area: P0 roadmap and release scope

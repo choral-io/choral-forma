@@ -7,7 +7,7 @@ value: M
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,11 +21,11 @@ readiness: blocked
 sprint:
 
 blocked_by:
-    - "[[tasks/design-editor-extension-adapter-contract]]"
+    - "tasks/design-editor-extension-adapter-contract"
 related_to:
-    - "[[decisions/webapp-primary-gui-client]]"
-    - "[[planning/webapp-primary-gui-roadmap]]"
-    - "[[tasks/implement-zed-extension-mvp]]"
+    - "decisions/webapp-primary-gui-client"
+    - "planning/webapp-primary-gui-roadmap"
+    - "tasks/implement-zed-extension-mvp"
 
 reported_by:
 affected_area: VS Code extension

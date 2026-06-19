@@ -7,7 +7,7 @@ value: H
 module: api
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,9 +21,9 @@ readiness: ready
 sprint:
 
 blocked_by:
-    - "[[tasks/scaffold-forma-workspace]]"
+    - "tasks/scaffold-forma-workspace"
 related_to:
-    - "[[architecture/forma-p0-operation-api-spec]]"
+    - "architecture/forma-p0-operation-api-spec"
 
 reported_by:
 affected_area: Operation dispatch, CLI, and local HTTP RPC

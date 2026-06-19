@@ -2,7 +2,7 @@
 scope: member
 type: research
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:

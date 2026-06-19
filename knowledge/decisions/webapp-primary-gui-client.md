@@ -2,7 +2,7 @@
 scope: project
 type: decision
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - product

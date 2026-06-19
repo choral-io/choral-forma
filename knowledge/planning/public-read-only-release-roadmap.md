@@ -2,7 +2,7 @@
 scope: project
 type: roadmap
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -11,11 +11,11 @@ tags:
     - readonly
     - roadmap
 sources:
-    - "[[planning/webapp-primary-gui-roadmap]]"
-    - "[[design/webapp-v2-dashboard-design]]"
-    - "[[product/product-direction]]"
-    - "[[tasks/implement-webapp-v2-dashboard-shell]]"
-    - "[[planning/KANBAN]]"
+    - "planning/webapp-primary-gui-roadmap"
+    - "design/webapp-v2-dashboard-design"
+    - "product/product-direction"
+    - "tasks/implement-webapp-v2-dashboard-shell"
+    - "planning/KANBAN"
 ---
 
 # Public Read-only Release Roadmap

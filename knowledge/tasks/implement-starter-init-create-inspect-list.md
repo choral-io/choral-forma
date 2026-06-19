@@ -7,7 +7,7 @@ value: H
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,12 +21,12 @@ readiness: ready
 sprint:
 
 blocked_by:
-    - "[[tasks/implement-schema-dsl-runtime-values]]"
-    - "[[tasks/implement-check-index-diagnostics]]"
-    - "[[tasks/implement-operation-rpc-cli-foundation]]"
+    - "tasks/implement-schema-dsl-runtime-values"
+    - "tasks/implement-check-index-diagnostics"
+    - "tasks/implement-operation-rpc-cli-foundation"
 related_to:
-    - "[[product/forma-p0-starter-spec]]"
-    - "[[architecture/forma-p0-operation-api-spec]]"
+    - "product/forma-p0-starter-spec"
+    - "architecture/forma-p0-operation-api-spec"
 
 reported_by:
 affected_area: P0 CLI user flows

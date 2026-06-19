@@ -2,7 +2,7 @@
 scope: project
 type: roadmap
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -10,16 +10,16 @@ tags:
     - planning
     - release
 sources:
-    - "[[product/product-direction]]"
-    - "[[product/forma-p0-starter-spec]]"
-    - "[[architecture/forma-core-technical-direction]]"
-    - "[[architecture/forma-p0-operation-api-spec]]"
-    - "[[architecture/forma-p0-check-index-spec]]"
-    - "[[architecture/forma-p0-schema-dsl-spec]]"
-    - "[[architecture/forma-view-query-model]]"
-    - "[[decisions/forma-p0-core-architecture]]"
-    - "[[planning/KANBAN]]"
-    - "[[tasks/audit-p0-release-scope-and-roadmap]]"
+    - "product/product-direction"
+    - "product/forma-p0-starter-spec"
+    - "architecture/forma-core-technical-direction"
+    - "architecture/forma-p0-operation-api-spec"
+    - "architecture/forma-p0-check-index-spec"
+    - "architecture/forma-p0-schema-dsl-spec"
+    - "architecture/forma-view-query-model"
+    - "decisions/forma-p0-core-architecture"
+    - "planning/KANBAN"
+    - "tasks/audit-p0-release-scope-and-roadmap"
 ---
 
 # P0 Release Scope Audit

@@ -7,7 +7,7 @@ value: H
 module: knowledge
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -22,8 +22,8 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[tasks/implement-operation-rpc-cli-foundation]]"
-    - "[[tasks/implement-check-index-diagnostics]]"
+    - "tasks/implement-operation-rpc-cli-foundation"
+    - "tasks/implement-check-index-diagnostics"
 
 reported_by:
 affected_area: Reviewable knowledge changes

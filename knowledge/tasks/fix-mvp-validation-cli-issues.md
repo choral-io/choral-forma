@@ -7,9 +7,9 @@ value: M
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -23,8 +23,8 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[tasks/implement-ci-release-baseline]]"
-    - "[[tasks/implement-starter-init-create-inspect-list]]"
+    - "tasks/implement-ci-release-baseline"
+    - "tasks/implement-starter-init-create-inspect-list"
 
 reported_by: MVP validation on 2026-05-22
 affected_area: CLI install and initialization validation

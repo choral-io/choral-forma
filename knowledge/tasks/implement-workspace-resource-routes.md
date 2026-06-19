@@ -7,7 +7,7 @@ value: M
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -23,10 +23,10 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[tasks/implement-read-only-webapp]]"
-    - "[[tasks/implement-reference-navigation-baseline]]"
-    - "[[tasks/refactor-webapp-with-shadcn-base-ui]]"
-    - "[[tasks/implement-resource-description-health-diagnostics]]"
+    - "tasks/implement-read-only-webapp"
+    - "tasks/implement-reference-navigation-baseline"
+    - "tasks/refactor-webapp-with-shadcn-base-ui"
+    - "tasks/implement-resource-description-health-diagnostics"
 
 reported_by:
 affected_area: WebApp routing and workspace resources

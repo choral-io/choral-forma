@@ -7,9 +7,9 @@ value: H
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -24,11 +24,11 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[product/forma-p0-starter-spec]]"
-    - "[[architecture/forma-view-query-model]]"
-    - "[[architecture/webapp-v2-read-model-contract]]"
-    - "[[decisions/use-settings-driven-taxonomy-and-navigation-model]]"
-    - "[[tasks/stabilize-public-read-only-webapp-release]]"
+    - "product/forma-p0-starter-spec"
+    - "architecture/forma-view-query-model"
+    - "architecture/webapp-v2-read-model-contract"
+    - "decisions/use-settings-driven-taxonomy-and-navigation-model"
+    - "tasks/stabilize-public-read-only-webapp-release"
 
 reported_by:
 affected_area: Starter-kit configuration, backend read model, shared RPC contracts, WebApp routes

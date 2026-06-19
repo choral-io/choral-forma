@@ -7,9 +7,9 @@ value: H
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -24,11 +24,11 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[decisions/webapp-primary-gui-client]]"
-    - "[[design/webapp-v2-dashboard-design]]"
-    - "[[architecture/webapp-v2-package-architecture]]"
-    - "[[planning/webapp-primary-gui-roadmap]]"
-    - "[[tasks/refactor-webapp-with-shadcn-base-ui]]"
+    - "decisions/webapp-primary-gui-client"
+    - "design/webapp-v2-dashboard-design"
+    - "architecture/webapp-v2-package-architecture"
+    - "planning/webapp-primary-gui-roadmap"
+    - "tasks/refactor-webapp-with-shadcn-base-ui"
 
 reported_by:
 affected_area: WebApp V2 dashboard shell

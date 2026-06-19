@@ -7,7 +7,7 @@ value: H
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,12 +21,12 @@ readiness: ready
 sprint:
 
 blocked_by:
-    - "[[tasks/implement-markdown-forma-ast-parser]]"
-    - "[[tasks/implement-check-index-diagnostics]]"
-    - "[[tasks/implement-operation-rpc-cli-foundation]]"
+    - "tasks/implement-markdown-forma-ast-parser"
+    - "tasks/implement-check-index-diagnostics"
+    - "tasks/implement-operation-rpc-cli-foundation"
 related_to:
-    - "[[architecture/forma-p0-operation-api-spec]]"
-    - "[[product/forma-p0-starter-spec]]"
+    - "architecture/forma-p0-operation-api-spec"
+    - "product/forma-p0-starter-spec"
 
 reported_by:
 affected_area: Entry rendering and declarative views

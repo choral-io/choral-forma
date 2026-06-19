@@ -731,33 +731,27 @@ fn collect_ref_fields_inner(
         SchemaNode::List { items, .. } => {
             collect_ref_fields_inner(config, items, field_path, true, fields)
         }
-        SchemaNode::Ref { target, .. } => fields.push(if let Some(target) = target {
-            if let Some(SemanticType::Space { space, input }) = config.types.get(target) {
-                RefField {
-                    field: field_path.to_string(),
-                    semantic_type: Some(target.clone()),
-                    space: Some(space.clone()),
-                    transform: input.transform.clone(),
-                    many,
+        SchemaNode::Ref { target, .. } => {
+            if let Some(target) = target {
+                if let Some(SemanticType::Space { space, input }) = config.types.get(target) {
+                    fields.push(RefField {
+                        field: field_path.to_string(),
+                        semantic_type: Some(target.clone()),
+                        space: Some(space.clone()),
+                        transform: input.transform.clone(),
+                        many,
+                    });
                 }
             } else {
-                RefField {
+                fields.push(RefField {
                     field: field_path.to_string(),
                     semantic_type: None,
                     space: None,
                     transform: None,
                     many,
-                }
+                });
             }
-        } else {
-            RefField {
-                field: field_path.to_string(),
-                semantic_type: None,
-                space: None,
-                transform: None,
-                many,
-            }
-        }),
+        }
         SchemaNode::String { .. }
         | SchemaNode::Number { .. }
         | SchemaNode::Integer { .. }

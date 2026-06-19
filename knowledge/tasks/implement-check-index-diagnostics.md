@@ -7,7 +7,7 @@ value: H
 module: api
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,10 +21,10 @@ readiness: ready
 sprint:
 
 blocked_by:
-    - "[[tasks/implement-schema-dsl-runtime-values]]"
-    - "[[tasks/implement-markdown-forma-ast-parser]]"
+    - "tasks/implement-schema-dsl-runtime-values"
+    - "tasks/implement-markdown-forma-ast-parser"
 related_to:
-    - "[[architecture/forma-p0-check-index-spec]]"
+    - "architecture/forma-p0-check-index-spec"
 
 reported_by:
 affected_area: Summary index and workspace diagnostics

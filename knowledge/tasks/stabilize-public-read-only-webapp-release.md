@@ -7,7 +7,7 @@ value: H
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -22,11 +22,11 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[planning/public-read-only-release-roadmap]]"
-    - "[[tasks/implement-webapp-v2-dashboard-shell]]"
-    - "[[tasks/expose-read-only-knowledge-health-in-webapp]]"
-    - "[[tasks/implement-interactive-graph-view-render]]"
-    - "[[tasks/implement-quick-switcher-search]]"
+    - "planning/public-read-only-release-roadmap"
+    - "tasks/implement-webapp-v2-dashboard-shell"
+    - "tasks/expose-read-only-knowledge-health-in-webapp"
+    - "tasks/implement-interactive-graph-view-render"
+    - "tasks/implement-quick-switcher-search"
 
 reported_by:
 affected_area: Public read-only WebApp release

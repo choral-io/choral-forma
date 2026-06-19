@@ -2,7 +2,7 @@
 scope: project
 type: ui-spec
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -11,10 +11,10 @@ tags:
     - dashboard
     - design-system
 sources:
-    - "[[decisions/webapp-primary-gui-client]]"
-    - "[[planning/webapp-primary-gui-roadmap]]"
-    - "[[tasks/implement-webapp-v2-dashboard-shell]]"
-    - "[[tasks/refactor-webapp-with-shadcn-base-ui]]"
+    - "decisions/webapp-primary-gui-client"
+    - "planning/webapp-primary-gui-roadmap"
+    - "tasks/implement-webapp-v2-dashboard-shell"
+    - "tasks/refactor-webapp-with-shadcn-base-ui"
 ---
 
 # WebApp V2 Dashboard Design

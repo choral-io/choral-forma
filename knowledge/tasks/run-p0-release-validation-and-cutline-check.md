@@ -7,7 +7,7 @@ value: H
 module: infra
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,10 +21,10 @@ readiness: ready
 sprint:
 
 blocked_by:
-    - "[[tasks/audit-p0-release-scope-and-roadmap]]"
+    - "tasks/audit-p0-release-scope-and-roadmap"
 related_to:
-    - "[[tasks/implement-ci-release-baseline]]"
-    - "[[tasks/fix-mvp-validation-cli-issues]]"
+    - "tasks/implement-ci-release-baseline"
+    - "tasks/fix-mvp-validation-cli-issues"
 
 reported_by:
 affected_area: P0 release validation and cutline

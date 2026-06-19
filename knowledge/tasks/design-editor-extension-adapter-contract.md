@@ -7,7 +7,7 @@ value: M
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -22,12 +22,12 @@ readiness: needs-refinement
 sprint:
 
 blocked_by:
-    - "[[tasks/implement-webapp-v2-dashboard-shell]]"
+    - "tasks/implement-webapp-v2-dashboard-shell"
 related_to:
-    - "[[decisions/webapp-primary-gui-client]]"
-    - "[[planning/webapp-primary-gui-roadmap]]"
-    - "[[tasks/implement-vscode-extension-mvp]]"
-    - "[[tasks/implement-zed-extension-mvp]]"
+    - "decisions/webapp-primary-gui-client"
+    - "planning/webapp-primary-gui-roadmap"
+    - "tasks/implement-vscode-extension-mvp"
+    - "tasks/implement-zed-extension-mvp"
 
 reported_by:
 affected_area: Editor extension adapter contract

@@ -266,6 +266,28 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
 }
 
 #[test]
+fn repository_check_json_reports_no_reference_regressions() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let output = forma(&root)
+        .args(["check", "--json"])
+        .output()
+        .expect("forma check --json should run");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(r#""operation":"check"#));
+    assert!(stdout.contains(r#""status":"passed"#));
+    assert!(!stdout.contains(r#""code":"ref.unresolved"#));
+    assert!(!stdout.contains(r#""code":"schema.ref.invalid"#));
+    assert!(!root.join(".forma/index.summary.json").exists());
+}
+
+#[test]
 fn tasks_list_and_inspect_read_task_metadata() {
     let root = fixture_root("tasks-list-and-inspect");
     std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();

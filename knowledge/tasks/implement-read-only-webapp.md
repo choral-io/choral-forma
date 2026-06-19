@@ -7,9 +7,9 @@ value: M
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -21,13 +21,13 @@ readiness: ready
 sprint:
 
 blocked_by:
-    - "[[tasks/implement-operation-rpc-cli-foundation]]"
-    - "[[tasks/implement-starter-init-create-inspect-list]]"
-    - "[[tasks/implement-view-entry-render]]"
-    - "[[tasks/align-view-source-query-model]]"
+    - "tasks/implement-operation-rpc-cli-foundation"
+    - "tasks/implement-starter-init-create-inspect-list"
+    - "tasks/implement-view-entry-render"
+    - "tasks/align-view-source-query-model"
 related_to:
-    - "[[architecture/forma-p0-operation-api-spec]]"
-    - "[[decisions/forma-p0-core-architecture]]"
+    - "architecture/forma-p0-operation-api-spec"
+    - "decisions/forma-p0-core-architecture"
 
 reported_by:
 affected_area: Local read-only Forma WebApp

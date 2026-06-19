@@ -7,7 +7,7 @@ value: H
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -22,12 +22,12 @@ readiness: needs-refinement
 sprint:
 
 blocked_by:
-    - "[[tasks/implement-webapp-v2-dashboard-shell]]"
+    - "tasks/implement-webapp-v2-dashboard-shell"
 related_to:
-    - "[[tasks/design-reviewable-knowledge-change-proposals]]"
-    - "[[tasks/design-metadata-edit-deprecate-operations]]"
-    - "[[decisions/webapp-primary-gui-client]]"
-    - "[[planning/webapp-primary-gui-roadmap]]"
+    - "tasks/design-reviewable-knowledge-change-proposals"
+    - "tasks/design-metadata-edit-deprecate-operations"
+    - "decisions/webapp-primary-gui-client"
+    - "planning/webapp-primary-gui-roadmap"
 
 reported_by:
 affected_area: Reviewable WebApp operations

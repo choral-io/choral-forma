@@ -7,7 +7,7 @@ value: M
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,12 +21,12 @@ readiness: needs-refinement
 sprint:
 
 blocked_by:
-    - "[[tasks/implement-reference-navigation-baseline]]"
+    - "tasks/implement-reference-navigation-baseline"
 related_to:
-    - "[[planning/public-read-only-release-roadmap]]"
-    - "[[tasks/implement-check-index-diagnostics]]"
-    - "[[tasks/implement-read-only-webapp]]"
-    - "[[tasks/stabilize-public-read-only-webapp-release]]"
+    - "planning/public-read-only-release-roadmap"
+    - "tasks/implement-check-index-diagnostics"
+    - "tasks/implement-read-only-webapp"
+    - "tasks/stabilize-public-read-only-webapp-release"
 
 reported_by:
 affected_area: Read-only knowledge health

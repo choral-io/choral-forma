@@ -7,9 +7,9 @@ value: H
 module: knowledge
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -23,14 +23,14 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[product/product-direction]]"
-    - "[[architecture/forma-p0-check-index-spec]]"
-    - "[[architecture/forma-p0-operation-api-spec]]"
-    - "[[tasks/align-starter-kit-baseline-with-backend-and-webapp]]"
-    - "[[tasks/replace-knowledge-workflow-mechanics-with-forma-cli]]"
-    - "[[tasks/load-user-authored-space-schemas]]"
-    - "[[tasks/migrate-repository-knowledge-content]]"
-    - "[[tasks/normalize-repository-forma-knowledge-health]]"
+    - "product/product-direction"
+    - "architecture/forma-p0-check-index-spec"
+    - "architecture/forma-p0-operation-api-spec"
+    - "tasks/align-starter-kit-baseline-with-backend-and-webapp"
+    - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
+    - "tasks/load-user-authored-space-schemas"
+    - "tasks/migrate-repository-knowledge-content"
+    - "tasks/normalize-repository-forma-knowledge-health"
 
 reported_by:
 affected_area: Repository knowledge workspace structure and migration

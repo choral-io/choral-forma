@@ -2,7 +2,7 @@
 scope: project
 type: technical-design
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 tags:
     - architecture
     - forma
@@ -10,12 +10,12 @@ tags:
     - migration
     - workspace
 sources:
-    - "[[product/product-direction]]"
-    - "[[architecture/forma-core-technical-direction]]"
-    - "[[architecture/forma-p0-check-index-spec]]"
-    - "[[architecture/forma-p0-operation-api-spec]]"
-    - "[[architecture/forma-view-query-model]]"
-    - "[[tasks/migrate-repository-knowledge-to-forma-workspace]]"
+    - "product/product-direction"
+    - "architecture/forma-core-technical-direction"
+    - "architecture/forma-p0-check-index-spec"
+    - "architecture/forma-p0-operation-api-spec"
+    - "architecture/forma-view-query-model"
+    - "tasks/migrate-repository-knowledge-to-forma-workspace"
 ---
 
 # Repository Forma Workspace Migration Design

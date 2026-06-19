@@ -7,9 +7,9 @@ value: H
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -23,8 +23,8 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[architecture/repository-forma-workspace-migration-design]]"
-    - "[[tasks/migrate-repository-knowledge-to-forma-workspace]]"
+    - "architecture/repository-forma-workspace-migration-design"
+    - "tasks/migrate-repository-knowledge-to-forma-workspace"
 
 reported_by:
 affected_area: Forma space schema loading and graph field relations

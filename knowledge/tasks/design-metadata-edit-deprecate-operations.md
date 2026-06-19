@@ -7,7 +7,7 @@ value: M
 module: api
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -22,8 +22,8 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[tasks/implement-operation-rpc-cli-foundation]]"
-    - "[[tasks/implement-markdown-forma-ast-parser]]"
+    - "tasks/implement-operation-rpc-cli-foundation"
+    - "tasks/implement-markdown-forma-ast-parser"
 
 reported_by:
 affected_area: Metadata edit and lifecycle operations

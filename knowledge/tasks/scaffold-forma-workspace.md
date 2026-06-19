@@ -7,7 +7,7 @@ value: H
 module: infra
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,8 +21,8 @@ sprint:
 
 blocked_by: []
 related_to:
-    - "[[decisions/forma-p0-core-architecture]]"
-    - "[[architecture/forma-core-technical-direction]]"
+    - "decisions/forma-p0-core-architecture"
+    - "architecture/forma-core-technical-direction"
 
 reported_by:
 affected_area: P0 workspace foundation

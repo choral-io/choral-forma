@@ -7,7 +7,7 @@ value: H
 module: api
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -21,10 +21,10 @@ readiness: ready
 sprint:
 
 blocked_by:
-    - "[[tasks/scaffold-forma-workspace]]"
+    - "tasks/scaffold-forma-workspace"
 related_to:
-    - "[[architecture/forma-p0-schema-dsl-spec]]"
-    - "[[product/forma-p0-starter-spec]]"
+    - "architecture/forma-p0-schema-dsl-spec"
+    - "product/forma-p0-starter-spec"
 
 reported_by:
 affected_area: Forma configuration loading and path identity

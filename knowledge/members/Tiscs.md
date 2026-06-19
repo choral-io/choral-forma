@@ -4,7 +4,7 @@ type: member
 member_id: Tiscs
 display_name: Galen
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 tags:
     - member
 ---

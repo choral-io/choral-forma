@@ -7,9 +7,9 @@ value: M
 module: infra
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -22,11 +22,11 @@ readiness: ready
 sprint:
 
 blocked_by:
-    - "[[tasks/scaffold-forma-workspace]]"
-    - "[[tasks/implement-read-only-webapp]]"
+    - "tasks/scaffold-forma-workspace"
+    - "tasks/implement-read-only-webapp"
 related_to:
-    - "[[decisions/forma-p0-core-architecture]]"
-    - "[[architecture/forma-core-technical-direction]]"
+    - "decisions/forma-p0-core-architecture"
+    - "architecture/forma-core-technical-direction"
 
 reported_by:
 affected_area: CI and release distribution

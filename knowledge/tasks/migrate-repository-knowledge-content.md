@@ -7,9 +7,9 @@ value: H
 module: knowledge
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 reviewers: []
 tags:
     - forma
@@ -22,10 +22,10 @@ readiness: needs-refinement
 sprint:
 
 blocked_by:
-    - "[[tasks/load-user-authored-space-schemas]]"
+    - "tasks/load-user-authored-space-schemas"
 related_to:
-    - "[[architecture/repository-forma-workspace-migration-design]]"
-    - "[[tasks/migrate-repository-knowledge-to-forma-workspace]]"
+    - "architecture/repository-forma-workspace-migration-design"
+    - "tasks/migrate-repository-knowledge-to-forma-workspace"
 
 reported_by:
 affected_area: Repository knowledge content migration

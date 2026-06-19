@@ -7,7 +7,7 @@ value: M
 module: app
 
 owners:
-    - "[[members/Tiscs]]"
+    - "members/Tiscs"
 assignees: []
 reviewers: []
 tags:
@@ -22,12 +22,12 @@ readiness: needs-refinement
 sprint:
 
 blocked_by:
-    - "[[tasks/implement-webapp-v2-dashboard-shell]]"
-    - "[[tasks/design-reviewable-operation-proposal-flow]]"
+    - "tasks/implement-webapp-v2-dashboard-shell"
+    - "tasks/design-reviewable-operation-proposal-flow"
 related_to:
-    - "[[decisions/webapp-primary-gui-client]]"
-    - "[[planning/webapp-primary-gui-roadmap]]"
-    - "[[concepts/agent-assisted-knowledge-maintenance]]"
+    - "decisions/webapp-primary-gui-client"
+    - "planning/webapp-primary-gui-roadmap"
+    - "concepts/agent-assisted-knowledge-maintenance"
 
 reported_by:
 affected_area: WebApp AI Chat
