@@ -15,7 +15,7 @@ sources:
     - "design/webapp-v2-dashboard-design"
     - "product/product-direction"
     - "tasks/implement-webapp-v2-dashboard-shell"
-    - "planning/KANBAN"
+    - "architecture/forma-view-query-model"
 ---
 
 # Public Read-only Release Roadmap

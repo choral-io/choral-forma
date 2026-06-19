@@ -18,7 +18,6 @@ sources:
     - "architecture/forma-p0-schema-dsl-spec"
     - "architecture/forma-view-query-model"
     - "decisions/forma-p0-core-architecture"
-    - "planning/KANBAN"
     - "tasks/audit-p0-release-scope-and-roadmap"
 ---
 

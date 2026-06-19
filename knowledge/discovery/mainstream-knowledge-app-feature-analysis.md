@@ -156,7 +156,7 @@ For Choral Forma, the Dataview lesson is that structured views should be generat
 
 Foam Queries reinforce the same pattern in a more repository-friendly form. A `foam-query` block can render dynamic lists, tables, and counts from tags, paths, links, properties, backlink counts, and outlink counts. Foam also limits JavaScript-style querying to trusted workspaces, but Choral Forma should defer custom script execution and focus on safe declarative queries.
 
-Obsidian Kanban is relevant because it provides a drag-and-drop board while keeping board data in Markdown. Choral Forma already has `knowledge/planning/KANBAN.md`, so the strongest idea to borrow is not a new planning source of truth. The useful pattern is a visual board that edits an explicit Markdown representation and keeps changes reviewable in Git.
+Obsidian Kanban is relevant because it provides a drag-and-drop board while keeping board data in Markdown. Choral Forma now models boards as configured Forma views over explicit task metadata, so the strongest idea to borrow is not a separate planning source of truth. The useful pattern is a visual board that edits explicit Markdown-backed state and keeps changes reviewable in Git.
 
 Obsidian Tasks is relevant because it enhances normal Markdown task list items with due dates, recurring tasks, done dates, partial checklist handling, filters, grouping, sorting, and query blocks. It can mark tasks done from a query view and update the original source file. Choral Forma should treat this as evidence that Markdown-native task lines can support useful task workflows, but should avoid burying durable task state in ad hoc syntax before the task schema is stable.
 

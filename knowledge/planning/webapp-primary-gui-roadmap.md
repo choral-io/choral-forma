@@ -15,7 +15,7 @@ sources:
     - "product/choral-forma"
     - "product/product-direction"
     - "architecture/forma-core-technical-direction"
-    - "planning/KANBAN"
+    - "architecture/forma-view-query-model"
 ---
 
 # WebApp Primary GUI Roadmap

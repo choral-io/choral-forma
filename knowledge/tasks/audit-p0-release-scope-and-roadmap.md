@@ -48,7 +48,7 @@ Reconcile the P0 product, architecture, delivery task list, and Kanban plan into
 - [[architecture/forma-p0-schema-dsl-spec]]
 - [[architecture/forma-view-query-model]]
 - [[decisions/forma-p0-core-architecture]]
-- [[planning/KANBAN]]
+- [[architecture/repository-forma-workspace-migration-design]]
 
 ## Context
 
@@ -59,10 +59,10 @@ This task is a planning and scope-convergence pass. It should identify what is a
 ## In Scope
 
 - Review P0 product, architecture, operation, check/index, schema, starter, and view-query documents for current P0/P1 boundaries.
-- Review the current Kanban board and task metadata against the P0 boundary.
+- Review the current Forma task board view and task metadata against the P0 boundary.
 - Produce a P0 release bar with must-have, should-have, and deferred items.
 - Identify any missing P0 closure tasks with observable acceptance criteria.
-- Recommend Kanban changes as a dry-run table, including tasks to keep Ready, move to Backlog, split, cancel, or defer to P1/P2.
+- Recommend task board changes as a dry-run table, including tasks to keep Ready, move to Backlog, split, cancel, or defer to P1/P2.
 - Call out source-stability and release-readiness risks such as unpushed local commits or missing validation evidence.
 
 ## Out Of Scope
@@ -79,7 +79,7 @@ This task is a planning and scope-convergence pass. It should identify what is a
 - The report separates P0 release blockers from P1/P2 follow-ups.
 - Each recommended new or changed task has a target Kanban column and rationale.
 - The report identifies at least one next executable task or states that P0 is ready for release validation.
-- The report cites the project knowledge and Kanban sources used.
+- The report cites the project knowledge and task board sources used.
 - No repository code or task implementation is changed.
 
 ## Relationship Notes
