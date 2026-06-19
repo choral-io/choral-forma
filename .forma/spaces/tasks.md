@@ -54,12 +54,10 @@ schema:
       type: list
       items:
         type: ref
-        target: task
     sources:
       type: list
       items:
         type: ref
-        target: task
     severity:
       type: string
     sprint:

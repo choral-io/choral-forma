@@ -194,8 +194,8 @@ struct PathIndex {
 #[derive(Debug, Clone)]
 struct RefField {
     field: String,
-    semantic_type: String,
-    space: String,
+    semantic_type: Option<String>,
+    space: Option<String>,
     transform: Option<String>,
     many: bool,
 }
@@ -731,17 +731,33 @@ fn collect_ref_fields_inner(
         SchemaNode::List { items, .. } => {
             collect_ref_fields_inner(config, items, field_path, true, fields)
         }
-        SchemaNode::Ref { target, .. } => {
+        SchemaNode::Ref { target, .. } => fields.push(if let Some(target) = target {
             if let Some(SemanticType::Space { space, input }) = config.types.get(target) {
-                fields.push(RefField {
+                RefField {
                     field: field_path.to_string(),
-                    semantic_type: target.clone(),
-                    space: space.clone(),
+                    semantic_type: Some(target.clone()),
+                    space: Some(space.clone()),
                     transform: input.transform.clone(),
                     many,
-                });
+                }
+            } else {
+                RefField {
+                    field: field_path.to_string(),
+                    semantic_type: None,
+                    space: None,
+                    transform: None,
+                    many,
+                }
             }
-        }
+        } else {
+            RefField {
+                field: field_path.to_string(),
+                semantic_type: None,
+                space: None,
+                transform: None,
+                many,
+            }
+        }),
         SchemaNode::String { .. }
         | SchemaNode::Number { .. }
         | SchemaNode::Integer { .. }
@@ -825,7 +841,7 @@ fn resolve_frontmatter_ref_value(
             }
         }
     }
-    match path_index.resolve(&target, Some(&field.space)) {
+    match path_index.resolve(&target, field.space.as_deref()) {
         ResolveResult::Resolved(target_path) => refs.push(IndexReference {
             source: ReferenceSource::Frontmatter,
             field: Some(field.field.clone()),
@@ -833,7 +849,7 @@ fn resolve_frontmatter_ref_value(
             fragment: None,
             fragment_kind: None,
             target_title: None,
-            semantic_type: Some(field.semantic_type.clone()),
+            semantic_type: field.semantic_type.clone(),
             intent: ReferenceIntent::Reference,
         }),
         ResolveResult::Unresolved => diagnostics.push(
@@ -844,7 +860,12 @@ fn resolve_frontmatter_ref_value(
                     index,
                 })
                 .with_actual(raw_target.to_string())
-                .with_expected(format!("{} entry", field.semantic_type)),
+                .with_expected(
+                    field
+                        .semantic_type
+                        .as_ref()
+                        .map_or_else(|| "entry".to_string(), |target| format!("{target} entry")),
+                ),
         ),
         ResolveResult::Ambiguous => diagnostics.push(
             Diagnostic::error("ref.ambiguous", "Reference resolves to multiple entries.")

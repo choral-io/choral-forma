@@ -2,7 +2,7 @@
 schemaVersion: 1
 kind: term
 taxonomy: spaces
-title: Product
+title: Design
 schema:
   type: object
   fields:
@@ -24,12 +24,12 @@ schema:
       items:
         type: ref
 display:
-  order: 10
-description: Product-level direction and product scope records.
+  order: 25
+description: Design artifacts, UX patterns, and implementation UI specs.
 include:
-  - "knowledge/product/**/*.md"
+  - "knowledge/design/**/*.md"
 create:
-  directory: knowledge/product
+  directory: knowledge/design
   filename: "{{ input.slug }}.md"
   template: .forma/spaces/templates/knowledge.md
   inputs:
@@ -45,6 +45,6 @@ conventions:
   summaryField: fields.summary
 ---
 
-# Product
+# Design
 
-Product records and direction artifacts.
+Product and UX design records.

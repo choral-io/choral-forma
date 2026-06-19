@@ -23,7 +23,6 @@ schema:
       type: list
       items:
         type: ref
-        target: task
 display:
   order: 30
 description: Architectural, product, and process decisions as records.

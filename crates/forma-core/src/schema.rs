@@ -112,7 +112,7 @@ pub enum SchemaNode {
         label: Option<String>,
     },
     Ref {
-        target: String,
+        target: Option<String>,
         #[serde(default)]
         required: bool,
         #[serde(default)]
@@ -557,17 +557,21 @@ fn validate_schema_node(
             }
         }
         SchemaNode::Ref { target, .. } => {
-            if !matches!(config.types.get(target), Some(SemanticType::Space { .. })) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "schema.ref.invalid",
-                        format!("Reference target `{target}` is not a space semantic type."),
-                    )
-                    .with_path(path)
-                    .with_location(DiagnosticLocation::Config {
-                        field: field.to_string(),
-                    }),
-                );
+            if let Some(target) = target {
+                if !matches!(config.types.get(target), Some(SemanticType::Space { .. })) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "schema.ref.invalid",
+                            format!(
+                                "Reference target `{target}` is not a space semantic type."
+                            ),
+                        )
+                        .with_path(path)
+                        .with_location(DiagnosticLocation::Config {
+                            field: field.to_string(),
+                        }),
+                    );
+                }
             }
         }
         SchemaNode::List { items, .. } => {
@@ -700,16 +704,18 @@ fn validate_value_node(
             if !value.is_string() {
                 diagnostics.push(type_error(path.clone(), field, "reference string", value));
             }
-            if !matches!(config.types.get(target), Some(SemanticType::Space { .. })) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "schema.ref.invalid",
-                        format!("Reference target `{target}` is not a space semantic type."),
-                    )
-                    .with_path(path)
-                    .with_location(frontmatter_field_location(field))
-                    .with_expected(format!("space semantic type `{target}`")),
-                );
+            if let Some(target) = target {
+                if !matches!(config.types.get(target), Some(SemanticType::Space { .. })) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "schema.ref.invalid",
+                            format!("Reference target `{target}` is not a space semantic type."),
+                        )
+                        .with_path(path)
+                        .with_location(frontmatter_field_location(field))
+                        .with_expected(format!("space semantic type `{target}`")),
+                    );
+                }
             }
         }
         SchemaNode::List { items, .. } => {

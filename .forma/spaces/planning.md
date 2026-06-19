@@ -23,7 +23,6 @@ schema:
       type: list
       items:
         type: ref
-        target: task
 display:
   order: 70
 description: Planning records and roadmaps.

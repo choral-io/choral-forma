@@ -23,7 +23,6 @@ schema:
       type: list
       items:
         type: ref
-        target: task
 display:
   order: 50
 description: Discovery notes and feature exploration results.

@@ -23,7 +23,6 @@ schema:
       type: list
       items:
         type: ref
-        target: task
 display:
   order: 40
 description: Shared concept glossary and abstractions.
