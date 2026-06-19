@@ -11,7 +11,7 @@ The current `knowledge/` directory is the development knowledge base for this re
 ## Current Repository Layout
 
 - `knowledge/`: repository-backed project knowledge, schemas, task items, planning workflow, proposals, and member workspaces.
-- `.agents/skills/`: project-local Agent skills for knowledge workflow, planning, review, worklists, and audits.
+- `.agents/skills/`: project-local Agent skills for Forma knowledge operations, planning, review, worklists, and audits.
 - `.worktrees/`: local-only worktrees; `.worktrees/.gitignore` remains trackable.
 - `.claude/skills`: symlink to `.agents/skills` for Claude Code compatibility.
 - `CLAUDE.md`: symlink to `AGENTS.md` for Claude Code compatibility.

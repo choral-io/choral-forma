@@ -7,7 +7,7 @@ description: Use for project-local Forma knowledge operations and agent-facing r
 
 ## Scope
 
-This skill is the project-local replacement for prior Knowledge Workflow read/audit/status/task-selection/review-prep entrypoints when working in this repository.
+This skill is the project-local replacement for the former skill-based read/audit/status/task-selection/review-prep entrypoints when working in this repository.
 
 Use it for:
 
@@ -17,7 +17,7 @@ Use it for:
 - board review for delivery state;
 - read-only review prep and evidence collection.
 
-## Bootstrap (required before knowledge workflow actions)
+## Bootstrap (required before Forma knowledge actions)
 
 Run both:
 
@@ -34,7 +34,8 @@ Add `--workspace <path>` when operating on a non-default workspace.
 - `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>`
 - `cargo run -q -p forma-cli -- board show --json`
 - `cargo run -q -p forma-cli -- list --space <space-id> --json`
-- `cargo run -q -p forma-cli -- inspect --space <space-id> <path-or-id> --json`
+- `cargo run -q -p forma-cli -- inspect <path> --json`
+- `cargo run -q -p forma-cli -- inspect --space <space-id> <entry-id> --json`
 
 Use `--json` in machine-facing checks and for any operation that will feed review notes.
 

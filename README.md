@@ -12,7 +12,7 @@ This repository is in P0 internal-test stabilization. It contains:
 
 - A repository-backed knowledge base under `knowledge/`.
 - Workflow schemas for product, concepts, decisions, planning, tasks, members, and workspace material.
-- Project-local Agent skills under `.agents/skills/` for knowledge workflow, planning, review, and maintenance.
+- Project-local Agent skills under `.agents/skills/` for Forma knowledge operations, planning, review, and maintenance.
 - Editor integration for VS Code, Zed, and the read-only Forma WebApp.
 - A Rust workspace for the `forma` binary under `crates/`.
 - A pnpm web workspace for the local read-only WebApp under `packages/`.
@@ -168,7 +168,8 @@ Use the local Forma config as the active knowledge operating context:
 - `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>`
 - `cargo run -q -p forma-cli -- board show --json`
 - `cargo run -q -p forma-cli -- list --space tasks --json`
-- `cargo run -q -p forma-cli -- inspect --space tasks <task-id-or-path> --json`
+- `cargo run -q -p forma-cli -- inspect <path> --json`
+- `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json`
 
 For project context, start with [knowledge/README.md](knowledge/README.md). Keep durable project facts in `knowledge/` and keep local personal notes and Agent runtime state out of git.
 
