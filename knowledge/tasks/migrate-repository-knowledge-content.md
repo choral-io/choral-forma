@@ -18,7 +18,7 @@ tags:
     - workspace
 
 effort: L
-readiness: blocked
+readiness: needs-refinement
 sprint:
 
 blocked_by:
@@ -65,3 +65,7 @@ Migrate current repository knowledge content into the target Forma workspace str
 - Relationship metadata follows the target reference policy.
 - `forma knowledge health --json` has no migration-caused unresolved or ambiguous internal references.
 - A migration report records changed paths, dropped compatibility assumptions, remaining warnings, and follow-up work.
+
+## Refinement Notes
+
+The schema-loading blocker is resolved by [[tasks/load-user-authored-space-schemas]] reaching Done. This task remains in Backlog with `readiness: needs-refinement` because broad content migration should be split into smaller reviewable slices before execution.

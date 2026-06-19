@@ -32,13 +32,12 @@ Rules: `.workflow/rules/delivery.md`
 
 ## Reviewing
 
-- [ ] [[tasks/migrate-repository-knowledge-to-forma-workspace|Migrate Repository Knowledge To Forma Workspace]]
-- [ ] [[tasks/load-user-authored-space-schemas|Load User Authored Space Schemas]]
-
 ## Blocked
 
 ## Done
 
+- [ ] [[tasks/load-user-authored-space-schemas|Load User Authored Space Schemas]]
+- [ ] [[tasks/migrate-repository-knowledge-to-forma-workspace|Migrate Repository Knowledge To Forma Workspace]]
 - [ ] [[tasks/implement-webapp-v2-dashboard-shell|Implement WebApp V2 Dashboard Shell]]
 - [ ] [[tasks/implement-resource-description-health-diagnostics|Implement Resource Description Health Diagnostics]]
 - [ ] [[tasks/run-p0-release-validation-and-cutline-check|Run P0 Release Validation And Cutline Check]]
