@@ -21,6 +21,7 @@ Rules: `.workflow/rules/delivery.md`
 - [ ] [[tasks/implement-zed-extension-mvp|Implement Zed Extension MVP]]
 - [ ] [[tasks/design-metadata-edit-deprecate-operations|Design Metadata Edit And Deprecate Operations]]
 - [ ] [[tasks/design-reviewable-knowledge-change-proposals|Design Reviewable Knowledge Change Proposals]]
+- [ ] [[tasks/migrate-repository-knowledge-to-forma-workspace|Migrate Repository Knowledge To Forma Workspace]]
 
 ## Ready
 
