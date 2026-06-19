@@ -2,12 +2,10 @@
 schemaVersion: 1
 kind: term
 taxonomy: spaces
-title: Members
+title: Product
 schema:
   type: object
   fields:
-    kind:
-      type: string
     scope:
       type: string
     type:
@@ -21,15 +19,20 @@ schema:
       type: list
       items:
         type: string
+    sources:
+      type: list
+      items:
+        type: ref
+        target: task
 display:
-  order: 90
-description: Shared member-facing workspace notes. Local-only member files remain ignored by Git.
+  order: 10
+description: Product-level direction and product scope records.
 include:
-  - "knowledge/members/**/*.md"
+  - "knowledge/product/**/*.md"
 create:
-  directory: knowledge/members
+  directory: knowledge/product
   filename: "{{ input.slug }}.md"
-  template: .forma/spaces/templates/member-note.md
+  template: .forma/spaces/templates/knowledge.md
   inputs:
     title:
       required: true
@@ -41,9 +44,8 @@ create:
 conventions:
   titleField: fields.title
   summaryField: fields.summary
-
 ---
 
-# Members
+# Product
 
-Shared member profiles and shared workspace notes.
+Product records and direction artifacts.

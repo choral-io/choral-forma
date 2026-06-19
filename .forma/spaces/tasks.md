@@ -3,8 +3,73 @@ schemaVersion: 1
 kind: term
 taxonomy: spaces
 title: Tasks
+schema:
+  type: object
+  fields:
+    kind:
+      type: string
+    scope:
+      type: string
+    title:
+      type: string
+    summary:
+      type: string
+    type:
+      type: string
+    priority:
+      type: string
+    value:
+      type: string
+    module:
+      type: string
+    effort:
+      type: string
+    readiness:
+      type: string
+    owners:
+      type: list
+      items:
+        type: ref
+        target: member
+    assignees:
+      type: list
+      items:
+        type: ref
+        target: member
+    reviewers:
+      type: list
+      items:
+        type: ref
+        target: member
+    tags:
+      type: list
+      items:
+        type: string
+    blocked_by:
+      type: list
+      items:
+        type: ref
+        target: task
+    related_to:
+      type: list
+      items:
+        type: ref
+        target: task
+    sources:
+      type: list
+      items:
+        type: ref
+        target: task
+    severity:
+      type: string
+    sprint:
+      type: string
+    reported_by:
+      type: string
+    affected_area:
+      type: string
 display:
-  order: 10
+  order: 80
 description: Delivery tasks tracked as repository Markdown.
 include:
   - "knowledge/tasks/**/*.md"

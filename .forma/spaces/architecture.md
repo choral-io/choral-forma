@@ -2,12 +2,10 @@
 schemaVersion: 1
 kind: term
 taxonomy: spaces
-title: Members
+title: Architecture
 schema:
   type: object
   fields:
-    kind:
-      type: string
     scope:
       type: string
     type:
@@ -21,15 +19,20 @@ schema:
       type: list
       items:
         type: string
+    sources:
+      type: list
+      items:
+        type: ref
+        target: task
 display:
-  order: 90
-description: Shared member-facing workspace notes. Local-only member files remain ignored by Git.
+  order: 20
+description: Core architecture and systems design records.
 include:
-  - "knowledge/members/**/*.md"
+  - "knowledge/architecture/**/*.md"
 create:
-  directory: knowledge/members
+  directory: knowledge/architecture
   filename: "{{ input.slug }}.md"
-  template: .forma/spaces/templates/member-note.md
+  template: .forma/spaces/templates/knowledge.md
   inputs:
     title:
       required: true
@@ -41,9 +44,8 @@ create:
 conventions:
   titleField: fields.title
   summaryField: fields.summary
-
 ---
 
-# Members
+# Architecture
 
-Shared member profiles and shared workspace notes.
+Architecture records for implementation and system design.

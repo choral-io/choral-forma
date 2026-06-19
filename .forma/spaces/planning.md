@@ -2,12 +2,10 @@
 schemaVersion: 1
 kind: term
 taxonomy: spaces
-title: Members
+title: Planning
 schema:
   type: object
   fields:
-    kind:
-      type: string
     scope:
       type: string
     type:
@@ -21,15 +19,20 @@ schema:
       type: list
       items:
         type: string
+    sources:
+      type: list
+      items:
+        type: ref
+        target: task
 display:
-  order: 90
-description: Shared member-facing workspace notes. Local-only member files remain ignored by Git.
+  order: 70
+description: Planning records and roadmaps.
 include:
-  - "knowledge/members/**/*.md"
+  - "knowledge/planning/**/*.md"
 create:
-  directory: knowledge/members
+  directory: knowledge/planning
   filename: "{{ input.slug }}.md"
-  template: .forma/spaces/templates/member-note.md
+  template: .forma/spaces/templates/knowledge.md
   inputs:
     title:
       required: true
@@ -41,9 +44,8 @@ create:
 conventions:
   titleField: fields.title
   summaryField: fields.summary
-
 ---
 
-# Members
+# Planning
 
-Shared member profiles and shared workspace notes.
+Roadmaps, release plans, and status views.

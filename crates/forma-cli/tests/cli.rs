@@ -208,359 +208,52 @@ fn init_create_list_and_inspect_use_operation_json_without_persistent_index() {
 }
 
 #[test]
-fn dogfood_repository_workspace_lists_tasks_without_persistent_index() {
-    let root = fixture_root("dogfood-repository-workspace");
-    std::fs::create_dir_all(root.join(".forma/spaces")).unwrap();
-    std::fs::create_dir_all(root.join(".forma/views")).unwrap();
-    std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/members")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/workspace")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/architecture")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/concepts")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/decisions")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/design")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/discovery")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/planning")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/product")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/proposals")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/research")).unwrap();
-
-    std::fs::write(
-        root.join(".forma.yml"),
-        r#"schemaVersion: 1
-
-workspace:
-  name: "Dogfood Knowledge"
-  root: "."
-  canonicalLanguage: "en"
-  supportedLanguages:
-    - "en"
-  timezone: "UTC"
-
-include:
-  - ".forma/dashboard.md"
-  - ".forma/spaces/*.md"
-  - ".forma/views/*.md"
-"#,
-    )
-    .unwrap();
-    std::fs::write(root.join(".forma/.gitignore"), "local/\n*.summary.json\n").unwrap();
-    std::fs::write(
-        root.join(".forma/spaces/tasks.md"),
-        r#"---
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Tasks
-display:
-  order: 10
-description: Delivery tasks tracked as repository Markdown.
-include:
-  - "knowledge/tasks/**/*.md"
-create:
-  directory: knowledge/tasks
-  filename: "{{ input.slug }}.md"
-  template: .forma/spaces/templates/task.md
-  inputs:
-    title:
-      required: true
-    slug:
-      default: "{{ input.title }}"
-      transform: slugify
-    scope:
-      default: project
-    summary:
-      default: ""
-    type:
-      default: task
-    priority:
-      default: P2
-    value:
-      default: M
-    module:
-      default: knowledge
-    effort:
-      default: M
-    readiness:
-      default: needs-refinement
-    owners:
-      default: []
-    assignees:
-      default: []
-    reviewers:
-      default: []
-    tags:
-      default: []
-    blocked_by:
-      default: []
-    related_to:
-      default: []
-    severity:
-      default: ""
-    sprint:
-      default: ""
-    reported_by:
-      default: ""
-    affected_area:
-      default: ""
-conventions:
-  titleField: title
-  summaryField: summary
----
-
-# Tasks
-
-Delivery tasks tracked as repository Markdown.
-"#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join(".forma/spaces/knowledge.md"),
-        r#"---
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Knowledge
-display:
-  order: 20
-description: Shared project knowledge excluding task records and local member state.
-include:
-  - "knowledge/architecture/**/*.md"
-  - "knowledge/concepts/**/*.md"
-  - "knowledge/decisions/**/*.md"
-  - "knowledge/design/**/*.md"
-  - "knowledge/discovery/**/*.md"
-  - "knowledge/planning/**/*.md"
-  - "knowledge/product/**/*.md"
-  - "knowledge/proposals/**/*.md"
-  - "knowledge/research/**/*.md"
-  - "knowledge/guidelines/**/*.md"
-conventions:
-  titleField: fields.title
-  summaryField: fields.summary
----
-
-# Knowledge
-
-Shared product, architecture, planning, and decision records.
-"#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join(".forma/spaces/members.md"),
-        r#"---
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Members
-display:
-  order: 30
-description: Shared member-facing workspace notes. Local-only member files remain ignored by Git.
-include:
-  - "knowledge/members/**/*.md"
-  - "knowledge/workspace/*/handoffs/**/*.md"
-  - "knowledge/workspace/*/research/**/*.md"
-conventions:
-  titleField: fields.title
-  summaryField: fields.summary
----
-
-# Members
-
-Shared member profiles and shared workspace notes.
-"#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join(".forma/spaces/templates/task.md"),
-        r#"---
-schemaVersion: 1
-kind: task
-scope: "{{ input.scope }}"
-title: "{{ input.title }}"
-summary: "{{ input.summary }}"
-type: "{{ input.type }}"
-priority: "{{ input.priority }}"
-value: "{{ input.value }}"
-module: "{{ input.module }}"
-effort: "{{ input.effort }}"
-readiness: "{{ input.readiness }}"
-owners: []
-assignees: []
-reviewers: []
-tags: []
-blocked_by: []
-related_to: []
-severity: ""
-sprint: ""
-reported_by: ""
-affected_area: ""
----
-
-# {{ input.title }}
-
-## Goal
-
-## Sources
-
-## In Scope
-
-## Out of Scope
-
-## Acceptance Criteria
-"#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join(".forma/dashboard.md"),
-        r#"---
-schemaVersion: 1
-kind: dashboard
-title: Dogfood Knowledge
----
-
-# Dogfood Knowledge
-"#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join(".forma/views/task-board.md"),
-        r#"---
-schemaVersion: 1
-kind: view
-title: Task Board
-mode: kanban
-source:
-  type: pages
-  taxonomy:
-    spaces:
-      - tasks
-kanban:
-  columns:
-    - id: needs-refinement
-      label: Needs Refinement
-      query:
-        all:
-          - field: readiness
-            op: equals
-            value: needs-refinement
-    - id: ready
-      label: Ready
-      query:
-        all:
-          - field: readiness
-            op: equals
-            value: ready
-    - id: blocked
-      label: Blocked
-      query:
-        all:
-          - field: readiness
-            op: equals
-            value: blocked
----
-
-# Task Board
-
-Delivery task board generated from task metadata.
-"#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join("knowledge/tasks/replace-skills.md"),
-        r#"---
-schemaVersion: 1
-kind: task
-scope: project
-title: Replace Knowledge Workflow Skills
-summary: Use Forma CLI for mechanical knowledge operations.
-type: task
-priority: P0
-value: H
-module: knowledge
-effort: M
-readiness: needs-refinement
-owners: []
-assignees: []
-reviewers: []
-tags: []
-blocked_by: []
-related_to: []
-severity: ""
-sprint: ""
-reported_by: ""
-affected_area: ""
----
-
-# Replace Knowledge Workflow Skills
-
-## Goal
-
-## Sources
-
-## In Scope
-
-## Out of Scope
-
-## Acceptance Criteria
-"#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join("knowledge/product/direction.md"),
-        r#"---
-schemaVersion: 1
-kind: note
-title: Product Direction
-summary: Current product direction.
----
-
-# Product Direction
-"#,
-    )
-    .unwrap();
-
-    let check = forma(&root)
-        .args(["check", "--json"])
+fn repository_workspace_config_exposes_target_spaces_and_views() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let output = forma(&root)
+        .args(["config", "inspect", "--json"])
         .output()
-        .expect("forma check should run");
-
+        .expect("forma config inspect should run");
     assert!(
-        check.status.success(),
+        output.status.success(),
         "{}",
-        String::from_utf8_lossy(&check.stdout)
+        String::from_utf8_lossy(&output.stderr)
     );
-    assert!(!root.join(".forma/index.summary.json").exists());
+    let config_stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(config_stdout.contains(r#""operation":"config.inspect""#));
+    assert!(config_stdout.contains(r#""canonicalLanguage":"en""#));
+    assert!(config_stdout.contains(r#""supportedLanguages":["en","zh-Hans"]"#));
+    for space in [
+        "product",
+        "architecture",
+        "decisions",
+        "concepts",
+        "discovery",
+        "guidelines",
+        "planning",
+        "tasks",
+        "members",
+        "workspace-support",
+    ] {
+        assert!(config_stdout.contains(&format!(r#""{space}":"#)));
+    }
 
-    let list = forma(&root)
+    let tasks_list = forma(&root)
         .args(["list", "--space", "tasks", "--json"])
         .output()
-        .expect("forma list should run");
+        .expect("forma list --space tasks should run");
+    assert!(tasks_list.status.success());
+    let tasks_stdout = String::from_utf8_lossy(&tasks_list.stdout);
+    assert!(tasks_stdout.contains(r#""path":"knowledge/tasks/"#));
 
-    assert!(list.status.success());
-    assert!(!root.join(".forma/index.summary.json").exists());
-    let stdout = String::from_utf8_lossy(&list.stdout);
-    assert!(stdout.contains(r#""path":"knowledge/tasks/replace-skills.md""#));
-    assert!(stdout.contains(r#""title":"Replace Knowledge Workflow Skills""#));
-
-    let knowledge_list = forma(&root)
-        .args(["list", "--space", "knowledge", "--json"])
+    let product_list = forma(&root)
+        .args(["list", "--space", "product", "--json"])
         .output()
-        .expect("forma list --space knowledge should run");
-
-    assert!(
-        knowledge_list.status.success(),
-        "{}\n{}",
-        String::from_utf8_lossy(&knowledge_list.stdout),
-        String::from_utf8_lossy(&knowledge_list.stderr)
-    );
-    let knowledge_stdout = String::from_utf8_lossy(&knowledge_list.stdout);
-    assert!(knowledge_stdout.contains(r#""path":"knowledge/product/direction.md""#));
-    assert!(knowledge_stdout.contains(r#""includePatterns":["knowledge/architecture/**/*.md","knowledge/concepts/**/*.md","knowledge/decisions/**/*.md","knowledge/design/**/*.md","knowledge/discovery/**/*.md","knowledge/planning/**/*.md","knowledge/product/**/*.md","knowledge/proposals/**/*.md","knowledge/research/**/*.md","knowledge/guidelines/**/*.md"]"#));
-
-    std::fs::remove_dir_all(root).unwrap();
+        .expect("forma list --space product should run");
+    assert!(product_list.status.success());
+    assert!(!root.join(".forma/index.summary.json").exists());
+    let product_stdout = String::from_utf8_lossy(&product_list.stdout);
+    assert!(product_stdout.contains(r#""path":"knowledge/product/"#));
 }
 
 #[test]
