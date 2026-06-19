@@ -36,17 +36,22 @@ Use these read commands for routine agent work:
 ## Source Layout
 
 - `members/`: member profiles and workspace mapping references
-- `groups/`: review boards, groups, and collaborative working groups
 - `workspace/`: shared member workspaces, handoffs, and local-only personal work areas under `local/`
 - `discovery/`: discovery notes, research, and assumptions
 - `product/`: product requirements and user-facing behavior
+- `user-stories/`: actor-centered product stories and use cases
 - `concepts/`: reusable domain language
 - `architecture/`: architecture notes and design direction
+- `design/`: UX, product design, and interface specification records
 - `decisions/`: accepted decisions
 - `guidelines/`: cross-area process and documentation guidance
+- `metrics/`: product, quality, and delivery metric definitions
+- `experiments/`: product and workflow experiments
 - `planning/`: roadmap, sprint plan, and Kanban state
 - `proposals/`: queued review candidates
 - `tasks/`: delivery task definitions and acceptance criteria
+- `test-cases/`: reusable acceptance and validation cases
+- `releases/`: release scope, validation, rollout, and follow-up records
 
 ## Writing and Operation Boundaries
 

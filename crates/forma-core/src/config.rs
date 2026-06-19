@@ -397,6 +397,9 @@ fn view_id_from_config_path(path: &str) -> String {
 }
 
 fn semantic_type_id_for_space(space_id: &str) -> String {
+    if let Some(stem) = space_id.strip_suffix("ies") {
+        return format!("{stem}y");
+    }
     space_id.strip_suffix('s').unwrap_or(space_id).to_string()
 }
 
@@ -629,6 +632,14 @@ mod tests {
         );
 
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn derives_semantic_type_ids_from_plural_space_ids() {
+        assert_eq!(super::semantic_type_id_for_space("tasks"), "task");
+        assert_eq!(super::semantic_type_id_for_space("test-cases"), "test-case");
+        assert_eq!(super::semantic_type_id_for_space("user-stories"), "user-story");
+        assert_eq!(super::semantic_type_id_for_space("planning"), "planning");
     }
 
     #[test]

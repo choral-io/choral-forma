@@ -224,19 +224,41 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
     assert!(config_stdout.contains(r#""canonicalLanguage":"en""#));
     assert!(config_stdout.contains(r#""supportedLanguages":["en","zh-Hans"]"#));
     for space in [
-        "design",
-        "product",
         "architecture",
-        "decisions",
         "concepts",
+        "decisions",
+        "design",
         "discovery",
+        "experiments",
         "guidelines",
-        "planning",
-        "tasks",
         "members",
+        "metrics",
+        "planning",
+        "product",
+        "proposals",
+        "releases",
+        "tasks",
+        "test-cases",
+        "user-stories",
         "workspace-support",
     ] {
         assert!(config_stdout.contains(&format!(r#""{space}":"#)));
+    }
+    for template in [
+        "experiment.md",
+        "knowledge.md",
+        "member-note.md",
+        "metric.md",
+        "proposal.md",
+        "release.md",
+        "task.md",
+        "test-case.md",
+        "user-story.md",
+    ] {
+        assert!(
+            root.join(".forma/spaces/templates").join(template).is_file(),
+            "missing template {template}"
+        );
     }
 
     let tasks_list = forma(&root)

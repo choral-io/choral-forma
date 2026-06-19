@@ -2,7 +2,7 @@
 schemaVersion: 1
 kind: term
 taxonomy: spaces
-title: Concepts
+title: Proposals
 schema:
     type: object
     fields:
@@ -10,7 +10,19 @@ schema:
             type: string
         type:
             type: string
+        status:
+            type: string
         owners:
+            type: list
+            items:
+                type: ref
+                target: member
+        assignees:
+            type: list
+            items:
+                type: ref
+                target: member
+        reviewers:
             type: list
             items:
                 type: ref
@@ -23,15 +35,19 @@ schema:
             type: list
             items:
                 type: ref
+        related_to:
+            type: list
+            items:
+                type: ref
 display:
-    order: 40
-description: Shared concept glossary and abstractions.
+    order: 75
+description: Reviewable knowledge, task, and decision proposals before canonical conversion.
 include:
-    - "knowledge/concepts/**/*.md"
+    - "knowledge/proposals/**/*.md"
 create:
-    directory: knowledge/concepts
+    directory: knowledge/proposals
     filename: "{{ input.slug }}.md"
-    template: .forma/spaces/templates/knowledge.md
+    template: .forma/spaces/templates/proposal.md
     inputs:
         title:
             required: true
@@ -45,6 +61,6 @@ conventions:
     summaryField: fields.summary
 ---
 
-# Concepts
+# Proposals
 
-Shared terminology and conceptual framework.
+Reviewable proposed changes before conversion into canonical knowledge, tasks, or decisions.
