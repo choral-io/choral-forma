@@ -1324,7 +1324,7 @@ mod tests {
         );
         assert_eq!(response["result"]["operation"], "board.show");
         assert_eq!(response["result"]["workspace"]["name"], "Board RPC");
-        assert_eq!(response["result"]["columns"][0]["id"], "needs-refinement");
+        assert_eq!(response["result"]["columns"][0]["id"], "backlog");
         assert_eq!(
             response["result"]["columns"][0]["tasks"][0]["path"],
             "knowledge/tasks/alpha.md"
@@ -1334,11 +1334,15 @@ mod tests {
             response["result"]["columns"][1]["tasks"][0]["path"],
             "knowledge/tasks/bravo.md"
         );
-        assert_eq!(response["result"]["columns"][2]["id"], "blocked");
+        assert_eq!(response["result"]["columns"][2]["id"], "doing");
+        assert_eq!(response["result"]["columns"][3]["id"], "reviewing");
+        assert_eq!(response["result"]["columns"][4]["id"], "blocked");
         assert_eq!(
-            response["result"]["columns"][2]["tasks"][0]["path"],
+            response["result"]["columns"][4]["tasks"][0]["path"],
             "knowledge/tasks/charlie.md"
         );
+        assert_eq!(response["result"]["columns"][5]["id"], "done");
+        assert_eq!(response["result"]["columns"][6]["id"], "cancelled");
 
         fs::remove_dir_all(root).unwrap();
     }

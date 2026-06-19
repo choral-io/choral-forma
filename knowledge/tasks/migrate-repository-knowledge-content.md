@@ -18,6 +18,7 @@ tags:
     - workspace
 
 effort: L
+status: backlog
 readiness: needs-refinement
 sprint:
 

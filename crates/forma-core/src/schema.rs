@@ -562,9 +562,7 @@ fn validate_schema_node(
                     diagnostics.push(
                         Diagnostic::error(
                             "schema.ref.invalid",
-                            format!(
-                                "Reference target `{target}` is not a space semantic type."
-                            ),
+                            format!("Reference target `{target}` is not a space semantic type."),
                         )
                         .with_path(path)
                         .with_location(DiagnosticLocation::Config {

@@ -18,6 +18,7 @@ tags:
     - zed
 
 effort: M
+status: backlog
 readiness: needs-refinement
 sprint:
 

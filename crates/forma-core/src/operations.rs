@@ -795,44 +795,14 @@ pub fn tasks_list(root: impl AsRef<Path>) -> Result<TasksListResult, OperationEr
 
 pub fn board_show(root: impl AsRef<Path>) -> Result<BoardShowResult, OperationError> {
     let tasks = tasks_list(root)?;
-    let mut needs_refinement = Vec::new();
-    let mut ready = Vec::new();
-    let mut blocked = Vec::new();
-
-    for task in tasks.tasks {
-        match board_column_id(task.readiness.as_deref()) {
-            "ready" => ready.push(task),
-            "blocked" => blocked.push(task),
-            _ => needs_refinement.push(task),
-        }
-    }
-
-    needs_refinement.sort_by(|left, right| left.path.cmp(&right.path));
-    ready.sort_by(|left, right| left.path.cmp(&right.path));
-    blocked.sort_by(|left, right| left.path.cmp(&right.path));
+    let task_board = TaskBoard::from_tasks(tasks.tasks);
 
     Ok(BoardShowResult {
         schema_version: tasks.schema_version,
         operation: "board.show".to_string(),
         status: tasks.status,
         workspace: tasks.workspace,
-        columns: vec![
-            BoardColumn {
-                id: "needs-refinement".to_string(),
-                title: "Needs Refinement".to_string(),
-                tasks: needs_refinement,
-            },
-            BoardColumn {
-                id: "ready".to_string(),
-                title: "Ready".to_string(),
-                tasks: ready,
-            },
-            BoardColumn {
-                id: "blocked".to_string(),
-                title: "Blocked".to_string(),
-                tasks: blocked,
-            },
-        ],
+        columns: task_board.columns,
         summary: tasks.summary,
         diagnostics: tasks.diagnostics,
     })
@@ -1734,11 +1704,75 @@ fn task_basename(path: &str) -> String {
         .to_string()
 }
 
-fn board_column_id(readiness: Option<&str>) -> &'static str {
-    match readiness {
+const DELIVERY_BOARD_COLUMNS: &[(&str, &str)] = &[
+    ("backlog", "Backlog"),
+    ("ready", "Ready"),
+    ("doing", "Doing"),
+    ("reviewing", "Reviewing"),
+    ("blocked", "Blocked"),
+    ("done", "Done"),
+    ("cancelled", "Cancelled"),
+];
+
+struct TaskBoard {
+    columns: Vec<BoardColumn>,
+}
+
+impl TaskBoard {
+    fn from_tasks(tasks: Vec<TaskSummary>) -> Self {
+        let mut columns = delivery_board_columns();
+        for task in tasks {
+            let column_id = board_column_id_from_task(&task);
+            if let Some(column) = columns.iter_mut().find(|column| column.id == column_id) {
+                column
+                    .tasks
+                    .push(task.with_board_status(column_id.to_string()));
+            }
+        }
+        for column in &mut columns {
+            column
+                .tasks
+                .sort_by(|left, right| left.path.cmp(&right.path));
+        }
+        Self { columns }
+    }
+}
+
+impl TaskSummary {
+    fn with_board_status(mut self, status: String) -> Self {
+        if self.status.is_none() {
+            self.status = Some(status);
+        }
+        self
+    }
+}
+
+fn delivery_board_columns() -> Vec<BoardColumn> {
+    DELIVERY_BOARD_COLUMNS
+        .iter()
+        .map(|(id, title)| BoardColumn {
+            id: (*id).to_string(),
+            title: (*title).to_string(),
+            tasks: Vec::new(),
+        })
+        .collect()
+}
+
+fn board_column_id_from_title(title: &str) -> Option<&'static str> {
+    DELIVERY_BOARD_COLUMNS.iter().find_map(|(id, label)| {
+        (id.eq_ignore_ascii_case(title) || label.eq_ignore_ascii_case(title)).then_some(*id)
+    })
+}
+
+fn board_column_id_from_task(task: &TaskSummary) -> &'static str {
+    if let Some(status) = task.status.as_deref().and_then(board_column_id_from_title) {
+        return status;
+    }
+
+    match task.readiness.as_deref() {
         Some("ready") => "ready",
         Some("blocked") => "blocked",
-        _ => "needs-refinement",
+        _ => "backlog",
     }
 }
 
@@ -3018,7 +3052,7 @@ fields:
     }
 
     #[test]
-    fn board_show_groups_tasks_by_readiness() {
+    fn board_show_groups_tasks_by_delivery_columns() {
         let root = fixture_root("board-show-operations");
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
         fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
@@ -3087,18 +3121,100 @@ conventions:
 
         let result = board_show(&root).unwrap();
         assert_eq!(result.operation, "board.show");
-        assert_eq!(result.columns.len(), 3);
-        assert_eq!(result.columns[0].id, "needs-refinement");
-        assert_eq!(result.columns[0].title, "Needs Refinement");
+        assert_eq!(result.columns.len(), 7);
+        assert_eq!(result.columns[0].id, "backlog");
+        assert_eq!(result.columns[0].title, "Backlog");
         assert_eq!(result.columns[0].tasks.len(), 1);
         assert_eq!(result.columns[0].tasks[0].path, "knowledge/tasks/alpha.md");
         assert_eq!(result.columns[1].id, "ready");
         assert_eq!(result.columns[1].tasks[0].path, "knowledge/tasks/bravo.md");
-        assert_eq!(result.columns[2].id, "blocked");
+        assert_eq!(result.columns[2].id, "doing");
+        assert!(result.columns[2].tasks.is_empty());
+        assert_eq!(result.columns[3].id, "reviewing");
+        assert!(result.columns[3].tasks.is_empty());
+        assert_eq!(result.columns[4].id, "blocked");
         assert_eq!(
-            result.columns[2].tasks[0].path,
+            result.columns[4].tasks[0].path,
             "knowledge/tasks/charlie.md"
         );
+        assert_eq!(result.columns[5].id, "done");
+        assert!(result.columns[5].tasks.is_empty());
+        assert_eq!(result.columns[6].id, "cancelled");
+        assert!(result.columns[6].tasks.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn board_show_uses_task_status_columns_when_available() {
+        let root = fixture_root("board-show-status-operations");
+        fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
+        fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
+        fs::write(
+            root.join(".forma.yml"),
+            r#"schemaVersion: 1
+workspace:
+  name: Board Operations
+  canonicalLanguage: en
+  supportedLanguages:
+    - en
+  timezone: UTC
+include:
+  - .forma/spaces/*.md
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/tasks.md"),
+            r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Tasks
+include:
+  - knowledge/tasks/**/*.md
+create:
+  directory: knowledge/tasks
+  filename: "{{ input.slug }}.md"
+  template: .forma/spaces/templates/task.md
+  inputs:
+    title:
+      required: true
+    slug:
+      default: "{{ input.title }}"
+      transform: slugify
+conventions:
+  titleField: title
+  summaryField: summary
+---
+
+# Tasks
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/templates/task.md"),
+            "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"\"\n---\n\n# {{ input.title }}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/tasks/alpha.md"),
+            "---\nschemaVersion: 1\nkind: task\ntitle: Alpha\nsummary: Done task.\nstatus: done\n---\n\n# Alpha\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/tasks/bravo.md"),
+            "---\nschemaVersion: 1\nkind: task\ntitle: Bravo\nsummary: Doing task.\nstatus: doing\nreadiness: ready\n---\n\n# Bravo\n",
+        )
+        .unwrap();
+
+        let result = board_show(&root).unwrap();
+        assert_eq!(result.columns[2].id, "doing");
+        assert_eq!(result.columns[2].tasks[0].path, "knowledge/tasks/bravo.md");
+        assert_eq!(result.columns[2].tasks[0].status.as_deref(), Some("doing"));
+        assert_eq!(result.columns[5].id, "done");
+        assert_eq!(result.columns[5].tasks[0].path, "knowledge/tasks/alpha.md");
+        assert_eq!(result.columns[5].tasks[0].status.as_deref(), Some("done"));
 
         fs::remove_dir_all(root).unwrap();
     }

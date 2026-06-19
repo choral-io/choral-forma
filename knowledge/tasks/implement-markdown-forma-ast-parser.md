@@ -17,6 +17,7 @@ tags:
     - parser
 
 effort: M
+status: done
 readiness: ready
 sprint:
 

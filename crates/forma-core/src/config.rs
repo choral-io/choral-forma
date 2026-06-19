@@ -638,7 +638,10 @@ mod tests {
     fn derives_semantic_type_ids_from_plural_space_ids() {
         assert_eq!(super::semantic_type_id_for_space("tasks"), "task");
         assert_eq!(super::semantic_type_id_for_space("test-cases"), "test-case");
-        assert_eq!(super::semantic_type_id_for_space("user-stories"), "user-story");
+        assert_eq!(
+            super::semantic_type_id_for_space("user-stories"),
+            "user-story"
+        );
         assert_eq!(super::semantic_type_id_for_space("planning"), "planning");
     }
 

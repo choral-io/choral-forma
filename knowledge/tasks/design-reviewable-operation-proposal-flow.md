@@ -18,6 +18,7 @@ tags:
     - operations
 
 effort: M
+status: backlog
 readiness: needs-refinement
 sprint:
 

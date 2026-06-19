@@ -17,8 +17,6 @@ Active knowledge operations are managed by:
 - `.forma/spaces/*.md` space configuration and index targets
 - `.forma/views/*.md` read models
 
-Legacy `.workflow/**` files are kept for migration history and reference only; they are not current runtime instructions.
-
 Use these bootstrap checks before read operations:
 
 - `cargo run -q -p forma-cli -- config inspect --json`

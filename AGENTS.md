@@ -68,4 +68,3 @@ This repository uses Forma-managed knowledge runtime in the repository Markdown 
     - review prep and knowledge-readability diagnosis.
 - Do not write shared knowledge, task metadata, `.forma` config, or workflow state without explicit user approval.
 - Keep local-only state out of commits: `knowledge/workspace/*/local/`, `.forma/local.yml`, generated caches, worktrees, and browser state.
-- Do not treat legacy `.knowledge-workflow` or `.workflow/**` paths/files as current runtime requirements; they are historical/migration context only.

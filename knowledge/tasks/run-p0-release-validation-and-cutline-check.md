@@ -17,6 +17,7 @@ tags:
     - validation
 
 effort: S
+status: done
 readiness: ready
 sprint:
 

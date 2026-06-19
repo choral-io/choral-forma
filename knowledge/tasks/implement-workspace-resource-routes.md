@@ -18,6 +18,7 @@ tags:
     - resources
 
 effort: M
+status: done
 readiness: needs-refinement
 sprint:
 

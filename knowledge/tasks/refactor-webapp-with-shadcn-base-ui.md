@@ -18,6 +18,7 @@ tags:
     - design-system
 
 effort: L
+status: backlog
 readiness: needs-refinement
 sprint:
 

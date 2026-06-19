@@ -18,6 +18,7 @@ tags:
     - chat
 
 effort: M
+status: backlog
 readiness: needs-refinement
 sprint:
 

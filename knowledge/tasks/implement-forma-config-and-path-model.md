@@ -17,6 +17,7 @@ tags:
     - paths
 
 effort: M
+status: done
 readiness: ready
 sprint:
 

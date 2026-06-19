@@ -17,6 +17,7 @@ tags:
     - starter
 
 effort: L
+status: done
 readiness: ready
 sprint:
 

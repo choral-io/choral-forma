@@ -17,6 +17,7 @@ tags:
     - diagnostics
 
 effort: L
+status: done
 readiness: ready
 sprint:
 

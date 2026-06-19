@@ -17,6 +17,7 @@ tags:
     - editor-extension
 
 effort: M
+status: backlog
 readiness: blocked
 sprint:
 

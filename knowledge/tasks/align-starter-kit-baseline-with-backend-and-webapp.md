@@ -19,6 +19,7 @@ tags:
     - webapp
 
 effort: L
+status: doing
 readiness: ready
 sprint:
 

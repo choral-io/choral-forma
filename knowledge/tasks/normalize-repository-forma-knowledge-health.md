@@ -17,6 +17,7 @@ tags:
     - migration
 
 effort: M
+status: backlog
 readiness: blocked
 sprint:
 

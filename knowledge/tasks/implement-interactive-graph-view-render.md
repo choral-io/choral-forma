@@ -17,6 +17,7 @@ tags:
     - views
 
 effort: M
+status: backlog
 readiness: needs-refinement
 sprint:
 

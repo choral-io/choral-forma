@@ -17,6 +17,7 @@ tags:
     - release
 
 effort: S
+status: done
 readiness: ready
 sprint:
 

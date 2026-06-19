@@ -19,6 +19,7 @@ tags:
     - ui
 
 effort: L
+status: done
 readiness: ready
 sprint:
 

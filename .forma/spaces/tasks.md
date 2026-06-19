@@ -24,6 +24,8 @@ schema:
             type: string
         effort:
             type: string
+        status:
+            type: string
         readiness:
             type: string
         owners:
@@ -95,6 +97,8 @@ create:
             default: knowledge
         effort:
             default: M
+        status:
+            default: backlog
         readiness:
             default: needs-refinement
         owners:

@@ -256,7 +256,9 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
         "user-story.md",
     ] {
         assert!(
-            root.join(".forma/spaces/templates").join(template).is_file(),
+            root.join(".forma/spaces/templates")
+                .join(template)
+                .is_file(),
             "missing template {template}"
         );
     }
@@ -427,7 +429,7 @@ assignees:
 }
 
 #[test]
-fn board_show_groups_tasks_by_readiness() {
+fn board_show_groups_tasks_by_delivery_columns() {
     let root = fixture_root("board-show");
     std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
     std::fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
@@ -538,22 +540,38 @@ readiness: blocked
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains(r#""operation":"board.show""#));
-    assert!(stdout.contains(r#""id":"needs-refinement""#));
-    assert!(stdout.contains(r#""title":"Needs Refinement""#));
+    assert!(stdout.contains(r#""id":"backlog""#));
+    assert!(stdout.contains(r#""title":"Backlog""#));
     assert!(stdout.contains(r#""id":"ready""#));
     assert!(stdout.contains(r#""title":"Ready""#));
+    assert!(stdout.contains(r#""id":"doing""#));
+    assert!(stdout.contains(r#""title":"Doing""#));
+    assert!(stdout.contains(r#""id":"reviewing""#));
+    assert!(stdout.contains(r#""title":"Reviewing""#));
     assert!(stdout.contains(r#""id":"blocked""#));
     assert!(stdout.contains(r#""title":"Blocked""#));
+    assert!(stdout.contains(r#""id":"done""#));
+    assert!(stdout.contains(r#""title":"Done""#));
+    assert!(stdout.contains(r#""id":"cancelled""#));
+    assert!(stdout.contains(r#""title":"Cancelled""#));
     assert!(stdout.contains(r#""path":"knowledge/tasks/alpha.md""#));
     assert!(stdout.contains(r#""path":"knowledge/tasks/bravo.md""#));
     assert!(stdout.contains(r#""path":"knowledge/tasks/charlie.md""#));
     assert!(!root.join(".forma/index.summary.json").exists());
 
-    let needs_refinement_index = stdout.find(r#""id":"needs-refinement""#).unwrap();
+    let backlog_index = stdout.find(r#""id":"backlog""#).unwrap();
     let ready_index = stdout.find(r#""id":"ready""#).unwrap();
+    let doing_index = stdout.find(r#""id":"doing""#).unwrap();
+    let reviewing_index = stdout.find(r#""id":"reviewing""#).unwrap();
     let blocked_index = stdout.find(r#""id":"blocked""#).unwrap();
-    assert!(needs_refinement_index < ready_index);
-    assert!(ready_index < blocked_index);
+    let done_index = stdout.find(r#""id":"done""#).unwrap();
+    let cancelled_index = stdout.find(r#""id":"cancelled""#).unwrap();
+    assert!(backlog_index < ready_index);
+    assert!(ready_index < doing_index);
+    assert!(doing_index < reviewing_index);
+    assert!(reviewing_index < blocked_index);
+    assert!(blocked_index < done_index);
+    assert!(done_index < cancelled_index);
 
     std::fs::remove_dir_all(root).unwrap();
 }

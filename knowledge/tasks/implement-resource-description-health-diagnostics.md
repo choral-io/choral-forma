@@ -17,6 +17,7 @@ tags:
     - resources
 
 effort: S
+status: done
 readiness: ready
 sprint:
 

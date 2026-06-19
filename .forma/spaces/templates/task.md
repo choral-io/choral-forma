@@ -9,6 +9,7 @@ priority: "{{ input.priority }}"
 value: "{{ input.value }}"
 module: "{{ input.module }}"
 effort: "{{ input.effort }}"
+status: "{{ input.status }}"
 readiness: "{{ input.readiness }}"
 owners: []
 assignees: []
