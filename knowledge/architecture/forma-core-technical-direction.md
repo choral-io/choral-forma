@@ -146,6 +146,12 @@ The target configuration model should start from one explicit `.forma.yml` entry
 
 Configuration sections such as workspace identity, runtime values, taxonomies, templates, views, navigation, dashboard sections, and optional index settings should parse into typed Rust structs where practical. Unknown config fields should produce diagnostics or warnings rather than immediate hard failures, so future-version or manually edited config can remain inspectable.
 
+### Guidelines And Future Policies
+
+The Forma config model should support top-level `guidelines` as workspace-relative references to Markdown guidance. Guidelines are read by humans, Agents, and future UI surfaces; they are not a machine-enforced policy engine.
+
+Machine-readable `policies` should remain a future configuration area. A policy should only be introduced when an operation can consume it and produce diagnostics or apply-time decisions. The first likely policy domain is task workflow, covering status values, status transitions, readiness gates, and review gates.
+
 P0 entry frontmatter should parse into a generic YAML value before configured schema validation. Taxonomy terms, page types, and future user-defined classification systems are workspace-defined, so space-specific Rust structs are not appropriate.
 
 P0 should not modify existing frontmatter. It can generate new files from templates, but structured metadata edits such as `set`, `add`, `remove`, and `unset` are P1. Future metadata patching should be designed separately and should preserve the Markdown body, unknown frontmatter fields, existing order, and comments where practical.

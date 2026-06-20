@@ -555,6 +555,18 @@ The effective configuration should be inspectable instead of hidden. CLI and Age
 
 The product should avoid writing an effective configuration file as a durable source of truth. If caching becomes necessary, caches should live under `.forma/local/cache/` and remain uncommitted.
 
+### Schema, Guidelines, Policies, Invariants, And Operations
+
+Forma should separate knowledge constraints into distinct layers:
+
+- `schema` describes document structure, field types, required fields, enum values, semantic references, and create defaults.
+- `guidelines` are workspace-declared Markdown documents for humans and Agents. They explain collaboration conventions, write boundaries, review expectations, and project-specific operating rules.
+- `policies` are future machine-readable constraints for write operations and workflow transitions, such as task status transitions or review gates.
+- `invariants` are workspace-wide consistency checks, such as resolved references, unique space membership, canonical/localized variant consistency, safe config paths, and local-only path exclusion.
+- `operations` are the CLI/RPC/WebApp actions that read, propose, validate, apply, and audit changes using schema, policies, invariants, and guidelines.
+
+Guidelines should be introduced before a full policy engine because they replace the soft procedural constraints that were previously carried by Agent skills. Policies should be added only when a writable operation needs machine-enforced preconditions.
+
 ### Managed Views
 
 Views should be managed Markdown definitions under `.forma/views/**/*.md`. They are file-based facts, but not ordinary knowledge notes. Their frontmatter defines rendering behavior; their Markdown body explains purpose, usage, and maintenance context.
