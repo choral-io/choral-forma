@@ -40,4 +40,4 @@ conventions:
 
 # Workspace Support
 
-Knowledge-workflow handoffs and support research notes.
+Shared handoffs and support research notes.
