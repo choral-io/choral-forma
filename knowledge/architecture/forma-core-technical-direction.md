@@ -426,4 +426,4 @@ Future adapters should extend through Forma RPC instead of duplicating core beha
 
 ## Related Research
 
-- [Forma Markdown Parser Spike Report](../workspace/Tiscs/research/forma-markdown-parser-spike-report.md)
+- [Forma Markdown Parser Spike Report](../workspace/tiscs/research/forma-markdown-parser-spike-report.md)

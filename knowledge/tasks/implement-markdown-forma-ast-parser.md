@@ -25,7 +25,7 @@ blocked_by:
     - "tasks/scaffold-forma-workspace"
 related_to:
     - "architecture/forma-core-technical-direction"
-    - "workspace/Tiscs/research/forma-markdown-parser-spike-report"
+    - "workspace/tiscs/research/forma-markdown-parser-spike-report"
 
 reported_by:
 affected_area: Markdown parsing and FormaAST enrichment
@@ -41,7 +41,7 @@ Implement P0 Markdown reading and FormaAST enrichment for entries and views.
 
 - [[architecture/forma-core-technical-direction]]
 - [[decisions/forma-p0-core-architecture]]
-- [[workspace/Tiscs/research/forma-markdown-parser-spike-report]]
+- [[workspace/tiscs/research/forma-markdown-parser-spike-report]]
 
 ## Context
 
