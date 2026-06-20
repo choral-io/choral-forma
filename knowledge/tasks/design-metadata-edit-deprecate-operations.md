@@ -7,7 +7,7 @@ value: M
 module: api
 
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 assignees: []
 reviewers: []
 tags:

@@ -7,7 +7,7 @@ value: M
 module: knowledge
 
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 assignees: []
 reviewers: []
 tags:

@@ -7,7 +7,7 @@ value: L
 module: app
 
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 assignees: []
 reviewers: []
 tags:

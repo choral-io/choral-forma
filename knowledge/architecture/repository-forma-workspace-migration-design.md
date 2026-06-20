@@ -2,7 +2,7 @@
 scope: project
 type: technical-design
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 tags:
     - architecture
     - forma

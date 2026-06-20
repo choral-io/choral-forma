@@ -2,7 +2,7 @@
 scope: project
 type: roadmap
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 reviewers: []
 tags:
     - forma

@@ -3,7 +3,7 @@ scope: project
 title: Knowledge Maintenance Guidance
 summary: Soft Human and Agent procedure for intake, capture, placement, schema audit, status reporting, and cleanup.
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 tags:
     - forma
     - guidelines

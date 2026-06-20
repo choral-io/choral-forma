@@ -1,10 +1,10 @@
 ---
 scope: project
 type: member
-member_id: Tiscs
+member_id: tiscs
 display_name: Galen
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 tags:
     - member
 ---
@@ -13,7 +13,7 @@ tags:
 
 ## Profile
 
-- Member id: `Tiscs`
+- Member id: `tiscs`
 - Display name: Galen
 - Timezone:
 - Public contact:
@@ -38,7 +38,7 @@ tags:
 ## Collaboration
 
 - Treat Tiscs/Galen as the project owner and final decision maker for requirements, product design, architecture, process, and quality tradeoffs.
-- Use `Tiscs` as the member id in metadata, paths, assignments, and workflow references.
+- Use `tiscs` as the stable member id in metadata, member paths, assignments, and workflow references.
 - Use `Galen` as the human-facing display name.
 
 ## Availability

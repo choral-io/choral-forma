@@ -7,7 +7,7 @@ value: H
 module: infra
 
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 assignees: []
 reviewers: []
 tags:

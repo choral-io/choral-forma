@@ -2,7 +2,7 @@
 scope: project
 type: architecture
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 tags:
     - forma
     - policy

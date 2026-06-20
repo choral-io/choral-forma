@@ -7,9 +7,9 @@ value: M
 module: app
 
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 assignees:
-    - "members/Tiscs"
+    - "members/tiscs"
 reviewers: []
 tags:
     - forma

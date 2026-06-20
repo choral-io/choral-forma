@@ -9,9 +9,9 @@ value: H
 module: core
 
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 assignees:
-    - "members/Tiscs"
+    - "members/tiscs"
 reviewers: []
 tags:
     - forma

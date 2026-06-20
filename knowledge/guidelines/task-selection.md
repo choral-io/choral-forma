@@ -3,7 +3,7 @@ scope: project
 title: Task And Delivery Guidance
 summary: Soft Human and Agent procedure for task selection, delivery readiness, board maintenance, and review evidence.
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 tags:
     - forma
     - guidelines

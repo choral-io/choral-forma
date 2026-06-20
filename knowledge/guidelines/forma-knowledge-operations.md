@@ -3,7 +3,7 @@ scope: project
 title: Forma Knowledge Operations
 summary: General operating boundary for Human and Agent work over this Forma-managed repository knowledge base.
 owners:
-    - "members/Tiscs"
+    - "members/tiscs"
 tags:
     - forma
     - guidelines
