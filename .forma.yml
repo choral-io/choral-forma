@@ -9,6 +9,17 @@ workspace:
     - "zh-Hans"
   timezone: "Asia/Shanghai"
 
+guidelines:
+  - path: knowledge/guidelines/forma-knowledge-operations.md
+    appliesTo:
+      - knowledge
+      - tasks
+      - reviews
+      - proposals
+    audience:
+      - humans
+      - agents
+
 include:
   - ".forma/dashboard.md"
   - ".forma/spaces/*.md"

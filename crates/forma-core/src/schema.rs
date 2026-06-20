@@ -907,6 +907,7 @@ mod tests {
                 timezone: "UTC".to_string(),
             },
             runtime: RuntimeConfig::default(),
+            guidelines: Vec::new(),
             dashboard: BTreeMap::new(),
             taxonomies: BTreeMap::new(),
             types: BTreeMap::from([

@@ -87,6 +87,12 @@ export type DisplayOptions = {
     order?: number;
 };
 
+export type GuidelineConfig = {
+    path: string;
+    appliesTo?: string[];
+    audience?: string[];
+};
+
 export type ListedEntry = {
     path: string;
     kind?: string;
@@ -276,6 +282,7 @@ export type ConfigInspectResult = BaseOperationResult & {
             supportedLanguages?: string[];
             timezone?: string;
         };
+        guidelines?: GuidelineConfig[];
         dashboard?: Record<string, unknown>;
         spaces?: Record<string, unknown>;
         taxonomies?: Record<string, unknown>;

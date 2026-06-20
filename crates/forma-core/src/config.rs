@@ -33,6 +33,8 @@ pub struct WorkspaceConfig {
     pub workspace: WorkspaceSettings,
     #[serde(default)]
     pub runtime: RuntimeConfig,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub guidelines: Vec<GuidelineConfig>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub dashboard: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -41,6 +43,16 @@ pub struct WorkspaceConfig {
     pub types: BTreeMap<String, SemanticType>,
     #[serde(default)]
     pub spaces: BTreeMap<String, SpaceDefinition>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuidelineConfig {
+    pub path: String,
+    #[serde(default)]
+    pub applies_to: Vec<String>,
+    #[serde(default)]
+    pub audience: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -212,6 +224,8 @@ struct ConfigFile {
     include: Vec<String>,
     #[serde(default)]
     runtime: RuntimeConfig,
+    #[serde(default)]
+    guidelines: Vec<GuidelineConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -280,6 +294,7 @@ pub fn load_workspace(
         schema_version: config_file.schema_version,
         workspace: config_file.workspace,
         runtime: config_file.runtime,
+        guidelines: config_file.guidelines,
         dashboard,
         taxonomies,
         types,
@@ -496,6 +511,22 @@ fn deep_merge(base: &mut Value, overlay: Value) {
 fn validate_config_paths(config: &WorkspaceConfig) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
+    for (index, guideline) in config.guidelines.iter().enumerate() {
+        if let Err(error) = WorkspacePath::parse_config(&guideline.path) {
+            diagnostics.push(
+                Diagnostic::error(
+                    "config.pathInvalid",
+                    format!("Guideline path is invalid: {error}."),
+                )
+                .with_path(FORMA_CONFIG_PATH)
+                .with_location(DiagnosticLocation::Config {
+                    field: format!("guidelines[{index}].path"),
+                })
+                .with_actual(guideline.path.clone()),
+            );
+        }
+    }
+
     for (space_id, space) in &config.spaces {
         for include in &space.include_patterns {
             push_path_diagnostic(
@@ -630,6 +661,40 @@ mod tests {
                 "decisions/**/*.md".to_string(),
             ]
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn loads_guideline_declarations() {
+        let root = fixture_root("guideline-declarations");
+        fs::create_dir_all(root.join(".forma")).unwrap();
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - path: knowledge/guidelines/operations.md\n    appliesTo:\n      - knowledge\n      - tasks\n    audience:\n      - humans\n      - agents\ninclude:\n  - \".forma/spaces/*.md\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/guidelines/operations.md"),
+            "# Operations\n",
+        )
+        .unwrap();
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert_eq!(workspace.config.guidelines.len(), 1);
+        let guideline = &workspace.config.guidelines[0];
+        assert_eq!(guideline.path, "knowledge/guidelines/operations.md");
+        assert_eq!(
+            guideline.applies_to,
+            vec!["knowledge".to_string(), "tasks".to_string()]
+        );
+        assert_eq!(
+            guideline.audience,
+            vec!["humans".to_string(), "agents".to_string()]
+        );
+        assert!(workspace.diagnostics.is_empty());
 
         fs::remove_dir_all(root).unwrap();
     }
