@@ -74,7 +74,6 @@ Use Forma CLI operations and a thin Agent skill for repository knowledge checks,
 
 ## Follow-up
 
-- Add `.forma.yml` guideline discovery and route Agents through configured guidelines.
 - Design Forma writable operations as proposal/dry-run/apply flows in [[tasks/design-reviewable-forma-write-operations]].
 - Introduce machine-readable policies only when an operation can consume them through [[tasks/design-forma-policy-runtime]].
 - Start policy execution with task audit and task status movement rather than a broad policy engine.

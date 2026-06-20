@@ -50,7 +50,7 @@ Agents should then load guideline files declared in `.forma.yml` that apply to t
 Do not commit:
 
 - `knowledge/workspace/*/local/`
-- `.forma/local.yml`
+- `.forma/local/local.yml`
 - `.agents/*/local`
 - `.worktrees/`
 - generated caches such as `target/`, `node_modules/`, package build outputs, or browser state.

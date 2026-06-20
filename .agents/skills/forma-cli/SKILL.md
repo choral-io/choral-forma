@@ -56,7 +56,7 @@ Do not commit:
 - `knowledge/workspace/*/local/`
 - `.agents/*/local`
 - `.worktrees/`
-- `.forma/local.yml`
+- `.forma/local/local.yml`
 - generated caches (including `target/`, `node_modules/`, and tool caches).
 
 ## Direct Markdown Edits

@@ -11,7 +11,7 @@ The current `knowledge/` directory is the development knowledge base for this re
 ## Current Repository Layout
 
 - `knowledge/`: repository-backed project knowledge, schemas, task items, planning workflow, proposals, and member workspaces.
-- `.agents/skills/`: project-local Agent skills for Forma knowledge operations, planning, review, worklists, and audits.
+- `.agents/skills/`: project-local Agent skills, currently including the Forma CLI knowledge-operation entrypoint.
 - `.worktrees/`: local-only worktrees; `.worktrees/.gitignore` remains trackable.
 - `.claude/skills`: symlink to `.agents/skills` for Claude Code compatibility.
 - `CLAUDE.md`: symlink to `AGENTS.md` for Claude Code compatibility.
@@ -68,4 +68,4 @@ This repository uses Forma-managed knowledge runtime in the repository Markdown 
     - task list/inspect and board review;
     - review prep and knowledge-readability diagnosis.
 - Do not write shared knowledge, task metadata, `.forma` config, or workflow state without explicit user approval.
-- Keep local-only state out of commits: `knowledge/workspace/*/local/`, `.forma/local.yml`, generated caches, worktrees, and browser state.
+- Keep local-only state out of commits: `knowledge/workspace/*/local/`, `.forma/local/local.yml`, generated caches, worktrees, and browser state.
