@@ -51,8 +51,6 @@ pub struct GuidelineConfig {
     pub path: String,
     #[serde(default)]
     pub applies_to: Vec<String>,
-    #[serde(default)]
-    pub audience: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -672,7 +670,7 @@ mod tests {
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
         fs::write(
             root.join(FORMA_CONFIG_PATH),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - path: knowledge/guidelines/operations.md\n    appliesTo:\n      - knowledge\n      - tasks\n    audience:\n      - humans\n      - agents\ninclude:\n  - \".forma/spaces/*.md\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - path: knowledge/guidelines/operations.md\n    appliesTo:\n      - knowledge\n      - tasks\ninclude:\n  - \".forma/spaces/*.md\"\n",
         )
         .unwrap();
         fs::write(
@@ -689,10 +687,6 @@ mod tests {
         assert_eq!(
             guideline.applies_to,
             vec!["knowledge".to_string(), "tasks".to_string()]
-        );
-        assert_eq!(
-            guideline.audience,
-            vec!["humans".to_string(), "agents".to_string()]
         );
         assert!(workspace.diagnostics.is_empty());
 

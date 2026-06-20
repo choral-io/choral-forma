@@ -16,9 +16,6 @@ guidelines:
       - tasks
       - reviews
       - proposals
-    audience:
-      - humans
-      - agents
 
 include:
   - ".forma/dashboard.md"

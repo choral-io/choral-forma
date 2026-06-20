@@ -90,7 +90,6 @@ export type DisplayOptions = {
 export type GuidelineConfig = {
     path: string;
     appliesTo?: string[];
-    audience?: string[];
 };
 
 export type ListedEntry = {
