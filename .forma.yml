@@ -11,6 +11,8 @@ workspace:
 
 guidelines:
   - knowledge/guidelines/forma-knowledge-operations.md
+  - knowledge/guidelines/task-selection.md
+  - knowledge/guidelines/knowledge-capture.md
 
 include:
   - ".forma/dashboard.md"

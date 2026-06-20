@@ -6,12 +6,12 @@ Choral Forma is a project for exploring a lightweight, editor-independent team k
 
 The product should treat repository Markdown as the source of truth. Application code should read from and write to explicit files and schemas rather than creating a hidden proprietary knowledge store.
 
-The current `knowledge/` directory is the development knowledge base for this repository. It guides Choral Forma project development, planning, and delivery; it is not the same thing as a future Choral Forma user workspace, and its workflow rules should not be treated as automatic product requirements.
+The current `knowledge/` directory is the development knowledge base for this repository. It guides Choral Forma project development, planning, and delivery; it is not the same thing as a future Choral Forma user workspace, and its repository-specific operating guidance should not be treated as automatic product requirements.
 
 ## Current Repository Layout
 
-- `knowledge/`: repository-backed project knowledge, schemas, task items, planning workflow, proposals, and member workspaces.
-- `.agents/skills/`: project-local Agent skills, currently including the Forma CLI knowledge-operation entrypoint.
+- `knowledge/`: repository-backed project knowledge, schemas, task items, planning notes, proposals, and member workspaces.
+- `.agents/skills/`: project-local Forma CLI knowledge-operation entrypoint.
 - `.worktrees/`: local-only worktrees; `.worktrees/.gitignore` remains trackable.
 - `.claude/skills`: symlink to `.agents/skills` for Claude Code compatibility.
 - `CLAUDE.md`: symlink to `AGENTS.md` for Claude Code compatibility.
@@ -67,5 +67,5 @@ This repository uses Forma-managed knowledge runtime in the repository Markdown 
     - knowledge health checks;
     - task list/inspect and board review;
     - review prep and knowledge-readability diagnosis.
-- Do not write shared knowledge, task metadata, `.forma` config, or workflow state without explicit user approval.
+- Do not write shared knowledge, task metadata, `.forma` config, or repository operating state without explicit user approval.
 - Keep local-only state out of commits: `knowledge/workspace/*/local/`, `.forma/local/local.yml`, generated caches, worktrees, and browser state.

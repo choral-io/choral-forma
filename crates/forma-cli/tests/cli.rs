@@ -273,6 +273,23 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
     let tasks_stdout = String::from_utf8_lossy(&tasks_list.stdout);
     assert!(tasks_stdout.contains(r#""path":"knowledge/tasks/"#));
 
+    let task_inspect = forma(&root)
+        .args([
+            "inspect",
+            "knowledge/tasks/replace-knowledge-workflow-mechanics-with-forma-cli.md",
+            "--json",
+        ])
+        .output()
+        .expect("forma inspect task should run");
+    assert!(
+        task_inspect.status.success(),
+        "{}",
+        String::from_utf8_lossy(&task_inspect.stderr)
+    );
+    let task_inspect_stdout = String::from_utf8_lossy(&task_inspect.stdout);
+    assert!(task_inspect_stdout.contains(r#""guidelines":["#));
+    assert!(task_inspect_stdout.contains(r#""knowledge/guidelines/task-selection.md""#));
+
     let product_list = forma(&root)
         .args(["list", "--space", "product", "--json"])
         .output()

@@ -751,6 +751,7 @@ impl From<forma_core::TasksInspectResult> for OperationResult {
     fn from(result: forma_core::TasksInspectResult) -> Self {
         let mut data = BTreeMap::new();
         data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("guidelines".to_string(), json!(result.guidelines));
         data.insert("task".to_string(), json!(result.task));
         Self {
             schema_version: result.schema_version,

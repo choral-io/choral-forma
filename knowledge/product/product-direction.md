@@ -560,7 +560,7 @@ The product should avoid writing an effective configuration file as a durable so
 Forma should separate knowledge constraints into distinct layers:
 
 - `schema` describes document structure, field types, required fields, enum values, semantic references, and create defaults.
-- `guidelines` are ordinary Markdown knowledge documents referenced by workspace configuration, taxonomy terms, views, or future operation profiles. They explain collaboration conventions, write boundaries, review expectations, and project-specific operating rules.
+- `guidelines` are ordinary Markdown knowledge documents referenced by workspace configuration, taxonomy terms, views, or future operation profiles. They explain collaboration conventions, write boundaries, review expectations, project-specific operating rules, and lightweight Human/Agent procedure checklists.
 - `policies` are future machine-readable constraints for write operations and workflow transitions, such as task status transitions or review gates.
 - `invariants` are workspace-wide consistency checks, such as resolved references, unique space membership, canonical/localized variant consistency, safe config paths, and local-only path exclusion.
 - `operations` are the CLI/RPC/WebApp actions that read, propose, validate, apply, and audit changes using schema, policies, invariants, and guidelines.

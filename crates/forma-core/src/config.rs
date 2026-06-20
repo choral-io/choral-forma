@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use globset::{Glob, GlobSetBuilder};
@@ -294,7 +295,7 @@ pub fn load_workspace(
         types,
         spaces,
     };
-    let mut diagnostics = validate_config_paths(&config);
+    let mut diagnostics = validate_config_paths(root, &config);
     diagnostics.extend(validate_space_schemas(&config));
 
     Ok(FormaWorkspace {
@@ -503,22 +504,31 @@ fn deep_merge(base: &mut Value, overlay: Value) {
     }
 }
 
-fn validate_config_paths(config: &WorkspaceConfig) -> Vec<Diagnostic> {
+fn validate_config_paths(root: &Path, config: &WorkspaceConfig) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     for (index, guideline) in config.guidelines.iter().enumerate() {
-        if let Err(error) = WorkspacePath::parse_config(guideline) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "config.pathInvalid",
-                    format!("Guideline path is invalid: {error}."),
-                )
-                .with_path(FORMA_CONFIG_PATH)
-                .with_location(DiagnosticLocation::Config {
-                    field: format!("guidelines[{index}]"),
-                })
-                .with_actual(guideline.clone()),
-            );
+        match WorkspacePath::parse_config(guideline) {
+            Ok(path) => push_guideline_file_diagnostic(
+                &mut diagnostics,
+                root,
+                &format!("guidelines[{index}]"),
+                guideline,
+                &path,
+            ),
+            Err(error) => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "config.pathInvalid",
+                        format!("Guideline path is invalid: {error}."),
+                    )
+                    .with_path(FORMA_CONFIG_PATH)
+                    .with_location(DiagnosticLocation::Config {
+                        field: format!("guidelines[{index}]"),
+                    })
+                    .with_actual(guideline.clone()),
+                );
+            }
         }
     }
 
@@ -549,17 +559,96 @@ fn validate_config_paths(config: &WorkspaceConfig) -> Vec<Diagnostic> {
             );
         }
         for (index, guideline) in space.guidelines.iter().enumerate() {
-            push_path_diagnostic(
-                &mut diagnostics,
-                space_id,
-                &format!("guidelines[{index}]"),
-                guideline,
-                WorkspacePath::parse_config(guideline),
-            );
+            let field = format!("guidelines[{index}]");
+            match WorkspacePath::parse_config(guideline) {
+                Ok(path) => push_guideline_file_diagnostic(
+                    &mut diagnostics,
+                    root,
+                    &format!("spaces.{space_id}.{field}"),
+                    guideline,
+                    &path,
+                ),
+                Err(error) => {
+                    push_path_diagnostic(&mut diagnostics, space_id, &field, guideline, Err(error));
+                }
+            }
         }
     }
 
     diagnostics
+}
+
+fn push_guideline_file_diagnostic(
+    diagnostics: &mut Vec<Diagnostic>,
+    root: &Path,
+    field: &str,
+    value: &str,
+    path: &WorkspacePath,
+) {
+    let absolute_path = root.join(path.as_str());
+    match fs::metadata(&absolute_path) {
+        Ok(metadata) if !metadata.is_file() => {
+            diagnostics.push(
+                Diagnostic::error(
+                    "config.guidelineNotFile",
+                    "Configured guideline path does not point to a file.",
+                )
+                .with_path(FORMA_CONFIG_PATH)
+                .with_location(DiagnosticLocation::Config {
+                    field: field.to_string(),
+                })
+                .with_actual(value.to_string()),
+            );
+        }
+        Ok(_) if !is_markdown_path(path.as_str()) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    "config.guidelineNotMarkdown",
+                    "Configured guideline path must point to a Markdown file.",
+                )
+                .with_path(FORMA_CONFIG_PATH)
+                .with_location(DiagnosticLocation::Config {
+                    field: field.to_string(),
+                })
+                .with_actual(value.to_string())
+                .with_expected("*.md or *.mdx"),
+            );
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            diagnostics.push(
+                Diagnostic::error(
+                    "config.guidelineMissing",
+                    "Configured guideline file is missing.",
+                )
+                .with_path(FORMA_CONFIG_PATH)
+                .with_location(DiagnosticLocation::Config {
+                    field: field.to_string(),
+                })
+                .with_actual(value.to_string()),
+            );
+        }
+        Err(error) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    "config.guidelineUnreadable",
+                    format!("Configured guideline file could not be read: {error}."),
+                )
+                .with_path(FORMA_CONFIG_PATH)
+                .with_location(DiagnosticLocation::Config {
+                    field: field.to_string(),
+                })
+                .with_actual(value.to_string()),
+            );
+        }
+    }
+}
+
+fn is_markdown_path(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| matches!(extension.to_ascii_lowercase().as_str(), "md" | "mdx"))
 }
 
 fn push_path_diagnostic(
@@ -702,6 +791,65 @@ mod tests {
             vec!["knowledge/guidelines/operations.md".to_string()]
         );
         assert!(workspace.diagnostics.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_missing_guideline_files_as_diagnostics() {
+        let root = fixture_root("missing-guideline");
+        fs::create_dir_all(root.join(".forma")).unwrap();
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/missing.md\n",
+        )
+        .unwrap();
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert_eq!(workspace.diagnostics.len(), 1);
+        assert_eq!(workspace.diagnostics[0].code, "config.guidelineMissing");
+        assert_eq!(
+            workspace.diagnostics[0].location,
+            Some(crate::diagnostics::DiagnosticLocation::Config {
+                field: "guidelines[0]".to_string()
+            })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_non_markdown_space_guidelines_as_diagnostics() {
+        let root = fixture_root("non-markdown-guideline");
+        fs::create_dir_all(root.join(".forma/spaces")).unwrap();
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/guidelines/not-markdown.txt"),
+            "not markdown",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ndescription: Notes.\nguidelines:\n  - knowledge/guidelines/not-markdown.txt\ninclude:\n  - notes/**/*.md\n---\n\n# Notes\n",
+        )
+        .unwrap();
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert_eq!(workspace.diagnostics.len(), 1);
+        assert_eq!(workspace.diagnostics[0].code, "config.guidelineNotMarkdown");
+        assert_eq!(
+            workspace.diagnostics[0].location,
+            Some(crate::diagnostics::DiagnosticLocation::Config {
+                field: "spaces.notes.guidelines[0]".to_string()
+            })
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

@@ -11,8 +11,8 @@ The current `knowledge/` directory is the development knowledge base for this re
 This repository is in P0 internal-test stabilization. It contains:
 
 - A repository-backed knowledge base under `knowledge/`.
-- Workflow schemas for product, concepts, decisions, planning, tasks, members, and workspace material.
-- Project-local Agent skills under `.agents/skills/` for Forma knowledge operations, planning, review, and maintenance.
+- Forma space schemas for product, concepts, decisions, planning, tasks, members, and workspace material.
+- A project-local Agent skill under `.agents/skills/` for Forma knowledge operations.
 - Editor integration for VS Code, Zed, and the read-only Forma WebApp.
 - A Rust workspace for the `forma` binary under `crates/`.
 - A pnpm web workspace for the local read-only WebApp under `packages/`.
@@ -22,18 +22,18 @@ The current application code implements the P0 read, inspect, check, render, ser
 
 ## Repository Layout
 
-- `knowledge/`: shared project knowledge and workflow rules.
+- `knowledge/`: shared project knowledge and repository operating guidance.
 - `knowledge/product/`: product direction and user-facing behavior.
 - `knowledge/concepts/`: reusable vocabulary and domain concepts.
-- `knowledge/planning/`: Kanban board and planning workflow.
-- `knowledge/tasks/`: task workflow and task item templates.
+- `knowledge/planning/`: planning notes and board-related knowledge.
+- `knowledge/tasks/`: task items and task-related templates.
 - `crates/forma-core/`: Rust core engine for config, schema, parsing, indexing, diagnostics, rendering, create flows, and workspace file operations.
 - `crates/forma-rpc/`: shared operation dispatcher and minimal JSON-RPC 2.0 adapter model.
 - `crates/forma-cli/`: Rust `forma` binary, CLI handlers, local HTTP server, and embedded WebApp asset serving.
 - `packages/shared/`: shared TypeScript RPC client and operation result types.
 - `packages/webapp/`: Vite React read-only WebApp for browsing configured Forma workspaces.
 - `examples/forma-starter-kit/`: committed starter workspace for demos, smoke validation, and reader/view examples.
-- `.agents/skills/`: project-local Agent workflow skills.
+- `.agents/skills/`: project-local Forma CLI Agent entrypoint.
 - `.agents/.local/`: local-only Agent runtime state, ignored by git.
 - `AGENTS.md`: repository instructions for AI agents.
 - `CLAUDE.md`: symlink to `AGENTS.md` for Claude Code compatibility.

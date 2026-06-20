@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 use thiserror::Error;
 
-use crate::config::{ConfigError, LoadMode, WorkspaceSettings, load_workspace};
+use crate::config::{ConfigError, LoadMode, WorkspaceConfig, WorkspaceSettings, load_workspace};
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::index::{
     IndexEntry, IndexReference, ReferenceIntent, ReferenceSource, config_error_diagnostic,
@@ -105,6 +105,8 @@ pub struct InspectResult {
 pub struct InspectEntry {
     pub path: String,
     pub space: String,
+    #[serde(default)]
+    pub guidelines: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -444,6 +446,8 @@ pub struct TasksInspectResult {
     pub operation: String,
     pub status: OperationStatus,
     pub workspace: WorkspaceSummary,
+    #[serde(default)]
+    pub guidelines: Vec<String>,
     pub task: TaskSummary,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
@@ -824,6 +828,7 @@ pub fn tasks_inspect(
     diagnostics.extend(task_diagnostics);
     diagnostics.sort_by_key(diagnostic_sort_key);
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+    let guidelines = applicable_guidelines(&workspace.config, entry.space.as_str());
 
     Ok(TasksInspectResult {
         schema_version: 1,
@@ -834,6 +839,7 @@ pub fn tasks_inspect(
             name: workspace.config.workspace.name,
             logo: None,
         },
+        guidelines,
         task,
         summary,
         diagnostics,
@@ -1547,6 +1553,7 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
         )
     });
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+    let guidelines = applicable_guidelines(&workspace.config, index_entry.space.as_str());
 
     Ok(InspectResult {
         schema_version: 1,
@@ -1560,6 +1567,7 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
         entry: InspectEntry {
             path: path.to_string(),
             space: index_entry.space.clone(),
+            guidelines,
             kind: index_entry.kind.clone(),
             title: index_entry.title.clone(),
             summary: index_entry.summary.clone(),
@@ -1574,6 +1582,22 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
         summary,
         diagnostics,
     })
+}
+
+fn applicable_guidelines(config: &WorkspaceConfig, space_id: &str) -> Vec<String> {
+    let mut guidelines = Vec::new();
+    for guideline in config.guidelines.iter().chain(
+        config
+            .spaces
+            .get(space_id)
+            .into_iter()
+            .flat_map(|space| space.guidelines.iter()),
+    ) {
+        if !guidelines.contains(guideline) {
+            guidelines.push(guideline.clone());
+        }
+    }
+    guidelines
 }
 
 fn selected_task_entries(entries: &[IndexEntry]) -> Vec<&IndexEntry> {
@@ -2391,8 +2415,8 @@ mod tests {
     use super::{
         KnowledgeHealthCategory, OperationError, WorkspaceFileFeature, board_show,
         build_knowledge_health_result, create_entry, init_workspace, inspect_config,
-        is_raw_workspace_path_allowed, knowledge_health, list_file_references, list_files,
-        tasks_inspect, tasks_list, workspace_dashboard,
+        inspect_entry_by_path, is_raw_workspace_path_allowed, knowledge_health,
+        list_file_references, list_files, tasks_inspect, tasks_list, workspace_dashboard,
     };
     use crate::{
         Diagnostic, FORMA_VIEWS_DIR, IndexEntry, OperationStatus, ReferenceIntent,
@@ -2921,6 +2945,7 @@ include:
     fn tasks_list_and_inspect_read_frontmatter_metadata() {
         let root = fixture_root("tasks-operations");
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
         fs::create_dir_all(root.join("knowledge/tasks/subgroup")).unwrap();
         fs::write(
             root.join(".forma.yml"),
@@ -2931,9 +2956,21 @@ workspace:
   supportedLanguages:
     - en
   timezone: UTC
+guidelines:
+  - knowledge/guidelines/operations.md
 include:
   - .forma/spaces/*.md
 "#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/guidelines/operations.md"),
+            "---\ntitle: Operations\n---\n\n# Operations\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/guidelines/tasks.md"),
+            "---\ntitle: Tasks\n---\n\n# Tasks\n",
         )
         .unwrap();
         fs::write(
@@ -2943,6 +2980,9 @@ schemaVersion: 1
 kind: term
 taxonomy: spaces
 title: Tasks
+guidelines:
+  - knowledge/guidelines/operations.md
+  - knowledge/guidelines/tasks.md
 include:
   - knowledge/tasks/**/*.md
 create:
@@ -3035,6 +3075,22 @@ fields:
         assert_eq!(
             inspect.task.summary.as_deref(),
             Some("Add CLI task inventory commands.")
+        );
+        assert_eq!(
+            inspect.guidelines,
+            vec![
+                "knowledge/guidelines/operations.md".to_string(),
+                "knowledge/guidelines/tasks.md".to_string()
+            ]
+        );
+
+        let entry_inspect = inspect_entry_by_path(&root, "knowledge/tasks/ship-cli.md").unwrap();
+        assert_eq!(
+            entry_inspect.entry.guidelines,
+            vec![
+                "knowledge/guidelines/operations.md".to_string(),
+                "knowledge/guidelines/tasks.md".to_string()
+            ]
         );
 
         let legacy = tasks_inspect(&root, "legacy").unwrap();

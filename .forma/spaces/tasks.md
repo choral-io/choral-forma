@@ -73,6 +73,7 @@ display:
 description: Delivery tasks tracked as repository Markdown.
 guidelines:
     - knowledge/guidelines/forma-knowledge-operations.md
+    - knowledge/guidelines/task-selection.md
 include:
     - "knowledge/tasks/**/*.md"
 create:

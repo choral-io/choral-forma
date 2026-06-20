@@ -125,6 +125,7 @@ export type ListedFile = WorkspaceFile;
 export type InspectEntry = {
     path: string;
     space: string;
+    guidelines?: string[];
     kind?: string;
     title?: string;
     summary?: string;
