@@ -62,6 +62,7 @@ This repository uses Forma-managed knowledge runtime in the repository Markdown 
 - Use these bootstrap checks before knowledge reads or workflow actions:
     - `cargo run -q -p forma-cli -- config inspect --json`
     - `cargo run -q -p forma-cli -- knowledge health --json`
+- Before task, review, proposal, or shared knowledge write operations, read configured guideline files declared in `.forma.yml`.
 - Use the project-local `forma-cli` skill for:
     - knowledge health checks;
     - task list/inspect and board review;

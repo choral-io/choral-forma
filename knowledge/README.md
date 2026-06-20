@@ -14,6 +14,7 @@ Active knowledge operations are managed by:
 
 - Markdown documents under `knowledge/`
 - `.forma.yml` workspace config
+- `.forma.yml` configured guideline files (for example, `knowledge/guidelines/forma-knowledge-operations.md`) that define human and Agent operating rules
 - `.forma/spaces/*.md` space configuration and index targets
 - `.forma/views/*.md` read models
 
@@ -30,6 +31,8 @@ Use these read commands for routine agent work:
 - `cargo run -q -p forma-cli -- list --space <space-id> --json`
 - `cargo run -q -p forma-cli -- inspect <path> --json`
 - `cargo run -q -p forma-cli -- inspect --space <space-id> <entry-id> --json`
+
+For Agent-assisted write, review, or task operations, use `cargo run -q -p forma-cli -- config inspect --json` first to discover configured guideline files and read them before acting.
 
 ## Source Layout
 
