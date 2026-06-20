@@ -18,7 +18,7 @@ tags:
     - knowledge-health
 
 effort: M
-status: reviewing
+status: done
 readiness: ready
 sprint:
 
