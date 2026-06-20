@@ -28,7 +28,7 @@ Schema validates content structure: fields, types, required values, enum values,
 
 ### Guidelines
 
-Guidelines are Markdown operating rules for humans and Agents. They are discoverable from `.forma.yml` and explain collaboration boundaries, review expectations, local-only paths, and write discipline.
+Guidelines are ordinary Markdown operating rules for humans and Agents. Workspace configuration, taxonomy terms, views, or future operation profiles can reference them as guidance. They explain collaboration boundaries, review expectations, local-only paths, and write discipline.
 
 ### Policies
 

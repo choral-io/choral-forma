@@ -938,6 +938,7 @@ mod tests {
                     template: format!("{FORMA_TEMPLATES_DIR}/todo.md"),
                     create: None,
                     conventions: SpaceConventions::default(),
+                    guidelines: Vec::new(),
                     schema,
                 },
             )]),

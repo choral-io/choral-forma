@@ -10,12 +10,7 @@ workspace:
   timezone: "Asia/Shanghai"
 
 guidelines:
-  - path: knowledge/guidelines/forma-knowledge-operations.md
-    appliesTo:
-      - knowledge
-      - tasks
-      - reviews
-      - proposals
+  - knowledge/guidelines/forma-knowledge-operations.md
 
 include:
   - ".forma/dashboard.md"

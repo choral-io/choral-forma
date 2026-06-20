@@ -71,6 +71,8 @@ schema:
 display:
     order: 80
 description: Delivery tasks tracked as repository Markdown.
+guidelines:
+    - knowledge/guidelines/forma-knowledge-operations.md
 include:
     - "knowledge/tasks/**/*.md"
 create:

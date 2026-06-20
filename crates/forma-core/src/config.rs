@@ -34,7 +34,7 @@ pub struct WorkspaceConfig {
     #[serde(default)]
     pub runtime: RuntimeConfig,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub guidelines: Vec<GuidelineConfig>,
+    pub guidelines: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub dashboard: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -43,14 +43,6 @@ pub struct WorkspaceConfig {
     pub types: BTreeMap<String, SemanticType>,
     #[serde(default)]
     pub spaces: BTreeMap<String, SpaceDefinition>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GuidelineConfig {
-    pub path: String,
-    #[serde(default)]
-    pub applies_to: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -136,6 +128,8 @@ pub struct SpaceDefinition {
     pub create: Option<CreateDefinition>,
     #[serde(default)]
     pub conventions: SpaceConventions,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub guidelines: Vec<String>,
     pub schema: Value,
 }
 
@@ -223,7 +217,7 @@ struct ConfigFile {
     #[serde(default)]
     runtime: RuntimeConfig,
     #[serde(default)]
-    guidelines: Vec<GuidelineConfig>,
+    guidelines: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -245,6 +239,8 @@ struct ConfigNode {
     create: Option<TermCreateDefinition>,
     #[serde(default)]
     conventions: SpaceConventions,
+    #[serde(default)]
+    guidelines: Vec<String>,
     #[serde(default)]
     schema: Option<Value>,
 }
@@ -393,6 +389,7 @@ fn load_config_nodes(
                     inputs: create.inputs,
                 }),
                 conventions: node.conventions,
+                guidelines: node.guidelines,
                 schema,
             },
         );
@@ -510,7 +507,7 @@ fn validate_config_paths(config: &WorkspaceConfig) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     for (index, guideline) in config.guidelines.iter().enumerate() {
-        if let Err(error) = WorkspacePath::parse_config(&guideline.path) {
+        if let Err(error) = WorkspacePath::parse_config(guideline) {
             diagnostics.push(
                 Diagnostic::error(
                     "config.pathInvalid",
@@ -518,9 +515,9 @@ fn validate_config_paths(config: &WorkspaceConfig) -> Vec<Diagnostic> {
                 )
                 .with_path(FORMA_CONFIG_PATH)
                 .with_location(DiagnosticLocation::Config {
-                    field: format!("guidelines[{index}].path"),
+                    field: format!("guidelines[{index}]"),
                 })
-                .with_actual(guideline.path.clone()),
+                .with_actual(guideline.clone()),
             );
         }
     }
@@ -549,6 +546,15 @@ fn validate_config_paths(config: &WorkspaceConfig) -> Vec<Diagnostic> {
                 "create.directory",
                 &create.directory,
                 WorkspacePath::parse_config(&create.directory),
+            );
+        }
+        for (index, guideline) in space.guidelines.iter().enumerate() {
+            push_path_diagnostic(
+                &mut diagnostics,
+                space_id,
+                &format!("guidelines[{index}]"),
+                guideline,
+                WorkspacePath::parse_config(guideline),
             );
         }
     }
@@ -666,11 +672,11 @@ mod tests {
     #[test]
     fn loads_guideline_declarations() {
         let root = fixture_root("guideline-declarations");
-        fs::create_dir_all(root.join(".forma")).unwrap();
+        fs::create_dir_all(root.join(".forma/spaces")).unwrap();
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
         fs::write(
             root.join(FORMA_CONFIG_PATH),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - path: knowledge/guidelines/operations.md\n    appliesTo:\n      - knowledge\n      - tasks\ninclude:\n  - \".forma/spaces/*.md\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/operations.md\ninclude:\n  - \".forma/spaces/*.md\"\n",
         )
         .unwrap();
         fs::write(
@@ -678,15 +684,22 @@ mod tests {
             "# Operations\n",
         )
         .unwrap();
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ndescription: Notes.\nguidelines:\n  - knowledge/guidelines/operations.md\ninclude:\n  - notes/**/*.md\n---\n\n# Notes\n",
+        )
+        .unwrap();
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 
         assert_eq!(workspace.config.guidelines.len(), 1);
-        let guideline = &workspace.config.guidelines[0];
-        assert_eq!(guideline.path, "knowledge/guidelines/operations.md");
         assert_eq!(
-            guideline.applies_to,
-            vec!["knowledge".to_string(), "tasks".to_string()]
+            workspace.config.guidelines[0],
+            "knowledge/guidelines/operations.md"
+        );
+        assert_eq!(
+            workspace.config.spaces["notes"].guidelines,
+            vec!["knowledge/guidelines/operations.md".to_string()]
         );
         assert!(workspace.diagnostics.is_empty());
 

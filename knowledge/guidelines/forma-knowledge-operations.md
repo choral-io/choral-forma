@@ -1,6 +1,5 @@
 ---
 scope: project
-type: guideline
 owners:
     - "members/Tiscs"
 tags:
@@ -35,7 +34,7 @@ Before task, review, audit, or knowledge work, Agents should run:
 - `cargo run -q -p forma-cli -- config inspect --json`
 - `cargo run -q -p forma-cli -- knowledge health --json`
 
-Agents should then load guideline files declared in `.forma.yml` that apply to the requested work.
+Agents should then load guideline files declared in `.forma.yml` before task, board, review, proposal, or shared knowledge operations.
 
 ## Write Boundary
 

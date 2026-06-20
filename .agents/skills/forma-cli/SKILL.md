@@ -26,9 +26,7 @@ Run both:
 
 Add `--workspace <path>` when operating on a non-default workspace.
 
-After reading config with `config inspect`, read any configured guideline files whose `appliesTo` matches the requested work.
-
-- For `task`, `board`, `review`, `proposal`, or shared knowledge write operations, read `knowledge/guidelines/forma-knowledge-operations.md` before acting.
+After reading config with `config inspect`, read configured workspace guideline files before task, board, review, proposal, or shared knowledge operations.
 
 ## Read Commands
 
@@ -45,7 +43,7 @@ Use `--json` in machine-facing checks and for any operation that will feed revie
 
 ## Write Boundary
 
-- Do not modify shared knowledge, task metadata, board state, `.forma.yml`, `.forma/spaces/**/*.md`, `.forma/views/**/*.md`, guideline files, or workflow state unless the user gives explicit approval.
+- Do not modify shared knowledge, task metadata, board state, `.forma.yml`, `.forma/spaces/**/*.md`, `.forma/views/**/*.md`, configured guideline files, or workflow state unless the user gives explicit approval.
 - For multi-file knowledge edits, provide a short dry-run summary before editing unless the user already approved exact target files and change scope.
 - This skill prefers read-only operation; write requests should follow configured guidelines and be verified with `cargo run -q -p forma-cli -- check --json` and `cargo run -q -p forma-cli -- knowledge health --json`.
 

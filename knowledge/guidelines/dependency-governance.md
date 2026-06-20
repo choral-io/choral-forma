@@ -1,6 +1,5 @@
 ---
 scope: project
-type: guideline
 owners: []
 tags:
     - engineering

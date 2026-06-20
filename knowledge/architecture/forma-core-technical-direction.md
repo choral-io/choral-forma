@@ -148,7 +148,7 @@ Configuration sections such as workspace identity, runtime values, taxonomies, t
 
 ### Guidelines And Future Policies
 
-The Forma config model should support top-level `guidelines` as workspace-relative references to Markdown guidance. Guidelines are read by humans, Agents, and future UI surfaces; they are not a machine-enforced policy engine.
+The Forma config model should support `guidelines` as workspace-relative references to ordinary Markdown guidance. Workspace-level config can reference global guidance, and taxonomy terms or views can reference guidance for the content or projection they define. Guidelines are read by humans, Agents, and future UI surfaces; they are not a machine-enforced policy engine.
 
 Machine-readable `policies` should remain a future configuration area. A policy should only be introduced when an operation can consume it and produce diagnostics or apply-time decisions. The first likely policy domain is task workflow, covering status values, status transitions, readiness gates, and review gates.
 
