@@ -28,6 +28,8 @@ related_to:
     - "architecture/forma-p0-operation-api-spec"
     - "tasks/expose-read-only-knowledge-health-in-webapp"
     - "tasks/design-reviewable-operation-proposal-flow"
+    - "tasks/design-forma-policy-runtime"
+    - "tasks/design-reviewable-forma-write-operations"
 
 reported_by:
 affected_area: Forma CLI, Agent skills, repository knowledge management
@@ -69,3 +71,10 @@ Use Forma CLI operations and a thin Agent skill for repository knowledge checks,
 - `forma board show --json` groups tasks by the repository Kanban columns while preserving readiness metadata.
 - `.agents/skills/forma-cli/SKILL.md` routes Agent read, audit, and selection work through Forma CLI.
 - MCP remains out of scope for this release slice.
+
+## Follow-up
+
+- Add `.forma.yml` guideline discovery and route Agents through configured guidelines.
+- Design Forma writable operations as proposal/dry-run/apply flows in [[tasks/design-reviewable-forma-write-operations]].
+- Introduce machine-readable policies only when an operation can consume them through [[tasks/design-forma-policy-runtime]].
+- Start policy execution with task audit and task status movement rather than a broad policy engine.
