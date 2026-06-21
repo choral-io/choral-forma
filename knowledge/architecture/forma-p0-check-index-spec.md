@@ -43,7 +43,7 @@ All P0 operations that need workspace understanding should use the same core pip
 
 Pipeline phases:
 
-1. Load the `.forma.yml` configuration entry and resolve the configured workspace root.
+1. Load the `.forma.yml` configuration entry from the selected workspace directory.
 2. Load optional included configuration files when `.forma.yml` references them.
 3. Normalize all public paths to workspace-relative POSIX-style paths.
 4. Discover candidate source files from configured page sources, taxonomy source rules, view definitions, and navigation/dashboard references.
@@ -95,20 +95,20 @@ Recommended P0 JSON shape:
     },
     "spaces": [
         {
-            "id": "todos",
-            "title": "Todos",
-            "include": "todos/**/*.md",
+            "id": "tasks",
+            "title": "Tasks",
+            "include": "tasks/**/*.md",
             "entryCount": 1
         }
     ],
     "views": [
         {
-            "id": "todos",
-            "path": ".forma/views/todos.md",
+            "id": "tasks",
+            "path": ".forma/views/tasks.md",
             "surface": "page",
             "mode": "kanban",
-            "space": "todos",
-            "title": "Todos"
+            "space": "tasks",
+            "title": "Tasks"
         },
         {
             "id": "knowledge-graph",
@@ -125,17 +125,17 @@ Recommended P0 JSON shape:
     ],
     "entries": [
         {
-            "path": "todos/user-registration.md",
-            "space": "todos",
-            "kind": "todo",
+            "path": "tasks/user-registration.md",
+            "space": "tasks",
+            "kind": "task",
             "title": "User registration",
             "summary": "Implement user registration flow.",
             "refs": [
                 {
                     "source": "frontmatter",
                     "field": "assignees",
-                    "targetPath": "users/tiscs.md",
-                    "semanticType": "user",
+                    "targetPath": "members/tiscs.md",
+                    "semanticType": "member",
                     "intent": "reference"
                 },
                 {
@@ -210,21 +210,21 @@ Recommended P0 check JSON shape:
             "severity": "error",
             "code": "ref.unresolved",
             "message": "Reference cannot be resolved.",
-            "path": "todos/user-registration.md",
+            "path": "tasks/user-registration.md",
             "location": {
                 "kind": "frontmatter",
                 "field": "assignees",
                 "index": 0
             },
-            "actual": "[[users/tics]]",
+            "actual": "[[members/tics]]",
             "expected": {
                 "type": "ref",
-                "target": "user"
+                "target": "member"
             },
             "suggestions": [
                 {
-                    "label": "Use users/tiscs",
-                    "value": "[[users/tiscs]]"
+                    "label": "Use members/tiscs",
+                    "value": "[[members/tiscs]]"
                 }
             ]
         }
@@ -307,7 +307,7 @@ Recommended location shapes:
 ```json
 {
     "kind": "config",
-    "pointer": "/spaces/todos/include"
+    "pointer": "/spaces/tasks/include"
 }
 ```
 

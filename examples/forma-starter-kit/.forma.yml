@@ -2,7 +2,6 @@ schemaVersion: 1
 
 workspace:
   name: "Choral Forma Example"
-  root: "."
   canonicalLanguage: "en"
   supportedLanguages:
     - "en"
@@ -11,6 +10,10 @@ workspace:
   logo:
     path: "assets/logo.svg"
     alt: "Choral Forma Example"
+
+guidelines:
+  - "guidelines/workspace-operations.md"
+  - "guidelines/knowledge-capture.md"
 
 include:
   - ".forma/dashboard.md"

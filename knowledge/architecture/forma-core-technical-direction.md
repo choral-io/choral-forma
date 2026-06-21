@@ -227,10 +227,10 @@ P0 should distinguish source files from runtime diagnostic results.
 
 Default P0 behavior has no persisted index artifact. `forma serve` scans source files at startup and keeps a read model in memory. This keeps the first public release simple and avoids stale indexes.
 
-Persistent local configuration, optional and ignored:
+Persistent local configuration, optional, ignored, and loaded only through `.forma.yml` include patterns:
 
 ```text
-.forma/overrides/local.yml
+.forma/local/*.yml
 ```
 
 Future local implementation caches, optional and ignored:
@@ -257,8 +257,8 @@ P0 index references should distinguish intent:
 {
     "source": "frontmatter",
     "field": "assignees",
-    "targetPath": "users/tiscs.md",
-    "semanticType": "user",
+    "targetPath": "members/tiscs.md",
+    "semanticType": "member",
     "intent": "reference"
 }
 ```
@@ -283,7 +283,7 @@ P0 index references should distinguish intent:
 
 Target command behavior:
 
-- `forma serve` scans the configured workspace root at startup and serves an in-memory read model.
+- `forma serve` scans the selected workspace directory at startup and serves an in-memory read model.
 - `forma refresh` or an equivalent explicit operation can rebuild the in-memory read model without restarting the server.
 - P0 does not expose `forma index rebuild` or `forma index check`.
 - `forma check` recomputes diagnostics from source files and writes nothing.
@@ -294,8 +294,8 @@ Target command behavior:
 All persisted and API-facing workspace paths should use workspace-relative POSIX-style paths, regardless of host operating system:
 
 ```text
-todos/foo.md
-users/tiscs.md
+tasks/foo.md
+members/tiscs.md
 ```
 
 Host filesystem paths should remain internal implementation details. Index files, diagnostics, configuration references, RPC results, and CLI JSON output should not expose absolute paths or platform-specific separators.
@@ -312,7 +312,7 @@ P0 path rules:
 - Ensure `slugify` and create flows avoid path separators, reserved filesystem characters, empty filenames, and Windows reserved device names.
 - Keep config globs workspace-relative, POSIX-style, and free of absolute paths, `..`, or home expansion.
 
-Resolved wikilinks and embedded references should map to workspace-relative paths such as `users/tiscs.md` or `notes/foo.md`.
+Resolved wikilinks and embedded references should map to workspace-relative paths such as `members/tiscs.md` or `notes/foo.md`.
 
 ## Test Strategy
 

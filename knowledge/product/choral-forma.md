@@ -25,7 +25,7 @@ The product should help teams and individuals maintain structured, normalized, v
 
 ## Behavior
 
-Choral Forma should preserve the repository as the durable system of record. Application behavior, when introduced, should read from and write to explicit Markdown files, Forma configuration under `.forma/`, and user-defined content directories such as `notes/`, `todos/`, or `users/`.
+Choral Forma should preserve the repository as the durable system of record. Application behavior, when introduced, should read from and write to explicit Markdown files, Forma configuration under `.forma/`, and user-defined content directories such as `notes/`, `tasks/`, or `members/`.
 
 This repository's current `knowledge/` directory is the development knowledge base for Choral Forma, not the required structure of a future user workspace. It is useful dogfooding evidence, but product workspaces should be configurable rather than forced to copy this repository layout.
 

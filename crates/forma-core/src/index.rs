@@ -1349,7 +1349,7 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
-    use crate::path::{FORMA_CONFIG_PATH, FORMA_LOCAL_OVERRIDES_PATH};
+    use crate::path::FORMA_CONFIG_PATH;
 
     #[test]
     fn builds_deterministic_summary_index_with_resolved_refs() {
@@ -1357,8 +1357,8 @@ mod tests {
         write_workspace(&root);
         write_entry(
             &root,
-            "users/tiscs.md",
-            "---\nkind: user\ntitle: Tiscs\n---\n",
+            "members/tiscs.md",
+            "---\nkind: member\ntitle: Tiscs\n---\n",
         );
         write_entry(
             &root,
@@ -1367,13 +1367,13 @@ mod tests {
         );
         write_entry(
             &root,
-            "todos/user-registration.md",
-            "---\nkind: todo\ntitle: User registration\nsummary: Register users\nassignees:\n  - users/tiscs.md\n---\nSee [[notes/account-model]] and ![[users/tiscs]].\n",
+            "tasks/member-registration.md",
+            "---\nkind: task\ntitle: User registration\nsummary: Register members\nassignees:\n  - members/tiscs.md\n---\nSee [[notes/account-model]] and ![[members/tiscs]].\n",
         );
         write_view(
             &root,
-            "todos.md",
-            "---\nkind: view\ntitle: Todos\nmode: kanban\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - todos\n---\n<!-- forma:content -->\n",
+            "tasks.md",
+            "---\nkind: view\ntitle: Tasks\nmode: kanban\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - tasks\n---\n<!-- forma:content -->\n",
         );
 
         let discovery = discover_workspace(&root).unwrap();
@@ -1385,7 +1385,7 @@ mod tests {
             discovery.diagnostics
         );
         assert_eq!(discovery.index.entries.len(), 3);
-        assert_eq!(discovery.index.spaces[0].id, "notes");
+        assert_eq!(discovery.index.spaces[0].id, "members");
         let expected_json = r#"{
   "schemaVersion": 1,
   "workspace": {
@@ -1397,6 +1397,15 @@ mod tests {
   },
   "spaces": [
     {
+      "id": "members",
+      "title": "Members",
+      "include": "members/**/*.md",
+      "includePatterns": [
+        "members/**/*.md"
+      ],
+      "entryCount": 1
+    },
+    {
       "id": "notes",
       "title": "Notes",
       "include": "notes/**/*.md",
@@ -1406,43 +1415,40 @@ mod tests {
       "entryCount": 1
     },
     {
-      "id": "todos",
-      "title": "Todos",
-      "include": "todos/**/*.md",
+      "id": "tasks",
+      "title": "Tasks",
+      "include": "tasks/**/*.md",
       "includePatterns": [
-        "todos/**/*.md"
-      ],
-      "entryCount": 1
-    },
-    {
-      "id": "users",
-      "title": "Users",
-      "include": "users/**/*.md",
-      "includePatterns": [
-        "users/**/*.md"
+        "tasks/**/*.md"
       ],
       "entryCount": 1
     }
   ],
   "views": [
     {
-      "id": "todos",
-      "path": "{{todos_view_path}}",
+      "id": "tasks",
+      "path": "{{tasks_view_path}}",
       "surface": "page",
       "mode": "kanban",
-      "space": "todos",
+      "space": "tasks",
       "source": {
         "type": "pages",
         "taxonomy": {
           "spaces": [
-            "todos"
+            "tasks"
           ]
         }
       },
-      "title": "Todos"
+      "title": "Tasks"
     }
   ],
   "entries": [
+    {
+      "path": "members/tiscs.md",
+      "space": "members",
+      "kind": "member",
+      "title": "Tiscs"
+    },
     {
       "path": "notes/account-model.md",
       "space": "notes",
@@ -1450,17 +1456,17 @@ mod tests {
       "title": "Account model"
     },
     {
-      "path": "todos/user-registration.md",
-      "space": "todos",
-      "kind": "todo",
+      "path": "tasks/member-registration.md",
+      "space": "tasks",
+      "kind": "task",
       "title": "User registration",
-      "summary": "Register users",
+      "summary": "Register members",
       "refs": [
         {
           "source": "frontmatter",
           "field": "assignees",
-          "targetPath": "users/tiscs.md",
-          "semanticType": "user",
+          "targetPath": "members/tiscs.md",
+          "semanticType": "member",
           "intent": "reference"
         },
         {
@@ -1470,23 +1476,17 @@ mod tests {
         },
         {
           "source": "body",
-          "targetPath": "users/tiscs.md",
+          "targetPath": "members/tiscs.md",
           "intent": "embed"
         }
       ]
-    },
-    {
-      "path": "users/tiscs.md",
-      "space": "users",
-      "kind": "user",
-      "title": "Tiscs"
     }
   ]
 }
 "#
         .replace(
-            "{{todos_view_path}}",
-            &format!("{FORMA_VIEWS_DIR}/todos.md"),
+            "{{tasks_view_path}}",
+            &format!("{FORMA_VIEWS_DIR}/tasks.md"),
         );
         assert_eq!(json, expected_json);
         assert_eq!(json, read_model_json(&discovery.index));
@@ -1529,7 +1529,16 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["notes/getting-started.md"]
         );
-        assert_eq!(discovery.index.spaces[0].entry_count, 1);
+        assert_eq!(
+            discovery
+                .index
+                .spaces
+                .iter()
+                .find(|space| space.id == "notes")
+                .unwrap()
+                .entry_count,
+            1
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1736,22 +1745,6 @@ mod tests {
     }
 
     #[test]
-    fn check_ignores_persistent_index_file_by_default() {
-        let root = fixture_root("freshness");
-        write_workspace(&root);
-        write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
-
-        fs::write(root.join(".forma/index.summary.json"), "{").unwrap();
-        write_entry(&root, "notes/b.md", "---\nkind: note\ntitle: B\n---\n");
-
-        let result = check_workspace(&root);
-
-        assert_eq!(result.status, OperationStatus::Passed);
-        assert!(result.diagnostics.is_empty(), "{:#?}", result.diagnostics);
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
     fn indexes_workspace_source_graph_view_without_space_filter() {
         let root = fixture_root("graph-view");
         write_workspace(&root);
@@ -1798,19 +1791,19 @@ mod tests {
         );
         write_entry(
             &root,
-            "todos/broken.md",
-            "---\nkind: todo\ntitle: Broken\nassignees:\n  - Missing User\n---\n[[duplicate]] [[missing-note]]\n",
+            "tasks/broken.md",
+            "---\nkind: task\ntitle: Broken\nassignees:\n  - Missing User\n---\n[[duplicate]] [[missing-note]]\n",
         );
 
         let discovery = discover_workspace(&root).unwrap();
-        let todo = discovery
+        let task = discovery
             .index
             .entries
             .iter()
-            .find(|entry| entry.path == "todos/broken.md")
+            .find(|entry| entry.path == "tasks/broken.md")
             .unwrap();
 
-        assert!(todo.refs.is_empty());
+        assert!(task.refs.is_empty());
         assert!(
             discovery
                 .diagnostics
@@ -1832,30 +1825,30 @@ mod tests {
         write_workspace(&root);
         write_entry(
             &root,
-            "users/tiscs.md",
-            "---\nkind: user\ntitle: Tiscs\n---\n",
+            "members/tiscs.md",
+            "---\nkind: member\ntitle: Tiscs\n---\n",
         );
         write_entry(
             &root,
-            "todos/broken.md",
-            "---\nkind: todo\ntitle: Broken\nassignees:\n  - \"[[users/tiscs]]\"\n---\n",
+            "tasks/broken.md",
+            "---\nkind: task\ntitle: Broken\nassignees:\n  - \"[[members/tiscs]]\"\n---\n",
         );
 
         let discovery = discover_workspace(&root).unwrap();
-        let todo = discovery
+        let task = discovery
             .index
             .entries
             .iter()
-            .find(|entry| entry.path == "todos/broken.md")
+            .find(|entry| entry.path == "tasks/broken.md")
             .unwrap();
 
-        assert!(todo.refs.is_empty());
+        assert!(task.refs.is_empty());
         assert!(discovery.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "ref.unresolved"
                 && diagnostic
                     .actual
                     .as_deref()
-                    .is_some_and(|actual| actual == "[[users/tiscs]]")
+                    .is_some_and(|actual| actual == "[[members/tiscs]]")
         }));
         fs::remove_dir_all(root).unwrap();
     }
@@ -1960,9 +1953,9 @@ mod tests {
         let root = fixture_root("local-overrides");
         write_workspace(&root);
         write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
-        fs::create_dir_all(root.join(FORMA_LOCAL_OVERRIDES_PATH).parent().unwrap()).unwrap();
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(
-            root.join(FORMA_LOCAL_OVERRIDES_PATH),
+            root.join(".forma/local/profile.yml"),
             "workspace:\n  name: Local Only\n",
         )
         .unwrap();
@@ -1978,7 +1971,7 @@ mod tests {
         fs::create_dir_all(root.join(FORMA_VIEWS_DIR)).unwrap();
         fs::write(
             root.join(FORMA_CONFIG_PATH),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
         )
         .unwrap();
         for (path, title, include, template, title_field, summary_field) in [
@@ -1991,26 +1984,31 @@ mod tests {
                 "fields.summary",
             ),
             (
-                ".forma/spaces/todos.md",
-                "Todos",
-                "todos/**/*.md",
-                ".forma/spaces/templates/todo.md",
+                ".forma/spaces/tasks.md",
+                "Tasks",
+                "tasks/**/*.md",
+                ".forma/spaces/templates/task.md",
                 "fields.title",
                 "fields.summary",
             ),
             (
-                ".forma/spaces/users.md",
-                "Users",
-                "users/**/*.md",
-                ".forma/spaces/templates/user.md",
+                ".forma/spaces/members.md",
+                "Members",
+                "members/**/*.md",
+                ".forma/spaces/templates/member.md",
                 "fields.title",
                 "fields.summary",
             ),
         ] {
+            let schema = if title == "Tasks" {
+                "schema:\n  type: object\n  fields:\n    kind:\n      type: string\n    assignees:\n      type: list\n      items:\n        type: ref\n        target: member\n"
+            } else {
+                "schema:\n  type: object\n  fields:\n    kind:\n      type: string\n"
+            };
             fs::write(
                 root.join(path),
                 format!(
-                    "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: {title}\ninclude:\n  - {include}\ncreate:\n  directory: {}\n  filename: \"{{{{ input.slug }}}}.md\"\n  template: {template}\n  inputs:\n    title:\n      required: true\n    slug:\n      default: \"{{{{ input.title }}}}\"\n      transform: slugify\nconventions:\n  titleField: {title_field}\n  summaryField: {summary_field}\n---\n\n# {title}\n",
+                    "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: {title}\ninclude:\n  - {include}\ncreate:\n  directory: {}\n  filename: \"{{{{ input.slug }}}}.md\"\n  template: {template}\n  inputs:\n    title:\n      required: true\n    slug:\n      default: \"{{{{ input.title }}}}\"\n      transform: slugify\nconventions:\n  titleField: {title_field}\n  summaryField: {summary_field}\n{schema}---\n\n# {title}\n",
                     include.split('/').next().unwrap_or("notes")
                 ),
             )
@@ -2022,13 +2020,13 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            root.join(".forma/spaces/templates/todo.md"),
-            "---\nkind: todo\ntitle: \"{{ input.title }}\"\n---\n",
+            root.join(".forma/spaces/templates/task.md"),
+            "---\nkind: task\ntitle: \"{{ input.title }}\"\n---\n",
         )
         .unwrap();
         fs::write(
-            root.join(".forma/spaces/templates/user.md"),
-            "---\nkind: user\ntitle: \"{{ input.title }}\"\n---\n",
+            root.join(".forma/spaces/templates/member.md"),
+            "---\nkind: member\ntitle: \"{{ input.title }}\"\n---\n",
         )
         .unwrap();
     }

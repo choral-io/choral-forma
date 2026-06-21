@@ -21,12 +21,13 @@ Choral Forma turns a local folder of Markdown files into a read-only knowledge b
 - [[notes/connect-pages|Connect Pages]] shows links, backlinks, and graph browsing.
 - [[notes/saved-views|Saved Views]] explains table, list, kanban, and graph views.
 - [[notes/create-pages|Create Pages]] shows how future create flows can be described with term inputs and templates.
+- [[decisions/repository-markdown-is-source-of-truth|Decision records]], [[proposals/add-weekly-review-rhythm|proposals]], and [[guidelines/workspace-operations|guidelines]] show how shared operating knowledge can live beside notes and tasks.
 
 ## Suggested First Steps
 
 1. Open the Pages route and inspect this note.
 2. Switch to the Context and Outline panels on the right.
-3. Open the Spaces route to see how notes, todos, and users are grouped.
+3. Open the Spaces route to see how notes, tasks, members, decisions, proposals, and guidelines are grouped.
 4. Open Views to compare list, table, kanban, and graph projections.
 
 This starter kit is intentionally small. Replace these example files with your team's own Markdown when you are ready to try Choral Forma on a real workspace.

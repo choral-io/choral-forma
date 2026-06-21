@@ -20,4 +20,5 @@ serde_yml = "0.0.12"
 tokio = { version = "1.52.3", features = ["full"] }
 
 [dev-dependencies]
+serde_json = "1.0.149"
 tower = "0.5.3"

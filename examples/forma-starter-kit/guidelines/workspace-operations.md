@@ -1,0 +1,29 @@
+---
+kind: guideline
+title: "Workspace Operations"
+summary: "How to copy, review, and maintain the starter workspace as a shared team space."
+owners:
+  - members/mira-chen.md
+reviewers:
+  - members/sam-rivera.md
+related_to:
+  - tasks/publish-read-only-workspace.md
+  - notes/getting-started.md
+createdAt: "2026-06-03T18:00:00Z"
+updatedAt: "2026-06-03T18:00:00Z"
+---
+
+# Workspace Operations
+
+## When To Use This
+
+Use this guideline when you first copy the starter, when you review the shared structure, or when you decide whether a change belongs in committed workspace knowledge.
+
+## Guidance
+
+1. Keep the shared workspace readable in ordinary Markdown. If a teammate cannot review the change in the repository, simplify it.
+2. Start with the smallest useful set of spaces. Add new spaces only when the team has repeated examples that no longer fit the current ones.
+3. Prefer updating an existing page before creating a new one when the topic is already covered.
+4. Use finished work such as [[tasks/publish-read-only-workspace|Publish Read-only Workspace]] as reference material, not as a reason to accumulate stale tasks.
+5. When onboarding someone new, point them to [[notes/getting-started|Getting Started]] and [[notes/welcome-to-choral-forma|Welcome to Choral Forma]] before deeper process notes.
+6. Treat `.forma/profiles/*.md` as reusable shared profile fragments only. Do not assume a profile applies to a member, group, user, or Agent unless `.forma/local/profile.yml` explicitly uses it by workspace-relative path.

@@ -26,4 +26,4 @@ starter 不使用提交到仓库的持久化索引。本地服务启动时，可
 
 ## 先改哪里
 
-可以先尝试修改 [[notes/welcome-to-choral-forma|欢迎使用 Choral Forma]] 的摘要，然后重启本地服务并刷新 WebApp。
+先阅读 [[guidelines/workspace-operations|工作区操作指南]]，再尝试修改 [[notes/welcome-to-choral-forma|欢迎使用 Choral Forma]] 的摘要，然后重启本地服务并刷新 WebApp。

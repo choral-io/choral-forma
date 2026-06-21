@@ -9,9 +9,7 @@ use serde_yml::Value;
 use thiserror::Error;
 
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
-use crate::path::{
-    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_LOCAL_OVERRIDES_PATH, PathError, WorkspacePath,
-};
+use crate::path::{FORMA_CONFIG_PATH, FORMA_DIR, PathError, WorkspacePath};
 use crate::schema::validate_space_schemas;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,6 +23,13 @@ pub struct FormaWorkspace {
     pub root: PathBuf,
     pub config: WorkspaceConfig,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigSourcePath {
+    pub path: String,
+    pub local: bool,
+    pub present: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -48,6 +53,7 @@ pub struct WorkspaceConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct WorkspaceSettings {
     pub name: String,
     pub canonical_language: String,
@@ -269,12 +275,14 @@ pub fn load_workspace(
     let config_path = root.join(FORMA_CONFIG_PATH);
 
     let mut config_value = read_yaml_value(&config_path, FORMA_CONFIG_PATH)?;
-    if mode == LoadMode::WithLocalOverrides {
-        let local_override_path = root.join(FORMA_LOCAL_OVERRIDES_PATH);
-        if local_override_path.exists() {
-            let local_value = read_yaml_value(&local_override_path, FORMA_LOCAL_OVERRIDES_PATH)?;
-            deep_merge(&mut config_value, local_value);
-        }
+    let base_config_file: ConfigFile =
+        serde_yml::from_value(config_value.clone()).map_err(|source| ConfigError::Parse {
+            path: FORMA_CONFIG_PATH.to_string(),
+            source,
+        })?;
+    for public_path in included_yaml_config_paths(root, &base_config_file.include, mode) {
+        let local_value = read_yaml_value(&root.join(&public_path), &public_path)?;
+        deep_merge(&mut config_value, local_value);
     }
 
     let config_file: ConfigFile =
@@ -283,7 +291,7 @@ pub fn load_workspace(
             source,
         })?;
 
-    let (dashboard, taxonomies, types, spaces) = load_config_nodes(root, &config_file)?;
+    let (dashboard, taxonomies, types, spaces) = load_config_nodes(root, &config_file, mode)?;
 
     let config = WorkspaceConfig {
         schema_version: config_file.schema_version,
@@ -308,6 +316,7 @@ pub fn load_workspace(
 fn load_config_nodes(
     root: &Path,
     config_file: &ConfigFile,
+    mode: LoadMode,
 ) -> Result<
     (
         BTreeMap<String, Value>,
@@ -322,7 +331,7 @@ fn load_config_nodes(
     let mut types = BTreeMap::new();
     let mut spaces = BTreeMap::new();
 
-    for public_path in included_markdown_config_paths(root, &config_file.include) {
+    for public_path in included_markdown_config_paths(root, &config_file.include, mode) {
         let source =
             fs::read_to_string(root.join(&public_path)).map_err(|source| ConfigError::Read {
                 path: public_path.clone(),
@@ -399,6 +408,36 @@ fn load_config_nodes(
     Ok((dashboard, taxonomies, types, spaces))
 }
 
+pub fn config_source_paths(
+    root: impl AsRef<Path>,
+    mode: LoadMode,
+) -> Result<Vec<ConfigSourcePath>, ConfigError> {
+    let root = root.as_ref();
+    let mut sources = vec![ConfigSourcePath {
+        path: FORMA_CONFIG_PATH.to_string(),
+        local: false,
+        present: root.join(FORMA_CONFIG_PATH).exists(),
+    }];
+    let config_file: ConfigFile = read_yaml(&root.join(FORMA_CONFIG_PATH), FORMA_CONFIG_PATH)?;
+    for path in included_yaml_config_paths(root, &config_file.include, mode)
+        .into_iter()
+        .chain(included_markdown_config_paths(
+            root,
+            &config_file.include,
+            mode,
+        ))
+    {
+        sources.push(ConfigSourcePath {
+            local: is_local_config_path(&path),
+            present: root.join(&path).exists(),
+            path,
+        });
+    }
+    sources.sort_by(|a, b| a.path.cmp(&b.path));
+    sources.dedup_by(|a, b| a.path == b.path);
+    Ok(sources)
+}
+
 fn view_id_from_config_path(path: &str) -> String {
     Path::new(path)
         .file_stem()
@@ -414,16 +453,25 @@ fn semantic_type_id_for_space(space_id: &str) -> String {
     space_id.strip_suffix('s').unwrap_or(space_id).to_string()
 }
 
-fn starter_term_schema(space_id: &str) -> Value {
-    let schema = if space_id == "todos" {
-        "type: object\nfields:\n  kind:\n    type: string\n  assignees:\n    type: list\n    items:\n      type: ref\n      target: user\n"
-    } else {
-        "type: object\nfields:\n  kind:\n    type: string\n"
-    };
+fn starter_term_schema(_space_id: &str) -> Value {
+    let schema = "type: object\nfields:\n  kind:\n    type: string\n";
     serde_yml::from_str(schema).expect("built-in starter term schema is valid YAML")
 }
 
-fn included_markdown_config_paths(root: &Path, include: &[String]) -> Vec<String> {
+fn included_markdown_config_paths(root: &Path, include: &[String], mode: LoadMode) -> Vec<String> {
+    included_config_paths(root, include, mode, &["md", "mdx"])
+}
+
+fn included_yaml_config_paths(root: &Path, include: &[String], mode: LoadMode) -> Vec<String> {
+    included_config_paths(root, include, mode, &["yml", "yaml"])
+}
+
+fn included_config_paths(
+    root: &Path,
+    include: &[String],
+    mode: LoadMode,
+    extensions: &[&str],
+) -> Vec<String> {
     let mut builder = GlobSetBuilder::new();
     for pattern in include {
         if let Ok(glob) = Glob::new(pattern) {
@@ -435,7 +483,7 @@ fn included_markdown_config_paths(root: &Path, include: &[String]) -> Vec<String
     };
 
     let mut paths = Vec::new();
-    collect_included_files(root, root, &globs, &mut paths);
+    collect_included_files(root, root, &globs, mode, extensions, &mut paths);
     paths.sort();
     paths
 }
@@ -444,6 +492,8 @@ fn collect_included_files(
     root: &Path,
     dir: &Path,
     globs: &globset::GlobSet,
+    mode: LoadMode,
+    extensions: &[&str],
     paths: &mut Vec<String>,
 ) {
     let Ok(entries) = fs::read_dir(dir) else {
@@ -458,16 +508,31 @@ fn collect_included_files(
             if matches!(name, ".git" | "target" | "node_modules") {
                 continue;
             }
-            collect_included_files(root, &path, globs, paths);
-        } else if path.extension().and_then(|extension| extension.to_str()) == Some("md")
+            collect_included_files(root, &path, globs, mode, extensions, paths);
+        } else if path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| {
+                extensions
+                    .iter()
+                    .any(|allowed| extension.eq_ignore_ascii_case(allowed))
+            })
             && let Some(relative) = path.strip_prefix(root).ok().and_then(|path| path.to_str())
         {
             let relative = relative.replace('\\', "/");
-            if globs.is_match(&relative) {
+            if globs.is_match(&relative) && should_load_in_mode(&relative, mode) {
                 paths.push(relative);
             }
         }
     }
+}
+
+fn should_load_in_mode(path: &str, mode: LoadMode) -> bool {
+    mode == LoadMode::WithLocalOverrides || !is_local_config_path(path)
+}
+
+fn is_local_config_path(path: &str) -> bool {
+    path == ".forma/local" || path.starts_with(".forma/local/")
 }
 
 fn read_yaml<T: for<'de> Deserialize<'de>>(
@@ -682,7 +747,7 @@ mod tests {
     use serde_yml::Value;
 
     use super::{LoadMode, load_workspace};
-    use crate::path::{FORMA_CONFIG_PATH, FORMA_LOCAL_OVERRIDES_PATH};
+    use crate::path::FORMA_CONFIG_PATH;
 
     #[test]
     fn loads_repository_starter_kit_config() {
@@ -694,13 +759,13 @@ mod tests {
 
         assert_eq!(workspace.config.workspace.name, "Choral Forma Example");
         assert_eq!(workspace.config.workspace.timezone, "UTC");
-        assert_eq!(workspace.config.spaces["todos"].include, "todos/**/*.md");
+        assert_eq!(workspace.config.spaces["tasks"].include, "tasks/**/*.md");
         assert_eq!(
-            workspace.config.spaces["todos"].template,
-            ".forma/spaces/templates/todo.md"
+            workspace.config.spaces["tasks"].template,
+            ".forma/spaces/templates/task.md"
         );
         assert_eq!(
-            workspace.config.spaces["todos"]
+            workspace.config.spaces["tasks"]
                 .conventions
                 .title_field
                 .as_deref(),
@@ -714,7 +779,7 @@ mod tests {
             workspace.config.taxonomies["index"]["kind"],
             Value::String("taxonomy".to_string())
         );
-        assert_eq!(workspace.config.types["todo"].space(), Some("todos"));
+        assert_eq!(workspace.config.types["task"].space(), Some("tasks"));
         assert!(workspace.diagnostics.is_empty());
     }
 
@@ -820,6 +885,24 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unknown_workspace_settings_fields() {
+        let root = fixture_root("unknown-workspace-setting");
+        fs::create_dir_all(root.join(".forma")).unwrap();
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  root: .\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n",
+        )
+        .unwrap();
+
+        let error = load_workspace(&root, LoadMode::SharedOnly).unwrap_err();
+
+        assert!(matches!(error, super::ConfigError::Parse { .. }));
+        assert!(error.to_string().contains("unknown field `root`"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn reports_non_markdown_space_guidelines_as_diagnostics() {
         let root = fixture_root("non-markdown-guideline");
         fs::create_dir_all(root.join(".forma/spaces")).unwrap();
@@ -869,9 +952,14 @@ mod tests {
     fn applies_local_overrides_when_requested() {
         let root = fixture_root("local-overrides");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
-        fs::create_dir_all(root.join(FORMA_LOCAL_OVERRIDES_PATH).parent().unwrap()).unwrap();
         fs::write(
-            root.join(FORMA_LOCAL_OVERRIDES_PATH),
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(
+            root.join(".forma/local/profile.yml"),
             "workspace:\n  timezone: Europe/Paris\nruntime:\n  values:\n    currentUserId:\n      kind: const\n      value: tiscs\n",
         )
         .unwrap();

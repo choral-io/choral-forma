@@ -45,7 +45,7 @@ Implement the shared discovery, check, diagnostics, and in-memory summary projec
 
 ## Context
 
-P0 no longer writes or requires a committed `.forma/index.summary.json` file. Operations discover workspace state at runtime and build deterministic in-memory projections for checks, list views, renders, and RPC responses. Diagnostics are runtime operation results and must not be persisted.
+P0 no longer writes or requires a committed persistent index file. Operations discover workspace state at runtime and build deterministic in-memory projections for checks, list views, renders, and RPC responses. Diagnostics are runtime operation results and must not be persisted.
 
 ## In Scope
 
@@ -64,7 +64,7 @@ P0 no longer writes or requires a committed `.forma/index.summary.json` file. Op
 ## Acceptance Criteria
 
 - `check` builds discovery state in memory and reports diagnostics without writing files.
-- No operation writes or requires `.forma/index.summary.json`.
+- No operation writes or requires a persistent index artifact.
 - Public JSON contains workspace-relative POSIX paths only.
 - Golden tests cover deterministic ordering and exclusion of diagnostics from resolved refs and in-memory projections.
 

@@ -34,4 +34,4 @@ The WebApp can surface diagnostics from the read model. Health checks should hel
 
 ## What To Edit First
 
-Try changing the summary of [[notes/welcome-to-choral-forma|Welcome to Choral Forma]], then restart the local server and refresh the WebApp.
+Read [[guidelines/workspace-operations|Workspace Operations]] first, then try changing the summary of [[notes/welcome-to-choral-forma|Welcome to Choral Forma]]. Restart the local server and refresh the WebApp to see the update.

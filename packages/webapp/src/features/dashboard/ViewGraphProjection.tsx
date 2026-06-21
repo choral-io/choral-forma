@@ -277,19 +277,13 @@ function graphAdjacentNodes(projection: Extract<DashboardViewProjection, { kind:
 }
 
 function graphNodeColor(space: string, theme: GraphThemeTokens) {
-    if (space === "notes") {
-        return theme.spaceA;
+    const palette = [theme.spaceA, theme.spaceB, theme.spaceC, theme.node];
+    let hash = 0;
+    for (let index = 0; index < space.length; index += 1) {
+        hash += space.charCodeAt(index);
     }
-
-    if (space === "todos") {
-        return theme.spaceB;
-    }
-
-    if (space === "users") {
-        return theme.spaceC;
-    }
-
-    return theme.node;
+    const index = hash % palette.length;
+    return palette[index] ?? theme.node;
 }
 
 function readGraphThemeTokens(resolvedMode: "light" | "dark"): GraphThemeTokens {

@@ -247,7 +247,7 @@ The WebApp should keep a package-local adapter boundary. Fake data can remain as
 
 ## Open Questions
 
-- Should document ids stay path-derived slugs permanently, or should the summary index eventually expose explicit stable ids? Current direction: path-derived slugs.
+- Should document ids stay path-derived slugs permanently, or should a future read-model API eventually expose explicit stable ids? Current direction: path-derived slugs.
 - Should document heading ids eventually be embedded directly into server HTML output for export modes? Current direction: WebApp reader attaches ids from backend heading analysis during client render.
 - Should `workspace.dashboard` include document bodies? Current direction: no.
 - Should graph rendering use Sigma.js long-term? Current direction: Sigma.js is acceptable as the current WebApp renderer because it improves read-only graph interaction with modest dependency cost, but the backend and shared contract must remain renderer-agnostic.

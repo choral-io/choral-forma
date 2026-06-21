@@ -8,7 +8,7 @@ updatedAt: "2026-06-03T18:00:00Z"
 
 # Markdown Reader
 
-The reader renders ordinary Markdown. Choral Forma does not require proprietary page syntax for the common cases shown here.
+The reader renders ordinary Markdown. Choral Forma does not require proprietary page syntax for the common cases shown here. For a page that leans more heavily on internal references, compare [[notes/connect-pages|Connect Pages]].
 
 ## Inline Text
 
@@ -59,3 +59,5 @@ const sourceOfTruth = "repository-markdown";
 Images can live beside the Markdown files and be referenced with ordinary relative paths.
 
 ![Choral Forma knowledge workspace hero](../assets/markdown-hero.png)
+
+When you are done here, jump back to [[notes/welcome-to-choral-forma|Welcome to Choral Forma]] or continue to [[notes/saved-views|Saved Views]].

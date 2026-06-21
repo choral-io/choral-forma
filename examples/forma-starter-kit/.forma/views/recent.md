@@ -5,12 +5,17 @@ mode: list
 title: Recent
 display:
   order: 40
-description: Recently updated starter guide pages.
+description: Recently updated starter pages across the main workspace spaces.
 source:
   type: pages
   taxonomy:
     spaces:
       - notes
+      - tasks
+      - members
+      - decisions
+      - proposals
+      - guidelines
 sort:
   - field: fields.updatedAt
     direction: desc
@@ -20,6 +25,6 @@ sort:
 
 # Recent
 
-Review recently updated guide pages without changing the underlying files.
+Review recently updated starter pages without changing the underlying files.
 
 <!-- forma:content -->

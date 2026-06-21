@@ -92,7 +92,7 @@ Recommended top-level shape:
 }
 ```
 
-`workspace.root` must be a display-safe workspace locator, not an absolute host path. Public paths inside results must be workspace-relative POSIX paths.
+The JSON result field `workspace.root` must be a display-safe workspace locator, not an absolute host path or a `.forma.yml` config field. Public paths inside results must be workspace-relative POSIX paths.
 
 Human-oriented CLI output can be concise and non-JSON. JSON output is the contract surface.
 
@@ -243,21 +243,21 @@ Diagnostic object outline:
     "severity": "error",
     "code": "ref.unresolved",
     "message": "Reference cannot be resolved.",
-    "path": "todos/user-registration.md",
+    "path": "tasks/user-registration.md",
     "location": {
         "kind": "frontmatter",
         "field": "assignees",
         "index": 0
     },
-    "actual": "[[users/tics]]",
+    "actual": "[[members/tics]]",
     "expected": {
         "type": "ref",
-        "target": "user"
+        "target": "member"
     },
     "suggestions": [
         {
-            "label": "Use users/tiscs",
-            "value": "[[users/tiscs]]"
+            "label": "Use members/tiscs",
+            "value": "[[members/tiscs]]"
         }
     ]
 }
@@ -330,10 +330,24 @@ Result outline:
     "created": [
         ".forma.yml",
         ".forma/spaces/notes.md",
-        ".forma/spaces/todos.md",
-        ".forma/spaces/users.md",
-        ".forma/views/todos.md",
-        ".forma/spaces/templates/todo.md"
+        ".forma/spaces/tasks.md",
+        ".forma/spaces/members.md",
+        ".forma/spaces/decisions.md",
+        ".forma/spaces/proposals.md",
+        ".forma/spaces/guidelines.md",
+        ".forma/spaces/templates/note.md",
+        ".forma/spaces/templates/task.md",
+        ".forma/spaces/templates/member.md",
+        ".forma/spaces/templates/decision.md",
+        ".forma/spaces/templates/proposal.md",
+        ".forma/spaces/templates/guideline.md",
+        ".forma/views/notes.md",
+        ".forma/views/tasks.md",
+        ".forma/views/members.md",
+        ".forma/views/guide.md",
+        ".forma/views/recent.md",
+        ".forma/views/graph.md",
+        ".forma/dashboard.md"
     ],
     "summary": {
         "errors": 0,
@@ -421,9 +435,9 @@ Result outline:
             "kind": "shared"
         },
         {
-            "path": ".forma/local/local.yml",
+            "path": ".forma/local/profile-selection.yml",
             "kind": "local",
-            "present": false
+            "present": true
         }
     ],
     "summary": {
@@ -443,7 +457,7 @@ Params by path:
 
 ```json
 {
-    "path": "todos/user-registration.md"
+    "path": "tasks/user-registration.md"
 }
 ```
 
@@ -451,7 +465,7 @@ Params by space locator:
 
 ```json
 {
-    "space": "todos",
+    "space": "tasks",
     "entry": "user-registration"
 }
 ```
@@ -468,9 +482,9 @@ Result outline:
         "name": "Acme Knowledge"
     },
     "file": {
-        "path": "todos/user-registration.md",
-        "space": "todos",
-        "kind": "todo",
+        "path": "tasks/user-registration.md",
+        "space": "tasks",
+        "kind": "task",
         "title": "User registration",
         "summary": "Implement user registration flow.",
         "metadata": {},
@@ -498,7 +512,7 @@ Params:
 
 ```json
 {
-    "space": "todos"
+    "space": "tasks"
 }
 ```
 
@@ -514,14 +528,14 @@ Result outline:
         "name": "Acme Knowledge"
     },
     "space": {
-        "id": "todos",
-        "title": "Todos",
-        "include": "todos/**/*.md"
+        "id": "tasks",
+        "title": "Tasks",
+        "include": "tasks/**/*.md"
     },
     "entries": [
         {
-            "path": "todos/user-registration.md",
-            "kind": "todo",
+            "path": "tasks/user-registration.md",
+            "kind": "task",
             "title": "User registration",
             "summary": "Implement user registration flow.",
             "fields": {}
@@ -561,43 +575,43 @@ Result outline:
     },
     "files": [
         {
-            "path": ".forma/views/todos.md",
+            "path": ".forma/views/tasks.md",
             "kind": "view",
             "mediaType": "text/markdown",
-            "name": "todos.md",
+            "name": "tasks.md",
             "parent": ".forma/views",
             "depth": 2,
             "features": ["render.view", "render.source"],
-            "title": "Todos",
+            "title": "Tasks",
             "frontmatter": {
                 "kind": "forma-view"
             }
         },
         {
-            "path": "todos/user-registration.md",
+            "path": "tasks/user-registration.md",
             "kind": "knowledge",
             "mediaType": "text/markdown",
             "name": "user-registration.md",
-            "parent": "todos",
+            "parent": "tasks",
             "depth": 1,
             "features": ["render.markdown", "render.source"],
-            "space": "todos",
+            "space": "tasks",
             "title": "User registration",
             "frontmatter": {
-                "kind": "todo",
+                "kind": "task",
                 "title": "User registration"
             }
         },
         {
-            "path": ".forma/spaces/templates/todo.md",
+            "path": ".forma/spaces/templates/task.md",
             "kind": "template",
             "mediaType": "text/markdown",
-            "name": "todo.md",
+            "name": "task.md",
             "parent": ".forma/spaces/templates",
             "depth": 3,
             "features": ["render.source"],
             "frontmatter": {
-                "kind": "todo"
+                "kind": "task"
             }
         }
     ],
@@ -632,13 +646,13 @@ Markdown files may include a `frontmatter` object with raw parsed YAML frontmatt
 
 ### Create
 
-`create` resolves space create inputs, renders the filename and template, validates the generated entry, writes one file, and reports that the summary index is stale without rebuilding it automatically.
+`create` resolves space create inputs, renders the filename and template, validates the generated entry, and writes one file. Subsequent read operations rebuild their in-memory projections from source files.
 
 Params:
 
 ```json
 {
-    "space": "todos",
+    "space": "tasks",
     "inputs": {
         "title": "Draft reference model"
     }
@@ -657,9 +671,9 @@ Result outline:
         "name": "Acme Knowledge"
     },
     "created": {
-        "path": "todos/draft-reference-model.md",
-        "space": "todos",
-        "template": ".forma/spaces/templates/todo.md"
+        "path": "tasks/draft-reference-model.md",
+        "space": "tasks",
+        "template": ".forma/spaces/templates/task.md"
     },
     "inputs": {
         "title": {
@@ -695,7 +709,7 @@ Params:
 
 ```json
 {
-    "view": "todos",
+    "view": "tasks",
     "params": {}
 }
 ```
@@ -712,16 +726,16 @@ Result outline:
         "name": "Acme Knowledge"
     },
     "view": {
-        "id": "todos",
-        "path": ".forma/views/todos.md",
+        "id": "tasks",
+        "path": ".forma/views/tasks.md",
         "surface": "page",
         "mode": "kanban",
-        "title": "Todos",
-        "space": "todos",
+        "title": "Tasks",
+        "space": "tasks",
         "source": {
             "type": "pages",
             "taxonomy": {
-                "spaces": ["todos"]
+                "spaces": ["tasks"]
             }
         },
         "params": {}
@@ -750,7 +764,7 @@ Params:
 
 ```json
 {
-    "path": "todos/user-registration.md",
+    "path": "tasks/user-registration.md",
     "format": "markdown"
 }
 ```
@@ -767,9 +781,9 @@ Result outline:
         "name": "Acme Knowledge"
     },
     "file": {
-        "path": "todos/user-registration.md",
-        "space": "todos",
-        "kind": "todo",
+        "path": "tasks/user-registration.md",
+        "space": "tasks",
+        "kind": "task",
         "title": "User registration"
     },
     "render": {
@@ -803,7 +817,7 @@ Params:
 
 ```json
 {
-    "path": "todos/user-registration.md"
+    "path": "tasks/user-registration.md"
 }
 ```
 
@@ -819,9 +833,9 @@ Result outline:
         "name": "Acme Knowledge"
     },
     "file": {
-        "path": "todos/user-registration.md",
-        "space": "todos",
-        "kind": "todo",
+        "path": "tasks/user-registration.md",
+        "space": "tasks",
+        "kind": "task",
         "title": "User registration"
     },
     "outgoing": [],

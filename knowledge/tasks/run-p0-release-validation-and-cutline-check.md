@@ -111,7 +111,7 @@ Validation matrix:
 Starter workspace smoke test:
 
 - Temporary workspace: `/private/tmp/forma-internal-release.q0xC65`
-- `forma init` with name `Internal Release`, language `en`, timezone `Asia/Shanghai`, `-y`, and `--json`: passed. The created file list did not include `.forma/index.summary.json`.
+- `forma init` with name `Internal Release`, language `en`, timezone `Asia/Shanghai`, `-y`, and `--json`: passed. The created file list did not include a persistent index artifact.
 - `forma config inspect --json`: passed.
 - `forma create notes --input title=Alpha --input summary=Smoke --json`: passed without index-stale warnings.
 - `forma inspect notes/alpha.md --json`: passed.

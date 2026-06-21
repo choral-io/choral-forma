@@ -304,6 +304,7 @@ dependencies = [
  "forma-core",
  "forma-rpc",
  "include_dir",
+ "serde_json",
  "serde_yml",
  "tokio",
  "tower",

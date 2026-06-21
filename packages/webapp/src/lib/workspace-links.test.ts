@@ -5,7 +5,7 @@ import { isExternalHref, normalizeWorkspaceHref } from "./workspace-links";
 const entries = [
     { path: "notes/source.md" },
     { path: "notes/target.md" },
-    { path: "todos/review-reference-indexing.md" },
+    { path: "tasks/review-reference-indexing.md" },
     { path: "assets/markdown-hero.png" },
 ];
 
@@ -27,9 +27,9 @@ describe("normalizeWorkspaceHref", () => {
     });
 
     it("resolves relative paths from the current entry directory", () => {
-        expect(normalizeWorkspaceHref("../todos/review-reference-indexing.md", "notes/source.md", entries)).toEqual({
+        expect(normalizeWorkspaceHref("../tasks/review-reference-indexing.md", "notes/source.md", entries)).toEqual({
             hash: "",
-            path: "todos/review-reference-indexing.md",
+            path: "tasks/review-reference-indexing.md",
         });
     });
 

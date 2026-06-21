@@ -14,17 +14,17 @@ Ordinary views use `source.type: pages`, which means they project recognized pag
 
 ## Included Views
 
-| View   | File                     | Mode   | What it demonstrates             |
-| ------ | ------------------------ | ------ | -------------------------------- |
-| Graph  | `.forma/views/graph.md`  | graph  | Cross-space link relationships   |
-| Guide  | `.forma/views/guide.md`  | graph  | Space-scoped guide relationships |
-| Notes  | `.forma/views/notes.md`  | table  | Structured page inventory        |
-| Recent | `.forma/views/recent.md` | list   | Ordered reading queue            |
-| Todos  | `.forma/views/todos.md`  | kanban | Lightweight work tracking        |
-| Users  | `.forma/views/users.md`  | table  | Referenced people and ownership  |
+| View    | File                      | Mode   | What it demonstrates             |
+| ------- | ------------------------- | ------ | -------------------------------- |
+| Graph   | `.forma/views/graph.md`   | graph  | Cross-space link relationships   |
+| Guide   | `.forma/views/guide.md`   | graph  | Space-scoped guide relationships |
+| Notes   | `.forma/views/notes.md`   | table  | Structured page inventory        |
+| Recent  | `.forma/views/recent.md`  | list   | Ordered workspace reading queue  |
+| Tasks   | `.forma/views/tasks.md`   | kanban | Lightweight work tracking        |
+| Members | `.forma/views/members.md` | table  | Ownership and responsibility     |
 
 ## When To Use Views
 
 Use views when a reader needs a repeatable projection over the same repository content. The source files do not move; the view decides how to browse them.
 
-For example, [[todos/add-team-notes|Add Team Notes]] appears as a Markdown file in the Todos space and as a card in the kanban view.
+For example, [[tasks/add-team-notes|Add Team Notes]] appears as a Markdown file in the Tasks space and as a card in the kanban view. The proposal in [[proposals/add-weekly-review-rhythm|Add Weekly Review Rhythm]] stays an ordinary Markdown file while still showing up in the recent-work view.

@@ -42,7 +42,7 @@ The migration should first define the target Forma configuration, then migrate c
 - Supporting Obsidian, Foam, or another note application's full compatibility model.
 - Introducing Forma MCP for this migration slice.
 - Adding write-capable repair automation before reviewable operation proposals are designed.
-- Creating a committed `index.summary.json`, effective config cache, diagnostics cache, or local full index.
+- Creating a committed persistent index artifact, effective config cache, diagnostics cache, or local full index.
 
 ## Target Workspace Structure
 

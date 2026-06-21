@@ -21,12 +21,13 @@ Choral Forma 可以把一个本地 Markdown 文件夹变成只读知识浏览器
 - [[notes/connect-pages|连接页面]] 展示链接、反向链接和图谱浏览。
 - [[notes/saved-views|保存视图]] 说明表格、列表、看板和图谱视图。
 - [[notes/create-pages|创建页面]] 展示未来的创建流程如何通过输入字段和模板描述。
+- [[decisions/repository-markdown-is-source-of-truth|关键决策]]、[[proposals/add-weekly-review-rhythm|提案]] 和 [[guidelines/workspace-operations|指南]] 展示共享知识如何和笔记、任务一起维护。
 
 ## 建议的第一步
 
 1. 打开 Pages 页面并查看这篇笔记。
 2. 在右侧切换 Context 和 Outline 面板。
-3. 打开 Spaces 页面，查看 notes、todos 和 users 如何分组。
+3. 打开 Spaces 页面，查看 notes、tasks、members、decisions、proposals 和 guidelines 如何分组。
 4. 打开 Views 页面，对比列表、表格、看板和图谱投影。
 
 这个 starter kit 刻意保持很小。当你准备在真实工作区中试用 Choral Forma 时，可以把这些示例文件替换成团队自己的 Markdown。

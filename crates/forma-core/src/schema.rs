@@ -895,7 +895,7 @@ mod tests {
     use crate::config::{RuntimeConfig, SpaceConventions, TypeInput, WorkspaceSettings};
     use crate::path::FORMA_TEMPLATES_DIR;
 
-    fn config_with_todo_schema(schema: &str) -> WorkspaceConfig {
+    fn config_with_task_schema(schema: &str) -> WorkspaceConfig {
         let schema: Value = serde_yml::from_str(schema).unwrap();
         WorkspaceConfig {
             schema_version: 1,
@@ -912,15 +912,19 @@ mod tests {
             taxonomies: BTreeMap::new(),
             types: BTreeMap::from([
                 (
-                    "todoStatus".to_string(),
+                    "taskStatus".to_string(),
                     SemanticType::Enum {
-                        values: vec!["todo".to_string(), "doing".to_string(), "done".to_string()],
+                        values: vec![
+                            "backlog".to_string(),
+                            "doing".to_string(),
+                            "done".to_string(),
+                        ],
                     },
                 ),
                 (
-                    "user".to_string(),
+                    "member".to_string(),
                     SemanticType::Space {
-                        space: "users".to_string(),
+                        space: "members".to_string(),
                         input: TypeInput {
                             transform: Some("slugify".to_string()),
                         },
@@ -928,14 +932,14 @@ mod tests {
                 ),
             ]),
             spaces: BTreeMap::from([(
-                "todos".to_string(),
+                "tasks".to_string(),
                 SpaceDefinition {
-                    title: "Todos".to_string(),
+                    title: "Tasks".to_string(),
                     display: crate::config::DisplayOptions::default(),
                     description: None,
-                    include: "todos/**/*.md".to_string(),
-                    include_patterns: vec!["todos/**/*.md".to_string()],
-                    template: format!("{FORMA_TEMPLATES_DIR}/todo.md"),
+                    include: "tasks/**/*.md".to_string(),
+                    include_patterns: vec!["tasks/**/*.md".to_string()],
+                    template: format!("{FORMA_TEMPLATES_DIR}/task.md"),
                     create: None,
                     conventions: SpaceConventions::default(),
                     guidelines: Vec::new(),
@@ -947,26 +951,26 @@ mod tests {
 
     #[test]
     fn parses_and_validates_valid_starter_schema() {
-        let config = config_with_todo_schema(
+        let config = config_with_task_schema(
             r#"
 type: object
 fields:
   kind:
     type: const
-    value: todo
+    value: task
     required: true
   title:
     type: string
     required: true
   status:
     type: enum
-    enum: todoStatus
+    enum: taskStatus
     required: true
   assignees:
     type: list
     items:
       type: ref
-      target: user
+      target: member
 "#,
         );
 
@@ -975,7 +979,7 @@ fields:
 
     #[test]
     fn reports_invalid_enum_and_ref_targets() {
-        let config = config_with_todo_schema(
+        let config = config_with_task_schema(
             r#"
 type: object
 fields:
@@ -1004,29 +1008,29 @@ fields:
 
     #[test]
     fn validates_required_type_const_enum_and_list_values() {
-        let config = config_with_todo_schema(
+        let config = config_with_task_schema(
             r#"
 type: object
 fields:
   kind:
     type: const
-    value: todo
+    value: task
     required: true
   title:
     type: string
     required: true
   status:
     type: enum
-    enum: todoStatus
+    enum: taskStatus
     required: true
   assignees:
     type: list
     items:
       type: ref
-      target: user
+      target: member
 "#,
         );
-        let schema = parse_space_schema(&config.spaces["todos"]).unwrap();
+        let schema = parse_space_schema(&config.spaces["tasks"]).unwrap();
         let value = serde_yml::from_str(
             r#"
 kind: note
@@ -1036,7 +1040,7 @@ assignees: tiscs
         )
         .unwrap();
 
-        let diagnostics = validate_schema_value(&config, &schema, &value, "todos/foo.md");
+        let diagnostics = validate_schema_value(&config, &schema, &value, "tasks/foo.md");
 
         let required = diagnostics
             .iter()
@@ -1076,7 +1080,7 @@ assignees: tiscs
 
     #[test]
     fn reports_unknown_schema_node_type() {
-        let config = config_with_todo_schema(
+        let config = config_with_task_schema(
             r#"
 type: object
 fields:
@@ -1093,7 +1097,7 @@ fields:
 
     #[test]
     fn validates_scalar_date_and_datetime_values() {
-        let config = config_with_todo_schema(
+        let config = config_with_task_schema(
             r#"
 type: object
 fields:
@@ -1111,7 +1115,7 @@ fields:
     type: datetime
 "#,
         );
-        let schema = parse_space_schema(&config.spaces["todos"]).unwrap();
+        let schema = parse_space_schema(&config.spaces["tasks"]).unwrap();
         let valid = serde_yml::from_str(
             r#"
 estimate: 1.5
@@ -1135,9 +1139,9 @@ scheduledAt: "2026-05-19T10:30:00"
         )
         .unwrap();
 
-        assert!(validate_schema_value(&config, &schema, &valid, "todos/valid.md").is_empty());
+        assert!(validate_schema_value(&config, &schema, &valid, "tasks/valid.md").is_empty());
 
-        let diagnostics = validate_schema_value(&config, &schema, &invalid, "todos/invalid.md");
+        let diagnostics = validate_schema_value(&config, &schema, &invalid, "tasks/invalid.md");
 
         assert_eq!(diagnostics.len(), 6);
         assert_eq!(
@@ -1158,7 +1162,7 @@ scheduledAt: "2026-05-19T10:30:00"
 
     #[test]
     fn resolves_runtime_values_from_const_and_workspace_root() {
-        let mut config = config_with_todo_schema("type: object\nfields: {}\n");
+        let mut config = config_with_task_schema("type: object\nfields: {}\n");
         config.runtime.values.insert(
             "currentUserId".to_string(),
             RuntimeValueProvider::Const {
@@ -1184,7 +1188,7 @@ scheduledAt: "2026-05-19T10:30:00"
 
     #[test]
     fn warns_for_unresolved_required_runtime_values() {
-        let mut config = config_with_todo_schema("type: object\nfields: {}\n");
+        let mut config = config_with_task_schema("type: object\nfields: {}\n");
         config.runtime.values.insert(
             "currentUserId".to_string(),
             RuntimeValueProvider::GitConfig {
@@ -1202,7 +1206,7 @@ scheduledAt: "2026-05-19T10:30:00"
 
     #[test]
     fn resolves_current_date_and_datetime_with_workspace_timezone() {
-        let mut config = config_with_todo_schema("type: object\nfields: {}\n");
+        let mut config = config_with_task_schema("type: object\nfields: {}\n");
         config.workspace.timezone = "Asia/Shanghai".to_string();
         config
             .runtime
@@ -1224,7 +1228,7 @@ scheduledAt: "2026-05-19T10:30:00"
 
     #[test]
     fn reports_invalid_workspace_timezone_for_time_runtime_values() {
-        let mut config = config_with_todo_schema("type: object\nfields: {}\n");
+        let mut config = config_with_task_schema("type: object\nfields: {}\n");
         config.workspace.timezone = "Not/AZone".to_string();
         config
             .runtime

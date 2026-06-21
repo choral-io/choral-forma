@@ -2,16 +2,31 @@
 schemaVersion: 1
 kind: term
 taxonomy: spaces
-title: Users
+title: Members
 display:
   order: 30
-description: Example people referenced by tasks and pages.
+description: Team members referenced by tasks, proposals, and shared notes.
+schema:
+  type: object
+  fields:
+    kind:
+      type: string
+    name:
+      type: string
+    description:
+      type: string
+    responsibilities:
+      type: string
+    createdAt:
+      type: string
+    updatedAt:
+      type: string
 include:
-  - "users/**/*.md"
+  - "members/**/*.md"
 create:
-  directory: "users"
+  directory: "members"
   filename: "{{ input.slug }}.md"
-  template: ".forma/spaces/templates/user.md"
+  template: ".forma/spaces/templates/member.md"
   inputs:
     name:
       required: true
@@ -34,8 +49,8 @@ conventions:
   updatedAtField: fields.updatedAt
 ---
 
-# Users
+# Members
 
-Example people referenced by tasks and pages.
+Team members referenced by tasks, proposals, and shared notes.
 
 <!-- forma:content -->

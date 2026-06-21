@@ -2,6 +2,7 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use forma_core::FORMA_CONFIG_PATH;
+use serde_json::Value;
 
 #[test]
 fn prints_placeholder_version() {
@@ -66,7 +67,6 @@ fn knowledge_health_json_uses_operation_result_shape() {
     assert!(stdout.contains(r#""status":"warning""#));
     assert!(stdout.contains(r#""category":"brokenReference""#));
     assert!(!stdout.contains(r#""jsonrpc""#));
-    assert!(!root.join(".forma/index.summary.json").exists());
 
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -91,13 +91,12 @@ fn knowledge_health_human_output_reports_warning_summary() {
     assert!(stdout.contains("knowledge health warning"));
     assert!(stdout.contains("warning knowledgeHealth.brokenReference"));
     assert!(stdout.contains("notes/a.md"));
-    assert!(!root.join(".forma/index.summary.json").exists());
 
     std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
-fn init_create_list_and_inspect_use_operation_json_without_persistent_index() {
+fn init_create_list_and_inspect_use_operation_json() {
     let root = fixture_root("starter-flow");
     let home = fixture_root("starter-flow-home-without-git-config");
     std::fs::create_dir_all(&root).unwrap();
@@ -128,14 +127,13 @@ fn init_create_list_and_inspect_use_operation_json_without_persistent_index() {
     assert!(init_stdout.contains(r#""operation":"init""#));
     assert!(init_stdout.contains(r#""status":"passed""#));
     assert!(root.join(FORMA_CONFIG_PATH).is_file());
-    assert!(!root.join(".forma/index.summary.json").exists());
     assert!(root.join("notes").is_dir());
 
     let create = forma(&root)
         .env("HOME", &home)
         .args([
             "create",
-            "todos",
+            "tasks",
             "--input",
             "title=User Registration",
             "--json",
@@ -151,17 +149,20 @@ fn init_create_list_and_inspect_use_operation_json_without_persistent_index() {
     let create_stdout = String::from_utf8_lossy(&create.stdout);
     assert!(create_stdout.contains(r#""operation":"create""#));
     assert!(create_stdout.contains(r#""status":"passed""#));
-    assert!(!create_stdout.contains(r#""index""#));
-    assert!(!root.join(".forma/index.summary.json").exists());
-    assert!(root.join("todos/user-registration.md").is_file());
+    assert!(root.join("tasks/user-registration.md").is_file());
     assert!(
-        std::fs::read_to_string(root.join("todos/user-registration.md"))
+        std::fs::read_to_string(root.join("tasks/user-registration.md"))
             .unwrap()
-            .contains("kind: todo")
+            .contains("kind: task")
+    );
+    assert!(
+        std::fs::read_to_string(root.join("tasks/user-registration.md"))
+            .unwrap()
+            .contains("readiness: \"needs-refinement\"")
     );
 
     let list = forma(&root)
-        .args(["list", "--space", "todos", "--json"])
+        .args(["list", "--space", "tasks", "--json"])
         .output()
         .expect("forma list should run");
 
@@ -172,10 +173,10 @@ fn init_create_list_and_inspect_use_operation_json_without_persistent_index() {
     );
     let list_stdout = String::from_utf8_lossy(&list.stdout);
     assert!(list_stdout.contains(r#""operation":"list""#));
-    assert!(list_stdout.contains(r#""path":"todos/user-registration.md""#));
+    assert!(list_stdout.contains(r#""path":"tasks/user-registration.md""#));
 
     let inspect = forma(&root)
-        .args(["inspect", "--space", "todos", "user-registration", "--json"])
+        .args(["inspect", "--space", "tasks", "user-registration", "--json"])
         .output()
         .expect("forma inspect should run");
 
@@ -303,9 +304,53 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
         .output()
         .expect("forma list --space design should run");
     assert!(design_list.status.success());
-    assert!(!root.join(".forma/index.summary.json").exists());
     let design_stdout = String::from_utf8_lossy(&design_list.stdout);
     assert!(design_stdout.contains(r#""path":"knowledge/design/"#));
+}
+
+#[test]
+fn starter_workspace_config_exposes_expected_spaces_and_excludes_legacy_todos_users() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let workspace = root.join("examples/forma-starter-kit");
+    let workspace = workspace
+        .to_str()
+        .expect("workspace path should be valid UTF-8");
+    let output = forma(&root)
+        .args(["--workspace", workspace, "config", "inspect", "--json"])
+        .output()
+        .expect("forma --workspace examples/forma-starter-kit config inspect should run");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let config_stdout: Value =
+        serde_json::from_slice(&output.stdout).expect("config inspect output should be valid JSON");
+    assert_eq!(
+        config_stdout["operation"],
+        Value::String("config.inspect".to_string())
+    );
+    let config_spaces = config_stdout
+        .get("config")
+        .and_then(Value::as_object)
+        .and_then(|config| config.get("spaces").and_then(Value::as_object))
+        .expect("config JSON should contain spaces");
+
+    for space in [
+        "notes",
+        "tasks",
+        "members",
+        "decisions",
+        "proposals",
+        "guidelines",
+    ] {
+        assert!(config_spaces.contains_key(space));
+    }
+    for space in ["todos", "users"] {
+        assert!(!config_spaces.contains_key(space));
+    }
 }
 
 #[test]
@@ -327,7 +372,6 @@ fn repository_check_json_reports_no_reference_regressions() {
     assert!(stdout.contains(r#""status":"passed"#));
     assert!(!stdout.contains(r#""code":"ref.unresolved"#));
     assert!(!stdout.contains(r#""code":"schema.ref.invalid"#));
-    assert!(!root.join(".forma/index.summary.json").exists());
 }
 
 #[test]
@@ -342,7 +386,6 @@ fn tasks_list_and_inspect_read_task_metadata() {
 
 workspace:
   name: "Task Inventory"
-  root: "."
   canonicalLanguage: "en"
   supportedLanguages:
     - "en"
@@ -442,8 +485,6 @@ assignees:
     assert!(inspect_stdout.contains(r#""priority":"P0""#));
     assert!(inspect_stdout.contains(r#""owner":"Tiscs""#));
 
-    assert!(!root.join(".forma/index.summary.json").exists());
-
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -459,7 +500,6 @@ fn board_show_groups_tasks_by_delivery_columns() {
 
 workspace:
   name: "Task Board"
-  root: "."
   canonicalLanguage: "en"
   supportedLanguages:
     - "en"
@@ -576,7 +616,6 @@ readiness: blocked
     assert!(stdout.contains(r#""path":"knowledge/tasks/alpha.md""#));
     assert!(stdout.contains(r#""path":"knowledge/tasks/bravo.md""#));
     assert!(stdout.contains(r#""path":"knowledge/tasks/charlie.md""#));
-    assert!(!root.join(".forma/index.summary.json").exists());
 
     let backlog_index = stdout.find(r#""id":"backlog""#).unwrap();
     let ready_index = stdout.find(r#""id":"ready""#).unwrap();
@@ -803,7 +842,6 @@ fn knowledge_health_warning_fixture(name: &str) -> std::path::PathBuf {
 
 workspace:
   name: "Knowledge Health"
-  root: "."
   canonicalLanguage: "en"
   supportedLanguages:
     - "en"

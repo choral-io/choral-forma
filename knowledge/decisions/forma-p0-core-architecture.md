@@ -113,10 +113,10 @@ Use TypeScript, React, and Vite for the P0 WebApp. Keep frontend code in a root 
 
 P0 should distinguish repository source files from runtime diagnostic results. The first public implementation does not use a committed discovery index.
 
-Optional local configuration:
+Optional local configuration, loaded only through `.forma.yml` include patterns:
 
 ```text
-.forma/overrides/local.yml
+.forma/local/*.yml
 ```
 
 Future local caches:

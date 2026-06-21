@@ -1410,20 +1410,20 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
             root.join("notes/source.md"),
-            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\nOwner: [[users/tiscs|Tiscs]].\n",
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\nOwner: [[members/tiscs|Tiscs]].\n",
         )
         .unwrap();
         fs::write(
-            root.join("users/tiscs.md"),
-            "---\nkind: user\nname: Tiscs\nrole: Developer\n---\n\n# Tiscs\n",
+            root.join("members/tiscs.md"),
+            "---\nkind: member\nname: Tiscs\nrole: Developer\n---\n\n# Tiscs\n",
         )
         .unwrap();
 
         let result = render_file(&root, "notes/source.md", "html").unwrap();
 
         let html = result.render.html.as_deref().unwrap_or_default();
-        assert!(html.contains(r#"<a href="./users/tiscs.md">Tiscs</a>"#));
-        assert!(!html.contains(r#"href="users/tiscs""#));
+        assert!(html.contains(r#"<a href="./members/tiscs.md">Tiscs</a>"#));
+        assert!(!html.contains(r#"href="members/tiscs""#));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1607,7 +1607,7 @@ mod tests {
                 .iter()
                 .map(|column| column.field.as_str())
                 .collect::<Vec<_>>(),
-            vec!["fields.title", "fields.summary", "fields.updatedAt"]
+            vec!["fields.title", "fields.summary", "fields.createdAt"]
         );
         assert!(items.is_empty());
 
@@ -1635,7 +1635,7 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         create_entry(
             &root,
-            "todos",
+            "tasks",
             BTreeMap::from([
                 (
                     "title".to_string(),
@@ -1646,7 +1646,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = render_view(&root, "todos", BTreeMap::new()).unwrap();
+        let result = render_view(&root, "tasks", BTreeMap::new()).unwrap();
         let Some(ViewRenderOutput::Kanban { columns }) = result.render else {
             panic!("expected kanban render");
         };
@@ -1673,7 +1673,7 @@ mod tests {
         .unwrap();
         create_entry(
             &root,
-            "todos",
+            "tasks",
             BTreeMap::from([
                 (
                     "title".to_string(),
@@ -1695,7 +1695,7 @@ mod tests {
         };
 
         assert_eq!(items.len(), 1);
-        assert_eq!(items[0].path, "todos/draft-brief.md");
+        assert_eq!(items[0].path, "tasks/draft-brief.md");
         assert_eq!(items[0].title.as_deref(), Some("Draft brief"));
         assert_eq!(items[0].fields["status"], "doing");
 
@@ -1747,35 +1747,35 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         fs::write(
-            root.join("users/mira-chen.md"),
-            "---\nkind: user\nname: Mira Chen\n---\n\n# Mira Chen\n",
+            root.join("members/mira-chen.md"),
+            "---\nkind: member\nname: Mira Chen\n---\n\n# Mira Chen\n",
         )
         .unwrap();
         fs::write(
-            root.join("todos/connect-related-pages.md"),
-            "---\nkind: todo\ntitle: Connect Related Pages\nassignees:\n  - users/mira-chen.md\n---\n\n# Connect Related Pages\n\nSee [[users/mira-chen]].\n",
+            root.join("tasks/connect-related-pages.md"),
+            "---\nkind: task\ntitle: Connect Related Pages\nassignees:\n  - members/mira-chen.md\n---\n\n# Connect Related Pages\n\nSee [[members/mira-chen]].\n",
         )
         .unwrap();
         fs::write(
-            root.join(".forma/views/people-graph.md"),
-            "---\nkind: view\nmode: graph\ntitle: People Graph\nsource:\n  type: pages\ngraph:\n  edges:\n    - source: fields\n      field: assignees\n      label: assigned to\n---\n\n# People Graph\n\n<!-- forma:content -->\n",
+            root.join(".forma/views/members-graph.md"),
+            "---\nkind: view\nmode: graph\ntitle: Members Graph\nsource:\n  type: pages\ngraph:\n  edges:\n    - source: fields\n      field: assignees\n      label: assigned to\n---\n\n# Members Graph\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 
-        let result = render_view(&root, "people-graph", BTreeMap::new()).unwrap();
+        let result = render_view(&root, "members-graph", BTreeMap::new()).unwrap();
         let Some(ViewRenderOutput::Graph { nodes, edges }) = result.render else {
             panic!("expected graph render");
         };
 
         assert_eq!(nodes.len(), 2);
         assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].source, "todos/connect-related-pages.md");
-        assert_eq!(edges[0].target, "users/mira-chen.md");
+        assert_eq!(edges[0].source, "tasks/connect-related-pages.md");
+        assert_eq!(edges[0].target, "members/mira-chen.md");
         assert_eq!(edges[0].intent, ReferenceIntent::Reference);
         assert_eq!(edges[0].reference_source, ReferenceSource::Frontmatter);
         assert_eq!(edges[0].field.as_deref(), Some("assignees"));
         assert_eq!(edges[0].label, "assigned to");
-        assert_eq!(edges[0].semantic_type.as_deref(), Some("user"));
+        assert_eq!(edges[0].semantic_type.as_deref(), Some("member"));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1843,7 +1843,7 @@ mod tests {
         .unwrap();
         create_entry(
             &root,
-            "todos",
+            "tasks",
             BTreeMap::from([
                 (
                     "title".to_string(),
@@ -1854,18 +1854,18 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            root.join(".forma/views/active-todos.md"),
-            "---\nkind: view\nmode: table\ntitle: Active Todos\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - todos\nquery:\n  all:\n    - field: fields.status\n      op: in\n      value: [todo, doing]\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Active Todos\n\n<!-- forma:content -->\n",
+            root.join(".forma/views/active-tasks.md"),
+            "---\nkind: view\nmode: table\ntitle: Active Tasks\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - tasks\nquery:\n  all:\n    - field: fields.status\n      op: in\n      value: [todo, doing]\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Active Tasks\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 
-        let result = render_view(&root, "active-todos", BTreeMap::new()).unwrap();
+        let result = render_view(&root, "active-tasks", BTreeMap::new()).unwrap();
         let Some(ViewRenderOutput::Table { items, .. }) = result.render else {
             panic!("expected table render");
         };
 
         assert_eq!(items.len(), 1);
-        assert_eq!(items[0].path, "todos/draft-brief.md");
+        assert_eq!(items[0].path, "tasks/draft-brief.md");
         assert_eq!(items[0].fields["fields.title"], "Draft brief");
 
         fs::remove_dir_all(root).unwrap();
@@ -1903,7 +1903,7 @@ mod tests {
         init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
         create_entry(
             &root,
-            "todos",
+            "tasks",
             BTreeMap::from([
                 (
                     "title".to_string(),
@@ -1914,12 +1914,12 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            root.join(".forma/views/active-todos.md"),
-            "---\nkind: view\nmode: table\ntitle: Active Todos\nquery:\n  all:\n    - target: fields.status\n      op: equals\n      value: doing\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Active Todos\n\n<!-- forma:content -->\n",
+            root.join(".forma/views/active-tasks.md"),
+            "---\nkind: view\nmode: table\ntitle: Active Tasks\nquery:\n  all:\n    - target: fields.status\n      op: equals\n      value: doing\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Active Tasks\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 
-        let result = render_view(&root, "active-todos", BTreeMap::new()).unwrap();
+        let result = render_view(&root, "active-tasks", BTreeMap::new()).unwrap();
 
         assert_eq!(result.status, crate::OperationStatus::Failed);
         assert!(

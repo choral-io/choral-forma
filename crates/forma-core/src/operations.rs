@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 use thiserror::Error;
 
-use crate::config::{ConfigError, LoadMode, WorkspaceConfig, WorkspaceSettings, load_workspace};
+use crate::config::{
+    ConfigError, LoadMode, WorkspaceConfig, WorkspaceSettings, config_source_paths, load_workspace,
+};
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::index::{
     IndexEntry, IndexReference, ReferenceIntent, ReferenceSource, config_error_diagnostic,
@@ -16,8 +18,7 @@ use crate::index::{
 };
 use crate::markdown::FormaMarkdownDocument;
 use crate::path::{
-    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_LOCAL_OVERRIDES_PATH,
-    FORMA_VIEWS_DIR, PathError, WorkspacePath,
+    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_VIEWS_DIR, PathError, WorkspacePath,
 };
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
@@ -533,8 +534,11 @@ pub fn init_workspace(
         ".forma/spaces/templates",
         FORMA_VIEWS_DIR,
         "notes",
-        "todos",
-        "users",
+        "tasks",
+        "members",
+        "decisions",
+        "proposals",
+        "guidelines",
     ] {
         fs::create_dir_all(root.join(directory)).map_err(|source| OperationError::Io {
             path: directory.to_string(),
@@ -549,7 +553,7 @@ pub fn init_workspace(
         &starter_config_yml(name, language, &timezone),
         &mut created,
     )?;
-    for (path, source) in starter_space_nodes() {
+    for (path, source) in starter_support_nodes() {
         write_file(root, &path, source, &mut created)?;
     }
     for (path, source) in starter_templates() {
@@ -851,7 +855,9 @@ pub fn inspect_config(
     path: Option<&str>,
 ) -> Result<ConfigInspectResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::WithLocalOverrides)?;
-    let path = path.map(validate_config_inspect_path).transpose()?;
+    let path = path
+        .map(|path| validate_config_inspect_path(root.as_ref(), path))
+        .transpose()?;
     let mut diagnostics = workspace.diagnostics;
     diagnostics.sort_by_key(|diagnostic| {
         (
@@ -1830,23 +1836,35 @@ fn value_at_path<'a>(value: &'a Value, field: &str) -> Option<&'a Value> {
 }
 
 fn config_sources(root: &Path) -> Vec<ConfigSource> {
-    [
-        (FORMA_CONFIG_PATH, ConfigSourceKind::Shared),
-        (FORMA_LOCAL_OVERRIDES_PATH, ConfigSourceKind::Local),
-    ]
-    .into_iter()
-    .map(|(path, kind)| ConfigSource {
-        path: path.to_string(),
-        kind,
-        present: root.join(path).exists(),
-    })
-    .collect()
+    config_source_paths(root, LoadMode::WithLocalOverrides)
+        .unwrap_or_else(|_| {
+            vec![crate::config::ConfigSourcePath {
+                path: FORMA_CONFIG_PATH.to_string(),
+                local: false,
+                present: root.join(FORMA_CONFIG_PATH).exists(),
+            }]
+        })
+        .into_iter()
+        .map(|source| ConfigSource {
+            path: source.path,
+            kind: if source.local {
+                ConfigSourceKind::Local
+            } else {
+                ConfigSourceKind::Shared
+            },
+            present: source.present,
+        })
+        .collect()
 }
 
-fn validate_config_inspect_path(path: &str) -> Result<String, OperationError> {
+fn validate_config_inspect_path(root: &Path, path: &str) -> Result<String, OperationError> {
     let path = WorkspacePath::parse_cli(path)?;
     let path = path.as_str();
-    if matches!(path, FORMA_CONFIG_PATH | FORMA_LOCAL_OVERRIDES_PATH) {
+    let inspectable = config_source_paths(root, LoadMode::WithLocalOverrides)
+        .unwrap_or_default()
+        .into_iter()
+        .any(|source| source.path == path);
+    if inspectable {
         Ok(path.to_string())
     } else {
         Err(OperationError::ConfigPathNotInspectable(path.to_string()))
@@ -1867,6 +1885,12 @@ fn inspect_config_value(
         path: path.to_string(),
         source,
     })?;
+    if media_type_for_workspace_path(path) == Some("text/markdown") {
+        return Ok(FormaMarkdownDocument::parse(&source)
+            .frontmatter
+            .value
+            .unwrap_or(Value::Null));
+    }
     serde_yml::from_str(&source).map_err(|source| OperationError::Io {
         path: path.to_string(),
         source: std::io::Error::new(std::io::ErrorKind::InvalidData, source),
@@ -1903,15 +1927,14 @@ fn collect_workspace_files_inner(root: &Path, dir: &Path, files: &mut Vec<Worksp
 
 fn should_skip_file_dir(name: &str, path: &Path) -> bool {
     matches!(name, ".git" | "target" | "node_modules")
-        || path.ends_with(FORMA_LOCAL_OVERRIDES_PATH)
         || path.components().any(|component| {
             component.as_os_str() == "local"
                 && path.components().any(|part| part.as_os_str() == FORMA_DIR)
         })
 }
 
-fn should_skip_workspace_file(_name: &str, path: &Path) -> bool {
-    path.ends_with(FORMA_LOCAL_OVERRIDES_PATH)
+fn should_skip_workspace_file(_name: &str, _path: &Path) -> bool {
+    false
 }
 
 fn workspace_file_from_path(root: &Path, path: PathBuf) -> Option<WorkspaceFile> {
@@ -2080,15 +2103,31 @@ fn starter_config_yml(name: &str, language: &str, timezone: &str) -> String {
         .replace("__TIMEZONE__", &yaml_string(timezone))
 }
 
-fn starter_space_nodes() -> Vec<(String, &'static str)> {
+fn starter_support_nodes() -> Vec<(String, &'static str)> {
     vec![
+        (".forma/dashboard.md".to_string(), STARTER_DASHBOARD_MD),
         (
             ".forma/spaces/index.md".to_string(),
             STARTER_SPACES_INDEX_MD,
         ),
         (".forma/spaces/notes.md".to_string(), STARTER_NOTES_TERM_MD),
-        (".forma/spaces/todos.md".to_string(), STARTER_TODOS_TERM_MD),
-        (".forma/spaces/users.md".to_string(), STARTER_USERS_TERM_MD),
+        (".forma/spaces/tasks.md".to_string(), STARTER_TASKS_TERM_MD),
+        (
+            ".forma/spaces/members.md".to_string(),
+            STARTER_MEMBERS_TERM_MD,
+        ),
+        (
+            ".forma/spaces/decisions.md".to_string(),
+            STARTER_DECISIONS_TERM_MD,
+        ),
+        (
+            ".forma/spaces/proposals.md".to_string(),
+            STARTER_PROPOSALS_TERM_MD,
+        ),
+        (
+            ".forma/spaces/guidelines.md".to_string(),
+            STARTER_GUIDELINES_TERM_MD,
+        ),
     ]
 }
 
@@ -2099,12 +2138,24 @@ fn starter_templates() -> Vec<(String, &'static str)> {
             "---\nkind: note\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
         ),
         (
-            ".forma/spaces/templates/todo.md".to_string(),
-            "---\nkind: todo\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\npriority: \"{{ input.priority }}\"\nassignees: []\ndueDate: \"{{ input.dueDate }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
+            ".forma/spaces/templates/task.md".to_string(),
+            "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\nreadiness: \"{{ input.readiness }}\"\npriority: \"{{ input.priority }}\"\nowners: []\nassignees: []\nreviewers: []\nblocked_by: []\ndueDate: \"{{ input.dueDate }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
         ),
         (
-            ".forma/spaces/templates/user.md".to_string(),
-            "---\nkind: user\nname: \"{{ input.name }}\"\ndescription: \"{{ input.description }}\"\nresponsibilities: \"{{ input.responsibilities }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.name }}\n",
+            ".forma/spaces/templates/member.md".to_string(),
+            "---\nkind: member\nname: \"{{ input.name }}\"\ndescription: \"{{ input.description }}\"\nresponsibilities: \"{{ input.responsibilities }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.name }}\n",
+        ),
+        (
+            ".forma/spaces/templates/decision.md".to_string(),
+            "---\nkind: decision\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\nowners: []\nreviewers: []\nrelated_to: []\ndecidedAt: \"{{ input.decidedAt }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n\n## Context\n\n## Decision\n\n## Consequences\n",
+        ),
+        (
+            ".forma/spaces/templates/proposal.md".to_string(),
+            "---\nkind: proposal\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\nowners: []\nassignees: []\nreviewers: []\nrelated_to: []\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n\n## Problem\n\n## Proposed Change\n\n## Expected Outcome\n",
+        ),
+        (
+            ".forma/spaces/templates/guideline.md".to_string(),
+            "---\nkind: guideline\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nowners: []\nreviewers: []\nrelated_to: []\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n\n## When To Use This\n\n## Guidance\n",
         ),
     ]
 }
@@ -2113,15 +2164,27 @@ fn starter_views() -> Vec<(String, &'static str)> {
     vec![
         (
             format!("{FORMA_VIEWS_DIR}/notes.md"),
-            "---\nschemaVersion: 1\nkind: view\nmode: table\ntitle: Notes\ndisplay:\n  order: 30\ndescription: Starter guide pages.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - notes\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n    - field: fields.summary\n      label: Summary\n    - field: fields.updatedAt\n      label: Updated\nsort:\n  - field: fields.updatedAt\n    direction: desc\n  - field: fields.createdAt\n    direction: desc\n---\n\n# Notes\n\nBrowse starter guide pages.\n\n<!-- forma:content -->\n",
+            "---\nschemaVersion: 1\nkind: view\nmode: table\ntitle: Notes\ndisplay:\n  order: 30\ndescription: Starter guide and feature demonstration notes.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - notes\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n    - field: fields.summary\n      label: Summary\n    - field: fields.createdAt\n      label: Created\nsort:\n  - field: fields.createdAt\n    direction: desc\n---\n\n# Notes\n\nBrowse guide and feature demonstration pages as a structured table.\n\n<!-- forma:content -->\n",
         ),
         (
-            format!("{FORMA_VIEWS_DIR}/todos.md"),
-            "---\nschemaVersion: 1\nkind: view\nmode: kanban\ntitle: Todos\ndisplay:\n  order: 50\ndescription: Example onboarding tasks.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - todos\nkanban:\n  card:\n    titleField: fields.title\n    subtitleFields:\n      - fields.summary\n      - fields.assignees\n    badgeFields:\n      - fields.priority\n      - fields.dueDate\n  columns:\n    - id: todo\n      label: To Do\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: todo\n      sort:\n        - field: fields.priority\n          order:\n            - high\n            - medium\n            - low\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: doing\n      label: Doing\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: doing\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: done\n      label: Done\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: done\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n---\n\n# Todos\n\nTrack onboarding tasks by workflow state.\n\n<!-- forma:content -->\n",
+            format!("{FORMA_VIEWS_DIR}/tasks.md"),
+            "---\nschemaVersion: 1\nkind: view\nmode: kanban\ntitle: Tasks\ndisplay:\n  order: 50\ndescription: Example work tracked with status, readiness, and review fields.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - tasks\nkanban:\n  card:\n    titleField: fields.title\n    subtitleFields:\n      - fields.summary\n      - fields.owners\n      - fields.assignees\n    badgeFields:\n      - fields.priority\n      - fields.readiness\n      - fields.dueDate\n  columns:\n    - id: todo\n      label: To Do\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: todo\n      sort:\n        - field: fields.priority\n          order:\n            - high\n            - medium\n            - low\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: ready\n      label: Ready\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: ready\n      sort:\n        - field: fields.priority\n          order:\n            - high\n            - medium\n            - low\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: doing\n      label: Doing\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: doing\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: blocked\n      label: Blocked\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: blocked\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: reviewing\n      label: Reviewing\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: reviewing\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: done\n      label: Done\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: done\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n---\n\n# Tasks\n\nTrack example work by workflow state.\n\n<!-- forma:content -->\n",
         ),
         (
-            format!("{FORMA_VIEWS_DIR}/users.md"),
-            "---\nschemaVersion: 1\nkind: view\nmode: table\ntitle: Users\ndisplay:\n  order: 60\ndescription: Example people referenced by tasks and pages.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - users\ntable:\n  columns:\n    - field: fields.name\n      label: Name\n    - field: fields.description\n      label: Description\n    - field: fields.updatedAt\n      label: Updated\nsort:\n  - field: fields.name\n    direction: asc\n---\n\n# Users\n\nBrowse people referenced by pages.\n\n<!-- forma:content -->\n",
+            format!("{FORMA_VIEWS_DIR}/members.md"),
+            "---\nschemaVersion: 1\nkind: view\nmode: table\ntitle: Members\ndisplay:\n  order: 60\ndescription: Example team members referenced by the starter workspace.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - members\ntable:\n  columns:\n    - field: fields.name\n      label: Name\n    - field: fields.description\n      label: Description\n    - field: fields.responsibilities\n      label: Responsibilities\nsort:\n  - field: fields.name\n    direction: asc\n---\n\n# Members\n\nList example team members referenced by starter tasks and pages.\n\n<!-- forma:content -->\n",
+        ),
+        (
+            format!("{FORMA_VIEWS_DIR}/guide.md"),
+            "---\nschemaVersion: 1\nkind: view\nmode: graph\ntitle: Guide\ndisplay:\n  order: 20\ndescription: Graph links between the starter guide pages.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - notes\n---\n\n# Guide\n\nFocus the graph on guide pages so the starter tour is easier to follow.\n\n<!-- forma:content -->\n",
+        ),
+        (
+            format!("{FORMA_VIEWS_DIR}/recent.md"),
+            "---\nschemaVersion: 1\nkind: view\nmode: list\ntitle: Recent\ndisplay:\n  order: 40\ndescription: Recently updated starter pages across the main workspace spaces.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - notes\n      - tasks\n      - members\n      - decisions\n      - proposals\n      - guidelines\nsort:\n  - field: fields.updatedAt\n    direction: desc\n  - field: fields.createdAt\n    direction: desc\n---\n\n# Recent\n\nReview recently updated starter pages without changing the underlying files.\n\n<!-- forma:content -->\n",
+        ),
+        (
+            format!("{FORMA_VIEWS_DIR}/graph.md"),
+            "---\nschemaVersion: 1\nkind: view\nmode: graph\ntitle: Graph\ndisplay:\n  order: 10\ndescription: Graph links across notes, tasks, members, decisions, proposals, and guidelines.\nsource:\n  type: pages\ngraph:\n  edges:\n    - source: body\n      intent: link\n      label: links to\n    - source: body\n      intent: embed\n      label: embeds\n    - source: fields\n      field: owners\n      label: owned by\n    - source: fields\n      field: assignees\n      label: assigned to\n    - source: fields\n      field: reviewers\n      label: reviewed by\n    - source: fields\n      field: blocked_by\n      label: blocked by\n    - source: fields\n      field: related_to\n      label: related to\n---\n\n# Graph\n\nExplore how pages connect across the starter workspace.\n\n<!-- forma:content -->\n",
         ),
     ]
 }
@@ -2211,7 +2274,6 @@ const STARTER_SETTINGS_YML: &str = r#"schemaVersion: 1
 
 workspace:
   name: __WORKSPACE_NAME__
-  root: "."
   canonicalLanguage: __LANGUAGE__
   supportedLanguages:
     - __LANGUAGE__
@@ -2234,6 +2296,41 @@ runtime:
       kind: gitConfig
       key: user.name
       transform: slugify
+"#;
+
+const STARTER_DASHBOARD_MD: &str = r#"---
+schemaVersion: 1
+kind: dashboard
+title: Dashboard
+sections:
+  - id: overview
+    title: Workspace overview
+    source:
+      type: workspace
+    display:
+      order: 10
+
+  - id: recent
+    title: Recent pages
+    source:
+      type: view
+      view: ".forma/views/recent.md"
+    display:
+      order: 20
+
+  - id: health
+    title: Knowledge health
+    source:
+      type: diagnostics
+    display:
+      order: 30
+---
+
+# {{ workspace.name }}
+
+Use the dashboard to scan recent pages, workspace health, and configured views.
+
+<!-- forma:content -->
 "#;
 
 const STARTER_SPACES_INDEX_MD: &str = r#"---
@@ -2294,20 +2391,57 @@ Starter guide pages and lightweight knowledge notes.
 <!-- forma:content -->
 "#;
 
-const STARTER_TODOS_TERM_MD: &str = r#"---
+const STARTER_TASKS_TERM_MD: &str = r#"---
 schemaVersion: 1
 kind: term
 taxonomy: spaces
-title: Todos
+title: Tasks
 display:
   order: 20
-description: Example onboarding and workspace setup tasks.
+description: Delivery tasks tracked as ordinary Markdown pages.
+schema:
+  type: object
+  fields:
+    kind:
+      type: string
+    title:
+      type: string
+    summary:
+      type: string
+    status:
+      type: string
+    readiness:
+      type: string
+    priority:
+      type: string
+    owners:
+      type: list
+      items:
+        type: ref
+        target: member
+    assignees:
+      type: list
+      items:
+        type: ref
+        target: member
+    reviewers:
+      type: list
+      items:
+        type: ref
+        target: member
+    blocked_by:
+      type: list
+      items:
+        type: ref
+        target: task
+    dueDate:
+      type: string
 include:
-  - "todos/**/*.md"
+  - "tasks/**/*.md"
 create:
-  directory: "todos"
+  directory: "tasks"
   filename: "{{ input.slug }}.md"
-  template: ".forma/spaces/templates/todo.md"
+  template: ".forma/spaces/templates/task.md"
   inputs:
     title:
       required: true
@@ -2323,8 +2457,26 @@ create:
       options:
         - value: todo
           label: To Do
+        - value: ready
+          label: Ready
         - value: doing
           label: Doing
+        - value: blocked
+          label: Blocked
+        - value: reviewing
+          label: Reviewing
+        - value: done
+          label: Done
+    readiness:
+      type: select
+      default: needs-refinement
+      options:
+        - value: needs-refinement
+          label: Needs Refinement
+        - value: ready
+          label: Ready
+        - value: blocked
+          label: Blocked
         - value: done
           label: Done
     priority:
@@ -2337,7 +2489,16 @@ create:
           label: Medium
         - value: low
           label: Low
+    owners:
+      type: list
+      default: []
     assignees:
+      type: list
+      default: []
+    reviewers:
+      type: list
+      default: []
+    blocked_by:
       type: list
       default: []
     dueDate:
@@ -2354,27 +2515,42 @@ conventions:
   updatedAtField: fields.updatedAt
 ---
 
-# Todos
+# Tasks
 
-Example onboarding and workspace setup tasks.
+Delivery tasks tracked as ordinary Markdown pages.
 
 <!-- forma:content -->
 "#;
 
-const STARTER_USERS_TERM_MD: &str = r#"---
+const STARTER_MEMBERS_TERM_MD: &str = r#"---
 schemaVersion: 1
 kind: term
 taxonomy: spaces
-title: Users
+title: Members
 display:
   order: 30
-description: Example people referenced by tasks and pages.
+description: Team members referenced by tasks, proposals, and shared notes.
+schema:
+  type: object
+  fields:
+    kind:
+      type: string
+    name:
+      type: string
+    description:
+      type: string
+    responsibilities:
+      type: string
+    createdAt:
+      type: string
+    updatedAt:
+      type: string
 include:
-  - "users/**/*.md"
+  - "members/**/*.md"
 create:
-  directory: "users"
+  directory: "members"
   filename: "{{ input.slug }}.md"
-  template: ".forma/spaces/templates/user.md"
+  template: ".forma/spaces/templates/member.md"
   inputs:
     name:
       required: true
@@ -2397,9 +2573,276 @@ conventions:
   updatedAtField: fields.updatedAt
 ---
 
-# Users
+# Members
 
-Example people referenced by tasks and pages.
+Team members referenced by tasks, proposals, and shared notes.
+
+<!-- forma:content -->
+"#;
+
+const STARTER_DECISIONS_TERM_MD: &str = r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Decisions
+display:
+  order: 40
+description: Short decision records that explain why the workspace is set up this way.
+schema:
+  type: object
+  fields:
+    kind:
+      type: string
+    title:
+      type: string
+    summary:
+      type: string
+    status:
+      type: string
+    owners:
+      type: list
+      items:
+        type: ref
+        target: member
+    reviewers:
+      type: list
+      items:
+        type: ref
+        target: member
+    related_to:
+      type: list
+      items:
+        type: ref
+    decidedAt:
+      type: string
+    createdAt:
+      type: string
+    updatedAt:
+      type: string
+include:
+  - "decisions/**/*.md"
+create:
+  directory: "decisions"
+  filename: "{{ input.slug }}.md"
+  template: ".forma/spaces/templates/decision.md"
+  inputs:
+    title:
+      required: true
+    summary:
+      default: ""
+    slug:
+      type: string
+      default: "{{ input.title }}"
+      transform: slugify
+    status:
+      type: select
+      default: accepted
+      options:
+        - value: proposed
+          label: Proposed
+        - value: accepted
+          label: Accepted
+        - value: superseded
+          label: Superseded
+    owners:
+      type: list
+      default: []
+    reviewers:
+      type: list
+      default: []
+    related_to:
+      type: list
+      default: []
+    decidedAt:
+      default: "{{ runtime.values.currentDateTime }}"
+    createdAt:
+      default: "{{ runtime.values.currentDateTime }}"
+    updatedAt:
+      default: "{{ runtime.values.currentDateTime }}"
+conventions:
+  titleField: fields.title
+  summaryField: fields.summary
+  createdAtField: fields.createdAt
+  updatedAtField: fields.updatedAt
+---
+
+# Decisions
+
+Short decision records that explain why the workspace is set up this way.
+
+<!-- forma:content -->
+"#;
+
+const STARTER_PROPOSALS_TERM_MD: &str = r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Proposals
+display:
+  order: 50
+description: Reviewable changes that may later become notes, tasks, or decisions.
+schema:
+  type: object
+  fields:
+    kind:
+      type: string
+    title:
+      type: string
+    summary:
+      type: string
+    status:
+      type: string
+    owners:
+      type: list
+      items:
+        type: ref
+        target: member
+    assignees:
+      type: list
+      items:
+        type: ref
+        target: member
+    reviewers:
+      type: list
+      items:
+        type: ref
+        target: member
+    related_to:
+      type: list
+      items:
+        type: ref
+    createdAt:
+      type: string
+    updatedAt:
+      type: string
+include:
+  - "proposals/**/*.md"
+create:
+  directory: "proposals"
+  filename: "{{ input.slug }}.md"
+  template: ".forma/spaces/templates/proposal.md"
+  inputs:
+    title:
+      required: true
+    summary:
+      default: ""
+    slug:
+      type: string
+      default: "{{ input.title }}"
+      transform: slugify
+    status:
+      type: select
+      default: proposed
+      options:
+        - value: proposed
+          label: Proposed
+        - value: reviewing
+          label: Reviewing
+        - value: accepted
+          label: Accepted
+    owners:
+      type: list
+      default: []
+    assignees:
+      type: list
+      default: []
+    reviewers:
+      type: list
+      default: []
+    related_to:
+      type: list
+      default: []
+    createdAt:
+      default: "{{ runtime.values.currentDateTime }}"
+    updatedAt:
+      default: "{{ runtime.values.currentDateTime }}"
+conventions:
+  titleField: fields.title
+  summaryField: fields.summary
+  createdAtField: fields.createdAt
+  updatedAtField: fields.updatedAt
+---
+
+# Proposals
+
+Reviewable changes that may later become notes, tasks, or decisions.
+
+<!-- forma:content -->
+"#;
+
+const STARTER_GUIDELINES_TERM_MD: &str = r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Guidelines
+display:
+  order: 60
+description: Operating guidance for running and extending the workspace.
+schema:
+  type: object
+  fields:
+    kind:
+      type: string
+    title:
+      type: string
+    summary:
+      type: string
+    owners:
+      type: list
+      items:
+        type: ref
+        target: member
+    reviewers:
+      type: list
+      items:
+        type: ref
+        target: member
+    related_to:
+      type: list
+      items:
+        type: ref
+    createdAt:
+      type: string
+    updatedAt:
+      type: string
+include:
+  - "guidelines/**/*.md"
+create:
+  directory: "guidelines"
+  filename: "{{ input.slug }}.md"
+  template: ".forma/spaces/templates/guideline.md"
+  inputs:
+    title:
+      required: true
+    summary:
+      default: ""
+    slug:
+      type: string
+      default: "{{ input.title }}"
+      transform: slugify
+    owners:
+      type: list
+      default: []
+    reviewers:
+      type: list
+      default: []
+    related_to:
+      type: list
+      default: []
+    createdAt:
+      default: "{{ runtime.values.currentDateTime }}"
+    updatedAt:
+      default: "{{ runtime.values.currentDateTime }}"
+conventions:
+  titleField: fields.title
+  summaryField: fields.summary
+  createdAtField: fields.createdAt
+  updatedAtField: fields.updatedAt
+---
+
+# Guidelines
+
+Operating guidance for running and extending the workspace.
 
 <!-- forma:content -->
 "#;
@@ -2444,12 +2887,7 @@ mod tests {
                 .iter()
                 .any(|source| source.path == ".forma.yml" && source.present)
         );
-        assert!(
-            result
-                .sources
-                .iter()
-                .any(|source| source.path == ".forma/local/local.yml" && !source.present)
-        );
+        assert!(result.sources.iter().all(|source| source.present));
 
         let narrowed = inspect_config(&root, Some(".forma.yml")).unwrap();
         assert_eq!(
@@ -2478,8 +2916,8 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            root.join("todos/shared.md"),
-            "---\nkind: todo\ntitle: Todo Shared\nsummary: \"\"\nstatus: todo\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Todo Shared\n",
+            root.join("tasks/shared.md"),
+            "---\nkind: task\ntitle: Task Shared\nsummary: \"\"\nstatus: todo\nreadiness: ready\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Task Shared\n",
         )
         .unwrap();
 
@@ -2491,7 +2929,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert!(ids.contains(&"notes--shared"));
-        assert!(ids.contains(&"todos--shared"));
+        assert!(ids.contains(&"tasks--shared"));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -2644,8 +3082,8 @@ include:
 
         for (path, order) in [
             (".forma/spaces/notes.md", 30),
-            (".forma/spaces/todos.md", 10),
-            (".forma/spaces/users.md", 20),
+            (".forma/spaces/tasks.md", 10),
+            (".forma/spaces/members.md", 20),
         ] {
             let source = fs::read_to_string(root.join(path)).unwrap();
             fs::write(
@@ -2683,7 +3121,14 @@ include:
                 .iter()
                 .map(|space| space.id.as_str())
                 .collect::<Vec<_>>(),
-            vec!["todos", "users", "notes"]
+            vec![
+                "tasks",
+                "members",
+                "notes",
+                "decisions",
+                "proposals",
+                "guidelines"
+            ]
         );
         assert_eq!(
             result
@@ -2753,11 +3198,10 @@ include:
     fn create_entry_from_repository_starter_templates_uses_in_memory_index() {
         let root = fixture_root("repository-starter-create");
         copy_dir_all(repository_root().join("examples/forma-starter-kit"), &root).unwrap();
-        let _ = fs::remove_file(root.join(".forma/index.summary.json"));
 
         let result = create_entry(
             &root,
-            "todos",
+            "tasks",
             [(
                 "title".to_string(),
                 Value::String("Review Starter Create".to_string()),
@@ -2765,37 +3209,36 @@ include:
             .into(),
         )
         .unwrap();
-        let source = fs::read_to_string(root.join("todos/review-starter-create.md")).unwrap();
-        assert!(source.contains("kind: todo"));
+        let source = fs::read_to_string(root.join("tasks/review-starter-create.md")).unwrap();
+        assert!(source.contains("kind: task"));
         assert!(source.contains("title: \"Review Starter Create\""));
         assert!(source.contains("assignees: []"));
 
         assert_eq!(result.status, OperationStatus::Passed);
         assert!(result.diagnostics.is_empty());
-        assert!(!root.join(".forma/index.summary.json").exists());
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
-    fn init_workspace_does_not_create_persistent_index_file() {
-        let root = fixture_root("init-no-persistent-index");
+    fn init_workspace_reports_created_files() {
+        let root = fixture_root("init-created-files");
         fs::create_dir_all(&root).unwrap();
 
-        let result = init_workspace(&root, "No Index Workspace", "en", Some("UTC")).unwrap();
+        let result = init_workspace(&root, "Created Files Workspace", "en", Some("UTC")).unwrap();
 
         assert_eq!(result.status, OperationStatus::Passed);
-        assert!(!root.join(".forma/index.summary.json").exists());
+        assert!(result.created.iter().any(|path| path == ".forma.yml"));
         assert!(
-            !result
+            result
                 .created
                 .iter()
-                .any(|path| path == ".forma/index.summary.json")
+                .any(|path| path == ".forma/spaces/tasks.md")
         );
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
-    fn init_create_templates_preserve_entry_kind() {
+    fn init_workspace_includes_template_kinds() {
         let root = fixture_root("init-create-kind");
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Template Kind Test", "en", Some("UTC")).unwrap();
@@ -2812,19 +3255,42 @@ include:
         .unwrap();
         create_entry(
             &root,
-            "todos",
+            "tasks",
             [(
                 "title".to_string(),
-                Value::String("Kinded Todo".to_string()),
+                Value::String("Kinded Task".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap();
+        create_entry(
+            &root,
+            "members",
+            [(
+                "name".to_string(),
+                Value::String("Kinded Member".to_string()),
             )]
             .into(),
         )
         .unwrap();
 
         let note = fs::read_to_string(root.join("notes/kinded-note.md")).unwrap();
-        let todo = fs::read_to_string(root.join("todos/kinded-todo.md")).unwrap();
+        let task = fs::read_to_string(root.join("tasks/kinded-task.md")).unwrap();
+        let member = fs::read_to_string(root.join("members/kinded-member.md")).unwrap();
         assert!(note.contains("kind: note"));
-        assert!(todo.contains("kind: todo"));
+        assert!(task.contains("kind: task"));
+        assert!(task.contains("readiness: \"needs-refinement\""));
+        assert!(member.contains("kind: member"));
+        assert!(root.join(".forma/dashboard.md").is_file());
+        assert!(root.join(".forma/views/tasks.md").is_file());
+        assert!(root.join(".forma/spaces/templates/guideline.md").is_file());
+        assert!(root.join("tasks").is_dir());
+        assert!(root.join("members").is_dir());
+        assert!(root.join("decisions").is_dir());
+        assert!(root.join("proposals").is_dir());
+        assert!(root.join("guidelines").is_dir());
+        assert!(!root.join("todos").exists());
+        assert!(!root.join("users").exists());
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -2927,7 +3393,7 @@ include:
         fs::create_dir_all(&root).unwrap();
         init_workspace(&root, "Local Only Test", "en", Some("UTC")).unwrap();
         fs::create_dir_all(root.join(".forma/local")).unwrap();
-        fs::write(root.join(".forma/local/local.yml"), "spaces: {}\n").unwrap();
+        fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
 
         let result = list_files(&root).unwrap();
 
@@ -2935,7 +3401,7 @@ include:
             !result
                 .files
                 .iter()
-                .any(|file| file.path == ".forma/local/local.yml")
+                .any(|file| file.path == ".forma/local/profile.yml")
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -3277,7 +3743,7 @@ conventions:
 
     #[test]
     fn raw_workspace_path_policy_excludes_local_only_files() {
-        assert!(!is_raw_workspace_path_allowed(".forma/local/local.yml"));
+        assert!(!is_raw_workspace_path_allowed(".forma/local/profile.yml"));
         assert!(!is_raw_workspace_path_allowed(".forma/local/cache.json"));
         assert!(!is_raw_workspace_path_allowed(".forma.yml"));
         assert!(!is_raw_workspace_path_allowed(".forma/assets/logo.svg"));
@@ -3441,7 +3907,6 @@ conventions:
             finding.category == KnowledgeHealthCategory::NoBacklinks
                 && finding.path == "notes/orphan.md"
         }));
-        assert!(!root.join(".forma/index.summary.json").exists());
 
         fs::remove_dir_all(root).unwrap();
     }

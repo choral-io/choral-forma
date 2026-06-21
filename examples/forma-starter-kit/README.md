@@ -1,26 +1,28 @@
 # Choral Forma Starter Kit
 
-This workspace is a small, user-facing starter example for Choral Forma. It is designed to be opened in the read-only WebApp as a guide, setup reference, and feature demonstration.
+This workspace is a small, copyable starter for Choral Forma. It is designed to show how a team can organize notes, tasks, members, decisions, proposals, and guidelines with ordinary Markdown plus a single `.forma.yml` entry point.
 
-If this is your first time opening the starter, begin with `notes/welcome-to-choral-forma.md` and `notes/getting-started.md`. The rest of this README is a compact technical reference for the workspace layout and configuration shape.
+If this is your first time opening the starter, begin with `notes/welcome-to-choral-forma.md` and `notes/getting-started.md`. They introduce the example and show where to start editing it for your own team.
 
-This starter currently represents the target public configuration model. The CLI and WebApp will be refactored next to consume this `.forma.yml` model directly.
-
-It uses ordinary Markdown files plus one explicit `.forma.yml` configuration entry. Supporting templates, taxonomy definitions, dashboard content, and saved views live under `.forma/` by convention, but `.forma/` is just a normal support directory.
+The workspace keeps everything inspectable in the repository. Markdown files hold the content. `.forma/` holds the supporting configuration for spaces, templates, views, and the dashboard.
 
 The example includes:
 
-- `notes/`: guide pages that explain the product surfaces;
+- `notes/`: guide pages that explain the product surfaces and workspace model;
 - `notes/*.zh-hans.md`: Simplified Chinese variants discovered by the `entry-name.lang.md` convention;
-- `todos/`: lightweight onboarding tasks for the kanban view;
-- `users/`: example people referenced by tasks and pages;
+- `tasks/`: example workflow items with ownership, review, readiness, and dependencies;
+- `members/`: example member profiles referenced by tasks and proposals;
+- `decisions/`: short decision records for the starter workspace model;
+- `proposals/`: reviewable proposed changes before they become canonical notes or decisions;
+- `guidelines/`: generic operating guidance for running the workspace;
 - `assets/markdown-hero.png`: an image used by the reader examples;
 - `.forma.yml`: the workspace configuration entry;
 - `.forma/spaces/index.md`: the primary `spaces` taxonomy index page;
-- `.forma/spaces/*.md`: term definitions for Notes, Todos, and Users, including their list-page templates;
+- `.forma/spaces/*.md`: term definitions for the configured spaces and their create flows;
 - `.forma/spaces/templates/`: templates for creating new pages in the spaces taxonomy;
 - `.forma/views/`: saved table, list, kanban, and graph view pages;
-- `.forma/local/*.yml` and `.forma/local/*.md`: local-only configuration nodes loaded after committed configuration.
+- `.forma/profiles/`: committed shared profile examples that are never loaded automatically;
+- `.forma/local/profile.yml`: optional local-only profile selector loaded after committed configuration when present.
 
 Serve it locally with:
 
@@ -28,13 +30,38 @@ Serve it locally with:
 cargo run -p forma-cli -- --workspace examples/forma-starter-kit serve
 ```
 
-The target public release should build its read model by scanning this workspace at serve time. The starter does not use a committed persistent index.
-
-The WebApp owns navigation composition. It can derive the default sidebar from system routes, configured taxonomies, and configured views; the service configuration does not need a navigation node.
+The starter does not use a committed persistent index. The local service rebuilds its read model from the repository files.
 
 The starter declares `en` as the canonical language and `zh-Hans` as an additional supported language. Files such as `notes/getting-started.zh-hans.md` demonstrate the built-in `entry-name.lang.md` discovery rule: the localized file is a language variant of `notes/getting-started.md`, not a separate canonical page. File paths use lowercase language tags for portability; config values use canonical BCP 47 casing.
 
-Included configuration nodes use their configuration path as identity; `kind` describes how the node behaves. Local configuration files use the same node kinds as committed configuration files; their special behavior is load order and local-only storage. They are loaded after committed configuration, so local nodes can add personal views or taxonomy terms without changing the team workspace. If a future local node needs to replace a committed node, it should do so through an explicit target identity rather than by relying on the local file path. Starter local configuration intentionally scans only one directory level so local template or snippet files under nested folders are not loaded as configuration nodes.
+Workspace-level guidelines live in `.forma.yml`, and individual spaces can add more specific guidance. In this starter, the Tasks space adds task-selection guidance on top of the general workspace operations and knowledge-capture notes.
+
+Included configuration nodes use their configuration path as identity; `kind` describes how the node behaves. All persisted configuration file references are workspace-relative POSIX paths resolved from the directory that contains `.forma.yml`, regardless of the file that contains the reference.
+
+Shared profiles under `.forma/profiles/` are committed configuration fragments, not member, group, user, or Agent identities. Forma should not guess which shared profile to load. A local personal profile selector can explicitly select one or more profiles by workspace-relative path:
+
+```yml
+# .forma/local/profile.yml
+schemaVersion: 1
+
+profiles:
+  use:
+    - ".forma/profiles/reviewer.md"
+```
+
+Profiles can use other profiles through the same workspace-relative path syntax:
+
+```yml
+---
+schemaVersion: 1
+kind: profile
+title: Reviewer
+use:
+  - ".forma/profiles/evidence-review.md"
+---
+```
+
+The intended effective order is shared workspace config, selected shared profiles in dependency order, local personal overrides, then runtime values. Local personal overrides still win over selected shared profiles.
 
 Markdown configuration nodes can use `<!-- forma:content -->` as the explicit slot for generated content such as dashboard sections, taxonomy terms, term pages, or view projections. If the slot is omitted, Forma should append the generated content after the Markdown body.
 

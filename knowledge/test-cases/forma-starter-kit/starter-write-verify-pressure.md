@@ -1,0 +1,74 @@
+---
+schemaVersion: 1
+kind: test-case
+title: Starter Write Verify Pressure
+summary: Pressure test that an Agent verifies shared starter knowledge after any approved write.
+scope: starter-kit
+type: pressure
+status: draft
+priority: P1
+automation: manual-agent
+owners:
+    - "members/tiscs"
+tags:
+    - starter-kit
+    - agent
+    - skill
+    - writes
+    - pressure-test
+covers_user_stories: []
+covers_product:
+    - "product/choral-forma"
+related_tasks: []
+---
+
+# Starter Write Verify Pressure
+
+## Purpose
+
+Validate that approved writes to starter knowledge are followed by Forma verification and that the Agent reports diagnostics instead of assuming Markdown edits are correct.
+
+## Preconditions
+
+- The starter config and health contracts pass.
+- The Agent has explicit user approval to make a small shared knowledge edit in a temporary copy of the starter workspace.
+
+## Test Data
+
+Prompt:
+
+> In a temporary copy of the starter workspace, add a short note about how teams should review starter changes. After editing, verify the workspace and report the result.
+
+## Steps
+
+1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
+2. Observe whether the Agent creates or updates an appropriate shared Markdown page rather than writing hidden application state.
+3. Observe whether the Agent classifies the content as a note, proposal, decision, task, or guideline before editing.
+4. Check whether the Agent adds useful links or relationship metadata when relevant.
+5. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> check --json`.
+6. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> knowledge health --json`.
+7. Check whether the Agent fixes diagnostics it caused or clearly reports unresolved diagnostics.
+
+## Expected Results
+
+- Writes remain file-backed Markdown changes in the selected workspace.
+- The Agent uses starter schema and guidelines to choose the target space.
+- Verification commands run after the write.
+- The final answer includes changed paths, command summaries, and any remaining diagnostics.
+
+## Coverage
+
+- Suite index: [[test-cases/forma-starter-kit]]
+- Write boundary.
+- Post-write verification.
+- Knowledge classification.
+- Link and reference hygiene.
+- File-backed source-of-truth behavior.
+
+## Evidence Or Execution Notes
+
+Record the temporary workspace path, edited files, verification summaries, and whether diagnostics were introduced.
+
+## Open Questions
+
+- Should this pressure test be automated with a disposable workspace fixture once create/update commands mature?

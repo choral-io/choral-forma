@@ -5,7 +5,7 @@ mode: graph
 title: Graph
 display:
   order: 10
-description: Graph links across notes, todos, and referenced people.
+description: Graph links across notes, tasks, members, decisions, proposals, and guidelines.
 source:
   type: pages
 graph:
@@ -17,12 +17,24 @@ graph:
       intent: embed
       label: embeds
     - source: fields
+      field: owners
+      label: owned by
+    - source: fields
       field: assignees
       label: assigned to
+    - source: fields
+      field: reviewers
+      label: reviewed by
+    - source: fields
+      field: blocked_by
+      label: blocked by
+    - source: fields
+      field: related_to
+      label: related to
 ---
 
 # Graph
 
-Explore how pages, tasks, and people connect across the starter workspace.
+Explore how pages connect across the starter workspace.
 
 <!-- forma:content -->

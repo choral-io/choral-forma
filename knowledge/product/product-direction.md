@@ -126,69 +126,69 @@ P0 should use a Forma-native YAML Schema DSL as the canonical object constraint 
 
 The Schema DSL should be used wherever Choral Forma needs object structure or field constraints, not only for space entries. Future create inputs, update inputs, view params, workflow inputs, starter manifests, and diagnostics can use the same schema primitives instead of inventing separate constraint syntaxes.
 
-Example P0 starter space:
+Example P0 starter space configuration node at `.forma/spaces/tasks.md`:
 
 ```yaml
-spaces:
-    todos:
-        title: Todos
-        description: Lightweight action items.
-        include: todos/**/*.md
-        template: .forma/templates/todo.md
-        create:
-            directory: todos
-            filename: "{{ input.slug }}.md"
-            inputs:
-                title:
-                    field: title
-                    required: true
-                summary:
-                    field: summary
-                    default: ""
-                slug:
-                    label: Slug
-                    type: string
-                    default: "{{ input.title }}"
-                    transform: slugify
-        conventions:
-            titleField: title
-            summaryField: summary
-            createdAtField: createdAt
-        schema:
-            type: object
-            fields:
-                kind:
-                    type: const
-                    value: todo
-                    required: true
-                title:
-                    type: string
-                    label: Title
-                    required: true
-                summary:
-                    type: string
-                    label: Summary
-                status:
-                    type: enum
-                    enum: todoStatus
-                    label: Status
-                    required: true
-                assignees:
-                    type: list
-                    label: Assignees
-                    items:
-                        type: ref
-                        target: user
+---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Tasks
+description: Delivery tasks tracked as ordinary Markdown pages.
+include:
+    - "tasks/**/*.md"
+create:
+    directory: "tasks"
+    filename: "{{ input.slug }}.md"
+    template: ".forma/spaces/templates/task.md"
+    inputs:
+        title:
+            required: true
+        summary:
+            default: ""
+        slug:
+            type: string
+            default: "{{ input.title }}"
+            transform: slugify
+        status:
+            type: select
+            default: todo
+        readiness:
+            type: select
+            default: needs-refinement
+schema:
+    type: object
+    fields:
+        kind:
+            type: string
+        title:
+            type: string
+        summary:
+            type: string
+        status:
+            type: string
+        readiness:
+            type: string
+        assignees:
+            type: list
+            items:
+                type: ref
+                target: member
+conventions:
+    titleField: fields.title
+    summaryField: fields.summary
+    createdAtField: fields.createdAt
+---
 ```
 
-Space paths such as `template`, `create.directory`, and `create.filename` should be workspace-relative paths, not knowledge wikilinks. The default starter layout above means a todo entry for a user registration task is `todos/user-registration.md`: `todos` is the space id, and `todos/` is the space's default entry directory.
+Space paths such as `template`, `create.directory`, and `create.filename` should be workspace-relative paths, not knowledge wikilinks. The default starter layout above means a task entry for a member registration task is `tasks/user-registration.md`: `tasks` is the space id, and `tasks/` is the space's default entry directory.
 
 Space `schema` should describe entry metadata structure, user-facing labels, and semantic field constraints. Useful P0 field properties include:
 
 ```yaml
 status:
     type: enum
-    enum: todoStatus
+    enum: taskStatus
     label: Status
     description: Current delivery state.
     required: true
@@ -231,28 +231,28 @@ Base types can include strings, numbers, integers, booleans, dates, datetimes, o
 Semantic types can be backed by:
 
 - Static enums declared in configuration, such as status, priority, risk level, or review state.
-- Entries from a space, such as users, customers, accounts, machines, or projects.
+- Entries from a space, such as members, customers, accounts, machines, or projects.
 
-Space-backed types make a space's entries available as a type. For example, a `users` space can define the allowed values for a `user` semantic type. Other schemas can then use that type as a single value, a list value, or a map key or value.
+Space-backed types make a space's entries available as a type. For example, a `members` space can define the allowed values for a `member` semantic type. Other schemas can then use that type as a single value, a list value, or a map key or value.
 
 The MVP type model should support:
 
 ```yaml
 types:
-    todoStatus:
+    taskStatus:
         kind: enum
         values: [todo, doing, done]
 
-    user:
+    member:
         kind: space
-        space: users
+        space: members
         input:
             transform: slugify
 ```
 
 Enum values can start as simple scalar values. Later versions can allow richer value objects with label, icon, color, description, or ordering metadata.
 
-Space-backed types imply knowledge reference behavior. Union types are a useful future capability for closely related reference classes, such as users and groups in an assignee field, but they should not be part of P0. When union types are introduced, they should be constrained enough to remain explainable and should not become a general-purpose way to combine unrelated data shapes.
+Space-backed types imply knowledge reference behavior. Union types are a useful future capability for closely related reference classes, such as members and groups in an assignee field, but they should not be part of P0. When union types are introduced, they should be constrained enough to remain explainable and should not become a general-purpose way to combine unrelated data shapes.
 
 Space-backed types may define input normalization for bare user-entered values:
 
@@ -270,8 +270,8 @@ This applies only while parsing bare GUI, CLI, or Agent input. It does not chang
 Example behavior:
 
 ```text
-Galen -> slugify -> galen -> users/galen.md
-users/Galen -> exact path-like input
+Galen -> slugify -> galen -> members/galen.md
+members/Galen -> exact path-like input
 ```
 
 This is not title search. It only helps map human-entered labels to path ids when the workspace follows slug conventions. P0 should support `slugify` as the only type input transform.
@@ -284,24 +284,24 @@ This lets Choral Forma support many domains without embedding industry-specific 
 
 Choral Forma should distinguish knowledge references from file, resource, and configuration path references.
 
-Knowledge references point to knowledge entries, such as users, groups, projects, tasks, decisions, customers, machines, topics, or other user-defined spaces. Fields with space-backed semantic types are knowledge reference fields.
+Knowledge references point to knowledge entries, such as members, groups, projects, tasks, decisions, customers, machines, topics, or other user-defined spaces. Fields with space-backed semantic types are knowledge reference fields.
 
 Knowledge reference fields should store workspace-relative path-qualified refs in Markdown metadata because the user intent is to refer to a typed knowledge object, not to encode an editor-specific link syntax:
 
 ```yaml
 assignees:
-    - users/tiscs.md
+    - members/tiscs.md
 project: projects/choral-forma.md
 ```
 
 The product should use read-wide, write-strict behavior. GUI, CLI, Agent, and editor-extension writes should always write canonical path refs. If the product chooses to accept manually authored wikilinks in metadata, that should be a reader convenience and health-check surface, not the canonical storage format or a commitment to Obsidian/Foam compatibility.
 
-The resolver scope should come from the field's semantic type. For example, `assignees` can resolve only against allowed user spaces in P0, rather than searching the whole workspace. Ambiguous bare or non-canonical references should produce a health check finding instead of being guessed.
+The resolver scope should come from the field's semantic type. For example, `assignees` can resolve only against allowed member spaces in P0, rather than searching the whole workspace. Ambiguous bare or non-canonical references should produce a health check finding instead of being guessed.
 
 File, resource, and configuration references should also use workspace-relative path strings. Their field schema, not the string syntax, should distinguish them from knowledge entry references:
 
 ```yaml
-template: .forma/templates/task.md
+template: .forma/spaces/templates/task.md
 source_file: attachments/acme-contract.pdf
 ```
 
@@ -330,7 +330,7 @@ The first supported set should include:
 | Markdown link to workspace page | `[Project Brief](notes/project-brief.md)` | Resolve workspace-relative Markdown links into the same reference model as wikilinks. |
 | Markdown link with fragment | `[Goals](notes/project-brief.md#goals)` | Resolve the page and fragment separately. |
 | Resource or attachment link | `[Spec](assets/spec.pdf)` or `!\[\[assets/diagram.png\]\]` | Resolve as a resource target rather than a page target when the path is not an indexed knowledge entry. |
-| Field reference relation | `assignees: [users/tiscs.md]` | Resolve through schema-declared field semantics and record `intent: reference`. |
+| Field reference relation | `assignees: [members/tiscs.md]` | Resolve through schema-declared field semantics and record `intent: reference`. |
 
 The following forms remain tentative until product evidence or implementation constraints justify them:
 
@@ -405,13 +405,16 @@ Recommended P0 minimal starter spaces:
 
 ```text
 notes
-todos
-users
+tasks
+members
+decisions
+proposals
+guidelines
 ```
 
-`notes` represents general knowledge notes. `todos` represents lightweight action items. `users` represents people who can be referenced in the workspace.
+`notes` represents general knowledge notes. `tasks` represents lightweight action items. `members` represents people who can be referenced in the workspace. `decisions` records accepted direction, `proposals` captures reviewable changes, and `guidelines` keeps human- and Agent-readable operating guidance.
 
-The P0 starter should not include `groups` or union semantic types. Groups introduce membership, responsibility, and organizational modeling that should wait until P1. Todo assignment should still be modeled in a future-compatible way:
+The P0 starter should not include `groups` or union semantic types. Groups introduce membership, responsibility, and organizational modeling that should wait until P1. Task assignment should still be modeled in a future-compatible way:
 
 ```yaml
 assignees:
@@ -419,14 +422,14 @@ assignees:
     label: Assignees
     items:
         type: ref
-        target: user
+        target: member
 ```
 
-When groups are added later, the `assignees` field can keep its name and list shape while its item target evolves to an `assignee` union over `user` and `group`.
+When groups are added later, the `assignees` field can keep its name and list shape while its item target evolves to an `assignee` union over `member` and `group`.
 
-The P0 `users` space should keep identity lightweight. A user entry's stable id comes from its path, such as `users/tiscs.md`. P0 should not include a separate `username` field because it would act like a field-level override for path identity. Runtime current-user matching should use the user id directly.
+The P0 `members` space should keep identity lightweight. A member entry's stable id comes from its path, such as `members/tiscs.md`. P0 should not include a separate `username` field because it would act like a field-level override for path identity. Runtime current-member matching should use the member id directly.
 
-`forma init` should not treat the current user as a special system value. If an initial user entry is created during initialization, it should be handled as ordinary starter input and created through the same space create pipeline as any other user entry.
+`forma init` should not treat the current member as a special system value. If an initial member entry is created during initialization, it should be handled as ordinary starter input and created through the same space create pipeline as any other member entry.
 
 ### Product Naming In Workspace Surfaces
 
@@ -507,7 +510,6 @@ assets/
 Local overrides are optional and should be created only when the workspace configuration explicitly includes them. If the conventional `.forma/` support directory is used, it can include a `.gitignore` rule equivalent to:
 
 ```gitignore
-overrides/local.yml
 local/
 ```
 
@@ -515,13 +517,21 @@ Root ignore rules can also provide a safety net. The MVP does not need to create
 
 The core P0 rule is: team shared config defines workspace meaning; local personal config defines private or temporary preference.
 
-Future shared personal configuration can use the same override mechanism when the product has enough committed, non-sensitive personal preferences to justify it. A likely future path is:
+Future shared profile configuration can use committed profile fragments when the product has enough non-sensitive profile preferences to justify it. Shared profiles should not be selected automatically by a built-in user or member identity mechanism. They are committed configuration fragments that a local personal override can explicitly load by workspace-relative path.
+
+A likely future shared profile path is:
 
 ```text
-.forma/overrides/users/<user-id>.yml
+.forma/profiles/<profile-name>.md
 ```
 
-If introduced, shared personal overrides would sit between team shared config and local personal overrides in the merge order.
+If introduced, local personal config would choose whether to load one or more shared profiles. The effective merge order should stay explicit:
+
+```text
+team shared config -> selected shared profiles -> local personal overrides -> runtime values
+```
+
+The profile path is the selection dimension. A workspace may choose to relate profiles to entries in a `members`, `people`, `agents`, or other user-defined space, but Forma should not require or infer that relation from the path.
 
 Strict team enforcement is not an initial requirement. The more important need is a clear merge model and Agent-friendly CLI or skills that can explain the effective configuration, show where each value came from, and check knowledge health, configuration consistency, schema validity, and local override effects.
 
@@ -546,7 +556,7 @@ workspace owns identity, root, language, timezone, and logo.
 runtime owns runtime values.
 Markdown config nodes under .forma/pages/ own page schemas.
 Markdown config nodes under .forma/spaces/ own starter space taxonomy terms.
-Markdown config nodes under .forma/templates/ own create-time content templates.
+Markdown config nodes under .forma/spaces/templates/ own create-time content templates.
 Markdown config nodes under .forma/views/ own saved projection definitions.
 Navigation configuration owns sidebar and prominent route/page/view groups.
 ```
@@ -582,13 +592,13 @@ The view file should be recognizable through explicit frontmatter:
 kind: view
 surface: page
 mode: table
-title: My Todos
-description: Active todos assigned to the current user.
+title: My Tasks
+description: Active tasks assigned to the current member.
 source:
     type: pages
     taxonomy:
         spaces:
-            - todos
+            - tasks
 ---
 ```
 
@@ -599,7 +609,7 @@ source:
     type: pages
     taxonomy:
         spaces:
-            - todos
+            - tasks
 ```
 
 filters recognized pages before query predicates run. This keeps taxonomy filters explicit while avoiding a separate hardcoded `entry.space` field.
@@ -631,9 +641,9 @@ View definitions may support declared parameters. P0 page views may omit paramet
 
 ```yaml
 params:
-    user:
-        label: User
-        type: user
+    member:
+        label: Member
+        type: member
         required: true
         default: "{{ runtime.values.currentUserId }}"
     date:
@@ -649,11 +659,11 @@ Embedded view parameters are required for a useful embed model. Without them, te
 Knowledge documents should be able to embed existing views with Markdown HTML comments:
 
 ```markdown
-<!-- forma-view: user-active-todos user="users/tiscs" -->
+<!-- forma-view: member-active-tasks member="members/tiscs" -->
 <!-- forma-view: project-open-tasks project="{{ params.project }}" -->
 ```
 
-The identifier should resolve to a view file, such as `.forma/views/user-active-todos.md`. Embed arguments should be type-checked against the target view's `view.params`. The initial argument model should stay small: string, number, boolean, date, semantic reference literals, and `{{ ... }}` path placeholders. It should not support expressions, loops, conditions, or complex object literals.
+The identifier should resolve to a view file, such as `.forma/views/member-active-tasks.md`. Embed arguments should be type-checked against the target view's `view.params`. The initial argument model should stay small: string, number, boolean, date, semantic reference literals, and `{{ ... }}` path placeholders. It should not support expressions, loops, conditions, or complex object literals.
 
 Definitions and embeddings are separate concepts:
 
@@ -666,11 +676,11 @@ View queries should operate on normalized entry records, not directly on raw Mar
 
 ```ts
 entry = {
-    path: "todos/review-webapp.md",
+    path: "tasks/review-webapp.md",
     taxonomies: {
-        spaces: ["todos"],
+        spaces: ["tasks"],
     },
-    kind: "todo" | null,
+    kind: "task" | null,
     fields: {},
     refs: {},
     text: {},
@@ -684,7 +694,7 @@ source:
     type: pages
     taxonomy:
         spaces:
-            - todos
+            - tasks
 query:
     all:
         - field: fields.status
@@ -799,12 +809,12 @@ Example kanban configuration:
 kind: view
 surface: page
 mode: kanban
-title: Todos
+title: Tasks
 source:
     type: pages
     taxonomy:
         spaces:
-            - todos
+            - tasks
 kanban:
     card:
         titleField: fields.title
@@ -1023,7 +1033,7 @@ Input resolution should treat inputs as a dependency graph:
 
 Dependencies read another input's final value after its transform. Template and filename rendering happens only after all inputs are resolved.
 
-Semantic field context should control serialization. For example, if `assignees` is a many-valued `user` reference field, a user id can be serialized as a path-qualified user ref. The write should fail before creating an invalid space entry.
+Semantic field context should control serialization. For example, if `assignees` is a many-valued `member` reference field, a member id can be serialized as a path-qualified member ref. The write should fail before creating an invalid space entry.
 
 The MVP should not require bulk creation, loops, executable hooks, overwrite modes, or multi-file transactions.
 
@@ -1036,15 +1046,15 @@ Editing should prefer typed patches first and raw edits second. The product shou
 Examples:
 
 ```sh
-forma set todos/foo.md status doing
-forma add todos/foo.md assignees users/tiscs
-forma remove todos/foo.md assignees users/tiscs
-forma unset todos/foo.md dueDate
+forma set tasks/foo.md status doing
+forma add tasks/foo.md assignees members/tiscs
+forma remove tasks/foo.md assignees members/tiscs
+forma unset tasks/foo.md dueDate
 ```
 
 `set` should replace a single-value field or replace the whole value of a many-valued field. `add` and `remove` should operate on many-valued fields. `unset` should remove a field. A later `clear` command can explicitly set a field to null if that distinction becomes important.
 
-Reference input should be permissive when the field context is known. Users and Agents may provide values such as `tiscs`, `users/tiscs`, or `users/tiscs.md` for an assignees field. Product writes should normalize resolved references to path-qualified refs. Many-valued reference fields should deduplicate by resolved identity, not by raw string.
+Reference input should be permissive when the field context is known. Users and Agents may provide values such as `tiscs`, `members/tiscs`, or `members/tiscs.md` for an assignees field. Product writes should normalize resolved references to path-qualified refs. Many-valued reference fields should deduplicate by resolved identity, not by raw string.
 
 Edits should preserve YAML ordering, unknown fields, comments where practical, and the Markdown body. The product should avoid full-document rewrites for small metadata changes. Validation should run before writing, and force writes should remain out of the MVP.
 
@@ -1076,14 +1086,14 @@ Entry locators should support:
 Recommended Agent-safe form:
 
 ```sh
-forma inspect --space todos user-registration --json
+forma inspect --space tasks user-registration --json
 ```
 
 For space-scoped lookup, `<entry-name>` should mean a file basename without `.md` inside the space's include and exclude result. No-match and multiple-match cases should be errors with suggestions to use a path locator or create a new entry.
 
 Space-scoped bare entry locators may use the corresponding space-backed type input normalization when such a type exists. For example, `forma inspect --space notes "Meeting Notes"` can normalize the bare entry name to `meeting-notes` before exact lookup. Path-like locators remain exact and should not be normalized.
 
-With the starter todos space, `forma inspect todos/user-registration` is a path-like locator for `todos/user-registration.md`, while `forma inspect --space todos user-registration` resolves the same entry through the `todos` space.
+With the starter tasks space, `forma inspect tasks/user-registration` is a path-like locator for `tasks/user-registration.md`, while `forma inspect --space tasks user-registration` resolves the same entry through the `tasks` space.
 
 P0 CLI should prioritize reading, indexing, checking, and inspection before safe write operations, while still including initialization and minimal create so the starter can be used end to end. Required P0 commands:
 
@@ -1114,7 +1124,7 @@ P1:
 
 All read commands should support stable JSON output for GUI and Agent use. Human-oriented output should remain concise and explainable.
 
-`forma init` should create the P0 minimal starter without sample entries, create `.forma.yml` and referenced support files, and fail on path conflicts. `forma create` should use configured create inputs, defaults, transforms, and templates, fail on path conflicts, and report any read-model refresh or persistent-index follow-up explicitly instead of rebuilding automatically.
+`forma init` should create the P0 minimal starter without sample entries, create `.forma.yml` and referenced support files, and fail on path conflicts. `forma create` should use configured create inputs, defaults, transforms, and templates, fail on path conflicts, and rely on subsequent read operations to rebuild their in-memory projections from source files.
 
 CLI confirmation should be based on operation risk. Read-only commands should not ask for confirmation. Single-file, predictable, non-destructive writes can avoid confirmation when they fail on conflicts or invalid inputs. Initialization, physical deletion, path moves or renames that change references, automatic fixes, batch updates, and multi-file or reference-changing writes should require confirmation.
 
@@ -1124,7 +1134,9 @@ In P0, only `forma init` requires confirmation because it creates the starter wo
 
 Entry lifecycle should distinguish knowledge status from file operations.
 
-Lifecycle should remain outside the P0 minimal starter until its field model, view behavior, check behavior, and Agent context behavior are designed together. The product should avoid adding implicit lifecycle semantics to ordinary schema fields. If lifecycle interpretation is introduced later, it should be configured explicitly rather than inferred only from a field name.
+Task workflow state is part of the P0 starter because the starter uses configured `status` and `readiness` fields plus task views to demonstrate lightweight action tracking. Forma should still avoid treating arbitrary fields named `status` as built-in lifecycle semantics; task workflow meaning comes from the starter's configured space, views, and guidelines.
+
+Entry lifecycle operations such as deprecate, archive, delete, move, rename, and merge should remain outside the P0 minimal starter until their field model, view behavior, check behavior, and Agent context behavior are designed together. If entry lifecycle interpretation is introduced later, it should be configured explicitly rather than inferred only from a field name.
 
 Deprecation remains an important future lifecycle operation. A deprecated file should stay at its original path and remain readable, searchable, and directly openable, while future views or context builders can explicitly decide whether to include it.
 
@@ -1152,8 +1164,8 @@ P1 delete behavior should inspect affected references, show the planned change, 
 Path should remain the default entry identity in the MVP. Controlled move and rename commands should be the preferred migration path because they can update references and keep space membership valid:
 
 ```sh
-forma move todos/old-name.md todos/new-name.md
-forma rename --space todos old-name new-name
+forma move tasks/old-name.md tasks/new-name.md
+forma rename --space tasks old-name new-name
 ```
 
 Direct filesystem edits should remain allowed. `forma check` should detect broken references, invalid space membership, ambiguous non-canonical references, stale views, and other consequences before review or commit.
@@ -1186,35 +1198,35 @@ Recommended shape:
     },
     "spaces": [
         {
-            "id": "todos",
-            "title": "Todos",
-            "include": "todos/**/*.md",
+            "id": "tasks",
+            "title": "Tasks",
+            "include": "tasks/**/*.md",
             "entryCount": 1
         }
     ],
     "views": [
         {
-            "id": "todos",
-            "path": ".forma/views/todos.md",
+            "id": "tasks",
+            "path": ".forma/views/tasks.md",
             "surface": "page",
             "mode": "kanban",
-            "space": "todos",
-            "title": "Todos"
+            "space": "tasks",
+            "title": "Tasks"
         }
     ],
     "entries": [
         {
-            "path": "todos/user-registration.md",
-            "space": "todos",
-            "kind": "todo",
+            "path": "tasks/user-registration.md",
+            "space": "tasks",
+            "kind": "task",
             "title": "User registration",
             "summary": "Implement user registration flow.",
             "refs": [
                 {
                     "source": "frontmatter",
                     "field": "assignees",
-                    "targetPath": "users/tiscs.md",
-                    "semanticType": "user",
+                    "targetPath": "members/tiscs.md",
+                    "semanticType": "member",
                     "intent": "reference"
                 },
                 {
@@ -1260,21 +1272,21 @@ Recommended P0 JSON shape:
             "severity": "error",
             "code": "ref.unresolved",
             "message": "Reference cannot be resolved.",
-            "path": "todos/user-registration.md",
+            "path": "tasks/user-registration.md",
             "location": {
                 "kind": "frontmatter",
                 "field": "assignees",
                 "index": 0
             },
-            "actual": "[[users/tics]]",
+            "actual": "[[members/tics]]",
             "expected": {
                 "type": "ref",
-                "target": "user"
+                "target": "member"
             },
             "suggestions": [
                 {
-                    "label": "Use users/tiscs",
-                    "value": "[[users/tiscs]]"
+                    "label": "Use members/tiscs",
+                    "value": "[[members/tiscs]]"
                 }
             ]
         }
@@ -1372,7 +1384,7 @@ The user-facing experience should not require users to understand Git branches, 
 
 ## Open Questions
 
-- What exact P0 starter file contents should initialize `notes`, `todos`, and `users` without constraining advanced workspaces?
+- What exact P0 starter file contents should initialize `notes`, `tasks`, `members`, `decisions`, `proposals`, and `guidelines` without constraining advanced workspaces?
 - What exact P0 Schema DSL, semantic type, template, and view configuration syntax should be implemented first?
 - When should loaders or integrations become necessary beyond declarative space configuration?
 - How should Forma package or expose repository-backed knowledge so operational systems such as Choral Flows can consume it as a Git-backed knowledge source without turning Forma into a Flows backend or losing repository authorship?

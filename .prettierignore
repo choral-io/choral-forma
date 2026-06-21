@@ -17,5 +17,3 @@ node_modules/
 pnpm-lock.yaml
 packages/*/dist/
 packages/*/node_modules/
-
-**/.forma/index.summary.json

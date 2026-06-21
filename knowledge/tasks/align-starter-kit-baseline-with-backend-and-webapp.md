@@ -19,7 +19,7 @@ tags:
     - webapp
 
 effort: L
-status: doing
+status: done
 readiness: ready
 sprint:
 
@@ -105,6 +105,18 @@ It is related to the completed view-source/query alignment work, but it should n
 ## Implementation Notes
 
 - Removed the backend view-query compatibility path that accepted legacy `target` predicates. View query predicates now use the starter-facing `field` key only, and a regression test covers rejection of `target: fields.status`.
+- Reworked `examples/forma-starter-kit/` into the six-space baseline: notes, tasks, members, decisions, proposals, and guidelines. Removed legacy unshipped `todos` and `users` starter assumptions from the example, generator, fixtures, and tests.
+- Added `knowledge/test-cases/forma-starter-kit/` as a project-level evaluation suite so pressure tests and gate cases stay outside the copyable starter workspace.
+- Aligned starter shared profile examples, product notes, and test-case expectations on path-based `.forma/profiles/*.md` fragments selected by local personal config.
+
+## Review Evidence
+
+- `mise run check` passed.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json` passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json` passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- check --json` passed for the project workspace.
+- `git diff --check` passed.
+- Project `knowledge health` still reports 8 existing warning-level graph/connectivity findings outside the starter-kit change scope.
 
 ## Open Questions
 

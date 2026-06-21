@@ -2,7 +2,6 @@ schemaVersion: 1
 
 workspace:
   name: "Choral Forma Project Knowledge"
-  root: "."
   canonicalLanguage: "en"
   supportedLanguages:
     - "en"

@@ -13,8 +13,7 @@ macro_rules! forma_path {
 pub const FORMA_DIR: &str = forma_path!("");
 pub const FORMA_CONFIG_PATH: &str = ".forma.yml";
 pub const FORMA_GITIGNORE_PATH: &str = forma_path!("/.gitignore");
-pub const FORMA_LOCAL_OVERRIDES_PATH: &str = forma_path!("/local/local.yml");
-pub const FORMA_TEMPLATES_DIR: &str = forma_path!("/templates");
+pub const FORMA_TEMPLATES_DIR: &str = forma_path!("/spaces/templates");
 pub const FORMA_VIEWS_DIR: &str = forma_path!("/views");
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

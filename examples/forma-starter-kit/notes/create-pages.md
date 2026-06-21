@@ -17,17 +17,20 @@ Each term can define:
 - which inputs the user or tool should provide;
 - which default values should be filled by runtime helpers.
 
-For example, `.forma/spaces/todos.md` points to `.forma/spaces/templates/todo.md`. The term defines inputs such as title, status, priority, assignees, and due date. The template turns those inputs into ordinary Markdown frontmatter and body content.
+For example, `.forma/spaces/tasks.md` points to `.forma/spaces/templates/task.md`. The term defines inputs such as title, status, readiness, priority, owners, assignees, reviewers, and due date. The template turns those inputs into ordinary Markdown frontmatter and body content.
 
 ```yaml
-kind: todo
+kind: task
 title: "{{ input.title }}"
 status: "{{ input.status }}"
+readiness: "{{ input.readiness }}"
 priority: "{{ input.priority }}"
-assignees: []
+owners: []
 ```
 
-The generated page is still just a Markdown file under `todos/`. It can be edited in a normal editor and later appears in the Todos space and kanban view.
+The generated page is still just a Markdown file under `tasks/`. It can be edited in a normal editor and later appears in the Tasks space and kanban view. Proposal and guideline terms work the same way: the create flow stays visible in the repository instead of hiding inside application state.
+
+Starter task pages can then point directly to operating guidance such as [[guidelines/task-selection|Task Selection]] or decisions such as [[decisions/use-spaces-for-shared-workspace-sections|Use Spaces For Shared Workspace Sections]].
 
 ## Why This Matters
 

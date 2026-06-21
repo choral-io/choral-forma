@@ -72,7 +72,7 @@ P0 should provide enough CLI behavior to create a workspace, create entries, ins
 
 - `forma init` creates the exact P0 starter shape and fails when `.forma/` already exists.
 - `forma init` shows resolved init parameters and requires confirmation before writing in interactive shells; non-interactive usage requires `-y` or `--yes`.
-- `forma create` writes one file from space inputs and template without creating or requiring `.forma/index.summary.json`.
+- `forma create` writes one file from space inputs and template without creating or requiring a persistent index artifact.
 - Inspect and list commands return stable JSON and useful human output.
 - Warnings exit zero and errors exit non-zero according to the P0 operation spec.
 

@@ -2,30 +2,30 @@
 schemaVersion: 1
 kind: view
 mode: table
-title: Users
+title: Members
 display:
   order: 60
-description: Example people referenced by the starter workspace.
+description: Example team members referenced by the starter workspace.
 source:
   type: pages
   taxonomy:
     spaces:
-      - users
+      - members
 table:
   columns:
     - field: fields.name
       label: Name
     - field: fields.description
       label: Description
-    - field: fields.createdAt
-      label: Created
+    - field: fields.responsibilities
+      label: Responsibilities
 sort:
   - field: fields.name
     direction: asc
 ---
 
-# Users
+# Members
 
-List example people referenced by starter tasks and pages.
+List example team members referenced by starter tasks and pages.
 
 <!-- forma:content -->

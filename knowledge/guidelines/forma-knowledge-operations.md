@@ -60,7 +60,7 @@ Agent workflow should be config-driven:
 Do not commit:
 
 - `knowledge/workspace/*/local/`
-- `.forma/local/local.yml`
+- `.forma/local/`
 - `.agents/*/local`
 - `.worktrees/`
 - generated caches such as `target/`, `node_modules/`, package build outputs, or browser state.

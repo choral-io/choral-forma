@@ -16,12 +16,15 @@ Use standard Markdown links when you want editor-agnostic portability:
 
 - [Getting Started](./getting-started.md)
 - [Markdown Reader](./markdown-reader.md)
+- [Workspace Operations](../guidelines/workspace-operations.md)
 
 Use wikilinks when that is natural for your local knowledge workflow:
 
 - [[notes/welcome-to-choral-forma|Welcome to Choral Forma]]
 - [[notes/saved-views|Saved Views]]
-- [[todos/review-starter-workspace|Review Starter Workspace]]
+- [[tasks/review-starter-workspace|Review Starter Workspace]]
+- [[decisions/repository-markdown-is-source-of-truth|Repository Markdown Is The Source Of Truth]]
+- [[proposals/add-weekly-review-rhythm|Add Weekly Review Rhythm]]
 
 ## Backlinks
 

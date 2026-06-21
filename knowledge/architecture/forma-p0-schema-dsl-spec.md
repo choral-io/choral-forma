@@ -64,7 +64,7 @@ schema:
     fields:
         kind:
             type: const
-            value: todo
+            value: task
             required: true
         title:
             type: string
@@ -73,13 +73,13 @@ schema:
             type: string
         status:
             type: enum
-            enum: todoStatus
+            enum: taskStatus
             required: true
         assignees:
             type: list
             items:
                 type: ref
-                target: user
+                target: member
         dueDate:
             type: date
         createdAt:
@@ -104,11 +104,14 @@ Example:
 ---
 schemaVersion: 1
 kind: semantic-type
-title: Todo Status
+title: Task Status
 type: enum
 values:
     - todo
+    - ready
     - doing
+    - blocked
+    - reviewing
     - done
 ---
 ```
@@ -126,59 +129,54 @@ P0 should keep matching explicit and deterministic:
 
 A P0 space definition combines file inclusion, create behavior, runtime schema, and display conventions.
 
-Example shape:
+Example `.forma/spaces/tasks.md` shape:
 
 ```yaml
-spaces:
-    todos:
-        title: Todos
-        include: todos/**/*.md
-        template: .forma/templates/todo.md
-        create:
-            directory: todos
-            filename: "{{ input.slug }}.md"
-            inputs:
-                title:
-                    field: title
-                    required: true
-                summary:
-                    field: summary
-                    default: ""
-                slug:
-                    label: Slug
-                    type: string
-                    default: "{{ input.title }}"
-                    transform: slugify
-        conventions:
-            titleField: title
-            summaryField: summary
-            createdAtField: createdAt
-        schema:
-            type: object
-            fields:
-                kind:
-                    type: const
-                    value: todo
-                    required: true
-                title:
-                    type: string
-                    required: true
-                summary:
-                    type: string
-                status:
-                    type: enum
-                    enum: todoStatus
-                    required: true
-                assignees:
-                    type: list
-                    items:
-                        type: ref
-                        target: user
-                dueDate:
-                    type: date
-                createdAt:
-                    type: datetime
-                    readonly: true
+---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Tasks
+include:
+    - "tasks/**/*.md"
+create:
+    directory: "tasks"
+    filename: "{{ input.slug }}.md"
+    template: ".forma/spaces/templates/task.md"
+    inputs:
+        title:
+            required: true
+        summary:
+            default: ""
+        slug:
+            type: string
+            default: "{{ input.title }}"
+            transform: slugify
+schema:
+    type: object
+    fields:
+        kind:
+            type: string
+        title:
+            type: string
+        summary:
+            type: string
+        status:
+            type: string
+        assignees:
+            type: list
+            items:
+                type: ref
+                target: member
+        dueDate:
+            type: string
+        createdAt:
+            type: string
+conventions:
+    titleField: fields.title
+    summaryField: fields.summary
+    createdAtField: fields.createdAt
+---
 ```
 
 `include`, `template`, `create.directory`, and generated filenames are workspace-relative POSIX-style paths. Forma should reject absolute paths, `..` traversal, home expansion, and platform-specific persisted separators in configuration.
@@ -235,14 +233,14 @@ P0 runtime value provider kinds:
 
 `transform` is allowed on runtime value providers. If a required runtime value cannot be resolved, operations that only need a warning should continue with a `runtime.value.unresolved` warning. Operations that require the value to complete must fail with a diagnostic.
 
-Local overrides use the same configuration shape. For example, `.forma/overrides/local.yml` may override `runtime.values.currentUserId` with `kind: const`. P0 does not need a separate allow/deny override policy for runtime values.
+Local overrides use the same configuration shape and are discovered only when `.forma.yml` includes matching local files such as `.forma/local/*.yml`. For example, an included `.forma/local/profile.yml` may override `runtime.values.currentUserId` with `kind: const`. P0 does not need a separate allow/deny override policy for runtime values.
 
 ## Placeholders
 
 P0 supports simple `{{ path.to.value }}` placeholders only in Forma-controlled surfaces:
 
 - Configuration values that explicitly allow placeholders.
-- Templates under `.forma/templates/`.
+- Templates under `.forma/spaces/templates/`.
 - View parameters and future embedded-view arguments.
 
 P0 placeholders do not support expressions, arithmetic, conditions, loops, includes, functions, default operators, filters, or arbitrary code execution. Ordinary Markdown body text is inert unless it appears inside a Forma-controlled template or explicit Forma directive surface.

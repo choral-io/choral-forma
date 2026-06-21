@@ -13,32 +13,92 @@ tags:
 
 ## Goal
 
-Define the concrete P0 starter workspace created by `forma init`. The starter should demonstrate Forma's Markdown-first knowledge model, thin spaces, Forma Schema DSL, semantic types, create templates, and page views without introducing P1 workflow machinery.
+Define the P0 starter workspace shape for Choral Forma.
 
-This specification closes the starter-content question in [Product direction](product-direction.md) while staying inside [Forma P0 core architecture](../decisions/forma-p0-core-architecture.md).
+`examples/forma-starter-kit/` is the accepted copyable example workspace baseline. `forma init` should generate a smaller empty workspace that uses the same core configuration model, spaces, templates, and view semantics without copying the full sample content set.
 
-## Current Baseline
+This starter specification stays aligned with [Product direction](product-direction.md) and [Forma P0 core architecture](../decisions/forma-p0-core-architecture.md).
 
-As of the current starter-kit design pass, `examples/forma-starter-kit/` is the evaluation baseline for the first public configuration shape. The example is a user-facing guide and feature demonstration, not a test fixture and not mock data embedded in product code.
+## Baseline
 
-The starter kit should be stabilized first. The backend, WebApp contracts, and documentation should then be refactored backward from this example. Existing implementation code and older product documentation may still lag behind this baseline.
+The starter baseline is include-driven and Markdown-first:
 
-The current starter shape uses one root configuration entry:
+- `.forma.yml` is the single committed configuration entry point.
+- `.forma/` is a conventional support directory for dashboard, spaces, templates, views, and local-only overrides. It is not a hidden workspace root or persistent store.
+- Markdown under content directories remains the source of truth.
+- No committed persistent index is part of the starter.
+- `workspace.root` is not part of the config model and must not be generated.
+
+The accepted starter spaces are:
+
+- `notes`
+- `tasks`
+- `members`
+- `decisions`
+- `proposals`
+- `guidelines`
+
+Legacy `todos` and `users` spaces are not part of the starter baseline and must not appear in generated starter output.
+
+## Task Lifecycle
+
+Starter task configuration uses these status values:
+
+- `todo`
+- `ready`
+- `doing`
+- `blocked`
+- `reviewing`
+- `done`
+
+Starter task readiness uses these values:
+
+- `needs-refinement`
+- `ready`
+- `blocked`
+- `done`
+
+`status` represents workflow state. `readiness` represents executability.
+
+## Languages
+
+The committed example workspace demonstrates canonical `en` content plus `zh-Hans` variants where useful for the starter tour.
+
+`forma init --language <lang>` may continue to initialize a single configured language in `.forma.yml`. It does not need to generate multilingual starter content by default.
+
+## Generated `forma init` Scope
+
+`forma init` should create:
+
+- `.forma.yml`
+- `.forma/.gitignore`
+- `.forma/dashboard.md`
+- `.forma/spaces/index.md`
+- `.forma/spaces/{notes,tasks,members,decisions,proposals,guidelines}.md`
+- `.forma/spaces/templates/{note,task,member,decision,proposal,guideline}.md`
+- `.forma/views/{graph,guide,recent,notes,tasks,members}.md`
+- empty content directories for `notes`, `tasks`, `members`, `decisions`, `proposals`, and `guidelines`
+
+`forma init` does not need to copy:
+
+- sample notes, tasks, members, decisions, proposals, or guidelines from `examples/forma-starter-kit`
+- example assets such as logo files
+- workspace-level guideline pages
+- a committed index or hidden state store
+
+## Config Shape
+
+Generated `.forma.yml` uses include-based config:
 
 ```yaml
 schemaVersion: 1
 
 workspace:
-    name: "Choral Forma Example"
-    root: "."
-    canonicalLanguage: "en"
+    name: Acme Knowledge
+    canonicalLanguage: en
     supportedLanguages:
-        - "en"
-        - "zh-Hans"
-    timezone: "UTC"
-    logo:
-        path: "assets/logo.svg"
-        alt: "Choral Forma Example"
+        - en
+    timezone: UTC
 
 include:
     - ".forma/dashboard.md"
@@ -59,453 +119,26 @@ runtime:
             transform: slugify
 ```
 
-Important constraints:
+`workspace.timezone` is stored explicitly. `forma init` may resolve it from the current environment when the user does not pass a timezone.
 
-- `.forma.yml` is the main configuration entry.
-- `.forma/` is a conventional support directory, not a privileged workspace root.
-- `.forma/dashboard.md`, `.forma/spaces/*.md`, and `.forma/views/*.md` are Markdown configuration nodes: frontmatter is configuration and the Markdown body is the node's render template.
-- `<!-- forma:content -->` is the generated-content slot. If the slot is omitted, Forma may append generated content after the node body.
-- `.forma/local/*.yml` and `.forma/local/*.md` are local-only extension points loaded after committed configuration files.
-- Starter templates are colocated near the taxonomy that owns the create flow, such as `.forma/spaces/templates/todo.md`. Template files do not need a `kind` field.
-- The starter does not use `navigation.yml`, `types.yml`, `definitions.yml`, `pageTypes`, `render/*.md`, or a committed persistent index.
+## Templates And Views
 
-The configured "Spaces" experience is produced by a taxonomy node at `.forma/spaces/index.md` and term nodes such as `.forma/spaces/notes.md`. It is not a hardcoded product concept.
+Starter space terms define the create flow directly in `.forma/spaces/*.md`, and starter templates live in `.forma/spaces/templates/`.
 
-Views are Markdown configuration nodes under `.forma/views/` by convention. Ordinary projections use `source.type: pages`. Taxonomy filters use list values:
+The generated starter should expose:
 
-```yaml
-source:
-    type: pages
-    taxonomy:
-        spaces:
-            - notes
-```
+- note, task, member, decision, proposal, and guideline create templates;
+- a task kanban view using the status lifecycle above;
+- notes and members table views;
+- graph, guide, and recent-work views;
+- a dashboard that surfaces workspace overview, recent pages, and knowledge health.
 
-View field references currently use explicit binding paths such as `fields.title`, `fields.updatedAt`, and `fields.status`. This is a starter-kit baseline, not a final runtime object model decision. The runtime binding model should be revisited during the backend and WebApp refactor.
+The generated workspace can stay empty. The committed example workspace remains the richer demo and smoke-validation baseline.
 
-Create templates use simple `{{ ... }}` interpolation in frontmatter and Markdown body content:
+The committed example workspace may include `.forma/profiles/*.md` shared profile examples for evaluation. Generated `forma init` output does not need to create shared profiles by default, and Forma must not load a shared profile unless local personal configuration explicitly selects it by workspace-relative path.
 
-```yaml
----
-title: "{{ input.title }}"
-assignees: []
-createdAt: "{{ input.createdAt }}"
-updatedAt: "{{ input.updatedAt }}"
----
-# {{ input.title }}
-```
+## Local-Only Boundary
 
-Initial transform helpers should stay small and reviewable. The P0 starter currently depends on `slugify`; more helpers should be added only when the starter or create flows need them.
+The starter should reserve `.forma/local/` for local-only overrides and keep it out of commits via `.forma/.gitignore`.
 
-The starter demonstrates multilingual variants with `en` and `zh-Hans`. Configuration values use BCP 47 casing such as `zh-Hans`; filename suffixes use lowercase such as `welcome-to-choral-forma.zh-hans.md`. The `entry-name.<language>.md` convention can identify variants without requiring extra frontmatter. Explicit variant metadata can be added later for content that cannot use the naming convention.
-
-Read-model lists, space counts, and saved view results should treat the canonical-language page as the page identity. Other language files are variants of that canonical page and should not appear as separate primary pages. Listed canonical pages should expose the available variant languages and variant file paths so the WebApp can signal localized coverage without adding separate page rows. A later WebApp language switcher can choose which variant supplies display text for a listed page; when the selected language variant is missing, the canonical page remains the fallback.
-
-## Outdated Sections
-
-The sections below preserve earlier starter-spec material and are due for cleanup after the starter-kit baseline is accepted. When they conflict with the current baseline above, the current baseline wins.
-
-## Scope
-
-The P0 starter includes only these spaces:
-
-- `notes`: general knowledge notes.
-- `todos`: lightweight action items.
-- `users`: people who can be referenced by other entries.
-
-The starter must not include:
-
-- `groups`.
-- Union semantic types.
-- Lifecycle, deprecation, archive, delete, move, or rename behavior.
-- `.forma/schemas/`.
-- `.forma/local/` by default.
-- Local overrides by default.
-- Sample entries by default.
-- Executable hooks, scripts, plugins, or custom template functions.
-
-## Starter File Tree
-
-`forma init --name "Acme Knowledge" --language en` should create a starter workspace from the settings-driven configuration model. The exact starter can evolve, but the target shape is:
-
-```text
-.forma.yml
-.forma/
-  templates/
-    note.md
-    todo.md
-    user.md
-  views/
-    notes.md
-    todos.md
-    users.md
-assets/
-notes/
-todos/
-users/
-```
-
-The content directories are created so editors can display the intended workspace shape, but the starter does not need to create sample entries. `forma init` should not require a committed index file in the first public release. `forma serve` can build the read model in memory at startup.
-
-## Local-Only Ignores
-
-The starter should include local-only boundaries without making `.forma/` a privileged hidden store. If the starter uses `.forma/` for support files, it can commit `.forma/.gitignore` with:
-
-```gitignore
-local/
-```
-
-## `.forma.yml`
-
-`.forma.yml` is the main configuration entry. It owns workspace identity, runtime values, taxonomies, views, navigation, dashboard sections, and includes. The initialized file should contain concrete values from `forma init` inputs and the detected current environment timezone:
-
-```yaml
-schemaVersion: 1
-
-workspace:
-    name: Acme Knowledge
-    root: .
-    canonicalLanguage: en
-    supportedLanguages:
-        - en
-    timezone: Asia/Shanghai
-
-include:
-    - .forma/dashboard.md
-    - .forma/spaces/*.md
-    - .forma/views/*.md
-    - .forma/local/*.yml
-    - .forma/local/*.md
-
-runtime:
-    values:
-        currentDate:
-            kind: currentDate
-        currentDateTime:
-            kind: currentDateTime
-        workspaceRoot:
-            kind: workspaceRoot
-        currentUserId:
-            kind: gitConfig
-            key: user.name
-            transform: slugify
-
-navigation:
-    - type: route
-      title: Dashboard
-      path: /
-    - type: route
-      title: Pages
-      path: /pages
-    - type: group
-      title: Spaces
-      source:
-          type: taxonomy
-          taxonomy: spaces
-    - type: group
-      title: Views
-      source:
-          type: views
-```
-
-`currentUserId` is a runtime value, not a special user system concept. If the workspace creates an initial user entry during initialization in the future, that entry should be produced through the ordinary `users` space create flow.
-
-`workspace.timezone` is an explicit workspace behavior setting. Time field types such as `date` and `datetime` do not carry timezone metadata in the field definition itself. Runtime values such as `currentDate` and `currentDateTime` should use the effective workspace timezone when deriving workspace-local values.
-
-Persisted `date` values use `YYYY-MM-DD`. Persisted `datetime` values must be RFC3339 timestamps with explicit timezone information, either `Z` or a numeric offset such as `+08:00`. CLI and GUI input surfaces may accept local datetime input without an offset, but must interpret it with `workspace.timezone` and write an explicit RFC3339 timestamp. Offset-less persisted datetime strings such as `2026-05-19T10:30:00` are invalid.
-
-`forma init` may default `workspace.timezone` from the current environment's timezone, but the generated workspace should still store the resolved timezone explicitly in `.forma.yml`.
-
-`forma init` is a write-heavy operation and should require explicit confirmation. Unless the user passes `-y` or `--yes`, interactive shells should show the resolved workspace name, language, timezone, and a summary of the starter files and directories that will be created before asking for confirmation. Non-interactive shells such as CI should fail without writing files unless `-y` or `--yes` is provided.
-
-## Included Markdown Configuration
-
-The starter "Spaces" experience should be a configured taxonomy projection, not a hardcoded core partition. P0 starter configuration uses included Markdown nodes under `.forma/spaces/` for taxonomy terms. Each term node carries frontmatter configuration and a normal Markdown body with a `<!-- forma:content -->` mount.
-
-### `.forma/spaces/todos.md`
-
-```markdown
----
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Todos
-display:
-    order: 20
-description: Lightweight action items.
-include:
-    - todos/**/*.md
-create:
-    directory: todos
-    filename: "{{ input.slug }}.md"
-    template: .forma/spaces/templates/todo.md
-    inputs:
-        title:
-            required: true
-        summary:
-            default: ""
-        slug:
-            type: string
-            default: "{{ input.title }}"
-            transform: slugify
-        status:
-            type: select
-            default: todo
-            options:
-                - value: todo
-                  label: To Do
-                - value: doing
-                  label: Doing
-                - value: done
-                  label: Done
-        priority:
-            type: select
-            default: medium
-            options:
-                - value: high
-                  label: High
-                - value: medium
-                  label: Medium
-                - value: low
-                  label: Low
-        assignees:
-            type: list
-            default: []
-        dueDate:
-            type: date
-            default: ""
-        createdAt:
-            default: "{{ runtime.values.currentDateTime }}"
-        updatedAt:
-            default: "{{ runtime.values.currentDateTime }}"
-conventions:
-    titleField: fields.title
-    summaryField: fields.summary
-    createdAtField: fields.createdAt
-    updatedAtField: fields.updatedAt
----
-
-# Todos
-
-<!-- forma:content -->
-```
-
-The current backend may synthesize compatibility semantic types from included `taxonomy: spaces` terms until the final runtime object model is designed. For example, the `users` term can back the current `user` reference target used by starter todo assignees. P0 must not add a separate `username` field or a union type for assignees.
-
-## Templates
-
-Templates use simple `{{ ... }}` path placeholders only. They do not support functions, filters, loops, conditionals, includes, shell execution, JavaScript, or arbitrary expressions.
-
-### `.forma/spaces/templates/note.md`
-
-```markdown
----
-kind: note
-title: "{{ input.title }}"
-summary: "{{ input.summary }}"
-createdAt: "{{ input.createdAt }}"
-updatedAt: "{{ input.updatedAt }}"
----
-
-# {{ input.title }}
-```
-
-### `.forma/spaces/templates/todo.md`
-
-```markdown
----
-kind: todo
-title: "{{ input.title }}"
-summary: "{{ input.summary }}"
-status: "{{ input.status }}"
-priority: "{{ input.priority }}"
-assignees: []
-dueDate: "{{ input.dueDate }}"
-createdAt: "{{ input.createdAt }}"
-updatedAt: "{{ input.updatedAt }}"
----
-
-# {{ input.title }}
-```
-
-### `.forma/spaces/templates/user.md`
-
-```markdown
----
-kind: user
-name: "{{ input.name }}"
-description: "{{ input.description }}"
-responsibilities: "{{ input.responsibilities }}"
-createdAt: "{{ input.createdAt }}"
-updatedAt: "{{ input.updatedAt }}"
----
-
-# {{ input.name }}
-```
-
-## P0 Page Views
-
-P0 starter views are managed projection definitions referenced by `.forma.yml`. The starter may store them under `.forma/views/` by convention. Views should filter by taxonomy terms or explicit query predicates, not by a hardcoded `entry.space` field.
-
-### `.forma/views/notes.md`
-
-```markdown
----
-kind: view
-surface: page
-mode: table
-title: Notes
-description: General knowledge notes.
-source:
-    type: pages
-    taxonomy:
-        spaces:
-            - notes
-table:
-    columns:
-        - field: fields.title
-          label: Title
-        - field: fields.summary
-          label: Summary
-        - field: fields.createdAt
-          label: Created
-sort:
-    - field: fields.createdAt
-      direction: desc
----
-
-# Notes
-
-<!-- forma:content -->
-```
-
-### `.forma/views/todos.md`
-
-```markdown
----
-kind: view
-surface: page
-mode: kanban
-title: Todos
-description: Lightweight action items.
-source:
-    type: pages
-    taxonomy:
-        spaces:
-            - todos
-kanban:
-    card:
-        titleField: fields.title
-        subtitleFields:
-            - fields.summary
-            - fields.assignees
-        badgeFields:
-            - fields.dueDate
-    columns:
-        - id: todo
-          label: To Do
-          query:
-              all:
-                  - field: fields.status
-                    op: equals
-                    value: todo
-        - id: doing
-          label: Doing
-          query:
-              all:
-                  - field: fields.status
-                    op: equals
-                    value: doing
-        - id: done
-          label: Done
-          query:
-              all:
-                  - field: fields.status
-                    op: equals
-                    value: done
----
-
-# Todos
-
-<!-- forma:content -->
-```
-
-P0 GUI is read-only. Kanban drag/drop mutation semantics such as `onDrop.set` are intentionally left for a later write-capable surface.
-
-### `.forma/views/users.md`
-
-```markdown
----
-kind: view
-surface: page
-mode: table
-title: Users
-description: People referenced by this workspace.
-source:
-    type: pages
-    taxonomy:
-        spaces:
-            - users
-table:
-    columns:
-        - field: fields.name
-          label: Name
-        - field: fields.description
-          label: Description
-        - field: fields.createdAt
-          label: Created
-sort:
-    - field: fields.name
-      direction: asc
----
-
-# Users
-
-<!-- forma:content -->
-```
-
-### Candidate `.forma/views/knowledge-graph.md`
-
-After graph rendering and workspace-scope view sources exist, initialized workspaces can include a built-in global graph view. This view is not a cross-space table query; it renders the repository reference graph over a file scope.
-
-```markdown
----
-kind: view
-surface: page
-mode: graph
-title: Knowledge Graph
-description: Repository-wide knowledge graph.
-source:
-    type: pages
-graph:
-    edges:
-        - source: body
-          intent: link
-          label: links to
-        - source: body
-          intent: embed
-          label: embeds
-        - source: fields
-          field: assignees
-          label: assigned to
----
-
-# Knowledge Graph
-
-<!-- forma:content -->
-```
-
-## Behavior
-
-`forma init` should:
-
-1. Fail if `.forma/` already exists.
-2. Require confirmation in CLI adapters unless `-y` or `--yes` is provided.
-3. Create the starter file tree.
-4. Render concrete `.forma.yml` values from init inputs.
-5. Create no sample entries.
-6. Create no `.forma/local/` or `.forma/overrides/local.yml`.
-
-`forma create <space>` should use the target space's create inputs, create filename rule, and template. It should fail on path conflicts and leave the read model to be rebuilt in memory by the next operation or server refresh.
-
-`forma serve` should expose the starter spaces and page views through the read-only local WebApp. The P0 WebApp should guide users toward structured navigation through views and spaces, while still providing a file navigation mode for uncatalogued Markdown and configuration visibility. It may inspect and render knowledge files, spaces, views, diagnostics, configuration, file inventory, and index status, but it must not edit files or configuration.
+No starter behavior should depend on `.forma/` being treated as a privileged root or hidden database.

@@ -1010,7 +1010,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::GET)
-                    .uri("/notes/users/workspace-note")
+                    .uri("/notes/members/workspace-note")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -1099,7 +1099,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::GET)
-                    .uri("/forma/notes/users/workspace-note")
+                    .uri("/forma/notes/members/workspace-note")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -1259,8 +1259,8 @@ mod tests {
         let root = fixture_root("raw-route-local-only");
         fs::create_dir_all(&root).unwrap();
         forma_core::init_workspace(&root, "Raw Route Local Only", "en", Some("UTC")).unwrap();
-        fs::create_dir_all(root.join(".forma/overrides")).unwrap();
-        fs::write(root.join(".forma/overrides/local.yml"), "spaces: {}\n").unwrap();
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
 
         let app = rpc_router_with_dispatcher_and_workspace(
             None,
@@ -1274,7 +1274,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/.forma/overrides/local.yml")
+                    .uri("/forma/raw/.forma/local/profile.yml")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -1290,9 +1290,8 @@ mod tests {
         let root = fixture_root("raw-route-local-only-case");
         fs::create_dir_all(&root).unwrap();
         forma_core::init_workspace(&root, "Raw Route Local Only Case", "en", Some("UTC")).unwrap();
-        fs::create_dir_all(root.join(".forma/overrides")).unwrap();
         fs::create_dir_all(root.join(".forma/local")).unwrap();
-        fs::write(root.join(".forma/overrides/local.yml"), "spaces: {}\n").unwrap();
+        fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
         fs::write(root.join(".forma/local/secret.png"), b"\x89PNG\r\n\x1a\n").unwrap();
 
         let app = rpc_router_with_dispatcher_and_workspace(
@@ -1305,7 +1304,7 @@ mod tests {
         .unwrap();
 
         for uri in [
-            "/forma/raw/.FORMA/overrides/local.yml",
+            "/forma/raw/.FORMA/local/profile.yml",
             "/forma/raw/.FORMA/local/secret.png",
         ] {
             let response = app

@@ -57,7 +57,7 @@ For Agent-assisted write, review, or task operations, use `cargo run -q -p forma
 ## Writing and Operation Boundaries
 
 - Do not write shared knowledge, `.forma.yml`, `.forma/spaces/*.md`, or task metadata directly without explicit user approval.
-- Do not write to `knowledge/workspace/*/local/`, `.forma/local/local.yml`, generated caches, or worktree-only state in commits.
+- Do not write to `knowledge/workspace/*/local/`, `.forma/local/`, generated caches, or worktree-only state in commits.
 - Keep `.agents` state, browser state, and local `.local` paths out of git history.
 
 ## Local-Only Workflow Material
@@ -66,7 +66,7 @@ The repo keeps local working context under:
 
 - `knowledge/workspace/*/local/`
 - `.worktrees/`
-- `.forma/local/local.yml` (when present)
+- `.forma/local/` (when present)
 - `target/` and other generated caches
 
 These are not committed and not required for active runtime instructions.
