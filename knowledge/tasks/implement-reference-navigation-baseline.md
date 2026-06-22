@@ -18,7 +18,7 @@ tags:
 
 effort: M
 status: done
-readiness: needs-refinement
+readiness: ready
 sprint:
 
 blocked_by: []

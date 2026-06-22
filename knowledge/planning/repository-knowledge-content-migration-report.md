@@ -47,3 +47,17 @@ The follow-up normalization task [[tasks/normalize-repository-forma-knowledge-he
 - `forma knowledge health --json`: passed with 0 warnings
 
 The resolved warnings were relationship-density warnings rather than broken or ambiguous references. They were fixed with meaningful related-knowledge links and one dependency-review guidance link.
+
+## Starter-Kit Alignment Pass
+
+The starter-kit validation pass confirmed that `examples/forma-starter-kit` remains clean enough to serve as the product-level evaluation fixture before continuing current repository migration:
+
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`: passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`: passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks list --json`: passed and exposed the intended sample task states.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks inspect --json tasks/add-team-notes.md`: passed and returned workspace plus task-specific guidelines.
+
+The current repository migration can therefore continue from the project workspace itself rather than by changing the starter baseline.
+
+The first resumed cleanup normalized completed task metadata where the task status was already `done` but `readiness` still said `needs-refinement`. Those entries now follow the repository's current task metadata model, where completed work should not appear as still needing refinement during Forma task selection or board review.
