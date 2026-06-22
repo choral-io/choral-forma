@@ -78,6 +78,6 @@ Load and validate schema definitions from `.forma/spaces/*.md` so repository mig
 | Scope completed | User-authored space schemas load into runtime config; fallback behavior is preserved; schema-declared ref fields can drive graph field edges. |
 | Files changed | `crates/forma-core/src/config.rs`, `crates/forma-core/src/render.rs`, and this task. |
 | Knowledge updated | Yes: this task records implementation notes and review evidence. |
-| Checks run | `cargo test`, Prettier check for changed knowledge files, `forma check --json`, `forma config inspect --json`, `forma board show --json`, and `forma knowledge health --json` passed or returned the existing accepted health warning baseline. |
+| Checks run | `cargo test`, Prettier check for changed knowledge files, `forma check --json`, `forma config inspect --json`, `forma tasks list --json`, and `forma knowledge health --json` passed or returned the existing accepted health warning baseline. |
 | Residual risks | Existing repository task metadata still uses wikilink strings; enabling stricter ref schemas for the real repository spaces should wait for content migration/normalization. |
 | Suggested review | Verify the schema-loading fallback path and the custom field-relation graph test. |

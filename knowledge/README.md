@@ -27,7 +27,6 @@ Use these read commands for routine agent work:
 
 - `cargo run -q -p forma-cli -- tasks list --json`
 - `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>`
-- `cargo run -q -p forma-cli -- board show --json`
 - `cargo run -q -p forma-cli -- list --space <space-id> --json`
 - `cargo run -q -p forma-cli -- inspect <path> --json`
 - `cargo run -q -p forma-cli -- inspect --space <space-id> <entry-id> --json`

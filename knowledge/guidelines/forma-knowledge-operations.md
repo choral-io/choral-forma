@@ -71,7 +71,7 @@ Treat local-only status as workflow guidance, explicit user context, or a future
 
 - Task board membership is stored in task `status`.
 - Task executability is stored in task `readiness`.
-- Use `cargo run -q -p forma-cli -- board show --json` for current board state.
+- Use `cargo run -q -p forma-cli -- tasks list --json` for current task state and status-based board membership.
 - Do not change task status without explicit user approval.
 - Ready tasks should have owners, source context, and acceptance criteria.
 - Blocked tasks should name their blockers through `blocked_by` or an explicit blocker note.

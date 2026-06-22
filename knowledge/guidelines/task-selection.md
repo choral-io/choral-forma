@@ -29,7 +29,6 @@ Start from Forma operations, not hidden workflow files:
 
 - `cargo run -q -p forma-cli -- config inspect --json`
 - `cargo run -q -p forma-cli -- knowledge health --json`
-- `cargo run -q -p forma-cli -- board show --json`
 - `cargo run -q -p forma-cli -- tasks list --json`
 
 Inspect candidate tasks with:

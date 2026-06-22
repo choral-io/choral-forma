@@ -256,7 +256,7 @@ Diagnostic object outline:
     "suggestions": [
         {
             "label": "Use members/alex-chen",
-            "value": "[[members/alex-chen]]"
+            "value": "members/alex-chen"
         }
     ]
 }

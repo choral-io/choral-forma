@@ -290,8 +290,8 @@ Knowledge reference fields should store workspace-relative path-qualified refs i
 
 ```yaml
 assignees:
-    - members/alex-chen.md
-project: projects/choral-forma.md
+    - members/alex-chen
+project: projects/choral-forma
 ```
 
 The product should use read-wide, write-strict behavior. GUI, CLI, Agent, and editor-extension writes should always write canonical path refs. If the product chooses to accept manually authored wikilinks in metadata, that should be a reader convenience and health-check surface, not the canonical storage format or a commitment to Obsidian/Foam compatibility.
@@ -330,7 +330,7 @@ The first supported set should include:
 | Markdown link to workspace page | `[Project Brief](notes/project-brief.md)` | Resolve workspace-relative Markdown links into the same reference model as wikilinks. |
 | Markdown link with fragment | `[Goals](notes/project-brief.md#goals)` | Resolve the page and fragment separately. |
 | Resource or attachment link | `[Spec](assets/spec.pdf)` or `!\[\[assets/diagram.png\]\]` | Resolve as a resource target rather than a page target when the path is not an indexed knowledge entry. |
-| Field reference relation | `assignees: [members/alex-chen.md]` | Resolve through schema-declared field semantics and record `intent: reference`. |
+| Field reference relation | `assignees: [members/alex-chen]` | Resolve through schema-declared field semantics and record `intent: reference`. |
 
 The following forms remain tentative until product evidence or implementation constraints justify them:
 
@@ -427,7 +427,7 @@ assignees:
 
 When groups are added later, the `assignees` field can keep its name and list shape while its item target evolves to an `assignee` union over `member` and `group`.
 
-The P0 `members` space should keep identity lightweight. A member entry's stable id comes from its path, such as `members/alex-chen.md`. P0 should not include a separate `username` field because it would act like a field-level override for path identity. Runtime current-member matching should use the member id directly.
+The P0 `members` space should keep identity lightweight. A member entry's stable id comes from its path-qualified entry reference, such as `members/alex-chen`. P0 should not include a separate `username` field because it would act like a field-level override for path identity. Runtime current-member matching should use the member id directly.
 
 Workspace initialization is currently disabled pending redesign. When initialization returns, it should not treat the current member as a special system value. If an initial member entry is created during initialization, it should be handled as ordinary starter input and created through the same space create pipeline as any other member entry.
 
@@ -1048,7 +1048,7 @@ forma unset tasks/foo.md dueDate
 
 `set` should replace a single-value field or replace the whole value of a many-valued field. `add` and `remove` should operate on many-valued fields. `unset` should remove a field. A later `clear` command can explicitly set a field to null if that distinction becomes important.
 
-Reference input should be permissive when the field context is known. Users and Agents may provide values such as `alex-chen`, `members/alex-chen`, or `members/alex-chen.md` for an assignees field. Product writes should normalize resolved references to path-qualified refs. Many-valued reference fields should deduplicate by resolved identity, not by raw string.
+Reference input should be permissive when the field context is known. Users and Agents may provide values such as `alex-chen`, `members/alex-chen`, or `members/alex-chen.md` for an assignees field. Product writes should normalize resolved metadata references to path-qualified entry refs such as `members/alex-chen`. Many-valued reference fields should deduplicate by resolved identity, not by raw string.
 
 Edits should preserve YAML ordering, unknown fields, comments where practical, and the Markdown body. The product should avoid full-document rewrites for small metadata changes. Validation should run before writing, and force writes should remain out of the MVP.
 
@@ -1279,7 +1279,7 @@ Recommended P0 JSON shape:
             "suggestions": [
                 {
                     "label": "Use members/alex-chen",
-                    "value": "[[members/alex-chen]]"
+                    "value": "members/alex-chen"
                 }
             ]
         }

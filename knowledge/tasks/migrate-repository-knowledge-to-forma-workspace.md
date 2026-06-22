@@ -132,7 +132,7 @@ This phase is tracked by [[tasks/normalize-repository-forma-knowledge-health]].
 - The design defines target spaces, schema expectations, graph edge policy, health policy, and content mapping.
 - A runnable `Knowledge Graph` view exists for currently supported body-reference graph edges.
 - Follow-up tasks exist for user-authored space schema loading, broad content migration, and post-migration health normalization.
-- `forma check --json`, `forma config inspect --json`, `forma tasks list --json`, `forma board show --json`, and `forma knowledge health --json` run against the review surface.
+- `forma check --json`, `forma config inspect --json`, `forma tasks list --json`, and `forma knowledge health --json` run against the review surface.
 - The graph view is present in `.forma/views/knowledge-graph.md` for runtimes and clients that consume configured views; a direct `forma view render` CLI command remains outside this slice.
 - The task records that old Knowledge Workflow compatibility assumptions are migration inputs, not target requirements.
 
@@ -147,6 +147,6 @@ This task is the reviewable Phase 1 migration preparation slice. The CLI read-si
 | Scope completed | Target workspace migration design, runnable graph view config, and follow-up task split are present. |
 | Files changed | `.forma/views/knowledge-graph.md`, [[architecture/repository-forma-workspace-migration-design]], this task, follow-up task items, and the Kanban card move. |
 | Knowledge updated | Yes: target migration design and follow-up task graph are recorded in canonical knowledge. |
-| Checks run | Prettier, `forma check --json`, `forma config inspect --json`, `forma tasks list --json`, `forma board show --json`, and `forma knowledge health --json`. |
+| Checks run | Prettier, `forma check --json`, `forma config inspect --json`, `forma tasks list --json`, and `forma knowledge health --json`. |
 | Residual risks | Broad content migration is intentionally deferred to [[tasks/migrate-repository-knowledge-content]]. User-authored space schema loading is deferred to [[tasks/load-user-authored-space-schemas]]. |
 | Suggested review | Review the target structure, scope split, and whether the migration avoids preserving old Knowledge Workflow assumptions by accident. |

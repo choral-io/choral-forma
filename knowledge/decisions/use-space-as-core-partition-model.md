@@ -10,7 +10,7 @@ tags:
     - spaces
 supersedes: []
 superseded_by:
-    - "[[decisions/use-settings-driven-taxonomy-and-navigation-model]]"
+    - "decisions/use-settings-driven-taxonomy-and-navigation-model"
 ---
 
 # Use Space As Core Partition Model

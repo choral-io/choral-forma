@@ -37,7 +37,6 @@ When a request involves a specific space, task, or file, inspect the target firs
 - `cargo run -q -p forma-cli -- knowledge health --json`
 - `cargo run -q -p forma-cli -- tasks list --json`
 - `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>`
-- `cargo run -q -p forma-cli -- board show --json`
 - `cargo run -q -p forma-cli -- list --space <space-id> --json`
 - `cargo run -q -p forma-cli -- inspect <path> --json`
 - `cargo run -q -p forma-cli -- inspect --space <space-id> <entry-id> --json`

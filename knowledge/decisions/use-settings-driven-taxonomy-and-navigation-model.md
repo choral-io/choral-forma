@@ -9,7 +9,7 @@ tags:
     - taxonomy
     - navigation
 supersedes:
-    - "[[decisions/use-space-as-core-partition-model]]"
+    - "decisions/use-space-as-core-partition-model"
 superseded_by: []
 ---
 

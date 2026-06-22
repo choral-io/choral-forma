@@ -224,7 +224,7 @@ Recommended P0 check JSON shape:
             "suggestions": [
                 {
                     "label": "Use members/alex-chen",
-                    "value": "[[members/alex-chen]]"
+                    "value": "members/alex-chen"
                 }
             ]
         }

@@ -17,14 +17,14 @@ tags:
     - migration
 
 effort: M
-status: backlog
-readiness: blocked
+status: ready
+readiness: ready
 sprint:
 
-blocked_by:
-    - "tasks/migrate-repository-knowledge-content"
+blocked_by: []
 related_to:
     - "architecture/repository-forma-workspace-migration-design"
+    - "planning/repository-knowledge-content-migration-report"
     - "tasks/migrate-repository-knowledge-to-forma-workspace"
 
 reported_by:
