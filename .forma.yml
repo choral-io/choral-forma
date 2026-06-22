@@ -5,7 +5,6 @@ workspace:
   canonicalLanguage: "en"
   supportedLanguages:
     - "en"
-    - "zh-Hans"
   timezone: "Asia/Shanghai"
 
 guidelines:
