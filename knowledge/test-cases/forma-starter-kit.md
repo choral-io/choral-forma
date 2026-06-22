@@ -18,7 +18,8 @@ tags:
 covers_user_stories: []
 covers_product:
     - "product/choral-forma"
-related_tasks: []
+related_tasks:
+    - "tasks/run-starter-kit-agent-pressure-validation"
 ---
 
 # Forma Starter Kit Evaluation Suite
