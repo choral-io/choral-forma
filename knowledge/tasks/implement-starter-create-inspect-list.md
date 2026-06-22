@@ -21,16 +21,16 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-schema-dsl-runtime-values"
     - "tasks/implement-check-index-diagnostics"
     - "tasks/implement-operation-rpc-cli-foundation"
-related_to:
+relatedTo:
     - "product/forma-p0-starter-spec"
     - "architecture/forma-p0-operation-api-spec"
 
-reported_by:
-affected_area: P0 CLI user flows
+reportedBy:
+affectedArea: P0 CLI user flows
 ---
 
 # Implement Starter Create Inspect List

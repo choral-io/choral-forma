@@ -22,13 +22,13 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "tasks/implement-ci-release-baseline"
     - "tasks/implement-starter-create-inspect-list"
 
-reported_by: MVP validation on 2026-05-22
-affected_area: CLI install and initialization validation
+reportedBy: MVP validation on 2026-05-22
+affectedArea: CLI install and initialization validation
 ---
 
 # Fix MVP Validation CLI Issues

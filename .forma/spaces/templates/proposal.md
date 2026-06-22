@@ -12,7 +12,7 @@ reviewers: []
 tags:
     - proposal
 sources: []
-related_to: []
+relatedTo: []
 ---
 
 # {{ input.title }}

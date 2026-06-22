@@ -12,9 +12,9 @@ schema:
             type: string
         summary:
             type: string
-        member_id:
+        memberId:
             type: string
-        display_name:
+        displayName:
             type: string
         scope:
             type: string

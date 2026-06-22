@@ -22,8 +22,8 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "product/product-direction"
     - "architecture/forma-p0-operation-api-spec"
     - "tasks/expose-read-only-knowledge-health-in-webapp"
@@ -31,8 +31,8 @@ related_to:
     - "tasks/design-forma-policy-runtime"
     - "tasks/design-reviewable-forma-write-operations"
 
-reported_by:
-affected_area: Forma CLI, Agent skills, repository knowledge management
+reportedBy:
+affectedArea: Forma CLI, Agent skills, repository knowledge management
 ---
 
 # Replace Knowledge Workflow Mechanics With Forma CLI

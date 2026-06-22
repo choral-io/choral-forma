@@ -21,13 +21,13 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "tasks/implement-operation-rpc-cli-foundation"
     - "tasks/implement-check-index-diagnostics"
 
-reported_by:
-affected_area: Reviewable knowledge changes
+reportedBy:
+affectedArea: Reviewable knowledge changes
 ---
 
 # Design Reviewable Knowledge Change Proposals

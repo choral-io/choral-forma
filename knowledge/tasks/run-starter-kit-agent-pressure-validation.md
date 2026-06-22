@@ -21,15 +21,15 @@ tags:
     - starter-kit
     - agents
     - validation
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
     - "test-cases/forma-starter-kit"
     - "planning/forma-cli-knowledge-workflow-replacement-validation"
 severity: ""
 sprint: ""
-reported_by: ""
-affected_area: "Starter-kit evaluation, forma-cli skill behavior, Agent workflow guidance"
+reportedBy: ""
+affectedArea: "Starter-kit evaluation, forma-cli skill behavior, Agent workflow guidance"
 ---
 
 # Run Starter Kit Agent Pressure Validation

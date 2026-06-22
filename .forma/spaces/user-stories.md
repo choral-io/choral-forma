@@ -31,21 +31,21 @@ schema:
             type: list
             items:
                 type: string
-        related_product:
+        relatedProduct:
             type: list
             items:
                 type: ref
-        related_tasks:
+        relatedTasks:
             type: list
             items:
                 type: ref
                 target: task
-        related_test_cases:
+        relatedTestCases:
             type: list
             items:
                 type: ref
                 target: test-case
-        related_metrics:
+        relatedMetrics:
             type: list
             items:
                 type: ref

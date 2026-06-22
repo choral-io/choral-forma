@@ -13,9 +13,9 @@ source: ""
 unit: ""
 direction: ""
 target: ""
-review_cadence: ""
-related_experiments: []
-related_releases: []
+reviewCadence: ""
+relatedExperiments: []
+relatedReleases: []
 ---
 
 # {{ input.title }}

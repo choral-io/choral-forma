@@ -11,7 +11,7 @@ tags:
     - navigation
 supersedes:
     - "decisions/use-space-as-core-partition-model"
-superseded_by: []
+supersededBy: []
 ---
 
 # Use Settings Driven Taxonomy And Navigation Model

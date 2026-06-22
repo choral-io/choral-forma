@@ -22,13 +22,13 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "architecture/repository-forma-workspace-migration-design"
     - "tasks/migrate-repository-knowledge-to-forma-workspace"
 
-reported_by:
-affected_area: Forma space schema loading and graph field relations
+reportedBy:
+affectedArea: Forma space schema loading and graph field relations
 ---
 
 # Load User Authored Space Schemas

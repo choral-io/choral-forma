@@ -22,16 +22,16 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-webapp-v2-dashboard-shell"
-related_to:
+relatedTo:
     - "tasks/design-reviewable-knowledge-change-proposals"
     - "tasks/design-metadata-edit-deprecate-operations"
     - "decisions/webapp-primary-gui-client"
     - "planning/webapp-primary-gui-roadmap"
 
-reported_by:
-affected_area: Reviewable WebApp operations
+reportedBy:
+affectedArea: Reviewable WebApp operations
 ---
 
 # Design Reviewable Operation Proposal Flow

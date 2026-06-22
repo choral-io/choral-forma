@@ -16,10 +16,10 @@ tags:
     - skill
     - local-only
     - pressure-test
-covers_user_stories: []
-covers_product:
+coversUserStories: []
+coversProduct:
     - "product/choral-forma"
-related_tasks: []
+relatedTasks: []
 ---
 
 # Starter Local-Only Promotion Pressure

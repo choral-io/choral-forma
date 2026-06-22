@@ -41,7 +41,7 @@ schema:
             type: list
             items:
                 type: ref
-        related_to:
+        relatedTo:
             type: list
             items:
                 type: ref

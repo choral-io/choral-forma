@@ -21,13 +21,13 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "tasks/implement-operation-rpc-cli-foundation"
     - "tasks/implement-markdown-forma-ast-parser"
 
-reported_by:
-affected_area: Metadata edit and lifecycle operations
+reportedBy:
+affectedArea: Metadata edit and lifecycle operations
 ---
 
 # Design Metadata Edit And Deprecate Operations

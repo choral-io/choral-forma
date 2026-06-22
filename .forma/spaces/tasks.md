@@ -47,12 +47,12 @@ schema:
             type: list
             items:
                 type: string
-        blocked_by:
+        blockedBy:
             type: list
             items:
                 type: ref
                 target: task
-        related_to:
+        relatedTo:
             type: list
             items:
                 type: ref
@@ -64,9 +64,9 @@ schema:
             type: string
         sprint:
             type: string
-        reported_by:
+        reportedBy:
             type: string
-        affected_area:
+        affectedArea:
             type: string
 display:
     order: 80
@@ -112,17 +112,17 @@ create:
             default: []
         tags:
             default: []
-        blocked_by:
+        blockedBy:
             default: []
-        related_to:
+        relatedTo:
             default: []
         severity:
             default: ""
         sprint:
             default: ""
-        reported_by:
+        reportedBy:
             default: ""
-        affected_area:
+        affectedArea:
             default: ""
 conventions:
     titleField: title

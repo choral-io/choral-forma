@@ -21,16 +21,16 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-reference-navigation-baseline"
-related_to:
+relatedTo:
     - "planning/public-read-only-release-roadmap"
     - "tasks/implement-read-only-webapp"
     - "tasks/implement-interactive-graph-view-render"
     - "tasks/stabilize-public-read-only-webapp-release"
 
-reported_by:
-affected_area: Quick navigation
+reportedBy:
+affectedArea: Quick navigation
 ---
 
 # Implement Quick Switcher Search

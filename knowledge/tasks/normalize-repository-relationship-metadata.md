@@ -24,15 +24,15 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "architecture/repository-forma-workspace-migration-design"
     - "planning/repository-knowledge-content-migration-audit"
     - "tasks/migrate-repository-knowledge-content"
     - "tasks/normalize-repository-forma-knowledge-health"
 
-reported_by:
-affected_area: Repository knowledge relationship metadata
+reportedBy:
+affectedArea: Repository knowledge relationship metadata
 ---
 
 # Normalize Repository Relationship Metadata
@@ -50,7 +50,7 @@ Normalize Forma-owned relationship fields so graph and health behavior are based
 
 ## In Scope
 
-- Audit and update fields such as `owners`, `assignees`, `reviewers`, `blocked_by`, `related_to`, and source-like relationship fields.
+- Audit and update fields such as `owners`, `assignees`, `reviewers`, `blockedBy`, `relatedTo`, and source-like relationship fields.
 - Preserve plain scalar fields that are not intended to be graph relationships.
 - Keep changes focused on metadata and directly related link text.
 

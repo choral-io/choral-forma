@@ -10,10 +10,10 @@ owners: []
 tags:
     - user-story
 actors: []
-related_product: []
-related_tasks: []
-related_test_cases: []
-related_metrics: []
+relatedProduct: []
+relatedTasks: []
+relatedTestCases: []
+relatedMetrics: []
 ---
 
 # {{ input.title }}

@@ -21,14 +21,14 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/scaffold-forma-workspace"
-related_to:
+relatedTo:
     - "architecture/forma-p0-schema-dsl-spec"
     - "product/forma-p0-starter-spec"
 
-reported_by:
-affected_area: Forma configuration loading and path identity
+reportedBy:
+affectedArea: Forma configuration loading and path identity
 ---
 
 # Implement Forma Config And Path Model
@@ -74,7 +74,7 @@ Forma public contracts use workspace-relative POSIX paths. `.forma.yml` is the w
 
 ## Relationship Notes
 
-Blocked by workspace scaffold. Downstream work can be derived from task items whose `blocked_by` references this task, including Schema DSL/runtime values and the check/index pipeline.
+Blocked by workspace scaffold. Downstream work can be derived from task items whose `blockedBy` references this task, including Schema DSL/runtime values and the check/index pipeline.
 
 ## Open Questions
 

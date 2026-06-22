@@ -22,15 +22,15 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "tasks/implement-read-only-webapp"
     - "tasks/implement-view-entry-render"
     - "tasks/implement-starter-create-inspect-list"
     - "tasks/implement-check-index-diagnostics"
 
-reported_by:
-affected_area: View source, query model, starter views, and view rendering
+reportedBy:
+affectedArea: View source, query model, starter views, and view rendering
 ---
 
 # Align View Source Query Model

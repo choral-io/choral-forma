@@ -21,16 +21,16 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "planning/public-read-only-release-roadmap"
     - "tasks/implement-webapp-v2-dashboard-shell"
     - "tasks/expose-read-only-knowledge-health-in-webapp"
     - "tasks/implement-interactive-graph-view-render"
     - "tasks/implement-quick-switcher-search"
 
-reported_by:
-affected_area: Public read-only WebApp release
+reportedBy:
+affectedArea: Public read-only WebApp release
 ---
 
 # Stabilize Public Read-only WebApp Release

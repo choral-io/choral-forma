@@ -42,12 +42,12 @@ schema:
                     type: list
                     items:
                         type: string
-        related_user_stories:
+        relatedUserStories:
             type: list
             items:
                 type: ref
                 target: user-story
-        related_releases:
+        relatedReleases:
             type: list
             items:
                 type: ref

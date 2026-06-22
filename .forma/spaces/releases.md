@@ -31,22 +31,22 @@ schema:
             type: list
             items:
                 type: string
-        related_tasks:
+        relatedTasks:
             type: list
             items:
                 type: ref
                 target: task
-        related_test_cases:
+        relatedTestCases:
             type: list
             items:
                 type: ref
                 target: test-case
-        related_experiments:
+        relatedExperiments:
             type: list
             items:
                 type: ref
                 target: experiment
-        related_metrics:
+        relatedMetrics:
             type: list
             items:
                 type: ref

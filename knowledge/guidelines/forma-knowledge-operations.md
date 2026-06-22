@@ -74,7 +74,7 @@ Treat local-only status as workflow guidance, explicit user context, or a future
 - Use `cargo run -q -p forma-cli -- tasks list --json` for current task state and status-based board membership.
 - Do not change task status without explicit user approval.
 - Ready tasks should have owners, source context, and acceptance criteria.
-- Blocked tasks should name their blockers through `blocked_by` or an explicit blocker note.
+- Blocked tasks should name their blockers through `blockedBy` or an explicit blocker note.
 - Done readiness should be supported by verification evidence.
 - For delivery selection, audit, and board maintenance details, follow the configured delivery guideline, currently [[guidelines/task-selection]].
 

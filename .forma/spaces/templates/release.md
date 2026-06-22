@@ -11,10 +11,10 @@ date:
 owners: []
 tags:
     - release
-related_tasks: []
-related_test_cases: []
-related_experiments: []
-related_metrics: []
+relatedTasks: []
+relatedTestCases: []
+relatedExperiments: []
+relatedMetrics: []
 ---
 
 # {{ input.title }}

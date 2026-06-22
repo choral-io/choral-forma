@@ -21,14 +21,14 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-workspace-resource-routes"
-related_to:
+relatedTo:
     - "tasks/expose-read-only-knowledge-health-in-webapp"
     - "tasks/implement-check-index-diagnostics"
 
-reported_by:
-affected_area: Resource health diagnostics
+reportedBy:
+affectedArea: Resource health diagnostics
 ---
 
 # Implement Resource Description Health Diagnostics
@@ -76,7 +76,7 @@ The raw route/resource inventory baseline does not need to own this health rule.
 
 ## Relationship Notes
 
-This task follows the raw route/resource inventory baseline. The `blocked_by` entry records dependency history and is resolved once [[tasks/implement-workspace-resource-routes]] is in Done.
+This task follows the raw route/resource inventory baseline. The `blockedBy` entry records dependency history and is resolved once [[tasks/implement-workspace-resource-routes]] is in Done.
 
 It can feed the read-only knowledge health WebApp task.
 

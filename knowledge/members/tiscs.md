@@ -1,8 +1,8 @@
 ---
 scope: project
 type: member
-member_id: tiscs
-display_name: Galen
+memberId: tiscs
+displayName: Galen
 owners:
     - "members/tiscs"
 tags:

@@ -31,17 +31,17 @@ schema:
             type: list
             items:
                 type: string
-        related_tasks:
+        relatedTasks:
             type: list
             items:
                 type: ref
                 target: task
-        covers_user_stories:
+        coversUserStories:
             type: list
             items:
                 type: ref
                 target: user-story
-        covers_product:
+        coversProduct:
             type: list
             items:
                 type: ref

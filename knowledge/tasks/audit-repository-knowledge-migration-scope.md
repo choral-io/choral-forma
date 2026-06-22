@@ -23,8 +23,8 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "architecture/repository-forma-workspace-migration-design"
     - "planning/repository-knowledge-content-migration-audit"
     - "tasks/migrate-repository-knowledge-content"
@@ -32,8 +32,8 @@ related_to:
     - "tasks/normalize-repository-relationship-metadata"
     - "tasks/classify-workspace-support-material"
 
-reported_by:
-affected_area: Repository knowledge content migration
+reportedBy:
+affectedArea: Repository knowledge content migration
 ---
 
 # Audit Repository Knowledge Migration Scope

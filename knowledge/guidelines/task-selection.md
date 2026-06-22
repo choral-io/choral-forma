@@ -44,7 +44,7 @@ Select from accepted board tasks before loose task items. Prefer `Ready` tasks o
 Exclude or flag tasks that:
 
 - are in `Blocked`;
-- have unresolved `blocked_by` references;
+- have unresolved `blockedBy` references;
 - have `readiness: blocked`;
 - are localized variants rather than canonical task files;
 - depend on private, local-only, or uncommitted source material;
@@ -73,7 +73,7 @@ Report task quality issues instead of silently fixing them:
 - missing or unresolved owners for ready, scheduled, assigned, or maintained tasks;
 - missing assignees when active assignment is expected;
 - missing reviewers when review responsibility is expected;
-- unresolved `blocked_by` or `related_to` references;
+- unresolved `blockedBy` or `relatedTo` references;
 - `Ready` board cards whose task metadata is not `readiness: ready`;
 - `Ready` tasks with unresolved blockers;
 - `Blocked` tasks without blocker metadata or an explicit blocker note;

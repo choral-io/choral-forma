@@ -21,16 +21,16 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-markdown-forma-ast-parser"
     - "tasks/implement-check-index-diagnostics"
     - "tasks/implement-operation-rpc-cli-foundation"
-related_to:
+relatedTo:
     - "architecture/forma-p0-operation-api-spec"
     - "product/forma-p0-starter-spec"
 
-reported_by:
-affected_area: Entry rendering and declarative views
+reportedBy:
+affectedArea: Entry rendering and declarative views
 ---
 
 # Implement View Entry Render

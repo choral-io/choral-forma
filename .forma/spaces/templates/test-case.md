@@ -11,9 +11,9 @@ automation: manual
 owners: []
 tags:
     - test-case
-covers_user_stories: []
-covers_product: []
-related_tasks: []
+coversUserStories: []
+coversProduct: []
+relatedTasks: []
 ---
 
 # {{ input.title }}

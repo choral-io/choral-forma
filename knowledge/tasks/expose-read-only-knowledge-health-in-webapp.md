@@ -21,16 +21,16 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-reference-navigation-baseline"
-related_to:
+relatedTo:
     - "planning/public-read-only-release-roadmap"
     - "tasks/implement-check-index-diagnostics"
     - "tasks/implement-read-only-webapp"
     - "tasks/stabilize-public-read-only-webapp-release"
 
-reported_by:
-affected_area: Read-only knowledge health
+reportedBy:
+affectedArea: Read-only knowledge health
 ---
 
 # Expose Read-only Knowledge Health In WebApp

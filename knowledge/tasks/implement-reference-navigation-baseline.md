@@ -21,13 +21,13 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "tasks/implement-read-only-webapp"
     - "tasks/implement-check-index-diagnostics"
 
-reported_by:
-affected_area: Reference navigation
+reportedBy:
+affectedArea: Reference navigation
 ---
 
 # Implement Reference Navigation Baseline

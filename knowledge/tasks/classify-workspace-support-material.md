@@ -24,15 +24,15 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "architecture/repository-forma-workspace-migration-design"
     - "planning/repository-knowledge-content-migration-audit"
     - "planning/workspace-support-material-classification"
     - "tasks/migrate-repository-knowledge-content"
 
-reported_by:
-affected_area: Repository workspace-support knowledge
+reportedBy:
+affectedArea: Repository workspace-support knowledge
 ---
 
 # Classify Workspace Support Material

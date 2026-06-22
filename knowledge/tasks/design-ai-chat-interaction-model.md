@@ -22,16 +22,16 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-webapp-v2-dashboard-shell"
     - "tasks/design-reviewable-operation-proposal-flow"
-related_to:
+relatedTo:
     - "decisions/webapp-primary-gui-client"
     - "planning/webapp-primary-gui-roadmap"
     - "concepts/agent-assisted-knowledge-maintenance"
 
-reported_by:
-affected_area: WebApp AI Chat
+reportedBy:
+affectedArea: WebApp AI Chat
 ---
 
 # Design AI Chat Interaction Model

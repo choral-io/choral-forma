@@ -103,8 +103,8 @@ Common relationship fields should be path-qualified references when Forma contro
 - `assignees`: references to `members`.
 - `reviewers`: references to `members` or review groups when group support exists.
 - `sources`: references to source pages when source material is internal.
-- `blocked_by`: references to `tasks`.
-- `related_to`: references to internal pages or tasks.
+- `blockedBy`: references to `tasks`.
+- `relatedTo`: references to internal pages or tasks.
 
 Body links and embeds stay body references. They should not be copied into frontmatter merely to make graphs denser.
 
@@ -140,10 +140,10 @@ graph:
           field: reviewers
           label: reviewed by
         - source: fields
-          field: blocked_by
+          field: blockedBy
           label: blocked by
         - source: fields
-          field: related_to
+          field: relatedTo
           label: related to
         - source: fields
           field: sources

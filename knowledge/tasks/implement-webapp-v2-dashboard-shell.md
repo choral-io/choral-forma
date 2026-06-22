@@ -23,16 +23,16 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "decisions/webapp-primary-gui-client"
     - "design/webapp-v2-dashboard-design"
     - "architecture/webapp-v2-package-architecture"
     - "planning/webapp-primary-gui-roadmap"
     - "tasks/refactor-webapp-with-shadcn-base-ui"
 
-reported_by:
-affected_area: WebApp V2 dashboard shell
+reportedBy:
+affectedArea: WebApp V2 dashboard shell
 ---
 
 # Implement WebApp V2 Dashboard Shell

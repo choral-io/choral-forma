@@ -10,7 +10,7 @@ tags:
     - webapp
     - gui
 supersedes: []
-superseded_by: []
+supersededBy: []
 ---
 
 # WebApp Primary GUI Client

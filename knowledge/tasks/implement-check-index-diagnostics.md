@@ -21,14 +21,14 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-schema-dsl-runtime-values"
     - "tasks/implement-markdown-forma-ast-parser"
-related_to:
+relatedTo:
     - "architecture/forma-p0-check-index-spec"
 
-reported_by:
-affected_area: Summary index and workspace diagnostics
+reportedBy:
+affectedArea: Summary index and workspace diagnostics
 ---
 
 # Implement Check Index Diagnostics

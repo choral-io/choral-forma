@@ -35,14 +35,14 @@ schema:
             type: string
         target:
             type: string
-        review_cadence:
+        reviewCadence:
             type: string
-        related_experiments:
+        relatedExperiments:
             type: list
             items:
                 type: ref
                 target: experiment
-        related_releases:
+        relatedReleases:
             type: list
             items:
                 type: ref

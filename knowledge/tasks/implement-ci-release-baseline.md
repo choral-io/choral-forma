@@ -22,15 +22,15 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/scaffold-forma-workspace"
     - "tasks/implement-read-only-webapp"
-related_to:
+relatedTo:
     - "decisions/forma-p0-core-architecture"
     - "architecture/forma-core-technical-direction"
 
-reported_by:
-affected_area: CI and release distribution
+reportedBy:
+affectedArea: CI and release distribution
 ---
 
 # Implement CI Release Baseline
@@ -74,7 +74,7 @@ P0 distribution should prioritize standalone binaries, install scripts, and mise
 
 Blocked by scaffold and WebApp integration because release packaging needs the final binary and asset serving shape.
 
-The scaffold and WebApp integration blockers are resolved by completed delivery tasks. The `blocked_by` entries remain as dependency history.
+The scaffold and WebApp integration blockers are resolved by completed delivery tasks. The `blockedBy` entries remain as dependency history.
 
 ## Implementation Notes
 

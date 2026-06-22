@@ -21,14 +21,14 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/scaffold-forma-workspace"
-related_to:
+relatedTo:
     - "architecture/forma-core-technical-direction"
     - "workspace/tiscs/research/forma-markdown-parser-spike-report"
 
-reported_by:
-affected_area: Markdown parsing and FormaAST enrichment
+reportedBy:
+affectedArea: Markdown parsing and FormaAST enrichment
 ---
 
 # Implement Markdown FormaAST Parser

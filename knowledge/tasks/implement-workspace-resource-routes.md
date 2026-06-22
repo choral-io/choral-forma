@@ -22,15 +22,15 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "tasks/implement-read-only-webapp"
     - "tasks/implement-reference-navigation-baseline"
     - "tasks/refactor-webapp-with-shadcn-base-ui"
     - "tasks/implement-resource-description-health-diagnostics"
 
-reported_by:
-affected_area: WebApp routing and workspace resources
+reportedBy:
+affectedArea: WebApp routing and workspace resources
 ---
 
 # Implement Workspace Resource Routes

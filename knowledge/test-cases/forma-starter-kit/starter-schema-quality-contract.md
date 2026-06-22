@@ -15,10 +15,10 @@ tags:
     - cli
     - schema
     - contract
-covers_user_stories: []
-covers_product:
+coversUserStories: []
+coversProduct:
     - "product/choral-forma"
-related_tasks: []
+relatedTasks: []
 ---
 
 # Starter Schema Quality Contract

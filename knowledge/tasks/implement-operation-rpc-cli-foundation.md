@@ -21,13 +21,13 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/scaffold-forma-workspace"
-related_to:
+relatedTo:
     - "architecture/forma-p0-operation-api-spec"
 
-reported_by:
-affected_area: Operation dispatch, CLI, and local HTTP RPC
+reportedBy:
+affectedArea: Operation dispatch, CLI, and local HTTP RPC
 ---
 
 # Implement Operation RPC CLI Foundation

@@ -21,17 +21,17 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-reference-navigation-baseline"
-related_to:
+relatedTo:
     - "planning/public-read-only-release-roadmap"
     - "tasks/align-view-source-query-model"
     - "tasks/implement-view-entry-render"
     - "tasks/implement-read-only-webapp"
     - "tasks/stabilize-public-read-only-webapp-release"
 
-reported_by:
-affected_area: Graph views
+reportedBy:
+affectedArea: Graph views
 ---
 
 # Implement Interactive Graph View Render

@@ -21,17 +21,17 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-operation-rpc-cli-foundation"
     - "tasks/implement-starter-create-inspect-list"
     - "tasks/implement-view-entry-render"
     - "tasks/align-view-source-query-model"
-related_to:
+relatedTo:
     - "architecture/forma-p0-operation-api-spec"
     - "decisions/forma-p0-core-architecture"
 
-reported_by:
-affected_area: Local read-only Forma WebApp
+reportedBy:
+affectedArea: Local read-only Forma WebApp
 ---
 
 # Implement Read Only WebApp
@@ -76,7 +76,7 @@ The P0 GUI is a local browser WebApp backed by `POST /rpc`. It should provide ba
 
 ## Relationship Notes
 
-Previously blocked by operation/RPC, starter CLI flows, render operations, and the follow-up view source/query model alignment. Those blockers are now resolved by completed delivery tasks. The `blocked_by` entries remain as dependency history and downstream-unlock evidence.
+Previously blocked by operation/RPC, starter CLI flows, render operations, and the follow-up view source/query model alignment. Those blockers are now resolved by completed delivery tasks. The `blockedBy` entries remain as dependency history and downstream-unlock evidence.
 
 ## Implementation Notes
 

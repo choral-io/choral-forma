@@ -12,8 +12,8 @@ tags:
 hypothesis: ""
 metrics: []
 guardrails: []
-related_user_stories: []
-related_releases: []
+relatedUserStories: []
+relatedReleases: []
 ---
 
 # {{ input.title }}

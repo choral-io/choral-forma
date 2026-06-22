@@ -77,10 +77,10 @@ Fields to audit in the next metadata pass:
 - `owners`
 - `assignees`
 - `reviewers`
-- `blocked_by`
-- `related_to`
+- `blockedBy`
+- `relatedTo`
 - `sources`
-- space-specific relationship fields such as `related_tasks`, `related_metrics`, `related_releases`, `related_test_cases`, and `related_user_stories`
+- space-specific relationship fields such as `relatedTasks`, `relatedMetrics`, `relatedReleases`, `relatedTestCases`, and `relatedUserStories`
 
 Known candidate to verify:
 

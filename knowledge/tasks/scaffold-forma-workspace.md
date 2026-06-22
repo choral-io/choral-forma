@@ -20,13 +20,13 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "decisions/forma-p0-core-architecture"
     - "architecture/forma-core-technical-direction"
 
-reported_by:
-affected_area: P0 workspace foundation
+reportedBy:
+affectedArea: P0 workspace foundation
 ---
 
 # Scaffold Forma Workspace

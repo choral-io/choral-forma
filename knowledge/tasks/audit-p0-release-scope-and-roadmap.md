@@ -21,15 +21,15 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "tasks/implement-ci-release-baseline"
     - "tasks/implement-read-only-webapp"
     - "tasks/implement-reference-navigation-baseline"
     - "tasks/implement-workspace-resource-routes"
 
-reported_by:
-affected_area: P0 roadmap and release scope
+reportedBy:
+affectedArea: P0 roadmap and release scope
 ---
 
 # Audit P0 Release Scope And Roadmap

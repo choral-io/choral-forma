@@ -21,14 +21,14 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "architecture/repository-forma-workspace-migration-design"
     - "planning/repository-knowledge-content-migration-report"
     - "tasks/migrate-repository-knowledge-to-forma-workspace"
 
-reported_by:
-affected_area: Repository knowledge health normalization
+reportedBy:
+affectedArea: Repository knowledge health normalization
 ---
 
 # Normalize Repository Forma Knowledge Health

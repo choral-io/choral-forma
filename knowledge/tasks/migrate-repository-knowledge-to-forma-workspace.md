@@ -22,8 +22,8 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "product/product-direction"
     - "architecture/forma-p0-check-index-spec"
     - "architecture/forma-p0-operation-api-spec"
@@ -33,8 +33,8 @@ related_to:
     - "tasks/migrate-repository-knowledge-content"
     - "tasks/normalize-repository-forma-knowledge-health"
 
-reported_by:
-affected_area: Repository knowledge workspace structure and migration
+reportedBy:
+affectedArea: Repository knowledge workspace structure and migration
 ---
 
 # Migrate Repository Knowledge To Forma Workspace

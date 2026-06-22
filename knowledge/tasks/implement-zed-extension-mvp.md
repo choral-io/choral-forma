@@ -21,15 +21,15 @@ status: backlog
 readiness: blocked
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/design-editor-extension-adapter-contract"
     - "tasks/implement-vscode-extension-mvp"
-related_to:
+relatedTo:
     - "decisions/webapp-primary-gui-client"
     - "planning/webapp-primary-gui-roadmap"
 
-reported_by:
-affected_area: Zed extension
+reportedBy:
+affectedArea: Zed extension
 ---
 
 # Implement Zed Extension MVP

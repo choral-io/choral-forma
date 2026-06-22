@@ -24,14 +24,14 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "product/product-direction"
     - "architecture/forma-policy-and-operation-model"
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
 
-reported_by:
-affected_area: Forma policy runtime
+reportedBy:
+affectedArea: Forma policy runtime
 ---
 
 # Design Forma Policy Runtime

@@ -22,14 +22,14 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "tasks/implement-read-only-webapp"
     - "decisions/forma-p0-core-architecture"
     - "architecture/forma-core-technical-direction"
 
-reported_by:
-affected_area: WebApp UI foundation
+reportedBy:
+affectedArea: WebApp UI foundation
 ---
 
 # Refactor WebApp With shadcn/ui And Base UI

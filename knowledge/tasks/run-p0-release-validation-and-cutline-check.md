@@ -21,14 +21,14 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/audit-p0-release-scope-and-roadmap"
-related_to:
+relatedTo:
     - "tasks/implement-ci-release-baseline"
     - "tasks/fix-mvp-validation-cli-issues"
 
-reported_by:
-affected_area: P0 release validation and cutline
+reportedBy:
+affectedArea: P0 release validation and cutline
 ---
 
 # Run P0 Release Validation And Cutline Check

@@ -10,7 +10,7 @@ tags:
     - rust
     - p0
 supersedes: []
-superseded_by: []
+supersededBy: []
 ---
 
 # Forma P0 Core Architecture

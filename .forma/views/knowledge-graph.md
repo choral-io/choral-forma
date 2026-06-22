@@ -23,10 +23,10 @@ graph:
           field: reviewers
           label: reviewed by
         - source: fields
-          field: blocked_by
+          field: blockedBy
           label: blocked by
         - source: fields
-          field: related_to
+          field: relatedTo
           label: related to
         - source: fields
           field: sources

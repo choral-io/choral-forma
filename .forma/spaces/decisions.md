@@ -38,7 +38,7 @@ schema:
             type: list
             items:
                 type: ref
-        superseded_by:
+        supersededBy:
             type: list
             items:
                 type: ref

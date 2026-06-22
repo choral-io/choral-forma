@@ -10,7 +10,7 @@ tags:
     - terminology
     - spaces
 supersedes: []
-superseded_by:
+supersededBy:
     - "decisions/use-settings-driven-taxonomy-and-navigation-model"
 ---
 

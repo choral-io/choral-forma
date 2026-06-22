@@ -23,16 +23,16 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by: []
-related_to:
+blockedBy: []
+relatedTo:
     - "product/forma-p0-starter-spec"
     - "architecture/forma-view-query-model"
     - "architecture/webapp-v2-read-model-contract"
     - "decisions/use-settings-driven-taxonomy-and-navigation-model"
     - "tasks/stabilize-public-read-only-webapp-release"
 
-reported_by:
-affected_area: Starter-kit configuration, backend read model, shared RPC contracts, WebApp routes
+reportedBy:
+affectedArea: Starter-kit configuration, backend read model, shared RPC contracts, WebApp routes
 ---
 
 # Align Starter Kit Baseline With Backend And WebApp

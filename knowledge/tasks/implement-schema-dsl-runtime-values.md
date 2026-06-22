@@ -21,13 +21,13 @@ status: done
 readiness: ready
 sprint:
 
-blocked_by:
+blockedBy:
     - "tasks/implement-forma-config-and-path-model"
-related_to:
+relatedTo:
     - "architecture/forma-p0-schema-dsl-spec"
 
-reported_by:
-affected_area: Schema validation and create input resolution
+reportedBy:
+affectedArea: Schema validation and create input resolution
 ---
 
 # Implement Schema DSL Runtime Values
@@ -73,7 +73,7 @@ The Schema DSL is the P0 user-authored object constraint language. Runtime value
 
 ## Relationship Notes
 
-Blocked by config/path model. Downstream work can be derived from task items whose `blocked_by` references this task, including check/index and starter create flows.
+Blocked by config/path model. Downstream work can be derived from task items whose `blockedBy` references this task, including check/index and starter create flows.
 
 ## Follow-up Notes
 

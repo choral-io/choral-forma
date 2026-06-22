@@ -15,10 +15,10 @@ tags:
     - evaluation
     - cli
     - skill
-covers_user_stories: []
-covers_product:
+coversUserStories: []
+coversProduct:
     - "product/choral-forma"
-related_tasks:
+relatedTasks:
     - "tasks/run-starter-kit-agent-pressure-validation"
 ---
 

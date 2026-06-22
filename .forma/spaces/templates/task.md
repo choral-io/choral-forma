@@ -15,12 +15,12 @@ owners: []
 assignees: []
 reviewers: []
 tags: []
-blocked_by: []
-related_to: []
+blockedBy: []
+relatedTo: []
 severity: ""
 sprint: ""
-reported_by: ""
-affected_area: ""
+reportedBy: ""
+affectedArea: ""
 ---
 
 # {{ input.title }}
