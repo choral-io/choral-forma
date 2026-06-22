@@ -1,5 +1,4 @@
 ---
-kind: task
 title: "Prepare First Team Overview"
 summary: "Draft the first real team overview page so the starter can be replaced incrementally."
 status: "ready"
@@ -11,7 +10,7 @@ assignees:
   - members/sam-rivera.md
 reviewers:
   - members/mira-chen.md
-blocked_by: []
+blockedBy: []
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 dueDate: "2026-06-10"

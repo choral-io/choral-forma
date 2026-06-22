@@ -25,7 +25,7 @@ sprint:
 blocked_by: []
 related_to:
     - "tasks/implement-ci-release-baseline"
-    - "tasks/implement-starter-init-create-inspect-list"
+    - "tasks/implement-starter-create-inspect-list"
 
 reported_by: MVP validation on 2026-05-22
 affected_area: CLI install and initialization validation
@@ -40,11 +40,11 @@ Fix CLI issues found during the first MVP validation pass.
 ## Sources
 
 - [[tasks/implement-ci-release-baseline]]
-- [[tasks/implement-starter-init-create-inspect-list]]
+- [[tasks/implement-starter-create-inspect-list]]
 
 ## Context
 
-The MVP validation used a clean temporary Forma workspace and the local `target/debug/forma` binary. Core init, create, check, index, list, inspect, serve, RPC, and WebApp read-only browsing flows passed. Two CLI usability gaps were found in the install and initialization validation path.
+The MVP validation used a clean temporary Forma workspace and the local `target/debug/forma` binary. Core create, check, index, list, inspect, serve, RPC, and WebApp read-only browsing flows passed. Two CLI usability gaps were found in the install and then-current initialization validation path.
 
 ## In scope
 
@@ -63,7 +63,7 @@ The MVP validation used a clean temporary Forma workspace and the local `target/
 ## Acceptance criteria
 
 - `forma --version` exits successfully and prints `forma 0.1.0`.
-- Running `forma init --name <name>` in a non-interactive shell without `--yes` exits unsuccessfully and prints the `init.confirmationRequired` diagnostic in human-readable output.
+- Failed non-interactive initialization output includes useful diagnostic details.
 - Existing JSON output for failed operations remains unchanged.
 - Focused Rust CLI tests pass.
 
@@ -76,13 +76,13 @@ Release artifact and install-script validation is a separate follow-up validatio
 - Added `forma --version` and `forma -V`.
 - Improved human-readable failed operation output to include diagnostic severity, code, message, and path when available.
 - Verified `target/debug/forma --version` prints `forma 0.1.0`.
-- Verified non-interactive `forma init --name <name>` prints `init.confirmationRequired` in non-JSON output.
+- Verified the then-current non-interactive initialization path printed useful diagnostic details in non-JSON output.
 - Verified `cargo test -p forma-cli`, `cargo check -p forma-cli`, and `cargo fmt --check` pass.
 - Release artifact validation passed after network recovery:
     - downloaded `forma-macos-arm64.tar.gz` and matching `.sha256`;
     - verified checksum with `shasum -a 256 -c`;
     - extracted `forma-macos-arm64/bin/forma`;
-    - verified the release binary can `init`, `create`, `check`, `list`, `inspect`, `config inspect`, and `serve`;
+    - verified the release binary can run create, check, list, inspect, config inspect, and serve flows;
     - verified `forma serve` serves embedded WebApp assets and RPC;
     - opened the release WebApp in the in-app browser and confirmed overview, spaces, views, diagnostics, and `rpc: connected`.
 

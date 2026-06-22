@@ -37,7 +37,7 @@ The remaining Backlog is mostly P1/P2 follow-up work. Resource-description healt
 - Markdown parsing, frontmatter parsing, FormaAST enrichment, reference extraction, rendering inputs, and diagnostic source locations.
 - Operation and RPC foundation shared by CLI, local HTTP, and WebApp callers.
 - `check` diagnostics over source files and configuration without a committed persistent index.
-- Starter flows for `forma init`, `forma create`, `forma inspect`, `forma list`, and workspace checks.
+- Starter-kit flows for `forma create`, `forma inspect`, `forma list`, and workspace checks against an existing configured workspace.
 - View discovery, view metadata, table and kanban rendering, and graph view discovery/indexing without requiring interactive graph rendering in P0.
 - Read-only local WebApp for browsing spaces, views, files, rendered Markdown, diagnostics, and index status.
 - CI/release baseline, release packaging workflow, and MVP validation fixes.
@@ -51,7 +51,7 @@ The remaining Backlog is mostly P1/P2 follow-up work. Resource-description healt
 - Current delivery state must be stable in Git: local completion commits should be intentionally pushed or a release branch should be selected before release validation is treated as durable. The current branch is locally ahead of `origin/main`.
 - Run and record a full release-validation matrix on the current release cutline, including knowledge checks, Rust checks/tests, Web checks/build, and a starter workspace smoke test.
 - Confirm the release cutline does not include uncommitted implementation, generated, ignored, or local-only artifacts.
-- Confirm P0 operations still match the documented boundary: CLI init, config inspect, check, inspect, list, create, serve, and WebApp-backed read-only file/view/reference operations.
+- Confirm P0 operations still match the documented boundary: CLI config inspect, check, inspect, list, create, serve, and WebApp-backed read-only file/view/reference operations.
 
 ### Should Have
 

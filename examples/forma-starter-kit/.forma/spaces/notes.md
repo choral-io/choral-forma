@@ -6,6 +6,17 @@ title: Notes
 display:
   order: 10
 description: Guides, feature demos, and starter knowledge pages.
+schema:
+  type: object
+  fields:
+    title:
+      type: string
+    summary:
+      type: string
+    createdAt:
+      type: string
+    updatedAt:
+      type: string
 include:
   - "notes/**/*.md"
 create:

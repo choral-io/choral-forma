@@ -1,5 +1,4 @@
 use std::fs;
-use std::io::{self, IsTerminal, Write};
 use std::net::SocketAddr;
 use std::path::{Component, Path as FsPath, PathBuf};
 
@@ -15,9 +14,9 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use clap::{Parser, Subcommand};
 use forma_rpc::{
-    BoardShowRequest, CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest,
-    InspectRequest, KnowledgeHealthRequest, ListRequest, Operation, OperationRequest,
-    TasksInspectRequest, TasksListRequest,
+    BoardShowRequest, CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher,
+    InspectRequest, KnowledgeHealthRequest, ListRequest, OperationRequest, TasksInspectRequest,
+    TasksListRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -46,18 +45,6 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    Init {
-        #[arg(long)]
-        name: String,
-        #[arg(long, default_value = "en")]
-        language: String,
-        #[arg(long)]
-        timezone: Option<String>,
-        #[arg(short = 'y', long)]
-        yes: bool,
-        #[arg(long)]
-        json: bool,
-    },
     Check {
         #[arg(long)]
         json: bool,
@@ -170,30 +157,6 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     match command {
         None => {
             println!("forma {}", forma_core::version());
-            Ok(())
-        }
-        Some(Command::Init {
-            name,
-            language,
-            timezone,
-            yes,
-            json,
-        }) => {
-            if !yes
-                && let Some(result) =
-                    init_confirmation_result(&workspace, &name, &language, timezone.as_deref())?
-            {
-                print_result(&result, json, "init");
-                exit_if_failed(&result);
-                return Ok(());
-            }
-            let result = dispatcher.dispatch(OperationRequest::Init(InitRequest {
-                name,
-                language,
-                timezone,
-            }))?;
-            print_result(&result, json, "init");
-            exit_if_failed(&result);
             Ok(())
         }
         Some(Command::Check { json }) => {
@@ -335,52 +298,6 @@ fn print_diagnostic(diagnostic: &forma_core::Diagnostic) {
         );
     } else {
         println!("{severity} {}: {}", diagnostic.code, diagnostic.message);
-    }
-}
-
-fn init_confirmation_result(
-    root: &FsPath,
-    name: &str,
-    language: &str,
-    timezone: Option<&str>,
-) -> Result<Option<forma_rpc::OperationResult>, Box<dyn std::error::Error>> {
-    let resolved_timezone = timezone
-        .map(ToString::to_string)
-        .unwrap_or_else(forma_core::detect_environment_timezone);
-
-    if !io::stdin().is_terminal() || !io::stderr().is_terminal() {
-        return Ok(Some(forma_rpc::OperationResult::failed(
-            Operation::Init,
-            forma_core::Diagnostic::error(
-                "init.confirmationRequired",
-                "Init requires confirmation in interactive shells; pass --yes in non-interactive environments.",
-            ),
-        )));
-    }
-
-    let mut stderr = io::stderr();
-    writeln!(stderr, "Forma will initialize a workspace with:")?;
-    writeln!(stderr, "  root: {}", root.display())?;
-    writeln!(stderr, "  name: {name}")?;
-    writeln!(stderr, "  language: {language}")?;
-    writeln!(stderr, "  timezone: {resolved_timezone}")?;
-    writeln!(
-        stderr,
-        "It will create .forma/ configuration, starter templates, starter views, and content directories."
-    )?;
-    write!(stderr, "Continue? [y/N] ")?;
-    stderr.flush()?;
-
-    let mut answer = String::new();
-    io::stdin().read_line(&mut answer)?;
-    let confirmed = matches!(answer.trim(), "y" | "Y" | "yes" | "YES" | "Yes");
-    if confirmed {
-        Ok(None)
-    } else {
-        Ok(Some(forma_rpc::OperationResult::failed(
-            Operation::Init,
-            forma_core::Diagnostic::error("init.cancelled", "Init was cancelled by the user."),
-        )))
     }
 }
 
@@ -526,7 +443,7 @@ async fn raw_workspace_file(
         Ok(path) => path.as_str().to_string(),
         Err(_) => return StatusCode::NOT_FOUND.into_response(),
     };
-    if !forma_core::is_raw_workspace_path_allowed(&workspace_path) {
+    if !forma_core::is_public_workspace_path_allowed(&state.workspace_root, &workspace_path) {
         return StatusCode::NOT_FOUND.into_response();
     }
     let Some(media_type) = forma_core::media_type_for_workspace_path(&workspace_path) else {
@@ -879,6 +796,7 @@ impl StatusLabel for forma_rpc::OperationResult {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::path::Path;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use axum::body::{Body, to_bytes};
@@ -891,6 +809,63 @@ mod tests {
         rpc_router_with_dispatcher_and_workspace, rpc_router_with_options,
         rpc_router_with_options_and_root_path,
     };
+
+    fn copy_starter_workspace(root: &Path) {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/forma-starter-kit");
+        copy_dir_recursive(&source, root);
+        remove_guideline_references(root);
+        clear_starter_content(root);
+    }
+
+    fn copy_dir_recursive(source: &Path, target: &Path) {
+        fs::create_dir_all(target).unwrap();
+        for entry in fs::read_dir(source).unwrap() {
+            let entry = entry.unwrap();
+            let source_path = entry.path();
+            let target_path = target.join(entry.file_name());
+            if source_path.is_dir() {
+                copy_dir_recursive(&source_path, &target_path);
+            } else {
+                fs::copy(&source_path, &target_path).unwrap();
+            }
+        }
+    }
+
+    fn clear_starter_content(root: &Path) {
+        for directory in ["notes", "tasks", "members", "guidelines"] {
+            let path = root.join(directory);
+            if path.exists() {
+                fs::remove_dir_all(&path).unwrap();
+            }
+            fs::create_dir_all(path).unwrap();
+        }
+    }
+
+    fn remove_guideline_references(root: &Path) {
+        let config_path = root.join(".forma.yml");
+        let config = fs::read_to_string(&config_path).unwrap();
+        fs::write(
+            &config_path,
+            config.replace(
+                "\nguidelines:\n  - \"guidelines/workspace-operations.md\"\n  - \"guidelines/task-selection.md\"\n",
+                "\n",
+            ),
+        )
+        .unwrap();
+
+        let tasks_path = root.join(".forma/spaces/tasks.md");
+        let tasks = fs::read_to_string(&tasks_path).unwrap();
+        fs::write(
+            &tasks_path,
+            tasks.replace(
+                "guidelines:\n  - \"guidelines/workspace-operations.md\"\n",
+                "",
+            ),
+        )
+        .unwrap();
+    }
 
     #[test]
     fn inject_base_href_inserts_before_resource_tags() {
@@ -943,7 +918,7 @@ mod tests {
     async fn rpc_router_uses_configured_workspace_root() {
         let root = fixture_root("rpc-workspace-root");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "RPC Workspace", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         let response =
             rpc_router_with_dispatcher(None, Vec::new(), Dispatcher::new(&root), "/".to_string())
@@ -964,7 +939,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
         let body = String::from_utf8_lossy(&body);
-        assert!(body.contains(r#""name":"RPC Workspace""#));
+        assert!(body.contains(r#""name":"Choral Forma Example""#));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1134,7 +1109,7 @@ mod tests {
     async fn rpc_router_serves_raw_workspace_resources_under_root_path() {
         let root = fixture_root("raw-resource-route");
         fs::create_dir_all(root.join("assets")).unwrap();
-        forma_core::init_workspace(&root, "Raw Route", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(root.join("assets/logo.png"), b"\x89PNG\r\n\x1a\n").unwrap();
 
         let app = rpc_router_with_dispatcher_and_workspace(
@@ -1168,8 +1143,7 @@ mod tests {
     async fn rpc_router_does_not_expose_public_forma_asset_route() {
         let root = fixture_root("public-forma-asset-route-disabled");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "Public Forma Assets Disabled", "en", Some("UTC"))
-            .unwrap();
+        copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/assets")).unwrap();
         fs::write(root.join(".forma/assets/logo.svg"), "<svg></svg>").unwrap();
 
@@ -1200,7 +1174,7 @@ mod tests {
     async fn rpc_router_rejects_raw_workspace_path_traversal() {
         let root = fixture_root("raw-route-traversal");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "Raw Route Traversal", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         let app = rpc_router_with_dispatcher_and_workspace(
             None,
@@ -1226,10 +1200,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rpc_router_rejects_raw_forma_internal_paths() {
+    async fn rpc_router_rejects_raw_config_entry_but_serves_non_config_forma_assets() {
         let root = fixture_root("raw-route-rejects-forma-internal");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "Raw Forma Reject", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/assets")).unwrap();
         fs::write(root.join(".forma/assets/logo.svg"), "<svg></svg>").unwrap();
 
@@ -1242,14 +1216,28 @@ mod tests {
         )
         .unwrap();
 
-        for path in ["/forma/raw/.forma.yml", "/forma/raw/.forma/assets/logo.svg"] {
-            let response = app
-                .clone()
-                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
-                .await
-                .unwrap();
-            assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        }
+        let config_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/forma/raw/.forma.yml")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(config_response.status(), StatusCode::NOT_FOUND);
+
+        let asset_response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/forma/raw/.forma/assets/logo.svg")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(asset_response.status(), StatusCode::OK);
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1258,7 +1246,7 @@ mod tests {
     async fn rpc_router_rejects_raw_local_only_workspace_files() {
         let root = fixture_root("raw-route-local-only");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "Raw Route Local Only", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
 
@@ -1289,7 +1277,7 @@ mod tests {
     async fn rpc_router_rejects_raw_local_only_workspace_files_case_variants() {
         let root = fixture_root("raw-route-local-only-case");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "Raw Route Local Only Case", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
         fs::write(root.join(".forma/local/secret.png"), b"\x89PNG\r\n\x1a\n").unwrap();
@@ -1318,6 +1306,38 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[tokio::test]
+    async fn rpc_router_rejects_raw_project_ignored_files() {
+        let root = fixture_root("raw-route-project-ignored");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(root.join(".gitignore"), "private/\n").unwrap();
+        fs::create_dir_all(root.join("private")).unwrap();
+        fs::write(root.join("private/secret.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+
+        let app = rpc_router_with_dispatcher_and_workspace(
+            None,
+            Vec::new(),
+            Dispatcher::new(&root),
+            root.clone(),
+            "/forma".into(),
+        )
+        .unwrap();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/forma/raw/private/secret.png")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[cfg(unix)]
     #[tokio::test]
     async fn rpc_router_rejects_raw_workspace_symlink_escape() {
@@ -1325,7 +1345,7 @@ mod tests {
         let outside = fixture_root("raw-route-symlink-outside");
         fs::create_dir_all(root.join("assets")).unwrap();
         fs::create_dir_all(&outside).unwrap();
-        forma_core::init_workspace(&root, "Raw Route Symlink", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(outside.join("logo.png"), b"\x89PNG\r\n\x1a\n").unwrap();
         std::os::unix::fs::symlink(outside.join("logo.png"), root.join("assets/logo.png")).unwrap();
 

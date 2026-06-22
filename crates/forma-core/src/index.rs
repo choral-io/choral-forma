@@ -7,13 +7,12 @@ use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
 use crate::config::{
-    ConfigError, DisplayOptions, LoadMode, SemanticType, WorkspaceConfig, load_workspace,
+    ConfigError, DisplayOptions, LoadMode, SemanticType, WorkspaceConfig, config_source_paths,
+    load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
-use crate::path::{
-    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_VIEWS_DIR, WorkspacePath, slugify_path_segment,
-};
+use crate::path::{FORMA_CONFIG_PATH, WorkspacePath, slugify_path_segment};
 use crate::schema::{SchemaNode, parse_space_schema, validate_schema_value};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -340,6 +339,14 @@ fn discover_entries(
         .iter()
         .filter_map(|path| workspace_relative_path(root, path))
         .collect::<BTreeSet<_>>();
+    let config_source_paths = config_source_paths(root, LoadMode::SharedOnly)
+        .map(|sources| {
+            sources
+                .into_iter()
+                .map(|source| source.path)
+                .collect::<BTreeSet<_>>()
+        })
+        .unwrap_or_default();
     let supported_language_suffixes = supported_language_suffixes(config);
     let matchers = build_space_matchers(config, diagnostics);
     let mut entries = Vec::new();
@@ -349,6 +356,9 @@ fn discover_entries(
         let Some(relative) = workspace_relative_path(root, &path) else {
             continue;
         };
+        if config_source_paths.contains(&relative) {
+            continue;
+        }
         let matched = matchers
             .iter()
             .filter(|(_, matcher)| matcher.is_match(relative.as_str()))
@@ -545,7 +555,7 @@ fn collect_markdown_files_inner(root: &Path, dir: &Path, files: &mut Vec<PathBuf
             continue;
         };
         if path.is_dir() {
-            if matches!(name, ".git" | FORMA_DIR | "target" | "node_modules") {
+            if matches!(name, ".git" | "target" | "node_modules") {
                 continue;
             }
             collect_markdown_files_inner(root, &path, files);
@@ -562,16 +572,17 @@ fn discover_views(
     config: &WorkspaceConfig,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<IndexView> {
-    let views_root = root.join(FORMA_VIEWS_DIR);
-    let mut files = Vec::new();
-    collect_view_files(&views_root, &mut files);
     let mut views = Vec::new();
 
-    for path in files {
-        let Some(relative) = workspace_relative_path(root, &path) else {
-            continue;
-        };
-        let Ok(source) = fs::read_to_string(&path) else {
+    let Ok(sources) = config_source_paths(root, LoadMode::SharedOnly) else {
+        return views;
+    };
+    for relative in sources
+        .into_iter()
+        .filter(|source| source.path.ends_with(".md") || source.path.ends_with(".mdx"))
+        .map(|source| source.path)
+    {
+        let Ok(source) = fs::read_to_string(root.join(&relative)) else {
             diagnostics.push(
                 Diagnostic::error("view.readFailed", "View file could not be read.")
                     .with_path(relative),
@@ -587,12 +598,11 @@ fn discover_views(
                 .map(|diagnostic| diagnostic.with_path(relative.clone())),
         );
         let Some(value) = document.frontmatter.value else {
-            diagnostics.push(
-                Diagnostic::error("view.invalid", "View must define YAML frontmatter.")
-                    .with_path(relative.clone()),
-            );
             continue;
         };
+        if required_string(&value, "kind").as_deref() != Some("view") {
+            continue;
+        }
         let surface = required_string(&value, "surface").unwrap_or_else(|| "page".to_string());
         let mode = required_string(&value, "view.mode").or_else(|| required_string(&value, "mode"));
         let mut space =
@@ -687,21 +697,6 @@ fn resource_description_target(path: &str) -> Option<String> {
 fn media_type_for_resource_target(path: &str) -> Option<&'static str> {
     let media_type = crate::operations::media_type_for_workspace_path(path)?;
     (media_type != "text/markdown").then_some(media_type)
-}
-
-fn collect_view_files(dir: &Path, files: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_view_files(&path, files);
-        } else if path.extension().and_then(|extension| extension.to_str()) == Some("md") {
-            files.push(path);
-        }
-    }
-    files.sort();
 }
 
 fn collect_ref_fields(config: &WorkspaceConfig, schema: &SchemaNode) -> Vec<RefField> {
@@ -1303,20 +1298,14 @@ fn workspace_relative_path(root: &Path, path: &Path) -> Option<String> {
 }
 
 fn view_id(path: &str) -> String {
-    let views_prefix = format!("{FORMA_VIEWS_DIR}/");
-    path.strip_prefix(&views_prefix)
-        .unwrap_or(path)
-        .strip_suffix(".md")
+    path.strip_suffix(".md")
+        .or_else(|| path.strip_suffix(".mdx"))
         .unwrap_or(path)
         .to_string()
 }
 
 pub(crate) fn config_error_diagnostic(error: ConfigError) -> Diagnostic {
     match error {
-        ConfigError::MissingFormaDirectory => Diagnostic::error(
-            "workspace.missingForma",
-            "Workspace root does not contain .forma.",
-        ),
         ConfigError::Read { path, source } => {
             Diagnostic::error("config.readFailed", "Configuration file could not be read.")
                 .with_path(path)
@@ -1351,14 +1340,16 @@ mod tests {
     use super::*;
     use crate::path::FORMA_CONFIG_PATH;
 
+    const FIXTURE_VIEWS_DIR: &str = ".forma/views";
+
     #[test]
     fn builds_deterministic_summary_index_with_resolved_refs() {
         let root = fixture_root("valid");
         write_workspace(&root);
         write_entry(
             &root,
-            "members/tiscs.md",
-            "---\nkind: member\ntitle: Tiscs\n---\n",
+            "members/alex-chen.md",
+            "---\nkind: member\ntitle: Alex Chen\n---\n",
         );
         write_entry(
             &root,
@@ -1368,7 +1359,7 @@ mod tests {
         write_entry(
             &root,
             "tasks/member-registration.md",
-            "---\nkind: task\ntitle: User registration\nsummary: Register members\nassignees:\n  - members/tiscs.md\n---\nSee [[notes/account-model]] and ![[members/tiscs]].\n",
+            "---\nkind: task\ntitle: User registration\nsummary: Register members\nassignees:\n  - members/alex-chen.md\n---\nSee [[notes/account-model]] and ![[members/alex-chen]].\n",
         );
         write_view(
             &root,
@@ -1426,7 +1417,7 @@ mod tests {
   ],
   "views": [
     {
-      "id": "tasks",
+      "id": "{{tasks_view_id}}",
       "path": "{{tasks_view_path}}",
       "surface": "page",
       "mode": "kanban",
@@ -1444,10 +1435,10 @@ mod tests {
   ],
   "entries": [
     {
-      "path": "members/tiscs.md",
+      "path": "members/alex-chen.md",
       "space": "members",
       "kind": "member",
-      "title": "Tiscs"
+      "title": "Alex Chen"
     },
     {
       "path": "notes/account-model.md",
@@ -1465,7 +1456,7 @@ mod tests {
         {
           "source": "frontmatter",
           "field": "assignees",
-          "targetPath": "members/tiscs.md",
+          "targetPath": "members/alex-chen.md",
           "semanticType": "member",
           "intent": "reference"
         },
@@ -1476,7 +1467,7 @@ mod tests {
         },
         {
           "source": "body",
-          "targetPath": "members/tiscs.md",
+          "targetPath": "members/alex-chen.md",
           "intent": "embed"
         }
       ]
@@ -1486,8 +1477,9 @@ mod tests {
 "#
         .replace(
             "{{tasks_view_path}}",
-            &format!("{FORMA_VIEWS_DIR}/tasks.md"),
-        );
+            &format!("{FIXTURE_VIEWS_DIR}/tasks.md"),
+        )
+        .replace("{{tasks_view_id}}", &format!("{FIXTURE_VIEWS_DIR}/tasks"));
         assert_eq!(json, expected_json);
         assert_eq!(json, read_model_json(&discovery.index));
         fs::remove_dir_all(root).unwrap();
@@ -1538,6 +1530,69 @@ mod tests {
                 .unwrap()
                 .entry_count,
             1
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn included_view_config_nodes_can_live_outside_forma_views() {
+        let root = fixture_root("included-view-outside-forma-views");
+        write_workspace(&root);
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - views/*.md\n",
+        )
+        .unwrap();
+        write_workspace_file(
+            &root,
+            "views/tasks.md",
+            "---\nkind: view\nmode: table\ntitle: Tasks\nsource:\n  type: pages\n  query:\n    field: taxonomy.space\n    op: equals\n    value: tasks\n---\n\n# Tasks\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+
+        assert!(
+            discovery
+                .index
+                .views
+                .iter()
+                .any(|view| view.id == "views/tasks" && view.path == "views/tasks.md")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn broad_space_includes_do_not_index_config_source_nodes_as_entries() {
+        let root = fixture_root("broad-include-excludes-config-sources");
+        write_workspace(&root);
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - \"**/*.md\"\ncreate:\n  directory: notes\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: fields.title\n  summaryField: fields.summary\nschema:\n  type: object\n  fields:\n    kind:\n      type: string\n---\n\n# Notes\n",
+        )
+        .unwrap();
+        write_entry(
+            &root,
+            "notes/ordinary.md",
+            "---\nkind: note\ntitle: Ordinary\n---\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+
+        assert!(
+            discovery
+                .index
+                .entries
+                .iter()
+                .any(|entry| entry.path == "notes/ordinary.md")
+        );
+        assert!(
+            discovery
+                .index
+                .entries
+                .iter()
+                .all(|entry| !entry.path.starts_with(".forma/"))
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -1760,7 +1815,7 @@ mod tests {
             .index
             .views
             .iter()
-            .find(|view| view.id == "knowledge-graph")
+            .find(|view| view.id == ".forma/views/knowledge-graph")
             .expect("graph view should be indexed");
 
         assert!(discovery.diagnostics.is_empty());
@@ -1825,13 +1880,13 @@ mod tests {
         write_workspace(&root);
         write_entry(
             &root,
-            "members/tiscs.md",
-            "---\nkind: member\ntitle: Tiscs\n---\n",
+            "members/alex-chen.md",
+            "---\nkind: member\ntitle: Alex Chen\n---\n",
         );
         write_entry(
             &root,
             "tasks/broken.md",
-            "---\nkind: task\ntitle: Broken\nassignees:\n  - \"[[members/tiscs]]\"\n---\n",
+            "---\nkind: task\ntitle: Broken\nassignees:\n  - \"[[members/alex-chen]]\"\n---\n",
         );
 
         let discovery = discover_workspace(&root).unwrap();
@@ -1848,7 +1903,7 @@ mod tests {
                 && diagnostic
                     .actual
                     .as_deref()
-                    .is_some_and(|actual| actual == "[[members/tiscs]]")
+                    .is_some_and(|actual| actual == "[[members/alex-chen]]")
         }));
         fs::remove_dir_all(root).unwrap();
     }
@@ -1861,7 +1916,7 @@ mod tests {
         write_view(
             &root,
             "bad.md",
-            "---\ntitle: Bad\nsurface: page\nmode: table\nspace: missing\n---\n",
+            "---\nkind: view\ntitle: Bad\nsurface: page\nmode: table\nspace: missing\n---\n",
         );
 
         let result = check_workspace(&root);
@@ -1954,6 +2009,7 @@ mod tests {
         write_workspace(&root);
         write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
         fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(root.join(".forma/.gitignore"), "local/\n").unwrap();
         fs::write(
             root.join(".forma/local/profile.yml"),
             "workspace:\n  name: Local Only\n",
@@ -1968,7 +2024,7 @@ mod tests {
 
     fn write_workspace(root: &Path) {
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
-        fs::create_dir_all(root.join(FORMA_VIEWS_DIR)).unwrap();
+        fs::create_dir_all(root.join(FIXTURE_VIEWS_DIR)).unwrap();
         fs::write(
             root.join(FORMA_CONFIG_PATH),
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
@@ -2032,13 +2088,15 @@ mod tests {
     }
 
     fn write_entry(root: &Path, path: &str, contents: &str) {
-        let path = root.join(path);
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, contents).unwrap();
+        write_workspace_file(root, path, contents);
     }
 
     fn write_view(root: &Path, path: &str, contents: &str) {
-        let path = root.join(FORMA_VIEWS_DIR).join(path);
+        write_workspace_file(root, &format!("{FIXTURE_VIEWS_DIR}/{path}"), contents);
+    }
+
+    fn write_workspace_file(root: &Path, path: &str, contents: &str) {
+        let path = root.join(path);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, contents).unwrap();
     }

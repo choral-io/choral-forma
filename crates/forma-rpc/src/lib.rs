@@ -14,8 +14,6 @@ pub fn core_version() -> &'static str {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Operation {
-    #[serde(rename = "init")]
-    Init,
     #[serde(rename = "check")]
     Check,
     #[serde(rename = "config.inspect")]
@@ -49,7 +47,6 @@ pub enum Operation {
 impl Operation {
     pub fn method(self) -> &'static str {
         match self {
-            Self::Init => "init",
             Self::Check => "check",
             Self::ConfigInspect => "config.inspect",
             Self::FilesList => "files.list",
@@ -70,7 +67,6 @@ impl Operation {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OperationRequest {
-    Init(InitRequest),
     Check(CheckRequest),
     ConfigInspect(ConfigInspectRequest),
     FilesList(FilesListRequest),
@@ -85,17 +81,6 @@ pub enum OperationRequest {
     FileRender(FileRenderRequest),
     FileReferences(FileReferencesRequest),
     KnowledgeHealth(KnowledgeHealthRequest),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-pub struct InitRequest {
-    pub name: String,
-    #[serde(default = "default_language")]
-    pub language: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timezone: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -261,14 +246,6 @@ impl Dispatcher {
     pub fn dispatch(&self, request: OperationRequest) -> Result<OperationResult, OperationError> {
         let root = &self.root;
         match request {
-            OperationRequest::Init(request) => forma_core::init_workspace(
-                root,
-                &request.name,
-                &request.language,
-                request.timezone.as_deref(),
-            )
-            .map(OperationResult::from)
-            .or_else(|error| Ok(core_error_result(Operation::Init, error))),
             OperationRequest::Check(_) => {
                 Ok(OperationResult::from(forma_core::check_workspace(root)))
             }
@@ -485,15 +462,6 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
-        "init" => serde_json::from_value::<InitRequest>(params)
-            .map(OperationRequest::Init)
-            .map_err(|_| {
-                JsonRpcFailure::without_id(
-                    JsonRpcErrorCode::InvalidParams,
-                    "Invalid params.",
-                    "params.invalid",
-                )
-            }),
         "inspect" => serde_json::from_value::<InspectRequest>(params)
             .map(OperationRequest::Inspect)
             .map_err(|_| {
@@ -639,23 +607,6 @@ impl From<forma_core::CheckResult> for OperationResult {
             diagnostics: result.diagnostics,
             path: None,
             data: BTreeMap::new(),
-        }
-    }
-}
-
-impl From<forma_core::InitResult> for OperationResult {
-    fn from(result: forma_core::InitResult) -> Self {
-        let mut data = BTreeMap::new();
-        data.insert("workspace".to_string(), json!(result.workspace));
-        data.insert("created".to_string(), json!(result.created));
-        Self {
-            schema_version: result.schema_version,
-            operation: result.operation,
-            status: result.status,
-            summary: Some(result.summary),
-            diagnostics: result.diagnostics,
-            path: None,
-            data,
         }
     }
 }
@@ -895,10 +846,6 @@ impl From<forma_core::operations::KnowledgeHealthResult> for OperationResult {
     }
 }
 
-fn default_language() -> String {
-    "en".to_string()
-}
-
 fn default_render_format() -> String {
     "html".to_string()
 }
@@ -973,11 +920,69 @@ fn json_rpc_error(
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::path::Path;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use serde_json::json;
 
     use super::{Dispatcher, JsonRpcErrorCode};
+
+    fn copy_starter_workspace(root: &Path) {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/forma-starter-kit");
+        copy_dir_recursive(&source, root);
+        remove_guideline_references(root);
+        clear_starter_content(root);
+    }
+
+    fn copy_dir_recursive(source: &Path, target: &Path) {
+        fs::create_dir_all(target).unwrap();
+        for entry in fs::read_dir(source).unwrap() {
+            let entry = entry.unwrap();
+            let source_path = entry.path();
+            let target_path = target.join(entry.file_name());
+            if source_path.is_dir() {
+                copy_dir_recursive(&source_path, &target_path);
+            } else {
+                fs::copy(&source_path, &target_path).unwrap();
+            }
+        }
+    }
+
+    fn clear_starter_content(root: &Path) {
+        for directory in ["notes", "tasks", "members", "guidelines"] {
+            let path = root.join(directory);
+            if path.exists() {
+                fs::remove_dir_all(&path).unwrap();
+            }
+            fs::create_dir_all(path).unwrap();
+        }
+    }
+
+    fn remove_guideline_references(root: &Path) {
+        let config_path = root.join(".forma.yml");
+        let config = fs::read_to_string(&config_path).unwrap();
+        fs::write(
+            &config_path,
+            config.replace(
+                "\nguidelines:\n  - \"guidelines/workspace-operations.md\"\n  - \"guidelines/task-selection.md\"\n",
+                "\n",
+            ),
+        )
+        .unwrap();
+
+        let tasks_path = root.join(".forma/spaces/tasks.md");
+        let tasks = fs::read_to_string(&tasks_path).unwrap();
+        fs::write(
+            &tasks_path,
+            tasks.replace(
+                "guidelines:\n  - \"guidelines/workspace-operations.md\"\n",
+                "",
+            ),
+        )
+        .unwrap();
+    }
 
     #[test]
     fn json_rpc_rejects_parse_errors() {
@@ -1110,7 +1115,7 @@ mod tests {
     fn json_rpc_rejects_legacy_file_methods() {
         let root = fixture_root("legacy-file-methods");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "Legacy File Methods", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         for method in ["entry.render", "references.list"] {
             let body = format!(
@@ -1133,7 +1138,7 @@ mod tests {
     fn json_rpc_dispatches_file_render() {
         let root = fixture_root("file-render-rpc");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "File Render RPC", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
             "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
@@ -1154,7 +1159,7 @@ mod tests {
     fn json_rpc_dispatches_file_references() {
         let root = fixture_root("file-references-rpc");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "File References RPC", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
             "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
@@ -1175,7 +1180,7 @@ mod tests {
     fn json_rpc_dispatches_workspace_dashboard() {
         let root = fixture_root("workspace-dashboard-rpc");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "Workspace Dashboard RPC", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
             "---\nkind: note\ntitle: Source\nsummary: Dashboard source\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
@@ -1190,7 +1195,7 @@ mod tests {
         assert_eq!(response["result"]["operation"], "workspace.dashboard");
         assert_eq!(
             response["result"]["workspace"]["name"],
-            "Workspace Dashboard RPC"
+            "Choral Forma Example"
         );
         assert!(response["result"]["spaces"].as_array().unwrap().len() >= 3);
         assert_eq!(response["result"]["entries"][0]["path"], "notes/source.md");
@@ -1210,7 +1215,7 @@ mod tests {
     fn json_rpc_dispatches_knowledge_health() {
         let root = fixture_root("knowledge-health-rpc");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "Knowledge Health RPC", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
             "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n\nMissing [[notes/missing]].\n",
@@ -1225,7 +1230,7 @@ mod tests {
         assert_eq!(response["result"]["operation"], "knowledge.health");
         assert_eq!(
             response["result"]["workspace"]["name"],
-            "Knowledge Health RPC"
+            "Choral Forma Example"
         );
         assert_eq!(response["result"]["status"], "warning");
         assert_eq!(
@@ -1258,7 +1263,7 @@ mod tests {
         .unwrap();
         fs::write(
             root.join("knowledge/tasks/ship-cli.md"),
-            "---\nschemaVersion: 1\nkind: task\ntitle: Ship CLI\nsummary: Add CLI task inventory commands.\npriority: P0\nreadiness: ready\nowner: Tiscs\n---\n\n# Ship CLI\n",
+            "---\nschemaVersion: 1\nkind: task\ntitle: Ship CLI\nsummary: Add CLI task inventory commands.\npriority: P0\nreadiness: ready\nowner: Alex Chen\n---\n\n# Ship CLI\n",
         )
         .unwrap();
 
@@ -1352,7 +1357,7 @@ mod tests {
     fn json_rpc_file_render_invalid_format_reports_neutral_input_diagnostic() {
         let root = fixture_root("file-render-invalid-format");
         fs::create_dir_all(&root).unwrap();
-        forma_core::init_workspace(&root, "File Render Invalid Format", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         let response = handle_json_rpc(
             &root,
@@ -1378,10 +1383,6 @@ mod tests {
 
     #[test]
     fn operation_names_are_json_facing_method_names() {
-        assert_eq!(
-            serde_json::to_value(super::Operation::Init).unwrap(),
-            "init"
-        );
         assert_eq!(
             serde_json::to_value(super::Operation::Check).unwrap(),
             "check"

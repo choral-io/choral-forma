@@ -13,7 +13,7 @@ workspace:
 
 guidelines:
   - "guidelines/workspace-operations.md"
-  - "guidelines/knowledge-capture.md"
+  - "guidelines/task-selection.md"
 
 include:
   - ".forma/dashboard.md"

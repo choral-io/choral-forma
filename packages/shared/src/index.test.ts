@@ -5,8 +5,8 @@ import { FormaRpcClient, FormaRpcError } from "./index";
 describe("FormaRpcClient", () => {
     it("sends JSON-RPC requests with incrementing string ids", async () => {
         const calls: Array<{ input: string; body: unknown }> = [];
-        const client = new FormaRpcClient("/rpc", (input, init) => {
-            calls.push({ input, body: JSON.parse(init.body) });
+        const client = new FormaRpcClient("/rpc", (input, requestInit) => {
+            calls.push({ input, body: JSON.parse(requestInit.body) });
             return Promise.resolve({
                 ok: true,
                 status: 200,
@@ -66,8 +66,8 @@ describe("FormaRpcClient", () => {
 
     it("requests markdown file renders by default", async () => {
         const calls: Array<{ input: string; body: unknown }> = [];
-        const client = new FormaRpcClient("/rpc", (input, init) => {
-            calls.push({ input, body: JSON.parse(init.body) });
+        const client = new FormaRpcClient("/rpc", (input, requestInit) => {
+            calls.push({ input, body: JSON.parse(requestInit.body) });
             return Promise.resolve({
                 ok: true,
                 status: 200,

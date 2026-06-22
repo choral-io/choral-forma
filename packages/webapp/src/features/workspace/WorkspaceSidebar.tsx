@@ -132,11 +132,11 @@ export function WorkspaceSidebar({ dashboard }: WorkspaceSidebarProps) {
                             >
                                 {dashboard.views.map((view) => (
                                     <SidebarChildItem
-                                        active={pathname === `/views/${view.id}`}
+                                        active={pathname === viewRoutePath(view.id)}
                                         key={view.id}
                                         label={view.title}
                                         meta={view.kind}
-                                        to={`/views/${view.id}`}
+                                        to={viewRoutePath(view.id)}
                                     />
                                 ))}
                             </SidebarTree>
@@ -150,6 +150,13 @@ export function WorkspaceSidebar({ dashboard }: WorkspaceSidebarProps) {
             <SidebarRail />
         </Sidebar>
     );
+}
+
+function viewRoutePath(viewId: string) {
+    return `/views/${viewId
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/")}`;
 }
 
 function WorkspaceBrandLogo({ dashboard }: { dashboard: WorkspaceDashboard }) {

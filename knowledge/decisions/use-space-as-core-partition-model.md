@@ -37,8 +37,8 @@ The previous `collection` terminology should be removed instead of kept as a com
 
 ## Consequences
 
-- `.forma/collections.yml` becomes `.forma/spaces.yml`.
-- YAML configuration uses top-level `spaces`.
+- Space-like taxonomy and term configuration is loaded from `.forma.yml` includes rather than a dedicated spaces registry file.
+- Effective configuration exposes spaces from included term configuration.
 - semantic type definitions use `kind: space` and `space: <id>`.
 - view definitions use `view.space`.
 - query targets use `entry.space`.

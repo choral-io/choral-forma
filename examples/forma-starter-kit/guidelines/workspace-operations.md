@@ -1,14 +1,10 @@
 ---
-kind: guideline
 title: "Workspace Operations"
 summary: "How to copy, review, and maintain the starter workspace as a shared team space."
 owners:
   - members/mira-chen.md
 reviewers:
   - members/sam-rivera.md
-related_to:
-  - tasks/publish-read-only-workspace.md
-  - notes/getting-started.md
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 ---
@@ -26,4 +22,4 @@ Use this guideline when you first copy the starter, when you review the shared s
 3. Prefer updating an existing page before creating a new one when the topic is already covered.
 4. Use finished work such as [[tasks/publish-read-only-workspace|Publish Read-only Workspace]] as reference material, not as a reason to accumulate stale tasks.
 5. When onboarding someone new, point them to [[notes/getting-started|Getting Started]] and [[notes/welcome-to-choral-forma|Welcome to Choral Forma]] before deeper process notes.
-6. Treat `.forma/profiles/*.md` as reusable shared profile fragments only. Do not assume a profile applies to a member, group, user, or Agent unless `.forma/local/profile.yml` explicitly uses it by workspace-relative path.
+6. Keep personal overrides in paths ignored by this workspace, such as the starter's `.forma/local/` convention. Ignored files are local-only and should not be treated as shared workspace knowledge.

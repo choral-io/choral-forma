@@ -39,20 +39,19 @@ The P0 product surface is a single `forma` binary with CLI commands and `forma s
 
 P0 operations are product-semantic actions exposed through adapters. Operation names use stable lower camel case in JSON-facing APIs.
 
-| Operation | JSON method | Primary CLI command | Writes files |
-| --- | --- | --- | --- |
-| Init | `init` | `forma init --name <name> [--language <tag>] [--timezone <iana>] [-y\|--yes]` | Yes |
-| ConfigInspect | `config.inspect` | `forma config inspect [--path <path>] [--json]` | No |
-| Check | `check` | `forma check [--json]` | No |
-| Inspect | `inspect` | `forma inspect <path> [--json]` | No |
-| Inspect | `inspect` | `forma inspect --space <space> <entry> --json` | No |
-| List | `list` | `forma list --space <space> [--json]` | No |
-| FilesList | `files.list` | No required P0 CLI command | No |
-| FileRender | `file.render` | No required P0 CLI command | No |
-| FileReferences | `file.references` | No required P0 CLI command | No |
-| Create | `create` | `forma create <space> [--input <name=value>]... [--json]` | Yes |
-| ViewRender | `view.render` | No required P0 CLI command | No |
-| Serve | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...` | No |
+| Operation      | JSON method       | Primary CLI command                                            | Writes files |
+| -------------- | ----------------- | -------------------------------------------------------------- | ------------ |
+| ConfigInspect  | `config.inspect`  | `forma config inspect [--path <path>] [--json]`                | No           |
+| Check          | `check`           | `forma check [--json]`                                         | No           |
+| Inspect        | `inspect`         | `forma inspect <path> [--json]`                                | No           |
+| Inspect        | `inspect`         | `forma inspect --space <space> <entry> --json`                 | No           |
+| List           | `list`            | `forma list --space <space> [--json]`                          | No           |
+| FilesList      | `files.list`      | No required P0 CLI command                                     | No           |
+| FileRender     | `file.render`     | No required P0 CLI command                                     | No           |
+| FileReferences | `file.references` | No required P0 CLI command                                     | No           |
+| Create         | `create`          | `forma create <space> [--input <name=value>]... [--json]`      | Yes          |
+| ViewRender     | `view.render`     | No required P0 CLI command                                     | No           |
+| Serve          | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...` | No           |
 
 `Serve` is a CLI mode, not a domain operation. The server exposes operation methods through `POST /rpc` and serves static WebApp assets. It may compute diagnostics in memory and expose check status through operation results, but it must not write files in P0.
 
@@ -108,7 +107,7 @@ CLI adapters should gate write operations by risk and predictability.
 
 P0 command classification:
 
-- `forma init` requires confirmation because it creates the workspace structure, starter configuration, starter templates, and starter views. `-y` or `--yes` bypasses the prompt for scripts and CI.
+- Workspace initialization is temporarily not exposed in P0. When it returns, it should require confirmation because it creates workspace structure and configuration.
 - `forma create` does not require confirmation in P0 because it writes one new entry, uses space-defined inputs and templates, and fails on path conflicts.
 - `forma refresh` or an equivalent in-memory read-model rebuild operation does not require confirmation because it writes nothing by default.
 - `forma check`, `forma config inspect`, `forma inspect`, `forma list`, and `forma serve` do not require confirmation because they are read-only in P0.
@@ -256,8 +255,8 @@ Diagnostic object outline:
     },
     "suggestions": [
         {
-            "label": "Use members/tiscs",
-            "value": "[[members/tiscs]]"
+            "label": "Use members/alex-chen",
+            "value": "[[members/alex-chen]]"
         }
     ]
 }
@@ -297,66 +296,6 @@ Operations that evaluate workspace health include:
 All public paths are workspace-relative POSIX paths. Absolute paths are internal implementation details and must not appear in CLI JSON, RPC results, committed index files, diagnostics, or configuration references.
 
 ## Operation Result Outlines
-
-### Init
-
-`init` creates the P0 minimal starter from the settings-driven configuration model. It creates `.forma.yml`, conventional support files, starter templates, starter views, and content directories. It should fail on path conflicts instead of assuming `.forma/` is the only workspace boundary.
-
-Params:
-
-```json
-{
-    "name": "Acme Knowledge",
-    "language": "en",
-    "timezone": "Asia/Shanghai"
-}
-```
-
-`timezone` is optional. When omitted, CLI initialization may detect the current environment timezone once, then write the resolved value into `.forma.yml`.
-
-The CLI adapter should require explicit confirmation before running `init`. Without `-y` or `--yes`, interactive shells should display the resolved init parameters, summarize the files and directories that will be created, and ask the user to confirm. Non-interactive shells, including CI, should fail without writing files unless `-y` or `--yes` is provided.
-
-Result outline:
-
-```json
-{
-    "schemaVersion": 1,
-    "operation": "init",
-    "status": "passed",
-    "workspace": {
-        "root": ".",
-        "name": "Acme Knowledge"
-    },
-    "created": [
-        ".forma.yml",
-        ".forma/spaces/notes.md",
-        ".forma/spaces/tasks.md",
-        ".forma/spaces/members.md",
-        ".forma/spaces/decisions.md",
-        ".forma/spaces/proposals.md",
-        ".forma/spaces/guidelines.md",
-        ".forma/spaces/templates/note.md",
-        ".forma/spaces/templates/task.md",
-        ".forma/spaces/templates/member.md",
-        ".forma/spaces/templates/decision.md",
-        ".forma/spaces/templates/proposal.md",
-        ".forma/spaces/templates/guideline.md",
-        ".forma/views/notes.md",
-        ".forma/views/tasks.md",
-        ".forma/views/members.md",
-        ".forma/views/guide.md",
-        ".forma/views/recent.md",
-        ".forma/views/graph.md",
-        ".forma/dashboard.md"
-    ],
-    "summary": {
-        "errors": 0,
-        "warnings": 0,
-        "infos": 0
-    },
-    "diagnostics": []
-}
-```
 
 ### Check
 
@@ -435,7 +374,7 @@ Result outline:
             "kind": "shared"
         },
         {
-            "path": ".forma/local/profile-selection.yml",
+            "path": "local/profile-selection.yml",
             "kind": "local",
             "present": true
         }
@@ -726,7 +665,7 @@ Result outline:
         "name": "Acme Knowledge"
     },
     "view": {
-        "id": "tasks",
+        "id": ".forma/views/tasks",
         "path": ".forma/views/tasks.md",
         "surface": "page",
         "mode": "kanban",

@@ -1,5 +1,4 @@
 ---
-kind: note
 title: "快速开始"
 summary: "使用 forma serve 运行示例工作区并浏览 WebApp。"
 createdAt: "2026-06-03T18:00:00Z"

@@ -290,7 +290,7 @@ Knowledge reference fields should store workspace-relative path-qualified refs i
 
 ```yaml
 assignees:
-    - members/tiscs.md
+    - members/alex-chen.md
 project: projects/choral-forma.md
 ```
 
@@ -330,14 +330,14 @@ The first supported set should include:
 | Markdown link to workspace page | `[Project Brief](notes/project-brief.md)` | Resolve workspace-relative Markdown links into the same reference model as wikilinks. |
 | Markdown link with fragment | `[Goals](notes/project-brief.md#goals)` | Resolve the page and fragment separately. |
 | Resource or attachment link | `[Spec](assets/spec.pdf)` or `!\[\[assets/diagram.png\]\]` | Resolve as a resource target rather than a page target when the path is not an indexed knowledge entry. |
-| Field reference relation | `assignees: [members/tiscs.md]` | Resolve through schema-declared field semantics and record `intent: reference`. |
+| Field reference relation | `assignees: [members/alex-chen.md]` | Resolve through schema-declared field semantics and record `intent: reference`. |
 
 The following forms remain tentative until product evidence or implementation constraints justify them:
 
 | Form | Example syntax | Tentative status |
 | --- | --- | --- |
 | Unqualified title or basename wikilink | `\[\[Project Brief\]\]` | Useful for hand-authored notes, but should only resolve when unique and should not be emitted by Forma writes. |
-| Case-insensitive or slug-normalized matching | `\[\[Members/tiscs\]\]` | Can produce diagnostics and suggestions, but should not silently resolve because filesystem behavior differs by platform. |
+| Case-insensitive or slug-normalized matching | `\[\[Members/alex-chen\]\]` | Can produce diagnostics and suggestions, but should not silently resolve because filesystem behavior differs by platform. |
 | Heading subtree transclusion | `!\[\[notes/project-brief#Goals\]\]` | Rendering the whole section under a heading is a reader/transclusion feature, not just reference resolution. |
 | Full Obsidian block-id compatibility | `\[\[notes/project-brief#^risk-block\]\]` | Forma may read common `^id` anchors, but should define its own block identity rules before promising compatibility. |
 | Query or Dataview-style embeds | query blocks or plugin-specific syntax | Forma should use its own view/query model instead of adopting plugin-specific query languages. |
@@ -427,9 +427,9 @@ assignees:
 
 When groups are added later, the `assignees` field can keep its name and list shape while its item target evolves to an `assignee` union over `member` and `group`.
 
-The P0 `members` space should keep identity lightweight. A member entry's stable id comes from its path, such as `members/tiscs.md`. P0 should not include a separate `username` field because it would act like a field-level override for path identity. Runtime current-member matching should use the member id directly.
+The P0 `members` space should keep identity lightweight. A member entry's stable id comes from its path, such as `members/alex-chen.md`. P0 should not include a separate `username` field because it would act like a field-level override for path identity. Runtime current-member matching should use the member id directly.
 
-`forma init` should not treat the current member as a special system value. If an initial member entry is created during initialization, it should be handled as ordinary starter input and created through the same space create pipeline as any other member entry.
+Workspace initialization is currently disabled pending redesign. When initialization returns, it should not treat the current member as a special system value. If an initial member entry is created during initialization, it should be handled as ordinary starter input and created through the same space create pipeline as any other member entry.
 
 ### Product Naming In Workspace Surfaces
 
@@ -513,19 +513,19 @@ Local overrides are optional and should be created only when the workspace confi
 local/
 ```
 
-Root ignore rules can also provide a safety net. The MVP does not need to create `.forma/local/`; that directory can be introduced later for local runtime state such as caches, locks, local indexes, or GUI state.
+Root ignore rules can also provide a safety net. The MVP does not need to create a dedicated local runtime directory; a workspace or host application can introduce one later for caches, locks, local indexes, or GUI state as long as the path is ignored and not treated as a product fact.
 
 The core P0 rule is: team shared config defines workspace meaning; local personal config defines private or temporary preference.
 
 Future shared profile configuration can use committed profile fragments when the product has enough non-sensitive profile preferences to justify it. Shared profiles should not be selected automatically by a built-in user or member identity mechanism. They are committed configuration fragments that a local personal override can explicitly load by workspace-relative path.
 
-A likely future shared profile path is:
+A workspace may place shared profile fragments at any explicitly referenced workspace-relative path, for example:
 
 ```text
-.forma/profiles/<profile-name>.md
+config/profiles/<profile-name>.md
 ```
 
-If introduced, local personal config would choose whether to load one or more shared profiles. The effective merge order should stay explicit:
+This example is not a built-in Forma path. If profiles are introduced, local personal config would choose whether to load one or more shared profiles. The effective merge order should stay explicit:
 
 ```text
 team shared config -> selected shared profiles -> local personal overrides -> runtime values
@@ -563,7 +563,7 @@ Navigation configuration owns sidebar and prominent route/page/view groups.
 
 The effective configuration should be inspectable instead of hidden. CLI and Agent-facing interfaces should be able to show the merged configuration, explain which source produced a specific value, and check for merge conflicts, invalid types, circular references, local-only leakage, and values that depend on the current machine.
 
-The product should avoid writing an effective configuration file as a durable source of truth. If caching becomes necessary, caches should live under `.forma/local/cache/` and remain uncommitted.
+The product should avoid writing an effective configuration file as a durable source of truth. If caching becomes necessary, caches should live under project-ignored paths and remain uncommitted.
 
 ### Schema, Guidelines, Policies, Invariants, And Operations
 
@@ -659,7 +659,7 @@ Embedded view parameters are required for a useful embed model. Without them, te
 Knowledge documents should be able to embed existing views with Markdown HTML comments:
 
 ```markdown
-<!-- forma-view: member-active-tasks member="members/tiscs" -->
+<!-- forma-view: member-active-tasks member="members/alex-chen" -->
 <!-- forma-view: project-open-tasks project="{{ params.project }}" -->
 ```
 
@@ -919,7 +919,7 @@ runtime:
     values:
         currentUserId:
             kind: const
-            value: tiscs
+            value: alex-chen
             transform: slugify
 ```
 
@@ -1047,14 +1047,14 @@ Examples:
 
 ```sh
 forma set tasks/foo.md status doing
-forma add tasks/foo.md assignees members/tiscs
-forma remove tasks/foo.md assignees members/tiscs
+forma add tasks/foo.md assignees members/alex-chen
+forma remove tasks/foo.md assignees members/alex-chen
 forma unset tasks/foo.md dueDate
 ```
 
 `set` should replace a single-value field or replace the whole value of a many-valued field. `add` and `remove` should operate on many-valued fields. `unset` should remove a field. A later `clear` command can explicitly set a field to null if that distinction becomes important.
 
-Reference input should be permissive when the field context is known. Users and Agents may provide values such as `tiscs`, `members/tiscs`, or `members/tiscs.md` for an assignees field. Product writes should normalize resolved references to path-qualified refs. Many-valued reference fields should deduplicate by resolved identity, not by raw string.
+Reference input should be permissive when the field context is known. Users and Agents may provide values such as `alex-chen`, `members/alex-chen`, or `members/alex-chen.md` for an assignees field. Product writes should normalize resolved references to path-qualified refs. Many-valued reference fields should deduplicate by resolved identity, not by raw string.
 
 Edits should preserve YAML ordering, unknown fields, comments where practical, and the Markdown body. The product should avoid full-document rewrites for small metadata changes. Validation should run before writing, and force writes should remain out of the MVP.
 
@@ -1095,10 +1095,9 @@ Space-scoped bare entry locators may use the corresponding space-backed type inp
 
 With the starter tasks space, `forma inspect tasks/user-registration` is a path-like locator for `tasks/user-registration.md`, while `forma inspect --space tasks user-registration` resolves the same entry through the `tasks` space.
 
-P0 CLI should prioritize reading, indexing, checking, and inspection before safe write operations, while still including initialization and minimal create so the starter can be used end to end. Required P0 commands:
+P0 CLI should prioritize reading, indexing, checking, and inspection before safe write operations. The current write baseline is minimal create against an existing configured workspace; workspace initialization is temporarily removed and should be redesigned before it returns. Required P0 commands:
 
 ```text
-- forma init --name <name> [--language <tag>] [--timezone <iana>] [-y|--yes]
 - forma config inspect [--json]
 - forma config inspect --path <path> [--json]
 - forma check [--json]
@@ -1124,11 +1123,11 @@ P1:
 
 All read commands should support stable JSON output for GUI and Agent use. Human-oriented output should remain concise and explainable.
 
-`forma init` should create the P0 minimal starter without sample entries, create `.forma.yml` and referenced support files, and fail on path conflicts. `forma create` should use configured create inputs, defaults, transforms, and templates, fail on path conflicts, and rely on subsequent read operations to rebuild their in-memory projections from source files.
+`forma create` should use configured create inputs, defaults, transforms, and templates, fail on path conflicts, and rely on subsequent read operations to rebuild their in-memory projections from source files. Future initialization should be redesigned around the committed starter-kit or an explicit template source rather than a duplicated embedded starter.
 
 CLI confirmation should be based on operation risk. Read-only commands should not ask for confirmation. Single-file, predictable, non-destructive writes can avoid confirmation when they fail on conflicts or invalid inputs. Initialization, physical deletion, path moves or renames that change references, automatic fixes, batch updates, and multi-file or reference-changing writes should require confirmation.
 
-In P0, only `forma init` requires confirmation because it creates the starter workspace structure. Interactive shells should show the resolved initialization parameters and planned starter writes before asking for confirmation. Non-interactive shells such as CI should fail without writing unless `-y` or `--yes` is provided. `forma create` does not require confirmation in P0 because it writes one new entry and fails on path conflicts.
+In current P0, `forma create` does not require confirmation because it writes one new entry and fails on path conflicts. Future initialization should require confirmation because it would create workspace structure and configuration; interactive shells should show resolved initialization parameters and planned writes before asking for confirmation, while non-interactive shells should fail without writing unless explicitly bypassed.
 
 ### Lifecycle And Deletion
 
@@ -1174,7 +1173,7 @@ Direct filesystem edits should remain allowed. `forma check` should detect broke
 
 The first public release should not use a committed summary index. The local server and read operations scan source files and configuration, then keep the read model in memory.
 
-The MVP should not include a committed summary index or a local full index such as `.forma/local/index.json`. A persistent index, SQLite backend, watcher, or vector index can be introduced later only after a fresh design if workspace size, GUI latency, local overrides, or semantic search make them necessary.
+The MVP should not include a committed summary index or a local full index. A persistent index, SQLite backend, watcher, or vector index can be introduced later only after a fresh design if workspace size, GUI latency, local overrides, or semantic search make them necessary.
 
 The read model is derived runtime state, not a knowledge store:
 
@@ -1206,7 +1205,7 @@ Recommended shape:
     ],
     "views": [
         {
-            "id": "tasks",
+            "id": ".forma/views/tasks",
             "path": ".forma/views/tasks.md",
             "surface": "page",
             "mode": "kanban",
@@ -1225,7 +1224,7 @@ Recommended shape:
                 {
                     "source": "frontmatter",
                     "field": "assignees",
-                    "targetPath": "members/tiscs.md",
+                    "targetPath": "members/alex-chen.md",
                     "semanticType": "member",
                     "intent": "reference"
                 },
@@ -1251,7 +1250,7 @@ By default, serve/check operations should full-scan shared source files and shar
 
 Diagnostics are runtime results that belong to `forma check`, `forma serve`, or shared RPC responses; they should not be persisted as a separate diagnostics result file. Effective configuration belongs to `forma config inspect`; view results belong to view rendering.
 
-Future implementation caches may accelerate checks, parsing, or diagnostics, but they should be local-only, rebuildable, and stored under `.forma/local/cache/`. They must not become product facts or public Script/Agent interfaces.
+Future implementation caches may accelerate checks, parsing, or diagnostics, but they should be local-only, rebuildable, and stored under project-ignored paths. They must not become product facts or public Script/Agent interfaces.
 
 ### Check Diagnostics
 
@@ -1285,8 +1284,8 @@ Recommended P0 JSON shape:
             },
             "suggestions": [
                 {
-                    "label": "Use members/tiscs",
-                    "value": "[[members/tiscs]]"
+                    "label": "Use members/alex-chen",
+                    "value": "[[members/alex-chen]]"
                 }
             ]
         }
@@ -1349,7 +1348,7 @@ The user-facing experience should not require users to understand Git branches, 
 - Thin configurable spaces, schemas, semantic types, modes, views, and templates.
 - Human-readable and Agent-friendly repository knowledge.
 - Agent-friendly CLI and skills for health checks, validation, workflow execution, and safe maintenance.
-- CLI interfaces for init, config inspection, check, inspect, list, create, and serving a local read-only webapp.
+- CLI interfaces for config inspection, check, inspect, list, create, and serving a local read-only webapp.
 - Read-only local browser GUI for browsing spaces and views, rendering entries, inspecting metadata, and viewing diagnostics.
 - Structured views over files without requiring custom executable scripts.
 - Forma-native YAML Schema DSL as the initial user-visible object constraint format.
@@ -1361,7 +1360,7 @@ The user-facing experience should not require users to understand Git branches, 
 - Limited `{{ ... }}` runtime interpolation for configuration and templates.
 - Create inputs with explicit field binding, operation-level defaults, dependency-graph resolution, and a small `slugify` transform.
 - Runtime in-memory read model rebuilt from source files and shared configuration.
-- P0 CLI for init, config inspection, workspace checks, entry inspection, space listing, entry creation, and read-only local GUI serving.
+- P0 CLI for config inspection, workspace checks, entry inspection, space listing, entry creation, and read-only local GUI serving.
 
 ## Out Of Scope
 

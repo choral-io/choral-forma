@@ -55,7 +55,7 @@ The P0 feature baseline is complete enough to stop adding product surface area. 
 
 - Confirm the candidate branch, commit, and working-tree state.
 - Run the release-validation command matrix for knowledge, Rust, Web, and packaging/build readiness.
-- Create a temporary starter workspace and smoke-test the P0 user flows: `forma init`, `forma config inspect`, `forma create`, `forma inspect`, `forma list`, `forma check`, and local WebApp serving/build readiness where practical.
+- Use an existing configured starter workspace and smoke-test the P0 user flows: `forma config inspect`, `forma create`, `forma inspect`, `forma list`, `forma check`, and local WebApp serving/build readiness where practical.
 - Verify generated or temporary smoke-test artifacts are not left in the shared repository.
 - Record exact command results, failures, environment limits, and the final release-readiness decision.
 
@@ -111,7 +111,7 @@ Validation matrix:
 Starter workspace smoke test:
 
 - Temporary workspace: `/private/tmp/forma-internal-release.q0xC65`
-- `forma init` with name `Internal Release`, language `en`, timezone `Asia/Shanghai`, `-y`, and `--json`: passed. The created file list did not include a persistent index artifact.
+- At the time of this historical validation, the then-available workspace initializer passed and did not create a persistent index artifact. The current P0 surface has removed workspace initialization; future validation should use an existing configured starter workspace until initialization is redesigned.
 - `forma config inspect --json`: passed.
 - `forma create notes --input title=Alpha --input summary=Smoke --json`: passed without index-stale warnings.
 - `forma inspect notes/alpha.md --json`: passed.

@@ -4,17 +4,7 @@ use std::path::{Component, Path};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-macro_rules! forma_path {
-    ($suffix:literal) => {
-        concat!(".forma", $suffix)
-    };
-}
-
-pub const FORMA_DIR: &str = forma_path!("");
 pub const FORMA_CONFIG_PATH: &str = ".forma.yml";
-pub const FORMA_GITIGNORE_PATH: &str = forma_path!("/.gitignore");
-pub const FORMA_TEMPLATES_DIR: &str = forma_path!("/spaces/templates");
-pub const FORMA_VIEWS_DIR: &str = forma_path!("/views");
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]

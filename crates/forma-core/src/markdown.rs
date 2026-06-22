@@ -676,8 +676,9 @@ mod tests {
 
     #[test]
     fn detects_forma_view_comment_directive() {
-        let document =
-            FormaMarkdownDocument::parse("Intro\n<!-- forma-view: tasks assignee=\"Tiscs\" -->\n");
+        let document = FormaMarkdownDocument::parse(
+            "Intro\n<!-- forma-view: tasks assignee=\"Alex Chen\" -->\n",
+        );
         let reference = document.references.first().unwrap();
 
         assert_eq!(
@@ -685,7 +686,7 @@ mod tests {
             FormaReferenceSyntax::FormaCommentDirective
         );
         assert_eq!(reference.intent, FormaReferenceIntent::View);
-        assert_eq!(reference.target, "tasks assignee=\"Tiscs\"");
+        assert_eq!(reference.target, "tasks assignee=\"Alex Chen\"");
         assert_eq!(reference.span.unwrap().start_line, 2);
         assert_eq!(reference.source, super::FormaReferenceSource::Body);
     }

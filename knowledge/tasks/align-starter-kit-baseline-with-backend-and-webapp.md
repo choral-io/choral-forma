@@ -52,9 +52,9 @@ Align the backend configuration loader, read model, shared TypeScript contracts,
 
 ## Context
 
-The starter kit now demonstrates the intended first public configuration shape: `.forma.yml` is the root configuration entry, `.forma/` is only a conventional support directory, Markdown configuration nodes carry frontmatter configuration plus body render templates, and ordinary views use `source.type: pages` with taxonomy filters and `field` bindings.
+The starter kit demonstrates the intended first public configuration shape: `.forma.yml` is the root configuration entry, `.forma/` is only a conventional support directory, Markdown configuration nodes carry frontmatter configuration plus body render templates, and ordinary views use `source.type: pages` with taxonomy filters and `field` bindings.
 
-Existing backend and WebApp implementation still lag behind that baseline in several places. Current code still contains older assumptions such as `.forma/settings.yml`, `.forma/types.yml`, `.forma/spaces.yml`, nested `view:` definitions, `source.kind: workspace`, `target: frontmatter.*`, and hardcoded space-oriented read-model contracts. Those compatibility paths should be removed from product-facing behavior instead of preserved as compatibility input, because no stable public config contract has shipped yet.
+The backend and WebApp should stay aligned with that baseline without preserving compatibility paths for earlier unshipped config shapes. No stable public config contract has shipped yet, so stale assumptions should be removed from product-facing behavior rather than retained as aliases.
 
 This task should preserve the current user-facing "Spaces" experience for the starter as a configured taxonomy projection. It should not freeze the current `fields.*`, `source.*`, and taxonomy binding paths as the final runtime object model.
 
@@ -79,13 +79,13 @@ This task should preserve the current user-facing "Spaces" experience for the st
 - Write-capable WebApp operations.
 - Proposal queue, AI Chat, VS Code extension, or Zed extension work.
 - Full-text search or advanced query operators beyond the current P0 view model.
-- Compatibility support for older unshipped config shapes, including `.forma/settings.yml`, `.forma/types.yml`, `.forma/spaces.yml`, nested `view:`, `source.kind`, and `target: frontmatter.*`.
+- Compatibility support for older unshipped config and view shapes.
 - Route-level visual redesign outside data and contract alignment.
 
 ## Acceptance Criteria
 
 - `forma check` succeeds against `examples/forma-starter-kit/` through the new `.forma.yml`-based loader.
-- The backend no longer requires `.forma/settings.yml`, `.forma/types.yml`, or `.forma/spaces.yml` for the starter-kit baseline.
+- The backend uses the `.forma.yml` include-driven starter-kit baseline without requiring separate registry files.
 - Legacy starter/config/view shapes are removed from product-facing starter generation, operation fixtures, shared contracts, and WebApp mapping code.
 - Starter taxonomy terms are discovered as page classification inputs without treating `spaces` as a built-in product primitive.
 - Starter views under `examples/forma-starter-kit/.forma/views/*.md` are discovered from top-level Markdown frontmatter.
@@ -107,7 +107,7 @@ It is related to the completed view-source/query alignment work, but it should n
 - Removed the backend view-query compatibility path that accepted legacy `target` predicates. View query predicates now use the starter-facing `field` key only, and a regression test covers rejection of `target: fields.status`.
 - Reworked `examples/forma-starter-kit/` into the six-space baseline: notes, tasks, members, decisions, proposals, and guidelines. Removed legacy unshipped `todos` and `users` starter assumptions from the example, generator, fixtures, and tests.
 - Added `knowledge/test-cases/forma-starter-kit/` as a project-level evaluation suite so pressure tests and gate cases stay outside the copyable starter workspace.
-- Aligned starter shared profile examples, product notes, and test-case expectations on path-based `.forma/profiles/*.md` fragments selected by local personal config.
+- Removed the earlier shared-profile path example from the starter baseline. Future profile fragments, if introduced, should be selected by explicit workspace-relative references rather than any built-in profile directory.
 
 ## Review Evidence
 

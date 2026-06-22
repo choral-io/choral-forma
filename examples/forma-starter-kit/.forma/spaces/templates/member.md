@@ -1,5 +1,4 @@
 ---
-kind: member
 name: "{{ input.name }}"
 description: "{{ input.description }}"
 responsibilities: "{{ input.responsibilities }}"

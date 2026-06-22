@@ -1,5 +1,4 @@
 ---
-kind: note
 title: "Connect Pages"
 summary: "Use Markdown links and wikilinks to create references, backlinks, and graph edges."
 createdAt: "2026-06-03T18:00:00Z"
@@ -23,8 +22,7 @@ Use wikilinks when that is natural for your local knowledge workflow:
 - [[notes/welcome-to-choral-forma|Welcome to Choral Forma]]
 - [[notes/saved-views|Saved Views]]
 - [[tasks/review-starter-workspace|Review Starter Workspace]]
-- [[decisions/repository-markdown-is-source-of-truth|Repository Markdown Is The Source Of Truth]]
-- [[proposals/add-weekly-review-rhythm|Add Weekly Review Rhythm]]
+- [[guidelines/workspace-operations|Workspace Operations]]
 
 ## Backlinks
 

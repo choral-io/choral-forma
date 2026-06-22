@@ -26,12 +26,12 @@ This specification refines the P0 check/index pipeline described in [../product/
 - Define deterministic ordering for in-memory read-model projections.
 - Define command behavior for P0 check, inspect, list, and serve commands.
 - Define the P0 diagnostic JSON contract, diagnostic code families, and source location rules.
-- Reserve `.forma/local/cache/` for future local-only rebuildable caches.
+- Reserve project-ignored paths for future local-only rebuildable caches.
 
 ## Non-Goals
 
 - No committed index file in the first public release.
-- No local full index such as `.forma/local/index.json` in P0.
+- No local full index in P0.
 - No SQLite, filesystem watcher, vector index, or incremental indexing in P0.
 - No persisted diagnostic result file, health summary, last check status, or effective configuration file.
 - No automatic repair in `forma check`, `forma inspect`, `forma list`, or `forma serve`.
@@ -103,7 +103,7 @@ Recommended P0 JSON shape:
     ],
     "views": [
         {
-            "id": "tasks",
+            "id": ".forma/views/tasks",
             "path": ".forma/views/tasks.md",
             "surface": "page",
             "mode": "kanban",
@@ -111,7 +111,7 @@ Recommended P0 JSON shape:
             "title": "Tasks"
         },
         {
-            "id": "knowledge-graph",
+            "id": ".forma/views/knowledge-graph",
             "path": ".forma/views/knowledge-graph.md",
             "surface": "page",
             "mode": "graph",
@@ -134,7 +134,7 @@ Recommended P0 JSON shape:
                 {
                     "source": "frontmatter",
                     "field": "assignees",
-                    "targetPath": "members/tiscs.md",
+                    "targetPath": "members/alex-chen.md",
                     "semanticType": "member",
                     "intent": "reference"
                 },
@@ -223,8 +223,8 @@ Recommended P0 check JSON shape:
             },
             "suggestions": [
                 {
-                    "label": "Use members/tiscs",
-                    "value": "[[members/tiscs]]"
+                    "label": "Use members/alex-chen",
+                    "value": "[[members/alex-chen]]"
                 }
             ]
         }
@@ -403,11 +403,7 @@ Behavior:
 
 P0 does not create or depend on implementation caches.
 
-Future caches, if needed for check speed, parsing speed, diagnostics, rendering, watcher state, local full indexes, or GUI responsiveness, must live under:
-
-```text
-.forma/local/cache/
-```
+Future caches, if needed for check speed, parsing speed, diagnostics, rendering, watcher state, local full indexes, or GUI responsiveness, must live under a project-ignored path chosen by the workspace or host application.
 
 Future cache rules:
 

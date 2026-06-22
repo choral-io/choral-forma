@@ -23,7 +23,7 @@ sprint:
 
 blocked_by:
     - "tasks/implement-operation-rpc-cli-foundation"
-    - "tasks/implement-starter-init-create-inspect-list"
+    - "tasks/implement-starter-create-inspect-list"
     - "tasks/implement-view-entry-render"
     - "tasks/align-view-source-query-model"
 related_to:

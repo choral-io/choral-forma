@@ -9,7 +9,7 @@ use serde_yml::Value;
 use thiserror::Error;
 
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
-use crate::path::{FORMA_CONFIG_PATH, FORMA_DIR, PathError, WorkspacePath};
+use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
 use crate::schema::validate_space_schemas;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,8 +192,6 @@ pub struct SpaceConventions {
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
-    #[error("workspace root does not contain .forma")]
-    MissingFormaDirectory,
     #[error("failed to read {path}: {source}")]
     Read {
         path: String,
@@ -267,11 +265,6 @@ pub fn load_workspace(
     mode: LoadMode,
 ) -> Result<FormaWorkspace, ConfigError> {
     let root = root.as_ref();
-    let forma_dir = root.join(FORMA_DIR);
-    if !forma_dir.is_dir() {
-        return Err(ConfigError::MissingFormaDirectory);
-    }
-
     let config_path = root.join(FORMA_CONFIG_PATH);
 
     let mut config_value = read_yaml_value(&config_path, FORMA_CONFIG_PATH)?;
@@ -428,7 +421,7 @@ pub fn config_source_paths(
         ))
     {
         sources.push(ConfigSourcePath {
-            local: is_local_config_path(&path),
+            local: is_workspace_path_ignored(root, &path),
             present: root.join(&path).exists(),
             path,
         });
@@ -520,19 +513,161 @@ fn collect_included_files(
             && let Some(relative) = path.strip_prefix(root).ok().and_then(|path| path.to_str())
         {
             let relative = relative.replace('\\', "/");
-            if globs.is_match(&relative) && should_load_in_mode(&relative, mode) {
+            if globs.is_match(&relative) && should_load_in_mode(root, &relative, mode) {
                 paths.push(relative);
             }
         }
     }
 }
 
-fn should_load_in_mode(path: &str, mode: LoadMode) -> bool {
-    mode == LoadMode::WithLocalOverrides || !is_local_config_path(path)
+fn should_load_in_mode(root: &Path, path: &str, mode: LoadMode) -> bool {
+    mode == LoadMode::WithLocalOverrides || !is_workspace_path_ignored(root, path)
 }
 
-fn is_local_config_path(path: &str) -> bool {
-    path == ".forma/local" || path.starts_with(".forma/local/")
+pub fn is_workspace_path_ignored(root: impl AsRef<Path>, path: &str) -> bool {
+    let path = normalize_public_path(path);
+    if path.is_empty() {
+        return false;
+    }
+    let mut ignored = false;
+    for rule in collect_ignore_rules(root.as_ref()) {
+        if rule.matches(&path) {
+            ignored = !rule.negated;
+        }
+    }
+    ignored
+}
+
+fn collect_ignore_rules(root: &Path) -> Vec<IgnoreRule> {
+    let mut rules = Vec::new();
+    collect_ignore_rules_inner(root, root, &mut rules);
+    rules
+}
+
+fn collect_ignore_rules_inner(root: &Path, dir: &Path, rules: &mut Vec<IgnoreRule>) {
+    let gitignore = dir.join(".gitignore");
+    if let Ok(contents) = fs::read_to_string(&gitignore) {
+        let base = dir
+            .strip_prefix(root)
+            .ok()
+            .and_then(|path| path.to_str())
+            .map(|path| normalize_public_path(&path.replace('\\', "/")))
+            .unwrap_or_default();
+        for line in contents.lines() {
+            if let Some(rule) = IgnoreRule::parse(&base, line) {
+                rules.push(rule);
+            }
+        }
+    }
+
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    let mut child_dirs = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect::<Vec<_>>();
+    child_dirs.sort();
+    for path in child_dirs {
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if matches!(name, ".git" | "target" | "node_modules") {
+            continue;
+        }
+        collect_ignore_rules_inner(root, &path, rules);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IgnoreRule {
+    base: String,
+    pattern: String,
+    negated: bool,
+    anchored: bool,
+    directory_only: bool,
+}
+
+impl IgnoreRule {
+    fn parse(base: &str, line: &str) -> Option<Self> {
+        let mut pattern = line.trim();
+        if pattern.is_empty() || pattern.starts_with('#') {
+            return None;
+        }
+        let negated = pattern.starts_with('!');
+        if negated {
+            pattern = pattern[1..].trim_start();
+        }
+        if pattern.is_empty() {
+            return None;
+        }
+        let anchored = pattern.starts_with('/');
+        pattern = pattern.trim_start_matches('/');
+        let directory_only = pattern.ends_with('/');
+        pattern = pattern.trim_end_matches('/');
+        if pattern.is_empty() {
+            return None;
+        }
+        Some(Self {
+            base: base.to_string(),
+            pattern: normalize_public_path(pattern),
+            negated,
+            anchored,
+            directory_only,
+        })
+    }
+
+    fn matches(&self, path: &str) -> bool {
+        let Some(path_in_base) = strip_base(path, &self.base) else {
+            return false;
+        };
+        if self.directory_only {
+            return self.matches_directory(path_in_base);
+        }
+        if self.anchored || self.pattern.contains('/') {
+            return glob_matches(&self.pattern, path_in_base);
+        }
+        path_in_base
+            .split('/')
+            .any(|segment| glob_matches(&self.pattern, segment))
+    }
+
+    fn matches_directory(&self, path_in_base: &str) -> bool {
+        if self.anchored || self.pattern.contains('/') {
+            return path_in_base == self.pattern
+                || path_in_base
+                    .strip_prefix(&self.pattern)
+                    .is_some_and(|rest| rest.starts_with('/'));
+        }
+        path_in_base
+            .split('/')
+            .any(|segment| glob_matches(&self.pattern, segment))
+    }
+}
+
+fn strip_base<'a>(path: &'a str, base: &str) -> Option<&'a str> {
+    if base.is_empty() {
+        return Some(path);
+    }
+    path.strip_prefix(base)
+        .and_then(|rest| rest.strip_prefix('/'))
+}
+
+fn glob_matches(pattern: &str, value: &str) -> bool {
+    Glob::new(pattern)
+        .ok()
+        .and_then(|glob| glob.compile_matcher().is_match(value).then_some(()))
+        .is_some()
+}
+
+fn normalize_public_path(path: &str) -> String {
+    path.replace('\\', "/")
+        .trim_matches('/')
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 fn read_yaml<T: for<'de> Deserialize<'de>>(
@@ -571,6 +706,35 @@ fn deep_merge(base: &mut Value, overlay: Value) {
 
 fn validate_config_paths(root: &Path, config: &WorkspaceConfig) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
+
+    if let Some(logo) = &config.workspace.logo {
+        match WorkspacePath::parse_config(&logo.path) {
+            Ok(path) => push_required_file_diagnostic(
+                &mut diagnostics,
+                root,
+                "config.logoMissing",
+                "Workspace logo file is missing.",
+                "config.logoNotFile",
+                "Workspace logo path does not point to a file.",
+                "workspace.logo.path",
+                &logo.path,
+                &path,
+            ),
+            Err(error) => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "config.pathInvalid",
+                        format!("Workspace logo path is invalid: {error}."),
+                    )
+                    .with_path(FORMA_CONFIG_PATH)
+                    .with_location(DiagnosticLocation::Config {
+                        field: "workspace.logo.path".to_string(),
+                    })
+                    .with_actual(logo.path.clone()),
+                );
+            }
+        }
+    }
 
     for (index, guideline) in config.guidelines.iter().enumerate() {
         match WorkspacePath::parse_config(guideline) {
@@ -615,6 +779,21 @@ fn validate_config_paths(root: &Path, config: &WorkspaceConfig) -> Vec<Diagnosti
                 &space.template,
                 WorkspacePath::parse_config(&space.template),
             );
+            if let Ok(path) = WorkspacePath::parse_config(&space.template) {
+                push_required_markdown_file_diagnostic(
+                    &mut diagnostics,
+                    root,
+                    "config.templateMissing",
+                    "Create template file is missing.",
+                    "config.templateNotFile",
+                    "Create template path does not point to a file.",
+                    "config.templateNotMarkdown",
+                    "Create template path must point to a Markdown file.",
+                    &format!("spaces.{space_id}.template"),
+                    &space.template,
+                    &path,
+                );
+            }
             push_path_diagnostic(
                 &mut diagnostics,
                 space_id,
@@ -640,7 +819,63 @@ fn validate_config_paths(root: &Path, config: &WorkspaceConfig) -> Vec<Diagnosti
         }
     }
 
+    validate_dashboard_paths(root, config, &mut diagnostics);
+
     diagnostics
+}
+
+fn validate_dashboard_paths(
+    root: &Path,
+    config: &WorkspaceConfig,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for (dashboard_id, dashboard) in &config.dashboard {
+        let Some(sections) = mapping_get(dashboard, "sections").and_then(Value::as_sequence) else {
+            continue;
+        };
+        for (index, section) in sections.iter().enumerate() {
+            let Some(source) = mapping_get(section, "source") else {
+                continue;
+            };
+            if mapping_get(source, "type").and_then(Value::as_str) != Some("view") {
+                continue;
+            }
+            let Some(view) = mapping_get(source, "view").and_then(Value::as_str) else {
+                continue;
+            };
+            let field = format!("dashboard.{dashboard_id}.sections[{index}].source.view");
+            match WorkspacePath::parse_config(view) {
+                Ok(path) => push_required_markdown_file_diagnostic(
+                    diagnostics,
+                    root,
+                    "config.dashboardViewMissing",
+                    "Dashboard view source file is missing.",
+                    "config.dashboardViewNotFile",
+                    "Dashboard view source path does not point to a file.",
+                    "config.dashboardViewNotMarkdown",
+                    "Dashboard view source path must point to a Markdown file.",
+                    &field,
+                    view,
+                    &path,
+                ),
+                Err(error) => {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "config.pathInvalid",
+                            format!("Dashboard view source path is invalid: {error}."),
+                        )
+                        .with_path(FORMA_CONFIG_PATH)
+                        .with_location(DiagnosticLocation::Config { field })
+                        .with_actual(view.to_string()),
+                    );
+                }
+            }
+        }
+    }
+}
+
+fn mapping_get<'a>(value: &'a Value, key: &str) -> Option<&'a Value> {
+    value.as_mapping()?.get(Value::String(key.to_string()))
 }
 
 fn push_guideline_file_diagnostic(
@@ -698,6 +933,94 @@ fn push_guideline_file_diagnostic(
                 Diagnostic::error(
                     "config.guidelineUnreadable",
                     format!("Configured guideline file could not be read: {error}."),
+                )
+                .with_path(FORMA_CONFIG_PATH)
+                .with_location(DiagnosticLocation::Config {
+                    field: field.to_string(),
+                })
+                .with_actual(value.to_string()),
+            );
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_required_markdown_file_diagnostic(
+    diagnostics: &mut Vec<Diagnostic>,
+    root: &Path,
+    missing_code: &str,
+    missing_message: &str,
+    not_file_code: &str,
+    not_file_message: &str,
+    not_markdown_code: &str,
+    not_markdown_message: &str,
+    field: &str,
+    value: &str,
+    path: &WorkspacePath,
+) {
+    push_required_file_diagnostic(
+        diagnostics,
+        root,
+        missing_code,
+        missing_message,
+        not_file_code,
+        not_file_message,
+        field,
+        value,
+        path,
+    );
+    if root.join(path.as_str()).is_file() && !is_markdown_path(path.as_str()) {
+        diagnostics.push(
+            Diagnostic::error(not_markdown_code, not_markdown_message)
+                .with_path(FORMA_CONFIG_PATH)
+                .with_location(DiagnosticLocation::Config {
+                    field: field.to_string(),
+                })
+                .with_actual(value.to_string())
+                .with_expected("*.md or *.mdx"),
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_required_file_diagnostic(
+    diagnostics: &mut Vec<Diagnostic>,
+    root: &Path,
+    missing_code: &str,
+    missing_message: &str,
+    not_file_code: &str,
+    not_file_message: &str,
+    field: &str,
+    value: &str,
+    path: &WorkspacePath,
+) {
+    match fs::metadata(root.join(path.as_str())) {
+        Ok(metadata) if !metadata.is_file() => {
+            diagnostics.push(
+                Diagnostic::error(not_file_code, not_file_message)
+                    .with_path(FORMA_CONFIG_PATH)
+                    .with_location(DiagnosticLocation::Config {
+                        field: field.to_string(),
+                    })
+                    .with_actual(value.to_string()),
+            );
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            diagnostics.push(
+                Diagnostic::error(missing_code, missing_message)
+                    .with_path(FORMA_CONFIG_PATH)
+                    .with_location(DiagnosticLocation::Config {
+                        field: field.to_string(),
+                    })
+                    .with_actual(value.to_string()),
+            );
+        }
+        Err(error) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    "config.pathUnreadable",
+                    format!("Configured path could not be read: {error}."),
                 )
                 .with_path(FORMA_CONFIG_PATH)
                 .with_location(DiagnosticLocation::Config {
@@ -958,9 +1281,10 @@ mod tests {
         )
         .unwrap();
         fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(root.join(".forma/.gitignore"), "local/\n").unwrap();
         fs::write(
             root.join(".forma/local/profile.yml"),
-            "workspace:\n  timezone: Europe/Paris\nruntime:\n  values:\n    currentUserId:\n      kind: const\n      value: tiscs\n",
+            "workspace:\n  timezone: Europe/Paris\nruntime:\n  values:\n    currentUserId:\n      kind: const\n      value: alex-chen\n",
         )
         .unwrap();
 
@@ -975,6 +1299,137 @@ mod tests {
                 .runtime
                 .values
                 .contains_key("currentUserId")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn included_local_named_files_are_shared_unless_ignored_by_project_config() {
+        let root = fixture_root("local-name-not-special");
+        write_minimal_config(&root, "UTC", "notes/**/*.md");
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(
+            root.join(".forma/local/profile.yml"),
+            "workspace:\n  timezone: Europe/Paris\n",
+        )
+        .unwrap();
+
+        let shared = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert_eq!(shared.config.workspace.timezone, "Europe/Paris");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn project_ignore_rules_mark_included_config_files_as_local_only() {
+        let root = fixture_root("ignored-config-local-only");
+        write_minimal_config(&root, "UTC", "notes/**/*.md");
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(root.join(".forma/.gitignore"), "local/\n").unwrap();
+        fs::write(
+            root.join(".forma/local/profile.yml"),
+            "workspace:\n  timezone: Europe/Paris\n",
+        )
+        .unwrap();
+
+        let shared = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let effective = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
+        let sources = super::config_source_paths(&root, LoadMode::WithLocalOverrides).unwrap();
+
+        assert_eq!(shared.config.workspace.timezone, "UTC");
+        assert_eq!(effective.config.workspace.timezone, "Europe/Paris");
+        assert!(
+            sources
+                .iter()
+                .any(|source| source.path == ".forma/local/profile.yml" && source.local)
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_missing_workspace_logo_file() {
+        let root = fixture_root("missing-logo");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n  logo:\n    path: assets/logo.svg\n",
+        )
+        .unwrap();
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert!(
+            workspace
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "config.logoMissing")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_missing_dashboard_view_source() {
+        let root = fixture_root("missing-dashboard-view");
+        fs::create_dir_all(root.join(".forma")).unwrap();
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/dashboard.md\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/dashboard.md"),
+            "---\nschemaVersion: 1\nkind: dashboard\ntitle: Dashboard\nsections:\n  - id: recent\n    title: Recent\n    source:\n      type: view\n      view: .forma/views/recent.md\n---\n\n# Dashboard\n",
+        )
+        .unwrap();
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert!(
+            workspace
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "config.dashboardViewMissing")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_missing_create_template_file() {
+        let root = fixture_root("missing-create-template");
+        fs::create_dir_all(root.join(".forma/spaces")).unwrap();
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\ncreate:\n  directory: notes\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\n---\n\n# Notes\n",
+        )
+        .unwrap();
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert!(
+            workspace
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "config.templateMissing")
         );
 
         fs::remove_dir_all(root).unwrap();

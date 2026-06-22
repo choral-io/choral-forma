@@ -5,12 +5,10 @@ taxonomy: spaces
 title: Members
 display:
   order: 30
-description: Team members referenced by tasks, proposals, and shared notes.
+description: Team members referenced by tasks and shared notes.
 schema:
   type: object
   fields:
-    kind:
-      type: string
     name:
       type: string
     description:
@@ -51,6 +49,6 @@ conventions:
 
 # Members
 
-Team members referenced by tasks, proposals, and shared notes.
+Team members referenced by tasks and shared notes.
 
 <!-- forma:content -->

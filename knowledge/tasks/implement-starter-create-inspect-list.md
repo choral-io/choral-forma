@@ -33,11 +33,11 @@ reported_by:
 affected_area: P0 CLI user flows
 ---
 
-# Implement Starter Init Create Inspect List
+# Implement Starter Create Inspect List
 
 ## Goal
 
-Implement the P0 CLI operations for initializing and using the minimal starter workspace.
+Implement the P0 CLI operations for using an existing configured starter workspace.
 
 ## Sources
 
@@ -47,14 +47,10 @@ Implement the P0 CLI operations for initializing and using the minimal starter w
 
 ## Context
 
-P0 should provide enough CLI behavior to create a workspace, create entries, inspect entries, list a space, and check the workspace through the shared in-memory discovery pipeline.
+P0 should provide enough CLI behavior to create entries, inspect entries, list a space, and check the workspace through the shared in-memory discovery pipeline. Workspace initialization has been removed from the current CLI surface and should be redesigned separately before it returns.
 
 ## In Scope
 
-- Implement `forma init --name <name> [--language <tag>] [--timezone <iana>] [-y|--yes]`.
-- Generate the P0 starter `.forma/` files, templates, views, content directories, and `.forma/.gitignore`.
-- Store explicit `workspace.timezone`, defaulting from the current environment when no timezone input is provided.
-- Require explicit confirmation before `init` writes files unless `-y` or `--yes` is provided; non-interactive shells should fail without writing files unless confirmation is bypassed explicitly.
 - Implement `forma create <space> [--input <name=value>]... [--json]`.
 - Implement `forma inspect <path> [--json]` and `forma inspect --space <space> <entry> [--json]`.
 - Implement `forma list --space <space> [--json]`.
@@ -70,8 +66,6 @@ P0 should provide enough CLI behavior to create a workspace, create entries, ins
 
 ## Acceptance Criteria
 
-- `forma init` creates the exact P0 starter shape and fails when `.forma/` already exists.
-- `forma init` shows resolved init parameters and requires confirmation before writing in interactive shells; non-interactive usage requires `-y` or `--yes`.
 - `forma create` writes one file from space inputs and template without creating or requiring a persistent index artifact.
 - Inspect and list commands return stable JSON and useful human output.
 - Warnings exit zero and errors exit non-zero according to the P0 operation spec.
@@ -82,4 +76,4 @@ Previously blocked by Schema DSL/runtime values, check/index diagnostics, and op
 
 ## Follow-up Notes
 
-`forma init` exposes `--timezone` as an optional override. When omitted, the implementation detects the current environment timezone once and writes the resolved value into `.forma.yml`.
+Workspace initialization is intentionally not part of the current CLI surface. Starter work should use the committed starter-kit or explicit test fixtures until a redesigned initialization flow is accepted.

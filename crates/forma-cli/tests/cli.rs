@@ -1,8 +1,66 @@
+use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use forma_core::FORMA_CONFIG_PATH;
 use serde_json::Value;
+
+fn copy_starter_workspace(root: &Path) {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("examples/forma-starter-kit");
+    copy_dir_recursive(&source, root);
+    remove_guideline_references(root);
+    clear_starter_content(root);
+}
+
+fn copy_dir_recursive(source: &Path, target: &Path) {
+    std::fs::create_dir_all(target).unwrap();
+    for entry in std::fs::read_dir(source).unwrap() {
+        let entry = entry.unwrap();
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        if source_path.is_dir() {
+            copy_dir_recursive(&source_path, &target_path);
+        } else {
+            std::fs::copy(&source_path, &target_path).unwrap();
+        }
+    }
+}
+
+fn clear_starter_content(root: &Path) {
+    for directory in ["notes", "tasks", "members", "guidelines"] {
+        let path = root.join(directory);
+        if path.exists() {
+            std::fs::remove_dir_all(&path).unwrap();
+        }
+        std::fs::create_dir_all(path).unwrap();
+    }
+}
+
+fn remove_guideline_references(root: &Path) {
+    let config_path = root.join(".forma.yml");
+    let config = std::fs::read_to_string(&config_path).unwrap();
+    std::fs::write(
+        &config_path,
+        config.replace(
+            "\nguidelines:\n  - \"guidelines/workspace-operations.md\"\n  - \"guidelines/task-selection.md\"\n",
+            "\n",
+        ),
+    )
+    .unwrap();
+
+    let tasks_path = root.join(".forma/spaces/tasks.md");
+    let tasks = std::fs::read_to_string(&tasks_path).unwrap();
+    std::fs::write(
+        &tasks_path,
+        tasks.replace(
+            "guidelines:\n  - \"guidelines/workspace-operations.md\"\n",
+            "",
+        ),
+    )
+    .unwrap();
+}
 
 #[test]
 fn prints_placeholder_version() {
@@ -41,7 +99,8 @@ fn check_json_prints_direct_operation_result() {
     assert!(stdout.contains(r#""schemaVersion":1"#));
     assert!(stdout.contains(r#""operation":"check""#));
     assert!(stdout.contains(r#""status":"failed""#));
-    assert!(stdout.contains(r#""code":"workspace.missingForma""#));
+    assert!(stdout.contains(r#""code":"config.readFailed""#));
+    assert!(stdout.contains(r#""path":".forma.yml""#));
     assert!(!stdout.contains(r#""jsonrpc""#));
 }
 
@@ -96,36 +155,12 @@ fn knowledge_health_human_output_reports_warning_summary() {
 }
 
 #[test]
-fn init_create_list_and_inspect_use_operation_json() {
+fn create_list_and_inspect_use_operation_json() {
     let root = fixture_root("starter-flow");
     let home = fixture_root("starter-flow-home-without-git-config");
     std::fs::create_dir_all(&root).unwrap();
     std::fs::create_dir_all(&home).unwrap();
-
-    let init = forma(&root)
-        .env("HOME", &home)
-        .args([
-            "init",
-            "--name",
-            "Acme Knowledge",
-            "--language",
-            "en",
-            "--timezone",
-            "UTC",
-            "--yes",
-            "--json",
-        ])
-        .output()
-        .expect("forma init should run");
-
-    assert!(
-        init.status.success(),
-        "{}",
-        String::from_utf8_lossy(&init.stderr)
-    );
-    let init_stdout = String::from_utf8_lossy(&init.stdout);
-    assert!(init_stdout.contains(r#""operation":"init""#));
-    assert!(init_stdout.contains(r#""status":"passed""#));
+    copy_starter_workspace(&root);
     assert!(root.join(FORMA_CONFIG_PATH).is_file());
     assert!(root.join("notes").is_dir());
 
@@ -150,11 +185,6 @@ fn init_create_list_and_inspect_use_operation_json() {
     assert!(create_stdout.contains(r#""operation":"create""#));
     assert!(create_stdout.contains(r#""status":"passed""#));
     assert!(root.join("tasks/user-registration.md").is_file());
-    assert!(
-        std::fs::read_to_string(root.join("tasks/user-registration.md"))
-            .unwrap()
-            .contains("kind: task")
-    );
     assert!(
         std::fs::read_to_string(root.join("tasks/user-registration.md"))
             .unwrap()
@@ -309,7 +339,7 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
 }
 
 #[test]
-fn starter_workspace_config_exposes_expected_spaces_and_excludes_legacy_todos_users() {
+fn starter_workspace_config_exposes_expected_spaces_and_excludes_removed_spaces() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let workspace = root.join("examples/forma-starter-kit");
     let workspace = workspace
@@ -338,17 +368,10 @@ fn starter_workspace_config_exposes_expected_spaces_and_excludes_legacy_todos_us
         .and_then(|config| config.get("spaces").and_then(Value::as_object))
         .expect("config JSON should contain spaces");
 
-    for space in [
-        "notes",
-        "tasks",
-        "members",
-        "decisions",
-        "proposals",
-        "guidelines",
-    ] {
+    for space in ["notes", "tasks", "members", "guidelines"] {
         assert!(config_spaces.contains_key(space));
     }
-    for space in ["todos", "users"] {
+    for space in ["todos", "users", "decisions", "proposals"] {
         assert!(!config_spaces.contains_key(space));
     }
 }
@@ -438,12 +461,12 @@ title: Ship CLI
 summary: Add CLI task inventory commands.
 readiness: ready
 priority: P0
-owner: Tiscs
+owner: Alex Chen
 owners:
-  - Tiscs
+  - Alex Chen
   - Mira
 assignees:
-  - Tiscs
+  - Alex Chen
 ---
 
 # Ship CLI
@@ -483,7 +506,7 @@ assignees:
     assert!(inspect_stdout.contains(r#""operation":"tasks.inspect""#));
     assert!(inspect_stdout.contains(r#""title":"Ship CLI""#));
     assert!(inspect_stdout.contains(r#""priority":"P0""#));
-    assert!(inspect_stdout.contains(r#""owner":"Tiscs""#));
+    assert!(inspect_stdout.contains(r#""owner":"Alex Chen""#));
 
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -639,29 +662,8 @@ fn global_workspace_option_selects_operation_root() {
     let cwd = fixture_root("workspace-option-cwd");
     let workspace = fixture_root("workspace-option-root");
     std::fs::create_dir_all(&cwd).unwrap();
-
-    let init = forma(&cwd)
-        .args([
-            "--workspace",
-            workspace.to_str().unwrap(),
-            "init",
-            "--name",
-            "Workspace Option",
-            "--language",
-            "en",
-            "--timezone",
-            "UTC",
-            "--yes",
-            "--json",
-        ])
-        .output()
-        .expect("forma init --workspace should run");
-
-    assert!(
-        init.status.success(),
-        "{}",
-        String::from_utf8_lossy(&init.stderr)
-    );
+    std::fs::create_dir_all(&workspace).unwrap();
+    copy_starter_workspace(&workspace);
     assert!(workspace.join(FORMA_CONFIG_PATH).is_file());
     assert!(!cwd.join(FORMA_CONFIG_PATH).exists());
 
@@ -711,18 +713,7 @@ fn global_workspace_option_selects_operation_root() {
 fn create_reports_path_conflicts_and_unknown_inputs_as_json_failures() {
     let root = fixture_root("starter-conflicts");
     std::fs::create_dir_all(&root).unwrap();
-    let init = forma(&root)
-        .args([
-            "init",
-            "--name",
-            "Acme Knowledge",
-            "--timezone",
-            "UTC",
-            "--yes",
-        ])
-        .output()
-        .unwrap();
-    assert!(init.status.success());
+    copy_starter_workspace(&root);
     let first = forma(&root)
         .args(["create", "notes", "--input", "title=Duplicate"])
         .output()
@@ -751,76 +742,20 @@ fn create_reports_path_conflicts_and_unknown_inputs_as_json_failures() {
 }
 
 #[test]
-fn init_rejects_invalid_timezone_without_creating_workspace() {
-    let root = fixture_root("starter-invalid-timezone");
+fn init_subcommand_is_not_available() {
+    let root = fixture_root("init-disabled");
     std::fs::create_dir_all(&root).unwrap();
 
     let output = forma(&root)
-        .args([
-            "init",
-            "--name",
-            "Acme Knowledge",
-            "--timezone",
-            "Not/AZone",
-            "--yes",
-            "--json",
-        ])
+        .args(["init", "--name", "Acme Knowledge"])
         .output()
         .unwrap();
 
     assert!(!output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains(r#""operation":"init""#));
-    assert!(stdout.contains(r#""status":"failed""#));
-    assert!(stdout.contains(r#""code":"init.timezoneInvalid""#));
-    assert!(!root.join(forma_core::FORMA_DIR).exists());
-
-    std::fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
-fn init_requires_yes_in_non_interactive_shells() {
-    let root = fixture_root("starter-confirmation");
-    std::fs::create_dir_all(&root).unwrap();
-
-    let output = forma(&root)
-        .args([
-            "init",
-            "--name",
-            "Acme Knowledge",
-            "--timezone",
-            "UTC",
-            "--json",
-        ])
-        .output()
-        .unwrap();
-
-    assert!(!output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains(r#""operation":"init""#));
-    assert!(stdout.contains(r#""status":"failed""#));
-    assert!(stdout.contains(r#""code":"init.confirmationRequired""#));
-    assert!(!root.join(forma_core::FORMA_DIR).exists());
-
-    std::fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
-fn non_json_failures_print_diagnostic_details() {
-    let root = fixture_root("starter-confirmation-human");
-    std::fs::create_dir_all(&root).unwrap();
-
-    let output = forma(&root)
-        .args(["init", "--name", "Acme Knowledge", "--timezone", "UTC"])
-        .output()
-        .unwrap();
-
-    assert!(!output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("init failed"));
-    assert!(stdout.contains("error init.confirmationRequired:"));
-    assert!(stdout.contains("pass --yes in non-interactive environments"));
-    assert!(!root.join(forma_core::FORMA_DIR).exists());
+    assert!(output.stdout.is_empty());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("unrecognized subcommand 'init'"));
+    assert!(!root.join(".forma").exists());
 
     std::fs::remove_dir_all(root).unwrap();
 }

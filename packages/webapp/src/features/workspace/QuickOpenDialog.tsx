@@ -48,7 +48,7 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
         })),
         { href: "/views", label: "Views", meta: "route" },
         ...dashboard.views.map((view) => ({
-            href: `/views/${view.id}`,
+            href: viewRoutePath(view.id),
             label: view.title,
             meta: view.kind,
         })),
@@ -183,4 +183,11 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
             </DialogContent>
         </Dialog>
     );
+}
+
+function viewRoutePath(viewId: string) {
+    return `/views/${viewId
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/")}`;
 }

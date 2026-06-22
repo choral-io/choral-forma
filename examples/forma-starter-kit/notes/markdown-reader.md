@@ -1,5 +1,4 @@
 ---
-kind: note
 title: "Markdown Reader"
 summary: "A compact demonstration of Markdown rendering in the read-only WebApp."
 createdAt: "2026-06-03T18:00:00Z"

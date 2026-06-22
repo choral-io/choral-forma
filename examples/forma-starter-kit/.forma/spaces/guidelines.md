@@ -9,8 +9,6 @@ description: Operating guidance for running and extending the workspace.
 schema:
   type: object
   fields:
-    kind:
-      type: string
     title:
       type: string
     summary:
@@ -25,10 +23,6 @@ schema:
       items:
         type: ref
         target: member
-    related_to:
-      type: list
-      items:
-        type: ref
     createdAt:
       type: string
     updatedAt:
@@ -52,9 +46,6 @@ create:
       type: list
       default: []
     reviewers:
-      type: list
-      default: []
-    related_to:
       type: list
       default: []
     createdAt:

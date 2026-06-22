@@ -1,5 +1,4 @@
 ---
-kind: note
 title: "Getting Started"
 summary: "Run the starter workspace with forma serve and explore the WebApp."
 createdAt: "2026-06-03T18:00:00Z"

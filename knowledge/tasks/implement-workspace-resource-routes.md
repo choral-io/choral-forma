@@ -68,12 +68,12 @@ The description document is a normal knowledge file. It may contain frontmatter,
 A separate raw route should expose source bytes for preview and asset use cases:
 
 ```text
-/<root>/raw/users/tiscs.md
+/<root>/raw/members/alex-chen.md
 /<root>/raw/assets/logo.png
 /<root>/raw/media/demo.mp4
 ```
 
-The raw route is distinct from app routes such as `/<root>/users/tiscs.md`, which should load the WebApp shell and let the application render or preview the file.
+The raw route is distinct from app routes such as `/<root>/members/alex-chen.md`, which should load the WebApp shell and let the application render or preview the file.
 
 ## In Scope
 
@@ -99,7 +99,7 @@ The raw route is distinct from app routes such as `/<root>/users/tiscs.md`, whic
 
 ## Acceptance Criteria
 
-- `/<root>/raw/users/tiscs.md` returns the source Markdown file bytes when the file is allowed and exists.
+- `/<root>/raw/members/alex-chen.md` returns the source Markdown file bytes when the file is allowed and exists.
 - `/<root>/raw/assets/logo.png` and similar binary files return raw bytes with a suitable content type.
 - Missing raw files return `404`.
 - Raw routes reject unsafe paths, path traversal, and configured local-only or private paths.

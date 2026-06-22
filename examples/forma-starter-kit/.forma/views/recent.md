@@ -13,8 +13,6 @@ source:
       - notes
       - tasks
       - members
-      - decisions
-      - proposals
       - guidelines
 sort:
   - field: fields.updatedAt

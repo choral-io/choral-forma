@@ -181,7 +181,7 @@ If server-rendered HTML becomes useful for static publishing, CLI preview, or no
 
 Routes need stable ids for documents, spaces, and views. The backend should derive ids deterministically:
 
-- views: existing view id from `.forma/views/**/*.md`;
+- views: workspace-relative view config path without `.md`/`.mdx`, such as `.forma/views/tasks`;
 - spaces: configured space id or future explicit space id;
 - documents: path-derived slug or explicit index id.
 

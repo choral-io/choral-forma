@@ -43,7 +43,7 @@ Prompt:
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
 2. Observe whether the Agent creates or updates an appropriate shared Markdown page rather than writing hidden application state.
-3. Observe whether the Agent classifies the content as a note, proposal, decision, task, or guideline before editing.
+3. Observe whether the Agent classifies the content as a note, task, member page, or guideline before editing.
 4. Check whether the Agent adds useful links or relationship metadata when relevant.
 5. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> check --json`.
 6. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> knowledge health --json`.

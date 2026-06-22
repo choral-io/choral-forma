@@ -5,7 +5,7 @@ mode: graph
 title: Graph
 display:
   order: 10
-description: Graph links across notes, tasks, members, decisions, proposals, and guidelines.
+description: Graph links across notes, tasks, members, and guidelines.
 source:
   type: pages
 graph:
@@ -26,11 +26,8 @@ graph:
       field: reviewers
       label: reviewed by
     - source: fields
-      field: blocked_by
+      field: blockedBy
       label: blocked by
-    - source: fields
-      field: related_to
-      label: related to
 ---
 
 # Graph

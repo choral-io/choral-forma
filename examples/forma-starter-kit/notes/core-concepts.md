@@ -1,5 +1,4 @@
 ---
-kind: note
 title: "Core Concepts"
 summary: "A quick map of the main Choral Forma ideas used by this starter workspace."
 createdAt: "2026-06-03T18:00:00Z"
@@ -20,7 +19,7 @@ A taxonomy is a configured way to classify pages. This starter configures a prim
 
 ## Term
 
-A term is one value inside a taxonomy. In this starter, `notes`, `tasks`, `members`, `decisions`, `proposals`, and `guidelines` are terms of the `spaces` taxonomy. [[notes/organize-with-spaces|Organize With Spaces]] shows how they work together.
+A term is one value inside a taxonomy. In this starter, `notes`, `tasks`, `members`, and `guidelines` are terms of the `spaces` taxonomy. [[notes/organize-with-spaces|Organize With Spaces]] shows how they work together.
 
 ## View
 
@@ -32,7 +31,7 @@ References come from ordinary Markdown links and wikilinks. They power outgoing 
 
 ## Template
 
-Templates describe how new pages can be created. They live near the taxonomy term that owns the create flow and use inputs such as `title`, `summary`, or `status`. [[notes/create-pages|Create Pages]] points to the task, proposal, and guideline templates in this starter.
+Templates describe how new pages can be created. They live near the taxonomy term that owns the create flow and use inputs such as `title`, `summary`, or `status`. [[notes/create-pages|Create Pages]] points to the task and guideline templates in this starter.
 
 ## Variant
 

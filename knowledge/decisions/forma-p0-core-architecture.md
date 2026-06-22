@@ -113,16 +113,12 @@ Use TypeScript, React, and Vite for the P0 WebApp. Keep frontend code in a root 
 
 P0 should distinguish repository source files from runtime diagnostic results. The first public implementation does not use a committed discovery index.
 
-Optional local configuration, loaded only through `.forma.yml` include patterns:
+Optional local configuration is loaded only through explicit `.forma.yml` include patterns. Whether a loaded file is local-only comes from project ignore rules, not from a built-in Forma path convention.
+
+Future local caches, if needed, should use project-ignored paths:
 
 ```text
-.forma/local/*.yml
-```
-
-Future local caches:
-
-```text
-.forma/local/cache/
+<project-ignored cache path>
 ```
 
 The read model is rebuilt in memory from Markdown files and shared configuration. It contains resolved structure, not health state. Runtime projections can include workspace summary, spaces, views, entries, and successfully resolved references. They must not persist diagnostics, check summaries, last check status, health summaries, effective config, runtime values, rendered views, local paths, private local files, full frontmatter, full Markdown bodies, or user behavior traces.
@@ -136,9 +132,9 @@ P0 index refs should distinguish `intent: reference | link | embed`.
 All persisted and API-facing workspace paths should use workspace-relative POSIX-style paths, regardless of host operating system. Examples:
 
 ```text
-todos/foo.md
-.forma/views/todos.md
-users/tiscs.md
+tasks/foo.md
+.forma/views/tasks.md
+members/alex-chen.md
 ```
 
 Host filesystem paths are internal implementation details. Index files, diagnostics, configuration references, RPC results, and CLI JSON output should not expose absolute paths or platform-specific separators.

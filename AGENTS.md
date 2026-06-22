@@ -68,4 +68,4 @@ This repository uses Forma-managed knowledge runtime in the repository Markdown 
     - task list/inspect and board review;
     - review prep and knowledge-readability diagnosis.
 - Do not write shared knowledge, task metadata, `.forma` config, or repository operating state without explicit user approval.
-- Keep local-only state out of commits: `knowledge/workspace/*/local/`, `.forma/local/`, generated caches, worktrees, and browser state.
+- Keep local-only state out of commits according to project ignore rules and configured workflow guidance. In this repository that includes `knowledge/workspace/*/local/`, `.forma/local/` when present, generated caches, worktrees, and browser state.

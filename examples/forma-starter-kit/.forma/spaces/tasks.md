@@ -9,8 +9,6 @@ description: Delivery tasks tracked as ordinary Markdown pages.
 schema:
   type: object
   fields:
-    kind:
-      type: string
     title:
       type: string
     summary:
@@ -36,7 +34,7 @@ schema:
       items:
         type: ref
         target: member
-    blocked_by:
+    blockedBy:
       type: list
       items:
         type: ref
@@ -45,7 +43,6 @@ schema:
       type: string
 guidelines:
   - "guidelines/workspace-operations.md"
-  - "guidelines/task-selection.md"
 include:
   - "tasks/**/*.md"
 create:
@@ -108,7 +105,7 @@ create:
     reviewers:
       type: list
       default: []
-    blocked_by:
+    blockedBy:
       type: list
       default: []
     dueDate:
@@ -128,5 +125,7 @@ conventions:
 # Tasks
 
 Delivery tasks tracked as ordinary Markdown pages.
+
+Use [[guidelines/task-selection|Task Selection]] when choosing the next task, splitting broad work, or deciding whether an idea belongs in a task or a note.
 
 <!-- forma:content -->

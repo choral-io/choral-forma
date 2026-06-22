@@ -65,6 +65,8 @@ Do not commit:
 - `.worktrees/`
 - generated caches such as `target/`, `node_modules/`, package build outputs, or browser state.
 
+Treat local-only status as a project ignore/configuration boundary, not as an intrinsic Forma path rule. A directory named `local/` is ordinary content unless this repository's ignore rules or workflow guidance mark it local-only.
+
 ## Task Workflow
 
 - Task board membership is stored in task `status`.

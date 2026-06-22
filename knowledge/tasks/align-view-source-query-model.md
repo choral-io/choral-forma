@@ -26,7 +26,7 @@ blocked_by: []
 related_to:
     - "tasks/implement-read-only-webapp"
     - "tasks/implement-view-entry-render"
-    - "tasks/implement-starter-init-create-inspect-list"
+    - "tasks/implement-starter-create-inspect-list"
     - "tasks/implement-check-index-diagnostics"
 
 reported_by:
@@ -82,7 +82,7 @@ Several completed P0 implementation slices still reflect the older single-space-
 
 This task blocks the read-only WebApp because the WebApp should not be built on the older single-space-bound view model.
 
-This task validates and indexes workspace-source graph views, but does not add the global Graph View to `forma init` yet. Starter inclusion should happen when the graph view rendering and WebApp navigation behavior are ready to expose it as a user-facing page view.
+This task validates and indexes workspace-source graph views, but does not require adding the global Graph View to any workspace initialization flow. Starter inclusion should happen when the graph view rendering and WebApp navigation behavior are ready to expose it as a user-facing page view.
 
 ## Open Questions
 

@@ -33,12 +33,10 @@ This suite defines project-level validation cases for `examples/forma-starter-ki
 - [[test-cases/forma-starter-kit/starter-health-contract]]
 - [[test-cases/forma-starter-kit/starter-guideline-discovery-contract]]
 - [[test-cases/forma-starter-kit/starter-schema-quality-contract]]
-- [[test-cases/forma-starter-kit/starter-shared-profile-selection-contract]]
 
 ## Agent Pressure Tests
 
 - [[test-cases/forma-starter-kit/starter-task-selection-pressure]]
-- [[test-cases/forma-starter-kit/starter-knowledge-capture-pressure]]
 - [[test-cases/forma-starter-kit/starter-blocked-to-done-pressure]]
 - [[test-cases/forma-starter-kit/starter-review-to-done-pressure]]
 - [[test-cases/forma-starter-kit/starter-write-verify-pressure]]

@@ -227,16 +227,12 @@ P0 should distinguish source files from runtime diagnostic results.
 
 Default P0 behavior has no persisted index artifact. `forma serve` scans source files at startup and keeps a read model in memory. This keeps the first public release simple and avoids stale indexes.
 
-Persistent local configuration, optional, ignored, and loaded only through `.forma.yml` include patterns:
-
-```text
-.forma/local/*.yml
-```
+Persistent local configuration is optional, ignored by project rules, and loaded only through explicit `.forma.yml` include patterns. Forma should not assume a built-in local configuration directory.
 
 Future local implementation caches, optional and ignored:
 
 ```text
-.forma/local/cache/
+<project-ignored cache path>
 ```
 
 The following results should not be persisted:
@@ -257,7 +253,7 @@ P0 index references should distinguish intent:
 {
     "source": "frontmatter",
     "field": "assignees",
-    "targetPath": "members/tiscs.md",
+    "targetPath": "members/alex-chen.md",
     "semanticType": "member",
     "intent": "reference"
 }
@@ -295,7 +291,7 @@ All persisted and API-facing workspace paths should use workspace-relative POSIX
 
 ```text
 tasks/foo.md
-members/tiscs.md
+members/alex-chen.md
 ```
 
 Host filesystem paths should remain internal implementation details. Index files, diagnostics, configuration references, RPC results, and CLI JSON output should not expose absolute paths or platform-specific separators.
@@ -312,7 +308,7 @@ P0 path rules:
 - Ensure `slugify` and create flows avoid path separators, reserved filesystem characters, empty filenames, and Windows reserved device names.
 - Keep config globs workspace-relative, POSIX-style, and free of absolute paths, `..`, or home expansion.
 
-Resolved wikilinks and embedded references should map to workspace-relative paths such as `members/tiscs.md` or `notes/foo.md`.
+Resolved wikilinks and embedded references should map to workspace-relative paths such as `members/alex-chen.md` or `notes/foo.md`.
 
 ## Test Strategy
 

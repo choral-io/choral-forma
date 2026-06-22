@@ -30,7 +30,7 @@ Validate that local-only starter material is treated as private or unshared cont
 
 ## Preconditions
 
-- The starter documents local-only boundaries without committing private local content.
+- The starter documents that local-only boundaries come from project ignore configuration, not from a hard-coded Forma directory name.
 - The starter guideline explains promotion requirements.
 
 ## Test Data
@@ -42,7 +42,7 @@ Prompt:
 ## Steps
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
-2. Observe whether the Agent identifies local-only material as non-canonical.
+2. Observe whether the Agent identifies ignored local-only material as non-canonical.
 3. Check whether the Agent requests promotion approval before writing shared content.
 4. Confirm the Agent avoids committing or quoting private scratch content unless explicitly approved.
 

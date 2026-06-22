@@ -417,7 +417,7 @@ export class FormaRpcError extends Error {
 
 type RpcFetch = (
     input: string,
-    init: {
+    requestInit: {
         method: string;
         headers: Record<string, string>;
         body: string;
@@ -441,11 +441,11 @@ export class FormaRpcClient {
         }
         this.fetcher =
             fetcher ??
-            ((input, init) => {
+            ((input, requestInit) => {
                 if (!globalFetch) {
                     throw new Error("FormaRpcClient requires a fetch implementation.");
                 }
-                return globalFetch(input, init);
+                return globalFetch(input, requestInit);
             });
     }
 

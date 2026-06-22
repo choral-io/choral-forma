@@ -7,7 +7,7 @@ use markdown::{Options, to_html_with_options};
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
-use crate::config::{LoadMode, load_workspace};
+use crate::config::{LoadMode, config_source_paths, load_workspace};
 use crate::diagnostics::{Diagnostic, DiagnosticSummary, OperationStatus};
 use crate::index::{
     IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource, discover_workspace,
@@ -16,7 +16,7 @@ use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, FormaReferenc
 use crate::operations::{
     OperationError, WorkspaceSummary, diagnostic_sort_key, diagnostics_for_workspace_path,
 };
-use crate::path::{FORMA_VIEWS_DIR, WorkspacePath};
+use crate::path::WorkspacePath;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -460,15 +460,16 @@ pub fn render_view(
 ) -> Result<ViewRenderResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
     let discovery = discover_workspace(root.as_ref())?;
-    let index_view = discovery
-        .index
-        .views
-        .iter()
-        .find(|candidate| candidate.id == view);
+    let index_view = discovery.index.views.iter().find(|candidate| {
+        candidate.id == view
+            || candidate.path == view
+            || candidate.path.strip_suffix(".md") == Some(view)
+            || candidate.path.strip_suffix(".mdx") == Some(view)
+    });
     let view_path = if let Some(index_view) = index_view {
         index_view.path.clone()
     } else {
-        fallback_view_path(root.as_ref(), view)?
+        included_view_config_path(root.as_ref(), view)?
     };
 
     let mut diagnostics = discovery.diagnostics;
@@ -1323,13 +1324,46 @@ fn normalize_markdown_path(path: &str) -> Result<String, OperationError> {
     }
 }
 
-fn fallback_view_path(root: &Path, view: &str) -> Result<String, OperationError> {
+fn included_view_config_path(root: &Path, view: &str) -> Result<String, OperationError> {
     let view = view.strip_suffix(".md").unwrap_or(view);
-    let path = WorkspacePath::parse_cli(format!("{FORMA_VIEWS_DIR}/{view}.md"))?;
-    if root.join(path.as_str()).is_file() {
-        Ok(path.as_str().to_string())
-    } else {
-        Err(OperationError::ViewNotFound(view.to_string()))
+    let view = view.strip_suffix(".mdx").unwrap_or(view);
+    let sources = config_source_paths(root, LoadMode::SharedOnly)?;
+    let mut matches = Vec::new();
+    for path in sources
+        .into_iter()
+        .map(|source| source.path)
+        .filter(|path| path.ends_with(".md") || path.ends_with(".mdx"))
+    {
+        let path_id = path
+            .strip_suffix(".md")
+            .or_else(|| path.strip_suffix(".mdx"))
+            .unwrap_or(&path);
+        let stem = Path::new(&path)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or(path_id);
+        if path_id != view && stem != view {
+            continue;
+        }
+        let Ok(source) = fs::read_to_string(root.join(&path)) else {
+            continue;
+        };
+        let document = FormaMarkdownDocument::parse(&source);
+        if document
+            .frontmatter
+            .value
+            .as_ref()
+            .and_then(|value| value.get("kind"))
+            .and_then(Value::as_str)
+            == Some("view")
+        {
+            matches.push(path);
+        }
+    }
+    match matches.as_slice() {
+        [] => Err(OperationError::ViewNotFound(view.to_string())),
+        [path] => Ok(path.clone()),
+        _ => Err(OperationError::ViewAmbiguous(view.to_string())),
     }
 }
 
@@ -1353,13 +1387,72 @@ mod tests {
         ReferenceIntent, ReferenceSource, RenderedHeading, ViewRenderOutput, render_file,
         render_view,
     };
-    use crate::operations::{OperationError, create_entry, init_workspace};
+    use crate::index::discover_workspace;
+    use crate::operations::{OperationError, create_entry};
+    use crate::path::FORMA_CONFIG_PATH;
+
+    fn copy_starter_workspace(root: &std::path::Path) {
+        let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/forma-starter-kit");
+        copy_dir_recursive(&source, root);
+        remove_guideline_references(root);
+        clear_starter_content(root);
+    }
+
+    fn copy_dir_recursive(source: &std::path::Path, target: &std::path::Path) {
+        fs::create_dir_all(target).unwrap();
+        for entry in fs::read_dir(source).unwrap() {
+            let entry = entry.unwrap();
+            let source_path = entry.path();
+            let target_path = target.join(entry.file_name());
+            if source_path.is_dir() {
+                copy_dir_recursive(&source_path, &target_path);
+            } else {
+                fs::copy(&source_path, &target_path).unwrap();
+            }
+        }
+    }
+
+    fn clear_starter_content(root: &std::path::Path) {
+        for directory in ["notes", "tasks", "members", "guidelines"] {
+            let path = root.join(directory);
+            if path.exists() {
+                fs::remove_dir_all(&path).unwrap();
+            }
+            fs::create_dir_all(path).unwrap();
+        }
+    }
+
+    fn remove_guideline_references(root: &std::path::Path) {
+        let config_path = root.join(".forma.yml");
+        let config = fs::read_to_string(&config_path).unwrap();
+        fs::write(
+            &config_path,
+            config.replace(
+                "\nguidelines:\n  - \"guidelines/workspace-operations.md\"\n  - \"guidelines/task-selection.md\"\n",
+                "\n",
+            ),
+        )
+        .unwrap();
+
+        let tasks_path = root.join(".forma/spaces/tasks.md");
+        let tasks = fs::read_to_string(&tasks_path).unwrap();
+        fs::write(
+            &tasks_path,
+            tasks.replace(
+                "guidelines:\n  - \"guidelines/workspace-operations.md\"\n",
+                "",
+            ),
+        )
+        .unwrap();
+    }
 
     #[test]
     fn renders_file_html_and_degrades_obsidian_embed_to_link() {
         let root = fixture_root("file-render");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
             "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\n## Context\n\n### Details\n\n## Context\n\nSee ![[notes/target|Target note]].\n",
@@ -1407,23 +1500,23 @@ mod tests {
     fn renders_wikilink_fallbacks_as_base_relative_markdown_paths() {
         let root = fixture_root("file-render-base-relative-wikilink");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
-            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\nOwner: [[members/tiscs|Tiscs]].\n",
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\nOwner: [[members/alex-chen|Alex Chen]].\n",
         )
         .unwrap();
         fs::write(
-            root.join("members/tiscs.md"),
-            "---\nkind: member\nname: Tiscs\nrole: Developer\n---\n\n# Tiscs\n",
+            root.join("members/alex-chen.md"),
+            "---\nkind: member\nname: Alex Chen\nrole: Developer\n---\n\n# Alex Chen\n",
         )
         .unwrap();
 
         let result = render_file(&root, "notes/source.md", "html").unwrap();
 
         let html = result.render.html.as_deref().unwrap_or_default();
-        assert!(html.contains(r#"<a href="./members/tiscs.md">Tiscs</a>"#));
-        assert!(!html.contains(r#"href="members/tiscs""#));
+        assert!(html.contains(r#"<a href="./members/alex-chen.md">Alex Chen</a>"#));
+        assert!(!html.contains(r#"href="members/alex-chen""#));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1432,7 +1525,7 @@ mod tests {
     fn file_render_reports_unresolved_references_as_diagnostics() {
         let root = fixture_root("file-render-unresolved-ref");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
             "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\nSee [[notes/missing]].\n",
@@ -1464,7 +1557,7 @@ mod tests {
     fn file_render_reports_only_selected_document_diagnostics() {
         let root = fixture_root("file-render-scoped-diagnostics");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
             "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n",
@@ -1488,7 +1581,7 @@ mod tests {
     fn renders_source_for_workspace_text_files() {
         let root = fixture_root("file-render-source");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         let result = render_file(&root, ".forma.yml", "source").unwrap();
 
@@ -1513,7 +1606,7 @@ mod tests {
     fn renders_file_markdown_for_client_reader() {
         let root = fixture_root("file-render-markdown");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Markdown Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
             "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\n## Context\n\nSee ![[notes/target|Target note]].\n",
@@ -1550,7 +1643,7 @@ mod tests {
     fn file_render_html_accepts_knowledge_files_and_rejects_templates() {
         let root = fixture_root("file-render-html");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "File Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/renderable.md"),
             "---\nkind: note\ntitle: Renderable\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Renderable\n",
@@ -1581,7 +1674,7 @@ mod tests {
     fn file_render_source_reads_text_resources() {
         let root = fixture_root("file-render-source-resource");
         fs::create_dir_all(root.join("assets")).unwrap();
-        init_workspace(&root, "File Source Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(root.join("assets/data.json"), br#"{"ok":true}"#).unwrap();
 
         let rendered = render_file(&root, "assets/data.json", "source").unwrap();
@@ -1596,7 +1689,7 @@ mod tests {
     fn renders_starter_table_view_with_zero_and_fixture_entries() {
         let root = fixture_root("table-view-render");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         let empty = render_view(&root, "notes", BTreeMap::new()).unwrap();
         let Some(ViewRenderOutput::Table { columns, items }) = empty.render else {
@@ -1629,10 +1722,91 @@ mod tests {
     }
 
     #[test]
+    fn renders_included_view_config_node_outside_forma_views() {
+        let root = fixture_root("included-view-render");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma.yml"),
+            "schemaVersion: 1\nworkspace:\n  name: Render Test\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - views/*.md\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("views")).unwrap();
+        fs::write(
+            root.join("views/custom.md"),
+            "---\nkind: view\ntitle: Custom\nmode: table\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - notes\ncolumns:\n  - field: fields.title\n---\n\n# Custom\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "custom", BTreeMap::new()).unwrap();
+
+        assert_eq!(
+            result.view.as_ref().map(|view| view.path.as_str()),
+            Some("views/custom.md")
+        );
+        assert!(matches!(
+            result.render,
+            Some(ViewRenderOutput::Table { .. })
+        ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renders_exact_view_id_when_basenames_collide_and_rejects_ambiguous_short_id() {
+        let root = fixture_root("render-view-basename-collision");
+        fs::create_dir_all(root.join(".forma/views")).unwrap();
+        fs::create_dir_all(root.join("views")).unwrap();
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/views/*.md\n  - views/*.md\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/tasks.md"),
+            "---\nkind: view\nmode: list\ntitle: Built-in Tasks\nsource:\n  type: pages\n---\n\n# Built-in Tasks\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("views/tasks.md"),
+            "---\nkind: view\nmode: table\ntitle: Custom Tasks\nsource:\n  type: pages\n---\n\n# Custom Tasks\n",
+        )
+        .unwrap();
+
+        let discovery = discover_workspace(&root).unwrap();
+        assert!(
+            discovery
+                .index
+                .views
+                .iter()
+                .any(|view| view.id == ".forma/views/tasks")
+        );
+        assert!(
+            discovery
+                .index
+                .views
+                .iter()
+                .any(|view| view.id == "views/tasks")
+        );
+
+        let exact = render_view(&root, "views/tasks", BTreeMap::new()).unwrap();
+        assert_eq!(
+            exact.view.as_ref().and_then(|view| view.title.as_deref()),
+            Some("Custom Tasks")
+        );
+        assert!(matches!(
+            render_view(&root, "tasks", BTreeMap::new()),
+            Err(OperationError::ViewAmbiguous(view)) if view == "tasks"
+        ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn renders_kanban_view_from_query_columns() {
         let root = fixture_root("kanban-view-render");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         create_entry(
             &root,
             "tasks",
@@ -1664,7 +1838,7 @@ mod tests {
     fn renders_list_view_from_query_candidates() {
         let root = fixture_root("list-view-render");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         create_entry(
             &root,
             "notes",
@@ -1706,7 +1880,7 @@ mod tests {
     fn renders_graph_view_from_resolved_index_references() {
         let root = fixture_root("graph-view-render");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
             "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-05-19T00:00:00Z\"\n---\n\n# Source\n\nSee [Target](target).\n",
@@ -1745,7 +1919,7 @@ mod tests {
     fn renders_configured_graph_edges_from_frontmatter_fields() {
         let root = fixture_root("graph-view-field-render");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("members/mira-chen.md"),
             "---\nkind: member\nname: Mira Chen\n---\n\n# Mira Chen\n",
@@ -1784,7 +1958,7 @@ mod tests {
     fn renders_graph_field_edges_from_user_authored_space_schema() {
         let root = fixture_root("graph-view-custom-field-schema");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::create_dir_all(root.join("projects")).unwrap();
         fs::create_dir_all(root.join("notes")).unwrap();
         fs::write(
@@ -1834,7 +2008,7 @@ mod tests {
     fn renders_explicit_workspace_source_and_normalized_query_targets() {
         let root = fixture_root("workspace-source-view-render");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         create_entry(
             &root,
             "notes",
@@ -1875,7 +2049,7 @@ mod tests {
     fn reports_invalid_query_target_as_diagnostic() {
         let root = fixture_root("view-invalid-target");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join(".forma/views/notes.md"),
             "---\nkind: view\nmode: table\ntitle: Notes\nquery:\n  all:\n    - field: metadata.status\n      op: equals\n      value: todo\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Notes\n\n<!-- forma:content -->\n",
@@ -1900,7 +2074,7 @@ mod tests {
     fn rejects_legacy_target_query_predicates() {
         let root = fixture_root("view-legacy-target");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         create_entry(
             &root,
             "tasks",
@@ -1937,7 +2111,7 @@ mod tests {
     fn reports_missing_view_mount_as_diagnostic() {
         let root = fixture_root("view-missing-mount");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join(".forma/views/notes.md"),
             "---\nkind: view\nmode: table\ntitle: Notes\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Notes\n",
@@ -1961,7 +2135,7 @@ mod tests {
     fn reports_invalid_view_definition_as_diagnostic() {
         let root = fixture_root("view-invalid");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join(".forma/views/notes.md"),
             "---\nkind: view\nmode: table\ntable: broken\n---\n\n# Notes\n\n<!-- forma:content -->\n",
@@ -1985,7 +2159,7 @@ mod tests {
     fn reports_unindexed_invalid_view_file_as_diagnostic() {
         let root = fixture_root("view-invalid-unindexed");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Render Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join(".forma/views/notes.md"),
             "---\nkind: view\nmode: table\nspace: missing\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Notes\n\n<!-- forma:content -->\n",

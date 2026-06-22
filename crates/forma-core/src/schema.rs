@@ -893,7 +893,8 @@ fn is_iso_datetime(value: &str) -> bool {
 mod tests {
     use super::*;
     use crate::config::{RuntimeConfig, SpaceConventions, TypeInput, WorkspaceSettings};
-    use crate::path::FORMA_TEMPLATES_DIR;
+
+    const FIXTURE_TEMPLATES_DIR: &str = ".forma/spaces/templates";
 
     fn config_with_task_schema(schema: &str) -> WorkspaceConfig {
         let schema: Value = serde_yml::from_str(schema).unwrap();
@@ -939,7 +940,7 @@ mod tests {
                     description: None,
                     include: "tasks/**/*.md".to_string(),
                     include_patterns: vec!["tasks/**/*.md".to_string()],
-                    template: format!("{FORMA_TEMPLATES_DIR}/task.md"),
+                    template: format!("{FIXTURE_TEMPLATES_DIR}/task.md"),
                     create: None,
                     conventions: SpaceConventions::default(),
                     guidelines: Vec::new(),
@@ -1035,7 +1036,7 @@ fields:
             r#"
 kind: note
 status: later
-assignees: tiscs
+assignees: alex-chen
 "#,
         )
         .unwrap();
@@ -1166,7 +1167,7 @@ scheduledAt: "2026-05-19T10:30:00"
         config.runtime.values.insert(
             "currentUserId".to_string(),
             RuntimeValueProvider::Const {
-                value: Value::String("Tiscs User".to_string()),
+                value: Value::String("Alex Chen".to_string()),
                 required: true,
                 transform: Some("slugify".to_string()),
             },
@@ -1181,7 +1182,7 @@ scheduledAt: "2026-05-19T10:30:00"
         assert!(runtime.diagnostics.is_empty());
         assert_eq!(
             runtime.get_string("currentUserId").as_deref(),
-            Some("tiscs-user")
+            Some("alex-chen")
         );
         assert_eq!(runtime.get_string("workspaceRoot").as_deref(), Some("."));
     }

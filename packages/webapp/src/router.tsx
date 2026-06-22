@@ -21,7 +21,7 @@ export const routes = (
             <Route path="spaces" Component={SpacesRoute} />
             <Route path="spaces/:spaceId" Component={SpaceRoute} />
             <Route path="views" Component={ViewsRoute} />
-            <Route path="views/:viewId" Component={ViewRoute} />
+            <Route path="views/*" Component={ViewRoute} />
             <Route path="*" Component={FallbackRoute} />
         </Route>
     </Routes>

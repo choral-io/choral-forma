@@ -3,13 +3,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
-use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 use thiserror::Error;
 
 use crate::config::{
-    ConfigError, LoadMode, WorkspaceConfig, WorkspaceSettings, config_source_paths, load_workspace,
+    ConfigError, LoadMode, WorkspaceConfig, WorkspaceSettings, config_source_paths,
+    is_workspace_path_ignored, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::index::{
@@ -17,9 +17,7 @@ use crate::index::{
     discover_workspace,
 };
 use crate::markdown::FormaMarkdownDocument;
-use crate::path::{
-    FORMA_CONFIG_PATH, FORMA_DIR, FORMA_GITIGNORE_PATH, FORMA_VIEWS_DIR, PathError, WorkspacePath,
-};
+use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
 };
@@ -38,18 +36,6 @@ pub struct WorkspaceSummary {
 pub struct WorkspaceLogoSummary {
     pub url: String,
     pub alt: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InitResult {
-    pub schema_version: u16,
-    pub operation: String,
-    pub status: OperationStatus,
-    pub workspace: WorkspaceSummary,
-    pub created: Vec<String>,
-    pub summary: DiagnosticSummary,
-    pub diagnostics: Vec<Diagnostic>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -481,8 +467,6 @@ pub struct TaskSummary {
 pub enum OperationError {
     #[error("configuration error: {0}")]
     Config(#[from] ConfigError),
-    #[error("workspace already contains .forma")]
-    WorkspaceExists,
     #[error("space `{0}` was not found")]
     SpaceNotFound(String),
     #[error("space `{0}` does not define create behavior")]
@@ -493,14 +477,14 @@ pub enum OperationError {
     InvalidPath(#[from] PathError),
     #[error("configuration path is not inspectable: {0}")]
     ConfigPathNotInspectable(String),
-    #[error("invalid timezone `{0}`")]
-    InvalidTimezone(String),
     #[error("entry was not found")]
     EntryNotFound,
     #[error("entry locator matched multiple files")]
     EntryAmbiguous,
     #[error("view `{0}` was not found")]
     ViewNotFound(String),
+    #[error("view `{0}` matched multiple files")]
+    ViewAmbiguous(String),
     #[error("path already exists: {0}")]
     PathConflict(String),
     #[error("file operation failed for {path}: {source}")]
@@ -509,76 +493,6 @@ pub enum OperationError {
         #[source]
         source: std::io::Error,
     },
-}
-
-pub fn init_workspace(
-    root: impl AsRef<Path>,
-    name: &str,
-    language: &str,
-    timezone: Option<&str>,
-) -> Result<InitResult, OperationError> {
-    let root = root.as_ref();
-    if root.join(FORMA_DIR).exists() {
-        return Err(OperationError::WorkspaceExists);
-    }
-
-    let timezone = timezone
-        .map(ToString::to_string)
-        .unwrap_or_else(detect_environment_timezone);
-    validate_timezone(&timezone)?;
-    let mut created = Vec::new();
-
-    for directory in [
-        FORMA_DIR,
-        ".forma/spaces",
-        ".forma/spaces/templates",
-        FORMA_VIEWS_DIR,
-        "notes",
-        "tasks",
-        "members",
-        "decisions",
-        "proposals",
-        "guidelines",
-    ] {
-        fs::create_dir_all(root.join(directory)).map_err(|source| OperationError::Io {
-            path: directory.to_string(),
-            source,
-        })?;
-    }
-
-    write_file(root, FORMA_GITIGNORE_PATH, STARTER_GITIGNORE, &mut created)?;
-    write_file(
-        root,
-        FORMA_CONFIG_PATH,
-        &starter_config_yml(name, language, &timezone),
-        &mut created,
-    )?;
-    for (path, source) in starter_support_nodes() {
-        write_file(root, &path, source, &mut created)?;
-    }
-    for (path, source) in starter_templates() {
-        write_file(root, &path, source, &mut created)?;
-    }
-    for (path, source) in starter_views() {
-        write_file(root, &path, source, &mut created)?;
-    }
-
-    let diagnostics = Vec::new();
-    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
-
-    Ok(InitResult {
-        schema_version: 1,
-        operation: "init".to_string(),
-        status: summary.status(),
-        workspace: WorkspaceSummary {
-            root: ".".to_string(),
-            name: name.to_string(),
-            logo: None,
-        },
-        created,
-        summary,
-        diagnostics,
-    })
 }
 
 pub fn create_entry(
@@ -898,6 +812,13 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
     });
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
     let mut files = collect_workspace_files(root.as_ref());
+    let template_paths = workspace
+        .config
+        .spaces
+        .values()
+        .filter_map(|space| WorkspacePath::parse_config(&space.template).ok())
+        .map(|path| path.as_str().to_string())
+        .collect::<BTreeSet<_>>();
 
     for file in &mut files {
         if let Some(entry) = discovery
@@ -919,6 +840,9 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
             file.kind = WorkspaceFileKind::View;
             file.features = features_for_media_type(file.kind, &file.media_type);
             file.title = view.title.clone();
+        } else if template_paths.contains(&file.path) {
+            file.kind = WorkspaceFileKind::Template;
+            file.features = features_for_media_type(file.kind, &file.media_type);
         }
     }
     files.sort_by(|left, right| left.path.cmp(&right.path));
@@ -1029,7 +953,7 @@ pub fn workspace_dashboard(
         workspace: WorkspaceSummary {
             root: ".".to_string(),
             name: workspace.config.workspace.name.clone(),
-            logo: workspace_logo_summary(&workspace.config.workspace),
+            logo: workspace_logo_summary(root.as_ref(), &workspace.config.workspace),
         },
         spaces,
         entries,
@@ -1044,11 +968,14 @@ fn view_taxonomy_space(view: &crate::index::IndexView) -> Option<String> {
     (terms.len() == 1).then(|| terms[0].clone())
 }
 
-fn workspace_logo_summary(workspace: &WorkspaceSettings) -> Option<WorkspaceLogoSummary> {
+fn workspace_logo_summary(
+    root: &Path,
+    workspace: &WorkspaceSettings,
+) -> Option<WorkspaceLogoSummary> {
     let logo = workspace.logo.as_ref()?;
     let path = WorkspacePath::parse_config(&logo.path).ok()?;
     let path = path.as_str();
-    if !is_raw_workspace_path_allowed(path) {
+    if !is_public_workspace_path_allowed(root, path) {
         return None;
     }
     if !matches!(
@@ -1916,6 +1843,11 @@ fn collect_workspace_files_inner(root: &Path, dir: &Path, files: &mut Vec<Worksp
             if should_skip_file_dir(name, &path) {
                 continue;
             }
+            if let Some(relative) = workspace_relative_path(root, &path)
+                && is_workspace_path_ignored(root, &relative)
+            {
+                continue;
+            }
             collect_workspace_files_inner(root, &path, files);
         } else if should_skip_workspace_file(name, &path) {
             continue;
@@ -1926,11 +1858,8 @@ fn collect_workspace_files_inner(root: &Path, dir: &Path, files: &mut Vec<Worksp
 }
 
 fn should_skip_file_dir(name: &str, path: &Path) -> bool {
+    let _ = path;
     matches!(name, ".git" | "target" | "node_modules")
-        || path.components().any(|component| {
-            component.as_os_str() == "local"
-                && path.components().any(|part| part.as_os_str() == FORMA_DIR)
-        })
 }
 
 fn should_skip_workspace_file(_name: &str, _path: &Path) -> bool {
@@ -1938,19 +1867,13 @@ fn should_skip_workspace_file(_name: &str, _path: &Path) -> bool {
 }
 
 fn workspace_file_from_path(root: &Path, path: PathBuf) -> Option<WorkspaceFile> {
-    let relative = path
-        .strip_prefix(root)
-        .ok()?
-        .to_string_lossy()
-        .replace('\\', "/");
-    if !is_raw_workspace_path_allowed(&relative) {
+    let relative = workspace_relative_path(root, &path)?;
+    if is_workspace_path_ignored(root, &relative) {
         return None;
     }
     let media_type = media_type_for_workspace_path(&relative)?;
     let kind = if matches!(relative.as_str(), FORMA_CONFIG_PATH) {
         WorkspaceFileKind::Config
-    } else if relative.starts_with(".forma/spaces/templates/") && media_type == "text/markdown" {
-        WorkspaceFileKind::Template
     } else if media_type == "text/markdown" {
         WorkspaceFileKind::Markdown
     } else {
@@ -1995,7 +1918,29 @@ pub fn media_type_for_workspace_path(path: &str) -> Option<&'static str> {
 
 pub fn is_raw_workspace_path_allowed(path: &str) -> bool {
     let normalized = path.to_ascii_lowercase();
-    normalized != FORMA_CONFIG_PATH && !normalized.starts_with(".forma/")
+    normalized != FORMA_CONFIG_PATH
+}
+
+pub fn is_public_workspace_path_allowed(root: impl AsRef<Path>, path: &str) -> bool {
+    let root = root.as_ref();
+    let lowercase_path = path.to_ascii_lowercase();
+    is_raw_workspace_path_allowed(path)
+        && !is_workspace_path_ignored(root, path)
+        && !is_workspace_path_ignored(root, &lowercase_path)
+        && !is_config_source_path(root, path)
+        && !is_config_source_path(root, &lowercase_path)
+}
+
+fn is_config_source_path(root: &Path, path: &str) -> bool {
+    config_source_paths(root, LoadMode::SharedOnly)
+        .map(|sources| sources.into_iter().any(|source| source.path == path))
+        .unwrap_or(false)
+}
+
+fn workspace_relative_path(root: &Path, path: &Path) -> Option<String> {
+    path.strip_prefix(root)
+        .ok()
+        .map(|path| path.to_string_lossy().replace('\\', "/"))
 }
 
 fn features_for_media_type(kind: WorkspaceFileKind, media_type: &str) -> Vec<WorkspaceFileFeature> {
@@ -2082,113 +2027,6 @@ fn normalize_entry_path(path: &str) -> Result<String, OperationError> {
     }
 }
 
-fn write_file(
-    root: &Path,
-    public_path: &str,
-    source: &str,
-    created: &mut Vec<String>,
-) -> Result<(), OperationError> {
-    fs::write(root.join(public_path), source).map_err(|source| OperationError::Io {
-        path: public_path.to_string(),
-        source,
-    })?;
-    created.push(public_path.to_string());
-    Ok(())
-}
-
-fn starter_config_yml(name: &str, language: &str, timezone: &str) -> String {
-    STARTER_SETTINGS_YML
-        .replace("__WORKSPACE_NAME__", &yaml_string(name))
-        .replace("__LANGUAGE__", &yaml_string(language))
-        .replace("__TIMEZONE__", &yaml_string(timezone))
-}
-
-fn starter_support_nodes() -> Vec<(String, &'static str)> {
-    vec![
-        (".forma/dashboard.md".to_string(), STARTER_DASHBOARD_MD),
-        (
-            ".forma/spaces/index.md".to_string(),
-            STARTER_SPACES_INDEX_MD,
-        ),
-        (".forma/spaces/notes.md".to_string(), STARTER_NOTES_TERM_MD),
-        (".forma/spaces/tasks.md".to_string(), STARTER_TASKS_TERM_MD),
-        (
-            ".forma/spaces/members.md".to_string(),
-            STARTER_MEMBERS_TERM_MD,
-        ),
-        (
-            ".forma/spaces/decisions.md".to_string(),
-            STARTER_DECISIONS_TERM_MD,
-        ),
-        (
-            ".forma/spaces/proposals.md".to_string(),
-            STARTER_PROPOSALS_TERM_MD,
-        ),
-        (
-            ".forma/spaces/guidelines.md".to_string(),
-            STARTER_GUIDELINES_TERM_MD,
-        ),
-    ]
-}
-
-fn starter_templates() -> Vec<(String, &'static str)> {
-    vec![
-        (
-            ".forma/spaces/templates/note.md".to_string(),
-            "---\nkind: note\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
-        ),
-        (
-            ".forma/spaces/templates/task.md".to_string(),
-            "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\nreadiness: \"{{ input.readiness }}\"\npriority: \"{{ input.priority }}\"\nowners: []\nassignees: []\nreviewers: []\nblocked_by: []\ndueDate: \"{{ input.dueDate }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n",
-        ),
-        (
-            ".forma/spaces/templates/member.md".to_string(),
-            "---\nkind: member\nname: \"{{ input.name }}\"\ndescription: \"{{ input.description }}\"\nresponsibilities: \"{{ input.responsibilities }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.name }}\n",
-        ),
-        (
-            ".forma/spaces/templates/decision.md".to_string(),
-            "---\nkind: decision\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\nowners: []\nreviewers: []\nrelated_to: []\ndecidedAt: \"{{ input.decidedAt }}\"\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n\n## Context\n\n## Decision\n\n## Consequences\n",
-        ),
-        (
-            ".forma/spaces/templates/proposal.md".to_string(),
-            "---\nkind: proposal\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nstatus: \"{{ input.status }}\"\nowners: []\nassignees: []\nreviewers: []\nrelated_to: []\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n\n## Problem\n\n## Proposed Change\n\n## Expected Outcome\n",
-        ),
-        (
-            ".forma/spaces/templates/guideline.md".to_string(),
-            "---\nkind: guideline\ntitle: \"{{ input.title }}\"\nsummary: \"{{ input.summary }}\"\nowners: []\nreviewers: []\nrelated_to: []\ncreatedAt: \"{{ input.createdAt }}\"\nupdatedAt: \"{{ input.updatedAt }}\"\n---\n\n# {{ input.title }}\n\n## When To Use This\n\n## Guidance\n",
-        ),
-    ]
-}
-
-fn starter_views() -> Vec<(String, &'static str)> {
-    vec![
-        (
-            format!("{FORMA_VIEWS_DIR}/notes.md"),
-            "---\nschemaVersion: 1\nkind: view\nmode: table\ntitle: Notes\ndisplay:\n  order: 30\ndescription: Starter guide and feature demonstration notes.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - notes\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n    - field: fields.summary\n      label: Summary\n    - field: fields.createdAt\n      label: Created\nsort:\n  - field: fields.createdAt\n    direction: desc\n---\n\n# Notes\n\nBrowse guide and feature demonstration pages as a structured table.\n\n<!-- forma:content -->\n",
-        ),
-        (
-            format!("{FORMA_VIEWS_DIR}/tasks.md"),
-            "---\nschemaVersion: 1\nkind: view\nmode: kanban\ntitle: Tasks\ndisplay:\n  order: 50\ndescription: Example work tracked with status, readiness, and review fields.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - tasks\nkanban:\n  card:\n    titleField: fields.title\n    subtitleFields:\n      - fields.summary\n      - fields.owners\n      - fields.assignees\n    badgeFields:\n      - fields.priority\n      - fields.readiness\n      - fields.dueDate\n  columns:\n    - id: todo\n      label: To Do\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: todo\n      sort:\n        - field: fields.priority\n          order:\n            - high\n            - medium\n            - low\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: ready\n      label: Ready\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: ready\n      sort:\n        - field: fields.priority\n          order:\n            - high\n            - medium\n            - low\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: doing\n      label: Doing\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: doing\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: blocked\n      label: Blocked\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: blocked\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: reviewing\n      label: Reviewing\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: reviewing\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n    - id: done\n      label: Done\n      query:\n        all:\n          - field: fields.status\n            op: equals\n            value: done\n      sort:\n        - field: fields.updatedAt\n          direction: desc\n        - field: fields.createdAt\n          direction: desc\n---\n\n# Tasks\n\nTrack example work by workflow state.\n\n<!-- forma:content -->\n",
-        ),
-        (
-            format!("{FORMA_VIEWS_DIR}/members.md"),
-            "---\nschemaVersion: 1\nkind: view\nmode: table\ntitle: Members\ndisplay:\n  order: 60\ndescription: Example team members referenced by the starter workspace.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - members\ntable:\n  columns:\n    - field: fields.name\n      label: Name\n    - field: fields.description\n      label: Description\n    - field: fields.responsibilities\n      label: Responsibilities\nsort:\n  - field: fields.name\n    direction: asc\n---\n\n# Members\n\nList example team members referenced by starter tasks and pages.\n\n<!-- forma:content -->\n",
-        ),
-        (
-            format!("{FORMA_VIEWS_DIR}/guide.md"),
-            "---\nschemaVersion: 1\nkind: view\nmode: graph\ntitle: Guide\ndisplay:\n  order: 20\ndescription: Graph links between the starter guide pages.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - notes\n---\n\n# Guide\n\nFocus the graph on guide pages so the starter tour is easier to follow.\n\n<!-- forma:content -->\n",
-        ),
-        (
-            format!("{FORMA_VIEWS_DIR}/recent.md"),
-            "---\nschemaVersion: 1\nkind: view\nmode: list\ntitle: Recent\ndisplay:\n  order: 40\ndescription: Recently updated starter pages across the main workspace spaces.\nsource:\n  type: pages\n  taxonomy:\n    spaces:\n      - notes\n      - tasks\n      - members\n      - decisions\n      - proposals\n      - guidelines\nsort:\n  - field: fields.updatedAt\n    direction: desc\n  - field: fields.createdAt\n    direction: desc\n---\n\n# Recent\n\nReview recently updated starter pages without changing the underlying files.\n\n<!-- forma:content -->\n",
-        ),
-        (
-            format!("{FORMA_VIEWS_DIR}/graph.md"),
-            "---\nschemaVersion: 1\nkind: view\nmode: graph\ntitle: Graph\ndisplay:\n  order: 10\ndescription: Graph links across notes, tasks, members, decisions, proposals, and guidelines.\nsource:\n  type: pages\ngraph:\n  edges:\n    - source: body\n      intent: link\n      label: links to\n    - source: body\n      intent: embed\n      label: embeds\n    - source: fields\n      field: owners\n      label: owned by\n    - source: fields\n      field: assignees\n      label: assigned to\n    - source: fields\n      field: reviewers\n      label: reviewed by\n    - source: fields\n      field: blocked_by\n      label: blocked by\n    - source: fields\n      field: related_to\n      label: related to\n---\n\n# Graph\n\nExplore how pages connect across the starter workspace.\n\n<!-- forma:content -->\n",
-        ),
-    ]
-}
-
 pub fn detect_environment_timezone() -> String {
     if let Ok(value) = std::env::var("TZ")
         && !value.trim().is_empty()
@@ -2204,24 +2042,9 @@ pub fn detect_environment_timezone() -> String {
     "UTC".to_string()
 }
 
-fn validate_timezone(timezone: &str) -> Result<(), OperationError> {
-    timezone
-        .parse::<Tz>()
-        .map(|_| ())
-        .map_err(|_| OperationError::InvalidTimezone(timezone.to_string()))
-}
-
-fn yaml_string(value: &str) -> String {
-    serde_json::to_string(value).expect("string values should serialize")
-}
-
 pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
     match error {
         OperationError::Config(error) => config_error_diagnostic(error),
-        OperationError::WorkspaceExists => {
-            Diagnostic::error("init.workspaceExists", "Workspace already contains .forma.")
-                .with_path(FORMA_DIR)
-        }
         OperationError::SpaceNotFound(space) => {
             Diagnostic::error("space.notFound", format!("Space `{space}` was not found."))
         }
@@ -2243,11 +2066,6 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
             "Configuration inspect path must reference a known configuration source.",
         )
         .with_path(path),
-        OperationError::InvalidTimezone(timezone) => Diagnostic::error(
-            "init.timezoneInvalid",
-            "Workspace timezone must be a valid IANA timezone.",
-        )
-        .with_actual(timezone),
         OperationError::EntryNotFound => {
             Diagnostic::error("entry.notFound", "Entry was not found.")
         }
@@ -2256,6 +2074,10 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
         }
         OperationError::ViewNotFound(view) => {
             Diagnostic::error("view.notFound", "View was not found.").with_actual(view)
+        }
+        OperationError::ViewAmbiguous(view) => {
+            Diagnostic::error("view.ambiguous", "View locator matched multiple files.")
+                .with_actual(view)
         }
         OperationError::PathConflict(path) => {
             Diagnostic::error("create.pathConflict", "Target path already exists.").with_path(path)
@@ -2268,585 +2090,6 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
     }
 }
 
-const STARTER_GITIGNORE: &str = "local/\n";
-
-const STARTER_SETTINGS_YML: &str = r#"schemaVersion: 1
-
-workspace:
-  name: __WORKSPACE_NAME__
-  canonicalLanguage: __LANGUAGE__
-  supportedLanguages:
-    - __LANGUAGE__
-  timezone: __TIMEZONE__
-
-include:
-  - ".forma/dashboard.md"
-  - ".forma/spaces/*.md"
-  - ".forma/views/*.md"
-  - ".forma/local/*.yml"
-  - ".forma/local/*.md"
-
-runtime:
-  values:
-    currentDateTime:
-      kind: currentDateTime
-    workspaceRoot:
-      kind: workspaceRoot
-    currentUserId:
-      kind: gitConfig
-      key: user.name
-      transform: slugify
-"#;
-
-const STARTER_DASHBOARD_MD: &str = r#"---
-schemaVersion: 1
-kind: dashboard
-title: Dashboard
-sections:
-  - id: overview
-    title: Workspace overview
-    source:
-      type: workspace
-    display:
-      order: 10
-
-  - id: recent
-    title: Recent pages
-    source:
-      type: view
-      view: ".forma/views/recent.md"
-    display:
-      order: 20
-
-  - id: health
-    title: Knowledge health
-    source:
-      type: diagnostics
-    display:
-      order: 30
----
-
-# {{ workspace.name }}
-
-Use the dashboard to scan recent pages, workspace health, and configured views.
-
-<!-- forma:content -->
-"#;
-
-const STARTER_SPACES_INDEX_MD: &str = r#"---
-schemaVersion: 1
-kind: taxonomy
-title: Spaces
-mode: primary
-display:
-  order: 30
-description: Primary workspace sections for the starter pages.
----
-
-# Spaces
-
-Browse this workspace by the configured primary taxonomy.
-
-<!-- forma:content -->
-"#;
-
-const STARTER_NOTES_TERM_MD: &str = r#"---
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Notes
-display:
-  order: 10
-description: Starter guide pages and lightweight knowledge notes.
-include:
-  - "notes/**/*.md"
-create:
-  directory: "notes"
-  filename: "{{ input.slug }}.md"
-  template: ".forma/spaces/templates/note.md"
-  inputs:
-    title:
-      required: true
-    summary:
-      default: ""
-    slug:
-      type: string
-      default: "{{ input.title }}"
-      transform: slugify
-    createdAt:
-      default: "{{ runtime.values.currentDateTime }}"
-    updatedAt:
-      default: "{{ runtime.values.currentDateTime }}"
-conventions:
-  titleField: fields.title
-  summaryField: fields.summary
-  createdAtField: fields.createdAt
-  updatedAtField: fields.updatedAt
----
-
-# Notes
-
-Starter guide pages and lightweight knowledge notes.
-
-<!-- forma:content -->
-"#;
-
-const STARTER_TASKS_TERM_MD: &str = r#"---
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Tasks
-display:
-  order: 20
-description: Delivery tasks tracked as ordinary Markdown pages.
-schema:
-  type: object
-  fields:
-    kind:
-      type: string
-    title:
-      type: string
-    summary:
-      type: string
-    status:
-      type: string
-    readiness:
-      type: string
-    priority:
-      type: string
-    owners:
-      type: list
-      items:
-        type: ref
-        target: member
-    assignees:
-      type: list
-      items:
-        type: ref
-        target: member
-    reviewers:
-      type: list
-      items:
-        type: ref
-        target: member
-    blocked_by:
-      type: list
-      items:
-        type: ref
-        target: task
-    dueDate:
-      type: string
-include:
-  - "tasks/**/*.md"
-create:
-  directory: "tasks"
-  filename: "{{ input.slug }}.md"
-  template: ".forma/spaces/templates/task.md"
-  inputs:
-    title:
-      required: true
-    summary:
-      default: ""
-    slug:
-      type: string
-      default: "{{ input.title }}"
-      transform: slugify
-    status:
-      type: select
-      default: todo
-      options:
-        - value: todo
-          label: To Do
-        - value: ready
-          label: Ready
-        - value: doing
-          label: Doing
-        - value: blocked
-          label: Blocked
-        - value: reviewing
-          label: Reviewing
-        - value: done
-          label: Done
-    readiness:
-      type: select
-      default: needs-refinement
-      options:
-        - value: needs-refinement
-          label: Needs Refinement
-        - value: ready
-          label: Ready
-        - value: blocked
-          label: Blocked
-        - value: done
-          label: Done
-    priority:
-      type: select
-      default: medium
-      options:
-        - value: high
-          label: High
-        - value: medium
-          label: Medium
-        - value: low
-          label: Low
-    owners:
-      type: list
-      default: []
-    assignees:
-      type: list
-      default: []
-    reviewers:
-      type: list
-      default: []
-    blocked_by:
-      type: list
-      default: []
-    dueDate:
-      type: date
-      default: ""
-    createdAt:
-      default: "{{ runtime.values.currentDateTime }}"
-    updatedAt:
-      default: "{{ runtime.values.currentDateTime }}"
-conventions:
-  titleField: fields.title
-  summaryField: fields.summary
-  createdAtField: fields.createdAt
-  updatedAtField: fields.updatedAt
----
-
-# Tasks
-
-Delivery tasks tracked as ordinary Markdown pages.
-
-<!-- forma:content -->
-"#;
-
-const STARTER_MEMBERS_TERM_MD: &str = r#"---
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Members
-display:
-  order: 30
-description: Team members referenced by tasks, proposals, and shared notes.
-schema:
-  type: object
-  fields:
-    kind:
-      type: string
-    name:
-      type: string
-    description:
-      type: string
-    responsibilities:
-      type: string
-    createdAt:
-      type: string
-    updatedAt:
-      type: string
-include:
-  - "members/**/*.md"
-create:
-  directory: "members"
-  filename: "{{ input.slug }}.md"
-  template: ".forma/spaces/templates/member.md"
-  inputs:
-    name:
-      required: true
-    description:
-      default: ""
-    responsibilities:
-      default: ""
-    slug:
-      type: string
-      default: "{{ input.name }}"
-      transform: slugify
-    createdAt:
-      default: "{{ runtime.values.currentDateTime }}"
-    updatedAt:
-      default: "{{ runtime.values.currentDateTime }}"
-conventions:
-  titleField: fields.name
-  summaryField: fields.description
-  createdAtField: fields.createdAt
-  updatedAtField: fields.updatedAt
----
-
-# Members
-
-Team members referenced by tasks, proposals, and shared notes.
-
-<!-- forma:content -->
-"#;
-
-const STARTER_DECISIONS_TERM_MD: &str = r#"---
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Decisions
-display:
-  order: 40
-description: Short decision records that explain why the workspace is set up this way.
-schema:
-  type: object
-  fields:
-    kind:
-      type: string
-    title:
-      type: string
-    summary:
-      type: string
-    status:
-      type: string
-    owners:
-      type: list
-      items:
-        type: ref
-        target: member
-    reviewers:
-      type: list
-      items:
-        type: ref
-        target: member
-    related_to:
-      type: list
-      items:
-        type: ref
-    decidedAt:
-      type: string
-    createdAt:
-      type: string
-    updatedAt:
-      type: string
-include:
-  - "decisions/**/*.md"
-create:
-  directory: "decisions"
-  filename: "{{ input.slug }}.md"
-  template: ".forma/spaces/templates/decision.md"
-  inputs:
-    title:
-      required: true
-    summary:
-      default: ""
-    slug:
-      type: string
-      default: "{{ input.title }}"
-      transform: slugify
-    status:
-      type: select
-      default: accepted
-      options:
-        - value: proposed
-          label: Proposed
-        - value: accepted
-          label: Accepted
-        - value: superseded
-          label: Superseded
-    owners:
-      type: list
-      default: []
-    reviewers:
-      type: list
-      default: []
-    related_to:
-      type: list
-      default: []
-    decidedAt:
-      default: "{{ runtime.values.currentDateTime }}"
-    createdAt:
-      default: "{{ runtime.values.currentDateTime }}"
-    updatedAt:
-      default: "{{ runtime.values.currentDateTime }}"
-conventions:
-  titleField: fields.title
-  summaryField: fields.summary
-  createdAtField: fields.createdAt
-  updatedAtField: fields.updatedAt
----
-
-# Decisions
-
-Short decision records that explain why the workspace is set up this way.
-
-<!-- forma:content -->
-"#;
-
-const STARTER_PROPOSALS_TERM_MD: &str = r#"---
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Proposals
-display:
-  order: 50
-description: Reviewable changes that may later become notes, tasks, or decisions.
-schema:
-  type: object
-  fields:
-    kind:
-      type: string
-    title:
-      type: string
-    summary:
-      type: string
-    status:
-      type: string
-    owners:
-      type: list
-      items:
-        type: ref
-        target: member
-    assignees:
-      type: list
-      items:
-        type: ref
-        target: member
-    reviewers:
-      type: list
-      items:
-        type: ref
-        target: member
-    related_to:
-      type: list
-      items:
-        type: ref
-    createdAt:
-      type: string
-    updatedAt:
-      type: string
-include:
-  - "proposals/**/*.md"
-create:
-  directory: "proposals"
-  filename: "{{ input.slug }}.md"
-  template: ".forma/spaces/templates/proposal.md"
-  inputs:
-    title:
-      required: true
-    summary:
-      default: ""
-    slug:
-      type: string
-      default: "{{ input.title }}"
-      transform: slugify
-    status:
-      type: select
-      default: proposed
-      options:
-        - value: proposed
-          label: Proposed
-        - value: reviewing
-          label: Reviewing
-        - value: accepted
-          label: Accepted
-    owners:
-      type: list
-      default: []
-    assignees:
-      type: list
-      default: []
-    reviewers:
-      type: list
-      default: []
-    related_to:
-      type: list
-      default: []
-    createdAt:
-      default: "{{ runtime.values.currentDateTime }}"
-    updatedAt:
-      default: "{{ runtime.values.currentDateTime }}"
-conventions:
-  titleField: fields.title
-  summaryField: fields.summary
-  createdAtField: fields.createdAt
-  updatedAtField: fields.updatedAt
----
-
-# Proposals
-
-Reviewable changes that may later become notes, tasks, or decisions.
-
-<!-- forma:content -->
-"#;
-
-const STARTER_GUIDELINES_TERM_MD: &str = r#"---
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Guidelines
-display:
-  order: 60
-description: Operating guidance for running and extending the workspace.
-schema:
-  type: object
-  fields:
-    kind:
-      type: string
-    title:
-      type: string
-    summary:
-      type: string
-    owners:
-      type: list
-      items:
-        type: ref
-        target: member
-    reviewers:
-      type: list
-      items:
-        type: ref
-        target: member
-    related_to:
-      type: list
-      items:
-        type: ref
-    createdAt:
-      type: string
-    updatedAt:
-      type: string
-include:
-  - "guidelines/**/*.md"
-create:
-  directory: "guidelines"
-  filename: "{{ input.slug }}.md"
-  template: ".forma/spaces/templates/guideline.md"
-  inputs:
-    title:
-      required: true
-    summary:
-      default: ""
-    slug:
-      type: string
-      default: "{{ input.title }}"
-      transform: slugify
-    owners:
-      type: list
-      default: []
-    reviewers:
-      type: list
-      default: []
-    related_to:
-      type: list
-      default: []
-    createdAt:
-      default: "{{ runtime.values.currentDateTime }}"
-    updatedAt:
-      default: "{{ runtime.values.currentDateTime }}"
-conventions:
-  titleField: fields.title
-  summaryField: fields.summary
-  createdAtField: fields.createdAt
-  updatedAtField: fields.updatedAt
----
-
-# Guidelines
-
-Operating guidance for running and extending the workspace.
-
-<!-- forma:content -->
-"#;
-
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -2857,26 +2100,82 @@ mod tests {
 
     use super::{
         KnowledgeHealthCategory, OperationError, WorkspaceFileFeature, board_show,
-        build_knowledge_health_result, create_entry, init_workspace, inspect_config,
-        inspect_entry_by_path, is_raw_workspace_path_allowed, knowledge_health,
+        build_knowledge_health_result, create_entry, inspect_config, inspect_entry_by_path,
+        is_public_workspace_path_allowed, is_raw_workspace_path_allowed, knowledge_health,
         list_file_references, list_files, tasks_inspect, tasks_list, workspace_dashboard,
     };
-    use crate::{
-        Diagnostic, FORMA_VIEWS_DIR, IndexEntry, OperationStatus, ReferenceIntent,
-        WorkspaceFileKind,
-    };
+    use crate::{Diagnostic, IndexEntry, OperationStatus, ReferenceIntent, WorkspaceFileKind};
+
+    const FIXTURE_VIEWS_DIR: &str = ".forma/views";
+
+    fn copy_starter_workspace(root: &Path) {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/forma-starter-kit");
+        copy_dir_recursive(&source, root);
+        remove_guideline_references(root);
+        clear_starter_content(root);
+    }
+
+    fn copy_dir_recursive(source: &Path, target: &Path) {
+        fs::create_dir_all(target).unwrap();
+        for entry in fs::read_dir(source).unwrap() {
+            let entry = entry.unwrap();
+            let source_path = entry.path();
+            let target_path = target.join(entry.file_name());
+            if source_path.is_dir() {
+                copy_dir_recursive(&source_path, &target_path);
+            } else {
+                fs::copy(&source_path, &target_path).unwrap();
+            }
+        }
+    }
+
+    fn clear_starter_content(root: &Path) {
+        for directory in ["notes", "tasks", "members", "guidelines"] {
+            let path = root.join(directory);
+            if path.exists() {
+                fs::remove_dir_all(&path).unwrap();
+            }
+            fs::create_dir_all(path).unwrap();
+        }
+    }
+
+    fn remove_guideline_references(root: &Path) {
+        let config_path = root.join(".forma.yml");
+        let config = fs::read_to_string(&config_path).unwrap();
+        fs::write(
+            &config_path,
+            config.replace(
+                "\nguidelines:\n  - \"guidelines/workspace-operations.md\"\n  - \"guidelines/task-selection.md\"\n",
+                "\n",
+            ),
+        )
+        .unwrap();
+
+        let tasks_path = root.join(".forma/spaces/tasks.md");
+        let tasks = fs::read_to_string(&tasks_path).unwrap();
+        fs::write(
+            &tasks_path,
+            tasks.replace(
+                "guidelines:\n  - \"guidelines/workspace-operations.md\"\n",
+                "",
+            ),
+        )
+        .unwrap();
+    }
 
     #[test]
     fn config_inspect_returns_effective_config_sources_and_diagnostics() {
         let root = fixture_root("config-inspect");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Config Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         let result = inspect_config(&root, None).unwrap();
 
         assert_eq!(result.operation, "config.inspect");
         assert_eq!(result.status, OperationStatus::Passed);
-        assert_eq!(result.workspace.name, "Config Test");
+        assert_eq!(result.workspace.name, "Choral Forma Example");
         assert_eq!(
             result.config["workspace"]["timezone"],
             Value::String("UTC".to_string())
@@ -2892,7 +2191,7 @@ mod tests {
         let narrowed = inspect_config(&root, Some(".forma.yml")).unwrap();
         assert_eq!(
             narrowed.config["workspace"]["name"],
-            Value::String("Config Test".to_string())
+            Value::String("Choral Forma Example".to_string())
         );
         assert!(narrowed.config.get("include").is_some());
 
@@ -2909,7 +2208,7 @@ mod tests {
     fn workspace_dashboard_uses_path_derived_entry_ids() {
         let root = fixture_root("dashboard-entry-ids");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Dashboard IDs", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/shared.md"),
             "---\nkind: note\ntitle: Note Shared\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Note Shared\n",
@@ -2937,8 +2236,8 @@ mod tests {
     #[test]
     fn workspace_dashboard_exposes_page_and_raw_paths_for_markdown_entries() {
         let root = fixture_root("dashboard-page-paths");
+        copy_starter_workspace(&root);
         fs::create_dir_all(root.join("notes/nested")).unwrap();
-        init_workspace(&root, "Dashboard Page Paths", "en", Some("UTC")).unwrap();
         fs::write(
             root.join("notes/topic.md"),
             "---\nkind: note\ntitle: Topic\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Topic\n",
@@ -2974,7 +2273,7 @@ mod tests {
     fn workspace_dashboard_exposes_language_variants_for_canonical_entries() {
         let root = fixture_root("dashboard-language-variants");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Dashboard Language Variants", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join(".forma.yml"),
             r#"schemaVersion: 1
@@ -3027,7 +2326,7 @@ include:
     fn workspace_dashboard_exposes_configured_workspace_logo() {
         let root = fixture_root("dashboard-workspace-logo");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Logo Workspace", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::create_dir_all(root.join("assets")).unwrap();
         fs::write(
             root.join(".forma.yml"),
@@ -3063,10 +2362,14 @@ include:
     fn workspace_dashboard_view_summary_uses_space_field() {
         let root = fixture_root("dashboard-view-space");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Dashboard Views", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         let result = workspace_dashboard(&root).unwrap();
-        let notes_view = result.views.iter().find(|view| view.id == "notes").unwrap();
+        let notes_view = result
+            .views
+            .iter()
+            .find(|view| view.id == ".forma/views/notes")
+            .unwrap();
         let value = serde_json::to_value(notes_view).unwrap();
 
         assert_eq!(value["space"], serde_json::json!("notes"));
@@ -3078,7 +2381,7 @@ include:
     fn workspace_dashboard_sorts_spaces_and_views_by_display_order() {
         let root = fixture_root("dashboard-display-order");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Dashboard Display Order", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         for (path, order) in [
             (".forma/spaces/notes.md", 30),
@@ -3095,20 +2398,20 @@ include:
             )
             .unwrap();
         }
-        fs::remove_dir_all(root.join(FORMA_VIEWS_DIR)).unwrap();
-        fs::create_dir_all(root.join(FORMA_VIEWS_DIR)).unwrap();
+        fs::remove_dir_all(root.join(FIXTURE_VIEWS_DIR)).unwrap();
+        fs::create_dir_all(root.join(FIXTURE_VIEWS_DIR)).unwrap();
         fs::write(
-            root.join(format!("{FORMA_VIEWS_DIR}/alpha.md")),
+            root.join(format!("{FIXTURE_VIEWS_DIR}/alpha.md")),
             "---\nkind: view\nmode: table\ntitle: Alpha\ndisplay:\n  order: 20\nsource:\n  type: pages\n---\n\n# Alpha\n\n<!-- forma:content -->\n",
         )
         .unwrap();
         fs::write(
-            root.join(format!("{FORMA_VIEWS_DIR}/beta.md")),
+            root.join(format!("{FIXTURE_VIEWS_DIR}/beta.md")),
             "---\nkind: view\nmode: table\ntitle: Beta\nsource:\n  type: pages\n---\n\n# Beta\n\n<!-- forma:content -->\n",
         )
         .unwrap();
         fs::write(
-            root.join(format!("{FORMA_VIEWS_DIR}/zeta.md")),
+            root.join(format!("{FIXTURE_VIEWS_DIR}/zeta.md")),
             "---\nkind: view\nmode: graph\ntitle: Zeta\ndisplay:\n  order: 10\nsource:\n  type: pages\n---\n\n# Zeta\n\n<!-- forma:content -->\n",
         )
         .unwrap();
@@ -3121,14 +2424,7 @@ include:
                 .iter()
                 .map(|space| space.id.as_str())
                 .collect::<Vec<_>>(),
-            vec![
-                "tasks",
-                "members",
-                "notes",
-                "decisions",
-                "proposals",
-                "guidelines"
-            ]
+            vec!["tasks", "members", "notes", "guidelines"]
         );
         assert_eq!(
             result
@@ -3136,7 +2432,11 @@ include:
                 .iter()
                 .map(|view| view.id.as_str())
                 .collect::<Vec<_>>(),
-            vec!["zeta", "alpha", "beta"]
+            vec![
+                ".forma/views/zeta",
+                ".forma/views/alpha",
+                ".forma/views/beta"
+            ]
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -3146,7 +2446,7 @@ include:
     fn files_list_returns_navigation_files_with_entry_and_view_classification() {
         let root = fixture_root("files-list");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Files Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         create_entry(
             &root,
             "notes",
@@ -3181,14 +2481,17 @@ include:
                     .and_then(|value| value.get("title"))
                     == Some(&Value::String("Navigation Note".to_string()))
         }));
-        assert!(result.files.iter().all(|file| {
-            !file.path.starts_with(".forma/")
-                && !matches!(
-                    file.kind,
-                    WorkspaceFileKind::View
-                        | WorkspaceFileKind::Template
-                        | WorkspaceFileKind::Config
-                )
+        assert!(
+            result.files.iter().any(|file| {
+                file.path == ".forma.yml" && file.kind == WorkspaceFileKind::Config
+            })
+        );
+        assert!(result.files.iter().any(|file| {
+            file.path == ".forma/views/notes.md" && file.kind == WorkspaceFileKind::View
+        }));
+        assert!(result.files.iter().any(|file| {
+            file.path == ".forma/spaces/templates/note.md"
+                && file.kind == WorkspaceFileKind::Template
         }));
 
         fs::remove_dir_all(root).unwrap();
@@ -3210,7 +2513,6 @@ include:
         )
         .unwrap();
         let source = fs::read_to_string(root.join("tasks/review-starter-create.md")).unwrap();
-        assert!(source.contains("kind: task"));
         assert!(source.contains("title: \"Review Starter Create\""));
         assert!(source.contains("assignees: []"));
 
@@ -3220,35 +2522,17 @@ include:
     }
 
     #[test]
-    fn init_workspace_reports_created_files() {
-        let root = fixture_root("init-created-files");
+    fn create_entry_uses_starter_templates() {
+        let root = fixture_root("create-starter-templates");
         fs::create_dir_all(&root).unwrap();
-
-        let result = init_workspace(&root, "Created Files Workspace", "en", Some("UTC")).unwrap();
-
-        assert_eq!(result.status, OperationStatus::Passed);
-        assert!(result.created.iter().any(|path| path == ".forma.yml"));
-        assert!(
-            result
-                .created
-                .iter()
-                .any(|path| path == ".forma/spaces/tasks.md")
-        );
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn init_workspace_includes_template_kinds() {
-        let root = fixture_root("init-create-kind");
-        fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Template Kind Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         create_entry(
             &root,
             "notes",
             [(
                 "title".to_string(),
-                Value::String("Kinded Note".to_string()),
+                Value::String("Created Note".to_string()),
             )]
             .into(),
         )
@@ -3258,7 +2542,7 @@ include:
             "tasks",
             [(
                 "title".to_string(),
-                Value::String("Kinded Task".to_string()),
+                Value::String("Created Task".to_string()),
             )]
             .into(),
         )
@@ -3268,26 +2552,21 @@ include:
             "members",
             [(
                 "name".to_string(),
-                Value::String("Kinded Member".to_string()),
+                Value::String("Created Member".to_string()),
             )]
             .into(),
         )
         .unwrap();
 
-        let note = fs::read_to_string(root.join("notes/kinded-note.md")).unwrap();
-        let task = fs::read_to_string(root.join("tasks/kinded-task.md")).unwrap();
-        let member = fs::read_to_string(root.join("members/kinded-member.md")).unwrap();
-        assert!(note.contains("kind: note"));
-        assert!(task.contains("kind: task"));
+        let task = fs::read_to_string(root.join("tasks/created-task.md")).unwrap();
+        assert!(root.join("notes/created-note.md").is_file());
+        assert!(root.join("members/created-member.md").is_file());
         assert!(task.contains("readiness: \"needs-refinement\""));
-        assert!(member.contains("kind: member"));
         assert!(root.join(".forma/dashboard.md").is_file());
         assert!(root.join(".forma/views/tasks.md").is_file());
         assert!(root.join(".forma/spaces/templates/guideline.md").is_file());
         assert!(root.join("tasks").is_dir());
         assert!(root.join("members").is_dir());
-        assert!(root.join("decisions").is_dir());
-        assert!(root.join("proposals").is_dir());
         assert!(root.join("guidelines").is_dir());
         assert!(!root.join("todos").exists());
         assert!(!root.join("users").exists());
@@ -3299,7 +2578,7 @@ include:
     fn files_list_returns_workspace_files_with_neutral_kinds() {
         let root = fixture_root("workspace-file-kinds");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Workspace File Kinds", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         create_entry(
             &root,
             "notes",
@@ -3324,11 +2603,13 @@ include:
         assert_eq!(knowledge.space.as_deref(), Some("notes"));
         assert_eq!(knowledge.title.as_deref(), Some("Neutral File Model"));
 
-        assert!(result.files.iter().all(|file| {
-            !matches!(
-                file.kind,
-                WorkspaceFileKind::View | WorkspaceFileKind::Template | WorkspaceFileKind::Config
-            )
+        assert!(
+            result.files.iter().any(|file| {
+                file.path == ".forma.yml" && file.kind == WorkspaceFileKind::Config
+            })
+        );
+        assert!(result.files.iter().any(|file| {
+            file.path == ".forma/views/notes.md" && file.kind == WorkspaceFileKind::View
         }));
 
         fs::remove_dir_all(root).unwrap();
@@ -3338,7 +2619,7 @@ include:
     fn files_list_reports_media_type_and_resource_preview_features() {
         let root = fixture_root("workspace-file-media-types");
         fs::create_dir_all(root.join("assets")).unwrap();
-        init_workspace(&root, "Media Type Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(root.join("assets/logo.png"), b"\x89PNG\r\n\x1a\n").unwrap();
         fs::write(root.join("assets/clip.mp3"), b"ID3").unwrap();
         fs::write(root.join("assets/demo.mp4"), b"\0\0\0\x18ftypmp42").unwrap();
@@ -3388,10 +2669,39 @@ include:
     }
 
     #[test]
+    fn files_list_classifies_templates_from_space_configuration() {
+        let root = fixture_root("files-list-configured-template");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\ncreate:\n  directory: notes\n  filename: \"{{ input.slug }}.md\"\n  template: templates/note.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: fields.title\n  summaryField: fields.summary\n---\n\n# Notes\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("templates")).unwrap();
+        fs::write(
+            root.join("templates/note.md"),
+            "---\ntitle: Template\n---\n",
+        )
+        .unwrap();
+
+        let result = list_files(&root).unwrap();
+
+        let template = result
+            .files
+            .iter()
+            .find(|file| file.path == "templates/note.md")
+            .unwrap();
+        assert_eq!(template.kind, WorkspaceFileKind::Template);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn files_list_excludes_local_only_override_files() {
         let root = fixture_root("files-list-local-only");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Local Only Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
 
@@ -3402,6 +2712,48 @@ include:
                 .files
                 .iter()
                 .any(|file| file.path == ".forma/local/profile.yml")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn files_list_does_not_treat_forma_local_as_intrinsically_private() {
+        let root = fixture_root("files-list-forma-local-public");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::remove_file(root.join(".forma/.gitignore")).unwrap();
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
+
+        let result = list_files(&root).unwrap();
+
+        assert!(
+            result
+                .files
+                .iter()
+                .any(|file| file.path == ".forma/local/profile.yml")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn files_list_excludes_project_ignored_files() {
+        let root = fixture_root("files-list-project-ignored");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(root.join(".gitignore"), "private/\n").unwrap();
+        fs::create_dir_all(root.join("private")).unwrap();
+        fs::write(root.join("private/secret.md"), "# Secret\n").unwrap();
+
+        let result = list_files(&root).unwrap();
+
+        assert!(
+            !result
+                .files
+                .iter()
+                .any(|file| file.path == "private/secret.md")
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -3483,7 +2835,7 @@ kind: task
 summary: Add CLI task inventory commands.
 readiness: ready
 priority: P0
-owner: Tiscs
+owner: Alex Chen
 owners: []
 assignees: []
 ---
@@ -3523,7 +2875,7 @@ fields:
         assert_eq!(list.tasks[0].id, "knowledge/tasks/ship-cli");
         assert_eq!(list.tasks[0].readiness.as_deref(), Some("ready"));
         assert_eq!(list.tasks[0].priority.as_deref(), Some("P0"));
-        assert_eq!(list.tasks[0].owner.as_deref(), Some("Tiscs"));
+        assert_eq!(list.tasks[0].owner.as_deref(), Some("Alex Chen"));
         assert_eq!(list.tasks[0].owners, Some(Vec::new()));
         assert_eq!(list.tasks[0].assignees, Some(Vec::new()));
         assert_eq!(list.tasks[1].path, "knowledge/tasks/subgroup/legacy.md");
@@ -3742,19 +3094,39 @@ conventions:
     }
 
     #[test]
-    fn raw_workspace_path_policy_excludes_local_only_files() {
-        assert!(!is_raw_workspace_path_allowed(".forma/local/profile.yml"));
-        assert!(!is_raw_workspace_path_allowed(".forma/local/cache.json"));
+    fn raw_workspace_path_policy_excludes_config_entry_path() {
         assert!(!is_raw_workspace_path_allowed(".forma.yml"));
-        assert!(!is_raw_workspace_path_allowed(".forma/assets/logo.svg"));
+        assert!(is_raw_workspace_path_allowed(".forma/local/profile.yml"));
+        assert!(is_raw_workspace_path_allowed(".forma/assets/logo.svg"));
         assert!(is_raw_workspace_path_allowed("notes/public.md"));
+    }
+
+    #[test]
+    fn public_workspace_paths_exclude_config_sources_not_forma_directory_names() {
+        let root = fixture_root("public-forma-assets");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::create_dir_all(root.join(".forma/assets")).unwrap();
+        fs::write(root.join(".forma/assets/logo.svg"), "<svg></svg>").unwrap();
+
+        assert!(is_public_workspace_path_allowed(
+            &root,
+            ".forma/assets/logo.svg"
+        ));
+        assert!(!is_public_workspace_path_allowed(&root, ".forma.yml"));
+        assert!(!is_public_workspace_path_allowed(
+            &root,
+            ".forma/views/notes.md"
+        ));
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn file_references_returns_outgoing_references_and_backlinks() {
         let root = fixture_root("references-list");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "References Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/alpha.md"),
             "---\nkind: note\ntitle: Alpha\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Alpha\n\nSee [[notes/beta|Beta]] and [External Guide](https://example.com/guide). Repeat [[notes/beta|Beta again]].\n",
@@ -3814,7 +3186,7 @@ conventions:
     fn file_references_reports_only_selected_document_diagnostics() {
         let root = fixture_root("references-scoped-diagnostics");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "References Scoped Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/source.md"),
             "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
@@ -3838,7 +3210,7 @@ conventions:
     fn file_references_returns_empty_relationships_for_isolated_entries() {
         let root = fixture_root("references-empty");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "References Empty Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/solo.md"),
             "---\nkind: note\ntitle: Solo\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Solo\n",
@@ -3859,7 +3231,7 @@ conventions:
     fn file_references_rejects_missing_entries() {
         let root = fixture_root("references-missing");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "References Missing Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
 
         assert!(matches!(
             list_file_references(&root, "notes/missing.md"),
@@ -3873,7 +3245,7 @@ conventions:
     fn knowledge_health_reports_broken_references_and_orphan_pages() {
         let root = fixture_root("knowledge-health-broken");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Knowledge Health Test", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/linked.md"),
             "---\nkind: note\ntitle: Linked\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Linked\n\nMissing [[notes/missing]].\n",
@@ -3890,7 +3262,7 @@ conventions:
         assert_eq!(result.operation, "knowledge.health");
         assert_eq!(result.status, OperationStatus::Warning);
         assert_eq!(result.workspace.root, ".");
-        assert_eq!(result.workspace.name, "Knowledge Health Test");
+        assert_eq!(result.workspace.name, "Choral Forma Example");
         assert!(result.findings.iter().any(|finding| {
             finding.category == KnowledgeHealthCategory::BrokenReference
                 && finding.path == "notes/linked.md"
@@ -3915,7 +3287,7 @@ conventions:
     fn knowledge_health_reports_self_links_as_isolated() {
         let root = fixture_root("knowledge-health-self-link");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Knowledge Health Self Link", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/self.md"),
             "---\nkind: note\ntitle: Self\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Self\n\nSee [[notes/self]].\n",
@@ -3953,7 +3325,7 @@ conventions:
             result.findings[0].category,
             KnowledgeHealthCategory::ConfigDiagnostic
         );
-        assert_eq!(result.findings[0].path, ".");
+        assert_eq!(result.findings[0].path, ".forma.yml");
         assert_eq!(result.summary.errors, 1);
         assert_eq!(result.summary.warnings, 0);
         assert_eq!(result.diagnostics.len(), 1);
@@ -3965,7 +3337,7 @@ conventions:
     fn knowledge_health_passes_for_clean_workspace() {
         let root = fixture_root("knowledge-health-clean");
         fs::create_dir_all(&root).unwrap();
-        init_workspace(&root, "Knowledge Health Clean", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("notes/alpha.md"),
             "---\nkind: note\ntitle: Alpha\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Alpha\n\nSee [[notes/beta]].\n",
@@ -4031,7 +3403,7 @@ conventions:
     fn knowledge_health_preserves_unclassified_discovery_diagnostics() {
         let root = fixture_root("knowledge-health-unclassified-diagnostic");
         fs::create_dir_all(root.join("assets")).unwrap();
-        init_workspace(&root, "Knowledge Health Unclassified", "en", Some("UTC")).unwrap();
+        copy_starter_workspace(&root);
         fs::write(
             root.join("assets/missing.png.md"),
             "---\nkind: resourceDescription\ntitle: Missing Image\n---\n\n# Missing Image\n",

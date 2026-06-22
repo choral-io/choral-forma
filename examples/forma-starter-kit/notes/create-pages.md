@@ -1,5 +1,4 @@
 ---
-kind: note
 title: "Create Pages"
 summary: "How term create inputs and templates describe new Markdown pages."
 createdAt: "2026-06-03T18:00:00Z"
@@ -20,7 +19,6 @@ Each term can define:
 For example, `.forma/spaces/tasks.md` points to `.forma/spaces/templates/task.md`. The term defines inputs such as title, status, readiness, priority, owners, assignees, reviewers, and due date. The template turns those inputs into ordinary Markdown frontmatter and body content.
 
 ```yaml
-kind: task
 title: "{{ input.title }}"
 status: "{{ input.status }}"
 readiness: "{{ input.readiness }}"
@@ -28,9 +26,9 @@ priority: "{{ input.priority }}"
 owners: []
 ```
 
-The generated page is still just a Markdown file under `tasks/`. It can be edited in a normal editor and later appears in the Tasks space and kanban view. Proposal and guideline terms work the same way: the create flow stays visible in the repository instead of hiding inside application state.
+The generated page is still just a Markdown file under `tasks/`. It can be edited in a normal editor and later appears in the Tasks space and kanban view. Guideline terms work the same way: the create flow stays visible in the repository instead of hiding inside application state.
 
-Starter task pages can then point directly to operating guidance such as [[guidelines/task-selection|Task Selection]] or decisions such as [[decisions/use-spaces-for-shared-workspace-sections|Use Spaces For Shared Workspace Sections]].
+Starter task pages can then point directly to operating guidance such as [[guidelines/task-selection|Task Selection]].
 
 ## Why This Matters
 

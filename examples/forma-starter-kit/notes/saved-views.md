@@ -1,5 +1,4 @@
 ---
-kind: note
 title: "Saved Views"
 summary: "Saved views project the same Markdown workspace as lists, tables, kanban boards, or graphs."
 createdAt: "2026-06-03T18:00:00Z"
@@ -27,4 +26,4 @@ Ordinary views use `source.type: pages`, which means they project recognized pag
 
 Use views when a reader needs a repeatable projection over the same repository content. The source files do not move; the view decides how to browse them.
 
-For example, [[tasks/add-team-notes|Add Team Notes]] appears as a Markdown file in the Tasks space and as a card in the kanban view. The proposal in [[proposals/add-weekly-review-rhythm|Add Weekly Review Rhythm]] stays an ordinary Markdown file while still showing up in the recent-work view.
+For example, [[tasks/add-team-notes|Add Team Notes]] appears as a Markdown file in the Tasks space, as a card in the kanban view, and as a recent item when it changes.

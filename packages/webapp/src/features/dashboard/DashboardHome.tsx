@@ -220,7 +220,8 @@ export function ViewsRoute() {
 
 export function ViewRoute() {
     const dashboard = useWorkspaceDashboard();
-    const { viewId } = useParams();
+    const params = useParams();
+    const viewId = params["*"];
     const view = dashboard.views.find((item) => item.id === viewId);
     const [projectionState, setProjectionState] = useState<
         | {
@@ -1465,7 +1466,7 @@ function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
                     <Link
                         className="hover:bg-accent/50 focus-visible:ring-ring/50 grid grid-cols-[minmax(0,1fr)_5rem_7rem_2.5rem] items-center gap-4 px-4 py-3 transition-colors outline-none focus-visible:ring-3"
                         key={view.id}
-                        to={`/views/${view.id}`}
+                        to={viewRoutePath(view.id)}
                     >
                         <div className="min-w-0">
                             <div className="truncate font-medium" title={view.title}>
@@ -1485,6 +1486,13 @@ function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
             </div>
         </div>
     );
+}
+
+function viewRoutePath(viewId: string) {
+    return `/views/${viewId
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/")}`;
 }
 
 function ViewSummary({
