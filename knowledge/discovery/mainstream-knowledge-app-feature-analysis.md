@@ -1,7 +1,8 @@
 ---
 scope: project
 type: competitor-analysis
-owners: []
+owners:
+    - "members/tiscs"
 tags:
     - discovery
     - competitor-analysis

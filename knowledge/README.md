@@ -1,7 +1,8 @@
 ---
 scope: project
 type: index
-owners: []
+owners:
+    - "members/tiscs"
 tags:
     - knowledge
 ---

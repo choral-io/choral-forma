@@ -1,6 +1,7 @@
 ---
 scope: project
-owners: []
+owners:
+    - "members/tiscs"
 tags:
     - engineering
     - dependencies

@@ -1,7 +1,8 @@
 ---
 scope: project
 type: product-brief
-owners: []
+owners:
+    - "members/tiscs"
 tags:
     - product
     - choral-forma

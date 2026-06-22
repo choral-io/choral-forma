@@ -1,7 +1,8 @@
 ---
 scope: project
 type: technical-design
-owners: []
+owners:
+    - "members/tiscs"
 tags:
     - architecture
     - webapp

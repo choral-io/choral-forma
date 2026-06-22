@@ -1,7 +1,8 @@
 ---
 scope: project
 type: decision
-owners: []
+owners:
+    - "members/tiscs"
 reviewers: []
 tags:
     - architecture

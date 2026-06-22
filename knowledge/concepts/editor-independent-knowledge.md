@@ -1,7 +1,8 @@
 ---
 scope: project
 type: concept
-owners: []
+owners:
+    - "members/tiscs"
 tags:
     - concept
     - editor-independent

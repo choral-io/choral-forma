@@ -1,7 +1,8 @@
 ---
 scope: project
 type: product
-owners: []
+owners:
+    - "members/tiscs"
 tags:
     - product
     - direction

@@ -1,7 +1,8 @@
 ---
 scope: project
 type: architecture
-owners: []
+owners:
+    - "members/tiscs"
 tags:
     - architecture
     - forma

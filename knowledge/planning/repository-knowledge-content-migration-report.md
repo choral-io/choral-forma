@@ -61,3 +61,14 @@ The starter-kit validation pass confirmed that `examples/forma-starter-kit` rema
 The current repository migration can therefore continue from the project workspace itself rather than by changing the starter baseline.
 
 The first resumed cleanup normalized completed task metadata where the task status was already `done` but `readiness` still said `needs-refinement`. Those entries now follow the repository's current task metadata model, where completed work should not appear as still needing refinement during Forma task selection or board review.
+
+## Ownership Metadata Pass
+
+The next cleanup pass normalized `owners` metadata for current canonical shared knowledge in the configured product, architecture, decision, concept, discovery, guideline, and repository README spaces.
+
+This pass intentionally did not fill empty `assignees`, `reviewers`, template defaults, or historical workspace-support files:
+
+- empty `assignees` can mean unassigned work;
+- empty `reviewers` can mean no review owner has been assigned yet;
+- template defaults should remain neutral for future generated content;
+- historical workspace-support files keep their original context unless promoted into canonical spaces.

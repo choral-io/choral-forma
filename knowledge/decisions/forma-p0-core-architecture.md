@@ -1,7 +1,8 @@
 ---
 scope: project
 type: adr
-owners: []
+owners:
+    - "members/tiscs"
 reviewers: []
 tags:
     - architecture
