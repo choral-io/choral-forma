@@ -6,6 +6,12 @@ title: Decisions
 schema:
     type: object
     fields:
+        kind:
+            type: string
+        title:
+            type: string
+        summary:
+            type: string
         scope:
             type: string
         type:
@@ -15,11 +21,24 @@ schema:
             items:
                 type: ref
                 target: member
+        reviewers:
+            type: list
+            items:
+                type: ref
+                target: member
         tags:
             type: list
             items:
                 type: string
         sources:
+            type: list
+            items:
+                type: ref
+        supersedes:
+            type: list
+            items:
+                type: ref
+        superseded_by:
             type: list
             items:
                 type: ref

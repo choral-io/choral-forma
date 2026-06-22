@@ -8,6 +8,14 @@ schema:
     fields:
         kind:
             type: string
+        title:
+            type: string
+        summary:
+            type: string
+        member_id:
+            type: string
+        display_name:
+            type: string
         scope:
             type: string
         type:

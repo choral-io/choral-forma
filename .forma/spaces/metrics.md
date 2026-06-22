@@ -6,6 +6,12 @@ title: Metrics
 schema:
     type: object
     fields:
+        kind:
+            type: string
+        title:
+            type: string
+        summary:
+            type: string
         scope:
             type: string
         type:
@@ -31,16 +37,16 @@ schema:
             type: string
         review_cadence:
             type: string
-    related_experiments:
-        type: list
-        items:
-            type: ref
-            target: experiment
-    related_releases:
-        type: list
-        items:
-            type: ref
-            target: release
+        related_experiments:
+            type: list
+            items:
+                type: ref
+                target: experiment
+        related_releases:
+            type: list
+            items:
+                type: ref
+                target: release
 display:
     order: 55
 description: Product, quality, and delivery metric definitions.

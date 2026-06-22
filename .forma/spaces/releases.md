@@ -6,6 +6,12 @@ title: Releases
 schema:
     type: object
     fields:
+        kind:
+            type: string
+        title:
+            type: string
+        summary:
+            type: string
         scope:
             type: string
         type:
@@ -30,21 +36,21 @@ schema:
             items:
                 type: ref
                 target: task
-    related_test_cases:
-        type: list
-        items:
-            type: ref
-            target: test-case
-    related_experiments:
-        type: list
-        items:
-            type: ref
-            target: experiment
-    related_metrics:
-        type: list
-        items:
-            type: ref
-            target: metric
+        related_test_cases:
+            type: list
+            items:
+                type: ref
+                target: test-case
+        related_experiments:
+            type: list
+            items:
+                type: ref
+                target: experiment
+        related_metrics:
+            type: list
+            items:
+                type: ref
+                target: metric
 display:
     order: 95
 description: Release scope, validation, rollout, and follow-up records.

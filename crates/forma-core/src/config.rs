@@ -127,7 +127,7 @@ pub struct SpaceDefinition {
     #[serde(default)]
     pub description: Option<String>,
     pub include: String,
-    #[serde(default, skip)]
+    #[serde(default, skip_deserializing, skip_serializing_if = "Vec::is_empty")]
     pub include_patterns: Vec<String>,
     pub template: String,
     #[serde(default)]

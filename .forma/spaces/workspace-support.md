@@ -8,6 +8,10 @@ schema:
     fields:
         kind:
             type: string
+        title:
+            type: string
+        summary:
+            type: string
         scope:
             type: string
         type:
@@ -25,6 +29,16 @@ schema:
             type: list
             items:
                 type: ref
+        assignees:
+            type: list
+            items:
+                type: ref
+                target: member
+        reviewers:
+            type: list
+            items:
+                type: ref
+                target: member
 
 display:
     order: 100

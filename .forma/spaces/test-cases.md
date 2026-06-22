@@ -6,6 +6,12 @@ title: Test Cases
 schema:
     type: object
     fields:
+        kind:
+            type: string
+        title:
+            type: string
+        summary:
+            type: string
         scope:
             type: string
         type:
@@ -25,20 +31,20 @@ schema:
             type: list
             items:
                 type: string
-    covers_user_stories:
-        type: list
-        items:
-            type: ref
-            target: user-story
-    covers_product:
-        type: list
-        items:
-            type: ref
-            related_tasks:
-                type: list
-                items:
-                    type: ref
-                    target: task
+        related_tasks:
+            type: list
+            items:
+                type: ref
+                target: task
+        covers_user_stories:
+            type: list
+            items:
+                type: ref
+                target: user-story
+        covers_product:
+            type: list
+            items:
+                type: ref
 display:
     order: 85
 description: Reusable acceptance and validation cases.

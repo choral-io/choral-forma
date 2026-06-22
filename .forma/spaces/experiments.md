@@ -6,6 +6,12 @@ title: Experiments
 schema:
     type: object
     fields:
+        kind:
+            type: string
+        title:
+            type: string
+        summary:
+            type: string
         scope:
             type: string
         type:
@@ -23,25 +29,29 @@ schema:
                 type: string
         hypothesis:
             type: string
-    metrics:
-        type: list
-        items:
-            type: ref
-            target: metric
-            guardrails:
-                type: list
-                items:
-                    type: string
-    related_user_stories:
-        type: list
-        items:
-            type: ref
-            target: user-story
-    related_releases:
-        type: list
-        items:
-            type: ref
-            target: release
+        guardrails:
+            type: list
+            items:
+                type: string
+        metrics:
+            type: list
+            items:
+                type: ref
+                target: metric
+                guardrails:
+                    type: list
+                    items:
+                        type: string
+        related_user_stories:
+            type: list
+            items:
+                type: ref
+                target: user-story
+        related_releases:
+            type: list
+            items:
+                type: ref
+                target: release
 display:
     order: 57
 description: Product and workflow experiments with metrics, guardrails, and decisions.

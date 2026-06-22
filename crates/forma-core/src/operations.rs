@@ -2180,6 +2180,63 @@ mod tests {
     }
 
     #[test]
+    fn config_inspect_returns_all_space_include_patterns() {
+        let root = fixture_root("config-inspect-space-include-patterns");
+        fs::create_dir_all(root.join(".forma/spaces")).unwrap();
+        fs::write(
+            root.join(".forma.yml"),
+            r#"schemaVersion: 1
+workspace:
+  name: Include Pattern Inspect
+  canonicalLanguage: en
+  supportedLanguages:
+    - en
+  timezone: UTC
+include:
+  - .forma/spaces/*.md
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Notes
+include:
+  - notes/**/*.md
+  - research/**/*.md
+schema:
+  type: object
+  fields:
+    title:
+      type: string
+---
+
+# Notes
+"#,
+        )
+        .unwrap();
+
+        let result = inspect_config(&root, None).unwrap();
+
+        assert_eq!(
+            result.config["spaces"]["notes"]["include"],
+            Value::String("notes/**/*.md".to_string())
+        );
+        assert_eq!(
+            result.config["spaces"]["notes"]["includePatterns"],
+            Value::Sequence(vec![
+                Value::String("notes/**/*.md".to_string()),
+                Value::String("research/**/*.md".to_string()),
+            ])
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn workspace_dashboard_uses_path_derived_entry_ids() {
         let root = fixture_root("dashboard-entry-ids");
         fs::create_dir_all(&root).unwrap();

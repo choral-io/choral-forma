@@ -6,6 +6,12 @@ title: Design
 schema:
     type: object
     fields:
+        kind:
+            type: string
+        title:
+            type: string
+        summary:
+            type: string
         scope:
             type: string
         type:
@@ -23,6 +29,11 @@ schema:
             type: list
             items:
                 type: ref
+        reviewers:
+            type: list
+            items:
+                type: ref
+                target: member
 display:
     order: 25
 description: Design artifacts, UX patterns, and implementation UI specs.

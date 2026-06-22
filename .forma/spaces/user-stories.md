@@ -6,6 +6,12 @@ title: User Stories
 schema:
     type: object
     fields:
+        kind:
+            type: string
+        title:
+            type: string
+        summary:
+            type: string
         scope:
             type: string
         type:
@@ -34,16 +40,16 @@ schema:
             items:
                 type: ref
                 target: task
-    related_test_cases:
-        type: list
-        items:
-            type: ref
-            target: test-case
-    related_metrics:
-        type: list
-        items:
-            type: ref
-            target: metric
+        related_test_cases:
+            type: list
+            items:
+                type: ref
+                target: test-case
+        related_metrics:
+            type: list
+            items:
+                type: ref
+                target: metric
 display:
     order: 45
 description: User, actor, and workflow stories that connect product intent to delivery.
