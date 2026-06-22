@@ -39,19 +39,11 @@ The migration did not require a broad directory move because the current `.forma
 - Normalized decision supersession metadata from wikilink strings to path-qualified refs.
 - Updated product-direction metadata-reference examples to use canonical entry refs such as `members/alex-chen`.
 
-## Remaining Health Warnings
+## Health Normalization Result
 
-Current `forma knowledge health --json` reports 8 warnings:
+The follow-up normalization task [[tasks/normalize-repository-forma-knowledge-health]] resolved the post-migration health warnings. Current validation reports:
 
-- no outgoing refs: `knowledge/architecture/forma-p0-schema-dsl-spec.md`
-- no backlinks: `knowledge/decisions/use-space-as-core-partition-model.md`
-- no outgoing refs: `knowledge/discovery/mainstream-knowledge-app-feature-analysis.md`
-- no backlinks and no outgoing refs: `knowledge/guidelines/dependency-governance.md`
-- no outgoing refs: `knowledge/members/tiscs.md`
-- no backlinks and no outgoing refs: `knowledge/product/forma-actions-triggers-concept.md`
+- `forma check --json`: passed
+- `forma knowledge health --json`: passed with 0 warnings
 
-These are not migration-caused unresolved or ambiguous references. They should be handled by [[tasks/normalize-repository-forma-knowledge-health]].
-
-## Next Task
-
-Promote [[tasks/normalize-repository-forma-knowledge-health]] after this migration report is accepted.
+The resolved warnings were relationship-density warnings rather than broken or ambiguous references. They were fixed with meaningful related-knowledge links and one dependency-review guidance link.

@@ -100,6 +100,8 @@ Review summaries should include:
 - residual warnings or risks;
 - whether follow-up task board changes are needed.
 
+When a change adds, removes, or pre-positions third-party dependencies, follow [[guidelines/dependency-governance]] as part of review evidence.
+
 ## Source Of Guidance
 
 This document and the configured guidelines replace the old repository-local knowledge workflow skills as soft Human/Agent operating guidance. They do not recreate the old workflow runtime or make its deleted files authoritative.

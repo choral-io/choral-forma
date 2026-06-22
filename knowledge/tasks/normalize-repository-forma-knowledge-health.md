@@ -17,7 +17,7 @@ tags:
     - migration
 
 effort: M
-status: ready
+status: done
 readiness: ready
 sprint:
 
@@ -61,3 +61,7 @@ Normalize remaining Forma health warnings after repository knowledge content has
 - `forma knowledge health --json` reports only meaningful accepted warnings under the target policy.
 - Any remaining warnings are listed with owner, rationale, and follow-up status.
 - CLI/WebApp read operations describe the migrated workspace accurately enough for internal review.
+
+## Result
+
+Normalized the remaining post-migration health warnings by adding meaningful related knowledge links and one dependency-review guidance link. No warnings are intentionally retained in this slice; `forma knowledge health --json` should report `passed`.

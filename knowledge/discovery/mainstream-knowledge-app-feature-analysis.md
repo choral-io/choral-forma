@@ -322,3 +322,10 @@ The product should avoid early investments in real-time collaboration, rich bloc
 - What minimal query language is expressive enough for schema-driven views without requiring custom executable scripts?
 - Should Markdown TODOs remain lightweight references to structured task items, or become a first-class task source alongside a configured task space?
 - How should Choral Forma represent project health, stale updates, and cross-team child work while keeping repository files reviewable?
+
+## Related Knowledge
+
+- [[product/product-direction]]
+- [[product/choral-forma]]
+- [[architecture/forma-core-technical-direction]]
+- [[tasks/implement-interactive-graph-view-render]]

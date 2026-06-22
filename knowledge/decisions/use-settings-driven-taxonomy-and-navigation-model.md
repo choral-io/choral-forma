@@ -78,6 +78,7 @@ This keeps configuration tidy, but it makes `.forma/` a semi-hidden product stor
 
 ## Related Knowledge
 
+- [[decisions/use-space-as-core-partition-model]]
 - [[architecture/forma-core-technical-direction]]
 - [[architecture/forma-p0-check-index-spec]]
 - [[architecture/forma-p0-operation-api-spec]]

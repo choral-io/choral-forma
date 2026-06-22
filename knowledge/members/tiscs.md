@@ -48,3 +48,9 @@ tags:
 ## Notes
 
 -
+
+## Related Knowledge
+
+- [[product/product-direction]]
+- [[architecture/forma-core-technical-direction]]
+- [[guidelines/task-selection]]

@@ -571,6 +571,8 @@ Forma should separate knowledge constraints into distinct layers:
 
 Guidelines should be introduced before a full policy engine because they replace the soft procedural constraints that were previously carried by Agent skills. Policies should be added only when a writable operation needs machine-enforced preconditions.
 
+The deferred Actions and Triggers model is captured separately in [[product/forma-actions-triggers-concept]]. It should stay P1+ until single-entry write operations and reviewable change proposals are concrete enough to consume it.
+
 ### Managed Views
 
 Views should be managed Markdown definitions under `.forma/views/**/*.md`. They are file-based facts, but not ordinary knowledge notes. Their frontmatter defines rendering behavior; their Markdown body explains purpose, usage, and maintenance context.

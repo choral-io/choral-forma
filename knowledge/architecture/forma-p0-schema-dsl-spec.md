@@ -288,6 +288,13 @@ P0 should not automatically fix schema violations. `forma check` reports enough 
 
 The Schema DSL can later compile to JSON Schema-like output for tooling, editor integration, documentation, or partial interoperability, but generated schemas are derived artifacts. The P0 user-authored source of truth is the Forma Schema DSL.
 
+## Related Knowledge
+
+- [[product/product-direction]]
+- [[architecture/forma-core-technical-direction]]
+- [[architecture/forma-p0-check-index-spec]]
+- [[tasks/implement-schema-dsl-runtime-values]]
+
 ## Non-blocking Questions
 
 - Enum values may later need labels, icons, colors, ordering, or descriptions, but P0 should keep enum values as plain strings.

@@ -152,3 +152,10 @@ The near-term product work should continue without committing to an implementati
 - Should `policy` be accepted as a reserved optional field in the first parser, or introduced only when enforcement is implemented?
 - How should `proposeChange` integrate with the future reviewable knowledge change proposal model?
 - Which operation events are required for the first implementation?
+
+## Related Knowledge
+
+- [[product/product-direction]]
+- [[architecture/forma-policy-and-operation-model]]
+- [[tasks/design-reviewable-forma-write-operations]]
+- [[tasks/design-forma-policy-runtime]]
