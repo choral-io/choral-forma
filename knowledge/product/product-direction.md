@@ -39,22 +39,22 @@ Choral Forma should not be treated as only a Markdown editor. It should become a
 - Support user-defined semantic types instead of hard-coding product concepts such as people, projects, statuses, priorities, customers, or machines.
 - Treat GUI and CLI as first-class product interfaces. Agent and Skill flows should assist and orchestrate product capabilities, not replace them.
 
-## Relationship To Current Knowledge Workflow
+## Relationship To Repository Forma Practice
 
 The current `knowledge/` directory is not a direct product specification for a future Choral Forma user workspace. It is the development knowledge base for this repository and has its own workflow rules, schemas, member conventions, planning model, and Agent skills.
 
-At the same time, this repository's knowledge workflow is an early practice ground for Choral Forma's product thesis. It should be treated as dogfooding, prototype practice, and an evidence source for product design.
+At the same time, this repository's Forma-managed knowledge practice is an early practice ground for Choral Forma's product thesis. It should be treated as dogfooding, prototype practice, and an evidence source for product design.
 
-Practices that prove useful in this workflow should become candidates for Choral Forma capabilities. Practices that are shaped by the current repository's toolchain, historical choices, or development-team context should be abstracted before being promoted into product requirements.
+Practices that prove useful in this repository should become candidates for Choral Forma capabilities. Practices that are shaped by this repository's toolchain, historical choices, or development-team context should be abstracted before being promoted into product requirements.
 
 Working rule:
 
 ```text
-current knowledge-workflow = early practice and evidence
+repository Forma practice = early practice and evidence
 future Choral Forma = productized capabilities abstracted from practice
 ```
 
-The current workflow can therefore inform product design, but it should not automatically constrain product workspaces. When a current workflow convention conflicts with a cleaner product model, the product design should identify the underlying user value, compatibility need, and migration cost before adopting or rejecting that convention.
+The repository practice can therefore inform product design, but it should not automatically constrain product workspaces. When a repository convention conflicts with a cleaner product model, the product design should identify the underlying user value, compatibility need, and migration cost before adopting or rejecting that convention.
 
 ## Relationship To Choral Flows
 
