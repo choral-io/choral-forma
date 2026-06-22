@@ -8,8 +8,7 @@ use serde_yml::Value;
 use thiserror::Error;
 
 use crate::config::{
-    ConfigError, LoadMode, WorkspaceConfig, WorkspaceSettings, config_source_paths,
-    is_workspace_path_ignored, load_workspace,
+    ConfigError, LoadMode, WorkspaceConfig, WorkspaceSettings, config_source_paths, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::index::{
@@ -139,15 +138,7 @@ pub struct ConfigInspectResult {
 #[serde(rename_all = "camelCase")]
 pub struct ConfigSource {
     pub path: String,
-    pub kind: ConfigSourceKind,
     pub present: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ConfigSourceKind {
-    Shared,
-    Local,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1767,18 +1758,12 @@ fn config_sources(root: &Path) -> Vec<ConfigSource> {
         .unwrap_or_else(|_| {
             vec![crate::config::ConfigSourcePath {
                 path: FORMA_CONFIG_PATH.to_string(),
-                local: false,
                 present: root.join(FORMA_CONFIG_PATH).exists(),
             }]
         })
         .into_iter()
         .map(|source| ConfigSource {
             path: source.path,
-            kind: if source.local {
-                ConfigSourceKind::Local
-            } else {
-                ConfigSourceKind::Shared
-            },
             present: source.present,
         })
         .collect()
@@ -1843,11 +1828,6 @@ fn collect_workspace_files_inner(root: &Path, dir: &Path, files: &mut Vec<Worksp
             if should_skip_file_dir(name, &path) {
                 continue;
             }
-            if let Some(relative) = workspace_relative_path(root, &path)
-                && is_workspace_path_ignored(root, &relative)
-            {
-                continue;
-            }
             collect_workspace_files_inner(root, &path, files);
         } else if should_skip_workspace_file(name, &path) {
             continue;
@@ -1868,9 +1848,6 @@ fn should_skip_workspace_file(_name: &str, _path: &Path) -> bool {
 
 fn workspace_file_from_path(root: &Path, path: PathBuf) -> Option<WorkspaceFile> {
     let relative = workspace_relative_path(root, &path)?;
-    if is_workspace_path_ignored(root, &relative) {
-        return None;
-    }
     let media_type = media_type_for_workspace_path(&relative)?;
     let kind = if matches!(relative.as_str(), FORMA_CONFIG_PATH) {
         WorkspaceFileKind::Config
@@ -1925,8 +1902,6 @@ pub fn is_public_workspace_path_allowed(root: impl AsRef<Path>, path: &str) -> b
     let root = root.as_ref();
     let lowercase_path = path.to_ascii_lowercase();
     is_raw_workspace_path_allowed(path)
-        && !is_workspace_path_ignored(root, path)
-        && !is_workspace_path_ignored(root, &lowercase_path)
         && !is_config_source_path(root, path)
         && !is_config_source_path(root, &lowercase_path)
 }
@@ -2698,31 +2673,10 @@ include:
     }
 
     #[test]
-    fn files_list_excludes_local_only_override_files() {
-        let root = fixture_root("files-list-local-only");
-        fs::create_dir_all(&root).unwrap();
-        copy_starter_workspace(&root);
-        fs::create_dir_all(root.join(".forma/local")).unwrap();
-        fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
-
-        let result = list_files(&root).unwrap();
-
-        assert!(
-            !result
-                .files
-                .iter()
-                .any(|file| file.path == ".forma/local/profile.yml")
-        );
-
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
     fn files_list_does_not_treat_forma_local_as_intrinsically_private() {
         let root = fixture_root("files-list-forma-local-public");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
-        fs::remove_file(root.join(".forma/.gitignore")).unwrap();
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
 
@@ -2739,8 +2693,8 @@ include:
     }
 
     #[test]
-    fn files_list_excludes_project_ignored_files() {
-        let root = fixture_root("files-list-project-ignored");
+    fn files_list_does_not_apply_project_gitignore_rules() {
+        let root = fixture_root("files-list-gitignore-not-special");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::write(root.join(".gitignore"), "private/\n").unwrap();
@@ -2750,7 +2704,7 @@ include:
         let result = list_files(&root).unwrap();
 
         assert!(
-            !result
+            result
                 .files
                 .iter()
                 .any(|file| file.path == "private/secret.md")

@@ -65,7 +65,7 @@ Do not commit:
 - `.worktrees/`
 - generated caches such as `target/`, `node_modules/`, package build outputs, or browser state.
 
-Treat local-only status as a project ignore/configuration boundary, not as an intrinsic Forma path rule. A directory named `local/` is ordinary content unless this repository's ignore rules or workflow guidance mark it local-only.
+Treat local-only status as workflow guidance, explicit user context, or a future explicit configuration-entry concern, not as an intrinsic Forma path rule. Forma runtime does not infer knowledge semantics from `.gitignore`, and a directory named `local/` is ordinary content unless the current Human/Agent workflow treats it as private.
 
 ## Task Workflow
 

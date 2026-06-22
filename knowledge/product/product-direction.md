@@ -507,13 +507,7 @@ Recommended target layout:
 assets/
 ```
 
-Local overrides are optional and should be created only when the workspace configuration explicitly includes them. If the conventional `.forma/` support directory is used, it can include a `.gitignore` rule equivalent to:
-
-```gitignore
-local/
-```
-
-Root ignore rules can also provide a safety net. The MVP does not need to create a dedicated local runtime directory; a workspace or host application can introduce one later for caches, locks, local indexes, or GUI state as long as the path is ignored and not treated as a product fact.
+Local overrides are optional and should be selected through explicit configuration entry points rather than inferred from SCM ignore rules. The MVP does not need to create a dedicated local runtime directory; a workspace or host application can introduce one later for caches, locks, local indexes, or GUI state, but those paths should not become product facts.
 
 The core P0 rule is: team shared config defines workspace meaning; local personal config defines private or temporary preference.
 

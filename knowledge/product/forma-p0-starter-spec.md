@@ -69,7 +69,6 @@ Future initialization may choose a single configured language in `.forma.yml`. I
 Initialization is temporarily not exposed through the CLI or JSON-RPC API. When it returns, it should be derived from an explicit starter/template source and should create or copy a minimal workspace shape equivalent to:
 
 - `.forma.yml`
-- `.forma/.gitignore`
 - `.forma/dashboard.md`
 - `.forma/spaces/index.md`
 - `.forma/spaces/{notes,tasks,members,guidelines}.md`
@@ -135,6 +134,6 @@ The generated workspace can stay empty when initialization returns. The committe
 
 ## Local-Only Boundary
 
-The starter may choose `.forma/local/` for local-only overrides, but local-only status comes from project ignore configuration such as `.forma/.gitignore`, not from a hard-coded Forma path rule.
+Forma should not infer local-only status from `.gitignore`, `.forma/local/`, or any other path convention. Starter-local personal configuration should be introduced through an explicit configuration entry or future CLI option rather than hidden path semantics.
 
 No starter behavior should depend on `.forma/` being treated as a privileged root or hidden database.

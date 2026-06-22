@@ -28,7 +28,6 @@ pub struct FormaWorkspace {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigSourcePath {
     pub path: String,
-    pub local: bool,
     pub present: bool,
 }
 
@@ -273,7 +272,7 @@ pub fn load_workspace(
             path: FORMA_CONFIG_PATH.to_string(),
             source,
         })?;
-    for public_path in included_yaml_config_paths(root, &base_config_file.include, mode) {
+    for public_path in included_yaml_config_paths(root, &base_config_file.include) {
         let local_value = read_yaml_value(&root.join(&public_path), &public_path)?;
         deep_merge(&mut config_value, local_value);
     }
@@ -309,7 +308,7 @@ pub fn load_workspace(
 fn load_config_nodes(
     root: &Path,
     config_file: &ConfigFile,
-    mode: LoadMode,
+    _mode: LoadMode,
 ) -> Result<
     (
         BTreeMap<String, Value>,
@@ -324,7 +323,7 @@ fn load_config_nodes(
     let mut types = BTreeMap::new();
     let mut spaces = BTreeMap::new();
 
-    for public_path in included_markdown_config_paths(root, &config_file.include, mode) {
+    for public_path in included_markdown_config_paths(root, &config_file.include) {
         let source =
             fs::read_to_string(root.join(&public_path)).map_err(|source| ConfigError::Read {
                 path: public_path.clone(),
@@ -403,25 +402,19 @@ fn load_config_nodes(
 
 pub fn config_source_paths(
     root: impl AsRef<Path>,
-    mode: LoadMode,
+    _mode: LoadMode,
 ) -> Result<Vec<ConfigSourcePath>, ConfigError> {
     let root = root.as_ref();
     let mut sources = vec![ConfigSourcePath {
         path: FORMA_CONFIG_PATH.to_string(),
-        local: false,
         present: root.join(FORMA_CONFIG_PATH).exists(),
     }];
     let config_file: ConfigFile = read_yaml(&root.join(FORMA_CONFIG_PATH), FORMA_CONFIG_PATH)?;
-    for path in included_yaml_config_paths(root, &config_file.include, mode)
+    for path in included_yaml_config_paths(root, &config_file.include)
         .into_iter()
-        .chain(included_markdown_config_paths(
-            root,
-            &config_file.include,
-            mode,
-        ))
+        .chain(included_markdown_config_paths(root, &config_file.include))
     {
         sources.push(ConfigSourcePath {
-            local: is_workspace_path_ignored(root, &path),
             present: root.join(&path).exists(),
             path,
         });
@@ -451,20 +444,15 @@ fn starter_term_schema(_space_id: &str) -> Value {
     serde_yml::from_str(schema).expect("built-in starter term schema is valid YAML")
 }
 
-fn included_markdown_config_paths(root: &Path, include: &[String], mode: LoadMode) -> Vec<String> {
-    included_config_paths(root, include, mode, &["md", "mdx"])
+fn included_markdown_config_paths(root: &Path, include: &[String]) -> Vec<String> {
+    included_config_paths(root, include, &["md", "mdx"])
 }
 
-fn included_yaml_config_paths(root: &Path, include: &[String], mode: LoadMode) -> Vec<String> {
-    included_config_paths(root, include, mode, &["yml", "yaml"])
+fn included_yaml_config_paths(root: &Path, include: &[String]) -> Vec<String> {
+    included_config_paths(root, include, &["yml", "yaml"])
 }
 
-fn included_config_paths(
-    root: &Path,
-    include: &[String],
-    mode: LoadMode,
-    extensions: &[&str],
-) -> Vec<String> {
+fn included_config_paths(root: &Path, include: &[String], extensions: &[&str]) -> Vec<String> {
     let mut builder = GlobSetBuilder::new();
     for pattern in include {
         if let Ok(glob) = Glob::new(pattern) {
@@ -476,7 +464,7 @@ fn included_config_paths(
     };
 
     let mut paths = Vec::new();
-    collect_included_files(root, root, &globs, mode, extensions, &mut paths);
+    collect_included_files(root, root, &globs, extensions, &mut paths);
     paths.sort();
     paths
 }
@@ -485,7 +473,6 @@ fn collect_included_files(
     root: &Path,
     dir: &Path,
     globs: &globset::GlobSet,
-    mode: LoadMode,
     extensions: &[&str],
     paths: &mut Vec<String>,
 ) {
@@ -501,7 +488,7 @@ fn collect_included_files(
             if matches!(name, ".git" | "target" | "node_modules") {
                 continue;
             }
-            collect_included_files(root, &path, globs, mode, extensions, paths);
+            collect_included_files(root, &path, globs, extensions, paths);
         } else if path
             .extension()
             .and_then(|extension| extension.to_str())
@@ -513,161 +500,11 @@ fn collect_included_files(
             && let Some(relative) = path.strip_prefix(root).ok().and_then(|path| path.to_str())
         {
             let relative = relative.replace('\\', "/");
-            if globs.is_match(&relative) && should_load_in_mode(root, &relative, mode) {
+            if globs.is_match(&relative) {
                 paths.push(relative);
             }
         }
     }
-}
-
-fn should_load_in_mode(root: &Path, path: &str, mode: LoadMode) -> bool {
-    mode == LoadMode::WithLocalOverrides || !is_workspace_path_ignored(root, path)
-}
-
-pub fn is_workspace_path_ignored(root: impl AsRef<Path>, path: &str) -> bool {
-    let path = normalize_public_path(path);
-    if path.is_empty() {
-        return false;
-    }
-    let mut ignored = false;
-    for rule in collect_ignore_rules(root.as_ref()) {
-        if rule.matches(&path) {
-            ignored = !rule.negated;
-        }
-    }
-    ignored
-}
-
-fn collect_ignore_rules(root: &Path) -> Vec<IgnoreRule> {
-    let mut rules = Vec::new();
-    collect_ignore_rules_inner(root, root, &mut rules);
-    rules
-}
-
-fn collect_ignore_rules_inner(root: &Path, dir: &Path, rules: &mut Vec<IgnoreRule>) {
-    let gitignore = dir.join(".gitignore");
-    if let Ok(contents) = fs::read_to_string(&gitignore) {
-        let base = dir
-            .strip_prefix(root)
-            .ok()
-            .and_then(|path| path.to_str())
-            .map(|path| normalize_public_path(&path.replace('\\', "/")))
-            .unwrap_or_default();
-        for line in contents.lines() {
-            if let Some(rule) = IgnoreRule::parse(&base, line) {
-                rules.push(rule);
-            }
-        }
-    }
-
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-    let mut child_dirs = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| path.is_dir())
-        .collect::<Vec<_>>();
-    child_dirs.sort();
-    for path in child_dirs {
-        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        if matches!(name, ".git" | "target" | "node_modules") {
-            continue;
-        }
-        collect_ignore_rules_inner(root, &path, rules);
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct IgnoreRule {
-    base: String,
-    pattern: String,
-    negated: bool,
-    anchored: bool,
-    directory_only: bool,
-}
-
-impl IgnoreRule {
-    fn parse(base: &str, line: &str) -> Option<Self> {
-        let mut pattern = line.trim();
-        if pattern.is_empty() || pattern.starts_with('#') {
-            return None;
-        }
-        let negated = pattern.starts_with('!');
-        if negated {
-            pattern = pattern[1..].trim_start();
-        }
-        if pattern.is_empty() {
-            return None;
-        }
-        let anchored = pattern.starts_with('/');
-        pattern = pattern.trim_start_matches('/');
-        let directory_only = pattern.ends_with('/');
-        pattern = pattern.trim_end_matches('/');
-        if pattern.is_empty() {
-            return None;
-        }
-        Some(Self {
-            base: base.to_string(),
-            pattern: normalize_public_path(pattern),
-            negated,
-            anchored,
-            directory_only,
-        })
-    }
-
-    fn matches(&self, path: &str) -> bool {
-        let Some(path_in_base) = strip_base(path, &self.base) else {
-            return false;
-        };
-        if self.directory_only {
-            return self.matches_directory(path_in_base);
-        }
-        if self.anchored || self.pattern.contains('/') {
-            return glob_matches(&self.pattern, path_in_base);
-        }
-        path_in_base
-            .split('/')
-            .any(|segment| glob_matches(&self.pattern, segment))
-    }
-
-    fn matches_directory(&self, path_in_base: &str) -> bool {
-        if self.anchored || self.pattern.contains('/') {
-            return path_in_base == self.pattern
-                || path_in_base
-                    .strip_prefix(&self.pattern)
-                    .is_some_and(|rest| rest.starts_with('/'));
-        }
-        path_in_base
-            .split('/')
-            .any(|segment| glob_matches(&self.pattern, segment))
-    }
-}
-
-fn strip_base<'a>(path: &'a str, base: &str) -> Option<&'a str> {
-    if base.is_empty() {
-        return Some(path);
-    }
-    path.strip_prefix(base)
-        .and_then(|rest| rest.strip_prefix('/'))
-}
-
-fn glob_matches(pattern: &str, value: &str) -> bool {
-    Glob::new(pattern)
-        .ok()
-        .and_then(|glob| glob.compile_matcher().is_match(value).then_some(()))
-        .is_some()
-}
-
-fn normalize_public_path(path: &str) -> String {
-    path.replace('\\', "/")
-        .trim_matches('/')
-        .split('/')
-        .filter(|segment| !segment.is_empty())
-        .collect::<Vec<_>>()
-        .join("/")
 }
 
 fn read_yaml<T: for<'de> Deserialize<'de>>(
@@ -1272,8 +1109,8 @@ mod tests {
     }
 
     #[test]
-    fn applies_local_overrides_when_requested() {
-        let root = fixture_root("local-overrides");
+    fn included_config_files_are_loaded_in_all_modes() {
+        let root = fixture_root("included-config-files");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         fs::write(
             root.join(FORMA_CONFIG_PATH),
@@ -1281,7 +1118,6 @@ mod tests {
         )
         .unwrap();
         fs::create_dir_all(root.join(".forma/local")).unwrap();
-        fs::write(root.join(".forma/.gitignore"), "local/\n").unwrap();
         fs::write(
             root.join(".forma/local/profile.yml"),
             "workspace:\n  timezone: Europe/Paris\nruntime:\n  values:\n    currentUserId:\n      kind: const\n      value: alex-chen\n",
@@ -1291,8 +1127,9 @@ mod tests {
         let shared = load_workspace(&root, LoadMode::SharedOnly).unwrap();
         let effective = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
 
-        assert_eq!(shared.config.workspace.timezone, "UTC");
+        assert_eq!(shared.config.workspace.timezone, "Europe/Paris");
         assert_eq!(effective.config.workspace.timezone, "Europe/Paris");
+        assert!(shared.config.runtime.values.contains_key("currentUserId"));
         assert!(
             effective
                 .config
@@ -1305,7 +1142,7 @@ mod tests {
     }
 
     #[test]
-    fn included_local_named_files_are_shared_unless_ignored_by_project_config() {
+    fn included_local_named_files_are_not_special() {
         let root = fixture_root("local-name-not-special");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         fs::write(
@@ -1328,8 +1165,8 @@ mod tests {
     }
 
     #[test]
-    fn project_ignore_rules_mark_included_config_files_as_local_only() {
-        let root = fixture_root("ignored-config-local-only");
+    fn gitignore_does_not_change_included_config_loading_or_sources() {
+        let root = fixture_root("gitignore-config-not-special");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         fs::write(
             root.join(FORMA_CONFIG_PATH),
@@ -1348,12 +1185,12 @@ mod tests {
         let effective = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
         let sources = super::config_source_paths(&root, LoadMode::WithLocalOverrides).unwrap();
 
-        assert_eq!(shared.config.workspace.timezone, "UTC");
+        assert_eq!(shared.config.workspace.timezone, "Europe/Paris");
         assert_eq!(effective.config.workspace.timezone, "Europe/Paris");
         assert!(
             sources
                 .iter()
-                .any(|source| source.path == ".forma/local/profile.yml" && source.local)
+                .any(|source| source.path == ".forma/local/profile.yml")
         );
 
         fs::remove_dir_all(root).unwrap();

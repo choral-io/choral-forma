@@ -233,7 +233,7 @@ P0 runtime value provider kinds:
 
 `transform` is allowed on runtime value providers. If a required runtime value cannot be resolved, operations that only need a warning should continue with a `runtime.value.unresolved` warning. Operations that require the value to complete must fail with a diagnostic.
 
-Local overrides use the same configuration shape and are discovered only when `.forma.yml` includes matching files that the project ignore rules mark as local-only. For example, a workspace may include an ignored personal override file that sets `runtime.values.currentUserId` with `kind: const`. P0 does not need a separate allow/deny override policy for runtime values.
+Local overrides use the same configuration shape, but Forma should not infer them from SCM ignore rules. Shared and personal configuration should be selected by explicit configuration entry points or future CLI options such as `--config`, with later sources overriding earlier sources. P0 does not need a separate allow/deny override policy for runtime values.
 
 ## Placeholders
 

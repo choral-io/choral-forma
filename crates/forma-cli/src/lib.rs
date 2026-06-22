@@ -1243,12 +1243,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rpc_router_rejects_raw_local_only_workspace_files() {
-        let root = fixture_root("raw-route-local-only");
+    async fn rpc_router_serves_raw_forma_local_workspace_files() {
+        let root = fixture_root("raw-route-forma-local");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/local")).unwrap();
-        fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
+        fs::write(root.join(".forma/local/secret.png"), b"\x89PNG\r\n\x1a\n").unwrap();
 
         let app = rpc_router_with_dispatcher_and_workspace(
             None,
@@ -1262,24 +1262,23 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/.forma/local/profile.yml")
+                    .uri("/forma/raw/.forma/local/secret.png")
                     .body(Body::empty())
                     .unwrap(),
             )
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.status(), StatusCode::OK);
 
         fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]
-    async fn rpc_router_rejects_raw_local_only_workspace_files_case_variants() {
-        let root = fixture_root("raw-route-local-only-case");
+    async fn rpc_router_serves_raw_forma_local_workspace_file_case_variants() {
+        let root = fixture_root("raw-route-forma-local-case");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/local")).unwrap();
-        fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
         fs::write(root.join(".forma/local/secret.png"), b"\x89PNG\r\n\x1a\n").unwrap();
 
         let app = rpc_router_with_dispatcher_and_workspace(
@@ -1291,24 +1290,21 @@ mod tests {
         )
         .unwrap();
 
-        for uri in [
-            "/forma/raw/.FORMA/local/profile.yml",
-            "/forma/raw/.FORMA/local/secret.png",
-        ] {
+        for uri in ["/forma/raw/.FORMA/local/secret.png"] {
             let response = app
                 .clone()
                 .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
                 .await
                 .unwrap();
-            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            assert_eq!(response.status(), StatusCode::OK);
         }
 
         fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]
-    async fn rpc_router_rejects_raw_project_ignored_files() {
-        let root = fixture_root("raw-route-project-ignored");
+    async fn rpc_router_serves_raw_project_ignored_files() {
+        let root = fixture_root("raw-route-gitignore-not-special");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::write(root.join(".gitignore"), "private/\n").unwrap();
@@ -1333,7 +1329,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.status(), StatusCode::OK);
 
         fs::remove_dir_all(root).unwrap();
     }

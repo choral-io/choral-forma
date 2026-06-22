@@ -35,7 +35,7 @@ Workspace-level guidelines live in `.forma.yml`. In this starter, workspace oper
 
 Included configuration nodes use their configuration path as identity; `kind` describes how the node behaves. All persisted configuration file references are workspace-relative POSIX paths resolved from the directory that contains `.forma.yml`, regardless of the file that contains the reference.
 
-This starter chooses `.forma/local/` for personal override files and marks it ignored through `.forma/.gitignore`. Forma treats ignored files as local-only; the directory name itself has no built-in product meaning. Included local override files can change personal runtime values without changing the committed starter.
+Forma does not interpret `.gitignore` as workspace semantics. Personal or private configuration should be introduced through an explicit configuration entry or future `--config` style mechanism rather than by relying on ignored path names. A directory named `local/` is ordinary workspace content unless a Human or Agent workflow treats it as private.
 
 Markdown configuration nodes can use `<!-- forma:content -->` as the explicit slot for generated content such as dashboard sections, taxonomy terms, term pages, or view projections. If the slot is omitted, Forma should append the generated content after the Markdown body.
 

@@ -2004,21 +2004,20 @@ mod tests {
     }
 
     #[test]
-    fn committed_summary_index_ignores_local_overrides() {
-        let root = fixture_root("local-overrides");
+    fn committed_summary_index_uses_explicitly_included_config() {
+        let root = fixture_root("included-config");
         write_workspace(&root);
         write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
         fs::create_dir_all(root.join(".forma/local")).unwrap();
-        fs::write(root.join(".forma/.gitignore"), "local/\n").unwrap();
         fs::write(
             root.join(".forma/local/profile.yml"),
-            "workspace:\n  name: Local Only\n",
+            "workspace:\n  name: Explicitly Included\n",
         )
         .unwrap();
 
         let discovery = discover_workspace(&root).unwrap();
 
-        assert_eq!(discovery.index.workspace.name, "Acme Knowledge");
+        assert_eq!(discovery.index.workspace.name, "Explicitly Included");
         fs::remove_dir_all(root).unwrap();
     }
 

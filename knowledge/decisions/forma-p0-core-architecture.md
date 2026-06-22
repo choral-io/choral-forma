@@ -113,7 +113,7 @@ Use TypeScript, React, and Vite for the P0 WebApp. Keep frontend code in a root 
 
 P0 should distinguish repository source files from runtime diagnostic results. The first public implementation does not use a committed discovery index.
 
-Optional local configuration is loaded only through explicit `.forma.yml` include patterns. Whether a loaded file is local-only comes from project ignore rules, not from a built-in Forma path convention.
+Optional local configuration should be selected through explicit configuration entry points, not inferred from project ignore rules or built-in Forma path conventions.
 
 Future local caches, if needed, should use project-ignored paths:
 

@@ -286,7 +286,6 @@ export type ConfigInspectResult = BaseOperationResult & {
     };
     sources: Array<{
         path: string;
-        kind: "shared" | "local";
         present: boolean;
     }>;
 };
