@@ -5,13 +5,13 @@ status: "blocked"
 readiness: "blocked"
 priority: "high"
 owners:
-  - members/sam-rivera.md
+  - members/sam-rivera
 assignees:
-  - members/sam-rivera.md
+  - members/sam-rivera
 reviewers:
-  - members/mira-chen.md
+  - members/mira-chen
 blockedBy:
-  - tasks/review-starter-workspace.md
+  - tasks/review-starter-workspace
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 dueDate: "2026-06-12"

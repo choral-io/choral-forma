@@ -2,9 +2,9 @@
 title: "Task Selection"
 summary: "How to choose the next task without turning the starter into an uncurated task list."
 owners:
-  - members/mira-chen.md
+  - members/mira-chen
 reviewers:
-  - members/sam-rivera.md
+  - members/sam-rivera
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 ---

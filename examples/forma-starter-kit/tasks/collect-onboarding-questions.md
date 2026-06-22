@@ -5,10 +5,10 @@ status: "todo"
 readiness: "needs-refinement"
 priority: "low"
 owners:
-  - members/mira-chen.md
+  - members/mira-chen
 assignees: []
 reviewers:
-  - members/sam-rivera.md
+  - members/sam-rivera
 blockedBy: []
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"

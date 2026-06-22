@@ -1,0 +1,5 @@
+# Starter-specific private configuration.
+#
+# Forma loads these files only because .forma.yml explicitly includes them.
+# Git keeps them local to the copied workspace.
+.forma/local/

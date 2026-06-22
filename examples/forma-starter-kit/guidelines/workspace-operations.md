@@ -2,9 +2,9 @@
 title: "Workspace Operations"
 summary: "How to copy, review, and maintain the starter workspace as a shared team space."
 owners:
-  - members/mira-chen.md
+  - members/mira-chen
 reviewers:
-  - members/sam-rivera.md
+  - members/sam-rivera
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 ---
@@ -22,4 +22,4 @@ Use this guideline when you first copy the starter, when you review the shared s
 3. Prefer updating an existing page before creating a new one when the topic is already covered.
 4. Use finished work such as [[tasks/publish-read-only-workspace|Publish Read-only Workspace]] as reference material, not as a reason to accumulate stale tasks.
 5. When onboarding someone new, point them to [[notes/getting-started|Getting Started]] and [[notes/welcome-to-choral-forma|Welcome to Choral Forma]] before deeper process notes.
-6. Keep personal overrides in paths ignored by this workspace, such as the starter's `.forma/local/` convention. Ignored files are local-only and should not be treated as shared workspace knowledge.
+6. Keep personal configuration in explicitly included private paths when the copied workspace defines them. This starter includes optional `.forma/local/*.yml` and `.forma/local/*.md` patterns in `.forma.yml`, and its `.gitignore` keeps `.forma/local/` uncommitted. Do not treat ignored files as shared workspace knowledge.

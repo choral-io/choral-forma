@@ -5,11 +5,11 @@ status: "done"
 readiness: "done"
 priority: "low"
 owners:
-  - members/sam-rivera.md
+  - members/sam-rivera
 assignees:
-  - members/sam-rivera.md
+  - members/sam-rivera
 reviewers:
-  - members/mira-chen.md
+  - members/mira-chen
 blockedBy: []
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
