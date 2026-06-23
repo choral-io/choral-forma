@@ -5,7 +5,7 @@ title: Knowledge Workflow Replacement Readiness
 summary: Measures whether Forma CLI plus configured guidelines can replace the old knowledge-workflow skills for this repository's project knowledge work.
 scope: project
 type: metric
-status: active
+status: ready
 owners:
     - "members/tiscs"
 tags:
@@ -58,6 +58,17 @@ The next internal release can proceed when this metric is `ready`.
 ## Interpretation
 
 Passing diagnostics alone is not enough. The workflow must also be understandable to Agents and Humans through configured guidelines, test cases, task records, and release validation records.
+
+## Current Judgment
+
+Status: `ready`
+
+As of 2026-06-23, the metric meets its threshold for the next internal release:
+
+- repository `config inspect`, `check`, and `knowledge health` pass;
+- starter-kit `config inspect`, `check`, `knowledge health`, `tasks list`, and `tasks inspect` pass;
+- [[experiments/starter-kit-agent-pressure-validation]] records outcomes for all four contract cases and all six pressure cases;
+- the remaining gaps are explicitly deferred to future automation, policy runtime, and reviewable write-operation work.
 
 ## Review Cadence
 

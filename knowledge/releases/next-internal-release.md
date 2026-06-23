@@ -5,7 +5,7 @@ title: Next Internal Release
 summary: Internal release gate for proving the Forma-managed knowledge workflow against the starter-kit pressure suite and current project knowledge.
 scope: project
 type: release
-status: planned
+status: ready-for-review
 version: ""
 date:
 owners:
@@ -50,6 +50,13 @@ Required validation:
 - Complete or review [[tasks/run-starter-kit-agent-pressure-validation]].
 - Review [[experiments/starter-kit-agent-pressure-validation]] and classify the outcome.
 - Review [[metrics/knowledge-workflow-replacement-readiness]] and decide whether the threshold is met.
+
+Current validation result:
+
+- Repository `config inspect`, `check`, and `knowledge health`: passed.
+- Starter-kit `config inspect`, `check`, `knowledge health`, `tasks list`, and `tasks inspect`: passed.
+- Starter-kit pressure validation: passed for this internal validation pass; see [[experiments/starter-kit-agent-pressure-validation]].
+- Readiness metric: `ready`; see [[metrics/knowledge-workflow-replacement-readiness]].
 
 ## Rollout Plan
 
