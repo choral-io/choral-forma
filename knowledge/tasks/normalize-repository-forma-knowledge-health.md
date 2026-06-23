@@ -15,6 +15,7 @@ tags:
     - health
     - knowledge
     - migration
+    - historical
 
 effort: M
 status: done

@@ -303,7 +303,7 @@ File, resource, and configuration references should also use workspace-relative 
 
 ```yaml
 template: .forma/spaces/templates/task.md
-source_file: attachments/acme-contract.pdf
+sourceFile: attachments/acme-contract.pdf
 ```
 
 The WebApp should treat WorkspaceFile as the first-class navigation object. Knowledge documents, views, templates, config files, generated indexes, and resources share the same file inventory shape, while server-assigned features drive render and preview affordances.
@@ -547,10 +547,9 @@ Configuration sections and included files should have clear responsibility bound
 
 ```text
 .forma.yml owns the main configuration entry and includes.
-workspace owns identity, root, language, timezone, and logo.
+workspace owns identity, language, timezone, and presentation metadata such as logo.
 runtime owns runtime values.
-Markdown config nodes under .forma/pages/ own page schemas.
-Markdown config nodes under .forma/spaces/ own starter space taxonomy terms.
+Markdown config nodes under .forma/spaces/ own space schemas and starter space taxonomy terms.
 Markdown config nodes under .forma/spaces/templates/ own create-time content templates.
 Markdown config nodes under .forma/views/ own saved projection definitions.
 Navigation configuration owns sidebar and prominent route/page/view groups.

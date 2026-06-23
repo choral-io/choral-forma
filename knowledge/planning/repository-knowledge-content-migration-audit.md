@@ -49,9 +49,9 @@ The additional configured spaces are deliberate product-practice spaces introduc
 
 - The old `.workflow` directory is gone and should not be recreated.
 - The repository no longer depends on Git ignore parsing for Forma runtime semantics.
-- `knowledge/workspace/*/handoffs/**/*.md` is the only configured workspace-support include.
+- `knowledge/workspace/*/handoffs/**/*.md` and `knowledge/workspace/*/research/**/*.md` are configured workspace-support includes.
 - `knowledge/workspace/*/local/**` remains local-only by repository ignore policy and is not a Forma runtime convention.
-- `knowledge/workspace/*/research/**` is not currently included in a space. Durable research should be promoted to a configured shared space, usually `discovery`, only when it has ongoing product value.
+- Workspace-support research can remain shared support evidence. Durable synthesis should still be promoted to a canonical space such as `discovery`, `architecture`, or `product` when it becomes current product direction.
 
 ## Knowledge Workflow Reference Classification
 
@@ -103,19 +103,21 @@ Omit from shared migration:
 - `knowledge/workspace/*/local/**`
 - local drafts, logs, worklists, and personal handoffs
 
-## Recommended Execution Order
+## Historical Execution Order
+
+This section records the execution order that was recommended during the migration audit. These tasks have since been completed or superseded by the current product R&D validation chain.
 
 1. Promote [[tasks/clean-obsolete-knowledge-workflow-language]] to Ready and remove non-current workflow compatibility wording.
-2. Keep [[tasks/normalize-repository-relationship-metadata]] in Backlog until cleanup reduces noisy historical references.
-3. Keep [[tasks/classify-workspace-support-material]] in Backlog until current language and relationship metadata are stable enough to judge what should be promoted.
+2. Normalize repository relationship metadata after cleanup reduces noisy historical references.
+3. Classify workspace-support material once current language and relationship metadata are stable enough to judge what should be promoted.
 4. Run [[tasks/normalize-repository-forma-knowledge-health]] after migration cleanup is complete.
 
-## Verification Baseline
+## Historical Verification Baseline
 
-Current baseline after this audit:
+Baseline captured at the time of this audit:
 
 - `cargo run -q -p forma-cli -- check --json` passes.
-- `cargo run -q -p forma-cli -- knowledge health --json` reports 8 warnings, all pre-existing:
+- `cargo run -q -p forma-cli -- knowledge health --json` reported 8 warnings, all pre-existing:
     - no outgoing refs: `knowledge/architecture/forma-p0-schema-dsl-spec.md`
     - no backlinks: `knowledge/decisions/use-space-as-core-partition-model.md`
     - no outgoing refs: `knowledge/discovery/mainstream-knowledge-app-feature-analysis.md`

@@ -11,6 +11,14 @@ tags:
 
 This directory is the project knowledge base for this repository and is the principal source of product facts, task context, and delivery records.
 
+## Current Product R&D Focus
+
+The current internal-development focus is proving that Forma can manage this repository's project knowledge through repository Markdown, configured spaces, schemas, guidelines, CLI checks, and the WebApp read surface.
+
+The active validation thread is replacing the old `knowledge-workflow` skills with Forma CLI plus configured guidelines. The main executable gate is [[tasks/run-starter-kit-agent-pressure-validation]], supported by the starter-kit validation suite in [[test-cases/forma-starter-kit]].
+
+Use release, metric, user-story, experiment, test-case, and task records to judge current product readiness. Older migration and audit notes remain evidence, but should not be treated as the current execution entrypoint unless a current task, release, experiment, or planning record links to them.
+
 Active knowledge operations are managed by:
 
 - Markdown documents under `knowledge/`
@@ -35,6 +43,18 @@ Use these read commands for routine agent work:
 For Agent-assisted write, review, or task operations, use `cargo run -q -p forma-cli -- config inspect --json` first to discover configured guideline files and read them before acting.
 
 ## Source Layout
+
+Current product planning should prefer:
+
+- `product/`: product direction and accepted behavior
+- `user-stories/`: actor-centered workflow intent
+- `metrics/`: success criteria and release readiness thresholds
+- `experiments/`: hypothesis-driven validation with metrics and guardrails
+- `releases/`: release gates and rollout records
+- `test-cases/`: reusable validation cases
+- `tasks/`: executable work
+
+Use `planning/` for planning records, audits, and migration evidence. Planning records can support decisions, but should not replace release, metric, user-story, or task records when those configured spaces are a better fit.
 
 - `members/`: member profiles and workspace mapping references
 - `workspace/`: shared member workspaces, handoffs, and local-only personal work areas under `local/`

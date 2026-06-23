@@ -14,6 +14,10 @@ tags:
     - validation
 sources:
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
+    - "releases/next-internal-release"
+    - "metrics/knowledge-workflow-replacement-readiness"
+    - "experiments/starter-kit-agent-pressure-validation"
+    - "user-stories/agent-maintains-project-knowledge"
     - "test-cases/forma-starter-kit"
     - "guidelines/forma-knowledge-operations"
     - "guidelines/task-selection"
@@ -25,6 +29,12 @@ sources:
 ## Purpose
 
 Evaluate whether Forma CLI plus configured guidelines can now replace the old knowledge-workflow skills as the primary Human and Agent entrypoint for repository knowledge work.
+
+## Current Product R&D Role
+
+This planning record is supporting evidence for [[releases/next-internal-release]]. It is not the release gate itself.
+
+Current readiness should be judged through [[metrics/knowledge-workflow-replacement-readiness]], [[experiments/starter-kit-agent-pressure-validation]], [[test-cases/forma-starter-kit]], and [[tasks/run-starter-kit-agent-pressure-validation]].
 
 ## Current Result
 
@@ -83,6 +93,8 @@ Not covered yet:
 The highest-value next slice is [[tasks/run-starter-kit-agent-pressure-validation]].
 
 That task should execute the existing starter-kit test cases as an evaluation pass, record which cases can be verified by CLI evidence today, and separate remaining manual Agent pressure cases from product/runtime gaps.
+
+For product R&D tracking, that slice is now represented as [[experiments/starter-kit-agent-pressure-validation]] and gates [[releases/next-internal-release]] through [[metrics/knowledge-workflow-replacement-readiness]].
 
 ## Decision
 

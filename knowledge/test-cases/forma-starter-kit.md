@@ -5,7 +5,7 @@ title: Forma Starter Kit Evaluation Suite
 summary: Test suite for validating the starter workspace as a Forma CLI, WebApp, and Agent skill evaluation fixture.
 scope: starter-kit
 type: suite
-status: draft
+status: active
 priority: P1
 automation: mixed
 owners:
@@ -15,7 +15,8 @@ tags:
     - evaluation
     - cli
     - skill
-coversUserStories: []
+coversUserStories:
+    - "user-stories/agent-maintains-project-knowledge"
 coversProduct:
     - "product/choral-forma"
 relatedTasks:
@@ -27,6 +28,8 @@ relatedTasks:
 ## Purpose
 
 This suite defines project-level validation cases for `examples/forma-starter-kit`. The starter workspace should remain clean and copyable for users, while these test cases live in the Forma project knowledge base as evaluation assets.
+
+This suite is part of the validation chain for [[releases/next-internal-release]] and [[metrics/knowledge-workflow-replacement-readiness]].
 
 ## Contract Tests
 

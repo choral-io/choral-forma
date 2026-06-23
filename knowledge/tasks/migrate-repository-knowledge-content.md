@@ -16,6 +16,7 @@ tags:
     - knowledge
     - migration
     - workspace
+    - historical
 
 effort: L
 status: done

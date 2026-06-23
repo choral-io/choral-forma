@@ -19,7 +19,8 @@ tags:
 coversUserStories: []
 coversProduct:
     - "product/choral-forma"
-relatedTasks: []
+relatedTasks:
+    - "tasks/run-starter-kit-agent-pressure-validation"
 ---
 
 # Starter Blocked To Done Pressure

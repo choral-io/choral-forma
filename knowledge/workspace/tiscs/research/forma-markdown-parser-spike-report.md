@@ -63,6 +63,8 @@ Observed with `ParseOptions::gfm()` and `Options::gfm()`:
 - Detected HTML comments in the AST.
 - Rendered HTML comments as escaped visible text by default:
 
+The `users/tiscs` value in this section is historical parser-fixture input, not the current canonical project reference style.
+
 ```html
 &lt;!-- forma-view --&gt; &lt;!-- forma-view: todos assignee=&quot;users/tiscs&quot; --&gt;
 ```

@@ -18,6 +18,7 @@ tags:
     - knowledge
     - migration
     - cleanup
+    - historical
 
 effort: S
 status: done

@@ -4,7 +4,7 @@ kind: user-story
 title: "{{ input.title }}"
 summary: "{{ input.summary }}"
 scope: project
-type: user_story
+type: user-story
 status: draft
 owners: []
 tags:

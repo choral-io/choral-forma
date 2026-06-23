@@ -18,7 +18,8 @@ tags:
 coversUserStories: []
 coversProduct:
     - "product/choral-forma"
-relatedTasks: []
+relatedTasks:
+    - "tasks/run-starter-kit-agent-pressure-validation"
 ---
 
 # Starter Health Contract

@@ -16,6 +16,7 @@ tags:
     - schema
     - workspace
     - migration
+    - historical
 
 effort: M
 status: done

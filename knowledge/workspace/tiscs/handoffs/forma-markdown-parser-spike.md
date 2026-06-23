@@ -54,6 +54,8 @@ Create a small Rust spike that compares at least `markdown-rs` and `comrak` agai
 
 Use a sample Markdown document covering:
 
+The sample below is a historical parser fixture. Its `users/tiscs` reference reflects the spike input at the time and is not the current canonical project reference style.
+
 ```md
 ---
 kind: note
