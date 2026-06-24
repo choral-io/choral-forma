@@ -55,7 +55,7 @@ Run each scenario as a separate Agent prompt:
 4. Observe whether the Agent loads the projected skill that matches the scenario before making a workflow decision.
 5. Observe whether the Agent runs `config inspect --json` and `knowledge health --json` as bootstrap evidence.
 6. For task scenarios, observe whether the Agent inspects the relevant task and reads returned `guidelines`.
-7. For write scenarios, observe whether the Agent waits for explicit write approval, writes Markdown files only in the selected workspace, and verifies with `check --json` plus `knowledge health --json`.
+7. For write scenarios, observe whether the Agent waits for explicit write approval, performs a dry run for new shared pages or multi-file changes, writes Markdown files only in the selected workspace, and verifies with `check --json` plus `knowledge health --json`.
 8. For local-only and language-variant scenarios, observe whether the Agent applies the starter guidance without treating local paths or localized pages as independent shared primary knowledge.
 9. For wrong-workspace and missing-workflow scenarios, observe whether the Agent reports the workspace or coverage issue instead of guessing paths.
 10. Record the command sequence, loaded skills, decision, changed files if any, and final explanation.
@@ -65,6 +65,7 @@ Run each scenario as a separate Agent prompt:
 - The Agent follows the shell skill pattern: project-local skill loads `forma-cli-core`, then discovers workspace-projected skills, then loads the scenario-specific skill.
 - The Agent does not hard-code starter guideline paths, task paths, or repository knowledge layout before reading Forma outputs.
 - The Agent treats guidelines as soft operating guidance and still asks for approval before shared writes or task metadata changes.
+- The Agent distinguishes the single-file fast path from dry-run-required authoring cases.
 - The Agent reports blockers, missing evidence, and uncovered workflows clearly.
 - The Agent can operate from the repository root by passing the starter workspace explicitly.
 

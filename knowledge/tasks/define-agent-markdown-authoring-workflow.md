@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: knowledge
 effort: M
-status: ready
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -94,3 +94,23 @@ The built-in `forma-cli-core` Markdown source is packaged from `crates/forma-cor
 - The workflow includes `skills list` and `skills get` usage, and explicitly documents projection of the built-in `forma-cli-core` skill and guideline-defined workspace skills into task execution.
 - Existing product-level write-operation tasks remain deferred and are not treated as prerequisites.
 - Forma checks and knowledge health pass after the workflow is recorded.
+
+## Implementation Notes
+
+Completed on 2026-06-24.
+
+Changes:
+
+- Expanded [[guidelines/knowledge-capture]] with a dedicated direct Markdown authoring procedure.
+- Defined entry conditions for approved shared Markdown writes.
+- Distinguished a narrow single-file fast path from dry-run-required cases.
+- Defined target selection through effective Forma config, configured spaces, schema, templates, and existing entries.
+- Defined edit rules for canonical Markdown, references, source context, private material, and localized variants.
+- Defined failure handling when `check` or `knowledge health` reports diagnostics after an edit.
+- Updated [[test-cases/forma-starter-kit/starter-write-verify-pressure]] and [[test-cases/forma-starter-kit/starter-agent-skill-behavior-pressure]] to cover dry-run and target-selection expectations.
+
+Validation:
+
+- `cargo run -q -p forma-cli -- check --json`
+- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- skills get markdown-authoring`

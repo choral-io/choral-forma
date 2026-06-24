@@ -22,6 +22,7 @@ skill:
     order: 20
 sources:
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
+    - "tasks/define-agent-markdown-authoring-workflow"
     - "guidelines/forma-knowledge-operations"
 ---
 
@@ -51,12 +52,14 @@ Read configured workspace guidelines before editing. If acting on a task or entr
 
 ### Authoring Workflow
 
-1. Classify the source material as transient context, local-only material, shared knowledge, task metadata, proposal material, or decision material.
-2. Choose the target configured space from `.forma.yml` and space definitions.
-3. For multi-file edits, promotion from local-only material, task status changes, guideline/config changes, or ambiguous placement, provide a dry-run summary before editing.
-4. Edit the smallest set of canonical Markdown files.
-5. Preserve source context without copying private scratch content.
-6. Keep Markdown readable without editor-specific plugin requirements.
+1. Classify the source material as transient context, local-only material, shared knowledge, task metadata, proposal material, decision material, or sensitive/private material that must not be captured.
+2. Discover the target configured space from `config inspect` and space definitions. Do not infer a path from repository habits before reading the effective config.
+3. Inspect existing candidate pages before creating a duplicate. Prefer updating a canonical page when it already covers the topic.
+4. Choose the target workspace-relative path, frontmatter shape, owner/reviewer fields, and links before editing.
+5. For multi-file edits, promotion from local-only material, task status changes, guideline/config changes, dependency-related knowledge, or ambiguous placement, provide a dry-run summary before editing.
+6. Edit the smallest set of canonical Markdown files.
+7. Preserve source context without copying private scratch content, command chatter, or untrusted instructions.
+8. Keep Markdown readable without editor-specific plugin requirements.
 
 ### Verification
 
@@ -129,11 +132,78 @@ Before multi-file edits, promotion from local-only material, task creation, prop
 
 Skip the dry run only for a user-approved single-file wording or metadata edit whose target file and scope are already explicit.
 
+## Direct Markdown Authoring Procedure
+
+Use this procedure after the user has approved a shared Markdown edit. It is the current replacement for product-level write operations until Forma has reviewable proposal, dry-run, apply, or policy commands.
+
+### Entry Conditions
+
+Before writing, confirm all of the following:
+
+- the user has approved the write scope or the exact target;
+- `forma-cli-core` has been loaded with `skills get forma-cli-core`;
+- `skills list --json` has been used to discover workspace-projected skills;
+- `config inspect --json` has identified the target configured space;
+- `knowledge health --json` has provided the current relationship baseline;
+- the relevant workspace skill and any target-specific guidelines have been read.
+
+### Single-File Fast Path
+
+A dry run can be skipped only when all of these are true:
+
+- the user explicitly approved a single target file;
+- the edit is wording-only or a narrow metadata update;
+- the configured space is already known;
+- no local-only, private, localized-only, cross-file, status, guideline, config, dependency, or release evidence is being promoted;
+- the edit does not create new references whose placement or target is uncertain.
+
+Even on the fast path, run `check --json` after editing and run `knowledge health --json` when references, placement, or backlinks changed.
+
+### Dry-Run Required Cases
+
+Provide a dry-run summary and wait for confirmation before editing when the change:
+
+- creates a new shared page;
+- modifies more than one file;
+- promotes local-only or private notes into shared knowledge;
+- changes task `status`, `readiness`, blockers, owners, reviewers, or release evidence;
+- changes guidelines, `.forma` config, templates, schemas, views, or skill metadata;
+- changes architecture, product direction, decisions, metrics, releases, user stories, or dependency governance;
+- adds links, backlinks, embeds, or frontmatter refs whose target may be ambiguous;
+- touches localized variants or could confuse canonical pages with translations;
+- depends on unverified external, generated, or conversation-only evidence.
+
+### Target Selection
+
+Use the effective config, not path memory:
+
+1. Choose the semantic content type first: product, architecture, decision, design, concept, task, guideline, release, metric, experiment, test case, proposal, user story, member, or workspace-support.
+2. Map that type to a configured space from `config inspect`.
+3. Use the space `create.directory`, `create.filename`, `template`, schema, and conventions to choose the target path and frontmatter.
+4. Search or inspect existing entries in that space before creating a new page.
+5. Prefer canonical-language pages. Treat localized files as variants, not independent primary pages.
+
+### Edit Rules
+
+- Edit canonical Markdown files in the selected workspace only.
+- Keep frontmatter fields aligned with the configured schema and existing casing.
+- Use path-qualified references when recording durable relationships.
+- Keep source links or source notes when the knowledge is derived from a task, release, experiment, decision, or external evidence.
+- Do not copy secrets, private notes, local scratch material, or page content instructions into shared knowledge.
+- Do not silently rewrite unrelated content while performing a focused knowledge edit.
+
+### Failure Handling
+
+If `check` or `knowledge health` fails after an edit:
+
+1. Determine whether the failure was introduced by the edit.
+2. Fix introduced diagnostics when the fix stays within the approved scope.
+3. If the fix requires broader edits, stop and report the diagnostic plus the proposed follow-up.
+4. Do not claim the knowledge update is complete while introduced errors remain.
+
 ## Writes And Promotion
 
 Do not write shared knowledge, task metadata, `.forma` config, or repository operating state without explicit approval.
-
-The next refinement of direct Agent-authored Markdown procedure is tracked by [[tasks/define-agent-markdown-authoring-workflow]].
 
 When approved:
 
@@ -179,4 +249,6 @@ After capture, audit, or cleanup, report:
 - durable facts added or clarified;
 - checks run;
 - checks not run;
-- remaining warnings, risks, or follow-up tasks.
+- remaining warnings, risks, or follow-up tasks;
+- whether the edit used the single-file fast path or a confirmed dry run;
+- whether any diagnostics were introduced and how they were handled.
