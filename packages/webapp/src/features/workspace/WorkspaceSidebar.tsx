@@ -1,30 +1,9 @@
-import {
-    BadgeCheck,
-    Bell,
-    ChevronRight,
-    ChevronsUpDown,
-    CreditCard,
-    FileText,
-    LayoutDashboard,
-    LibraryBig,
-    LogOut,
-    Sparkles,
-    Workflow,
-} from "lucide-react";
+import { ChevronRight, FileText, LayoutDashboard, LibraryBig, Workflow } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuGroup,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
     Sidebar,
     SidebarContent,
@@ -241,20 +220,16 @@ function SidebarChildItem({
 }
 
 function WorkspaceUserMenu({ user }: { user: WorkspaceUser }) {
-    const { isMobile } = useSidebar();
-
     return (
         <SidebarMenu>
             <SidebarMenuItem>
-                <DropdownMenu>
-                    <DropdownMenuTrigger
-                        render={
-                            <SidebarMenuButton
-                                className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground"
-                                size="lg"
-                            />
-                        }
-                    >
+                <SidebarMenuButton
+                    className="hover:text-sidebar-foreground active:text-sidebar-foreground cursor-default hover:bg-transparent active:bg-transparent"
+                    render={<div />}
+                    size="lg"
+                    tooltip={user.name}
+                >
+                    <div className="flex min-w-0 items-center gap-2">
                         <Avatar className="size-8 rounded-lg after:rounded-lg">
                             <AvatarImage alt={user.name} className="rounded-lg" src={user.avatar} />
                             <AvatarFallback className="rounded-lg">{user.initials}</AvatarFallback>
@@ -263,57 +238,8 @@ function WorkspaceUserMenu({ user }: { user: WorkspaceUser }) {
                             <span className="truncate font-medium">{user.name}</span>
                             <span className="truncate text-xs">{user.email}</span>
                         </div>
-                        <ChevronsUpDown className="ms-auto" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                        align="end"
-                        className="w-(--anchor-width) min-w-56 rounded-lg"
-                        side={isMobile ? "bottom" : "right"}
-                        sideOffset={4}
-                    >
-                        <DropdownMenuGroup>
-                            <DropdownMenuLabel className="p-0 font-normal">
-                                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                                    <Avatar className="size-8 rounded-lg after:rounded-lg">
-                                        <AvatarImage alt={user.name} className="rounded-lg" src={user.avatar} />
-                                        <AvatarFallback className="rounded-lg">{user.initials}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="grid flex-1 text-left text-sm/tight">
-                                        <span className="truncate font-medium">{user.name}</span>
-                                        <span className="truncate text-xs">{user.email}</span>
-                                    </div>
-                                </div>
-                            </DropdownMenuLabel>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <Sparkles />
-                                Git identity placeholder
-                            </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <BadgeCheck />
-                                Account placeholder
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <CreditCard />
-                                Gravatar placeholder
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <Bell />
-                                Notifications placeholder
-                            </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                            <LogOut />
-                            Log out placeholder
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                    </div>
+                </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>
     );

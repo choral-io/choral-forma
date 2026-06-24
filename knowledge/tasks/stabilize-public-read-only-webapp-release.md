@@ -108,6 +108,37 @@ This task is the release stabilization umbrella for the first public read-only r
 - Verified `pnpm --filter @choral-forma/webapp build` rebuilds WebApp assets.
 - Verified `forma serve` can serve the rebuilt embedded WebApp assets from `examples/forma-starter-kit` without a Vite dev server.
 
-## Open Questions
+### 2026-06-24 Gap Audit
 
-- Should Quick Open remain dashboard-local for the first public release, or should it wait for a shared `search.entries` operation before being treated as a release feature?
+Commands and checks run:
+
+- `cargo run -q -p forma-cli -- config inspect --json`: passed.
+- `cargo run -q -p forma-cli -- knowledge health --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`: passed.
+- `pnpm --filter @choral-forma/webapp check`: passed.
+- `pnpm --filter @choral-forma/webapp build`: passed with the existing Vite large-chunk warning from bundled Markdown/code-highlighting assets.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit serve --bind 127.0.0.1:4173`: passed after localhost binding approval.
+- HTTP smoke against `http://127.0.0.1:4173`: root SPA route, document SPA route, `/rpc`, `/raw/assets/logo.svg`, and `/favicon.svg` returned expected successful responses.
+- JSON-RPC smoke through `forma serve`: `workspace.dashboard`, `file.render`, `file.references`, `view.render` for kanban, and `view.render` for graph returned `passed` results.
+- Browser smoke with Edge through Playwright: dashboard, `notes/markdown-reader`, graph view, and a `390px` wide document viewport rendered non-empty read-only UI without horizontal overflow.
+
+Confirmed release boundary:
+
+- The product WebApp still uses `RpcWorkspaceClient` only; there is no product-side mock workspace fallback.
+- Localized starter pages are represented as canonical page `variants` and are not listed as independent primary entries.
+- The starter fixture exercises notes, members, guidelines, tasks, language variants, raw assets, Markdown tables, code blocks, images, references, backlinks, kanban, and graph.
+- The first public release can keep Quick Open as dashboard-local route, space, page, and view navigation. It should not be positioned as full-text search until a shared search operation exists.
+
+Polish fixed during audit:
+
+- Added an embedded WebApp favicon so public smoke runs do not produce a default `/favicon.ico` 404.
+- Removed inactive account/action placeholder menu items from the sidebar user footer.
+- Replaced an obsolete dashboard entry body fallback that referred to a future backend wiring step.
+
+Remaining non-blocking follow-ups:
+
+- The WebApp bundle still reports large chunks, primarily from Markdown/code-highlighting assets. This is not a read-only release blocker but should be revisited before wider distribution.
+- The knowledge health surface is functional but still generic. Continue with [[tasks/expose-read-only-knowledge-health-in-webapp]] before treating diagnostics as polished.
+- The graph view is non-empty and navigable, but readability and interaction polish remain in [[tasks/implement-interactive-graph-view-render]].

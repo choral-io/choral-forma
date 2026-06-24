@@ -124,8 +124,7 @@ function mapEntry(entry: WorkspaceDashboardResult["entries"][number]): Dashboard
         body: [
             {
                 type: "paragraph",
-                text:
-                    entry.summary ?? "Entry rendering will be loaded from file.render in the next backend wiring step.",
+                text: entry.summary ?? "Open this page to render its Markdown source through the read-only RPC API.",
             },
         ],
         diagnostics: [],
