@@ -20,20 +20,28 @@ Use it for:
 
 ## Bootstrap (required before Forma knowledge actions)
 
-Run both:
+Run Forma commands from the target workspace root. If you cannot guarantee the current working directory, pass `--workspace <path>` explicitly.
+
+Before Forma knowledge actions, load the built-in CLI guide:
+
+- `cargo run -q -p forma-cli -- skills get forma-cli-core`
+
+Then run:
 
 - `cargo run -q -p forma-cli -- config inspect --json`
 - `cargo run -q -p forma-cli -- knowledge health --json`
 
-Add `--workspace <path>` when operating on a non-default workspace.
+Use `cargo run -q -p forma-cli -- skills list --json` to discover workspace-projected Agent skills. Load the relevant projected skill with `cargo run -q -p forma-cli -- skills get <skill-id>` before acting on a covered workflow.
 
-After reading config with `config inspect`, read the guideline files listed in the effective workspace config before task, board, review, proposal, or shared knowledge operations. Treat the config result as the source of truth for which guidelines exist.
+After reading config with `config inspect`, use configured guidelines and projected skills before task, board, review, proposal, or shared knowledge operations. Treat Forma operation results as the source of truth for which guidelines and skills exist.
 
 When a request involves a specific space, task, or file, inspect the target first and read any `guidelines` returned by the operation, in addition to workspace guidelines from config. Do not hard-code guideline paths, space ids, or repository directory conventions in this Skill; infer them from Forma operation results and the configured guideline contents.
 
 ## Read Commands
 
 - `cargo run -q -p forma-cli -- check --json`
+- `cargo run -q -p forma-cli -- skills list --json`
+- `cargo run -q -p forma-cli -- skills get <skill-id>`
 - `cargo run -q -p forma-cli -- knowledge health --json`
 - `cargo run -q -p forma-cli -- tasks list --json`
 - `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>`
