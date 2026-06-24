@@ -36,11 +36,13 @@ This suite is part of the validation chain for [[releases/next-internal-release]
 - [[test-cases/forma-starter-kit/starter-config-contract]]
 - [[test-cases/forma-starter-kit/starter-health-contract]]
 - [[test-cases/forma-starter-kit/starter-guideline-discovery-contract]]
+- [[test-cases/forma-starter-kit/starter-skill-interface-contract]]
 - [[test-cases/forma-starter-kit/starter-schema-quality-contract]]
 
 ## Agent Pressure Tests
 
 - [[test-cases/forma-starter-kit/starter-task-selection-pressure]]
+- [[test-cases/forma-starter-kit/starter-agent-skill-behavior-pressure]]
 - [[test-cases/forma-starter-kit/starter-blocked-to-done-pressure]]
 - [[test-cases/forma-starter-kit/starter-review-to-done-pressure]]
 - [[test-cases/forma-starter-kit/starter-write-verify-pressure]]
