@@ -12,6 +12,7 @@ use crate::config::{
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
+use crate::operations::workspace_skill_diagnostics;
 use crate::path::{FORMA_CONFIG_PATH, WorkspacePath, slugify_path_segment};
 use crate::schema::{SchemaNode, parse_space_schema, validate_schema_value};
 
@@ -303,8 +304,18 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
 }
 
 pub fn check_workspace(root: impl AsRef<Path>) -> CheckResult {
-    let mut diagnostics = match discover_workspace(root.as_ref()) {
-        Ok(discovery) => discovery.diagnostics,
+    let root = root.as_ref();
+    let mut diagnostics = match discover_workspace(root) {
+        Ok(discovery) => {
+            let mut diagnostics = discovery.diagnostics;
+            if let Ok(workspace) = load_workspace(root, LoadMode::SharedOnly) {
+                diagnostics.extend(workspace_skill_diagnostics(
+                    &workspace.root,
+                    &workspace.config,
+                ));
+            }
+            diagnostics
+        }
         Err(error) => vec![config_error_diagnostic(error)],
     };
     diagnostics.sort_by_key(diagnostic_sort_key);
@@ -1956,6 +1967,55 @@ mod tests {
     }
 
     #[test]
+    fn check_reports_invalid_guideline_skill_metadata() {
+        let root = fixture_root("invalid-guideline-skill");
+        write_workspace(&root);
+        add_workspace_guidelines(&root, &["notes/guideline.md"]);
+        write_entry(
+            &root,
+            "notes/guideline.md",
+            "---\ntitle: Guideline\nskill:\n  title: Missing Id\n---\n",
+        );
+
+        let result = check_workspace(&root);
+
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "skills.invalidMetadata"
+                && diagnostic.path.as_deref() == Some("notes/guideline.md")
+        }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn check_reports_duplicate_guideline_skill_ids() {
+        let root = fixture_root("duplicate-guideline-skill");
+        write_workspace(&root);
+        add_workspace_guidelines(&root, &["notes/first.md", "notes/second.md"]);
+        write_entry(
+            &root,
+            "notes/first.md",
+            "---\ntitle: First\nskill:\n  id: duplicate-skill\n---\n",
+        );
+        write_entry(
+            &root,
+            "notes/second.md",
+            "---\ntitle: Second\nskill:\n  id: duplicate-skill\n---\n",
+        );
+
+        let result = check_workspace(&root);
+
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "skills.duplicateId")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn resource_description_documents_report_missing_targets() {
         let root = fixture_root("resource-description-health");
         write_workspace(&root);
@@ -2084,6 +2144,16 @@ mod tests {
             "---\nkind: member\ntitle: \"{{ input.title }}\"\n---\n",
         )
         .unwrap();
+    }
+
+    fn add_workspace_guidelines(root: &Path, paths: &[&str]) {
+        let config_path = root.join(FORMA_CONFIG_PATH);
+        let mut config = fs::read_to_string(&config_path).unwrap();
+        config.push_str("guidelines:\n");
+        for path in paths {
+            config.push_str(&format!("  - {path}\n"));
+        }
+        fs::write(config_path, config).unwrap();
     }
 
     fn write_entry(root: &Path, path: &str, contents: &str) {

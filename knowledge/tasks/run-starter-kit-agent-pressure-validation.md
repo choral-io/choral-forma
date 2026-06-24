@@ -124,3 +124,42 @@ Outcome:
 Reviewed on 2026-06-23.
 
 No blocking findings were found. The task acceptance criteria are covered by recorded CLI contract evidence, pressure-case outcomes, and repository validation checks. Remaining automation, policy runtime, and reviewable write-operation gaps are explicitly deferred and do not block this internal validation pass.
+
+## Follow-up Skill Validation
+
+Date: 2026-06-24
+
+Scope:
+
+- [[test-cases/forma-starter-kit/starter-skill-interface-contract]]
+- [[test-cases/forma-starter-kit/starter-agent-skill-behavior-pressure]]
+
+Interface evidence:
+
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills list --json`: passed and returned `forma-cli-core`, `starter-workspace-operations`, and `starter-task-selection` with stable Agent-facing fields.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get forma-cli-core`: passed and returned built-in Markdown with workspace-root guidance.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-task-selection`: passed and rendered `guidelines/task-selection.md`.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-workspace-operations`: passed and rendered `guidelines/workspace-operations.md`.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get missing-skill`: failed clearly with `skills.notFound`.
+- Running `skills list --json` and `skills get starter-task-selection` from the starter root without `--workspace`: passed and returned the same starter skill set.
+- Temporary no-projected-skills fixture: `skills list --json` returned only `forma-cli-core`; `check --json` passed.
+- Temporary duplicate-skill-id fixture: `skills list --json` and `check --json` failed with `skills.duplicateId`.
+- Temporary invalid-skill-metadata fixture: `skills list --json` and `check --json` failed with `skills.invalidMetadata`.
+
+Agent behavior evidence:
+
+- Task selection: `tasks list --json` exposed blocked, reviewing, ready, doing, and done task states; `starter-task-selection` is the correct projected skill for the workflow.
+- Blocked task move: `tasks inspect tasks/add-team-notes.md --json` returned `status: blocked`, `readiness: blocked`, and applicable guidelines, so an Agent should not move it directly to done.
+- Review completion: `tasks inspect tasks/connect-related-pages.md --json` returned `status: reviewing`, `readiness: ready`, and applicable guidelines, so an Agent should require verification evidence before marking done.
+- Approved write: a temporary starter copy at `/private/tmp/forma-starter-skill-pressure.NYSJSc` accepted a new shared Markdown note plus inbound link; `check --json` and `knowledge health --json` both passed after the edit.
+- Local-only boundary: `.forma.yml` explicitly includes `.forma/local/*.yml` and `.forma/local/*.md`, while `.gitignore` keeps `.forma/local/` uncommitted; the workspace guideline says not to treat ignored local files as shared workspace knowledge.
+- Language variant: `list --space notes --json` listed canonical note pages only, while `notes/getting-started.zh-hans.md` and `notes/welcome-to-choral-forma.zh-hans.md` exist as variants.
+- Wrong workspace: using `--workspace examples/forma-starter-kit` from the repository root produced the expected starter outputs.
+- Missing workflow: only `starter-workspace-operations` and `starter-task-selection` are projected from starter guidelines, so uncovered workflows should be reported as guideline coverage gaps rather than guessed from paths.
+
+Result:
+
+- The `forma skills` interface is stable enough for this internal validation pass.
+- Agent behavior is sufficiently guided for read, task review, approved Markdown write verification, local-only classification, and language-variant placement.
+- The validation uncovered and fixed one product gap: `check` now includes skill metadata diagnostics, so duplicate or invalid `skill` frontmatter participates in the regular quality gate.
+- Remaining improvement: `skills get missing-skill` is clear but not JSON-structured unless the command grows a JSON mode for get failures.

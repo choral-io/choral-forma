@@ -42,6 +42,10 @@ Verify that `forma skills` is a stable Agent-facing interface: Agents can discov
 - Projected task skill command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-task-selection`
 - Projected workspace skill command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-workspace-operations`
 - Missing skill command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get missing-skill`
+- Boundary fixtures:
+  - No projected skills: remove `skill` metadata from configured guideline files in a temporary starter copy.
+  - Duplicate skill id: set two configured guidelines to the same `skill.id` in a temporary starter copy.
+  - Invalid skill metadata: remove `skill.id` from one configured guideline in a temporary starter copy.
 
 ## Steps
 
@@ -57,6 +61,12 @@ Verify that `forma skills` is a stable Agent-facing interface: Agents can discov
 10. Run the missing skill command.
 11. Confirm the missing skill fails clearly and does not suggest hard-coded guideline paths or hidden fallback behavior.
 12. Repeat the list and get commands from outside the starter workspace using `--workspace`, and confirm the results still point at the starter workspace.
+13. Run `skills list --json` and `check --json` against the no-projected-skills fixture.
+14. Confirm the no-projected-skills fixture still exposes `forma-cli-core` and passes `check`.
+15. Run `skills list --json` and `check --json` against the duplicate-skill-id fixture.
+16. Confirm both operations fail with `skills.duplicateId`.
+17. Run `skills list --json` and `check --json` against the invalid-skill-metadata fixture.
+18. Confirm both operations fail with `skills.invalidMetadata`.
 
 ## Expected Results
 
@@ -64,6 +74,7 @@ Verify that `forma skills` is a stable Agent-facing interface: Agents can discov
 - `skills get` is stable enough for direct Agent reading.
 - Built-in and projected skills are distinguishable by `source` and `sourcePath`.
 - Missing skill ids produce clear errors.
+- Duplicate and invalid skill metadata are surfaced by both `skills list` and `check`.
 - Correct workspace selection is controlled by the CLI workspace option or current workspace root, not by repository-specific path guessing.
 
 ## Coverage
@@ -75,6 +86,7 @@ Verify that `forma skills` is a stable Agent-facing interface: Agents can discov
 - Guideline-projected skill packaging.
 - Missing skill error behavior.
 - Workspace selection behavior.
+- Skill metadata diagnostics as a regular quality gate.
 
 ## Evidence Or Execution Notes
 
@@ -82,5 +94,4 @@ Record command output summaries, returned skill ids, source paths, and the missi
 
 ## Open Questions
 
-- Should malformed skill metadata be reported by `skills list`, `check`, or both?
 - Should `skills get` support JSON output for machine clients, or is Markdown output the primary Agent contract?

@@ -2235,6 +2235,17 @@ fn collect_workspace_skills(
     (skills, diagnostics)
 }
 
+pub(crate) fn workspace_skill_diagnostics(
+    root: &Path,
+    config: &WorkspaceConfig,
+) -> Vec<Diagnostic> {
+    let mut skills = builtin_skills();
+    let (workspace_skills, mut diagnostics) = collect_workspace_skills(root, config);
+    skills.extend(workspace_skills);
+    diagnostics.extend(duplicate_skill_id_diagnostics(&skills));
+    diagnostics
+}
+
 fn skill_value_from_frontmatter(frontmatter: &Value) -> Option<Value> {
     let Value::Mapping(mapping) = frontmatter else {
         return None;
