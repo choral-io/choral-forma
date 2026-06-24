@@ -20,8 +20,8 @@ tags:
     - proposals
 
 effort: M
-status: ready
-readiness: ready
+status: backlog
+readiness: needs-refinement
 sprint:
 
 blockedBy: []
@@ -43,6 +43,14 @@ affectedArea: Forma write operations
 ## Goal
 
 Define proposal, dry-run, apply, and verification behavior for future writable Forma workflows.
+
+## Deferral Note
+
+Deferred on 2026-06-24.
+
+Current product focus is returning to the public read-only WebApp release. Write-capable product behavior should not be designed as an isolated frontmatter patch primitive because useful writes need a broader operation, manual action, proposal, policy, and later trigger model. That scope is still important, but it should follow read-only stabilization.
+
+When this task is refined again, it should avoid treating any configured document type, such as the repository's tasks space, as a built-in Forma concept. The likely first write design should be space/schema-driven and should decide whether manual Actions are part of the same slice while keeping Triggers downstream.
 
 ## Sources
 
@@ -87,7 +95,7 @@ read workspace
 -> return verification evidence
 ```
 
-The first concrete operation family should be narrow and structured. Good candidates are task metadata transitions or single-entry frontmatter updates because they exercise the source-of-truth and review boundary without requiring arbitrary Markdown body editing.
+The first concrete operation family should be narrow and structured. It should be generic and space/schema-driven, such as a single-entry frontmatter patch or manual Action invocation over that patch, rather than a built-in task transition model.
 
 The design should keep these concepts separate:
 

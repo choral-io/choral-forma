@@ -74,6 +74,6 @@ Use Forma CLI operations and a thin Agent skill for repository knowledge checks,
 
 ## Follow-up
 
-- Design Forma writable operations as proposal/dry-run/apply flows in [[tasks/design-reviewable-forma-write-operations]].
-- Introduce machine-readable policies only when an operation can consume them through [[tasks/design-forma-policy-runtime]].
-- Start policy execution with task audit and task status movement rather than a broad policy engine.
+- Stabilize the read-only WebApp release path through [[tasks/stabilize-public-read-only-webapp-release]] before expanding product write operations.
+- Keep Forma writable operation design deferred in [[tasks/design-reviewable-forma-write-operations]] until operation, manual Action, proposal, policy, and later Trigger boundaries can be refined together.
+- Introduce machine-readable policies only when a concrete operation can consume them through [[tasks/design-forma-policy-runtime]].

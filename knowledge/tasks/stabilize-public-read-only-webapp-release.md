@@ -17,8 +17,8 @@ tags:
     - readonly
 
 effort: M
-status: backlog
-readiness: needs-refinement
+status: ready
+readiness: ready
 sprint:
 
 blockedBy: []
@@ -38,6 +38,12 @@ affectedArea: Public read-only WebApp release
 ## Goal
 
 Prepare the current RPC-backed read-only WebApp for the first public Choral Forma release.
+
+## Readiness Note
+
+Promoted to Ready on 2026-06-24.
+
+The next product slice should prioritize read-only WebApp stabilization instead of expanding write-capable operation design. This task is now the umbrella for validating the current read-only product boundary, coordinating health, graph, quick navigation, embedded asset, fixture, and smoke-test work without adding proposal, apply, AI Chat, or editor-extension scope.
 
 ## Sources
 
