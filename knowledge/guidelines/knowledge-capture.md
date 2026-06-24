@@ -90,6 +90,8 @@ Skip the dry run only for a user-approved single-file wording or metadata edit w
 
 Do not write shared knowledge, task metadata, `.forma` config, or repository operating state without explicit approval.
 
+The next refinement of direct Agent-authored Markdown procedure is tracked by [[tasks/define-agent-markdown-authoring-workflow]].
+
 When approved:
 
 1. Edit the smallest set of canonical Markdown files.

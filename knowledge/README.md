@@ -15,7 +15,7 @@ This directory is the project knowledge base for this repository and is the prin
 
 The current internal-development focus is proving that Forma can manage this repository's project knowledge through repository Markdown, configured spaces, schemas, guidelines, CLI checks, and the WebApp read surface.
 
-The active validation thread is replacing the old `knowledge-workflow` skills with Forma CLI plus configured guidelines. The main executable gate is [[tasks/run-starter-kit-agent-pressure-validation]], supported by the starter-kit validation suite in [[test-cases/forma-starter-kit]].
+The active validation thread has replaced the old `knowledge-workflow` skills with Forma CLI plus configured guidelines. The current near-term focus is read workflow quality and disciplined Agent-authored Markdown edits. The next Agent workflow task is [[tasks/define-agent-markdown-authoring-workflow]], building on [[tasks/run-starter-kit-agent-pressure-validation]] and the starter-kit validation suite in [[test-cases/forma-starter-kit]].
 
 Use release, metric, user-story, experiment, test-case, and task records to judge current product readiness. Older migration and audit notes remain evidence, but should not be treated as the current execution entrypoint unless a current task, release, experiment, or planning record links to them.
 
