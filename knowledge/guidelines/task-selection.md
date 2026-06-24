@@ -10,6 +10,16 @@ tags:
     - tasks
     - delivery
     - planning
+skill:
+    id: task-selection
+    title: Task Selection
+    description: Use when an Agent needs to choose, inspect, refine, or report delivery task state.
+    triggers:
+        - choose next task
+        - inspect task readiness
+        - review task board
+        - move task status
+    order: 30
 sources:
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
     - "guidelines/forma-knowledge-operations"
@@ -22,6 +32,33 @@ sources:
 This guideline consolidates the soft delivery behavior previously spread across task selection, task metadata audit, delivery planning, Kanban maintenance, delivery implementation, and delivery review skills.
 
 It guides humans and Agents. It is not a machine-enforced policy and does not authorize board or task writes without explicit approval.
+
+## Agent Skill
+
+### When To Use
+
+Use this skill when an Agent needs to choose the next task, inspect task readiness, review delivery state, or prepare a task for execution.
+
+### Required Bootstrap
+
+Run:
+
+- `cargo run -q -p forma-cli -- skills get forma-cli-core`
+- `cargo run -q -p forma-cli -- tasks list --json`
+
+Inspect candidate tasks with `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>` before recommending or changing status.
+
+### Task Selection Workflow
+
+1. Prefer tasks whose metadata and status indicate they are actionable.
+2. If no ready task exists, choose the highest-leverage backlog item and report what must be refined.
+3. Check blockers, dependencies, acceptance criteria, owner context, and review expectations before execution.
+4. Recommend status changes only when the task evidence supports them.
+5. Keep selection grounded in current task metadata and configured board semantics.
+
+### Report
+
+Report the selected task, why it is next, what evidence supports the recommendation, and what must change before execution if it is not ready.
 
 ## Evidence To Gather
 

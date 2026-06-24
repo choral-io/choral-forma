@@ -10,6 +10,16 @@ tags:
     - knowledge
     - capture
     - maintenance
+skill:
+    id: markdown-authoring
+    title: Agent Markdown Authoring
+    description: Use when an Agent needs to create or edit shared Markdown knowledge.
+    triggers:
+        - create shared knowledge
+        - edit task metadata
+        - promote local notes
+        - update guidelines
+    order: 20
 sources:
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
     - "guidelines/forma-knowledge-operations"
@@ -22,6 +32,39 @@ sources:
 This guideline consolidates the soft knowledge behavior previously spread across knowledge assistant, intake, capture, schema audit, and status report skills.
 
 It keeps knowledge maintenance as ordinary Markdown work guided by Forma configuration and checks. It is not a machine-enforced policy and does not require a separate capture skill.
+
+## Agent Skill
+
+### When To Use
+
+Use this skill when an Agent has explicit approval to create, update, promote, or clean up shared Markdown knowledge in the current Forma workspace.
+
+### Required Bootstrap
+
+Run:
+
+- `cargo run -q -p forma-cli -- skills get forma-cli-core`
+- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- knowledge health --json`
+
+Read configured workspace guidelines before editing. If acting on a task or entry, inspect that target and read returned guidelines.
+
+### Authoring Workflow
+
+1. Classify the source material as transient context, local-only material, shared knowledge, task metadata, proposal material, or decision material.
+2. Choose the target configured space from `.forma.yml` and space definitions.
+3. For multi-file edits, promotion from local-only material, task status changes, guideline/config changes, or ambiguous placement, provide a dry-run summary before editing.
+4. Edit the smallest set of canonical Markdown files.
+5. Preserve source context without copying private scratch content.
+6. Keep Markdown readable without editor-specific plugin requirements.
+
+### Verification
+
+Run `cargo run -q -p forma-cli -- check --json` after edits. Run `cargo run -q -p forma-cli -- knowledge health --json` when links, placement, or references matter.
+
+### Report
+
+Report files changed, durable facts added or clarified, checks run, checks not run, remaining warnings, and follow-up tasks.
 
 ## Evidence To Gather
 

@@ -59,6 +59,8 @@ The current stage should prioritize read workflows and disciplined Agent-authore
 
 This task should clarify how Agents use `.forma.yml`, configured spaces, schema, guidelines, and Forma CLI diagnostics before and after editing repository Markdown.
 
+The workflow must include discovery of workflow-relevant skills via `cargo run -q -p forma-cli -- skills list` and `cargo run -q -p forma-cli -- skills get`, including the built-in `forma-cli-core` and guideline-projected workspace skills.
+
 ## In Scope
 
 - Define the Agent workflow for approved direct Markdown edits.
@@ -67,6 +69,7 @@ This task should clarify how Agents use `.forma.yml`, configured spaces, schema,
 - Define local-only, shared-knowledge, and promotion boundaries.
 - Define required post-edit checks and review evidence.
 - Update existing guidelines or the project-local `forma-cli` skill if the workflow needs clearer entrypoint instructions.
+- Include `skills list` and `skills get` into the workflow to expose and apply built-in `forma-cli-core` and guideline-projected workspace skills.
 - Identify whether starter-kit Agent pressure tests need an additional case or wording updates.
 
 ## Out of Scope
@@ -85,5 +88,6 @@ This task should clarify how Agents use `.forma.yml`, configured spaces, schema,
 - The workflow states which edits require a dry-run summary before file changes.
 - The workflow states required verification commands after writing, including `check` and `knowledge health` when references or placement matter.
 - The workflow defines review evidence that Agents must report after edits.
+- The workflow includes `skills list` and `skills get` usage, and explicitly documents projection of the built-in `forma-cli-core` skill and guideline-defined workspace skills into task execution.
 - Existing product-level write-operation tasks remain deferred and are not treated as prerequisites.
 - Forma checks and knowledge health pass after the workflow is recorded.
