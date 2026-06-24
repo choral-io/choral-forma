@@ -24,11 +24,13 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blockedBy: []
+blockedBy:
+    - "tasks/design-reviewable-forma-write-operations"
 relatedTo:
     - "product/product-direction"
     - "architecture/forma-policy-and-operation-model"
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
+    - "tasks/design-reviewable-forma-write-operations"
 
 reportedBy:
 affectedArea: Forma policy runtime
@@ -39,6 +41,10 @@ affectedArea: Forma policy runtime
 ## Goal
 
 Define the minimal machine-readable policy model for write-capable Forma operations.
+
+## Context
+
+Policy runtime work should follow an accepted reviewable write-operation design. Without a concrete operation consumer, policy design is likely to become a broad abstract engine instead of a small operation-facing gate.
 
 ## Sources
 

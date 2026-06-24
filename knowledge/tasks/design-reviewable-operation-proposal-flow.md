@@ -24,7 +24,9 @@ sprint:
 
 blockedBy:
     - "tasks/implement-webapp-v2-dashboard-shell"
+    - "tasks/design-reviewable-forma-write-operations"
 relatedTo:
+    - "tasks/design-reviewable-forma-write-operations"
     - "tasks/design-reviewable-knowledge-change-proposals"
     - "tasks/design-metadata-edit-deprecate-operations"
     - "decisions/webapp-primary-gui-client"
@@ -79,6 +81,8 @@ The WebApp is becoming the primary GUI client, but repository Markdown remains t
 ## Relationship Notes
 
 This task should be refined after the WebApp V2 dashboard shell establishes the primary GUI structure. It can absorb or coordinate with [[tasks/design-reviewable-knowledge-change-proposals]] when the product model is settled.
+
+It should also follow [[tasks/design-reviewable-forma-write-operations]], because WebApp proposal states should specialize the shared operation contract rather than define a separate write boundary.
 
 ## Open Questions
 
