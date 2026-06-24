@@ -15,8 +15,8 @@ use axum::routing::{get, post};
 use clap::{Parser, Subcommand};
 use forma_rpc::{
     BoardShowRequest, CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher,
-    InspectRequest, KnowledgeHealthRequest, ListRequest, OperationRequest, TasksInspectRequest,
-    TasksListRequest,
+    InspectRequest, KnowledgeHealthRequest, ListRequest, OperationRequest, SkillsGetRequest,
+    SkillsListRequest, TasksInspectRequest, TasksListRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -85,6 +85,10 @@ enum Command {
         #[command(subcommand)]
         command: KnowledgeCommand,
     },
+    Skills {
+        #[command(subcommand)]
+        command: SkillsCommand,
+    },
     Serve {
         #[arg(long, default_value = "127.0.0.1:0")]
         bind: SocketAddr,
@@ -131,6 +135,19 @@ enum BoardCommand {
 #[derive(Debug, Subcommand)]
 enum KnowledgeCommand {
     Health {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum SkillsCommand {
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    Get {
+        id: String,
         #[arg(long)]
         json: bool,
     },
@@ -255,6 +272,22 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 Ok(())
             }
         },
+        Some(Command::Skills { command }) => match command {
+            SkillsCommand::List { json } => {
+                let result = dispatcher
+                    .dispatch(OperationRequest::SkillsList(SkillsListRequest::default()))?;
+                print_skills_list_result(&result, json);
+                exit_if_failed(&result);
+                Ok(())
+            }
+            SkillsCommand::Get { id, json } => {
+                let result =
+                    dispatcher.dispatch(OperationRequest::SkillsGet(SkillsGetRequest { id }))?;
+                print_skill_get_result(&result, json);
+                exit_if_failed(&result);
+                Ok(())
+            }
+        },
         Some(Command::Serve {
             bind,
             root_path,
@@ -285,6 +318,64 @@ fn print_result(result: &forma_rpc::OperationResult, json: bool, label: &str) {
     }
 }
 
+fn print_skills_list_result(result: &forma_rpc::OperationResult, json: bool) {
+    if json {
+        println!("{}", result.to_json_string());
+        return;
+    }
+
+    println!("skills list {}", result.status_label());
+    for diagnostic in &result.diagnostics {
+        print_diagnostic(diagnostic);
+    }
+    if let Some(skills) = result.data.get("skills").and_then(|value| value.as_array()) {
+        for skill in skills {
+            let id = skill
+                .get("id")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            let title = skill
+                .get("title")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            let source = skill
+                .get("sourcePath")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            println!("{id}\t{title}\t{source}");
+        }
+    }
+}
+
+fn print_skill_get_result(result: &forma_rpc::OperationResult, json: bool) {
+    if json {
+        println!("{}", result.to_json_string());
+        return;
+    }
+
+    if let Some(content) = result
+        .data
+        .get("skill")
+        .and_then(|skill| skill.get("content"))
+        .and_then(|content| content.as_str())
+    {
+        print!("{content}");
+        if !content.ends_with('\n') {
+            println!();
+        }
+        if !matches!(result.status, forma_core::OperationStatus::Passed) {
+            for diagnostic in &result.diagnostics {
+                eprint_diagnostic(diagnostic);
+            }
+        }
+    } else {
+        println!("skills get {}", result.status_label());
+        for diagnostic in &result.diagnostics {
+            print_diagnostic(diagnostic);
+        }
+    }
+}
+
 fn print_diagnostic(diagnostic: &forma_core::Diagnostic) {
     let severity = match diagnostic.severity {
         forma_core::DiagnosticSeverity::Error => "error",
@@ -298,6 +389,22 @@ fn print_diagnostic(diagnostic: &forma_core::Diagnostic) {
         );
     } else {
         println!("{severity} {}: {}", diagnostic.code, diagnostic.message);
+    }
+}
+
+fn eprint_diagnostic(diagnostic: &forma_core::Diagnostic) {
+    let severity = match diagnostic.severity {
+        forma_core::DiagnosticSeverity::Error => "error",
+        forma_core::DiagnosticSeverity::Warning => "warning",
+        forma_core::DiagnosticSeverity::Info => "info",
+    };
+    if let Some(path) = &diagnostic.path {
+        eprintln!(
+            "{severity} {}: {} ({path})",
+            diagnostic.code, diagnostic.message
+        );
+    } else {
+        eprintln!("{severity} {}: {}", diagnostic.code, diagnostic.message);
     }
 }
 

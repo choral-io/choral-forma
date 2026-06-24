@@ -42,6 +42,10 @@ pub enum Operation {
     FileReferences,
     #[serde(rename = "knowledge.health")]
     KnowledgeHealth,
+    #[serde(rename = "skills.list")]
+    SkillsList,
+    #[serde(rename = "skills.get")]
+    SkillsGet,
 }
 
 impl Operation {
@@ -61,6 +65,8 @@ impl Operation {
             Self::FileRender => "file.render",
             Self::FileReferences => "file.references",
             Self::KnowledgeHealth => "knowledge.health",
+            Self::SkillsList => "skills.list",
+            Self::SkillsGet => "skills.get",
         }
     }
 }
@@ -81,6 +87,8 @@ pub enum OperationRequest {
     FileRender(FileRenderRequest),
     FileReferences(FileReferencesRequest),
     KnowledgeHealth(KnowledgeHealthRequest),
+    SkillsList(SkillsListRequest),
+    SkillsGet(SkillsGetRequest),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,6 +188,18 @@ pub struct FileReferencesRequest {
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeHealthRequest {}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillsListRequest {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillsGetRequest {
+    pub id: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -310,6 +330,12 @@ impl Dispatcher {
             OperationRequest::KnowledgeHealth(_) => forma_core::operations::knowledge_health(root)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::KnowledgeHealth, error))),
+            OperationRequest::SkillsList(_) => forma_core::skills_list(root)
+                .map(OperationResult::from)
+                .or_else(|error| Ok(core_error_result(Operation::SkillsList, error))),
+            OperationRequest::SkillsGet(request) => forma_core::skills_get(root, &request.id)
+                .map(OperationResult::from)
+                .or_else(|error| Ok(core_error_result(Operation::SkillsGet, error))),
         }
     }
 
@@ -580,6 +606,24 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "skills.list" => serde_json::from_value::<SkillsListRequest>(params)
+            .map(OperationRequest::SkillsList)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "skills.get" => serde_json::from_value::<SkillsGetRequest>(params)
+            .map(OperationRequest::SkillsGet)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         "workspace.dashboard" => serde_json::from_value::<WorkspaceDashboardRequest>(params)
             .map(OperationRequest::WorkspaceDashboard)
             .map_err(|_| {
@@ -607,6 +651,42 @@ impl From<forma_core::CheckResult> for OperationResult {
             diagnostics: result.diagnostics,
             path: None,
             data: BTreeMap::new(),
+        }
+    }
+}
+
+impl From<forma_core::SkillsListResult> for OperationResult {
+    fn from(result: forma_core::SkillsListResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("skills".to_string(), json!(result.skills));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::SkillsGetResult> for OperationResult {
+    fn from(result: forma_core::SkillsGetResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        if let Some(skill) = result.skill {
+            data.insert("skill".to_string(), json!(skill));
+        }
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
         }
     }
 }
@@ -1236,6 +1316,50 @@ mod tests {
         assert_eq!(
             response["result"]["findings"][0]["category"],
             "brokenReference"
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_dispatches_skills_list_and_get() {
+        let root = fixture_root("skills-rpc");
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        fs::write(
+            root.join(".forma.yml"),
+            "schemaVersion: 1\nworkspace:\n  name: Skills RPC\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/guidelines/authoring.md"),
+            "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
+        )
+        .unwrap();
+
+        let list = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"skills.list","params":{}}"#,
+        );
+        assert_eq!(list["result"]["operation"], "skills.list");
+        assert_eq!(list["result"]["skills"][0]["id"], "forma-cli-core");
+        assert!(
+            list["result"]["skills"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|skill| skill["id"] == "markdown-authoring")
+        );
+
+        let get = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"2","method":"skills.get","params":{"id":"markdown-authoring"}}"#,
+        );
+        assert_eq!(get["result"]["operation"], "skills.get");
+        assert!(
+            get["result"]["skill"]["content"]
+                .as_str()
+                .unwrap()
+                .contains("Follow the workflow.")
         );
 
         fs::remove_dir_all(root).unwrap();

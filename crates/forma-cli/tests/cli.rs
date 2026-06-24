@@ -155,6 +155,139 @@ fn knowledge_health_human_output_reports_warning_summary() {
 }
 
 #[test]
+fn skills_get_builtin_core_prints_markdown_without_workspace_config() {
+    let root = fixture_root("skills-builtin");
+    std::fs::create_dir_all(&root).unwrap();
+
+    let output = forma(&root)
+        .args(["skills", "get", "forma-cli-core"])
+        .output()
+        .expect("forma skills get forma-cli-core should run");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("# Forma CLI Core"));
+    assert!(stdout.contains("Run Forma commands from the target workspace root."));
+    assert!(stdout.contains("Built-in skill: forma-cli-core"));
+    assert!(stdout.contains("forma skills list --json"));
+    assert!(!stdout.contains(r#""operation":"skills.get""#));
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn skills_list_json_discovers_builtin_and_configured_guideline_skills() {
+    let root = fixture_root("skills-list");
+    std::fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+    std::fs::write(
+        root.join(".forma.yml"),
+        "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("knowledge/guidelines/authoring.md"),
+        "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
+    )
+    .unwrap();
+
+    let output = forma(&root)
+        .args(["skills", "list", "--json"])
+        .output()
+        .expect("forma skills list --json should run");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(r#""operation":"skills.list""#));
+    assert!(stdout.contains(r#""id":"forma-cli-core""#));
+    assert!(stdout.contains(r#""id":"markdown-authoring""#));
+    assert!(stdout.contains(r#""sourcePath":"knowledge/guidelines/authoring.md""#));
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn skills_get_workspace_skill_prints_markdown_for_agent_consumption() {
+    let root = fixture_root("skills-get");
+    std::fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+    std::fs::write(
+        root.join(".forma.yml"),
+        "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("knowledge/guidelines/authoring.md"),
+        "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
+    )
+    .unwrap();
+
+    let output = forma(&root)
+        .args(["skills", "get", "markdown-authoring"])
+        .output()
+        .expect("forma skills get should run");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Source guideline: knowledge/guidelines/authoring.md"));
+    assert!(stdout.contains("Follow the workflow."));
+    assert!(!stdout.contains(r#""operation":"skills.get""#));
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn skills_get_markdown_output_reports_diagnostics_to_stderr() {
+    let root = fixture_root("skills-get-diagnostics");
+    std::fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+    std::fs::write(
+        root.join(".forma.yml"),
+        "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n  - knowledge/guidelines/first-duplicate.md\n  - knowledge/guidelines/second-duplicate.md\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("knowledge/guidelines/authoring.md"),
+        "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("knowledge/guidelines/first-duplicate.md"),
+        "---\nskill:\n  id: duplicate-workflow\n  title: Duplicate One\n---\n\n# Duplicate One\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("knowledge/guidelines/second-duplicate.md"),
+        "---\nskill:\n  id: duplicate-workflow\n  title: Duplicate Two\n---\n\n# Duplicate Two\n",
+    )
+    .unwrap();
+
+    let output = forma(&root)
+        .args(["skills", "get", "markdown-authoring"])
+        .output()
+        .expect("forma skills get should run");
+
+    assert!(!output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Follow the workflow."));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("error skills.duplicateId"));
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn create_list_and_inspect_use_operation_json() {
     let root = fixture_root("starter-flow");
     let home = fixture_root("starter-flow-home-without-git-config");
