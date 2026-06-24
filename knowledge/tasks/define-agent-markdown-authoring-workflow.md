@@ -52,6 +52,7 @@ Define the approved direct Markdown authoring workflow for Agents while Forma re
 - [[tasks/run-starter-kit-agent-pressure-validation]]
 - [[test-cases/forma-starter-kit/starter-write-verify-pressure]]
 - [[test-cases/forma-starter-kit/starter-local-only-promotion-pressure]]
+- Built-in CLI guide asset: `crates/forma-core/assets/skills/forma-cli-core.md`
 
 ## Context
 
@@ -60,6 +61,8 @@ The current stage should prioritize read workflows and disciplined Agent-authore
 This task should clarify how Agents use `.forma.yml`, configured spaces, schema, guidelines, and Forma CLI diagnostics before and after editing repository Markdown.
 
 The workflow must include discovery of workflow-relevant skills via `cargo run -q -p forma-cli -- skills list` and `cargo run -q -p forma-cli -- skills get`, including the built-in `forma-cli-core` and guideline-projected workspace skills.
+
+The built-in `forma-cli-core` Markdown source is packaged from `crates/forma-core/assets/skills/forma-cli-core.md`. It is intentionally a code asset rather than a project knowledge guideline, while workspace skills are projected only from configured guideline documents.
 
 ## In Scope
 

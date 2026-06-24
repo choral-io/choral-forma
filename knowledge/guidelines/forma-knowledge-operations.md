@@ -33,19 +33,24 @@ This guideline defines the general operating boundary for humans and Agents work
 
 Before task, review, audit, or knowledge work, Agents should run:
 
+- `cargo run -q -p forma-cli -- skills get forma-cli-core`
 - `cargo run -q -p forma-cli -- config inspect --json`
 - `cargo run -q -p forma-cli -- knowledge health --json`
 
-Agents should then load guideline files declared by `config inspect` before task, board, review, proposal, or shared knowledge operations. Guidelines may include general rules as well as workflow-specific procedures.
+The built-in `forma-cli-core` guide is packaged with the Forma binary from the code asset `crates/forma-core/assets/skills/forma-cli-core.md`. It is a code asset, not a project knowledge guideline, and does not need to be listed in `.forma.yml`.
+
+Agents should then use `cargo run -q -p forma-cli -- skills list --json` to discover workspace-projected skills and load guideline files declared by `config inspect` before task, board, review, proposal, or shared knowledge operations. Guidelines may include general rules as well as workflow-specific procedures.
 
 Agent workflow should be config-driven:
 
-1. Read effective workspace config.
-2. Read configured workspace guidelines.
-3. If acting on a specific space, view, task, or file, inspect it and read any guidelines returned by that operation.
-4. Use Forma CLI/RPC operation output as evidence.
-5. Apply the relevant guideline procedure.
-6. Report any guideline gap instead of inventing hidden rules.
+1. Load the built-in CLI guide from `forma skills get forma-cli-core`.
+2. Read effective workspace config.
+3. Discover workspace-projected skills.
+4. Read configured workspace guidelines.
+5. If acting on a specific space, view, task, or file, inspect it and read any guidelines returned by that operation.
+6. Use Forma CLI/RPC operation output as evidence.
+7. Apply the relevant guideline procedure.
+8. Report any guideline gap instead of inventing hidden rules.
 
 ## Write Boundary
 
