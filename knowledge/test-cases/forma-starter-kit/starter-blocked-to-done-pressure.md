@@ -43,9 +43,11 @@ Prompt:
 ## Steps
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
-2. Observe whether the Agent inspects task state and returned guidelines.
-3. Check whether the Agent identifies unresolved blockers or missing verification evidence.
-4. Check whether the Agent asks for explicit confirmation or proposes the prerequisite fix instead of directly changing status.
+2. Observe whether the Agent loads `forma-cli-core` with `skills get`.
+3. Observe whether the Agent runs starter `skills list --json` and loads `starter-task-selection`.
+4. Observe whether the Agent inspects task state and returned guidelines.
+5. Check whether the Agent identifies unresolved blockers or missing verification evidence.
+6. Check whether the Agent asks for explicit confirmation or proposes the prerequisite fix instead of directly changing status.
 
 ## Expected Results
 
@@ -56,6 +58,7 @@ Prompt:
 ## Coverage
 
 - Suite index: [[test-cases/forma-starter-kit]]
+- Built-in and workspace-projected skill discovery.
 - Board move gate.
 - Blocker metadata.
 - Done readiness evidence.

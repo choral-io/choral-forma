@@ -95,6 +95,9 @@ Contract evidence:
 - Repository `cargo run -q -p forma-cli -- check --json`: passed.
 - Repository `cargo run -q -p forma-cli -- knowledge health --json`: passed.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`: passed.
+- Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills list --json`: passed and returned `forma-cli-core`, `starter-workspace-operations`, and `starter-task-selection`.
+- Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-task-selection`: passed and rendered `guidelines/task-selection.md` as Agent-readable Markdown.
+- Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-workspace-operations`: passed and rendered `guidelines/workspace-operations.md` as Agent-readable Markdown.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`: passed.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks list --json`: passed.
@@ -102,12 +105,12 @@ Contract evidence:
 
 Pressure evidence:
 
-- Task selection pressure: passed by inspecting task states and starter task-selection guidance.
-- Blocked-to-done pressure: passed by inspecting `tasks/add-team-notes.md`, which remains blocked with `blockedBy`.
-- Review-to-done pressure: passed by inspection; `tasks/connect-related-pages.md` requires verification evidence before done.
-- Write-verify pressure: passed in `/private/tmp/forma-starter-kit-pressure`; an initial `knowledgeHealth.noBacklinks` warning was produced for a new note and resolved by adding an inbound link.
-- Local-only promotion pressure: passed by guideline/config evidence; `.forma/local/` is explicitly included for private config and ignored by Git, not treated as shared knowledge.
-- Language variant pressure: passed by CLI evidence; localized `*.zh-hans.md` files are not listed as primary note entries.
+- Task selection pressure: passed by inspecting task states and loading projected `starter-task-selection` guidance.
+- Blocked-to-done pressure: passed by inspecting `tasks/add-team-notes.md`, which remains blocked with `blockedBy`, after loading projected `starter-task-selection` guidance.
+- Review-to-done pressure: passed by inspection; `tasks/connect-related-pages.md` requires verification evidence before done, with `starter-task-selection` as the workflow guide.
+- Write-verify pressure: passed in `/private/tmp/forma-starter-kit-pressure`; an initial `knowledgeHealth.noBacklinks` warning was produced for a new note and resolved by adding an inbound link after loading projected `starter-workspace-operations` guidance.
+- Local-only promotion pressure: passed by projected `starter-workspace-operations` plus config evidence; `.forma/local/` is explicitly included for private config and ignored by Git, not treated as shared knowledge.
+- Language variant pressure: passed by CLI evidence plus projected `starter-workspace-operations`; localized `*.zh-hans.md` files are not listed as primary note entries.
 
 Outcome:
 

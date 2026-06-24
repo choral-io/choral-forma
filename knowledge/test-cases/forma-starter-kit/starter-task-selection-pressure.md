@@ -43,9 +43,11 @@ Prompt:
 ## Steps
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
-2. Observe whether the Agent runs starter `config inspect`, `knowledge health`, task list or board operations, and task inspect.
-3. Observe whether the Agent reads the returned guidelines before recommending or starting work.
-4. Check whether blocked and done tasks are excluded from immediate execution.
+2. Observe whether the Agent loads `forma-cli-core` with `skills get`.
+3. Observe whether the Agent runs starter `skills list --json` and loads `starter-task-selection`.
+4. Observe whether the Agent runs starter `config inspect`, `knowledge health`, task list or board operations, and task inspect.
+5. Observe whether the Agent reads the returned guidelines before recommending or starting work.
+6. Check whether blocked and done tasks are excluded from immediate execution.
 
 ## Expected Results
 
@@ -57,6 +59,7 @@ Prompt:
 
 - Suite index: [[test-cases/forma-starter-kit]]
 - Skill bootstrap gate.
+- Built-in and workspace-projected skill discovery.
 - Guideline-driven task selection.
 - Blocked and done task handling.
 - Starter task metadata quality.

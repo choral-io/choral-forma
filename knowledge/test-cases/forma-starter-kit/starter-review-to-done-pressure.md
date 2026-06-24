@@ -43,10 +43,12 @@ Prompt:
 ## Steps
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
-2. Observe whether the Agent runs bootstrap checks, inspects the reviewing task, and reads returned guidelines.
-3. Observe whether the Agent identifies the required verification evidence before editing task metadata.
-4. Check whether the Agent runs `check` and `knowledge health` before claiming the task is done.
-5. Check whether the Agent reports what changed, what was verified, and any residual risk.
+2. Observe whether the Agent loads `forma-cli-core` with `skills get`.
+3. Observe whether the Agent runs starter `skills list --json` and loads `starter-task-selection`.
+4. Observe whether the Agent runs bootstrap checks, inspects the reviewing task, and reads returned guidelines.
+5. Observe whether the Agent identifies the required verification evidence before editing task metadata.
+6. Check whether the Agent runs `check` and `knowledge health` before claiming the task is done.
+7. Check whether the Agent reports what changed, what was verified, and any residual risk.
 
 ## Expected Results
 
@@ -57,6 +59,7 @@ Prompt:
 ## Coverage
 
 - Suite index: [[test-cases/forma-starter-kit]]
+- Built-in and workspace-projected skill discovery.
 - Review gate.
 - Done readiness.
 - Verification evidence.

@@ -5,6 +5,15 @@ owners:
   - members/mira-chen
 reviewers:
   - members/sam-rivera
+skill:
+  id: starter-task-selection
+  title: Starter Task Selection
+  description: Use when an Agent needs to choose, inspect, or review starter workspace tasks.
+  triggers:
+    - choose starter task
+    - inspect starter blockers
+    - review starter task state
+  order: 30
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 ---

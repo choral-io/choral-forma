@@ -5,6 +5,15 @@ owners:
   - members/mira-chen
 reviewers:
   - members/sam-rivera
+skill:
+  id: starter-workspace-operations
+  title: Starter Workspace Operations
+  description: Use when an Agent needs to maintain or classify shared starter workspace knowledge.
+  triggers:
+    - starter knowledge edits
+    - local-only promotion
+    - language variant placement
+  order: 20
 createdAt: "2026-06-03T18:00:00Z"
 updatedAt: "2026-06-03T18:00:00Z"
 ---

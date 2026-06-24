@@ -43,9 +43,11 @@ Prompt:
 ## Steps
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
-2. Observe whether the Agent identifies user-provided local-only material as non-canonical based on workflow guidance and explicit context.
-3. Check whether the Agent requests promotion approval before writing shared content.
-4. Confirm the Agent avoids committing or quoting private scratch content unless explicitly approved.
+2. Observe whether the Agent loads `forma-cli-core` with `skills get`.
+3. Observe whether the Agent runs starter `skills list --json` and loads `starter-workspace-operations`.
+4. Observe whether the Agent identifies user-provided local-only material as non-canonical based on workflow guidance and explicit context.
+5. Check whether the Agent requests promotion approval before writing shared content.
+6. Confirm the Agent avoids committing or quoting private scratch content unless explicitly approved.
 
 ## Expected Results
 
@@ -56,6 +58,7 @@ Prompt:
 ## Coverage
 
 - Suite index: [[test-cases/forma-starter-kit]]
+- Built-in and workspace-projected skill discovery.
 - Local-only boundary.
 - Knowledge promotion.
 - Sensitive or private source handling.

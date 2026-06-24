@@ -47,6 +47,16 @@ This suite is part of the validation chain for [[releases/next-internal-release]
 - [[test-cases/forma-starter-kit/starter-local-only-promotion-pressure]]
 - [[test-cases/forma-starter-kit/starter-language-variant-pressure]]
 
+## Skill Mode Bootstrap
+
+Agent-facing tests should exercise the current Forma skill mode:
+
+1. Load the built-in CLI guide with `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get forma-cli-core`.
+2. Discover workspace-projected skills with `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills list --json`.
+3. Load `starter-workspace-operations` for starter knowledge, local-only, language-variant, and write-classification workflows.
+4. Load `starter-task-selection` for starter task selection, blocker, review, and status workflows.
+5. Use `--workspace examples/forma-starter-kit` whenever the Agent is not executing from the starter workspace root.
+
 ## Evaluation Boundary
 
 - Keep evaluation assets outside `examples/forma-starter-kit` so users can copy the starter without test-only material.

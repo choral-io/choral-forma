@@ -43,9 +43,11 @@ Prompt:
 ## Steps
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
-2. Observe whether the Agent inspects the canonical page and language variants.
-3. Check whether the Agent refuses to create or list the localized variant as an independent primary page.
-4. Confirm any proposed edit targets the canonical page or variant metadata intentionally.
+2. Observe whether the Agent loads `forma-cli-core` with `skills get`.
+3. Observe whether the Agent runs starter `skills list --json` and loads `starter-workspace-operations`.
+4. Observe whether the Agent inspects the canonical page and language variants.
+5. Check whether the Agent refuses to create or list the localized variant as an independent primary page.
+6. Confirm any proposed edit targets the canonical page or variant metadata intentionally.
 
 ## Expected Results
 
@@ -56,6 +58,7 @@ Prompt:
 ## Coverage
 
 - Suite index: [[test-cases/forma-starter-kit]]
+- Built-in and workspace-projected skill discovery.
 - Canonical language model.
 - Language variant indexing.
 - Agent placement behavior.

@@ -36,21 +36,28 @@ Verify that the starter workspace exposes guidance as ordinary knowledge and tha
 ## Test Data
 
 - Workspace: `examples/forma-starter-kit`
-- Bootstrap command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`
+- Built-in skill command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get forma-cli-core`
+- Skills list command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills list --json`
+- Config command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`
 - Task command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks inspect tasks/add-team-notes.md --json`
 
 ## Steps
 
-1. Run the bootstrap command.
-2. Confirm workspace-level `guidelines` are returned as Markdown paths inside the starter workspace.
-3. Confirm bootstrap output does not require the Agent to know task-specific guideline paths in advance.
-4. Run the task command.
-5. Confirm the task operation returns the workspace guidelines plus the task-specific guideline declared by the tasks space.
-6. Confirm all returned guideline paths can be read as ordinary starter knowledge pages.
+1. Run the built-in skill command and confirm it prints `forma-cli-core` Markdown with workspace-root guidance.
+2. Run the skills list command.
+3. Confirm `forma-cli-core`, `starter-workspace-operations`, and `starter-task-selection` are returned.
+4. Confirm projected workspace skills cite their source guideline paths.
+5. Run the config command.
+6. Confirm workspace-level `guidelines` are returned as Markdown paths inside the starter workspace.
+7. Confirm bootstrap output does not require the Agent to know task-specific guideline paths in advance.
+8. Run the task command.
+9. Confirm the task operation returns the workspace guidelines plus the task-specific guideline declared by the tasks space.
+10. Confirm all returned guideline paths can be read as ordinary starter knowledge pages.
 
 ## Expected Results
 
 - Agents can discover baseline workspace guidance from `config inspect`.
+- Agents can discover and load projected starter skills from `skills list` and `skills get`.
 - Agents can discover task guidance from task-oriented operations such as `tasks inspect`.
 - The `forma-cli` skill can remain structure-agnostic: it follows Forma outputs instead of hard-coding `guidelines/task-selection.md` or this repository's `knowledge/` layout.
 

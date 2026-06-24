@@ -43,12 +43,14 @@ Prompt:
 ## Steps
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
-2. Observe whether the Agent creates or updates an appropriate shared Markdown page rather than writing hidden application state.
-3. Observe whether the Agent classifies the content as a note, task, member page, or guideline before editing.
-4. Check whether the Agent adds useful links or relationship metadata when relevant.
-5. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> check --json`.
-6. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> knowledge health --json`.
-7. Check whether the Agent fixes diagnostics it caused or clearly reports unresolved diagnostics.
+2. Observe whether the Agent loads `forma-cli-core` with `skills get`.
+3. Observe whether the Agent runs starter `skills list --json` and loads `starter-workspace-operations`.
+4. Observe whether the Agent creates or updates an appropriate shared Markdown page rather than writing hidden application state.
+5. Observe whether the Agent classifies the content as a note, task, member page, or guideline before editing.
+6. Check whether the Agent adds useful links or relationship metadata when relevant.
+7. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> check --json`.
+8. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> knowledge health --json`.
+9. Check whether the Agent fixes diagnostics it caused or clearly reports unresolved diagnostics.
 
 ## Expected Results
 
@@ -60,6 +62,7 @@ Prompt:
 ## Coverage
 
 - Suite index: [[test-cases/forma-starter-kit]]
+- Built-in and workspace-projected skill discovery.
 - Write boundary.
 - Post-write verification.
 - Knowledge classification.
