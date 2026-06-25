@@ -17,7 +17,7 @@ tags:
     - readonly
 
 effort: M
-status: ready
+status: done
 readiness: ready
 sprint:
 
@@ -137,8 +137,50 @@ Polish fixed during audit:
 - Removed inactive account/action placeholder menu items from the sidebar user footer.
 - Replaced an obsolete dashboard entry body fallback that referred to a future backend wiring step.
 
-Remaining non-blocking follow-ups:
+Remaining non-blocking follow-ups after the 2026-06-24 audit:
 
 - The WebApp bundle still reports large chunks, primarily from Markdown/code-highlighting assets. This is not a read-only release blocker but should be revisited before wider distribution.
-- The knowledge health surface is functional but still generic. Continue with [[tasks/expose-read-only-knowledge-health-in-webapp]] before treating diagnostics as polished.
 - The graph view is non-empty and navigable, but readability and interaction polish remain in [[tasks/implement-interactive-graph-view-render]].
+
+### 2026-06-25 Final Smoke
+
+Commands and checks run:
+
+- `cargo run -q -p forma-cli -- config inspect --json`: passed.
+- `cargo run -q -p forma-cli -- knowledge health --json`: passed.
+- `cargo run -q -p forma-cli -- tasks inspect knowledge/tasks/stabilize-public-read-only-webapp-release.md --json`: passed.
+- `pnpm --filter @choral-forma/webapp check`: passed with the local pnpm version warning.
+- `pnpm --filter @choral-forma/shared check`: passed with the local pnpm version warning.
+- `pnpm exec vitest run packages/shared/src/index.test.ts`: passed.
+- `pnpm --filter @choral-forma/webapp build`: passed with the existing Vite large-chunk warning.
+- `cargo run -q -p forma-cli -- check --json`: passed.
+- `cargo run -q -p forma-cli -- knowledge health --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit serve --bind 127.0.0.1:4173`: passed for embedded WebApp serving.
+
+HTTP and JSON-RPC smoke:
+
+- `GET /`: returned the embedded WebApp HTML.
+- `GET /pages/notes/getting-started`: returned the embedded WebApp HTML through SPA fallback.
+- `GET /raw/assets/logo.svg`: returned the starter logo as `image/svg+xml`.
+- `workspace.dashboard`: returned `passed`, canonical entries, language variants, spaces, and saved views.
+- `knowledge.health`: returned `passed` with no findings for the starter workspace.
+- `view.render` for `.forma/views/graph`: returned `passed` with graph nodes and edges.
+- `view.render` for `.forma/views/tasks`: returned `passed` with kanban columns and task cards.
+- `file.render` and `file.references` for `notes/markdown-reader.md`: returned `passed` with rendered Markdown, headings, outgoing links, and backlinks.
+
+Browser smoke with Edge through Playwright:
+
+- Dashboard loaded non-empty content, displayed `Knowledge Health`, and showed the no-findings empty state with no horizontal overflow.
+- `notes/markdown-reader` rendered Markdown table, code, image text, and long content at `390px` width without horizontal overflow.
+- Graph view rendered non-empty starter graph content and remained console-clean.
+- Kanban view rendered task columns and cards and remained console-clean.
+- Browser console had 0 errors and 0 warnings across the checked dashboard, document, graph, and kanban routes.
+
+Release decision:
+
+- The public read-only WebApp release boundary is validated for the current starter-kit-backed route and RPC surface.
+- The product-side mock fallback remains removed.
+- The completed [[tasks/expose-read-only-knowledge-health-in-webapp]] task resolves the previous diagnostics-surface follow-up for this release umbrella.
+- Remaining graph interaction polish and shared search work are tracked separately and are not blockers for this read-only release stabilization task.
