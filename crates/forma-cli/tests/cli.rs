@@ -386,7 +386,7 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
     let config_stdout = String::from_utf8_lossy(&output.stdout);
     assert!(config_stdout.contains(r#""operation":"config.inspect""#));
     assert!(config_stdout.contains(r#""canonicalLanguage":"en""#));
-    assert!(config_stdout.contains(r#""supportedLanguages":["en","zh-Hans"]"#));
+    assert!(config_stdout.contains(r#""supportedLanguages":["en"]"#));
     assert!(config_stdout.contains(r#""guidelines""#));
     assert!(config_stdout.contains(r#""knowledge/guidelines/forma-knowledge-operations.md""#));
     for space in [
