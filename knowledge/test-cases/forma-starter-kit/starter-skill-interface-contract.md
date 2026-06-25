@@ -43,9 +43,9 @@ Verify that `forma skills` is a stable Agent-facing interface: Agents can discov
 - Projected workspace skill command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-workspace-operations`
 - Missing skill command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get missing-skill`
 - Boundary fixtures:
-  - No projected skills: remove `skill` metadata from configured guideline files in a temporary starter copy.
-  - Duplicate skill id: set two configured guidelines to the same `skill.id` in a temporary starter copy.
-  - Invalid skill metadata: remove `skill.id` from one configured guideline in a temporary starter copy.
+    - No projected skills: remove `skill` metadata from configured guideline files in a temporary starter copy.
+    - Duplicate skill id: set two configured guidelines to the same `skill.id` in a temporary starter copy.
+    - Invalid skill metadata: remove `skill.id` from one configured guideline in a temporary starter copy.
 
 ## Steps
 
