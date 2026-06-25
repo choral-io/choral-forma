@@ -53,6 +53,9 @@ importers:
       '@choral-forma/shared':
         specifier: workspace:*
         version: link:../shared
+      '@floating-ui/react-dom':
+        specifier: ~2.1.8
+        version: 2.1.8(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@fontsource-variable/inter':
         specifier: ~5.2.8
         version: 5.2.8

@@ -1,11 +1,13 @@
+import { autoUpdate, flip, offset, shift, useFloating, type VirtualElement } from "@floating-ui/react-dom";
 import { MultiDirectedGraph } from "graphology";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useNavigate } from "react-router";
 import Sigma from "sigma";
 
 import { useTheme } from "@/app/theme-context";
 import { Badge } from "@/components/ui/badge";
 import type { DashboardViewProjection } from "@/data/workspace-client";
+import { cn } from "@/lib/utils";
 
 export function ViewGraphProjection({
     projection,
@@ -19,8 +21,20 @@ export function ViewGraphProjection({
     const activeNodeRef = useRef<string | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const navigate = useNavigate();
-    const [activeNodeId, setActiveNodeId] = useState(projection.nodes[0]?.id ?? "");
-    const activeNode = projection.nodes.find((node) => node.id === activeNodeId) ?? projection.nodes[0];
+    const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
+    const [nodePopupReference, setNodePopupReference] = useState<VirtualElement | null>(null);
+    const activeNode = activeNodeId ? projection.nodes.find((node) => node.id === activeNodeId) : undefined;
+    const graphNodePopupOpen = Boolean(activeNode && nodePopupReference);
+    const { floatingStyles, refs } = useFloating<VirtualElement>({
+        elements: {
+            reference: nodePopupReference,
+        },
+        middleware: useMemo(() => [offset(24), flip({ padding: 12 }), shift({ padding: 12 })], []),
+        open: graphNodePopupOpen,
+        placement: "right",
+        strategy: "fixed",
+        whileElementsMounted: autoUpdate,
+    });
 
     useEffect(() => {
         const container = containerRef.current;
@@ -35,7 +49,6 @@ export function ViewGraphProjection({
                 space: node.space,
                 color: graphNodeColor(node.space, graphTheme),
                 entryId: node.entryId ?? "",
-                hoverLabel: node.title,
                 label: node.title,
                 path: node.path,
                 routePath: node.routePath ?? "",
@@ -114,13 +127,18 @@ export function ViewGraphProjection({
             zIndex: true,
         });
 
-        renderer.on("enterNode", ({ node }) => {
+        renderer.on("enterNode", ({ event, node }) => {
             activeNodeRef.current = node;
             setActiveNodeId(node);
+            const nodeDisplayData = renderer.getNodeDisplayData(node);
+            const popupAnchor = nodeDisplayData ? renderer.framedGraphToViewport(nodeDisplayData) : event;
+            setNodePopupReference(graphNodePopupVirtualElement(popupAnchor, container));
             renderer.refresh();
         });
         renderer.on("leaveNode", () => {
             activeNodeRef.current = null;
+            setActiveNodeId(null);
+            setNodePopupReference(null);
             renderer.refresh();
         });
         renderer.on("clickNode", ({ node }) => {
@@ -128,6 +146,12 @@ export function ViewGraphProjection({
             if (routePath) {
                 void navigate(routePath);
             }
+        });
+        renderer.on("clickStage", () => {
+            activeNodeRef.current = null;
+            setActiveNodeId(null);
+            setNodePopupReference(null);
+            renderer.refresh();
         });
 
         let resizeFrame = 0;
@@ -181,32 +205,25 @@ export function ViewGraphProjection({
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="border-border bg-muted/20 overflow-hidden rounded-lg border">
+            <div className="border-border bg-muted/20 relative overflow-hidden rounded-lg border">
                 <div
                     aria-label="Interactive graph preview"
                     className="relative h-96 w-full outline-none"
                     ref={containerRef}
                     role="img"
                 />
+                {activeNode && nodePopupReference ? (
+                    <GraphNodePopupCard
+                        floatingRef={refs.setFloating}
+                        floatingStyles={floatingStyles}
+                        linkedCount={adjacentNodes.get(activeNode.id)?.size ?? 0}
+                        node={activeNode}
+                    />
+                ) : null}
             </div>
-            {activeNode ? (
-                <div className="bg-card text-card-foreground rounded-lg border p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                            <h3 className="truncate text-sm font-medium" title={activeNode.title}>
-                                {activeNode.title}
-                            </h3>
-                            <p className="text-muted-foreground mt-1 truncate text-xs" title={activeNode.path}>
-                                {activeNode.space} / {activeNode.path}
-                            </p>
-                        </div>
-                        <Badge variant="outline">{String(adjacentNodes.get(activeNode.id)?.size ?? 0)} linked</Badge>
-                    </div>
-                </div>
-            ) : null}
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {projection.nodes.map((node) => (
-                    <GraphNodeLink key={node.id} node={node} />
+                    <GraphNodeLink active={node.id === activeNodeId} key={node.id} node={node} />
                 ))}
             </div>
             {projection.nodes.length === 0 ? (
@@ -219,8 +236,69 @@ export function ViewGraphProjection({
 }
 
 const GRAPH_RESIZE_SETTLE_DELAY_MS = 150;
+function GraphNodePopupCard({
+    floatingRef,
+    floatingStyles,
+    linkedCount,
+    node,
+}: {
+    floatingRef: (node: HTMLElement | null) => void;
+    floatingStyles: CSSProperties;
+    linkedCount: number;
+    node: Extract<DashboardViewProjection, { kind: "graph" }>["nodes"][number];
+}) {
+    return (
+        <div
+            className="bg-popover text-popover-foreground pointer-events-none z-10 w-72 rounded-md border p-3 shadow-lg"
+            ref={floatingRef}
+            style={floatingStyles}
+        >
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="truncate text-sm font-medium" title={node.title}>
+                        {node.title}
+                    </p>
+                    <p className="text-muted-foreground mt-1 truncate text-xs" title={node.path}>
+                        {node.space} / {node.path}
+                    </p>
+                </div>
+                <Badge className="shrink-0" variant="outline">
+                    {String(linkedCount)} linked
+                </Badge>
+            </div>
+        </div>
+    );
+}
 
-function GraphNodeLink({ node }: { node: Extract<DashboardViewProjection, { kind: "graph" }>["nodes"][number] }) {
+function graphNodePopupVirtualElement(anchor: { x: number; y: number }, container: HTMLElement): VirtualElement {
+    const containerRect = container.getBoundingClientRect();
+    const x = containerRect.left + anchor.x;
+    const y = containerRect.top + anchor.y;
+    const rect = {
+        bottom: y,
+        height: 0,
+        left: x,
+        right: x,
+        top: y,
+        width: 0,
+        x,
+        y,
+    };
+
+    return {
+        getBoundingClientRect() {
+            return rect;
+        },
+    };
+}
+
+function GraphNodeLink({
+    active,
+    node,
+}: {
+    active: boolean;
+    node: Extract<DashboardViewProjection, { kind: "graph" }>["nodes"][number];
+}) {
     const content = (
         <>
             <span className="block truncate text-sm font-medium" title={node.title}>
@@ -233,12 +311,20 @@ function GraphNodeLink({ node }: { node: Extract<DashboardViewProjection, { kind
     );
 
     if (!node.routePath) {
-        return <div className="bg-card rounded-md border p-3 shadow-sm">{content}</div>;
+        return (
+            <div className={cn("bg-card rounded-md border p-3 shadow-sm", active && "border-primary/50 bg-accent/40")}>
+                {content}
+            </div>
+        );
     }
 
     return (
         <Link
-            className="bg-card hover:bg-accent/50 focus-visible:ring-ring/50 rounded-md border p-3 shadow-sm transition-colors outline-none focus-visible:ring-3"
+            aria-current={active ? "true" : undefined}
+            className={cn(
+                "bg-card hover:bg-accent/50 focus-visible:ring-ring/50 rounded-md border p-3 shadow-sm transition-colors outline-none focus-visible:ring-3",
+                active && "border-primary/50 bg-accent/40",
+            )}
             to={node.routePath}
         >
             {content}
@@ -301,7 +387,6 @@ function readGraphThemeTokens(resolvedMode: "light" | "dark"): GraphThemeTokens 
         edge: token("--muted-foreground", dark ? "#94a3b8" : "#64748b"),
         edgeMuted: token("--border", dark ? "#334155" : "#e2e8f0"),
         hoverBackground: token("--card", dark ? "#1e293b" : "#ffffff"),
-        hoverBorder: token("--border", dark ? "#334155" : "#e2e8f0"),
         label: token("--foreground", dark ? "#f8fafc" : "#0f172a"),
         node: token("--muted-foreground", dark ? "#94a3b8" : "#64748b"),
         nodeMuted: token("--border", dark ? "#334155" : "#e2e8f0"),
@@ -380,12 +465,10 @@ function clamp(value: number, minimum: number, maximum: number) {
 
 function drawGraphNodeHover(
     context: CanvasRenderingContext2D,
-    data: { color: string; hoverLabel?: unknown; label?: unknown; size: number; x: number; y: number },
-    settings: { labelFont: string; labelSize: number; labelWeight: string },
+    data: { color: string; size: number; x: number; y: number },
+    _settings: { labelFont: string; labelSize: number; labelWeight: string },
     theme: GraphThemeTokens,
 ) {
-    const label =
-        typeof data.hoverLabel === "string" ? data.hoverLabel : typeof data.label === "string" ? data.label : "";
     const haloSize = data.size + 4;
 
     context.save();
@@ -402,73 +485,7 @@ function drawGraphNodeHover(
     context.fillStyle = data.color;
     context.fill();
 
-    if (label) {
-        const paddingX = 8;
-        const paddingY = 5;
-        const gap = 8;
-        context.font = `${settings.labelWeight} ${String(settings.labelSize)}px ${settings.labelFont}`;
-        const canvasRect = context.canvas.getBoundingClientRect();
-        const canvasWidth = canvasRect.width || context.canvas.width;
-        const canvasHeight = canvasRect.height || context.canvas.height;
-        const boxHeight = settings.labelSize + paddingY * 2;
-        const maxBoxWidth = Math.min(360, Math.max(160, canvasWidth - 32));
-        const displayLabel = truncateCanvasText(context, label, maxBoxWidth - paddingX * 2);
-        const labelWidth = Math.ceil(context.measureText(displayLabel).width);
-        const boxWidth = labelWidth + paddingX * 2;
-        const canPlaceRight = data.x + haloSize + gap + boxWidth <= canvasWidth - 8;
-        const boxX = canPlaceRight ? data.x + haloSize + gap : Math.max(8, data.x - haloSize - gap - boxWidth);
-        const boxY = clamp(data.y - boxHeight / 2, 8, Math.max(8, canvasHeight - boxHeight - 8));
-
-        drawRoundedRect(context, boxX, boxY, boxWidth, boxHeight, 6);
-        context.fillStyle = theme.hoverBackground;
-        context.fill();
-        context.strokeStyle = theme.hoverBorder;
-        context.lineWidth = 1;
-        context.stroke();
-        context.fillStyle = theme.label;
-        context.textBaseline = "middle";
-        context.fillText(displayLabel, boxX + paddingX, boxY + boxHeight / 2);
-    }
-
     context.restore();
-}
-
-function truncateCanvasText(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
-    if (context.measureText(text).width <= maxWidth) {
-        return text;
-    }
-
-    const ellipsis = "...";
-    let truncated = text;
-
-    while (truncated.length > 1 && context.measureText(`${truncated}${ellipsis}`).width > maxWidth) {
-        truncated = truncated.slice(0, -1);
-    }
-
-    return `${truncated}${ellipsis}`;
-}
-
-function drawRoundedRect(
-    context: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    radius: number,
-) {
-    const normalizedRadius = Math.min(radius, width / 2, height / 2);
-
-    context.beginPath();
-    context.moveTo(x + normalizedRadius, y);
-    context.lineTo(x + width - normalizedRadius, y);
-    context.quadraticCurveTo(x + width, y, x + width, y + normalizedRadius);
-    context.lineTo(x + width, y + height - normalizedRadius);
-    context.quadraticCurveTo(x + width, y + height, x + width - normalizedRadius, y + height);
-    context.lineTo(x + normalizedRadius, y + height);
-    context.quadraticCurveTo(x, y + height, x, y + height - normalizedRadius);
-    context.lineTo(x, y + normalizedRadius);
-    context.quadraticCurveTo(x, y, x + normalizedRadius, y);
-    context.closePath();
 }
 
 interface GraphThemeTokens {
@@ -479,7 +496,6 @@ interface GraphThemeTokens {
     edge: string;
     edgeMuted: string;
     hoverBackground: string;
-    hoverBorder: string;
     label: string;
     node: string;
     nodeMuted: string;
@@ -489,7 +505,6 @@ interface GraphNodeAttributes extends Record<string, unknown> {
     space: string;
     color: string;
     entryId: string;
-    hoverLabel: string;
     label: string;
     path: string;
     routePath: string;
