@@ -376,6 +376,27 @@ export type FileReferencesResult = BaseOperationResult & {
     backlinks: ReferenceEdge[];
 };
 
+export type KnowledgeHealthCategory =
+    | "brokenReference"
+    | "ambiguousReference"
+    | "noOutgoingReferences"
+    | "noBacklinks"
+    | "configDiagnostic";
+
+export type KnowledgeHealthFinding = {
+    category: KnowledgeHealthCategory;
+    severity: DiagnosticSeverity;
+    path: string;
+    message: string;
+    target?: string;
+};
+
+export type KnowledgeHealthResult = BaseOperationResult & {
+    operation: "knowledge.health";
+    workspace: WorkspaceSummary;
+    findings: KnowledgeHealthFinding[];
+};
+
 export type ViewRenderResult = BaseOperationResult & {
     operation: "view.render";
     workspace: WorkspaceSummary;
@@ -504,6 +525,10 @@ export class FormaRpcClient {
 
     listFileReferences(path: string) {
         return this.call<FileReferencesResult>("file.references", { path });
+    }
+
+    knowledgeHealth() {
+        return this.call<KnowledgeHealthResult>("knowledge.health");
     }
 
     renderView(view: string) {

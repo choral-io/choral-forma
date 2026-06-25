@@ -3,6 +3,8 @@ import {
     type Diagnostic,
     type FileReferencesResult,
     type FileRenderResult,
+    type KnowledgeHealthFinding,
+    type KnowledgeHealthResult,
     type OperationStatus,
     type ReferenceEdge,
     type ViewRenderItem,
@@ -18,6 +20,8 @@ import type {
     DashboardEntryBlock,
     DashboardEntryHeading,
     DashboardEntryLink,
+    DashboardHealth,
+    DashboardHealthFinding,
     DashboardSpace,
     DashboardView,
     DashboardViewProjection,
@@ -36,7 +40,11 @@ export class RpcWorkspaceClient implements WorkspaceClient {
     }
 
     async getDashboard(): Promise<WorkspaceDashboard> {
-        this.#dashboard = mapWorkspaceDashboard(await this.#rpc.workspaceDashboard());
+        const [dashboardResult, healthResult] = await Promise.all([
+            this.#rpc.workspaceDashboard(),
+            this.#rpc.knowledgeHealth(),
+        ]);
+        this.#dashboard = mapWorkspaceDashboard(dashboardResult, healthResult);
         return this.#dashboard;
     }
 
@@ -68,18 +76,46 @@ export class RpcWorkspaceClient implements WorkspaceClient {
     }
 }
 
-function mapWorkspaceDashboard(result: WorkspaceDashboardResult): WorkspaceDashboard {
+function mapWorkspaceDashboard(
+    result: WorkspaceDashboardResult,
+    healthResult: KnowledgeHealthResult,
+): WorkspaceDashboard {
     const entries = result.entries.map(mapEntry);
+    const health = mapDashboardHealth(healthResult, entries);
+    const diagnostics = mergeDiagnostics(result.diagnostics, healthResult.diagnostics);
 
     return {
         workspaceName: result.workspace.name,
         workspaceLogo: result.workspace.logo,
         tagline: "Repository-backed workspace knowledge.",
-        status: mapStatus(result.status),
+        status: maxHealth(mapStatus(result.status), health.status),
         spaces: result.spaces.map((space) => mapSpace(space, entries)),
         entries,
-        diagnostics: (result.diagnostics ?? []).map(mapDiagnostic),
+        diagnostics,
+        health,
         views: result.views.map(mapView),
+    };
+}
+
+function mapDashboardHealth(result: KnowledgeHealthResult, entries: DashboardEntry[]): DashboardHealth {
+    return {
+        status: mapStatus(result.status),
+        diagnostics: (result.diagnostics ?? []).map(mapDiagnostic),
+        findings: result.findings.map((finding) => mapHealthFinding(finding, entries)),
+    };
+}
+
+function mapHealthFinding(finding: KnowledgeHealthFinding, entries: DashboardEntry[]): DashboardHealthFinding {
+    const entry = entries.find((item) => item.path === finding.path);
+
+    return {
+        category: finding.category,
+        message: finding.message,
+        path: finding.path,
+        routePath: entry?.routePath,
+        severity: finding.severity,
+        target: finding.target,
+        title: entry?.title,
     };
 }
 
@@ -415,6 +451,18 @@ function mapDiagnostic(diagnostic: Diagnostic): DashboardDiagnostic {
 
 function mapStatus(status: OperationStatus): WorkspaceHealth {
     return status === "passed" ? "healthy" : status;
+}
+
+function maxHealth(left: WorkspaceHealth, right: WorkspaceHealth): WorkspaceHealth {
+    if (left === "failed" || right === "failed") {
+        return "failed";
+    }
+
+    if (left === "warning" || right === "warning") {
+        return "warning";
+    }
+
+    return "healthy";
 }
 
 function mapViewKind(kind: string): DashboardView["kind"] {

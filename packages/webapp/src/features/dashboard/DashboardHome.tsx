@@ -1775,7 +1775,7 @@ function WorkspaceOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                 </div>
                 <div className="grid w-full grid-cols-2 gap-3 sm:w-72">
                     <Metric icon={FileText} label="Pages" value={dashboard.entries.length} />
-                    <Metric icon={ShieldCheck} label="Findings" value={dashboard.diagnostics.length} />
+                    <Metric icon={ShieldCheck} label="Findings" value={dashboard.health.findings.length} />
                     <Metric icon={Network} label="Views" value={dashboard.views.length} />
                     <Metric icon={ArrowUpRight} label="Spaces" value={dashboard.spaces.length} />
                 </div>

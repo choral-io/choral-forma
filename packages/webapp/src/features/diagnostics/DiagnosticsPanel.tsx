@@ -1,7 +1,8 @@
 import { AlertTriangle, Info } from "lucide-react";
+import { Link } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
-import type { DashboardDiagnostic } from "@/data/workspace-client";
+import type { DashboardDiagnostic, DashboardHealth, DashboardHealthCategory } from "@/data/workspace-client";
 
 export function DiagnosticsPanel({
     description = "Read-only signals from workspace checks and planned V2 surfaces.",
@@ -69,6 +70,123 @@ export function DiagnosticsPanel({
         </section>
     );
 }
+
+export function KnowledgeHealthPanel({ health }: { health: DashboardHealth }) {
+    const groups = healthCategoryOrder
+        .map((category) => ({
+            category,
+            findings: health.findings.filter((finding) => finding.category === category),
+        }))
+        .filter((group) => group.findings.length > 0);
+
+    return (
+        <section className="flex flex-col gap-4">
+            <div>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold">Knowledge Health</h2>
+                    <Badge variant={health.status === "failed" ? "destructive" : "secondary"}>{health.status}</Badge>
+                </div>
+                <p className="text-muted-foreground mt-1 text-sm/6">
+                    Read-only findings from workspace diagnostics, references, and link structure.
+                </p>
+            </div>
+
+            {groups.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                    {groups.map((group) => (
+                        <section className="flex flex-col gap-2" key={group.category}>
+                            <div>
+                                <h3 className="text-sm font-medium">{healthCategoryLabels[group.category]}</h3>
+                                <p className="text-muted-foreground mt-0.5 text-xs/5">
+                                    {healthCategoryDescriptions[group.category]}
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                {group.findings.map((finding) => (
+                                    <article
+                                        className="border-border/80 bg-background/60 flex gap-3 rounded-lg border p-3"
+                                        key={`${finding.category}-${finding.path}-${finding.target ?? finding.message}`}
+                                    >
+                                        <div className="text-muted-foreground mt-0.5">
+                                            {finding.severity === "info" ? (
+                                                <Info data-icon="inline-start" />
+                                            ) : (
+                                                <AlertTriangle data-icon="inline-start" />
+                                            )}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <Badge
+                                                    variant={finding.severity === "error" ? "destructive" : "secondary"}
+                                                >
+                                                    {finding.severity}
+                                                </Badge>
+                                                <span className="text-muted-foreground text-xs">
+                                                    {healthCategoryLabels[finding.category]}
+                                                </span>
+                                            </div>
+                                            <p className="mt-2 text-sm/6">{finding.message}</p>
+                                            {finding.routePath ? (
+                                                <Link
+                                                    className="text-primary mt-2 block truncate text-xs underline-offset-4 hover:underline"
+                                                    title={finding.path}
+                                                    to={finding.routePath}
+                                                >
+                                                    {finding.title ?? finding.path}
+                                                </Link>
+                                            ) : (
+                                                <code
+                                                    className="text-muted-foreground mt-2 block truncate text-xs"
+                                                    title={finding.path}
+                                                >
+                                                    {finding.path}
+                                                </code>
+                                            )}
+                                            {finding.target ? (
+                                                <code
+                                                    className="text-muted-foreground mt-1 block truncate text-xs"
+                                                    title={finding.target}
+                                                >
+                                                    Target: {finding.target}
+                                                </code>
+                                            ) : null}
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        </section>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-muted-foreground text-sm">No health findings found.</p>
+            )}
+        </section>
+    );
+}
+
+const healthCategoryOrder: DashboardHealthCategory[] = [
+    "configDiagnostic",
+    "brokenReference",
+    "ambiguousReference",
+    "noOutgoingReferences",
+    "noBacklinks",
+];
+
+const healthCategoryLabels: Record<DashboardHealthCategory, string> = {
+    ambiguousReference: "Ambiguous references",
+    brokenReference: "Broken references",
+    configDiagnostic: "Discovery and config",
+    noBacklinks: "No backlinks",
+    noOutgoingReferences: "No outgoing references",
+};
+
+const healthCategoryDescriptions: Record<DashboardHealthCategory, string> = {
+    ambiguousReference: "References that resolve to more than one workspace entry.",
+    brokenReference: "References that cannot be resolved by the current read model.",
+    configDiagnostic: "Workspace, schema, space, taxonomy, view, or discovery diagnostics.",
+    noBacklinks: "Entries that are not referenced by another internal page.",
+    noOutgoingReferences: "Entries that do not link to another internal page.",
+};
 
 function DiagnosticDetailList({ diagnostic }: { diagnostic: DashboardDiagnostic }) {
     const location = formatDiagnosticLocation(diagnostic);

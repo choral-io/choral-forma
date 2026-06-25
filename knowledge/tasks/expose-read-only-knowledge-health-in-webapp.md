@@ -89,7 +89,25 @@ This task should organize existing and cheaply derived health signals into a rea
 
 This task follows reference navigation because no-backlink and no-outgoing signals need the same resolved relationship data. It should stay separate from full graph rendering and from later write-capable repair workflows.
 
+## Implementation Notes
+
+- Added a shared TypeScript `knowledge.health` RPC client contract so the WebApp can request normalized read-only health findings without persisting derived state.
+- The WebApp dashboard now loads `workspace.dashboard` and `knowledge.health` together, merges operation diagnostics for status, and exposes grouped health findings in the default Context Panel.
+- Affected entries link to their existing WebApp page route when the finding path matches a dashboard entry; unresolved paths remain plain workspace-relative POSIX paths.
+- The dashboard overview `Findings` metric now counts normalized health findings instead of raw operation diagnostics.
+
+## Validation Notes
+
+- `pnpm --filter @choral-forma/webapp check`
+- `pnpm --filter @choral-forma/shared check`
+- `pnpm exec vitest run packages/shared/src/index.test.ts`
+- `pnpm --filter @choral-forma/webapp build`
+- `cargo run -q -p forma-cli -- check --json`
+- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`
+- Temporary starter-kit smoke workspace with a broken wikilink showed `Broken references`, the missing target, and a working affected-entry route in the WebApp Context Panel.
+
 ## Open Questions
 
-- Should orphan or weakly linked notes be warnings, informational findings, or a WebApp-only derived category?
-- Should health categories be represented as normalized operation output, or as grouped views over existing diagnostics plus `file.references` data?
+- Should orphan or weakly linked notes stay informational findings for the first public read-only release?
+- Should the grouped Context Panel eventually get a dedicated dashboard route once the finding count grows?

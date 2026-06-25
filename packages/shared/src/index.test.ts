@@ -95,4 +95,50 @@ describe("FormaRpcClient", () => {
             },
         });
     });
+
+    it("requests read-only knowledge health without params", async () => {
+        const calls: Array<{ input: string; body: unknown }> = [];
+        const client = new FormaRpcClient("/rpc", (input, requestInit) => {
+            calls.push({ input, body: JSON.parse(requestInit.body) });
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: () =>
+                    Promise.resolve({
+                        jsonrpc: "2.0",
+                        id: "1",
+                        result: {
+                            schemaVersion: 1,
+                            operation: "knowledge.health",
+                            status: "warning",
+                            workspace: { root: ".", name: "Example" },
+                            findings: [
+                                {
+                                    category: "brokenReference",
+                                    severity: "warning",
+                                    path: "notes/source.md",
+                                    message: "Reference cannot be resolved.",
+                                    target: "notes/missing",
+                                },
+                            ],
+                        },
+                    }),
+            });
+        });
+
+        await expect(client.knowledgeHealth()).resolves.toMatchObject({
+            findings: [
+                {
+                    category: "brokenReference",
+                    path: "notes/source.md",
+                },
+            ],
+            operation: "knowledge.health",
+        });
+
+        expect(calls[0]?.body).toMatchObject({
+            method: "knowledge.health",
+            params: {},
+        });
+    });
 });

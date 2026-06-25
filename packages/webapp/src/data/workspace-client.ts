@@ -114,6 +114,29 @@ export interface DashboardDiagnostic {
     expected?: unknown;
 }
 
+export type DashboardHealthCategory =
+    | "brokenReference"
+    | "ambiguousReference"
+    | "noOutgoingReferences"
+    | "noBacklinks"
+    | "configDiagnostic";
+
+export interface DashboardHealthFinding {
+    category: DashboardHealthCategory;
+    severity: "error" | "warning" | "info";
+    path: string;
+    message: string;
+    target?: string;
+    routePath?: string;
+    title?: string;
+}
+
+export interface DashboardHealth {
+    status: WorkspaceHealth;
+    diagnostics: DashboardDiagnostic[];
+    findings: DashboardHealthFinding[];
+}
+
 export interface DashboardView {
     id: string;
     title: string;
@@ -198,6 +221,7 @@ export interface WorkspaceDashboard {
     spaces: DashboardSpace[];
     entries: DashboardEntry[];
     diagnostics: DashboardDiagnostic[];
+    health: DashboardHealth;
     views: DashboardView[];
 }
 

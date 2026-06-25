@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
-import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
+import { KnowledgeHealthPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { ThemeModeMenu } from "@/features/theme/ThemeModeMenu";
 import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -132,5 +132,5 @@ export function WorkspaceRouteActions() {
 }
 
 export function WorkspaceDefaultContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    return <DiagnosticsPanel diagnostics={dashboard.diagnostics} />;
+    return <KnowledgeHealthPanel health={dashboard.health} />;
 }
