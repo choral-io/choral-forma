@@ -17,8 +17,8 @@ tags:
     - health
 
 effort: M
-status: backlog
-readiness: needs-refinement
+status: done
+readiness: ready
 sprint:
 
 blockedBy:
@@ -106,6 +106,12 @@ This task follows reference navigation because no-backlink and no-outgoing signa
 - `cargo run -q -p forma-cli -- knowledge health --json`
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`
 - Temporary starter-kit smoke workspace with a broken wikilink showed `Broken references`, the missing target, and a working affected-entry route in the WebApp Context Panel.
+
+## Review Notes
+
+- No blocking issues found in the shared RPC contract, dashboard mapping, or Context Panel rendering path.
+- The implementation remains read-only: health findings are requested from `knowledge.health`, displayed in WebApp state, and not persisted as product state.
+- The remaining open questions are follow-up product decisions, not blockers for the public read-only release path.
 
 ## Open Questions
 
