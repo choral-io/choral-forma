@@ -40,19 +40,26 @@ The P0 product surface is a single `forma` binary with CLI commands and `forma s
 
 P0 operations are product-semantic actions exposed through adapters. Operation names use stable lower camel case in JSON-facing APIs.
 
-| Operation      | JSON method       | Primary CLI command                                            | Writes files |
-| -------------- | ----------------- | -------------------------------------------------------------- | ------------ |
-| ConfigInspect  | `config.inspect`  | `forma config inspect [--path <path>] [--json]`                | No           |
-| Check          | `check`           | `forma check [--json]`                                         | No           |
-| Inspect        | `inspect`         | `forma inspect <path> [--json]`                                | No           |
-| Inspect        | `inspect`         | `forma inspect --space <space> <entry> --json`                 | No           |
-| List           | `list`            | `forma list --space <space> [--json]`                          | No           |
-| FilesList      | `files.list`      | No required P0 CLI command                                     | No           |
-| FileRender     | `file.render`     | No required P0 CLI command                                     | No           |
-| FileReferences | `file.references` | No required P0 CLI command                                     | No           |
-| Create         | `create`          | `forma create <space> [--input <name=value>]... [--json]`      | Yes          |
-| ViewRender     | `view.render`     | No required P0 CLI command                                     | No           |
-| Serve          | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...` | No           |
+| Operation | JSON method | Primary CLI command | Writes files |
+| --- | --- | --- | --- |
+| ConfigInspect | `config.inspect` | `forma config inspect [--path <path>] [--json]` | No |
+| Check | `check` | `forma check [--json]` | No |
+| Inspect | `inspect` | `forma inspect <path> [--json]` | No |
+| Inspect | `inspect` | `forma inspect --space <space> <entry> --json` | No |
+| List | `list` | `forma list --space <space> [--json]` | No |
+| TasksList | `tasks.list` | `forma tasks list [--json]` | No |
+| TasksInspect | `tasks.inspect` | `forma tasks inspect <path-or-id> [--json]` | No |
+| BoardShow | `board.show` | `forma board show [--json]` | No |
+| FilesList | `files.list` | No required P0 CLI command | No |
+| WorkspaceDashboard | `workspace.dashboard` | No required P0 CLI command | No |
+| FileRender | `file.render` | No required P0 CLI command | No |
+| FileReferences | `file.references` | No required P0 CLI command | No |
+| KnowledgeHealth | `knowledge.health` | `forma knowledge health [--json]` | No |
+| SkillsList | `skills.list` | `forma skills list [--json]` | No |
+| SkillsGet | `skills.get` | `forma skills get <id> [--json]` | No |
+| Create | `create` | `forma create <space> [--input <name=value>]... [--json]` | Yes |
+| ViewRender | `view.render` | No required P0 CLI command | No |
+| Serve | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...` | No |
 
 `Serve` is a CLI mode, not a domain operation. The server exposes operation methods through `POST /rpc` and serves static WebApp assets. It may compute diagnostics in memory and expose check status through operation results, but it must not write files in P0.
 

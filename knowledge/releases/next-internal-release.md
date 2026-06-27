@@ -88,5 +88,6 @@ No runtime rollback is required for an internal knowledge release. If validation
 ## Post-Release Follow-Up
 
 - Decide whether remaining old knowledge-workflow references can be deleted or archived.
-- Decide whether reviewable write operations need to move into the next milestone.
+- Use [[tasks/implement-docs-backed-init-and-agent-onboarding]] as the next milestone candidate for helping internal team members start from empty projects and collect Forma CLI feedback.
+- Decide whether reviewable write operations need to move into a later milestone after onboarding feedback.
 - Decide whether starter-kit validation should become an automated gate.

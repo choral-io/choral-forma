@@ -1104,6 +1104,12 @@ P0 CLI should prioritize reading, indexing, checking, and inspection before safe
 - forma inspect <path> [--json]
 - forma inspect --space <space> <entry> [--json]
 - forma list --space <space> [--json]
+- forma tasks list [--json]
+- forma tasks inspect <path-or-id> [--json]
+- forma board show [--json]
+- forma knowledge health [--json]
+- forma skills list [--json]
+- forma skills get <id> [--json]
 - forma create <space> [--input <name=value>]... [--json]
 - forma serve
 

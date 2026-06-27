@@ -69,4 +69,4 @@ Remove wording that presents the old Knowledge Workflow system as a current comp
 
 ## Result
 
-Current operating guidance no longer references the removed `forma board show` command. Remaining Knowledge Workflow references are either migration history, replacement rationale, or explicit non-current context as classified in [[planning/repository-knowledge-content-migration-audit]].
+Current operating guidance no longer presents old Knowledge Workflow commands as current requirements. Remaining Knowledge Workflow references are either migration history, replacement rationale, or explicit non-current context as classified in [[planning/repository-knowledge-content-migration-audit]].
