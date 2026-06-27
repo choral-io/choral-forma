@@ -269,9 +269,27 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(get_stdout.contains("# Workspace Configuration"));
     assert!(get_stdout.contains("workspace-relative POSIX paths"));
     assert!(get_stdout.contains("currentUserId"));
+    assert!(get_stdout.contains("currentDate"));
     assert!(get_stdout.contains("kind: gitConfig"));
     assert!(get_stdout.contains("kind: const"));
+    assert!(get_stdout.contains("required: true"));
+    assert!(get_stdout.contains("workspace.timezone"));
     assert!(!get_stdout.contains(r#""operation":"docs.get""#));
+
+    let templates = forma(&root)
+        .args(["docs", "get", "workspace.templates"])
+        .output()
+        .expect("forma docs get workspace.templates should run");
+
+    assert!(
+        templates.status.success(),
+        "{}",
+        String::from_utf8_lossy(&templates.stderr)
+    );
+    assert!(templates.stderr.is_empty());
+    let templates_stdout = String::from_utf8_lossy(&templates.stdout);
+    assert!(templates_stdout.contains("runtime.values.currentUserId"));
+    assert!(templates_stdout.contains("runtime.values.currentDateTime"));
 
     std::fs::remove_dir_all(root).unwrap();
 }

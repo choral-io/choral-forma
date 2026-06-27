@@ -49,6 +49,19 @@ tags: []
 {{ input.summary }}
 ```
 
+Create input defaults and templates can also read configured runtime values:
+
+```yaml
+create:
+    inputs:
+        owner:
+            default: "{{ runtime.values.currentUserId }}"
+        createdAt:
+            default: "{{ runtime.values.currentDateTime }}"
+```
+
+Define those names under `runtime.values` in `.forma.md` or an explicitly included config file before using them in defaults or templates.
+
 ## Agent Guidance
 
 Keep templates small, readable, and aligned with the configured schema. Verify template paths with `forma check --json`.

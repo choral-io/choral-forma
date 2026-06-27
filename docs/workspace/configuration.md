@@ -61,13 +61,23 @@ runtime:
 This file is the Forma workspace entry point.
 ```
 
-Runtime values define named values that templates and create defaults can read with `{{ runtime.values.<name> }}`. They are explicit config, not hidden identity or environment assumptions.
+Runtime values define named values that templates and create defaults can read with `{{ runtime.values.<name> }}`. They are explicit config, not hidden identity or environment assumptions. Supported provider kinds are:
 
-Common runtime value providers:
+| kind | Fields | Use |
+| --- | --- | --- |
+| `const` | `value`, optional `required`, `transform` | Explicit configured value, often in an included local config file. |
+| `gitConfig` | `key`, optional `required`, `transform` | Read a value from Git config, such as `user.name` or `user.email`. |
+| `currentDate` | none | Current date in `YYYY-MM-DD`, resolved with `workspace.timezone`. |
+| `currentDateTime` | none | Current datetime in RFC3339, resolved with `workspace.timezone`. |
+| `workspaceRoot` | none | Workspace root path as seen by Forma. |
+
+`transform` currently applies only to `const` and `gitConfig` values. Use `required: true` only when the operation should report an unresolved runtime value if the provider cannot resolve a value.
 
 ```yaml
 runtime:
     values:
+        currentDate:
+            kind: currentDate
         currentDateTime:
             kind: currentDateTime
         workspaceRoot:
@@ -78,7 +88,7 @@ runtime:
             transform: slugify
 ```
 
-Use `currentUserId` only when the workspace workflow needs a current user value, for example to default an owner or author field. It can be resolved from Git config as above, or overridden by an explicitly included local config file:
+Use `currentUserId` only when the workspace workflow needs a current user value, for example to default an owner or author field. It is not built in; it is a normal runtime value name. It can be resolved from Git config as above, or overridden by an explicitly included local config file:
 
 ```yaml
 runtime:
@@ -86,6 +96,7 @@ runtime:
         currentUserId:
             kind: const
             value: alex-chen
+            required: true
             transform: slugify
 ```
 
