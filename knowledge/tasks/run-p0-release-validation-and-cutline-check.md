@@ -113,7 +113,7 @@ Starter workspace smoke test:
 - `forma check --json`: passed with zero errors, warnings, and infos.
 - `forma workspace health --json`: passed with zero findings.
 - `forma skills list --json`: passed and returned `forma-cli-core`, `starter-workspace-operations`, and `starter-task-selection`.
-- `forma tasks list --json`: passed.
+- `forma list --space tasks --json`: passed.
 - `forma inspect notes/getting-started.md --json`: passed.
 - `forma serve --bind 127.0.0.1:0`: required approved localhost binding and passed at `http://127.0.0.1:50349`.
 - HTTP root returned the WebApp HTML shell.

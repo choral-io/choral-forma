@@ -62,4 +62,4 @@ read current workspace
 
 ## Near-Term Scope
 
-The current repository should first add `guidelines` config and Agent routing. Full policies should wait until `forma tasks audit`, `forma proposal`, or write-capable task operations are ready to consume them.
+The current repository should first add `guidelines` config and Agent routing. Full policies should wait until generic audit, proposal, or write-capable operations are ready to consume them.
