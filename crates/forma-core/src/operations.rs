@@ -4046,7 +4046,7 @@ conventions:
 
     #[test]
     fn workspace_health_reports_broken_references_and_orphan_pages() {
-        let root = fixture_root("knowledge-health-broken");
+        let root = fixture_root("workspace-health-broken");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::write(
@@ -4088,7 +4088,7 @@ conventions:
 
     #[test]
     fn workspace_health_reports_self_links_as_isolated() {
-        let root = fixture_root("knowledge-health-self-link");
+        let root = fixture_root("workspace-health-self-link");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::write(
@@ -4114,7 +4114,7 @@ conventions:
 
     #[test]
     fn workspace_health_reports_config_diagnostic_for_missing_workspace_root() {
-        let root = fixture_root("knowledge-health-missing-forma");
+        let root = fixture_root("workspace-health-missing-forma");
         fs::create_dir_all(&root).unwrap();
 
         let result = workspace_health(&root).unwrap();
@@ -4138,7 +4138,7 @@ conventions:
 
     #[test]
     fn workspace_health_passes_for_clean_workspace() {
-        let root = fixture_root("knowledge-health-clean");
+        let root = fixture_root("workspace-health-clean");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::write(
@@ -4204,7 +4204,7 @@ conventions:
 
     #[test]
     fn workspace_health_preserves_unclassified_discovery_diagnostics() {
-        let root = fixture_root("knowledge-health-unclassified-diagnostic");
+        let root = fixture_root("workspace-health-unclassified-diagnostic");
         fs::create_dir_all(root.join("assets")).unwrap();
         copy_starter_workspace(&root);
         fs::write(

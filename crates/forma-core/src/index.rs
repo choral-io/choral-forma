@@ -1391,7 +1391,7 @@ mod tests {
         let expected_json = r#"{
   "schemaVersion": 1,
   "workspace": {
-    "name": "Acme Knowledge",
+    "name": "Acme Workspace",
     "canonicalLanguage": "en",
     "supportedLanguages": [
       "en"
@@ -1502,7 +1502,7 @@ mod tests {
         write_workspace(&root);
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
         );
         write_entry(
             &root,
@@ -1551,7 +1551,7 @@ mod tests {
         write_workspace(&root);
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - views/*.md\n",
         );
         write_workspace_file(
             &root,
@@ -1613,7 +1613,7 @@ mod tests {
         write_workspace(&root);
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
         );
         write_entry(
             &root,
@@ -1655,7 +1655,7 @@ mod tests {
         write_workspace(&root);
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
         );
         write_entry(
             &root,
@@ -2086,7 +2086,7 @@ mod tests {
         fs::create_dir_all(root.join(FIXTURE_VIEWS_DIR)).unwrap();
         write_config(
             root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
         );
         for (path, title, include, template, title_field, summary_field) in [
             (

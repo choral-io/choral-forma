@@ -1373,7 +1373,7 @@ mod tests {
 
     #[test]
     fn json_rpc_dispatches_workspace_health() {
-        let root = fixture_root("knowledge-health-rpc");
+        let root = fixture_root("workspace-health-rpc");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::write(

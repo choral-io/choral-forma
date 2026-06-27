@@ -14,7 +14,7 @@ order: 0
 
 ## Overview
 
-Forma helps teams keep repository-backed Markdown content readable, structured, and inspectable through explicit configuration.
+Forma helps teams keep Markdown workspace content readable, structured, and inspectable through explicit configuration.
 
 ## Abstract Core, Concrete Workflows
 

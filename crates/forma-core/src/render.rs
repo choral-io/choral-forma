@@ -1766,7 +1766,7 @@ mod tests {
         fs::create_dir_all(root.join("views")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/views/*.md\n  - views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/views/*.md\n  - views/*.md\n",
         );
         fs::write(
             root.join(".forma/views/tasks.md"),

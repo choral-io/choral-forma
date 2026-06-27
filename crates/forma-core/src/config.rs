@@ -972,7 +972,7 @@ mod tests {
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 
-        assert_eq!(workspace.config.workspace.name, "Acme Knowledge");
+        assert_eq!(workspace.config.workspace.name, "Acme Workspace");
         assert_eq!(workspace.config.workspace.timezone, "Asia/Shanghai");
         assert_eq!(workspace.config.types["note"].space(), Some("notes"));
         assert_eq!(workspace.config.spaces["notes"].include, "notes/**/*.md");
@@ -1012,7 +1012,7 @@ mod tests {
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/operations.md\ninclude:\n  - \".forma/spaces/*.md\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/operations.md\ninclude:\n  - \".forma/spaces/*.md\"\n",
         );
         fs::write(
             root.join("knowledge/guidelines/operations.md"),
@@ -1047,7 +1047,7 @@ mod tests {
         fs::create_dir_all(root.join(".forma")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/missing.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/missing.md\n",
         );
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
@@ -1070,7 +1070,7 @@ mod tests {
         fs::create_dir_all(root.join(".forma")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  root: .\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  root: .\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n",
         );
 
         let error = load_workspace(&root, LoadMode::SharedOnly).unwrap_err();
@@ -1088,7 +1088,7 @@ mod tests {
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n",
         );
         fs::write(
             root.join("knowledge/guidelines/not-markdown.txt"),
@@ -1132,7 +1132,7 @@ mod tests {
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n",
         );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(
@@ -1164,7 +1164,7 @@ mod tests {
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
         );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(
@@ -1186,7 +1186,7 @@ mod tests {
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
         );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(root.join(".forma/.gitignore"), "local/\n").unwrap();
@@ -1217,7 +1217,7 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n  logo:\n    path: assets/logo.svg\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n  logo:\n    path: assets/logo.svg\n",
         );
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
@@ -1238,7 +1238,7 @@ mod tests {
         fs::create_dir_all(root.join(".forma")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/dashboard.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/dashboard.md\n",
         );
         fs::write(
             root.join(".forma/dashboard.md"),
@@ -1264,7 +1264,7 @@ mod tests {
         fs::create_dir_all(root.join(".forma/spaces")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
         );
         fs::write(
             root.join(".forma/spaces/notes.md"),
@@ -1341,7 +1341,7 @@ mod tests {
         write_config(
             root,
             format!(
-                "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: {timezone}\ninclude:\n  - \".forma/spaces/*.md\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n"
+                "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: {timezone}\ninclude:\n  - \".forma/spaces/*.md\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n"
             ),
         );
         fs::write(
