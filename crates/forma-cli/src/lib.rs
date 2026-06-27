@@ -1385,8 +1385,8 @@ mod tests {
         let root = fixture_root("raw-route-forma-local-case");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
-        fs::create_dir_all(root.join(".forma/local")).unwrap();
-        fs::write(root.join(".forma/local/secret.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+        fs::create_dir_all(root.join(".FORMA/local")).unwrap();
+        fs::write(root.join(".FORMA/local/secret.png"), b"\x89PNG\r\n\x1a\n").unwrap();
 
         let app = rpc_router_with_dispatcher_and_workspace(
             None,
