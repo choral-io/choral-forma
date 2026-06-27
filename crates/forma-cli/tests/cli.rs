@@ -234,6 +234,7 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     let list_stdout = String::from_utf8_lossy(&list.stdout);
     assert!(list_stdout.contains(r#""operation":"docs.list""#));
     assert!(list_stdout.contains(r#""id":"workspace.configuration""#));
+    assert!(list_stdout.contains(r#""id":"cli.view""#));
     assert!(list_stdout.contains(r#""id":"agents.forma-cli-core""#));
 
     let get = forma(&root)
@@ -996,6 +997,126 @@ readiness: blocked
     assert!(reviewing_index < blocked_index);
     assert!(blocked_index < done_index);
     assert!(done_index < cancelled_index);
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn view_render_cli_renders_configured_kanban_view() {
+    let root = fixture_root("view-render-cli");
+    std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
+    std::fs::create_dir_all(root.join(".forma/views")).unwrap();
+    std::fs::create_dir_all(root.join("content/tasks")).unwrap();
+
+    write_config(
+        &root,
+        r#"schemaVersion: 1
+
+workspace:
+  name: "Generic View Workspace"
+  canonicalLanguage: "en"
+  supportedLanguages:
+    - "en"
+  timezone: "UTC"
+
+include:
+  - ".forma/spaces/*.md"
+  - ".forma/views/*.md"
+"#,
+    );
+    std::fs::write(
+        root.join(".forma/spaces/work-items.md"),
+        r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Work Items
+include:
+  - "content/tasks/**/*.md"
+create:
+  directory: content/tasks
+  filename: "{{ input.slug }}.md"
+  template: .forma/spaces/templates/work-item.md
+  inputs:
+    title:
+      required: true
+    slug:
+      default: "{{ input.title }}"
+      transform: slugify
+conventions:
+  titleField: title
+  summaryField: summary
+---
+
+# Work Items
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join(".forma/spaces/templates/work-item.md"),
+        "---\ntitle: \"{{ input.title }}\"\nsummary: \"\"\n---\n\n# {{ input.title }}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join(".forma/views/work-board.md"),
+        r#"---
+kind: view
+mode: kanban
+title: Work Board
+source:
+  type: pages
+  taxonomy:
+    spaces:
+      - work-items
+kanban:
+  columns:
+    - id: ready
+      label: Ready
+      query:
+        all:
+          - field: fields.readiness
+            op: equals
+            value: ready
+---
+
+# Work Board
+
+<!-- forma:content -->
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("content/tasks/alpha.md"),
+        r#"---
+title: Alpha
+summary: Ready work.
+readiness: ready
+---
+
+# Alpha
+"#,
+    )
+    .unwrap();
+
+    let output = forma(&root)
+        .args(["view", "render", ".forma/views/work-board", "--json"])
+        .output()
+        .expect("forma view render --json should run");
+
+    assert!(
+        output.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(r#""operation":"view.render""#));
+    assert!(stdout.contains(r#""path":".forma/views/work-board.md""#));
+    assert!(stdout.contains(r#""kind":"kanban""#));
+    assert!(stdout.contains(r#""path":"content/tasks/alpha.md""#));
+    assert!(stdout.contains(r#""readiness":"ready""#));
 
     std::fs::remove_dir_all(root).unwrap();
 }

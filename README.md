@@ -185,12 +185,10 @@ Use the local Forma config as the active project workspace context:
 
 - `cargo run -q -p forma-cli -- config inspect --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
-- `cargo run -q -p forma-cli -- tasks list --json`
-- `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>`
-- `cargo run -q -p forma-cli -- board show --json`
 - `cargo run -q -p forma-cli -- list --space tasks --json`
 - `cargo run -q -p forma-cli -- inspect <path> --json`
 - `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json`
+- `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
 
 For project context, start with [knowledge/README.md](knowledge/README.md). Keep durable project facts in `knowledge/` and keep local personal notes and Agent runtime state out of git.
 

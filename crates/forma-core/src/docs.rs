@@ -24,6 +24,10 @@ const EMBEDDED_DOC_SOURCES: &[(&str, &str)] = &[
         include_str!("../../../docs/cli/check.md"),
     ),
     (
+        "docs/cli/view.md",
+        include_str!("../../../docs/cli/view.md"),
+    ),
+    (
         "docs/cli/serve.md",
         include_str!("../../../docs/cli/serve.md"),
     ),

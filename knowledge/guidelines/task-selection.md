@@ -44,9 +44,10 @@ Use this skill when an Agent needs to choose the next task, inspect task readine
 Run:
 
 - `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- tasks list --json`
+- `cargo run -q -p forma-cli -- list --space tasks --json`
+- `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
 
-Inspect candidate tasks with `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>` before recommending or changing status.
+Inspect candidate tasks with `cargo run -q -p forma-cli -- inspect <task-path> --json` or `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json` before recommending or changing status.
 
 ### Task Selection Workflow
 
@@ -66,11 +67,13 @@ Start from Forma operations, not hidden workflow files:
 
 - `cargo run -q -p forma-cli -- config inspect --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
-- `cargo run -q -p forma-cli -- tasks list --json`
+- `cargo run -q -p forma-cli -- list --space tasks --json`
+- `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
 
 Inspect candidate tasks with:
 
-- `cargo run -q -p forma-cli -- tasks inspect --json <task-path>`
+- `cargo run -q -p forma-cli -- inspect <task-path> --json`
+- `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json`
 
 Use source documents linked from the task when acceptance, scope, or product intent matters. Use current member context only when ownership, assignment, focus area, or capacity is explicitly relevant.
 

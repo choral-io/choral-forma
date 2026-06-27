@@ -53,13 +53,12 @@ Before authoring the first content group, load the relevant embedded docs:
 
 ### Common Read Commands
 
-- `forma tasks list --json`
-- `forma tasks inspect <task-id-or-path> --json`
 - `forma list --space <space-id> --json`
 - `forma inspect <path> --json`
 - `forma inspect --space <space-id> <entry-id> --json`
+- `forma view render <view-id-or-path> --json`
 
-`tasks.*` commands are current helpers for configured task-like spaces. They do not make `task` a core Forma content type; future read APIs should move toward generic space/schema-driven operations.
+`tasks.*` and `board show` are current helpers for configured task-like workflows. They do not make `task` a core Forma content type. Prefer generic `list --space`, `inspect`, and `view render` for new workflows.
 
 ### Workspace Skills
 

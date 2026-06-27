@@ -9,8 +9,8 @@ priority: P2
 value: M
 module: core
 effort: M
-status: backlog
-readiness: needs-refinement
+status: doing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -62,3 +62,9 @@ The current API still exposes task-specialized surfaces such as `tasks.list`, `t
 - Forma has a documented generic replacement path for `tasks.list`, `tasks.inspect`, and `board.show`.
 - Product-facing docs and built-in skills no longer present `task` as a core Forma concept.
 - The repository dogfooding workflow can still inspect configured task-like content through generic operations or explicitly documented temporary aliases.
+
+## Progress
+
+- Added `forma view render <view-id-or-path> --json` as the generic CLI path for configured list, table, kanban, and graph projections.
+- Updated Agent-facing guidance to prefer `list --space`, `inspect`, and `view render` before task-specific helpers.
+- Kept `tasks.*` and `board.show` as temporary aliases for the current project workflow pending RPC/API cleanup.

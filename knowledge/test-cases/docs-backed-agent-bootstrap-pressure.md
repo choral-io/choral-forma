@@ -22,6 +22,7 @@ coversProduct:
     - "product/choral-forma"
 relatedTasks:
     - "tasks/implement-docs-backed-init-and-agent-onboarding"
+    - "tasks/generalize-task-specific-read-operations"
 ---
 
 # Docs Backed Agent Bootstrap Pressure
@@ -43,7 +44,7 @@ Run these scenarios separately:
 1. Empty bootstrap: initialize an empty directory and inspect the generated files.
 2. Wrong assumption baseline: try a naive content group config that treats `space` as an intrinsic object or puts `template` at the top level; confirm `check` catches the error.
 3. Guided first content group: load `forma-cli-core`, then `workspace.configuration`, `workspace.spaces`, `workspace.schemas`, `workspace.templates`, and `agents.workspace-bootstrap`; define a `notes` content group and template from those docs.
-4. First content write: create two notes, list the `notes` content group, and inspect one note.
+4. First content write: create notes, list the `notes` content group, inspect one note, and render a configured notes view.
 5. Health interpretation: observe isolated-page health warnings before links exist; add explicit links and confirm health passes.
 6. Scenario-driven design: given a human request such as "I run a small consulting practice and need to track clients, engagements, meeting notes, and decisions", the Agent asks clarifying questions and proposes only the first slice instead of building a full taxonomy immediately.
 7. Domain-language mapping: for the accepted first slice, the Agent maps human terms to a configured space, schema fields, template inputs, and optional guideline without using `notes`, `tasks`, `members`, or `project` unless the human chose those terms.
@@ -60,10 +61,10 @@ Run these scenarios separately:
 8. Run `forma config inspect --json` and confirm the effective config reports the expected entry under `spaces`.
 9. Run `forma check --json`.
 10. Create two notes with `forma create notes --input ... --json`.
-11. Run `forma list --space notes --json` and `forma inspect notes/first-note.md --json`.
+11. Run `forma list --space notes --json`, `forma inspect notes/first-note.md --json`, and `forma view render .forma/views/notes --json`.
 12. Run `forma workspace health --json` before links exist and record isolated-page warnings as relationship feedback.
 13. Add links between the notes and rerun `forma workspace health --json`.
-14. For the scenario-driven design case, require the Agent to propose one first content group, one template, and one verification path before adding additional spaces.
+14. For the scenario-driven design case, require the Agent to propose one first content group, one template, one optional view, and one verification path before adding additional spaces.
 
 ## Expected Results
 
@@ -73,7 +74,7 @@ Run these scenarios separately:
 - The Agent asks clarifying questions and confirms the first slice before writing config.
 - The Agent maps human domain language to Forma artifacts without presenting `task`, `member`, `note`, or `project` as built-ins.
 - The guided content group appears under `spaces` in `config inspect`.
-- `check`, `create`, `list`, and `inspect` pass for the guided content group.
+- `check`, `create`, `list`, `inspect`, and `view render` pass for the guided content group.
 - Isolated-page `workspace health` warnings are treated as relationship feedback, not failed bootstrap.
 - After adding explicit links, `workspace health` passes.
 
@@ -118,3 +119,18 @@ Docs changes made during this run:
 - `docs/agents/forma-cli-core.md` now points Agents to the embedded docs needed before authoring the first content group.
 - `docs/agents/workspace-bootstrap.md` now includes the step-by-step first content category workflow and isolated-page warning interpretation.
 - `docs/workspace/templates.md` now describes templates as `create.template` on a configured content group instead of as a built-in space mechanism.
+
+### 2026-06-27 Generic View Render Run
+
+Temporary workspace: `/private/tmp/forma-empty-workspace.SJQISD`.
+
+Scenario observations:
+
+- `forma init --name "Scenario Workspace" --json`: passed and wrote only `.forma.md` plus `.agents/skills/forma-cli/SKILL.md`.
+- Added one guideline, one `notes` space, one note template, one table view, and one sample note using only files included from `.forma.md`.
+- `forma check --json`: passed.
+- `forma skills list --json`: passed and discovered the built-in `forma-cli-core` skill plus the workspace guideline skill.
+- `forma list --space notes --json`: passed and returned `notes/first-note.md`.
+- `forma inspect notes/first-note.md --json`: passed and returned the space guideline.
+- `forma view render .forma/views/notes --json`: passed and returned a table projection for the notes view.
+- `forma workspace health --json` reported isolated-page relationship warnings for the single note. This is acceptable first-slice feedback, not a failed bootstrap.

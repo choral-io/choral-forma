@@ -16,7 +16,7 @@ use clap::{Parser, Subcommand};
 use forma_rpc::{
     BoardShowRequest, CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest,
     InspectRequest, ListRequest, OperationRequest, SkillsGetRequest, SkillsListRequest,
-    TasksInspectRequest, TasksListRequest, WorkspaceHealthRequest,
+    TasksInspectRequest, TasksListRequest, ViewRenderRequest, WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -87,6 +87,10 @@ enum Command {
         #[command(subcommand)]
         command: BoardCommand,
     },
+    View {
+        #[command(subcommand)]
+        command: ViewCommand,
+    },
     Docs {
         #[command(subcommand)]
         command: DocsCommand,
@@ -141,6 +145,15 @@ enum TasksCommand {
 #[derive(Debug, Subcommand)]
 enum BoardCommand {
     Show {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ViewCommand {
+    Render {
+        view: String,
         #[arg(long)]
         json: bool,
     },
@@ -289,6 +302,18 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 let result =
                     dispatcher.dispatch(OperationRequest::BoardShow(BoardShowRequest {}))?;
                 print_result(&result, json, "board show");
+                exit_if_failed(&result);
+                Ok(())
+            }
+        },
+        Some(Command::View { command }) => match command {
+            ViewCommand::Render { view, json } => {
+                let result =
+                    dispatcher.dispatch(OperationRequest::ViewRender(ViewRenderRequest {
+                        view,
+                        params: Default::default(),
+                    }))?;
+                print_result(&result, json, "view render");
                 exit_if_failed(&result);
                 Ok(())
             }

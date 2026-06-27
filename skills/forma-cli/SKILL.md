@@ -25,15 +25,14 @@ Use `skills list --json` and `skills get <skill-id>` only when the request match
 - `cargo run -q -p forma-cli -- skills list --json`
 - `cargo run -q -p forma-cli -- skills get <skill-id>`
 - `cargo run -q -p forma-cli -- workspace health --json`
-- `cargo run -q -p forma-cli -- tasks list --json`
-- `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>`
 - `cargo run -q -p forma-cli -- list --space <space-id> --json`
 - `cargo run -q -p forma-cli -- inspect <path> --json`
 - `cargo run -q -p forma-cli -- inspect --space <space-id> <entry-id> --json`
+- `cargo run -q -p forma-cli -- view render <view-id-or-path> --json`
 
 Use `--json` in machine-facing checks and for any operation that will feed review notes.
 
-`tasks.*` commands are current helpers for configured task-like spaces, not core Forma content types. Prefer generic `list --space` and `inspect` when sufficient.
+`tasks.*` and `board show` are current helpers for this repository's configured task-like workflow, not core Forma content types. Prefer generic `list --space`, `inspect`, and `view render` when sufficient.
 
 ## Write Boundary
 

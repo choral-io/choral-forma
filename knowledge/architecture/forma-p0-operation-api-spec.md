@@ -59,7 +59,7 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 | SkillsGet | `skills.get` | `forma skills get <id> [--json]` | No |
 | Init | `init` | `forma init [--name <name>] [--language <tag>] [--timezone <tz>] [--json]` | Yes |
 | Create | `create` | `forma create <space> [--input <name=value>]... [--json]` | Yes |
-| ViewRender | `view.render` | No required P0 CLI command | No |
+| ViewRender | `view.render` | `forma view render <view-id-or-path> [--json]` | No |
 | Serve | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...` | No |
 
 `Serve` is a CLI mode, not a domain operation. The server exposes operation methods through `POST /rpc` and serves static WebApp assets. It may compute diagnostics in memory and expose check status through operation results, but it must not write files in P0.

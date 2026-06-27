@@ -51,7 +51,7 @@ Minimum evidence:
 - guided `kind: term` + `taxonomy: spaces` content group setup passes;
 - scenario-driven bootstrap asks clarifying questions and implements only the first confirmed slice;
 - ordinary workspace operations load the lightweight Skill and core guide without pulling all bootstrap docs into context;
-- `check`, `create`, `list`, and `inspect` pass for the guided content group;
+- `check`, `create`, `list`, `inspect`, and `view render` pass for the guided content group;
 - isolated-page health warnings are reported as relationship feedback and can be cleared by adding explicit links.
 
 ## Evaluation Boundary
