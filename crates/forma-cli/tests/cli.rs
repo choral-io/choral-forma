@@ -268,6 +268,9 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     let get_stdout = String::from_utf8_lossy(&get.stdout);
     assert!(get_stdout.contains("# Workspace Configuration"));
     assert!(get_stdout.contains("workspace-relative POSIX paths"));
+    assert!(get_stdout.contains("currentUserId"));
+    assert!(get_stdout.contains("kind: gitConfig"));
+    assert!(get_stdout.contains("kind: const"));
     assert!(!get_stdout.contains(r#""operation":"docs.get""#));
 
     std::fs::remove_dir_all(root).unwrap();

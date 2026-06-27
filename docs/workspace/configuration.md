@@ -61,6 +61,34 @@ runtime:
 This file is the Forma workspace entry point.
 ```
 
+Runtime values define named values that templates and create defaults can read with `{{ runtime.values.<name> }}`. They are explicit config, not hidden identity or environment assumptions.
+
+Common runtime value providers:
+
+```yaml
+runtime:
+    values:
+        currentDateTime:
+            kind: currentDateTime
+        workspaceRoot:
+            kind: workspaceRoot
+        currentUserId:
+            kind: gitConfig
+            key: user.name
+            transform: slugify
+```
+
+Use `currentUserId` only when the workspace workflow needs a current user value, for example to default an owner or author field. It can be resolved from Git config as above, or overridden by an explicitly included local config file:
+
+```yaml
+runtime:
+    values:
+        currentUserId:
+            kind: const
+            value: alex-chen
+            transform: slugify
+```
+
 Included Markdown config nodes use frontmatter as their machine-readable configuration and Markdown body as Human-readable documentation. In the current P0 configuration model, a configured content group is commonly declared as a taxonomy term:
 
 ```yaml
