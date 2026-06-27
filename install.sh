@@ -40,8 +40,16 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Downloading ${asset} from ${REPO} ${VERSION}"
-curl -fsSL "$download_url" -o "$tmp_dir/$asset"
-curl -fsSL "$checksum_url" -o "$tmp_dir/$asset.sha256"
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  if [ "$VERSION" = "latest" ]; then
+    gh release download --repo "$REPO" --pattern "$asset" --pattern "$asset.sha256" --dir "$tmp_dir"
+  else
+    gh release download "$VERSION" --repo "$REPO" --pattern "$asset" --pattern "$asset.sha256" --dir "$tmp_dir"
+  fi
+else
+  curl -fsSL "$download_url" -o "$tmp_dir/$asset"
+  curl -fsSL "$checksum_url" -o "$tmp_dir/$asset.sha256"
+fi
 
 (
   cd "$tmp_dir"

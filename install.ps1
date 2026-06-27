@@ -29,8 +29,22 @@ try {
     $extractPath = Join-Path $tmpDir "extract"
 
     Write-Host "Downloading $asset from $Repo $Version"
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath
-    Invoke-WebRequest -Uri $checksumUrl -OutFile $checksumPath
+    if (Get-Command gh -ErrorAction SilentlyContinue) {
+        $null = gh auth status 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            if ($Version -eq "latest") {
+                gh release download --repo $Repo --pattern $asset --pattern "$asset.sha256" --dir $tmpDir
+            } else {
+                gh release download $Version --repo $Repo --pattern $asset --pattern "$asset.sha256" --dir $tmpDir
+            }
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath
+            Invoke-WebRequest -Uri $checksumUrl -OutFile $checksumPath
+        }
+    } else {
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath
+        Invoke-WebRequest -Uri $checksumUrl -OutFile $checksumPath
+    }
 
     $expectedHash = (Get-Content $checksumPath -Raw).Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)[0].ToLowerInvariant()
     $actualHash = (Get-FileHash -Algorithm SHA256 $archivePath).Hash.ToLowerInvariant()
