@@ -32,8 +32,6 @@ Use `skills list --json` and `skills get <skill-id>` only when the request match
 
 Use `--json` in machine-facing checks and for any operation that will feed review notes.
 
-`tasks.*` and `board show` are current helpers for this repository's configured task-like workflow, not core Forma content types. Prefer generic `list --space`, `inspect`, and `view render` when sufficient.
-
 ## Write Boundary
 
 - Do not modify shared content, task metadata, board state, Forma config, guidelines, or repository operating state without explicit user approval.

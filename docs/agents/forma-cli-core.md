@@ -58,8 +58,6 @@ Before authoring the first content group, load the relevant embedded docs:
 - `forma inspect --space <space-id> <entry-id> --json`
 - `forma view render <view-id-or-path> --json`
 
-`tasks.*` and `board show` are current helpers for configured task-like workflows. They do not make `task` a core Forma content type. Prefer generic `list --space`, `inspect`, and `view render` for new workflows.
-
 ### Workspace Skills
 
 Use `forma skills list --json` to discover workspace-projected skills. Use `forma skills get <id>` to load a specific workflow before acting.

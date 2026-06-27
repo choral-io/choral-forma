@@ -94,6 +94,23 @@ fn supports_standard_version_flag() {
 }
 
 #[test]
+fn help_exposes_generic_commands_without_task_specific_helpers() {
+    let output = Command::new(env!("CARGO_BIN_EXE_forma"))
+        .arg("--help")
+        .output()
+        .expect("forma --help should run");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("view"));
+    assert!(stdout.contains("list"));
+    assert!(stdout.contains("inspect"));
+    assert!(!stdout.contains("tasks"));
+    assert!(!stdout.contains("board"));
+}
+
+#[test]
 fn check_json_prints_direct_operation_result() {
     let output = Command::new(env!("CARGO_BIN_EXE_forma"))
         .args(["check", "--json"])
@@ -744,8 +761,8 @@ fn repository_check_json_reports_no_reference_regressions() {
 }
 
 #[test]
-fn tasks_list_and_inspect_read_task_metadata() {
-    let root = fixture_root("tasks-list-and-inspect");
+fn list_and_inspect_read_configured_task_like_metadata() {
+    let root = fixture_root("generic-task-like-list-and-inspect");
     std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
     std::fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
 
@@ -820,9 +837,9 @@ assignees:
     .unwrap();
 
     let list = forma(&root)
-        .args(["tasks", "list", "--json"])
+        .args(["list", "--space", "tasks", "--json"])
         .output()
-        .expect("forma tasks list should run");
+        .expect("forma list --space tasks should run");
 
     assert!(
         list.status.success(),
@@ -831,15 +848,15 @@ assignees:
     );
     assert!(list.stderr.is_empty());
     let list_stdout = String::from_utf8_lossy(&list.stdout);
-    assert!(list_stdout.contains(r#""operation":"tasks.list""#));
+    assert!(list_stdout.contains(r#""operation":"list""#));
+    assert!(list_stdout.contains(r#""id":"tasks""#));
     assert!(list_stdout.contains(r#""path":"knowledge/tasks/ship-cli.md""#));
-    assert!(list_stdout.contains(r#""readiness":"ready""#));
-    assert!(list_stdout.contains(r#""priority":"P0""#));
+    assert!(list_stdout.contains(r#""title":"Ship CLI""#));
 
     let inspect = forma(&root)
-        .args(["tasks", "inspect", "knowledge/tasks/ship-cli.md", "--json"])
+        .args(["inspect", "--space", "tasks", "ship-cli", "--json"])
         .output()
-        .expect("forma tasks inspect should run");
+        .expect("forma inspect --space tasks should run");
 
     assert!(
         inspect.status.success(),
@@ -848,155 +865,10 @@ assignees:
     );
     assert!(inspect.stderr.is_empty());
     let inspect_stdout = String::from_utf8_lossy(&inspect.stdout);
-    assert!(inspect_stdout.contains(r#""operation":"tasks.inspect""#));
+    assert!(inspect_stdout.contains(r#""operation":"inspect""#));
     assert!(inspect_stdout.contains(r#""title":"Ship CLI""#));
     assert!(inspect_stdout.contains(r#""priority":"P0""#));
     assert!(inspect_stdout.contains(r#""owner":"Alex Chen""#));
-
-    std::fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
-fn board_show_groups_tasks_by_delivery_columns() {
-    let root = fixture_root("board-show");
-    std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
-    std::fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
-
-    write_config(
-        &root,
-        r#"schemaVersion: 1
-
-workspace:
-  name: "Task Board"
-  canonicalLanguage: "en"
-  supportedLanguages:
-    - "en"
-  timezone: "UTC"
-
-include:
-  - ".forma/spaces/*.md"
-"#,
-    );
-    std::fs::write(
-        root.join(".forma/spaces/tasks.md"),
-        r#"---
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Tasks
-include:
-  - "knowledge/tasks/**/*.md"
-create:
-  directory: knowledge/tasks
-  filename: "{{ input.slug }}.md"
-  template: .forma/spaces/templates/task.md
-  inputs:
-    title:
-      required: true
-    slug:
-      default: "{{ input.title }}"
-      transform: slugify
-conventions:
-  titleField: title
-  summaryField: summary
----
-
-# Tasks
-"#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join(".forma/spaces/templates/task.md"),
-        "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"\"\n---\n\n# {{ input.title }}\n",
-    )
-    .unwrap();
-    std::fs::write(
-        root.join("knowledge/tasks/alpha.md"),
-        r#"---
-schemaVersion: 1
-kind: task
-title: Alpha
-summary: Needs refinement by default.
----
-
-# Alpha
-"#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join("knowledge/tasks/bravo.md"),
-        r#"---
-schemaVersion: 1
-kind: task
-title: Bravo
-summary: Ready task.
-readiness: ready
----
-
-# Bravo
-"#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join("knowledge/tasks/charlie.md"),
-        r#"---
-schemaVersion: 1
-kind: task
-title: Charlie
-summary: Blocked task.
-readiness: blocked
----
-
-# Charlie
-"#,
-    )
-    .unwrap();
-
-    let output = forma(&root)
-        .args(["board", "show", "--json"])
-        .output()
-        .expect("forma board show --json should run");
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(output.stderr.is_empty());
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains(r#""operation":"board.show""#));
-    assert!(stdout.contains(r#""id":"backlog""#));
-    assert!(stdout.contains(r#""title":"Backlog""#));
-    assert!(stdout.contains(r#""id":"ready""#));
-    assert!(stdout.contains(r#""title":"Ready""#));
-    assert!(stdout.contains(r#""id":"doing""#));
-    assert!(stdout.contains(r#""title":"Doing""#));
-    assert!(stdout.contains(r#""id":"reviewing""#));
-    assert!(stdout.contains(r#""title":"Reviewing""#));
-    assert!(stdout.contains(r#""id":"blocked""#));
-    assert!(stdout.contains(r#""title":"Blocked""#));
-    assert!(stdout.contains(r#""id":"done""#));
-    assert!(stdout.contains(r#""title":"Done""#));
-    assert!(stdout.contains(r#""id":"cancelled""#));
-    assert!(stdout.contains(r#""title":"Cancelled""#));
-    assert!(stdout.contains(r#""path":"knowledge/tasks/alpha.md""#));
-    assert!(stdout.contains(r#""path":"knowledge/tasks/bravo.md""#));
-    assert!(stdout.contains(r#""path":"knowledge/tasks/charlie.md""#));
-
-    let backlog_index = stdout.find(r#""id":"backlog""#).unwrap();
-    let ready_index = stdout.find(r#""id":"ready""#).unwrap();
-    let doing_index = stdout.find(r#""id":"doing""#).unwrap();
-    let reviewing_index = stdout.find(r#""id":"reviewing""#).unwrap();
-    let blocked_index = stdout.find(r#""id":"blocked""#).unwrap();
-    let done_index = stdout.find(r#""id":"done""#).unwrap();
-    let cancelled_index = stdout.find(r#""id":"cancelled""#).unwrap();
-    assert!(backlog_index < ready_index);
-    assert!(ready_index < doing_index);
-    assert!(doing_index < reviewing_index);
-    assert!(reviewing_index < blocked_index);
-    assert!(blocked_index < done_index);
-    assert!(done_index < cancelled_index);
 
     std::fs::remove_dir_all(root).unwrap();
 }

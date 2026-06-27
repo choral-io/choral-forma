@@ -66,5 +66,6 @@ The current API still exposes task-specialized surfaces such as `tasks.list`, `t
 ## Progress
 
 - Added `forma view render <view-id-or-path> --json` as the generic CLI path for configured list, table, kanban, and graph projections.
-- Updated Agent-facing guidance to prefer `list --space`, `inspect`, and `view render` before task-specific helpers.
-- Kept `tasks.*` and `board.show` as temporary aliases for the current project workflow pending RPC/API cleanup.
+- Updated Agent-facing guidance to use `list --space`, `inspect`, and `view render` for read workflows.
+- Removed the public `forma tasks ...` and `forma board show` CLI helpers so the CLI no longer presents task-like content as a built-in product concept.
+- RPC/core still expose legacy `tasks.*` and `board.show` operations internally; remove or replace those in a follow-up API cleanup after confirming Web/RPC consumers.
