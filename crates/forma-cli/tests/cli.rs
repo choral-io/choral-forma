@@ -222,7 +222,7 @@ fn skills_get_builtin_core_prints_markdown_without_workspace_config() {
     assert!(output.stderr.is_empty());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("# Forma CLI Core"));
-    assert!(stdout.contains("Run Forma commands from the target workspace root."));
+    assert!(stdout.contains("Run `forma` commands from the target workspace root."));
     assert!(stdout.contains("Built-in skill: forma-cli-core"));
     assert!(stdout.contains("Empty Workspace Setup"));
     assert!(stdout.contains("Do not create `skills/forma-cli/SKILL.md`"));

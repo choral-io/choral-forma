@@ -1919,7 +1919,7 @@ description: Use for Forma workspace bootstrap, content operations, and Agent-fa
 
 # Forma CLI
 
-Run Forma commands from the target workspace root. If you cannot guarantee the current working directory, pass `--workspace <path>` explicitly.
+Run `forma` commands from the target workspace root. If you cannot guarantee the current working directory, pass `--workspace <path>` explicitly.
 
 Before Forma workspace or configuration work, load the built-in guide:
 
