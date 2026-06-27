@@ -1425,7 +1425,7 @@ mod tests {
     }
 
     fn remove_guideline_references(root: &std::path::Path) {
-        let config_path = root.join(".forma.yml");
+        let config_path = root.join(".forma.md");
         let config = fs::read_to_string(&config_path).unwrap();
         fs::write(
             &config_path,
@@ -1444,6 +1444,14 @@ mod tests {
                 "guidelines:\n  - \"guidelines/workspace-operations.md\"\n",
                 "",
             ),
+        )
+        .unwrap();
+    }
+
+    fn write_config(root: &std::path::Path, yaml: impl AsRef<str>) {
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            format!("---\n{}---\n\n# Forma Workspace\n", yaml.as_ref()),
         )
         .unwrap();
     }
@@ -1583,10 +1591,10 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
 
-        let result = render_file(&root, ".forma.yml", "source").unwrap();
+        let result = render_file(&root, ".forma.md", "source").unwrap();
 
         assert_eq!(result.status, crate::OperationStatus::Passed);
-        assert_eq!(result.file.path, ".forma.yml");
+        assert_eq!(result.file.path, ".forma.md");
         assert_eq!(result.file.space, None);
         assert_eq!(result.render.format, "source");
         assert!(result.render.html.is_none());
@@ -1726,11 +1734,10 @@ mod tests {
         let root = fixture_root("included-view-render");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
-        fs::write(
-            root.join(".forma.yml"),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Render Test\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - views/*.md\n",
-        )
-        .unwrap();
+        );
         fs::create_dir_all(root.join("views")).unwrap();
         fs::write(
             root.join("views/custom.md"),
@@ -1757,11 +1764,10 @@ mod tests {
         let root = fixture_root("render-view-basename-collision");
         fs::create_dir_all(root.join(".forma/views")).unwrap();
         fs::create_dir_all(root.join("views")).unwrap();
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/views/*.md\n  - views/*.md\n",
-        )
-        .unwrap();
+        );
         fs::write(
             root.join(".forma/views/tasks.md"),
             "---\nkind: view\nmode: list\ntitle: Built-in Tasks\nsource:\n  type: pages\n---\n\n# Built-in Tasks\n",
@@ -1892,12 +1898,12 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            root.join(".forma/views/knowledge-graph.md"),
-            "---\nkind: view\nmode: graph\ntitle: Knowledge Graph\nsource:\n  type: pages\n  include:\n    - \"notes/**/*.md\"\n---\n\n# Knowledge Graph\n\n<!-- forma:content -->\n",
+            root.join(".forma/views/workspace-graph.md"),
+            "---\nkind: view\nmode: graph\ntitle: Workspace Graph\nsource:\n  type: pages\n  include:\n    - \"notes/**/*.md\"\n---\n\n# Workspace Graph\n\n<!-- forma:content -->\n",
         )
         .unwrap();
 
-        let result = render_view(&root, "knowledge-graph", BTreeMap::new()).unwrap();
+        let result = render_view(&root, "workspace-graph", BTreeMap::new()).unwrap();
         let Some(ViewRenderOutput::Graph { nodes, edges }) = result.render else {
             panic!("expected graph render");
         };

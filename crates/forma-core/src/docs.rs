@@ -64,8 +64,8 @@ const EMBEDDED_DOC_SOURCES: &[(&str, &str)] = &[
         include_str!("../../../docs/agents/workspace-bootstrap.md"),
     ),
     (
-        "docs/agents/knowledge-maintenance.md",
-        include_str!("../../../docs/agents/knowledge-maintenance.md"),
+        "docs/agents/workspace-maintenance.md",
+        include_str!("../../../docs/agents/workspace-maintenance.md"),
     ),
 ];
 

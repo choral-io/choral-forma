@@ -327,20 +327,20 @@ pub struct FileReferencesResult {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct KnowledgeHealthResult {
+pub struct WorkspaceHealthResult {
     pub schema_version: u16,
     pub operation: String,
     pub status: OperationStatus,
     pub workspace: WorkspaceSummary,
-    pub findings: Vec<KnowledgeHealthFinding>,
+    pub findings: Vec<WorkspaceHealthFinding>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct KnowledgeHealthFinding {
-    pub category: KnowledgeHealthCategory,
+pub struct WorkspaceHealthFinding {
+    pub category: WorkspaceHealthCategory,
     pub severity: DiagnosticSeverity,
     pub path: String,
     pub message: String,
@@ -350,7 +350,7 @@ pub struct KnowledgeHealthFinding {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum KnowledgeHealthCategory {
+pub enum WorkspaceHealthCategory {
     BrokenReference,
     AmbiguousReference,
     NoOutgoingReferences,
@@ -415,7 +415,7 @@ pub struct WorkspaceFile {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WorkspaceFileKind {
-    Knowledge,
+    Content,
     View,
     Template,
     Markdown,
@@ -1066,7 +1066,7 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
             .iter()
             .find(|entry| entry.path == file.path)
         {
-            file.kind = WorkspaceFileKind::Knowledge;
+            file.kind = WorkspaceFileKind::Content;
             file.features = features_for_media_type(file.kind, &file.media_type);
             file.space = Some(entry.space.clone());
             file.title = entry.title.clone();
@@ -1290,11 +1290,11 @@ pub fn list_file_references(
     })
 }
 
-pub fn knowledge_health(root: impl AsRef<Path>) -> Result<KnowledgeHealthResult, OperationError> {
+pub fn workspace_health(root: impl AsRef<Path>) -> Result<WorkspaceHealthResult, OperationError> {
     let workspace = match load_workspace(root.as_ref(), LoadMode::SharedOnly) {
         Ok(workspace) => workspace,
         Err(error) => {
-            return Ok(knowledge_health_failure_result(
+            return Ok(workspace_health_failure_result(
                 "Unknown Workspace",
                 config_error_diagnostic(error),
             ));
@@ -1303,30 +1303,30 @@ pub fn knowledge_health(root: impl AsRef<Path>) -> Result<KnowledgeHealthResult,
     let discovery = match discover_workspace(root.as_ref()) {
         Ok(discovery) => discovery,
         Err(error) => {
-            return Ok(knowledge_health_failure_result(
+            return Ok(workspace_health_failure_result(
                 &workspace.config.workspace.name,
                 config_error_diagnostic(error),
             ));
         }
     };
-    Ok(build_knowledge_health_result(
+    Ok(build_workspace_health_result(
         &workspace.config.workspace.name,
         &discovery.index.entries,
         &discovery.diagnostics,
     ))
 }
 
-fn knowledge_health_failure_result(
+fn workspace_health_failure_result(
     workspace_name: &str,
     diagnostic: Diagnostic,
-) -> KnowledgeHealthResult {
-    let finding = knowledge_health_config_finding_from_diagnostic(&diagnostic);
-    let diagnostics = vec![knowledge_health_diagnostic(&finding)];
+) -> WorkspaceHealthResult {
+    let finding = workspace_health_config_finding_from_diagnostic(&diagnostic);
+    let diagnostics = vec![workspace_health_diagnostic(&finding)];
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
 
-    KnowledgeHealthResult {
+    WorkspaceHealthResult {
         schema_version: 1,
-        operation: "knowledge.health".to_string(),
+        operation: "workspace.health".to_string(),
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
@@ -1339,14 +1339,14 @@ fn knowledge_health_failure_result(
     }
 }
 
-fn build_knowledge_health_result(
+fn build_workspace_health_result(
     workspace_name: &str,
     entries: &[IndexEntry],
     discovery_diagnostics: &[Diagnostic],
-) -> KnowledgeHealthResult {
+) -> WorkspaceHealthResult {
     let mut findings = discovery_diagnostics
         .iter()
-        .filter_map(knowledge_health_finding_from_diagnostic)
+        .filter_map(workspace_health_finding_from_diagnostic)
         .collect::<Vec<_>>();
     let reference_problem_paths = discovery_diagnostics
         .iter()
@@ -1359,8 +1359,8 @@ fn build_knowledge_health_result(
     for entry in entries {
         let internal_targets = unique_internal_non_self_reference_targets(&entry.path, &entry.refs);
         if internal_targets.is_empty() && !reference_problem_paths.contains(&entry.path) {
-            findings.push(KnowledgeHealthFinding {
-                category: KnowledgeHealthCategory::NoOutgoingReferences,
+            findings.push(WorkspaceHealthFinding {
+                category: WorkspaceHealthCategory::NoOutgoingReferences,
                 severity: DiagnosticSeverity::Warning,
                 path: entry.path.clone(),
                 message: "Entry has no outgoing internal references.".to_string(),
@@ -1377,8 +1377,8 @@ fn build_knowledge_health_result(
         if inbound_counts.get(&entry.path).copied().unwrap_or_default() == 0
             && !reference_problem_paths.contains(&entry.path)
         {
-            findings.push(KnowledgeHealthFinding {
-                category: KnowledgeHealthCategory::NoBacklinks,
+            findings.push(WorkspaceHealthFinding {
+                category: WorkspaceHealthCategory::NoBacklinks,
                 severity: DiagnosticSeverity::Warning,
                 path: entry.path.clone(),
                 message: "Entry has no inbound internal references.".to_string(),
@@ -1387,24 +1387,24 @@ fn build_knowledge_health_result(
         }
     }
 
-    findings.sort_by_key(knowledge_health_finding_sort_key);
+    findings.sort_by_key(workspace_health_finding_sort_key);
 
     let mut diagnostics = findings
         .iter()
-        .map(knowledge_health_diagnostic)
+        .map(workspace_health_diagnostic)
         .collect::<Vec<_>>();
     diagnostics.extend(
         discovery_diagnostics
             .iter()
-            .filter(|diagnostic| knowledge_health_finding_from_diagnostic(diagnostic).is_none())
+            .filter(|diagnostic| workspace_health_finding_from_diagnostic(diagnostic).is_none())
             .cloned(),
     );
-    diagnostics.sort_by_key(knowledge_health_diagnostic_sort_key);
+    diagnostics.sort_by_key(workspace_health_diagnostic_sort_key);
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
 
-    KnowledgeHealthResult {
+    WorkspaceHealthResult {
         schema_version: 1,
-        operation: "knowledge.health".to_string(),
+        operation: "workspace.health".to_string(),
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
@@ -1534,37 +1534,37 @@ fn reference_edge_sort_key(
     )
 }
 
-fn knowledge_health_finding_from_diagnostic(
+fn workspace_health_finding_from_diagnostic(
     diagnostic: &Diagnostic,
-) -> Option<KnowledgeHealthFinding> {
+) -> Option<WorkspaceHealthFinding> {
     let path = diagnostic.path.clone().unwrap_or_else(|| ".".to_string());
     match diagnostic.code.as_str() {
-        "ref.unresolved" => Some(KnowledgeHealthFinding {
-            category: KnowledgeHealthCategory::BrokenReference,
+        "ref.unresolved" => Some(WorkspaceHealthFinding {
+            category: WorkspaceHealthCategory::BrokenReference,
             severity: DiagnosticSeverity::Warning,
             path,
             message: "Reference cannot be resolved.".to_string(),
             target: diagnostic.actual.clone(),
         }),
-        "ref.ambiguous" => Some(KnowledgeHealthFinding {
-            category: KnowledgeHealthCategory::AmbiguousReference,
+        "ref.ambiguous" => Some(WorkspaceHealthFinding {
+            category: WorkspaceHealthCategory::AmbiguousReference,
             severity: DiagnosticSeverity::Warning,
             path,
             message: "Reference resolves to multiple entries.".to_string(),
             target: diagnostic.actual.clone(),
         }),
         _ if is_config_health_diagnostic(diagnostic) => {
-            Some(knowledge_health_config_finding_from_diagnostic(diagnostic))
+            Some(workspace_health_config_finding_from_diagnostic(diagnostic))
         }
         _ => None,
     }
 }
 
-fn knowledge_health_config_finding_from_diagnostic(
+fn workspace_health_config_finding_from_diagnostic(
     diagnostic: &Diagnostic,
-) -> KnowledgeHealthFinding {
-    KnowledgeHealthFinding {
-        category: KnowledgeHealthCategory::ConfigDiagnostic,
+) -> WorkspaceHealthFinding {
+    WorkspaceHealthFinding {
+        category: WorkspaceHealthCategory::ConfigDiagnostic,
         severity: diagnostic.severity,
         path: diagnostic.path.clone().unwrap_or_else(|| ".".to_string()),
         message: diagnostic.message.clone(),
@@ -1635,9 +1635,9 @@ fn is_external_reference_target(target: &str) -> bool {
         || target.starts_with('#')
 }
 
-fn knowledge_health_finding_sort_key(
-    finding: &KnowledgeHealthFinding,
-) -> (String, KnowledgeHealthCategory, String, Option<String>) {
+fn workspace_health_finding_sort_key(
+    finding: &WorkspaceHealthFinding,
+) -> (String, WorkspaceHealthCategory, String, Option<String>) {
     (
         finding.path.clone(),
         finding.category,
@@ -1646,19 +1646,19 @@ fn knowledge_health_finding_sort_key(
     )
 }
 
-fn knowledge_health_diagnostic(finding: &KnowledgeHealthFinding) -> Diagnostic {
+fn workspace_health_diagnostic(finding: &WorkspaceHealthFinding) -> Diagnostic {
     let diagnostic = match finding.severity {
         DiagnosticSeverity::Error => Diagnostic::error(
-            knowledge_health_diagnostic_code(finding.category),
+            workspace_health_diagnostic_code(finding.category),
             &finding.message,
         ),
         DiagnosticSeverity::Warning => Diagnostic::warning(
-            knowledge_health_diagnostic_code(finding.category),
+            workspace_health_diagnostic_code(finding.category),
             &finding.message,
         ),
         DiagnosticSeverity::Info => Diagnostic {
             severity: DiagnosticSeverity::Info,
-            code: knowledge_health_diagnostic_code(finding.category).to_string(),
+            code: workspace_health_diagnostic_code(finding.category).to_string(),
             message: finding.message.clone(),
             path: None,
             location: None,
@@ -1675,17 +1675,17 @@ fn knowledge_health_diagnostic(finding: &KnowledgeHealthFinding) -> Diagnostic {
     }
 }
 
-fn knowledge_health_diagnostic_code(category: KnowledgeHealthCategory) -> &'static str {
+fn workspace_health_diagnostic_code(category: WorkspaceHealthCategory) -> &'static str {
     match category {
-        KnowledgeHealthCategory::BrokenReference => "knowledgeHealth.brokenReference",
-        KnowledgeHealthCategory::AmbiguousReference => "knowledgeHealth.ambiguousReference",
-        KnowledgeHealthCategory::NoOutgoingReferences => "knowledgeHealth.noOutgoingReferences",
-        KnowledgeHealthCategory::NoBacklinks => "knowledgeHealth.noBacklinks",
-        KnowledgeHealthCategory::ConfigDiagnostic => "knowledgeHealth.configDiagnostic",
+        WorkspaceHealthCategory::BrokenReference => "workspaceHealth.brokenReference",
+        WorkspaceHealthCategory::AmbiguousReference => "workspaceHealth.ambiguousReference",
+        WorkspaceHealthCategory::NoOutgoingReferences => "workspaceHealth.noOutgoingReferences",
+        WorkspaceHealthCategory::NoBacklinks => "workspaceHealth.noBacklinks",
+        WorkspaceHealthCategory::ConfigDiagnostic => "workspaceHealth.configDiagnostic",
     }
 }
 
-fn knowledge_health_diagnostic_sort_key(diagnostic: &Diagnostic) -> (String, String, String) {
+fn workspace_health_diagnostic_sort_key(diagnostic: &Diagnostic) -> (String, String, String) {
     (
         diagnostic.path.clone().unwrap_or_default(),
         diagnostic.code.clone(),
@@ -2254,7 +2254,8 @@ fn write_workspace_file(root: &Path, path: &str, content: &str) -> Result<(), Op
 
 fn minimal_config_source(name: &str, language: &str, timezone: &str) -> String {
     format!(
-        r#"schemaVersion: 1
+        r#"---
+schemaVersion: 1
 
 workspace:
   name: "{name}"
@@ -2276,6 +2277,11 @@ runtime:
       kind: currentDateTime
     workspaceRoot:
       kind: workspaceRoot
+---
+
+# {name}
+
+This file is the Forma workspace entry point. Its frontmatter defines the workspace configuration; this body is for Human and Agent-readable notes.
 "#,
         name = yaml_double_quoted(name),
         language = yaml_double_quoted(language),
@@ -2290,14 +2296,14 @@ fn yaml_double_quoted(value: &str) -> String {
 fn forma_cli_runtime_skill_source() -> &'static str {
     r#"---
 name: forma-cli
-description: Use for Forma workspace bootstrap, knowledge operations, and Agent-facing read workflows through the local `forma` binary.
+description: Use for Forma workspace bootstrap, content operations, and Agent-facing read workflows through the local `forma` binary.
 ---
 
 # Forma CLI
 
 Run Forma commands from the target workspace root. If you cannot guarantee the current working directory, pass `--workspace <path>` explicitly.
 
-Before Forma knowledge or configuration work, load the built-in guide:
+Before Forma workspace or configuration work, load the built-in guide:
 
 ```sh
 forma skills get forma-cli-core
@@ -2308,7 +2314,7 @@ Then inspect the workspace:
 ```sh
 forma skills list --json
 forma config inspect --json
-forma knowledge health --json
+forma workspace health --json
 ```
 
 Use the built-in guide and any workspace-projected skills before creating spaces, templates, views, guidelines, or shared Markdown content.
@@ -2448,7 +2454,7 @@ fn workspace_relative_path(root: &Path, path: &Path) -> Option<String> {
 
 fn features_for_media_type(kind: WorkspaceFileKind, media_type: &str) -> Vec<WorkspaceFileFeature> {
     match kind {
-        WorkspaceFileKind::Knowledge => vec![
+        WorkspaceFileKind::Content => vec![
             WorkspaceFileFeature::RenderMarkdown,
             WorkspaceFileFeature::RenderSource,
         ],
@@ -2602,11 +2608,11 @@ mod tests {
     use serde_yml::Value;
 
     use super::{
-        KnowledgeHealthCategory, OperationError, SkillSource, WorkspaceFileFeature, board_show,
-        build_knowledge_health_result, create_entry, inspect_config, inspect_entry_by_path,
-        is_public_workspace_path_allowed, is_raw_workspace_path_allowed, knowledge_health,
-        list_file_references, list_files, skills_get, skills_list, tasks_inspect, tasks_list,
-        workspace_dashboard,
+        OperationError, SkillSource, WorkspaceFileFeature, WorkspaceHealthCategory, board_show,
+        build_workspace_health_result, create_entry, inspect_config, inspect_entry_by_path,
+        is_public_workspace_path_allowed, is_raw_workspace_path_allowed, list_file_references,
+        list_files, skills_get, skills_list, tasks_inspect, tasks_list, workspace_dashboard,
+        workspace_health,
     };
     use crate::{Diagnostic, IndexEntry, OperationStatus, ReferenceIntent, WorkspaceFileKind};
 
@@ -2646,7 +2652,7 @@ mod tests {
     }
 
     fn remove_guideline_references(root: &Path) {
-        let config_path = root.join(".forma.yml");
+        let config_path = root.join(".forma.md");
         let config = fs::read_to_string(&config_path).unwrap();
         fs::write(
             &config_path,
@@ -2665,6 +2671,14 @@ mod tests {
                 "guidelines:\n  - \"guidelines/workspace-operations.md\"\n",
                 "",
             ),
+        )
+        .unwrap();
+    }
+
+    fn write_config(root: &Path, yaml: impl AsRef<str>) {
+        fs::write(
+            root.join(".forma.md"),
+            format!("---\n{}---\n\n# Forma Workspace\n", yaml.as_ref()),
         )
         .unwrap();
     }
@@ -2688,11 +2702,11 @@ mod tests {
             result
                 .sources
                 .iter()
-                .any(|source| source.path == ".forma.yml" && source.present)
+                .any(|source| source.path == ".forma.md" && source.present)
         );
         assert!(result.sources.iter().all(|source| source.present));
 
-        let narrowed = inspect_config(&root, Some(".forma.yml")).unwrap();
+        let narrowed = inspect_config(&root, Some(".forma.md")).unwrap();
         assert_eq!(
             narrowed.config["workspace"]["name"],
             Value::String("Choral Forma Example".to_string())
@@ -2712,8 +2726,8 @@ mod tests {
     fn config_inspect_returns_all_space_include_patterns() {
         let root = fixture_root("config-inspect-space-include-patterns");
         fs::create_dir_all(root.join(".forma/spaces")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
+        write_config(
+            &root,
             r#"schemaVersion: 1
 workspace:
   name: Include Pattern Inspect
@@ -2724,8 +2738,7 @@ workspace:
 include:
   - .forma/spaces/*.md
 "#,
-        )
-        .unwrap();
+        );
         fs::write(
             root.join(".forma/spaces/notes.md"),
             r#"---
@@ -2786,7 +2799,7 @@ schema:
     fn skills_get_builtin_cli_core_with_malformed_workspace_config() {
         let root = fixture_root("skills-builtin-malformed-config");
         fs::create_dir_all(&root).unwrap();
-        fs::write(root.join(".forma.yml"), "schemaVersion: [").unwrap();
+        fs::write(root.join(".forma.md"), "---\nschemaVersion: [\n---\n").unwrap();
 
         let result = skills_get(&root, "forma-cli-core").unwrap();
 
@@ -2803,14 +2816,13 @@ schema:
     fn skills_list_discovers_skill_metadata_from_configured_guidelines() {
         let root = fixture_root("skills-list");
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
-        )
-        .unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
+        );
         fs::write(
             root.join("knowledge/guidelines/authoring.md"),
-            "---\ntitle: Knowledge Capture\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n  triggers:\n    - create shared knowledge\n  order: 20\n---\n\n# Knowledge Capture\n\n## Agent Skill\n\nFollow the workflow.\n",
+            "---\ntitle: Content Capture\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n  triggers:\n    - create shared content\n  order: 20\n---\n\n# Content Capture\n\n## Agent Skill\n\nFollow the workflow.\n",
         )
         .unwrap();
 
@@ -2862,11 +2874,10 @@ schema:
     fn skills_list_keeps_builtins_when_configured_guideline_is_missing() {
         let root = fixture_root("skills-list-missing-guideline");
         fs::create_dir_all(&root).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/missing.md\n",
-        )
-        .unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/missing.md\n",
+        );
 
         let result = skills_list(&root).unwrap();
 
@@ -2891,11 +2902,10 @@ schema:
     fn skills_list_reports_invalid_skill_metadata() {
         let root = fixture_root("skills-list-invalid-metadata");
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/invalid.md\n",
-        )
-        .unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/invalid.md\n",
+        );
         fs::write(
             root.join("knowledge/guidelines/invalid.md"),
             "---\nskill:\n  title: Missing Id\n---\n\n# Invalid\n",
@@ -2919,11 +2929,10 @@ schema:
     fn skills_list_fails_when_workspace_reuses_builtin_id() {
         let root = fixture_root("skills-duplicate-builtin");
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/core.md\n",
-        )
-        .unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/core.md\n",
+        );
         fs::write(
             root.join("knowledge/guidelines/core.md"),
             "---\nskill:\n  id: forma-cli-core\n  title: Bad Override\n  description: Should not override built-in.\n---\n\n# Bad\n",
@@ -2947,11 +2956,10 @@ schema:
     fn skills_get_builtin_fails_when_workspace_reuses_builtin_id() {
         let root = fixture_root("skills-get-duplicate-builtin");
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/core.md\n",
-        )
-        .unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/core.md\n",
+        );
         fs::write(
             root.join("knowledge/guidelines/core.md"),
             "---\nskill:\n  id: forma-cli-core\n  title: Bad Override\n  description: Should not override built-in.\n---\n\n# Bad\n",
@@ -2976,14 +2984,13 @@ schema:
     fn skills_get_returns_markdown_content_for_workspace_skill() {
         let root = fixture_root("skills-get");
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
-        )
-        .unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
+        );
         fs::write(
             root.join("knowledge/guidelines/authoring.md"),
-            "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Knowledge Capture\n\n## Agent Skill\n\nFollow the workflow.\n",
+            "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Content Capture\n\n## Agent Skill\n\nFollow the workflow.\n",
         )
         .unwrap();
 
@@ -3006,11 +3013,10 @@ schema:
     fn skills_get_fails_when_skill_is_missing() {
         let root = fixture_root("skills-missing");
         fs::create_dir_all(&root).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
-            "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\n",
-        )
-        .unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\n",
+        );
 
         let result = skills_get(&root, "missing").unwrap();
 
@@ -3095,8 +3101,8 @@ schema:
         let root = fixture_root("dashboard-language-variants");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
-        fs::write(
-            root.join(".forma.yml"),
+        write_config(
+            &root,
             r#"schemaVersion: 1
 workspace:
   name: Dashboard Language Variants
@@ -3109,8 +3115,7 @@ include:
   - .forma/spaces/*.md
   - .forma/views/*.md
 "#,
-        )
-        .unwrap();
+        );
         fs::write(
             root.join("notes/topic.md"),
             "---\nkind: note\ntitle: Topic\nsummary: Canonical summary\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Topic\n",
@@ -3149,8 +3154,8 @@ include:
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::create_dir_all(root.join("assets")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
+        write_config(
+            &root,
             r#"schemaVersion: 1
 
 workspace:
@@ -3166,8 +3171,7 @@ include:
   - ".forma/spaces/*.md"
   - ".forma/views/*.md"
 "#,
-        )
-        .unwrap();
+        );
         fs::write(root.join("assets/logo.svg"), "<svg></svg>").unwrap();
 
         let result = workspace_dashboard(&root).unwrap();
@@ -3288,7 +3292,7 @@ include:
                 && file.name == "navigation-note.md"
                 && file.parent == "notes"
                 && file.depth == 1
-                && file.kind == WorkspaceFileKind::Knowledge
+                && file.kind == WorkspaceFileKind::Content
                 && file.features
                     == vec![
                         WorkspaceFileFeature::RenderMarkdown,
@@ -3303,9 +3307,10 @@ include:
                     == Some(&Value::String("Navigation Note".to_string()))
         }));
         assert!(
-            result.files.iter().any(|file| {
-                file.path == ".forma.yml" && file.kind == WorkspaceFileKind::Config
-            })
+            result
+                .files
+                .iter()
+                .any(|file| { file.path == ".forma.md" && file.kind == WorkspaceFileKind::Config })
         );
         assert!(result.files.iter().any(|file| {
             file.path == ".forma/views/notes.md" && file.kind == WorkspaceFileKind::View
@@ -3418,16 +3423,17 @@ include:
             .iter()
             .find(|file| file.path == "notes/neutral-file-model.md")
             .unwrap();
-        assert_eq!(knowledge.kind, WorkspaceFileKind::Knowledge);
+        assert_eq!(knowledge.kind, WorkspaceFileKind::Content);
         let knowledge_json = serde_json::to_value(knowledge).unwrap();
-        assert_eq!(knowledge_json["kind"], serde_json::json!("knowledge"));
+        assert_eq!(knowledge_json["kind"], serde_json::json!("content"));
         assert_eq!(knowledge.space.as_deref(), Some("notes"));
         assert_eq!(knowledge.title.as_deref(), Some("Neutral File Model"));
 
         assert!(
-            result.files.iter().any(|file| {
-                file.path == ".forma.yml" && file.kind == WorkspaceFileKind::Config
-            })
+            result
+                .files
+                .iter()
+                .any(|file| { file.path == ".forma.md" && file.kind == WorkspaceFileKind::Config })
         );
         assert!(result.files.iter().any(|file| {
             file.path == ".forma/views/notes.md" && file.kind == WorkspaceFileKind::View
@@ -3565,8 +3571,8 @@ include:
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
         fs::create_dir_all(root.join("knowledge/tasks/subgroup")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
+        write_config(
+            &root,
             r#"schemaVersion: 1
 workspace:
   name: Task Operations
@@ -3579,8 +3585,7 @@ guidelines:
 include:
   - .forma/spaces/*.md
 "#,
-        )
-        .unwrap();
+        );
         fs::write(
             root.join("knowledge/guidelines/operations.md"),
             "---\ntitle: Operations\n---\n\n# Operations\n",
@@ -3730,8 +3735,8 @@ fields:
         let root = fixture_root("board-show-operations");
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
         fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
+        write_config(
+            &root,
             r#"schemaVersion: 1
 workspace:
   name: Board Operations
@@ -3742,8 +3747,7 @@ workspace:
 include:
   - .forma/spaces/*.md
 "#,
-        )
-        .unwrap();
+        );
         fs::write(
             root.join(".forma/spaces/tasks.md"),
             r#"---
@@ -3824,8 +3828,8 @@ conventions:
         let root = fixture_root("board-show-status-operations");
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
         fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
+        write_config(
+            &root,
             r#"schemaVersion: 1
 workspace:
   name: Board Operations
@@ -3836,8 +3840,7 @@ workspace:
 include:
   - .forma/spaces/*.md
 "#,
-        )
-        .unwrap();
+        );
         fs::write(
             root.join(".forma/spaces/tasks.md"),
             r#"---
@@ -3895,7 +3898,7 @@ conventions:
 
     #[test]
     fn raw_workspace_path_policy_excludes_config_entry_path() {
-        assert!(!is_raw_workspace_path_allowed(".forma.yml"));
+        assert!(!is_raw_workspace_path_allowed(".forma.md"));
         assert!(is_raw_workspace_path_allowed(".forma/local/profile.yml"));
         assert!(is_raw_workspace_path_allowed(".forma/assets/logo.svg"));
         assert!(is_raw_workspace_path_allowed("notes/public.md"));
@@ -3913,7 +3916,7 @@ conventions:
             &root,
             ".forma/assets/logo.svg"
         ));
-        assert!(!is_public_workspace_path_allowed(&root, ".forma.yml"));
+        assert!(!is_public_workspace_path_allowed(&root, ".forma.md"));
         assert!(!is_public_workspace_path_allowed(
             &root,
             ".forma/views/notes.md"
@@ -4042,7 +4045,7 @@ conventions:
     }
 
     #[test]
-    fn knowledge_health_reports_broken_references_and_orphan_pages() {
+    fn workspace_health_reports_broken_references_and_orphan_pages() {
         let root = fixture_root("knowledge-health-broken");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
@@ -4057,26 +4060,26 @@ conventions:
         )
         .unwrap();
 
-        let result = knowledge_health(&root).unwrap();
+        let result = workspace_health(&root).unwrap();
 
-        assert_eq!(result.operation, "knowledge.health");
+        assert_eq!(result.operation, "workspace.health");
         assert_eq!(result.status, OperationStatus::Warning);
         assert_eq!(result.workspace.root, ".");
         assert_eq!(result.workspace.name, "Choral Forma Example");
         assert!(result.findings.iter().any(|finding| {
-            finding.category == KnowledgeHealthCategory::BrokenReference
+            finding.category == WorkspaceHealthCategory::BrokenReference
                 && finding.path == "notes/linked.md"
         }));
         assert!(!result.findings.iter().any(|finding| {
-            finding.category == KnowledgeHealthCategory::NoOutgoingReferences
+            finding.category == WorkspaceHealthCategory::NoOutgoingReferences
                 && finding.path == "notes/linked.md"
         }));
         assert!(!result.findings.iter().any(|finding| {
-            finding.category == KnowledgeHealthCategory::NoBacklinks
+            finding.category == WorkspaceHealthCategory::NoBacklinks
                 && finding.path == "notes/linked.md"
         }));
         assert!(result.findings.iter().any(|finding| {
-            finding.category == KnowledgeHealthCategory::NoBacklinks
+            finding.category == WorkspaceHealthCategory::NoBacklinks
                 && finding.path == "notes/orphan.md"
         }));
 
@@ -4084,7 +4087,7 @@ conventions:
     }
 
     #[test]
-    fn knowledge_health_reports_self_links_as_isolated() {
+    fn workspace_health_reports_self_links_as_isolated() {
         let root = fixture_root("knowledge-health-self-link");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
@@ -4094,15 +4097,15 @@ conventions:
         )
         .unwrap();
 
-        let result = knowledge_health(&root).unwrap();
+        let result = workspace_health(&root).unwrap();
 
         assert_eq!(result.status, OperationStatus::Warning);
         assert!(result.findings.iter().any(|finding| {
-            finding.category == KnowledgeHealthCategory::NoOutgoingReferences
+            finding.category == WorkspaceHealthCategory::NoOutgoingReferences
                 && finding.path == "notes/self.md"
         }));
         assert!(result.findings.iter().any(|finding| {
-            finding.category == KnowledgeHealthCategory::NoBacklinks
+            finding.category == WorkspaceHealthCategory::NoBacklinks
                 && finding.path == "notes/self.md"
         }));
 
@@ -4110,22 +4113,22 @@ conventions:
     }
 
     #[test]
-    fn knowledge_health_reports_config_diagnostic_for_missing_workspace_root() {
+    fn workspace_health_reports_config_diagnostic_for_missing_workspace_root() {
         let root = fixture_root("knowledge-health-missing-forma");
         fs::create_dir_all(&root).unwrap();
 
-        let result = knowledge_health(&root).unwrap();
+        let result = workspace_health(&root).unwrap();
 
-        assert_eq!(result.operation, "knowledge.health");
+        assert_eq!(result.operation, "workspace.health");
         assert_eq!(result.status, OperationStatus::Failed);
         assert_eq!(result.workspace.root, ".");
         assert_eq!(result.workspace.name, "Unknown Workspace");
         assert_eq!(result.findings.len(), 1);
         assert_eq!(
             result.findings[0].category,
-            KnowledgeHealthCategory::ConfigDiagnostic
+            WorkspaceHealthCategory::ConfigDiagnostic
         );
-        assert_eq!(result.findings[0].path, ".forma.yml");
+        assert_eq!(result.findings[0].path, ".forma.md");
         assert_eq!(result.summary.errors, 1);
         assert_eq!(result.summary.warnings, 0);
         assert_eq!(result.diagnostics.len(), 1);
@@ -4134,7 +4137,7 @@ conventions:
     }
 
     #[test]
-    fn knowledge_health_passes_for_clean_workspace() {
+    fn workspace_health_passes_for_clean_workspace() {
         let root = fixture_root("knowledge-health-clean");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
@@ -4149,9 +4152,9 @@ conventions:
         )
         .unwrap();
 
-        let result = knowledge_health(&root).unwrap();
+        let result = workspace_health(&root).unwrap();
 
-        assert_eq!(result.operation, "knowledge.health");
+        assert_eq!(result.operation, "workspace.health");
         assert_eq!(result.status, OperationStatus::Passed);
         assert!(result.findings.is_empty());
         assert!(result.diagnostics.is_empty());
@@ -4160,7 +4163,7 @@ conventions:
     }
 
     #[test]
-    fn knowledge_health_preserves_transform_failed_diagnostics_without_isolation_findings() {
+    fn workspace_health_preserves_transform_failed_diagnostics_without_isolation_findings() {
         let entries = vec![IndexEntry {
             path: "notes/linked.md".to_string(),
             space: "notes".to_string(),
@@ -4176,7 +4179,7 @@ conventions:
                 .with_actual("unknown transform `badTransform`"),
         ];
 
-        let result = build_knowledge_health_result("Synthetic Workspace", &entries, &diagnostics);
+        let result = build_workspace_health_result("Synthetic Workspace", &entries, &diagnostics);
 
         assert_eq!(result.status, OperationStatus::Failed);
         assert!(
@@ -4186,21 +4189,21 @@ conventions:
                 .any(|diagnostic| diagnostic.code == "ref.transformFailed")
         );
         assert!(!result.findings.iter().any(|finding| {
-            finding.category == KnowledgeHealthCategory::ConfigDiagnostic
+            finding.category == WorkspaceHealthCategory::ConfigDiagnostic
                 && finding.path == "notes/linked.md"
         }));
         assert!(!result.findings.iter().any(|finding| {
-            finding.category == KnowledgeHealthCategory::NoOutgoingReferences
+            finding.category == WorkspaceHealthCategory::NoOutgoingReferences
                 && finding.path == "notes/linked.md"
         }));
         assert!(!result.findings.iter().any(|finding| {
-            finding.category == KnowledgeHealthCategory::NoBacklinks
+            finding.category == WorkspaceHealthCategory::NoBacklinks
                 && finding.path == "notes/linked.md"
         }));
     }
 
     #[test]
-    fn knowledge_health_preserves_unclassified_discovery_diagnostics() {
+    fn workspace_health_preserves_unclassified_discovery_diagnostics() {
         let root = fixture_root("knowledge-health-unclassified-diagnostic");
         fs::create_dir_all(root.join("assets")).unwrap();
         copy_starter_workspace(&root);
@@ -4210,7 +4213,7 @@ conventions:
         )
         .unwrap();
 
-        let result = knowledge_health(&root).unwrap();
+        let result = workspace_health(&root).unwrap();
 
         assert_eq!(result.status, OperationStatus::Failed);
         assert!(
@@ -4220,7 +4223,7 @@ conventions:
                 .any(|diagnostic| diagnostic.code == "resource.description.missingTarget")
         );
         assert!(!result.findings.iter().any(|finding| {
-            finding.category == KnowledgeHealthCategory::ConfigDiagnostic
+            finding.category == WorkspaceHealthCategory::ConfigDiagnostic
                 && finding.path == "assets/missing.png.md"
         }));
         assert_eq!(result.summary.errors, 1);

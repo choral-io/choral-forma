@@ -9,6 +9,7 @@ use serde_yml::Value;
 use thiserror::Error;
 
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
+use crate::markdown::FormaMarkdownDocument;
 use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
 use crate::schema::validate_space_schemas;
 
@@ -266,7 +267,7 @@ pub fn load_workspace(
     let root = root.as_ref();
     let config_path = root.join(FORMA_CONFIG_PATH);
 
-    let mut config_value = read_yaml_value(&config_path, FORMA_CONFIG_PATH)?;
+    let mut config_value = read_markdown_frontmatter_value(&config_path, FORMA_CONFIG_PATH)?;
     let base_config_file: ConfigFile =
         serde_yml::from_value(config_value.clone()).map_err(|source| ConfigError::Parse {
             path: FORMA_CONFIG_PATH.to_string(),
@@ -409,7 +410,8 @@ pub fn config_source_paths(
         path: FORMA_CONFIG_PATH.to_string(),
         present: root.join(FORMA_CONFIG_PATH).exists(),
     }];
-    let config_file: ConfigFile = read_yaml(&root.join(FORMA_CONFIG_PATH), FORMA_CONFIG_PATH)?;
+    let config_file: ConfigFile =
+        read_markdown_frontmatter(&root.join(FORMA_CONFIG_PATH), FORMA_CONFIG_PATH)?;
     for path in included_yaml_config_paths(root, &config_file.include)
         .into_iter()
         .chain(included_markdown_config_paths(root, &config_file.include))
@@ -523,6 +525,26 @@ fn read_yaml<T: for<'de> Deserialize<'de>>(
 
 fn read_yaml_value(path: &Path, public_path: &str) -> Result<Value, ConfigError> {
     read_yaml(path, public_path)
+}
+
+fn read_markdown_frontmatter<T: for<'de> Deserialize<'de>>(
+    path: &Path,
+    public_path: &str,
+) -> Result<T, ConfigError> {
+    let value = read_markdown_frontmatter_value(path, public_path)?;
+    serde_yml::from_value(value).map_err(|source| ConfigError::Parse {
+        path: public_path.to_string(),
+        source,
+    })
+}
+
+fn read_markdown_frontmatter_value(path: &Path, public_path: &str) -> Result<Value, ConfigError> {
+    let contents = fs::read_to_string(path).map_err(|source| ConfigError::Read {
+        path: public_path.to_string(),
+        source,
+    })?;
+    let document = FormaMarkdownDocument::parse(&contents);
+    Ok(document.frontmatter.value.unwrap_or(Value::Null))
 }
 
 fn deep_merge(base: &mut Value, overlay: Value) {
@@ -988,11 +1010,10 @@ mod tests {
         let root = fixture_root("guideline-declarations");
         fs::create_dir_all(root.join(".forma/spaces")).unwrap();
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/operations.md\ninclude:\n  - \".forma/spaces/*.md\"\n",
-        )
-        .unwrap();
+        );
         fs::write(
             root.join("knowledge/guidelines/operations.md"),
             "# Operations\n",
@@ -1024,11 +1045,10 @@ mod tests {
     fn reports_missing_guideline_files_as_diagnostics() {
         let root = fixture_root("missing-guideline");
         fs::create_dir_all(root.join(".forma")).unwrap();
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/missing.md\n",
-        )
-        .unwrap();
+        );
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 
@@ -1048,11 +1068,10 @@ mod tests {
     fn rejects_unknown_workspace_settings_fields() {
         let root = fixture_root("unknown-workspace-setting");
         fs::create_dir_all(root.join(".forma")).unwrap();
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  root: .\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n",
-        )
-        .unwrap();
+        );
 
         let error = load_workspace(&root, LoadMode::SharedOnly).unwrap_err();
 
@@ -1067,11 +1086,10 @@ mod tests {
         let root = fixture_root("non-markdown-guideline");
         fs::create_dir_all(root.join(".forma/spaces")).unwrap();
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n",
-        )
-        .unwrap();
+        );
         fs::write(
             root.join("knowledge/guidelines/not-markdown.txt"),
             "not markdown",
@@ -1112,11 +1130,10 @@ mod tests {
     fn included_config_files_are_loaded_in_all_modes() {
         let root = fixture_root("included-config-files");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n",
-        )
-        .unwrap();
+        );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(
             root.join(".forma/local/profile.yml"),
@@ -1145,11 +1162,10 @@ mod tests {
     fn included_local_named_files_are_not_special() {
         let root = fixture_root("local-name-not-special");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
-        )
-        .unwrap();
+        );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(
             root.join(".forma/local/profile.yml"),
@@ -1168,11 +1184,10 @@ mod tests {
     fn gitignore_does_not_change_included_config_loading_or_sources() {
         let root = fixture_root("gitignore-config-not-special");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
-        )
-        .unwrap();
+        );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(root.join(".forma/.gitignore"), "local/\n").unwrap();
         fs::write(
@@ -1200,11 +1215,10 @@ mod tests {
     fn reports_missing_workspace_logo_file() {
         let root = fixture_root("missing-logo");
         fs::create_dir_all(&root).unwrap();
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n  logo:\n    path: assets/logo.svg\n",
-        )
-        .unwrap();
+        );
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 
@@ -1222,11 +1236,10 @@ mod tests {
     fn reports_missing_dashboard_view_source() {
         let root = fixture_root("missing-dashboard-view");
         fs::create_dir_all(root.join(".forma")).unwrap();
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/dashboard.md\n",
-        )
-        .unwrap();
+        );
         fs::write(
             root.join(".forma/dashboard.md"),
             "---\nschemaVersion: 1\nkind: dashboard\ntitle: Dashboard\nsections:\n  - id: recent\n    title: Recent\n    source:\n      type: view\n      view: .forma/views/recent.md\n---\n\n# Dashboard\n",
@@ -1249,11 +1262,10 @@ mod tests {
     fn reports_missing_create_template_file() {
         let root = fixture_root("missing-create-template");
         fs::create_dir_all(root.join(".forma/spaces")).unwrap();
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
-        )
-        .unwrap();
+        );
         fs::write(
             root.join(".forma/spaces/notes.md"),
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\ncreate:\n  directory: notes\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\n---\n\n# Notes\n",
@@ -1326,13 +1338,12 @@ mod tests {
 
     fn write_minimal_config(root: &Path, timezone: &str, include: &str) {
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            root,
             format!(
                 "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: {timezone}\ninclude:\n  - \".forma/spaces/*.md\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n"
             ),
-        )
-        .unwrap();
+        );
         fs::write(
             root.join(".forma/spaces/notes.md"),
             format!(
@@ -1343,6 +1354,14 @@ mod tests {
         fs::write(
             root.join(".forma/spaces/templates/note.md"),
             "---\nkind: note\ntitle: \"{{ input.title }}\"\n---\n\n# {{ input.title }}\n",
+        )
+        .unwrap();
+    }
+
+    fn write_config(root: &Path, yaml: impl AsRef<str>) {
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            format!("---\n{}---\n\n# Forma Workspace\n", yaml.as_ref()),
         )
         .unwrap();
     }

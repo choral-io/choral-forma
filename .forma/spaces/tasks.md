@@ -72,7 +72,7 @@ display:
     order: 80
 description: Delivery tasks tracked as repository Markdown.
 guidelines:
-    - knowledge/guidelines/forma-knowledge-operations.md
+    - knowledge/guidelines/forma-workspace-operations.md
     - knowledge/guidelines/task-selection.md
 include:
     - "knowledge/tasks/**/*.md"
@@ -97,7 +97,7 @@ create:
         value:
             default: M
         module:
-            default: knowledge
+            default: content
         effort:
             default: M
         status:

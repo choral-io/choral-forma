@@ -15,8 +15,8 @@ use axum::routing::{get, post};
 use clap::{Parser, Subcommand};
 use forma_rpc::{
     BoardShowRequest, CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest,
-    InspectRequest, KnowledgeHealthRequest, ListRequest, OperationRequest, SkillsGetRequest,
-    SkillsListRequest, TasksInspectRequest, TasksListRequest,
+    InspectRequest, ListRequest, OperationRequest, SkillsGetRequest, SkillsListRequest,
+    TasksInspectRequest, TasksListRequest, WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -95,9 +95,9 @@ enum Command {
         #[command(subcommand)]
         command: ConfigCommand,
     },
-    Knowledge {
+    Workspace {
         #[command(subcommand)]
-        command: KnowledgeCommand,
+        command: WorkspaceCommand,
     },
     Skills {
         #[command(subcommand)]
@@ -160,7 +160,7 @@ enum DocsCommand {
 }
 
 #[derive(Debug, Subcommand)]
-enum KnowledgeCommand {
+enum WorkspaceCommand {
     Health {
         #[arg(long)]
         json: bool,
@@ -314,12 +314,12 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 Ok(())
             }
         },
-        Some(Command::Knowledge { command }) => match command {
-            KnowledgeCommand::Health { json } => {
-                let result = dispatcher.dispatch(OperationRequest::KnowledgeHealth(
-                    KnowledgeHealthRequest::default(),
+        Some(Command::Workspace { command }) => match command {
+            WorkspaceCommand::Health { json } => {
+                let result = dispatcher.dispatch(OperationRequest::WorkspaceHealth(
+                    WorkspaceHealthRequest::default(),
                 ))?;
-                print_result(&result, json, "knowledge health");
+                print_result(&result, json, "workspace health");
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -1085,7 +1085,7 @@ mod tests {
     }
 
     fn remove_guideline_references(root: &Path) {
-        let config_path = root.join(".forma.yml");
+        let config_path = root.join(".forma.md");
         let config = fs::read_to_string(&config_path).unwrap();
         fs::write(
             &config_path,
@@ -1429,7 +1429,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/../.forma.yml")
+                    .uri("/forma/raw/../.forma.md")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -1461,7 +1461,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri("/forma/raw/.forma.yml")
+                    .uri("/forma/raw/.forma.md")
                     .body(Body::empty())
                     .unwrap(),
             )

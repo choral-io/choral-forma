@@ -47,7 +47,7 @@ schema:
                 type: ref
 display:
     order: 75
-description: Reviewable knowledge, task, and decision proposals before canonical conversion.
+description: Reviewable content, task, and decision proposals before canonical conversion.
 include:
     - "knowledge/proposals/**/*.md"
 create:
@@ -69,4 +69,4 @@ conventions:
 
 # Proposals
 
-Reviewable proposed changes before conversion into canonical knowledge, tasks, or decisions.
+Reviewable proposed changes before conversion into canonical content, tasks, or decisions.

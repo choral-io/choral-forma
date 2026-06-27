@@ -1,7 +1,7 @@
 ---
 id: workspace.configuration
 title: Workspace Configuration
-summary: Define the minimal `.forma.yml` and included config node model.
+summary: Define the minimal `.forma.md` and included config node model.
 audience:
     - human
     - agent
@@ -16,21 +16,22 @@ order: 100
 
 ## Overview
 
-`.forma.yml` is the single configuration entry point. All persisted file references are workspace-relative POSIX paths resolved from the directory containing `.forma.yml`.
+`.forma.md` is the single configuration entry point. All persisted file references are workspace-relative POSIX paths resolved from the directory containing `.forma.md`.
 
-Forma configuration is built from explicit files. The root `.forma.yml` declares workspace settings and `include` patterns. Included Markdown or YAML config nodes then define higher-level workspace behavior such as content groups, templates, views, guidelines, schemas, and runtime values.
+Forma configuration is built from explicit files. The root `.forma.md` declares workspace settings and `include` patterns in YAML frontmatter. Its Markdown body can explain the workspace for humans and Agents. Included Markdown or YAML config nodes then define higher-level workspace behavior such as content groups, templates, views, guidelines, schemas, and runtime values.
 
 Forma does not infer workspace semantics from directory names. A directory named `notes`, `tasks`, or `members` has no special meaning until a config node describes how files in that directory should be indexed, created, displayed, or checked.
 
 ## CLI Help
 
-Use `forma config inspect --json` to inspect the effective workspace configuration and source paths. Use `forma check --json` after editing `.forma.yml` or included config nodes.
+Use `forma config inspect --json` to inspect the effective workspace configuration and source paths. Use `forma check --json` after editing `.forma.md` or included config nodes.
 
 ## Reference
 
-The minimal empty workspace contains `schemaVersion`, `workspace`, `include`, and `runtime.values`.
+The minimal `.forma.md` contains `schemaVersion`, `workspace`, `include`, and `runtime.values` in frontmatter.
 
-```yaml
+```md
+---
 schemaVersion: 1
 
 workspace:
@@ -53,6 +54,11 @@ runtime:
             kind: currentDateTime
         workspaceRoot:
             kind: workspaceRoot
+---
+
+# Untitled Forma Workspace
+
+This file is the Forma workspace entry point.
 ```
 
 Included Markdown config nodes use frontmatter as their machine-readable configuration and Markdown body as Human-readable documentation. In the current P0 configuration model, a configured content group is commonly declared as a taxonomy term:

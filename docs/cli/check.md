@@ -25,4 +25,4 @@ Use `forma check --json` to validate the current workspace after changing config
 
 ## Agent Guidance
 
-Run this after changing `.forma.yml`, config nodes, templates, or shared Markdown content.
+Run this after changing `.forma.md`, config nodes, templates, or shared Markdown content.

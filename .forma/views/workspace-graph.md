@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 kind: view
-title: Knowledge Graph
+title: Workspace Graph
 mode: graph
 source:
     type: pages
@@ -33,6 +33,6 @@ graph:
           label: sourced from
 ---
 
-# Knowledge Graph
+# Workspace Graph
 
 Workspace graph generated from resolved body and field references.

@@ -1,9 +1,9 @@
 ---
 schemaVersion: 1
 kind: dashboard
-title: Project Knowledge
+title: Project Workspace
 ---
 
-# Project Knowledge
+# Project Workspace
 
 Shared planning, architecture, decisions, and delivery records for Choral Forma.

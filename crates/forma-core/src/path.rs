@@ -4,7 +4,7 @@ use std::path::{Component, Path};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub const FORMA_CONFIG_PATH: &str = ".forma.yml";
+pub const FORMA_CONFIG_PATH: &str = ".forma.md";
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]

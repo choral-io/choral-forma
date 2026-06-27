@@ -17,7 +17,7 @@ order: 30
 
 ## Overview
 
-`forma config inspect --json` reads `.forma.yml`, applies explicitly included configuration files, and reports the effective workspace configuration.
+`forma config inspect --json` reads `.forma.md`, applies explicitly included configuration files, and reports the effective workspace configuration.
 
 ## CLI Help
 

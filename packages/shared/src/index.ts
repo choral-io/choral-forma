@@ -103,7 +103,7 @@ export type ListedSpace = {
     entryCount: number;
 };
 
-export type WorkspaceFileKind = "knowledge" | "view" | "template" | "markdown" | "config" | "resource";
+export type WorkspaceFileKind = "content" | "view" | "template" | "markdown" | "config" | "resource";
 
 export type WorkspaceFileFeature = "render.markdown" | "render.source" | "render.view" | "preview.media";
 
@@ -376,25 +376,25 @@ export type FileReferencesResult = BaseOperationResult & {
     backlinks: ReferenceEdge[];
 };
 
-export type KnowledgeHealthCategory =
+export type WorkspaceHealthCategory =
     | "brokenReference"
     | "ambiguousReference"
     | "noOutgoingReferences"
     | "noBacklinks"
     | "configDiagnostic";
 
-export type KnowledgeHealthFinding = {
-    category: KnowledgeHealthCategory;
+export type WorkspaceHealthFinding = {
+    category: WorkspaceHealthCategory;
     severity: DiagnosticSeverity;
     path: string;
     message: string;
     target?: string;
 };
 
-export type KnowledgeHealthResult = BaseOperationResult & {
-    operation: "knowledge.health";
+export type WorkspaceHealthResult = BaseOperationResult & {
+    operation: "workspace.health";
     workspace: WorkspaceSummary;
-    findings: KnowledgeHealthFinding[];
+    findings: WorkspaceHealthFinding[];
 };
 
 export type ViewRenderResult = BaseOperationResult & {
@@ -527,8 +527,8 @@ export class FormaRpcClient {
         return this.call<FileReferencesResult>("file.references", { path });
     }
 
-    knowledgeHealth() {
-        return this.call<KnowledgeHealthResult>("knowledge.health");
+    workspaceHealth() {
+        return this.call<WorkspaceHealthResult>("workspace.health");
     }
 
     renderView(view: string) {

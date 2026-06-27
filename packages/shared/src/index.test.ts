@@ -96,7 +96,7 @@ describe("FormaRpcClient", () => {
         });
     });
 
-    it("requests read-only knowledge health without params", async () => {
+    it("requests read-only workspace health without params", async () => {
         const calls: Array<{ input: string; body: unknown }> = [];
         const client = new FormaRpcClient("/rpc", (input, requestInit) => {
             calls.push({ input, body: JSON.parse(requestInit.body) });
@@ -109,7 +109,7 @@ describe("FormaRpcClient", () => {
                         id: "1",
                         result: {
                             schemaVersion: 1,
-                            operation: "knowledge.health",
+                            operation: "workspace.health",
                             status: "warning",
                             workspace: { root: ".", name: "Example" },
                             findings: [
@@ -126,18 +126,18 @@ describe("FormaRpcClient", () => {
             });
         });
 
-        await expect(client.knowledgeHealth()).resolves.toMatchObject({
+        await expect(client.workspaceHealth()).resolves.toMatchObject({
             findings: [
                 {
                     category: "brokenReference",
                     path: "notes/source.md",
                 },
             ],
-            operation: "knowledge.health",
+            operation: "workspace.health",
         });
 
         expect(calls[0]?.body).toMatchObject({
-            method: "knowledge.health",
+            method: "workspace.health",
             params: {},
         });
     });

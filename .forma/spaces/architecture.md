@@ -42,7 +42,7 @@ include:
 create:
     directory: knowledge/architecture
     filename: "{{ input.slug }}.md"
-    template: .forma/spaces/templates/knowledge.md
+    template: .forma/spaces/templates/content.md
     inputs:
         title:
             required: true

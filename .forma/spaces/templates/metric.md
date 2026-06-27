@@ -34,6 +34,6 @@ relatedReleases: []
 
 ## Review Cadence
 
-## Related Knowledge
+## Related Content
 
 ## Open Questions

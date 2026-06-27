@@ -37,7 +37,7 @@ include:
 create:
     directory: knowledge/product
     filename: "{{ input.slug }}.md"
-    template: .forma/spaces/templates/knowledge.md
+    template: .forma/spaces/templates/content.md
     inputs:
         title:
             required: true

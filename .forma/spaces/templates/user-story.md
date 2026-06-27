@@ -34,6 +34,6 @@ relatedMetrics: []
 
 ## Acceptance Intent
 
-## Related Knowledge
+## Related Content
 
 ## Open Questions

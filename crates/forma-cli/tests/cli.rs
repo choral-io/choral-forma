@@ -39,7 +39,7 @@ fn clear_starter_content(root: &Path) {
 }
 
 fn remove_guideline_references(root: &Path) {
-    let config_path = root.join(".forma.yml");
+    let config_path = root.join(FORMA_CONFIG_PATH);
     let config = std::fs::read_to_string(&config_path).unwrap();
     std::fs::write(
         &config_path,
@@ -58,6 +58,14 @@ fn remove_guideline_references(root: &Path) {
             "guidelines:\n  - \"guidelines/workspace-operations.md\"\n",
             "",
         ),
+    )
+    .unwrap();
+}
+
+fn write_config(root: &Path, yaml: &str) {
+    std::fs::write(
+        root.join(FORMA_CONFIG_PATH),
+        format!("---\n{}---\n\n# Forma Workspace\n", yaml),
     )
     .unwrap();
 }
@@ -100,18 +108,43 @@ fn check_json_prints_direct_operation_result() {
     assert!(stdout.contains(r#""operation":"check""#));
     assert!(stdout.contains(r#""status":"failed""#));
     assert!(stdout.contains(r#""code":"config.readFailed""#));
-    assert!(stdout.contains(r#""path":".forma.yml""#));
+    assert!(stdout.contains(r#""path":".forma.md""#));
     assert!(!stdout.contains(r#""jsonrpc""#));
 }
 
 #[test]
-fn knowledge_health_json_uses_operation_result_shape() {
-    let root = knowledge_health_warning_fixture("knowledge-health-json");
+fn config_inspect_rejects_config_without_frontmatter() {
+    let root = fixture_root("config-without-frontmatter");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join(FORMA_CONFIG_PATH),
+        "schemaVersion: 1\nworkspace:\n  name: Raw YAML\n",
+    )
+    .unwrap();
 
     let output = forma(&root)
-        .args(["knowledge", "health", "--json"])
+        .args(["config", "inspect", "--json"])
         .output()
-        .expect("forma knowledge health --json should run");
+        .expect("forma config inspect should run");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(r#""operation":"config.inspect""#));
+    assert!(stdout.contains(r#""status":"failed""#));
+    assert!(stdout.contains(r#""path":".forma.md""#));
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn workspace_health_json_uses_operation_result_shape() {
+    let root = workspace_health_warning_fixture("workspace-health-json");
+
+    let output = forma(&root)
+        .args(["workspace", "health", "--json"])
+        .output()
+        .expect("forma workspace health --json should run");
 
     assert!(
         output.status.success(),
@@ -122,7 +155,7 @@ fn knowledge_health_json_uses_operation_result_shape() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains(r#""schemaVersion":1"#));
-    assert!(stdout.contains(r#""operation":"knowledge.health""#));
+    assert!(stdout.contains(r#""operation":"workspace.health""#));
     assert!(stdout.contains(r#""status":"warning""#));
     assert!(stdout.contains(r#""category":"brokenReference""#));
     assert!(!stdout.contains(r#""jsonrpc""#));
@@ -131,13 +164,13 @@ fn knowledge_health_json_uses_operation_result_shape() {
 }
 
 #[test]
-fn knowledge_health_human_output_reports_warning_summary() {
-    let root = knowledge_health_warning_fixture("knowledge-health-human");
+fn workspace_health_human_output_reports_warning_summary() {
+    let root = workspace_health_warning_fixture("workspace-health-human");
 
     let output = forma(&root)
-        .args(["knowledge", "health"])
+        .args(["workspace", "health"])
         .output()
-        .expect("forma knowledge health should run");
+        .expect("forma workspace health should run");
 
     assert!(
         output.status.success(),
@@ -147,8 +180,8 @@ fn knowledge_health_human_output_reports_warning_summary() {
     assert!(output.stderr.is_empty());
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("knowledge health warning"));
-    assert!(stdout.contains("warning knowledgeHealth.brokenReference"));
+    assert!(stdout.contains("workspace health warning"));
+    assert!(stdout.contains("warning workspaceHealth.brokenReference"));
     assert!(stdout.contains("notes/a.md"));
 
     std::fs::remove_dir_all(root).unwrap();
@@ -228,7 +261,7 @@ fn init_creates_minimal_workspace_and_agent_runtime_skill() {
     std::fs::create_dir_all(&root).unwrap();
 
     let output = forma(&root)
-        .args(["init", "--name", "Acme Knowledge", "--json"])
+        .args(["init", "--name", "Acme Content", "--json"])
         .output()
         .expect("forma init should run");
 
@@ -242,13 +275,13 @@ fn init_creates_minimal_workspace_and_agent_runtime_skill() {
     let stdout: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(stdout["operation"], "init");
     assert_eq!(stdout["status"], "passed");
-    assert_eq!(stdout["workspace"]["name"], "Acme Knowledge");
+    assert_eq!(stdout["workspace"]["name"], "Acme Content");
     assert!(
         stdout["writtenPaths"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|path| path == ".forma.yml")
+            .any(|path| path == ".forma.md")
     );
     assert!(
         stdout["writtenPaths"]
@@ -258,10 +291,12 @@ fn init_creates_minimal_workspace_and_agent_runtime_skill() {
             .any(|path| path == ".agents/skills/forma-cli/SKILL.md")
     );
 
-    let config = std::fs::read_to_string(root.join(".forma.yml")).unwrap();
-    assert!(config.contains("name: \"Acme Knowledge\""));
+    let config = std::fs::read_to_string(root.join(FORMA_CONFIG_PATH)).unwrap();
+    assert!(config.starts_with("---\n"));
+    assert!(config.contains("name: \"Acme Content\""));
     assert!(config.contains("canonicalLanguage: \"en\""));
     assert!(config.contains("- \".forma/spaces/*.md\""));
+    assert!(!root.join(".forma.yml").exists());
     assert!(!root.join("skills/forma-cli/SKILL.md").exists());
     assert!(!root.join("AGENTS.md").exists());
 
@@ -281,7 +316,7 @@ fn init_creates_minimal_workspace_and_agent_runtime_skill() {
     );
     let inspect_stdout = String::from_utf8_lossy(&inspect.stdout);
     assert!(inspect_stdout.contains(r#""operation":"config.inspect""#));
-    assert!(inspect_stdout.contains(r#""name":"Acme Knowledge""#));
+    assert!(inspect_stdout.contains(r#""name":"Acme Content""#));
 
     let check = forma(&root)
         .args(["check", "--json"])
@@ -312,10 +347,10 @@ fn init_creates_minimal_workspace_and_agent_runtime_skill() {
 fn init_refuses_existing_config_without_overwriting() {
     let root = fixture_root("init-existing-config");
     std::fs::create_dir_all(&root).unwrap();
-    std::fs::write(root.join(".forma.yml"), "existing: true\n").unwrap();
+    std::fs::write(root.join(FORMA_CONFIG_PATH), "existing: true\n").unwrap();
 
     let output = forma(&root)
-        .args(["init", "--name", "Acme Knowledge", "--json"])
+        .args(["init", "--name", "Acme Content", "--json"])
         .output()
         .expect("forma init should run");
 
@@ -326,7 +361,7 @@ fn init_refuses_existing_config_without_overwriting() {
     assert!(stdout.contains(r#""status":"failed""#));
     assert!(stdout.contains(r#""code":"init.pathExists""#));
     assert_eq!(
-        std::fs::read_to_string(root.join(".forma.yml")).unwrap(),
+        std::fs::read_to_string(root.join(FORMA_CONFIG_PATH)).unwrap(),
         "existing: true\n"
     );
     assert!(!root.join(".agents/skills/forma-cli/SKILL.md").exists());
@@ -335,14 +370,39 @@ fn init_refuses_existing_config_without_overwriting() {
 }
 
 #[test]
+fn init_ignores_legacy_yml_entrypoint() {
+    let root = fixture_root("init-legacy-yml-ignored");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join(".forma.yml"), "legacy: true\n").unwrap();
+
+    let output = forma(&root)
+        .args(["init", "--name", "Acme Content", "--json"])
+        .output()
+        .expect("forma init should run");
+
+    assert!(
+        output.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(root.join(FORMA_CONFIG_PATH).is_file());
+    assert_eq!(
+        std::fs::read_to_string(root.join(".forma.yml")).unwrap(),
+        "legacy: true\n"
+    );
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn skills_list_json_discovers_builtin_and_configured_guideline_skills() {
     let root = fixture_root("skills-list");
     std::fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-    std::fs::write(
-        root.join(".forma.yml"),
-        "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
-    )
-    .unwrap();
+    write_config(
+        &root,
+        "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
+    );
     std::fs::write(
         root.join("knowledge/guidelines/authoring.md"),
         "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
@@ -372,11 +432,10 @@ fn skills_list_json_discovers_builtin_and_configured_guideline_skills() {
 fn skills_get_workspace_skill_prints_markdown_for_agent_consumption() {
     let root = fixture_root("skills-get");
     std::fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-    std::fs::write(
-        root.join(".forma.yml"),
-        "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
-    )
-    .unwrap();
+    write_config(
+        &root,
+        "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
+    );
     std::fs::write(
         root.join("knowledge/guidelines/authoring.md"),
         "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
@@ -406,11 +465,10 @@ fn skills_get_workspace_skill_prints_markdown_for_agent_consumption() {
 fn skills_get_markdown_output_reports_diagnostics_to_stderr() {
     let root = fixture_root("skills-get-diagnostics");
     std::fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-    std::fs::write(
-        root.join(".forma.yml"),
-        "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n  - knowledge/guidelines/first-duplicate.md\n  - knowledge/guidelines/second-duplicate.md\n",
-    )
-    .unwrap();
+    write_config(
+        &root,
+        "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n  - knowledge/guidelines/first-duplicate.md\n  - knowledge/guidelines/second-duplicate.md\n",
+    );
     std::fs::write(
         root.join("knowledge/guidelines/authoring.md"),
         "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
@@ -542,7 +600,7 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
     assert!(config_stdout.contains(r#""canonicalLanguage":"en""#));
     assert!(config_stdout.contains(r#""supportedLanguages":["en"]"#));
     assert!(config_stdout.contains(r#""guidelines""#));
-    assert!(config_stdout.contains(r#""knowledge/guidelines/forma-knowledge-operations.md""#));
+    assert!(config_stdout.contains(r#""knowledge/guidelines/forma-workspace-operations.md""#));
     for space in [
         "architecture",
         "concepts",
@@ -566,7 +624,7 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
     }
     for template in [
         "experiment.md",
-        "knowledge.md",
+        "content.md",
         "member-note.md",
         "metric.md",
         "proposal.md",
@@ -690,8 +748,8 @@ fn tasks_list_and_inspect_read_task_metadata() {
     std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
     std::fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
 
-    std::fs::write(
-        root.join(".forma.yml"),
+    write_config(
+        &root,
         r#"schemaVersion: 1
 
 workspace:
@@ -704,8 +762,7 @@ workspace:
 include:
   - ".forma/spaces/*.md"
 "#,
-    )
-    .unwrap();
+    );
     std::fs::write(
         root.join(".forma/spaces/tasks.md"),
         r#"---
@@ -804,8 +861,8 @@ fn board_show_groups_tasks_by_delivery_columns() {
     std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
     std::fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
 
-    std::fs::write(
-        root.join(".forma.yml"),
+    write_config(
+        &root,
         r#"schemaVersion: 1
 
 workspace:
@@ -818,8 +875,7 @@ workspace:
 include:
   - ".forma/spaces/*.md"
 "#,
-    )
-    .unwrap();
+    );
     std::fs::write(
         root.join(".forma/spaces/tasks.md"),
         r#"---
@@ -1034,17 +1090,17 @@ fn forma(root: &std::path::Path) -> Command {
     command
 }
 
-fn knowledge_health_warning_fixture(name: &str) -> std::path::PathBuf {
+fn workspace_health_warning_fixture(name: &str) -> std::path::PathBuf {
     let root = fixture_root(name);
     std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
     std::fs::create_dir_all(root.join("notes")).unwrap();
 
-    std::fs::write(
-        root.join(".forma.yml"),
+    write_config(
+        &root,
         r#"schemaVersion: 1
 
 workspace:
-  name: "Knowledge Health"
+  name: "Workspace Health"
   canonicalLanguage: "en"
   supportedLanguages:
     - "en"
@@ -1053,8 +1109,7 @@ workspace:
 include:
   - ".forma/spaces/*.md"
 "#,
-    )
-    .unwrap();
+    );
     std::fs::write(
         root.join(".forma/spaces/notes.md"),
         r#"---

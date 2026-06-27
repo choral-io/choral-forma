@@ -1500,11 +1500,10 @@ mod tests {
     fn language_variant_files_do_not_become_primary_index_entries() {
         let root = fixture_root("language-variants");
         write_workspace(&root);
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
-        )
-        .unwrap();
+        );
         write_entry(
             &root,
             "notes/getting-started.md",
@@ -1550,11 +1549,10 @@ mod tests {
     fn included_view_config_nodes_can_live_outside_forma_views() {
         let root = fixture_root("included-view-outside-forma-views");
         write_workspace(&root);
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - views/*.md\n",
-        )
-        .unwrap();
+        );
         write_workspace_file(
             &root,
             "views/tasks.md",
@@ -1613,11 +1611,10 @@ mod tests {
     fn canonical_entries_include_available_language_variants() {
         let root = fixture_root("language-variant-metadata");
         write_workspace(&root);
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
-        )
-        .unwrap();
+        );
         write_entry(
             &root,
             "notes/getting-started.md",
@@ -1656,11 +1653,10 @@ mod tests {
     fn language_variant_without_canonical_page_reports_diagnostic() {
         let root = fixture_root("language-variant-missing-canonical");
         write_workspace(&root);
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
-        )
-        .unwrap();
+        );
         write_entry(
             &root,
             "notes/missing.zh-hans.md",
@@ -1817,8 +1813,8 @@ mod tests {
         write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
         write_view(
             &root,
-            "knowledge-graph.md",
-            "---\nkind: view\nmode: graph\ntitle: Knowledge Graph\nsource:\n  type: pages\n  include:\n    - \"**/*.md\"\n  exclude:\n    - \".forma/**\"\n    - \"**/local/**\"\n---\n\n# Knowledge Graph\n\n<!-- forma:content -->\n",
+            "workspace-graph.md",
+            "---\nkind: view\nmode: graph\ntitle: Workspace Graph\nsource:\n  type: pages\n  include:\n    - \"**/*.md\"\n  exclude:\n    - \".forma/**\"\n    - \"**/local/**\"\n---\n\n# Workspace Graph\n\n<!-- forma:content -->\n",
         );
 
         let discovery = discover_workspace(&root).unwrap();
@@ -1826,7 +1822,7 @@ mod tests {
             .index
             .views
             .iter()
-            .find(|view| view.id == ".forma/views/knowledge-graph")
+            .find(|view| view.id == ".forma/views/workspace-graph")
             .expect("graph view should be indexed");
 
         assert!(discovery.diagnostics.is_empty());
@@ -1952,7 +1948,11 @@ mod tests {
     fn invalid_config_produces_runtime_diagnostic() {
         let root = fixture_root("invalid-config");
         write_workspace(&root);
-        fs::write(root.join(FORMA_CONFIG_PATH), "schemaVersion: [broken\n").unwrap();
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "---\nschemaVersion: [broken\n---\n",
+        )
+        .unwrap();
 
         let result = check_workspace(&root);
 
@@ -2084,11 +2084,10 @@ mod tests {
     fn write_workspace(root: &Path) {
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
         fs::create_dir_all(root.join(FIXTURE_VIEWS_DIR)).unwrap();
-        fs::write(
-            root.join(FORMA_CONFIG_PATH),
+        write_config(
+            root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Knowledge\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
-        )
-        .unwrap();
+        );
         for (path, title, include, template, title_field, summary_field) in [
             (
                 ".forma/spaces/notes.md",
@@ -2149,11 +2148,20 @@ mod tests {
     fn add_workspace_guidelines(root: &Path, paths: &[&str]) {
         let config_path = root.join(FORMA_CONFIG_PATH);
         let mut config = fs::read_to_string(&config_path).unwrap();
-        config.push_str("guidelines:\n");
+        let mut guidelines = String::from("guidelines:\n");
         for path in paths {
-            config.push_str(&format!("  - {path}\n"));
+            guidelines.push_str(&format!("  - {path}\n"));
         }
+        config = config.replacen("\n---\n", &format!("\n{guidelines}---\n"), 1);
         fs::write(config_path, config).unwrap();
+    }
+
+    fn write_config(root: &Path, yaml: impl AsRef<str>) {
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            format!("---\n{}---\n\n# Forma Workspace\n", yaml.as_ref()),
+        )
+        .unwrap();
     }
 
     fn write_entry(root: &Path, path: &str, contents: &str) {

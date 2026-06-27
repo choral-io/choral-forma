@@ -42,8 +42,8 @@ pub enum Operation {
     FileRender,
     #[serde(rename = "file.references")]
     FileReferences,
-    #[serde(rename = "knowledge.health")]
-    KnowledgeHealth,
+    #[serde(rename = "workspace.health")]
+    WorkspaceHealth,
     #[serde(rename = "skills.list")]
     SkillsList,
     #[serde(rename = "skills.get")]
@@ -67,7 +67,7 @@ impl Operation {
             Self::ViewRender => "view.render",
             Self::FileRender => "file.render",
             Self::FileReferences => "file.references",
-            Self::KnowledgeHealth => "knowledge.health",
+            Self::WorkspaceHealth => "workspace.health",
             Self::SkillsList => "skills.list",
             Self::SkillsGet => "skills.get",
         }
@@ -90,7 +90,7 @@ pub enum OperationRequest {
     ViewRender(ViewRenderRequest),
     FileRender(FileRenderRequest),
     FileReferences(FileReferencesRequest),
-    KnowledgeHealth(KnowledgeHealthRequest),
+    WorkspaceHealth(WorkspaceHealthRequest),
     SkillsList(SkillsListRequest),
     SkillsGet(SkillsGetRequest),
 }
@@ -203,7 +203,7 @@ pub struct FileReferencesRequest {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub struct KnowledgeHealthRequest {}
+pub struct WorkspaceHealthRequest {}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -354,9 +354,9 @@ impl Dispatcher {
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::FileReferences, error)))
             }
-            OperationRequest::KnowledgeHealth(_) => forma_core::operations::knowledge_health(root)
+            OperationRequest::WorkspaceHealth(_) => forma_core::operations::workspace_health(root)
                 .map(OperationResult::from)
-                .or_else(|error| Ok(core_error_result(Operation::KnowledgeHealth, error))),
+                .or_else(|error| Ok(core_error_result(Operation::WorkspaceHealth, error))),
             OperationRequest::SkillsList(_) => forma_core::skills_list(root)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::SkillsList, error))),
@@ -633,8 +633,8 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
-        "knowledge.health" => serde_json::from_value::<KnowledgeHealthRequest>(params)
-            .map(OperationRequest::KnowledgeHealth)
+        "workspace.health" => serde_json::from_value::<WorkspaceHealthRequest>(params)
+            .map(OperationRequest::WorkspaceHealth)
             .map_err(|_| {
                 JsonRpcFailure::without_id(
                     JsonRpcErrorCode::InvalidParams,
@@ -962,8 +962,8 @@ impl From<forma_core::FileReferencesResult> for OperationResult {
     }
 }
 
-impl From<forma_core::operations::KnowledgeHealthResult> for OperationResult {
-    fn from(result: forma_core::operations::KnowledgeHealthResult) -> Self {
+impl From<forma_core::operations::WorkspaceHealthResult> for OperationResult {
+    fn from(result: forma_core::operations::WorkspaceHealthResult) -> Self {
         let mut data = BTreeMap::new();
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("findings".to_string(), json!(result.findings));
@@ -1094,7 +1094,7 @@ mod tests {
     }
 
     fn remove_guideline_references(root: &Path) {
-        let config_path = root.join(".forma.yml");
+        let config_path = root.join(".forma.md");
         let config = fs::read_to_string(&config_path).unwrap();
         fs::write(
             &config_path,
@@ -1113,6 +1113,14 @@ mod tests {
                 "guidelines:\n  - \"guidelines/workspace-operations.md\"\n",
                 "",
             ),
+        )
+        .unwrap();
+    }
+
+    fn write_config(root: &Path, yaml: &str) {
+        fs::write(
+            root.join(".forma.md"),
+            format!("---\n{}---\n\n# Forma Workspace\n", yaml),
         )
         .unwrap();
     }
@@ -1251,13 +1259,13 @@ mod tests {
 
         let response = handle_json_rpc(
             &root,
-            br#"{"jsonrpc":"2.0","id":"1","method":"init","params":{"name":"Acme Knowledge"}}"#,
+            br#"{"jsonrpc":"2.0","id":"1","method":"init","params":{"name":"Acme Content"}}"#,
         );
 
         assert_eq!(response["result"]["operation"], "init");
         assert_eq!(response["result"]["status"], "passed");
-        assert_eq!(response["result"]["workspace"]["name"], "Acme Knowledge");
-        assert!(root.join(".forma.yml").is_file());
+        assert_eq!(response["result"]["workspace"]["name"], "Acme Content");
+        assert!(root.join(".forma.md").is_file());
         assert!(root.join(".agents/skills/forma-cli/SKILL.md").is_file());
 
         fs::remove_dir_all(root).unwrap();
@@ -1364,7 +1372,7 @@ mod tests {
     }
 
     #[test]
-    fn json_rpc_dispatches_knowledge_health() {
+    fn json_rpc_dispatches_workspace_health() {
         let root = fixture_root("knowledge-health-rpc");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
@@ -1376,10 +1384,10 @@ mod tests {
 
         let response = handle_json_rpc(
             &root,
-            br#"{"jsonrpc":"2.0","id":"1","method":"knowledge.health","params":{}}"#,
+            br#"{"jsonrpc":"2.0","id":"1","method":"workspace.health","params":{}}"#,
         );
 
-        assert_eq!(response["result"]["operation"], "knowledge.health");
+        assert_eq!(response["result"]["operation"], "workspace.health");
         assert_eq!(
             response["result"]["workspace"]["name"],
             "Choral Forma Example"
@@ -1397,11 +1405,10 @@ mod tests {
     fn json_rpc_dispatches_skills_list_and_get() {
         let root = fixture_root("skills-rpc");
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Skills RPC\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
-        )
-        .unwrap();
+        );
         fs::write(
             root.join("knowledge/guidelines/authoring.md"),
             "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
@@ -1442,11 +1449,10 @@ mod tests {
         let root = fixture_root("tasks-rpc");
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
         fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Tasks RPC\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
-        )
-        .unwrap();
+        );
         fs::write(
             root.join(".forma/spaces/tasks.md"),
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Tasks\ninclude:\n  - knowledge/tasks/**/*.md\ncreate:\n  directory: knowledge/tasks\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/task.md\n  inputs:\n    title:\n      required: true\n    slug:\n      default: \"{{ input.title }}\"\n      transform: slugify\nconventions:\n  titleField: title\n  summaryField: summary\n---\n\n# Tasks\n",
@@ -1489,11 +1495,10 @@ mod tests {
         let root = fixture_root("board-show-rpc");
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
         fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
-        fs::write(
-            root.join(".forma.yml"),
+        write_config(
+            &root,
             "schemaVersion: 1\nworkspace:\n  name: Board RPC\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
-        )
-        .unwrap();
+        );
         fs::write(
             root.join(".forma/spaces/tasks.md"),
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Tasks\ninclude:\n  - knowledge/tasks/**/*.md\ncreate:\n  directory: knowledge/tasks\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/task.md\n  inputs:\n    title:\n      required: true\n    slug:\n      default: \"{{ input.title }}\"\n      transform: slugify\nconventions:\n  titleField: title\n  summaryField: summary\n---\n\n# Tasks\n",
@@ -1632,8 +1637,8 @@ mod tests {
             "file.references"
         );
         assert_eq!(
-            serde_json::to_value(super::Operation::KnowledgeHealth).unwrap(),
-            "knowledge.health"
+            serde_json::to_value(super::Operation::WorkspaceHealth).unwrap(),
+            "workspace.health"
         );
     }
 
