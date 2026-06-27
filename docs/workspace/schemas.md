@@ -53,8 +53,12 @@ Common field shapes:
 
 Use `target` only when the referenced content type exists or is part of the accepted current slice. Otherwise start with a `string` field or plain Markdown links, then tighten the schema later.
 
+For `ref` fields, `target` names a configured semantic type, not a directory name. A space can provide a semantic type for its entries, and a ref value should be the workspace reference for one entry of that type. For example, if `owner.target` is `person`, do not store a raw runtime id such as `alex-chen`; store the reference path that resolves to the configured `person` entry in this workspace.
+
+When defining templates or create defaults for ref fields, inspect the field schema first. If the default should point to the current user, prefer a runtime value such as `currentUserRef` whose value is already a complete workspace reference for the target type.
+
 ## Agent Guidance
 
 Keep schema fields minimal and aligned with the human workflow. Prefer camelCase field names unless the existing workspace uses another convention.
 
-Do not add fields only because they might be useful someday. Add the few fields needed for the first list, table, create template, or Agent workflow, then verify with `forma check --json`.
+Do not add fields only because they might be useful someday. Add the few fields needed for the first list, table, create template, or Agent workflow, then verify with `forma check --json`. Do not infer ref paths from directory names; use the configured schema target and existing workspace references.

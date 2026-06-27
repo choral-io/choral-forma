@@ -294,6 +294,23 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(templates_stdout.contains("Do not assume a built-in directory"));
     assert!(templates_stdout.contains("runtime.values.currentDateTime"));
 
+    let schemas = forma(&root)
+        .args(["docs", "get", "workspace.schemas"])
+        .output()
+        .expect("forma docs get workspace.schemas should run");
+
+    assert!(
+        schemas.status.success(),
+        "{}",
+        String::from_utf8_lossy(&schemas.stderr)
+    );
+    assert!(schemas.stderr.is_empty());
+    let schemas_stdout = String::from_utf8_lossy(&schemas.stdout);
+    assert!(schemas_stdout.contains("configured semantic type"));
+    assert!(schemas_stdout.contains("not a directory name"));
+    assert!(schemas_stdout.contains("currentUserRef"));
+    assert!(schemas_stdout.contains("Do not infer ref paths from directory names"));
+
     std::fs::remove_dir_all(root).unwrap();
 }
 

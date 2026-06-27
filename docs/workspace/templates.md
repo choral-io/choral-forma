@@ -62,8 +62,8 @@ create:
 
 Define those names under `runtime.values` in `.forma.md` or an explicitly included config file before using them in defaults or templates.
 
-When a schema field is a `ref` or list of `ref` values, store the workspace reference path expected by that schema, not only the raw runtime id. Do not assume a built-in directory such as `members/`. If a workflow needs a current-user reference, define a workspace-specific runtime value such as `currentUserRef` whose value already matches that workspace's configured reference path.
+When a schema field is a `ref` or list of `ref` values, read that field's schema before choosing a default. Store the workspace reference path expected by the configured `target`, not only the raw runtime id. Do not assume a built-in directory such as `members/`. If a workflow needs a current-user reference, define a workspace-specific runtime value such as `currentUserRef` whose value already matches that workspace's configured reference path.
 
 ## Agent Guidance
 
-Keep templates small, readable, and aligned with the configured schema. Verify template paths with `forma check --json`.
+Keep templates small, readable, and aligned with the configured schema. Verify template paths with `forma check --json`. For ref defaults, inspect the schema target and existing entries before writing the template.
