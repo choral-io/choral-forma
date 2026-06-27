@@ -47,9 +47,6 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 | Inspect | `inspect` | `forma inspect <path> [--json]` | No |
 | Inspect | `inspect` | `forma inspect --space <space> <entry> --json` | No |
 | List | `list` | `forma list --space <space> [--json]` | No |
-| TasksList | `tasks.list` | `forma tasks list [--json]` | No |
-| TasksInspect | `tasks.inspect` | `forma tasks inspect <path-or-id> [--json]` | No |
-| BoardShow | `board.show` | `forma board show [--json]` | No |
 | FilesList | `files.list` | No required P0 CLI command | No |
 | WorkspaceDashboard | `workspace.dashboard` | No required P0 CLI command | No |
 | FileRender | `file.render` | No required P0 CLI command | No |

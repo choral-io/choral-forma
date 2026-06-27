@@ -26,12 +26,6 @@ pub enum Operation {
     Inspect,
     #[serde(rename = "list")]
     List,
-    #[serde(rename = "tasks.list")]
-    TasksList,
-    #[serde(rename = "board.show")]
-    BoardShow,
-    #[serde(rename = "tasks.inspect")]
-    TasksInspect,
     #[serde(rename = "create")]
     Create,
     #[serde(rename = "init")]
@@ -59,9 +53,6 @@ impl Operation {
             Self::WorkspaceDashboard => "workspace.dashboard",
             Self::Inspect => "inspect",
             Self::List => "list",
-            Self::TasksList => "tasks.list",
-            Self::BoardShow => "board.show",
-            Self::TasksInspect => "tasks.inspect",
             Self::Create => "create",
             Self::Init => "init",
             Self::ViewRender => "view.render",
@@ -82,9 +73,6 @@ pub enum OperationRequest {
     WorkspaceDashboard(WorkspaceDashboardRequest),
     Inspect(InspectRequest),
     List(ListRequest),
-    TasksList(TasksListRequest),
-    BoardShow(BoardShowRequest),
-    TasksInspect(TasksInspectRequest),
     Create(CreateRequest),
     Init(InitRequest),
     ViewRender(ViewRenderRequest),
@@ -135,23 +123,6 @@ pub struct InspectRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ListRequest {
     pub space: String,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-pub struct TasksListRequest {}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-pub struct BoardShowRequest {}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-pub struct TasksInspectRequest {
-    pub path_or_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -312,17 +283,6 @@ impl Dispatcher {
             OperationRequest::List(request) => forma_core::list_space(root, &request.space)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::List, error))),
-            OperationRequest::TasksList(_) => forma_core::tasks_list(root)
-                .map(OperationResult::from)
-                .or_else(|error| Ok(core_error_result(Operation::TasksList, error))),
-            OperationRequest::BoardShow(_) => forma_core::board_show(root)
-                .map(OperationResult::from)
-                .or_else(|error| Ok(core_error_result(Operation::BoardShow, error))),
-            OperationRequest::TasksInspect(request) => {
-                forma_core::tasks_inspect(root, &request.path_or_id)
-                    .map(OperationResult::from)
-                    .or_else(|error| Ok(core_error_result(Operation::TasksInspect, error)))
-            }
             OperationRequest::Create(request) => {
                 forma_core::create_entry(root, &request.space, request.inputs)
                     .map(OperationResult::from)
@@ -526,33 +486,6 @@ fn operation_from_method(
             }),
         "list" => serde_json::from_value::<ListRequest>(params)
             .map(OperationRequest::List)
-            .map_err(|_| {
-                JsonRpcFailure::without_id(
-                    JsonRpcErrorCode::InvalidParams,
-                    "Invalid params.",
-                    "params.invalid",
-                )
-            }),
-        "tasks.list" => serde_json::from_value::<TasksListRequest>(params)
-            .map(OperationRequest::TasksList)
-            .map_err(|_| {
-                JsonRpcFailure::without_id(
-                    JsonRpcErrorCode::InvalidParams,
-                    "Invalid params.",
-                    "params.invalid",
-                )
-            }),
-        "board.show" => serde_json::from_value::<BoardShowRequest>(params)
-            .map(OperationRequest::BoardShow)
-            .map_err(|_| {
-                JsonRpcFailure::without_id(
-                    JsonRpcErrorCode::InvalidParams,
-                    "Invalid params.",
-                    "params.invalid",
-                )
-            }),
-        "tasks.inspect" => serde_json::from_value::<TasksInspectRequest>(params)
-            .map(OperationRequest::TasksInspect)
             .map_err(|_| {
                 JsonRpcFailure::without_id(
                     JsonRpcErrorCode::InvalidParams,
@@ -785,58 +718,6 @@ impl From<forma_core::ListResult> for OperationResult {
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("space".to_string(), json!(result.space));
         data.insert("entries".to_string(), json!(result.entries));
-        Self {
-            schema_version: result.schema_version,
-            operation: result.operation,
-            status: result.status,
-            summary: Some(result.summary),
-            diagnostics: result.diagnostics,
-            path: None,
-            data,
-        }
-    }
-}
-
-impl From<forma_core::TasksListResult> for OperationResult {
-    fn from(result: forma_core::TasksListResult) -> Self {
-        let mut data = BTreeMap::new();
-        data.insert("workspace".to_string(), json!(result.workspace));
-        data.insert("tasks".to_string(), json!(result.tasks));
-        Self {
-            schema_version: result.schema_version,
-            operation: result.operation,
-            status: result.status,
-            summary: Some(result.summary),
-            diagnostics: result.diagnostics,
-            path: None,
-            data,
-        }
-    }
-}
-
-impl From<forma_core::BoardShowResult> for OperationResult {
-    fn from(result: forma_core::BoardShowResult) -> Self {
-        let mut data = BTreeMap::new();
-        data.insert("workspace".to_string(), json!(result.workspace));
-        data.insert("columns".to_string(), json!(result.columns));
-        Self {
-            schema_version: result.schema_version,
-            operation: result.operation,
-            status: result.status,
-            summary: Some(result.summary),
-            diagnostics: result.diagnostics,
-            path: None,
-            data,
-        }
-    }
-}
-
-impl From<forma_core::TasksInspectResult> for OperationResult {
-    fn from(result: forma_core::TasksInspectResult) -> Self {
-        let mut data = BTreeMap::new();
-        data.insert("workspace".to_string(), json!(result.workspace));
-        data.insert("guidelines".to_string(), json!(result.guidelines));
-        data.insert("task".to_string(), json!(result.task));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1445,111 +1326,22 @@ mod tests {
     }
 
     #[test]
-    fn json_rpc_dispatches_tasks_list_and_inspect() {
-        let root = fixture_root("tasks-rpc");
-        fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
-        fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
-        write_config(
-            &root,
-            "schemaVersion: 1\nworkspace:\n  name: Tasks RPC\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
-        );
-        fs::write(
-            root.join(".forma/spaces/tasks.md"),
-            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Tasks\ninclude:\n  - knowledge/tasks/**/*.md\ncreate:\n  directory: knowledge/tasks\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/task.md\n  inputs:\n    title:\n      required: true\n    slug:\n      default: \"{{ input.title }}\"\n      transform: slugify\nconventions:\n  titleField: title\n  summaryField: summary\n---\n\n# Tasks\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join(".forma/spaces/templates/task.md"),
-            "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"\"\n---\n\n# {{ input.title }}\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("knowledge/tasks/ship-cli.md"),
-            "---\nschemaVersion: 1\nkind: task\ntitle: Ship CLI\nsummary: Add CLI task inventory commands.\npriority: P0\nreadiness: ready\nowner: Alex Chen\n---\n\n# Ship CLI\n",
-        )
-        .unwrap();
+    fn json_rpc_rejects_task_specific_legacy_methods() {
+        let root = fixture_root("legacy-task-methods-rpc");
+        fs::create_dir_all(&root).unwrap();
 
-        let list = handle_json_rpc(
-            &root,
-            br#"{"jsonrpc":"2.0","id":"1","method":"tasks.list","params":{}}"#,
-        );
-        assert_eq!(list["result"]["operation"], "tasks.list");
-        assert_eq!(
-            list["result"]["tasks"][0]["path"],
-            "knowledge/tasks/ship-cli.md"
-        );
-
-        let inspect = handle_json_rpc(
-            &root,
-            br#"{"jsonrpc":"2.0","id":"2","method":"tasks.inspect","params":{"pathOrId":"ship-cli"}}"#,
-        );
-        assert_eq!(inspect["result"]["operation"], "tasks.inspect");
-        assert_eq!(inspect["result"]["task"]["title"], "Ship CLI");
-        assert_eq!(inspect["result"]["task"]["priority"], "P0");
-
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn json_rpc_dispatches_board_show() {
-        let root = fixture_root("board-show-rpc");
-        fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
-        fs::create_dir_all(root.join("knowledge/tasks")).unwrap();
-        write_config(
-            &root,
-            "schemaVersion: 1\nworkspace:\n  name: Board RPC\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
-        );
-        fs::write(
-            root.join(".forma/spaces/tasks.md"),
-            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Tasks\ninclude:\n  - knowledge/tasks/**/*.md\ncreate:\n  directory: knowledge/tasks\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/task.md\n  inputs:\n    title:\n      required: true\n    slug:\n      default: \"{{ input.title }}\"\n      transform: slugify\nconventions:\n  titleField: title\n  summaryField: summary\n---\n\n# Tasks\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join(".forma/spaces/templates/task.md"),
-            "---\nkind: task\ntitle: \"{{ input.title }}\"\nsummary: \"\"\n---\n\n# {{ input.title }}\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("knowledge/tasks/alpha.md"),
-            "---\nschemaVersion: 1\nkind: task\ntitle: Alpha\nsummary: Needs refinement\n---\n\n# Alpha\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("knowledge/tasks/bravo.md"),
-            "---\nschemaVersion: 1\nkind: task\ntitle: Bravo\nsummary: Ready\nreadiness: ready\n---\n\n# Bravo\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("knowledge/tasks/charlie.md"),
-            "---\nschemaVersion: 1\nkind: task\ntitle: Charlie\nsummary: Blocked\nreadiness: blocked\n---\n\n# Charlie\n",
-        )
-        .unwrap();
-
-        let response = handle_json_rpc(
-            &root,
-            br#"{"jsonrpc":"2.0","id":"1","method":"board.show","params":{}}"#,
-        );
-        assert_eq!(response["result"]["operation"], "board.show");
-        assert_eq!(response["result"]["workspace"]["name"], "Board RPC");
-        assert_eq!(response["result"]["columns"][0]["id"], "backlog");
-        assert_eq!(
-            response["result"]["columns"][0]["tasks"][0]["path"],
-            "knowledge/tasks/alpha.md"
-        );
-        assert_eq!(response["result"]["columns"][1]["id"], "ready");
-        assert_eq!(
-            response["result"]["columns"][1]["tasks"][0]["path"],
-            "knowledge/tasks/bravo.md"
-        );
-        assert_eq!(response["result"]["columns"][2]["id"], "doing");
-        assert_eq!(response["result"]["columns"][3]["id"], "reviewing");
-        assert_eq!(response["result"]["columns"][4]["id"], "blocked");
-        assert_eq!(
-            response["result"]["columns"][4]["tasks"][0]["path"],
-            "knowledge/tasks/charlie.md"
-        );
-        assert_eq!(response["result"]["columns"][5]["id"], "done");
-        assert_eq!(response["result"]["columns"][6]["id"], "cancelled");
+        for (id, method, params) in [
+            ("1", "tasks.list", "{}"),
+            ("2", "tasks.inspect", r#"{"pathOrId":"ship-cli"}"#),
+            ("3", "board.show", "{}"),
+        ] {
+            let request =
+                format!(r#"{{"jsonrpc":"2.0","id":"{id}","method":"{method}","params":{params}}}"#);
+            let response = handle_json_rpc(&root, request.as_bytes());
+            assert_eq!(response["error"]["code"], -32601);
+            assert_eq!(response["error"]["message"], "Method not found.");
+            assert_eq!(response["id"], id);
+        }
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1607,18 +1399,6 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::Operation::List).unwrap(),
             "list"
-        );
-        assert_eq!(
-            serde_json::to_value(super::Operation::TasksList).unwrap(),
-            "tasks.list"
-        );
-        assert_eq!(
-            serde_json::to_value(super::Operation::BoardShow).unwrap(),
-            "board.show"
-        );
-        assert_eq!(
-            serde_json::to_value(super::Operation::TasksInspect).unwrap(),
-            "tasks.inspect"
         );
         assert_eq!(
             serde_json::to_value(super::Operation::Create).unwrap(),

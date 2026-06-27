@@ -40,11 +40,11 @@ Replace task-specific CLI and RPC read APIs with generic, space/schema-driven op
 
 Forma's product model is a Markdown-backed content workspace. Content categories such as tasks, members, notes, or guidelines are configured spaces, not core ontology.
 
-The current API still exposes task-specialized surfaces such as `tasks.list`, `tasks.inspect`, and `board.show`. They are useful for the repository's current dogfooding workflow, but their names can imply that `task` is a built-in Forma concept.
+Forma previously exposed task-specialized surfaces such as `tasks.list`, `tasks.inspect`, and `board.show`. They were useful for the repository's dogfooding workflow, but their names implied that `task` was a built-in Forma concept.
 
 ## In Scope
 
-- Review the current `tasks.*` and `board.show` CLI/RPC surfaces.
+- Review the previous `tasks.*` and `board.show` CLI/RPC surfaces.
 - Define equivalent generic read operations in terms of configured spaces, views, schemas, or query projections.
 - Decide whether task-specific aliases should be removed, renamed, or kept temporarily as project-workspace conveniences before the next internal release.
 - Update built-in Agent guidance after the generic operations exist.
@@ -61,11 +61,11 @@ The current API still exposes task-specialized surfaces such as `tasks.list`, `t
 
 - Forma has a documented generic replacement path for `tasks.list`, `tasks.inspect`, and `board.show`.
 - Product-facing docs and built-in skills no longer present `task` as a core Forma concept.
-- The repository dogfooding workflow can still inspect configured task-like content through generic operations or explicitly documented temporary aliases.
+- The repository dogfooding workflow can still inspect configured task-like content through generic operations.
 
 ## Progress
 
 - Added `forma view render <view-id-or-path> --json` as the generic CLI path for configured list, table, kanban, and graph projections.
 - Updated Agent-facing guidance to use `list --space`, `inspect`, and `view render` for read workflows.
 - Removed the public `forma tasks ...` and `forma board show` CLI helpers so the CLI no longer presents task-like content as a built-in product concept.
-- RPC/core still expose legacy `tasks.*` and `board.show` operations internally; remove or replace those in a follow-up API cleanup after confirming Web/RPC consumers.
+- Removed legacy RPC/core `tasks.list`, `tasks.inspect`, and `board.show` operations. Generic `list`, `inspect`, and `view.render` now cover configured task-like workflows.

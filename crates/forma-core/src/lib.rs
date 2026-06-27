@@ -24,18 +24,17 @@ pub use markdown::{
     FormaReferenceSyntax, ParsedFrontmatter, SourceSpan, split_frontmatter,
 };
 pub use operations::{
-    BoardColumn, BoardShowResult, ConfigInspectResult, ConfigSource, CreateInputResult,
-    CreateInputSource, CreateResult, CreatedEntry, DashboardEntrySummary, DashboardSpace,
-    DashboardViewSummary, FileReferencesResult, FilesListResult, InitResult, InspectEntry,
-    InspectResult, ListEntry, ListResult, ListedSpace, OperationError, ReferenceEdge,
-    ReferenceFile, SkillDetail, SkillSource, SkillSummary, SkillsGetResult, SkillsListResult,
-    TaskSummary, TasksInspectResult, TasksListResult, WorkspaceDashboardResult, WorkspaceFile,
-    WorkspaceFileFeature, WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary, board_show,
+    ConfigInspectResult, ConfigSource, CreateInputResult, CreateInputSource, CreateResult,
+    CreatedEntry, DashboardEntrySummary, DashboardSpace, DashboardViewSummary,
+    FileReferencesResult, FilesListResult, InitResult, InspectEntry, InspectResult, ListEntry,
+    ListResult, ListedSpace, OperationError, ReferenceEdge, ReferenceFile, SkillDetail,
+    SkillSource, SkillSummary, SkillsGetResult, SkillsListResult, WorkspaceDashboardResult,
+    WorkspaceFile, WorkspaceFileFeature, WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary,
     create_entry, detect_environment_timezone, init_workspace, inspect_config,
     inspect_entry_by_path, inspect_entry_by_space, is_public_workspace_path_allowed,
     is_raw_workspace_path_allowed, list_file_references, list_files, list_space,
     media_type_for_workspace_path, operation_error_diagnostic, skills_get, skills_list,
-    tasks_inspect, tasks_list, workspace_dashboard,
+    workspace_dashboard,
 };
 pub use path::{
     FORMA_CONFIG_PATH, PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,
