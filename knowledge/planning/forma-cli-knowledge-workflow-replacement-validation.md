@@ -19,9 +19,9 @@ sources:
     - "experiments/starter-kit-agent-pressure-validation"
     - "user-stories/agent-maintains-project-knowledge"
     - "test-cases/forma-starter-kit"
-    - "guidelines/forma-knowledge-operations"
+    - "guidelines/forma-workspace-operations"
     - "guidelines/task-selection"
-    - "guidelines/knowledge-capture"
+    - "guidelines/content-maintenance"
 ---
 
 # Forma CLI Knowledge Workflow Replacement Validation
@@ -40,10 +40,10 @@ Current readiness should be judged through [[metrics/knowledge-workflow-replacem
 
 The replacement is usable for current project knowledge management:
 
-- The repository knowledge workspace is discoverable from `.forma.yml`.
-- Repository `check`, `knowledge health`, and `tasks list` pass with no diagnostics.
+- The repository knowledge workspace is discoverable from `.forma.md`.
+- Repository `check`, `workspace health`, and `tasks list` pass with no diagnostics.
 - The project-local `forma-cli` skill is config-driven and does not hard-code repository knowledge paths.
-- Guidelines now carry the soft task-selection, knowledge-capture, local-only, review-evidence, and write-boundary rules previously spread across old skills.
+- Guidelines now carry the soft task-selection, content-maintenance, local-only, review-evidence, and write-boundary rules previously spread across old skills.
 - The starter-kit example is clean enough to act as a product-level evaluation fixture instead of borrowing this repository's own knowledge structure.
 
 This is not yet a hard-constraint replacement. Forma currently provides evidence and guidance; Human and Agent behavior still enforce the soft rules until policy-aware write operations exist.
@@ -53,14 +53,14 @@ This is not yet a hard-constraint replacement. Forma currently provides evidence
 Repository workspace:
 
 - `cargo run -q -p forma-cli -- config inspect --json` passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- knowledge health --json` passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- workspace health --json` passed with 0 errors and 0 warnings.
 - `cargo run -q -p forma-cli -- tasks list --json` passed.
 
 Starter-kit workspace:
 
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json` passed with 0 errors and 0 warnings.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json` passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json` passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json` passed with 0 errors and 0 warnings.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks list --json` passed and exposed ready, doing, reviewing, blocked, done, and needs-refinement examples.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks inspect --json tasks/add-team-notes.md` passed and returned workspace plus task-specific guidelines.
 

@@ -46,12 +46,12 @@ Implement P0 workspace discovery, configuration loading, local override composit
 
 ## Context
 
-Forma public contracts use workspace-relative POSIX paths. `.forma.yml` is the workspace configuration entry file. Optional local or personal configuration should be selected through explicit configuration entry points rather than inferred from ignored paths. `workspace.timezone` is a shared workspace setting used by time-derived runtime values.
+Forma public contracts use workspace-relative POSIX paths. `.forma.md` is the workspace configuration entry file. Optional local or personal configuration should be selected through explicit configuration entry points rather than inferred from ignored paths. `workspace.timezone` is a shared workspace setting used by time-derived runtime values.
 
 ## In Scope
 
 - Locate and validate the workspace root.
-- Load `.forma.yml` and its explicit include files.
+- Load `.forma.md` and its explicit include files.
 - Load explicit include files and leave local/personal override selection to explicit configuration entry mechanisms.
 - Model `workspace.name`, `canonicalLanguage`, `supportedLanguages`, and `timezone`.
 - Normalize public paths to workspace-relative POSIX strings.

@@ -1,29 +1,29 @@
 ---
 scope: project
-title: Forma Knowledge Operations
-summary: General operating boundary for Human and Agent work over this Forma-managed repository knowledge base.
+title: Forma Workspace Operations
+summary: General operating boundary for Human and Agent work over this Forma-managed repository content workspace.
 owners:
     - "members/tiscs"
 tags:
     - forma
     - guidelines
     - agents
-    - knowledge-operations
+    - workspace-operations
 sources:
     - "product/product-direction"
     - "architecture/forma-core-technical-direction"
 ---
 
-# Forma Knowledge Operations
+# Forma Workspace Operations
 
 ## Purpose
 
-This guideline defines the general operating boundary for humans and Agents working with this repository's Forma-managed knowledge base.
+This guideline defines the general operating boundary for humans and Agents working with this repository's Forma-managed content workspace.
 
 ## Operating Model
 
 - Markdown under `knowledge/` remains the source of project facts.
-- `.forma.yml`, `.forma/spaces/*.md`, and `.forma/views/*.md` define the workspace structure and read models.
+- `.forma.md`, `.forma/spaces/*.md`, and `.forma/views/*.md` define the workspace structure and read models.
 - Guidelines explain collaboration rules, soft constraints, and lightweight procedure checklists for humans and Agents.
 - Schema validates document structure.
 - Future policies will define machine-readable operation constraints.
@@ -31,15 +31,15 @@ This guideline defines the general operating boundary for humans and Agents work
 
 ## Agent Read Workflow
 
-Before task, review, audit, or knowledge work, Agents should run:
+Before task, review, audit, or project workspace work, Agents should run:
 
 - `cargo run -q -p forma-cli -- skills get forma-cli-core`
 - `cargo run -q -p forma-cli -- config inspect --json`
-- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- workspace health --json`
 
-The built-in `forma-cli-core` guide is packaged with the Forma binary from the product documentation source `docs/agents/forma-cli-core.md`. It is embedded product documentation, not a project knowledge guideline, and does not need to be listed in `.forma.yml`.
+The built-in `forma-cli-core` guide is packaged with the Forma binary from the product documentation source `docs/agents/forma-cli-core.md`. It is embedded product documentation, not a project workspace guideline, and does not need to be listed in `.forma.md`.
 
-Agents should then use `cargo run -q -p forma-cli -- skills list --json` to discover workspace-projected skills and load guideline files declared by `config inspect` before task, board, review, proposal, or shared knowledge operations. Guidelines may include general rules as well as workflow-specific procedures.
+Agents should then use `cargo run -q -p forma-cli -- skills list --json` to discover workspace-projected skills and load guideline files declared by `config inspect` before task, board, review, proposal, or shared project-content operations. Guidelines may include general rules as well as workflow-specific procedures.
 
 Agent workflow should be config-driven:
 
@@ -54,10 +54,10 @@ Agent workflow should be config-driven:
 
 ## Write Boundary
 
-- Do not write shared knowledge, task metadata, `.forma` config, or repository operating state without explicit user approval.
+- Do not write shared project content, task metadata, `.forma` config, or repository operating state without explicit user approval.
 - Prefer a dry-run or proposal summary before multi-file edits.
 - After edits, run `cargo run -q -p forma-cli -- check --json`.
-- When knowledge relationships matter, also run `cargo run -q -p forma-cli -- knowledge health --json`.
+- When content relationships matter, also run `cargo run -q -p forma-cli -- workspace health --json`.
 - Do not preserve obsolete compatibility notes for unreleased workflow behavior unless they are current product requirements.
 
 ## Local-Only Boundary
@@ -83,7 +83,7 @@ Treat local-only status as workflow guidance, explicit user context, or a future
 - Done readiness should be supported by verification evidence.
 - For delivery selection, audit, and board maintenance details, follow the configured delivery guideline, currently [[guidelines/task-selection]].
 
-## Knowledge Placement
+## Content Placement
 
 - Product behavior belongs in `knowledge/product/`.
 - Technical architecture and contracts belong in `knowledge/architecture/`.
@@ -91,14 +91,14 @@ Treat local-only status as workflow guidance, explicit user context, or a future
 - UX and interaction design belongs in `knowledge/design/`.
 - Delivery tasks belong in `knowledge/tasks/`.
 - Release validation and rollout records belong in `knowledge/releases/`.
-- Metrics, experiments, test cases, proposals, and user stories should use their dedicated spaces when the knowledge is durable enough to structure.
-- For intake, promotion, cleanup, schema audit, and status reporting details, follow the configured knowledge maintenance guideline, currently [[guidelines/knowledge-capture]].
+- Metrics, experiments, test cases, proposals, and user stories should use their dedicated spaces when the content is durable enough to structure.
+- For intake, promotion, cleanup, schema audit, and status reporting details, follow the configured content maintenance guideline, currently [[guidelines/content-maintenance]].
 
 ## Review Evidence
 
 Review summaries should include:
 
-- task or knowledge source context;
+- task or content source context;
 - files changed;
 - checks run;
 - checks not run;
@@ -109,4 +109,4 @@ When a change adds, removes, or pre-positions third-party dependencies, follow [
 
 ## Source Of Guidance
 
-This document and the configured guidelines replace the old repository-local knowledge workflow skills as soft Human/Agent operating guidance. They do not recreate the old workflow runtime or make its deleted files authoritative.
+This document and the configured guidelines replace the old repository-local content workflow skills as soft Human/Agent operating guidance. They do not recreate the old workflow runtime or make its deleted files authoritative.

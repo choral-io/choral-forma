@@ -52,7 +52,7 @@ Remove wording that presents the old Knowledge Workflow system as a current comp
 
 - Rewrite current product, guideline, and planning language that still assumes Knowledge Workflow compatibility.
 - Keep references that are clearly migration history, replacement rationale, or test-case context.
-- Prefer current Forma terms for task selection, knowledge capture, guidelines, and checks.
+- Prefer current Forma terms for task selection, content capture, guidelines, and checks.
 
 ## Out of Scope
 
@@ -63,9 +63,9 @@ Remove wording that presents the old Knowledge Workflow system as a current comp
 ## Acceptance Criteria
 
 - Remaining Knowledge Workflow references are classified as migration history, replacement rationale, or explicit non-current context.
-- Current operating guidance uses Forma CLI, guidelines, and configured knowledge sources rather than old workflow paths.
+- Current operating guidance uses Forma CLI, guidelines, and configured content sources rather than old workflow paths.
 - `cargo run -q -p forma-cli -- check --json` passes.
-- `cargo run -q -p forma-cli -- knowledge health --json` has no new cleanup-caused warnings.
+- `cargo run -q -p forma-cli -- workspace health --json` has no new cleanup-caused warnings.
 
 ## Result
 

@@ -32,7 +32,7 @@ The WebApp should become a complete read-oriented knowledge client for local rep
 - space, file, view, and resource browsing;
 - rendered Markdown and source preview;
 - reference navigation and graph views;
-- diagnostics and knowledge health;
+- diagnostics and workspace health;
 - quick switching and lightweight entry search;
 - reviewable operation proposals and dry-run previews;
 - AI Chat for explanation, planning, proposal drafting, and guided maintenance.
@@ -57,7 +57,7 @@ The WebApp must not re-scan raw Markdown, infer health rules, or duplicate core 
 1. Reinitialize the WebApp V2 dashboard shell from the P0 cutline, using WebApp-local Tailwind CSS, shadcn/ui, Base UI, and fake workspace data.
 2. Validate the V2 dashboard layout in the in-app browser before reconnecting real RPC data.
 3. Reconnect the dashboard through a WebApp workspace client backed by Forma RPC.
-4. Add diagnostics and knowledge health surfaces over existing and new checks.
+4. Add diagnostics and workspace health surfaces over existing and new checks.
 5. Add graph view render data and a minimal graph surface.
 6. Add quick switcher and entry search over the in-memory read model.
 7. Design reviewable operation proposals for interactive GUI actions.

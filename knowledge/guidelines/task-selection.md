@@ -22,7 +22,7 @@ skill:
     order: 30
 sources:
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
-    - "guidelines/forma-knowledge-operations"
+    - "guidelines/forma-workspace-operations"
 ---
 
 # Task And Delivery Guidance
@@ -65,7 +65,7 @@ Report the selected task, why it is next, what evidence supports the recommendat
 Start from Forma operations, not hidden workflow files:
 
 - `cargo run -q -p forma-cli -- config inspect --json`
-- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- workspace health --json`
 - `cargo run -q -p forma-cli -- tasks list --json`
 
 Inspect candidate tasks with:

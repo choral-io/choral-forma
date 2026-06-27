@@ -54,7 +54,7 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 | WorkspaceDashboard | `workspace.dashboard` | No required P0 CLI command | No |
 | FileRender | `file.render` | No required P0 CLI command | No |
 | FileReferences | `file.references` | No required P0 CLI command | No |
-| KnowledgeHealth | `knowledge.health` | `forma knowledge health [--json]` | No |
+| WorkspaceHealth | `workspace.health` | `forma workspace health [--json]` | No |
 | SkillsList | `skills.list` | `forma skills list [--json]` | No |
 | SkillsGet | `skills.get` | `forma skills get <id> [--json]` | No |
 | Init | `init` | `forma init [--name <name>] [--language <tag>] [--timezone <tz>] [--json]` | Yes |
@@ -66,7 +66,7 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 
 `forma docs list` and `forma docs get <id>` are local CLI documentation surfaces over embedded product docs. They are not workspace operations and do not require JSON-RPC methods in P0.
 
-`Init` is a bootstrap operation. In P0 it writes only `.forma.yml` and `.agents/skills/forma-cli/SKILL.md`, and it must refuse to overwrite existing target files. It does not install starter-kit content or infer a knowledge structure.
+`Init` is a bootstrap operation. In P0 it writes only `.forma.md` and `.agents/skills/forma-cli/SKILL.md`, and it must refuse to overwrite existing target files. It does not install starter-kit content or infer a knowledge structure.
 
 `ViewRender` is required for the P0 WebApp and local HTTP API so the GUI can render page, table, and kanban views. View metadata should also allow graph views to be discovered even when P0 does not yet render an interactive graph. A direct CLI command for view rendering can wait until there is product demand.
 
@@ -104,7 +104,7 @@ Recommended top-level shape:
 }
 ```
 
-The JSON result field `workspace.root` must be a display-safe workspace locator, not an absolute host path or a `.forma.yml` config field. Public paths inside results must be workspace-relative POSIX paths.
+The JSON result field `workspace.root` must be a display-safe workspace locator, not an absolute host path or a `.forma.md` config field. Public paths inside results must be workspace-relative POSIX paths.
 
 Human-oriented CLI output can be concise and non-JSON. JSON output is the contract surface.
 
@@ -125,7 +125,7 @@ P0 command classification:
 - `forma create` does not require confirmation in P0 because it writes one new entry, uses space-defined inputs and templates, and fails on path conflicts.
 - `forma refresh` or an equivalent in-memory read-model rebuild operation does not require confirmation because it writes nothing by default.
 - `forma check`, `forma config inspect`, `forma inspect`, `forma list`, and `forma serve` do not require confirmation because they are read-only in P0.
-- `forma config inspect --path <path>` may inspect only known configuration source files reported by the operation, starting with `.forma.yml` and any explicitly included configuration files. It is not a general workspace file read API.
+- `forma config inspect --path <path>` may inspect only known configuration source files reported by the operation, starting with `.forma.md` and any explicitly included configuration files. It is not a general workspace file read API.
 
 Future command classification:
 
@@ -357,7 +357,7 @@ Params:
 
 ```json
 {
-    "path": ".forma.yml"
+    "path": ".forma.md"
 }
 ```
 
@@ -384,7 +384,7 @@ Result outline:
     },
     "sources": [
         {
-            "path": ".forma.yml",
+            "path": ".forma.md",
             "kind": "shared"
         },
         {

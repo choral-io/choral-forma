@@ -11,7 +11,7 @@ tags:
 sources:
     - "product/product-direction"
     - "architecture/forma-core-technical-direction"
-    - "guidelines/forma-knowledge-operations"
+    - "guidelines/forma-workspace-operations"
 ---
 
 # Forma Policy And Operation Model

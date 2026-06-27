@@ -33,6 +33,7 @@ relatedTo:
     - "tasks/design-reviewable-knowledge-change-proposals"
     - "tasks/design-reviewable-operation-proposal-flow"
     - "tasks/design-metadata-edit-deprecate-operations"
+    - "tasks/generalize-task-specific-read-operations"
 
 reportedBy:
 affectedArea: Forma write operations

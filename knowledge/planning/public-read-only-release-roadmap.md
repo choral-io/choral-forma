@@ -86,7 +86,7 @@ Primary task:
 
 - [[tasks/stabilize-public-read-only-webapp-release]]
 
-### 3. Knowledge Health
+### 3. Workspace Health
 
 Promote diagnostics from a generic side panel into a useful health surface.
 

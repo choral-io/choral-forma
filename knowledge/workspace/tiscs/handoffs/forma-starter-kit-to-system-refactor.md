@@ -32,7 +32,7 @@ Relevant knowledge:
 
 Relevant example workspace:
 
-- `examples/forma-starter-kit/.forma.yml`
+- `examples/forma-starter-kit/.forma.md`
 - `examples/forma-starter-kit/.forma/dashboard.md`
 - `examples/forma-starter-kit/.forma/spaces/index.md`
 - `examples/forma-starter-kit/.forma/spaces/*.md`
@@ -44,7 +44,7 @@ Relevant example workspace:
 
 The starter kit currently demonstrates:
 
-- `.forma.yml` as the main configuration entry.
+- `.forma.md` as the main configuration entry.
 - `.forma/` as a conventional support directory, not a privileged root.
 - Markdown configuration nodes whose frontmatter is configuration and whose body is the render template.
 - `<!-- forma:content -->` as the generated-content slot.

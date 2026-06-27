@@ -38,7 +38,7 @@ affectedArea: WebApp AI Chat
 
 ## Goal
 
-Design the WebApp AI Chat model for explaining, navigating, diagnosing, and proposing knowledge maintenance actions without bypassing repository review boundaries.
+Design the WebApp AI Chat model for explaining, navigating, diagnosing, and proposing content maintenance actions without bypassing repository review boundaries.
 
 ## Sources
 

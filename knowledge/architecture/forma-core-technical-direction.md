@@ -143,7 +143,7 @@ The Markdown AST is for understanding and rendering, not for P0 body writes.
 
 P0 should use a serde-compatible YAML parser, with `serde_yml` as the preferred candidate, for structured configuration and frontmatter reads. Forma should split frontmatter and body itself before parsing YAML.
 
-The target configuration model should start from one explicit `.forma.yml` entry at the workspace configuration root. Supporting files may live anywhere that `.forma.yml` references. `.forma/` remains a recommended conventional support directory, but it should not be treated as a privileged store by itself.
+The target configuration model should start from one explicit `.forma.md` entry at the workspace configuration root. Supporting files may live anywhere that `.forma.md` references. `.forma/` remains a recommended conventional support directory, but it should not be treated as a privileged store by itself.
 
 Configuration sections such as workspace identity, runtime values, taxonomies, templates, views, navigation, dashboard sections, and optional index settings should parse into typed Rust structs where practical. Unknown config fields should produce diagnostics or warnings rather than immediate hard failures, so future-version or manually edited config can remain inspectable.
 
@@ -228,7 +228,7 @@ P0 should distinguish source files from runtime diagnostic results.
 
 Default P0 behavior has no persisted index artifact. `forma serve` scans source files at startup and keeps a read model in memory. This keeps the first public release simple and avoids stale indexes.
 
-Persistent local configuration is optional, ignored by project rules, and loaded only through explicit `.forma.yml` include patterns. Forma should not assume a built-in local configuration directory.
+Persistent local configuration is optional, ignored by project rules, and loaded only through explicit `.forma.md` include patterns. Forma should not assume a built-in local configuration directory.
 
 Future local implementation caches, optional and ignored:
 

@@ -453,7 +453,7 @@ The `choral` name should remain available for brand-level or future cross-produc
 
 The product should help humans and AI Agents maintain a shared context base. Agents should be able to search, inspect, validate, summarize, and update knowledge through explicit files, schemas, CLI commands, and skills.
 
-When Agents assist with workflows such as conflict resolution, pull requests, schema checks, or knowledge health checks, the product should guide the human without requiring them to understand the underlying Git mechanics.
+When Agents assist with workflows such as conflict resolution, pull requests, schema checks, or workspace health checks, the product should guide the human without requiring them to understand the underlying Git mechanics.
 
 Agent and Skill flows should be an assistance layer over stable product capabilities. Core actions such as creating spaces, editing semantic types, building views, inspecting effective config, and running health checks should be available through GUI and CLI. Agents can suggest, explain, draft, orchestrate, and repair, but the product should not depend on Agents as the only way to use these capabilities.
 
@@ -500,7 +500,7 @@ Runtime values are not written back into configuration files. They are available
 Recommended target layout:
 
 ```text
-.forma.yml
+.forma.md
 .forma/
   pages/
     *.md
@@ -532,7 +532,7 @@ team shared config -> selected shared profiles -> local personal overrides -> ru
 
 The profile path is the selection dimension. A workspace may choose to relate profiles to entries in a `members`, `people`, `agents`, or other user-defined space, but Forma should not require or infer that relation from the path.
 
-Strict team enforcement is not an initial requirement. The more important need is a clear merge model and Agent-friendly CLI or skills that can explain the effective configuration, show where each value came from, and check knowledge health, configuration consistency, schema validity, and local override effects.
+Strict team enforcement is not an initial requirement. The more important need is a clear merge model and Agent-friendly CLI or skills that can explain the effective configuration, show where each value came from, and check workspace health, configuration consistency, schema validity, and local override effects.
 
 MVP override semantics should remain simple and explainable:
 
@@ -550,7 +550,7 @@ same-layer conflict: invalid unless a file boundary explicitly owns it
 Configuration sections and included files should have clear responsibility boundaries:
 
 ```text
-.forma.yml owns the main configuration entry and includes.
+.forma.md owns the main configuration entry and includes.
 workspace owns identity, language, timezone, and presentation metadata such as logo.
 runtime owns runtime values.
 Markdown config nodes under .forma/spaces/ own space schemas and starter space taxonomy terms.
@@ -1107,7 +1107,7 @@ P0 CLI should prioritize reading, indexing, checking, and inspection before broa
 - forma tasks list [--json]
 - forma tasks inspect <path-or-id> [--json]
 - forma board show [--json]
-- forma knowledge health [--json]
+- forma workspace health [--json]
 - forma skills list [--json]
 - forma skills get <id> [--json]
 - forma docs list [--json]
@@ -1132,7 +1132,7 @@ P1:
 
 All read commands should support stable JSON output for GUI and Agent use. Human-oriented output should remain concise and explainable.
 
-`forma init` should only create the minimal Forma bootstrap in this stage: `.forma.yml` and `.agents/skills/forma-cli/SKILL.md`. It should not copy starter-kit content, edit `AGENTS.md`, or generate canonical `skills/forma-cli/SKILL.md`.
+`forma init` should only create the minimal Forma bootstrap in this stage: `.forma.md` and `.agents/skills/forma-cli/SKILL.md`. It should not copy starter-kit content, edit `AGENTS.md`, or generate canonical `skills/forma-cli/SKILL.md`.
 
 `forma create` should use configured create inputs, defaults, transforms, and templates, fail on path conflicts, and rely on subsequent read operations to rebuild their in-memory projections from source files. Future starter-kit initialization should be redesigned around the committed starter-kit or an explicit template source rather than a duplicated embedded starter.
 
@@ -1400,7 +1400,7 @@ The user-facing experience should not require users to understand Git branches, 
 - How should Forma package or expose repository-backed knowledge so operational systems such as Choral Flows can consume it as a Git-backed knowledge source without turning Forma into a Flows backend or losing repository authorship?
 - How should the product model promotion workflows from personal content to shared content?
 - How should shared content be split into personal work material without losing provenance?
-- What exact CLI, JSON result, and future skill interfaces are needed for Agents to check knowledge health?
+- What exact CLI, JSON result, and future skill interfaces are needed for Agents to check workspace health?
 - What conflict and pull request workflows can be made understandable for non-software users?
 - Which future shared personal configuration fields are safe to commit, and when is that extra layer justified?
 - Which runtime values should be available in P0, and how should custom runtime value providers be configured safely later?

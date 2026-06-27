@@ -113,10 +113,10 @@ This task is the release stabilization umbrella for the first public read-only r
 Commands and checks run:
 
 - `cargo run -q -p forma-cli -- config inspect --json`: passed.
-- `cargo run -q -p forma-cli -- knowledge health --json`: passed.
+- `cargo run -q -p forma-cli -- workspace health --json`: passed.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`: passed.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`: passed.
 - `pnpm --filter @choral-forma/webapp check`: passed.
 - `pnpm --filter @choral-forma/webapp build`: passed with the existing Vite large-chunk warning from bundled Markdown/code-highlighting assets.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit serve --bind 127.0.0.1:4173`: passed after localhost binding approval.
@@ -147,16 +147,16 @@ Remaining non-blocking follow-ups after the 2026-06-24 audit:
 Commands and checks run:
 
 - `cargo run -q -p forma-cli -- config inspect --json`: passed.
-- `cargo run -q -p forma-cli -- knowledge health --json`: passed.
+- `cargo run -q -p forma-cli -- workspace health --json`: passed.
 - `cargo run -q -p forma-cli -- tasks inspect knowledge/tasks/stabilize-public-read-only-webapp-release.md --json`: passed.
 - `pnpm --filter @choral-forma/webapp check`: passed with the local pnpm version warning.
 - `pnpm --filter @choral-forma/shared check`: passed with the local pnpm version warning.
 - `pnpm exec vitest run packages/shared/src/index.test.ts`: passed.
 - `pnpm --filter @choral-forma/webapp build`: passed with the existing Vite large-chunk warning.
 - `cargo run -q -p forma-cli -- check --json`: passed.
-- `cargo run -q -p forma-cli -- knowledge health --json`: passed.
+- `cargo run -q -p forma-cli -- workspace health --json`: passed.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`: passed.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit serve --bind 127.0.0.1:4173`: passed for embedded WebApp serving.
 
 HTTP and JSON-RPC smoke:
@@ -165,14 +165,14 @@ HTTP and JSON-RPC smoke:
 - `GET /pages/notes/getting-started`: returned the embedded WebApp HTML through SPA fallback.
 - `GET /raw/assets/logo.svg`: returned the starter logo as `image/svg+xml`.
 - `workspace.dashboard`: returned `passed`, canonical entries, language variants, spaces, and saved views.
-- `knowledge.health`: returned `passed` with no findings for the starter workspace.
+- `workspace.health`: returned `passed` with no findings for the starter workspace.
 - `view.render` for `.forma/views/graph`: returned `passed` with graph nodes and edges.
 - `view.render` for `.forma/views/tasks`: returned `passed` with kanban columns and task cards.
 - `file.render` and `file.references` for `notes/markdown-reader.md`: returned `passed` with rendered Markdown, headings, outgoing links, and backlinks.
 
 Browser smoke with Edge through Playwright:
 
-- Dashboard loaded non-empty content, displayed `Knowledge Health`, and showed the no-findings empty state with no horizontal overflow.
+- Dashboard loaded non-empty content, displayed `Workspace Health`, and showed the no-findings empty state with no horizontal overflow.
 - `notes/markdown-reader` rendered Markdown table, code, image text, and long content at `390px` width without horizontal overflow.
 - Graph view rendered non-empty starter graph content and remained console-clean.
 - Kanban view rendered task columns and cards and remained console-clean.

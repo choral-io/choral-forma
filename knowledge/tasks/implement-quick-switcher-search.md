@@ -50,7 +50,7 @@ Decide and implement the shared search capability behind Quick Open when it need
 
 ## Context
 
-Search is useful for efficiency, but it is not the first priority for a read-only bidirectional note application. The primary P1 loop should first make links, backlinks, graph data, and knowledge health usable. Once that loop is in place, a lightweight quick switcher can make entry opening faster without introducing a full search subsystem.
+Search is useful for efficiency, but it is not the first priority for a read-only bidirectional note application. The primary P1 loop should first make links, backlinks, graph data, and workspace health usable. Once that loop is in place, a lightweight quick switcher can make entry opening faster without introducing a full search subsystem.
 
 The current WebApp already has a Quick Open dialog in the sidebar. That implementation searches route, space, document, and view candidates already loaded in the dashboard read model. This is useful as a navigation affordance, but it is not a shared search operation and should not be described as full-text search.
 
@@ -87,7 +87,7 @@ For the first public release, Quick Open can remain dashboard-local if it is pos
 
 ## Relationship Notes
 
-This task is intentionally P2. It should not block reference navigation, graph rendering, read-only knowledge health work, or the first public release unless Quick Open is promoted from navigation affordance to search feature.
+This task is intentionally P2. It should not block reference navigation, graph rendering, read-only workspace health work, or the first public release unless Quick Open is promoted from navigation affordance to search feature.
 
 ## Open Questions
 

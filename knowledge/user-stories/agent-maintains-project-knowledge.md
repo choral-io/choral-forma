@@ -54,7 +54,7 @@ As an Agent, I want to discover the knowledge workspace structure and operating 
 3. The Agent uses Forma list, inspect, task, check, and health operations as evidence.
 4. The Agent proposes a dry run before multi-file shared knowledge edits.
 5. After approval, the Agent edits the smallest set of Markdown files.
-6. The Agent verifies the result with `forma check` and `forma knowledge health`.
+6. The Agent verifies the result with `forma check` and `forma workspace health`.
 7. The Agent reports files changed, durable facts added, checks run, and residual risks.
 
 ## Alternate Or Exception Flows
@@ -71,8 +71,8 @@ This story is satisfied for the next internal release when the starter-kit press
 
 - [[releases/next-internal-release]]
 - [[metrics/knowledge-workflow-replacement-readiness]]
-- [[guidelines/forma-knowledge-operations]]
-- [[guidelines/knowledge-capture]]
+- [[guidelines/forma-workspace-operations]]
+- [[guidelines/content-maintenance]]
 - [[guidelines/task-selection]]
 
 ## Open Questions

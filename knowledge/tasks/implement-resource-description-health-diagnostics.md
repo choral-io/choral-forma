@@ -78,7 +78,7 @@ The raw route/resource inventory baseline does not need to own this health rule.
 
 This task follows the raw route/resource inventory baseline. The `blockedBy` entry records dependency history and is resolved once [[tasks/implement-workspace-resource-routes]] is in Done.
 
-It can feed the read-only knowledge health WebApp task.
+It can feed the read-only workspace health WebApp task.
 
 ## Validation Notes
 

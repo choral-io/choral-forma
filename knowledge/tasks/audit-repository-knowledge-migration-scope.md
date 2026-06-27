@@ -48,7 +48,7 @@ Produce a concise migration inventory that turns [[tasks/migrate-repository-know
 - [[architecture/repository-forma-workspace-migration-design]]
 - [[planning/repository-knowledge-content-migration-audit]]
 - [[tasks/migrate-repository-knowledge-content]]
-- [[guidelines/forma-knowledge-operations]]
+- [[guidelines/forma-workspace-operations]]
 
 ## In Scope
 
@@ -60,7 +60,7 @@ Produce a concise migration inventory that turns [[tasks/migrate-repository-know
 
 ## Out of Scope
 
-- Moving or rewriting shared knowledge content.
+- Moving or rewriting shared project content content.
 - Normalizing all health warnings.
 - Changing Forma runtime behavior.
 

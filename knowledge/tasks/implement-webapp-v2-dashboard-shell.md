@@ -126,7 +126,7 @@ This task replaces the earlier narrower GUI foundation refactor path. The old P0
     - `/documents`
     - `/spaces`
     - `/views`
-    - `/views/knowledge-graph`
+    - `/views/workspace-graph`
 - Verified:
     - `pnpm --filter @choral-forma/webapp lint`
     - `pnpm --filter @choral-forma/webapp check`

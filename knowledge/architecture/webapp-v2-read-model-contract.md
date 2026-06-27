@@ -21,7 +21,7 @@ The WebApp remains a lightweight standalone knowledge browser. It should consume
 ## Goals
 
 - Provide the minimum read model needed to replace deterministic WebApp mock data.
-- Keep repository Markdown and `.forma.yml`-included configuration as the source of truth.
+- Keep repository Markdown and `.forma.md`-included configuration as the source of truth.
 - Keep WebApp rendering read-only until reviewable write operations are designed.
 - Reuse existing operation semantics where possible: `files.list`, `file.render`, `file.references`, `check`, and `view.render`.
 - Add aggregate read operations only when the GUI needs route-level data that is awkward or inefficient to compose in the browser.
@@ -109,7 +109,7 @@ The `Views` route needs:
 - renderer kind aligned with product `view.mode`: `list`, `table`, `kanban`, or `graph`;
 - title, description, source/query summary, and diagnostics for invalid views.
 
-`View.kind` in the WebApp read model should be treated as a GUI-facing alias for the backend `view.mode`. `health` is not a View kind. Diagnostics and knowledge health remain separate product surfaces unless explicitly represented by a configured view file.
+`View.kind` in the WebApp read model should be treated as a GUI-facing alias for the backend `view.mode`. `health` is not a View kind. Diagnostics and workspace health remain separate product surfaces unless explicitly represented by a configured view file.
 
 View detail can initially route by id and display existing `view.render` output for list, table, kanban, and graph. Graph output should stay library-agnostic: the backend returns neutral `nodes` and body-derived `edges`, while the WebApp chooses a lightweight read-only renderer.
 

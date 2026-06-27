@@ -75,7 +75,7 @@ Migrate current repository knowledge content into the target Forma workspace str
 - Repository knowledge content is reorganized according to the target Forma spaces.
 - Obsolete workflow compatibility language is removed where it no longer describes the current product.
 - Relationship metadata follows the target reference policy.
-- `forma knowledge health --json` has no migration-caused unresolved or ambiguous internal references.
+- `forma workspace health --json` has no migration-caused unresolved or ambiguous internal references.
 - A migration report records changed paths, dropped compatibility assumptions, remaining warnings, and follow-up work.
 
 ## Refinement Notes
@@ -87,7 +87,7 @@ Execution split:
 - [[tasks/audit-repository-knowledge-migration-scope]] is the first executable slice and should produce the migration inventory.
 - [[tasks/clean-obsolete-knowledge-workflow-language]] should use the audit to remove non-current workflow compatibility wording.
 - [[tasks/normalize-repository-relationship-metadata]] should use the audit to canonicalize Forma-owned relationship fields.
-- [[tasks/classify-workspace-support-material]] should use the audit to decide what support material becomes shared knowledge.
+- [[tasks/classify-workspace-support-material]] should use the audit to decide what support material becomes shared project content.
 
 The umbrella task should become reviewable only after the split tasks produce the migration report and leave no migration-caused health warnings.
 

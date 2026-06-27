@@ -22,15 +22,15 @@ Use release, metric, user-story, experiment, test-case, and task records to judg
 Active knowledge operations are managed by:
 
 - Markdown documents under `knowledge/`
-- `.forma.yml` workspace config
-- `.forma.yml` configured guideline files (for example, `knowledge/guidelines/forma-knowledge-operations.md`) that define human and Agent operating rules
+- `.forma.md` workspace config
+- `.forma.md` configured guideline files (for example, `knowledge/guidelines/forma-workspace-operations.md`) that define human and Agent operating rules
 - `.forma/spaces/*.md` space configuration and index targets
 - `.forma/views/*.md` read models
 
 Use these bootstrap checks before read operations:
 
 - `cargo run -q -p forma-cli -- config inspect --json`
-- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- workspace health --json`
 
 Use these read commands for routine agent work:
 
@@ -76,7 +76,7 @@ Use `planning/` for planning records, audits, and migration evidence. Planning r
 
 ## Writing and Operation Boundaries
 
-- Do not write shared knowledge, `.forma.yml`, `.forma/spaces/*.md`, or task metadata directly without explicit user approval.
+- Do not write shared project content, `.forma.md`, `.forma/spaces/*.md`, or task metadata directly without explicit user approval.
 - Do not write local-only state to commits. Determine local-only status from workflow guidance and explicit user context; Forma itself does not infer knowledge semantics from SCM ignore rules.
 - Keep `.agents` state, browser state, and local `.local` paths out of git history.
 

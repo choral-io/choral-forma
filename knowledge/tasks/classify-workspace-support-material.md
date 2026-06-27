@@ -2,7 +2,7 @@
 scope: project
 type: task
 title: Classify Workspace Support Material
-summary: Decide which workspace-support notes should become shared knowledge and which should remain local-only context.
+summary: Decide which workspace-support notes should become shared project content and which should remain local-only context.
 priority: P1
 severity:
 value: M
@@ -54,7 +54,7 @@ Separate durable workspace-support knowledge from local-only execution context b
 
 - Review shared workspace-support material and handoff-derived notes for durable product or process value.
 - Promote durable knowledge into configured shared spaces when it has a clear owner, source, and ongoing use.
-- Keep local-only execution context out of shared knowledge.
+- Keep local-only execution context out of shared project content.
 - Record deferred or intentionally omitted material.
 
 ## Out of Scope
@@ -67,7 +67,7 @@ Separate durable workspace-support knowledge from local-only execution context b
 
 - Workspace-support material is classified as promoted, retained, deferred, or omitted.
 - Any promoted content links back to the source context and uses current Forma terminology.
-- Local-only material remains outside shared knowledge and commits.
+- Local-only material remains outside shared project content and commits.
 - The migration report records what was intentionally omitted.
 
 ## Result

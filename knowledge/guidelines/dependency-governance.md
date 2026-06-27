@@ -55,8 +55,8 @@ When reviewing a change that adds dependencies, check:
 - Treating a passing build as enough justification for a new dependency.
 - Introducing executable plugin, scripting, or network-fetching capabilities without an explicit product and security design.
 
-## Related Knowledge
+## Related Content
 
 - [[architecture/forma-core-technical-direction]]
 - [[architecture/webapp-v2-package-architecture]]
-- [[guidelines/forma-knowledge-operations]]
+- [[guidelines/forma-workspace-operations]]

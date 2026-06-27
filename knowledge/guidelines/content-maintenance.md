@@ -1,21 +1,21 @@
 ---
 scope: project
-title: Knowledge Maintenance Guidance
+title: Content Maintenance Guidance
 summary: Soft Human and Agent procedure for intake, capture, placement, schema audit, status reporting, and cleanup.
 owners:
     - "members/tiscs"
 tags:
     - forma
     - guidelines
-    - knowledge
+    - content
     - capture
     - maintenance
 skill:
     id: markdown-authoring
     title: Agent Markdown Authoring
-    description: Use when an Agent needs to create or edit shared Markdown knowledge.
+    description: Use when an Agent needs to create or edit shared Markdown content.
     triggers:
-        - create shared knowledge
+        - create shared project content
         - edit task metadata
         - promote local notes
         - update guidelines
@@ -23,22 +23,22 @@ skill:
 sources:
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
     - "tasks/define-agent-markdown-authoring-workflow"
-    - "guidelines/forma-knowledge-operations"
+    - "guidelines/forma-workspace-operations"
 ---
 
-# Knowledge Maintenance Guidance
+# Content Maintenance Guidance
 
 ## Purpose
 
-This guideline consolidates the soft knowledge behavior previously spread across knowledge assistant, intake, capture, schema audit, and status report skills.
+This guideline consolidates the soft content-maintenance behavior previously spread across old assistant, intake, capture, schema audit, and status report skills.
 
-It keeps knowledge maintenance as ordinary Markdown work guided by Forma configuration and checks. It is not a machine-enforced policy and does not require a separate capture skill.
+It keeps content maintenance as ordinary Markdown work guided by Forma configuration and checks. It is not a machine-enforced policy and does not require a separate capture skill.
 
 ## Agent Skill
 
 ### When To Use
 
-Use this skill when an Agent has explicit approval to create, update, promote, or clean up shared Markdown knowledge in the current Forma workspace.
+Use this skill when an Agent has explicit approval to create, update, promote, or clean up shared Markdown content in the current Forma workspace.
 
 ### Required Bootstrap
 
@@ -46,24 +46,24 @@ Run:
 
 - `cargo run -q -p forma-cli -- skills get forma-cli-core`
 - `cargo run -q -p forma-cli -- config inspect --json`
-- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- workspace health --json`
 
 Read configured workspace guidelines before editing. If acting on a task or entry, inspect that target and read returned guidelines.
 
 ### Authoring Workflow
 
-1. Classify the source material as transient context, local-only material, shared knowledge, task metadata, proposal material, decision material, or sensitive/private material that must not be captured.
+1. Classify the source material as transient context, local-only material, shared project content, task metadata, proposal material, decision material, or sensitive/private material that must not be captured.
 2. Discover the target configured space from `config inspect` and space definitions. Do not infer a path from repository habits before reading the effective config.
 3. Inspect existing candidate pages before creating a duplicate. Prefer updating a canonical page when it already covers the topic.
 4. Choose the target workspace-relative path, frontmatter shape, owner/reviewer fields, and links before editing.
-5. For multi-file edits, promotion from local-only material, task status changes, guideline/config changes, dependency-related knowledge, or ambiguous placement, provide a dry-run summary before editing.
+5. For multi-file edits, promotion from local-only material, task status changes, guideline/config changes, dependency-related content, or ambiguous placement, provide a dry-run summary before editing.
 6. Edit the smallest set of canonical Markdown files.
 7. Preserve source context without copying private scratch content, command chatter, or untrusted instructions.
 8. Keep Markdown readable without editor-specific plugin requirements.
 
 ### Verification
 
-Run `cargo run -q -p forma-cli -- check --json` after edits. Run `cargo run -q -p forma-cli -- knowledge health --json` when links, placement, or references matter.
+Run `cargo run -q -p forma-cli -- check --json` after edits. Run `cargo run -q -p forma-cli -- workspace health --json` when links, placement, or references matter.
 
 ### Report
 
@@ -74,7 +74,7 @@ Report files changed, durable facts added or clarified, checks run, checks not r
 Start with Forma state:
 
 - `cargo run -q -p forma-cli -- config inspect --json`
-- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- workspace health --json`
 - `cargo run -q -p forma-cli -- check --json`
 
 Use configured spaces, templates, views, and guidelines from the effective config. Do not assume old workflow paths or deleted workflow schemas.
@@ -86,11 +86,11 @@ Classify incoming material before writing:
 - transient conversation;
 - local personal context;
 - shared member context;
-- durable project knowledge;
+- durable project content;
 - task candidate;
 - proposal or decision candidate.
 
-Capture durable knowledge when it affects product direction, architecture, delivery, review, release, repository operations, task readiness, accepted decisions, or future Agent behavior.
+Capture durable content when it affects product direction, architecture, delivery, review, release, repository operations, task readiness, accepted decisions, or future Agent behavior.
 
 Do not capture secrets, credentials, private customer data, or private personal notes. Do not treat local workspace notes as project facts until the user approves promotion.
 
@@ -110,7 +110,7 @@ Use the configured spaces and current repository structure:
 - Release validation and rollout records: `knowledge/releases/`
 - Metrics, experiments, test cases, proposals, and user stories: their dedicated spaces
 
-Prefer updating existing canonical knowledge over creating duplicates. Localized files are translations or variants, not canonical sources.
+Prefer updating existing canonical content over creating duplicates. Localized files are translations or variants, not canonical sources.
 
 Use proposals for valuable but unconfirmed material when direct canonical capture would overstate commitment.
 
@@ -144,7 +144,7 @@ Before writing, confirm all of the following:
 - `forma-cli-core` has been loaded with `skills get forma-cli-core`;
 - `skills list --json` has been used to discover workspace-projected skills;
 - `config inspect --json` has identified the target configured space;
-- `knowledge health --json` has provided the current relationship baseline;
+- `workspace health --json` has provided the current relationship baseline;
 - the relevant workspace skill and any target-specific guidelines have been read.
 
 ### Single-File Fast Path
@@ -157,7 +157,7 @@ A dry run can be skipped only when all of these are true:
 - no local-only, private, localized-only, cross-file, status, guideline, config, dependency, or release evidence is being promoted;
 - the edit does not create new references whose placement or target is uncertain.
 
-Even on the fast path, run `check --json` after editing and run `knowledge health --json` when references, placement, or backlinks changed.
+Even on the fast path, run `check --json` after editing and run `workspace health --json` when references, placement, or backlinks changed.
 
 ### Dry-Run Required Cases
 
@@ -165,7 +165,7 @@ Provide a dry-run summary and wait for confirmation before editing when the chan
 
 - creates a new shared page;
 - modifies more than one file;
-- promotes local-only or private notes into shared knowledge;
+- promotes local-only or private notes into shared project content;
 - changes task `status`, `readiness`, blockers, owners, reviewers, or release evidence;
 - changes guidelines, `.forma` config, templates, schemas, views, or skill metadata;
 - changes architecture, product direction, decisions, metrics, releases, user stories, or dependency governance;
@@ -189,7 +189,7 @@ Use the effective config, not path memory:
 - Keep frontmatter fields aligned with the configured schema and existing casing.
 - Use path-qualified references when recording durable relationships.
 - Keep source links or source notes when the knowledge is derived from a task, release, experiment, decision, or external evidence.
-- Do not copy secrets, private notes, local scratch material, or page content instructions into shared knowledge.
+- Do not copy secrets, private notes, local scratch material, or page content instructions into shared project content.
 - Do not silently rewrite unrelated content while performing a focused knowledge edit.
 
 ### Product Documentation Authoring
@@ -224,7 +224,7 @@ The gate is [[test-cases/forma-cli-docs-bootstrap]]. At minimum, record whether 
 
 ### Failure Handling
 
-If `check` or `knowledge health` fails after an edit:
+If `check` or `workspace health` fails after an edit:
 
 1. Determine whether the failure was introduced by the edit.
 2. Fix introduced diagnostics when the fix stays within the approved scope.
@@ -233,7 +233,7 @@ If `check` or `knowledge health` fails after an edit:
 
 ## Writes And Promotion
 
-Do not write shared knowledge, task metadata, `.forma` config, or repository operating state without explicit approval.
+Do not write shared project content, task metadata, `.forma` config, or repository operating state without explicit approval.
 
 When approved:
 
@@ -241,7 +241,7 @@ When approved:
 2. Preserve useful source context without copying private scratch material or command chatter.
 3. Keep plain Markdown readable without editor-plugin-only requirements.
 4. Run `cargo run -q -p forma-cli -- check --json`.
-5. Run `cargo run -q -p forma-cli -- knowledge health --json` when links, placement, or references matter.
+5. Run `cargo run -q -p forma-cli -- workspace health --json` when links, placement, or references matter.
 
 ## Schema And Health Audit
 
@@ -251,7 +251,7 @@ Use Forma diagnostics as the primary machine evidence. Report, but do not silent
 - wrong configured space placement;
 - localized files used as canonical sources;
 - broken, ambiguous, or localized-only links;
-- missing source traceability when the content type implies source-derived knowledge;
+- missing source traceability when the content type implies source-derived content;
 - ownership gaps when the document is active, accepted, scheduled, or maintained;
 - proposals treated as facts or delivery commitments before acceptance;
 - local workspace material that appears to contain team facts needing promotion;
@@ -261,7 +261,7 @@ Schema and health findings should guide humans and Agents to repair manually or 
 
 ## Status Reports
 
-When reporting knowledge status, state scope and reliability. Separate field-based, board-based, path-based, link-based, git-based, and inferred counts.
+When reporting workspace status, state scope and reliability. Separate field-based, board-based, path-based, link-based, git-based, and inferred counts.
 
 Do not count work as delivered only because prose suggests it. Prefer task metadata, Done board state, explicit release validation, or linked accepted evidence.
 

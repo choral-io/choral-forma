@@ -2,7 +2,7 @@
 schemaVersion: 1
 kind: release
 title: Next Internal Release
-summary: Internal release gate for proving the Forma-managed knowledge workflow against the starter-kit pressure suite and current project knowledge.
+summary: Internal release gate for proving the Forma-managed content workflow against the starter-kit pressure suite and current project knowledge.
 scope: project
 type: release
 status: ready-for-review
@@ -34,11 +34,11 @@ The release is internal. It does not require public packaging, public documentat
 
 ## Included Changes
 
-- Forma CLI and configured guidelines are the primary Agent-facing knowledge workflow.
+- Forma CLI and configured guidelines are the primary Agent-facing content workflow.
 - Forma exposes Agent-facing skills from the configured workspace, with `forma-cli-core` embedded from a Markdown source asset and the project-local `forma-cli` skill aligned with the installed Agent entrypoint.
 - The project knowledge base uses configured spaces for product direction, tasks, test cases, releases, metrics, and user stories.
 - The starter-kit validation suite is available outside the starter-kit template and can be used for pressure testing.
-- The read-only WebApp includes knowledge health context and graph node popup refinements.
+- The read-only WebApp includes workspace health context and graph node popup refinements.
 - The project knowledge base stays valid under Forma checks and health diagnostics.
 
 ## Validation
@@ -47,7 +47,7 @@ Required validation:
 
 - `cargo run -q -p forma-cli -- config inspect --json`
 - `cargo run -q -p forma-cli -- check --json`
-- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- workspace health --json`
 - Execute or simulate the contract and pressure cases listed in [[test-cases/forma-starter-kit]].
 - Complete or review [[tasks/run-starter-kit-agent-pressure-validation]].
 - Review [[experiments/starter-kit-agent-pressure-validation]] and classify the outcome.
@@ -58,8 +58,8 @@ Current validation result:
 - Candidate version: `v0.1.0-alpha.6`.
 - Candidate cutline before recording this validation note: `848d655 docs: define forma cli agent skill source`.
 - Latest previous tag: `v0.1.0-alpha.5`.
-- Repository `config inspect`, `check`, `knowledge health`, and full `CI=true mise run check`: passed.
-- Starter-kit `config inspect`, `check`, `knowledge health`, `skills list`, `tasks list`, and `inspect notes/getting-started.md`: passed.
+- Repository `config inspect`, `check`, `workspace health`, and full `CI=true mise run check`: passed.
+- Starter-kit `config inspect`, `check`, `workspace health`, `skills list`, `tasks list`, and `inspect notes/getting-started.md`: passed.
 - Starter-kit local server smoke passed for HTTP root, `workspace.dashboard`, `file.render`, and `view.render` JSON-RPC operations.
 - Starter-kit pressure validation: passed for this internal validation pass; see [[experiments/starter-kit-agent-pressure-validation]].
 - Readiness metric: `ready`; see [[metrics/knowledge-workflow-replacement-readiness]].

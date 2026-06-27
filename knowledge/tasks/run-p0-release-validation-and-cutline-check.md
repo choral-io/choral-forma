@@ -104,14 +104,14 @@ Validation matrix:
 - `CI=true mise run check`: passed. pnpm tests reported 4 files and 13 tests passed; Rust tests passed across `forma-cli`, `forma-core`, and `forma-rpc`.
 - `cargo run -q -p forma-cli -- config inspect --json`: passed.
 - `cargo run -q -p forma-cli -- check --json`: passed with zero errors, warnings, and infos.
-- `cargo run -q -p forma-cli -- knowledge health --json`: passed with zero findings.
+- `cargo run -q -p forma-cli -- workspace health --json`: passed with zero findings.
 
 Starter workspace smoke test:
 
 - Workspace: `examples/forma-starter-kit`.
 - `forma config inspect --json`: passed.
 - `forma check --json`: passed with zero errors, warnings, and infos.
-- `forma knowledge health --json`: passed with zero findings.
+- `forma workspace health --json`: passed with zero findings.
 - `forma skills list --json`: passed and returned `forma-cli-core`, `starter-workspace-operations`, and `starter-task-selection`.
 - `forma tasks list --json`: passed.
 - `forma inspect notes/getting-started.md --json`: passed.

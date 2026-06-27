@@ -117,7 +117,7 @@ This section records the execution order that was recommended during the migrati
 Baseline captured at the time of this audit:
 
 - `cargo run -q -p forma-cli -- check --json` passes.
-- `cargo run -q -p forma-cli -- knowledge health --json` reported 8 warnings, all pre-existing:
+- `cargo run -q -p forma-cli -- workspace health --json` reported 8 warnings, all pre-existing:
     - no outgoing refs: `knowledge/architecture/forma-p0-schema-dsl-spec.md`
     - no backlinks: `knowledge/decisions/use-space-as-core-partition-model.md`
     - no outgoing refs: `knowledge/discovery/mainstream-knowledge-app-feature-analysis.md`

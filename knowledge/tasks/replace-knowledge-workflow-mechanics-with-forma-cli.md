@@ -51,7 +51,7 @@ Use Forma CLI operations and a thin Agent skill for repository knowledge checks,
 ## In Scope
 
 - Make this repository's `knowledge/` directory readable as a Forma workspace.
-- Add read-only Forma operations for knowledge health, task inventory, and task board state.
+- Add read-only Forma operations for workspace health, task inventory, and task board state.
 - Expose those operations through RPC and CLI JSON.
 - Add a project-local `forma-cli` skill that routes Agent read, audit, and selection work through the CLI.
 - Keep all indexing startup-scan and in-memory without a committed summary index.
@@ -65,8 +65,8 @@ Use Forma CLI operations and a thin Agent skill for repository knowledge checks,
 
 ## Acceptance Criteria
 
-- The repository knowledge base can be read as a Forma workspace.
-- `forma knowledge health --json` reports reference and backlink health without a persistent index file.
+- The repository content workspace can be read as a Forma workspace.
+- `forma workspace health --json` reports reference and backlink health without a persistent index file.
 - `forma tasks list --json` and `forma tasks inspect ... --json` expose task metadata.
 - `forma tasks list --json` exposes task status and readiness metadata for status-based board review.
 - `skills/forma-cli/SKILL.md` is the canonical Forma CLI Agent skill source, and `.agents/skills/forma-cli/SKILL.md` is the aligned installed Agent entrypoint for read, audit, and selection work through Forma CLI.

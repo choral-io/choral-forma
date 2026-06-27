@@ -44,8 +44,8 @@ All P0 operations that need workspace understanding should use the same core pip
 
 Pipeline phases:
 
-1. Load the `.forma.yml` configuration entry from the selected workspace directory.
-2. Load optional included configuration files when `.forma.yml` references them.
+1. Load the `.forma.md` configuration entry from the selected workspace directory.
+2. Load optional included configuration files when `.forma.md` references them.
 3. Normalize all public paths to workspace-relative POSIX-style paths.
 4. Discover candidate source files from configured page sources, taxonomy source rules, view definitions, and navigation/dashboard references.
 5. Split Markdown frontmatter and body.
@@ -65,7 +65,7 @@ View source and query validation follows [[architecture/forma-view-query-model]]
 
 ## In-Memory Read Model
 
-P0 rebuilds the read model in memory by scanning source files and configuration. Repository Markdown and `.forma.yml`-included configuration are the only shared source of truth for discovery facts.
+P0 rebuilds the read model in memory by scanning source files and configuration. Repository Markdown and `.forma.md`-included configuration are the only shared source of truth for discovery facts.
 
 The read model includes deterministic, shared discovery facts:
 

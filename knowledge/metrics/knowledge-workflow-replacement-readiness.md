@@ -12,11 +12,11 @@ tags:
     - metric
     - validation
     - agents
-source: "Forma CLI checks, knowledge health, starter-kit pressure validation, and review evidence from current project knowledge work."
+source: "Forma CLI checks, workspace health, starter-kit pressure validation, and review evidence from current project knowledge work."
 unit: "readiness judgment"
 direction: "increase"
 target: "Ready when all required checks pass, the starter-kit pressure suite has review evidence, and known gaps are either fixed or explicitly deferred."
-reviewCadence: "Before internal release review and after major knowledge workflow changes."
+reviewCadence: "Before internal release review and after major content workflow changes."
 relatedExperiments:
     - "experiments/starter-kit-agent-pressure-validation"
 relatedReleases:
@@ -39,13 +39,13 @@ Classify the metric as:
 
 - `not-ready`: Forma checks fail, starter-kit validation is missing, or Agents cannot discover the expected guidance from configuration.
 - `partially-ready`: Forma checks pass and core guidance is discoverable, but pressure validation has unresolved blocking gaps.
-- `ready`: Forma checks pass, knowledge health passes, pressure validation evidence exists, and remaining gaps are explicitly deferred to future tasks or releases.
+- `ready`: Forma checks pass, workspace health passes, pressure validation evidence exists, and remaining gaps are explicitly deferred to future tasks or releases.
 
 ## Source
 
 - `cargo run -q -p forma-cli -- config inspect --json`
 - `cargo run -q -p forma-cli -- check --json`
-- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- workspace health --json`
 - [[test-cases/forma-starter-kit]]
 - [[tasks/run-starter-kit-agent-pressure-validation]]
 - [[experiments/starter-kit-agent-pressure-validation]]
@@ -65,8 +65,8 @@ Status: `ready`
 
 As of 2026-06-23, the metric meets its threshold for the next internal release:
 
-- repository `config inspect`, `check`, and `knowledge health` pass;
-- starter-kit `config inspect`, `check`, `knowledge health`, `tasks list`, and `tasks inspect` pass;
+- repository `config inspect`, `check`, and `workspace health` pass;
+- starter-kit `config inspect`, `check`, `workspace health`, `tasks list`, and `tasks inspect` pass;
 - [[experiments/starter-kit-agent-pressure-validation]] records outcomes for all four contract cases and all six pressure cases;
 - the remaining gaps are explicitly deferred to future automation, policy runtime, and reviewable write-operation work.
 

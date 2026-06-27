@@ -49,7 +49,7 @@ The first usable path should be:
 2. Run `forma init` in a project directory.
 3. Get a minimal valid Forma workspace plus an Agent runtime entrypoint.
 4. Ask an Agent to load the Forma CLI skill and help define the actual knowledge structure.
-5. Iterate on spaces, templates, views, and guidelines with `forma check`, `forma knowledge health`, and `forma serve`.
+5. Iterate on spaces, templates, views, and guidelines with `forma check`, `forma workspace health`, and `forma serve`.
 
 This stage should optimize for fast internal adoption and feedback collection, not for a complete starter-kit registry or production-grade onboarding wizard.
 
@@ -59,7 +59,7 @@ This stage should optimize for fast internal adoption and feedback collection, n
 
 It should create the smallest project state needed for Forma and Agents to take over:
 
-- `.forma.yml`
+- `.forma.md`
 - `.agents/skills/forma-cli/SKILL.md`
 
 It should not create:
@@ -112,7 +112,7 @@ Docs may use frontmatter to support CLI and skill projection:
 ---
 id: workspace.configuration
 title: Workspace Configuration
-summary: Define the minimal `.forma.yml` and included config node model.
+summary: Define the minimal `.forma.md` and included config node model.
 audience:
     - human
     - agent
@@ -184,14 +184,14 @@ forma init [--name <name>] [--language <tag>] [--timezone <tz>] [--json]
 Behavior:
 
 - Resolve target workspace from current directory or global `--workspace`.
-- Refuse to overwrite existing `.forma.yml` unless a later force/review design is accepted.
-- Write minimal `.forma.yml`.
+- Refuse to overwrite existing `.forma.md` unless a later force/review design is accepted.
+- Write minimal `.forma.md`.
 - Write `.agents/skills/forma-cli/SKILL.md`.
 - Create parent directories as needed.
 - Print changed paths and next commands.
 - In JSON mode, return an operation-style result with planned/written paths and diagnostics.
 
-Minimal `.forma.yml`:
+Minimal `.forma.md`:
 
 ```yaml
 schemaVersion: 1
@@ -301,7 +301,7 @@ The Agent guidance must explicitly state:
 - do not create `skills/forma-cli/SKILL.md` during init;
 - do not create or modify `AGENTS.md` during init;
 - derive workspace structure from Human goals;
-- use workspace-relative POSIX paths rooted at `.forma.yml`;
+- use workspace-relative POSIX paths rooted at `.forma.md`;
 - validate after each configuration slice.
 
 ### REFACTOR: Close Loopholes
@@ -312,8 +312,8 @@ Re-run the same scenarios and add targeted guidance for any new rationalizations
 - treating `.forma/` as a hidden knowledge store;
 - inventing local-only path semantics;
 - treating `tasks` as a built-in Forma concept;
-- editing shared knowledge without approval;
-- skipping `forma check` or `knowledge health`.
+- editing shared project content without approval;
+- skipping `forma check` or `workspace health`.
 
 ## Implementation Slices
 
@@ -329,13 +329,13 @@ Re-run the same scenarios and add targeted guidance for any new rationalizations
 - Keep built-in `forma-cli-core` content in `docs/agents/forma-cli-core.md`.
 - Update `skills list/get` to read the embedded docs registry.
 - Keep output shape compatible with existing `skills.list` and `skills.get`.
-- Add tests proving built-in skill still works without `.forma.yml`.
+- Add tests proving built-in skill still works without `.forma.md`.
 
 ### Slice 3: Minimal `forma init`
 
 - Reintroduce `init` as a new implementation, not the removed old initializer.
 - Add operation/request/result types if needed.
-- Add CLI tests for empty directory, existing `.forma.yml`, JSON output, and generated files.
+- Add CLI tests for empty directory, existing `.forma.md`, JSON output, and generated files.
 - Make initialized empty workspace valid enough for `config inspect`, `check`, and `skills`.
 
 ### Slice 4: Help/Docs Surface
@@ -354,7 +354,7 @@ Re-run the same scenarios and add targeted guidance for any new rationalizations
 - Verify with:
     - `forma config inspect --json`
     - `forma check --json`
-    - `forma knowledge health --json`
+    - `forma workspace health --json`
     - `forma serve` smoke test when local server approval is available
 
 ## Out Of Scope
@@ -402,7 +402,7 @@ Initial implementation completed the bootstrap-only slice:
 RED baseline evidence:
 
 - In an empty temporary project, `forma init --json` failed because the subcommand did not exist.
-- In an empty temporary project, `forma config inspect --json`, `forma check --json`, and `forma create notes ... --json` failed on missing `.forma.yml`.
+- In an empty temporary project, `forma config inspect --json`, `forma check --json`, and `forma create notes ... --json` failed on missing `.forma.md`.
 - Existing `forma skills get forma-cli-core` could bootstrap read operations but did not provide enough configuration authoring guidance for empty workspace setup.
 
 GREEN validation evidence:
@@ -415,9 +415,9 @@ GREEN validation evidence:
     - `forma check --json`: passed.
     - `forma skills get forma-cli-core`: printed docs-backed Agent guidance including empty workspace setup boundaries.
     - `forma docs list --json`: returned embedded docs.
-    - generated files were only `.forma.yml` and `.agents/skills/forma-cli/SKILL.md`.
+    - generated files were only `.forma.md` and `.agents/skills/forma-cli/SKILL.md`.
 - Repository `forma check --json`: passed.
-- Repository `forma knowledge health --json`: passed.
+- Repository `forma workspace health --json`: passed.
 - `CI=true mise run check`: passed.
 - [[test-cases/forma-cli-docs-bootstrap]] records the docs-backed Agent bootstrap pressure suite.
 - Manual pressure run against `/private/tmp/forma-pressure.JO0ol7`: wrong top-level `template` config failed as expected; guided `kind: term` + `taxonomy: spaces` config passed `config inspect`, `check`, `create`, `list`, and `inspect`; isolated-page health warnings cleared after adding explicit links.

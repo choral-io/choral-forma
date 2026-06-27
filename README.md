@@ -1,16 +1,18 @@
 # Choral Forma
 
-Choral Forma is an early-stage exploration of a lightweight, editor-independent team knowledge application.
+Choral Forma is an early-stage exploration of a lightweight, editor-independent Markdown content workspace.
 
-The project is knowledge-first: product direction, reusable concepts, decisions, planning, and delivery workflow live in repository Markdown while the application reads and writes explicit Markdown files and schemas. The long-term product direction is to keep Markdown files and explicit schemas as the source of truth, rather than hiding team knowledge in a proprietary store.
+The project is files-first: product direction, reusable concepts, decisions, planning, and delivery workflow live in repository Markdown while the application reads and writes explicit Markdown files and schemas. The long-term product direction is to keep Markdown files and explicit schemas as the source of truth, rather than hiding workspace content in a proprietary store.
 
-The current `knowledge/` directory is the development knowledge base for this repository. It guides Choral Forma project development, planning, and delivery; it is not the same thing as a future user workspace, and operational guidance is now managed through Forma and `forma-cli`.
+The current `knowledge/` directory is this repository's project content workspace. It guides Choral Forma project development, planning, and delivery; it is not the same thing as a generic future user workspace, and operational guidance is now managed through Forma and `forma-cli`.
+
+Product-facing Forma docs, examples, UI copy, and CLI guidance should default to neutral terms such as workspace, content, entry, space, view, template, schema, and guideline. Terms like `knowledge`, `task`, `member`, or `project` describe this repository's dogfooding workspace or an example configuration, not Forma built-ins.
 
 ## Current Status
 
 This repository is in P0 internal-test stabilization. It contains:
 
-- A repository-backed knowledge base under `knowledge/`.
+- A repository-backed project workspace under `knowledge/`.
 - Forma space schemas for product, concepts, decisions, planning, tasks, members, and workspace material.
 - A project-local Forma CLI Agent skill with canonical source under `skills/` and an installed Agent entrypoint under `.agents/skills/`.
 - Editor integration for VS Code, Zed, and the read-only Forma WebApp.
@@ -22,7 +24,7 @@ The current application code implements the P0 read, inspect, check, render, ser
 
 ## Repository Layout
 
-- `knowledge/`: shared project knowledge and repository operating guidance.
+- `knowledge/`: shared project content and repository operating guidance.
 - `knowledge/product/`: product direction and user-facing behavior.
 - `knowledge/concepts/`: reusable vocabulary and domain concepts.
 - `knowledge/planning/`: planning notes and board-related knowledge.
@@ -89,7 +91,7 @@ mise run check
 
 ## Run The Starter Kit
 
-`examples/forma-starter-kit/` is the default committed example workspace. It is separate from this repository's `knowledge/` development knowledge base and is intended for product demos, smoke validation, and reader/view fixtures.
+`examples/forma-starter-kit/` is the default committed example workspace. It is separate from this repository's `knowledge/` project workspace and is intended for product demos, smoke validation, and reader/view fixtures.
 
 Check the example workspace:
 
@@ -110,10 +112,10 @@ Then open the printed local URL in a browser. Release builds embed the WebApp as
 Use `forma init` in an empty or ordinary project directory to create the minimal Forma bootstrap:
 
 ```sh
-forma init --name "Acme Knowledge"
+forma init --name "Acme Workspace"
 ```
 
-The command writes only `.forma.yml` and `.agents/skills/forma-cli/SKILL.md`, and refuses to overwrite existing bootstrap files. It does not copy the starter kit, create default spaces, edit `AGENTS.md`, or generate canonical `skills/` sources.
+The command writes only `.forma.md` and `.agents/skills/forma-cli/SKILL.md`, and refuses to overwrite existing bootstrap files. It does not copy the starter kit, create default spaces, edit `AGENTS.md`, or generate canonical `skills/` sources.
 
 After initialization, use the embedded Agent guide and checks:
 
@@ -173,16 +175,16 @@ Mise normally autodetects the matching GitHub Release asset from OS and architec
 
 GitHub Actions runs three baseline check jobs:
 
-- knowledge Markdown formatting;
+- workspace Markdown formatting;
 - Web package type checks and builds;
 - Rust formatting, checks, and tests after building embedded WebApp assets.
 
-## Working With Knowledge
+## Working With Project Content
 
-Use the local Forma config as the active knowledge operating context:
+Use the local Forma config as the active project workspace context:
 
 - `cargo run -q -p forma-cli -- config inspect --json`
-- `cargo run -q -p forma-cli -- knowledge health --json`
+- `cargo run -q -p forma-cli -- workspace health --json`
 - `cargo run -q -p forma-cli -- tasks list --json`
 - `cargo run -q -p forma-cli -- tasks inspect --json <task-id-or-path>`
 - `cargo run -q -p forma-cli -- board show --json`

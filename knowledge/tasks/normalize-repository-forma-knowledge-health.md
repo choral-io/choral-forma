@@ -29,10 +29,10 @@ relatedTo:
     - "tasks/migrate-repository-knowledge-to-forma-workspace"
 
 reportedBy:
-affectedArea: Repository knowledge health normalization
+affectedArea: Repository workspace health normalization
 ---
 
-# Normalize Repository Forma Knowledge Health
+# Normalize Repository Forma Workspace Health
 
 ## Goal
 
@@ -48,7 +48,7 @@ Normalize remaining Forma health warnings after repository knowledge content has
 
 - Fix true broken references, ambiguous references, and unsupported fragments.
 - Suppress or document intentional warnings according to the migration health policy.
-- Verify list, board, inspect, file references, graph, and knowledge health operations against the migrated workspace.
+- Verify list, board, inspect, file references, graph, and workspace health operations against the migrated workspace.
 - Record follow-up tasks for warnings that should not be fixed in this slice.
 
 ## Out of Scope
@@ -59,10 +59,10 @@ Normalize remaining Forma health warnings after repository knowledge content has
 
 ## Acceptance Criteria
 
-- `forma knowledge health --json` reports only meaningful accepted warnings under the target policy.
+- `forma workspace health --json` reports only meaningful accepted warnings under the target policy.
 - Any remaining warnings are listed with owner, rationale, and follow-up status.
 - CLI/WebApp read operations describe the migrated workspace accurately enough for internal review.
 
 ## Result
 
-Normalized the remaining post-migration health warnings by adding meaningful related knowledge links and one dependency-review guidance link. No warnings are intentionally retained in this slice; `forma knowledge health --json` should report `passed`.
+Normalized the remaining post-migration health warnings by adding meaningful related knowledge links and one dependency-review guidance link. No warnings are intentionally retained in this slice; `forma workspace health --json` should report `passed`.

@@ -30,14 +30,14 @@ relatedTo:
     - "tasks/stabilize-public-read-only-webapp-release"
 
 reportedBy:
-affectedArea: Read-only knowledge health
+affectedArea: Read-only workspace health
 ---
 
-# Expose Read-only Knowledge Health In WebApp
+# Expose Read-only Workspace Health In WebApp
 
 ## Goal
 
-Promote read-only diagnostics into a useful WebApp knowledge health surface for the public read-only release.
+Promote read-only diagnostics into a useful WebApp workspace health surface for the public read-only release.
 
 ## Sources
 
@@ -51,9 +51,9 @@ Promote read-only diagnostics into a useful WebApp knowledge health surface for 
 
 ## Context
 
-A useful read-only bidirectional note application needs more than document rendering. Users should be able to see when links are broken, references are ambiguous, the index is stale, or notes are structurally isolated. The current WebApp already exposes raw diagnostics, but it does not organize knowledge health around note navigation.
+A useful read-only bidirectional note application needs more than document rendering. Users should be able to see when links are broken, references are ambiguous, the index is stale, or notes are structurally isolated. The current WebApp already exposes raw diagnostics, but it does not organize workspace health around note navigation.
 
-The current WebApp now has route-level diagnostics panels and document-level diagnostics in the document context panel. Those surfaces prove that diagnostics can be displayed, but they are still closer to raw findings than to a public knowledge health experience.
+The current WebApp now has route-level diagnostics panels and document-level diagnostics in the document context panel. Those surfaces prove that diagnostics can be displayed, but they are still closer to raw findings than to a public workspace health experience.
 
 This task should organize existing and cheaply derived health signals into a read-only surface that helps users understand what needs attention without introducing automatic fixes or proposal workflows.
 
@@ -91,8 +91,8 @@ This task follows reference navigation because no-backlink and no-outgoing signa
 
 ## Implementation Notes
 
-- Added a shared TypeScript `knowledge.health` RPC client contract so the WebApp can request normalized read-only health findings without persisting derived state.
-- The WebApp dashboard now loads `workspace.dashboard` and `knowledge.health` together, merges operation diagnostics for status, and exposes grouped health findings in the default Context Panel.
+- Added a shared TypeScript `workspace.health` RPC client contract so the WebApp can request normalized read-only health findings without persisting derived state.
+- The WebApp dashboard now loads `workspace.dashboard` and `workspace.health` together, merges operation diagnostics for status, and exposes grouped health findings in the default Context Panel.
 - Affected entries link to their existing WebApp page route when the finding path matches a dashboard entry; unresolved paths remain plain workspace-relative POSIX paths.
 - The dashboard overview `Findings` metric now counts normalized health findings instead of raw operation diagnostics.
 
@@ -103,14 +103,14 @@ This task follows reference navigation because no-backlink and no-outgoing signa
 - `pnpm exec vitest run packages/shared/src/index.test.ts`
 - `pnpm --filter @choral-forma/webapp build`
 - `cargo run -q -p forma-cli -- check --json`
-- `cargo run -q -p forma-cli -- knowledge health --json`
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`
+- `cargo run -q -p forma-cli -- workspace health --json`
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`
 - Temporary starter-kit smoke workspace with a broken wikilink showed `Broken references`, the missing target, and a working affected-entry route in the WebApp Context Panel.
 
 ## Review Notes
 
 - No blocking issues found in the shared RPC contract, dashboard mapping, or Context Panel rendering path.
-- The implementation remains read-only: health findings are requested from `knowledge.health`, displayed in WebApp state, and not persisted as product state.
+- The implementation remains read-only: health findings are requested from `workspace.health`, displayed in WebApp state, and not persisted as product state.
 - The remaining open questions are follow-up product decisions, not blockers for the public read-only release path.
 
 ## Open Questions

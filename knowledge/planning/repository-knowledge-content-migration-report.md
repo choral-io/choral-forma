@@ -20,7 +20,7 @@ sources:
 
 The repository knowledge content migration is complete for the current Forma-managed structure.
 
-The migration did not require a broad directory move because the current `.forma.yml` configuration already recognizes the target repository spaces and the additional product-practice spaces introduced during the knowledge-workflow replacement work.
+The migration did not require a broad directory move because the current `.forma.md` configuration already recognizes the target repository spaces and the additional product-practice spaces introduced during the knowledge-workflow replacement work.
 
 ## Changed Assumptions
 
@@ -44,7 +44,7 @@ The migration did not require a broad directory move because the current `.forma
 The follow-up normalization task [[tasks/normalize-repository-forma-knowledge-health]] resolved the post-migration health warnings. Current validation reports:
 
 - `forma check --json`: passed
-- `forma knowledge health --json`: passed with 0 warnings
+- `forma workspace health --json`: passed with 0 warnings
 
 The resolved warnings were relationship-density warnings rather than broken or ambiguous references. They were fixed with meaningful related-knowledge links and one dependency-review guidance link.
 
@@ -54,7 +54,7 @@ The starter-kit validation pass confirmed that `examples/forma-starter-kit` rema
 
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`: passed with 0 errors and 0 warnings.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`: passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`: passed with 0 errors and 0 warnings.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks list --json`: passed and exposed the intended sample task states.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks inspect --json tasks/add-team-notes.md`: passed and returned workspace plus task-specific guidelines.
 
@@ -64,7 +64,7 @@ The first resumed cleanup normalized completed task metadata where the task stat
 
 ## Ownership Metadata Pass
 
-The next cleanup pass normalized `owners` metadata for current canonical shared knowledge in the configured product, architecture, decision, concept, discovery, guideline, and repository README spaces.
+The next cleanup pass normalized `owners` metadata for current canonical shared project content in the configured product, architecture, decision, concept, discovery, guideline, and repository README spaces.
 
 This pass intentionally did not fill empty `assignees`, `reviewers`, template defaults, or historical workspace-support files:
 

@@ -65,7 +65,7 @@ Normalize Forma-owned relationship fields so graph and health behavior are based
 
 - Relationship metadata uses path-qualified references where the target is a repository knowledge page.
 - `forma check` reports no unresolved or ambiguous references introduced by the normalization.
-- `forma knowledge health` reports no new relationship-metadata warnings.
+- `forma workspace health` reports no new relationship-metadata warnings.
 - Any intentionally unresolved or external relationships are documented in the migration audit or follow-up notes.
 
 ## Result

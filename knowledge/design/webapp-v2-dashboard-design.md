@@ -55,7 +55,7 @@ The first complete product loop is a read-only knowledge browser:
 - document detail or preview;
 - views index;
 - saved view detail;
-- knowledge health and diagnostics;
+- workspace health and diagnostics;
 - search results;
 - source file references;
 - route-aware breadcrumbs and metadata;
