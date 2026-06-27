@@ -1,7 +1,7 @@
 ---
 id: index
-title: Forma Documentation
-summary: Product documentation entry point for using Forma.
+title: Choral Forma Documentation
+summary: Product documentation entry point for using Choral Forma.
 audience:
     - human
     - agent
@@ -10,7 +10,7 @@ surfaces:
 order: 0
 ---
 
-# Forma Documentation
+# Choral Forma Documentation
 
 ## Overview
 

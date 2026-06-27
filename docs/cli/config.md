@@ -1,7 +1,7 @@
 ---
 id: cli.config
 title: forma config
-summary: Inspect the effective Forma workspace configuration.
+summary: Inspect the effective workspace configuration.
 audience:
     - human
     - agent

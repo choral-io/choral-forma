@@ -13,7 +13,7 @@ Product-facing Forma docs, examples, UI copy, and CLI guidance should default to
 This repository is in P0 internal-test stabilization. It contains:
 
 - A repository-backed project workspace under `knowledge/`.
-- Forma space schemas for product, concepts, decisions, planning, tasks, members, and workspace material.
+- Configured space schemas for product, concepts, decisions, planning, tasks, members, and workspace material.
 - A project-local Forma CLI Agent skill with canonical source under `skills/` and an installed Agent entrypoint under `.agents/skills/`.
 - Editor integration for VS Code, Zed, and the read-only Forma WebApp.
 - A Rust workspace for the `forma` binary under `crates/`.
@@ -33,7 +33,7 @@ The current application code implements the P0 read, inspect, check, render, ser
 - `crates/forma-rpc/`: shared operation dispatcher and minimal JSON-RPC 2.0 adapter model.
 - `crates/forma-cli/`: Rust `forma` binary, CLI handlers, local HTTP server, and embedded WebApp asset serving.
 - `packages/shared/`: shared TypeScript RPC client and operation result types.
-- `packages/webapp/`: Vite React read-only WebApp for browsing configured Forma workspaces.
+- `packages/webapp/`: Vite React read-only Forma WebApp for browsing configured workspaces.
 - `examples/forma-starter-kit/`: committed starter workspace for demos, smoke validation, and reader/view examples.
 - `skills/`: canonical project-local Agent skill sources that follow the skills.sh-style `skills/<name>/SKILL.md` layout.
 - `.agents/skills/`: installed Agent runtime entrypoints aligned with the canonical skill sources.

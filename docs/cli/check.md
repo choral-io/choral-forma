@@ -1,7 +1,7 @@
 ---
 id: cli.check
 title: forma check
-summary: Validate the current Forma workspace.
+summary: Validate the current workspace.
 audience:
     - human
     - agent

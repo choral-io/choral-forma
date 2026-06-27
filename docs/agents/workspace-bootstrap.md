@@ -14,7 +14,7 @@ order: 210
 
 ## Agent Guidance
 
-After `forma init`, help the human turn one real content workflow into a small Forma workspace. The human should describe their business or personal context in ordinary language; the Agent should translate that context into explicit Forma config only after confirming the first slice.
+After `forma init`, help the human turn one real content workflow into a small workspace. The human should describe their business or personal context in ordinary language; the Agent should translate that context into explicit Forma config only after confirming the first slice.
 
 Do not assume that tasks, notes, members, or guidelines are required in every workspace.
 
@@ -36,9 +36,9 @@ Stop when you can describe one content group, its first template, and one verifi
 
 ## Translation Pattern
 
-Translate the human's language into Forma concepts only after restating the proposed slice.
+Translate the human's language into workspace concepts only after restating the proposed slice.
 
-| Human description              | Forma artifact                                    |
+| Human description              | Workspace artifact                                |
 | ------------------------------ | ------------------------------------------------- |
 | A durable category of content  | configured space                                  |
 | Fields readers compare or sort | schema fields and display conventions             |

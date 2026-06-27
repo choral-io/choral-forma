@@ -25,7 +25,7 @@ order: 200
 
 ## Agent Guidance
 
-Run Forma commands from the target workspace root. If the Agent cannot guarantee its current working directory, pass `--workspace <path>` explicitly.
+Run `forma` commands from the target workspace root. If the Agent cannot guarantee its current working directory, pass `--workspace <path>` explicitly.
 
 Commands below use `forma` as the logical CLI name. If the binary is not installed, use the project-local wrapper, for example `cargo run -q -p forma-cli -- <command>`.
 

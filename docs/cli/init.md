@@ -1,7 +1,7 @@
 ---
 id: cli.init
 title: forma init
-summary: Create the minimal Forma workspace bootstrap in a project directory.
+summary: Create the minimal workspace bootstrap in a project directory.
 audience:
     - human
     - agent

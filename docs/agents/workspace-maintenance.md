@@ -1,7 +1,7 @@
 ---
 id: agents.workspace-maintenance
 title: Workspace Maintenance
-summary: Maintain Forma workspace content through explicit config and verification.
+summary: Maintain workspace content through explicit Forma config and verification.
 audience:
     - agent
 surfaces:
