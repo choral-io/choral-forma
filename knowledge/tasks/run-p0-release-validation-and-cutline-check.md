@@ -89,6 +89,49 @@ The blocker is resolved by the accepted P0 scope audit and the approved Kanban m
 
 ## Validation Notes
 
+### 2026-06-27 Internal Release Candidate
+
+Candidate cutline:
+
+- Branch: `main`.
+- Code/documentation baseline before recording this validation note: `848d655 docs: define forma cli agent skill source`.
+- Initial status before release-prep documentation update: `## main...origin/main [ahead 87]`.
+- Latest tag before this candidate: `v0.1.0-alpha.5`.
+- Recommended next internal tag after review and explicit publishing approval: `v0.1.0-alpha.6`.
+
+Validation matrix:
+
+- `CI=true mise run check`: passed. pnpm tests reported 4 files and 13 tests passed; Rust tests passed across `forma-cli`, `forma-core`, and `forma-rpc`.
+- `cargo run -q -p forma-cli -- config inspect --json`: passed.
+- `cargo run -q -p forma-cli -- check --json`: passed with zero errors, warnings, and infos.
+- `cargo run -q -p forma-cli -- knowledge health --json`: passed with zero findings.
+
+Starter workspace smoke test:
+
+- Workspace: `examples/forma-starter-kit`.
+- `forma config inspect --json`: passed.
+- `forma check --json`: passed with zero errors, warnings, and infos.
+- `forma knowledge health --json`: passed with zero findings.
+- `forma skills list --json`: passed and returned `forma-cli-core`, `starter-workspace-operations`, and `starter-task-selection`.
+- `forma tasks list --json`: passed.
+- `forma inspect notes/getting-started.md --json`: passed.
+- `forma serve --bind 127.0.0.1:0`: required approved localhost binding and passed at `http://127.0.0.1:50349`.
+- HTTP root returned the WebApp HTML shell.
+- JSON-RPC `workspace.dashboard`: passed.
+- JSON-RPC `file.render` for `notes/getting-started.md`: passed.
+- JSON-RPC `view.render` for `.forma/views/graph.md`: passed.
+
+Notes:
+
+- The old top-level `render` CLI smoke commands are no longer part of the current CLI surface; render validation now runs through the local server JSON-RPC surface used by the WebApp.
+- Vite reported chunk-size warnings during the full check, but exited 0.
+- macOS SDK discovery emitted `xcrun`/`xcodebuild` cache warnings while finding `MacOSX.sdk`, but Rust checks and tests exited 0.
+
+Release decision:
+
+- The current local `main` cutline is ready for internal review as `v0.1.0-alpha.6` after committing these release-prep notes.
+- Publishing remains a separate approved action: do not tag or push as part of this validation step.
+
 ### 2026-06-17 Internal Release Candidate
 
 Candidate cutline:
