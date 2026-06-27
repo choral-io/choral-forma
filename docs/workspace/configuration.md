@@ -100,18 +100,7 @@ runtime:
             transform: slugify
 ```
 
-For `ref` fields, prefer a separate runtime value whose value is the complete workspace reference expected by that workspace schema:
-
-```yaml
-runtime:
-    values:
-        currentUserRef:
-            kind: const
-            value: people/alex-chen
-            required: true
-```
-
-`people/alex-chen` is only an example. Use the workspace's configured reference path.
+For `ref` fields, keep runtime values as identity inputs and let the workspace template express the reference path explicitly. For example, a workspace may use `{{ runtime.values.currentUserId }}` inside `people/{{ runtime.values.currentUserId }}` if that is the configured reference form for the target content type. Do not introduce extra runtime values that only duplicate a path assembled from other runtime values.
 
 Included Markdown config nodes use frontmatter as their machine-readable configuration and Markdown body as Human-readable documentation. In the current P0 configuration model, a configured content group is commonly declared as a taxonomy term:
 

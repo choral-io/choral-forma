@@ -269,13 +269,12 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(get_stdout.contains("# Workspace Configuration"));
     assert!(get_stdout.contains("workspace-relative POSIX paths"));
     assert!(get_stdout.contains("currentUserId"));
-    assert!(get_stdout.contains("currentUserRef"));
     assert!(get_stdout.contains("currentDate"));
     assert!(get_stdout.contains("kind: gitConfig"));
     assert!(get_stdout.contains("kind: const"));
     assert!(get_stdout.contains("required: true"));
     assert!(get_stdout.contains("workspace.timezone"));
-    assert!(get_stdout.contains("Use the workspace's configured reference path."));
+    assert!(get_stdout.contains("keep runtime values as identity inputs"));
     assert!(!get_stdout.contains(r#""operation":"docs.get""#));
 
     let templates = forma(&root)
@@ -290,8 +289,9 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     );
     assert!(templates.stderr.is_empty());
     let templates_stdout = String::from_utf8_lossy(&templates.stdout);
-    assert!(templates_stdout.contains("runtime.values.currentUserRef"));
+    assert!(templates_stdout.contains("people/{{ runtime.values.currentUserId }}"));
     assert!(templates_stdout.contains("Do not assume a built-in directory"));
+    assert!(templates_stdout.contains("use `currentUserId` as an identity input"));
     assert!(templates_stdout.contains("runtime.values.currentDateTime"));
 
     let schemas = forma(&root)
@@ -308,8 +308,8 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     let schemas_stdout = String::from_utf8_lossy(&schemas.stdout);
     assert!(schemas_stdout.contains("configured semantic type"));
     assert!(schemas_stdout.contains("not a directory name"));
-    assert!(schemas_stdout.contains("currentUserRef"));
-    assert!(schemas_stdout.contains("Do not infer ref paths from directory names"));
+    assert!(schemas_stdout.contains("currentUserId"));
+    assert!(schemas_stdout.contains("Do not infer ref paths from directory names or runtime value names"));
 
     std::fs::remove_dir_all(root).unwrap();
 }
