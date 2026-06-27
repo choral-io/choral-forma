@@ -381,7 +381,8 @@ Recommended responsibility split:
 ```text
 .forma/ = workspace configuration.
 knowledge/ = repository-backed knowledge content.
-.agents/ = optional canonical Agent assistance layer.
+skills/ = canonical Agent skill sources.
+.agents/ = optional installed Agent runtime entrypoints.
 ```
 
 `.forma/` must not become a hidden knowledge store. It should explain and configure repository files, not replace them as the source of truth.
@@ -391,14 +392,17 @@ Working rule:
 ```text
 If users need to read, cite, review, or discuss it, it belongs in knowledge/.
 If tools need to validate, render, create, or inspect it, it belongs in .forma/.
-If Agents need to follow it as operational behavior, it belongs in .agents/ or AGENTS.md.
+If Agents need to follow it as reusable skill behavior, it belongs in skills/.
+If an Agent runtime needs a discoverable entrypoint, it belongs in .agents/ or AGENTS.md.
 ```
 
 Starter Kit setup should ask for the canonical language and the supported languages. The canonical language remains the source-of-truth language for durable knowledge. Supported languages describe the languages the workspace intends to support for localized knowledge, labels, templates, Starter Kit copy, and future translation freshness workflows.
 
-Starter Kits may initialize Agent compatibility content. Choral Forma should treat `.agents/` and `AGENTS.md` as the canonical Agent layer because they are broadly useful across Agent applications. Platform-specific entrypoints such as `CLAUDE.md`, `.claude/skills`, `GEMINI.md`, or similar files should normally be symlinks to the canonical Agent content.
+Starter Kits may initialize Agent compatibility content. Choral Forma should treat `skills/` as the canonical source layout for reusable Agent skills, while `.agents/` and `AGENTS.md` are installed runtime entrypoints that make those skills discoverable to Agent applications. Platform-specific entrypoints such as `CLAUDE.md`, `.claude/skills`, `GEMINI.md`, or similar files should normally be symlinks to installed Agent entrypoints or generated from canonical skill sources.
 
-Choral Forma targets professional users and may assume a development-like environment where repository-local symlinks are supported. Import wrappers or generated copies are exceptional compatibility fallbacks, not baseline product behavior. Compatibility entrypoints should derive from the canonical Agent layer rather than becoming independent sources of truth.
+Choral Forma targets professional users and may assume a development-like environment where repository-local symlinks are supported. Import wrappers or generated copies are exceptional compatibility fallbacks, not baseline product behavior. Compatibility entrypoints should derive from canonical skill sources rather than becoming independent sources of truth.
+
+When the Forma workspace initialization flow is reintroduced, it should create the Forma CLI Agent bootstrap skill as part of the starter workspace rather than requiring a separate `forma skills init` or `forma skills install` command. The initialization output should include `skills/forma-cli/SKILL.md` as the reviewable source file and `.agents/skills/forma-cli/SKILL.md` as the installed Agent runtime entrypoint. Existing files should not be overwritten without an explicit force or review flow.
 
 The P0 minimal starter should include enough structure to demonstrate Choral Forma's knowledge, action, and lightweight collaboration model without becoming an opinionated project-management workflow.
 

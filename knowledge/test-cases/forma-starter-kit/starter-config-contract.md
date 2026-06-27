@@ -45,12 +45,14 @@ Verify that `examples/forma-starter-kit` works as a clean, reusable Forma worksp
 3. Confirm the config contains workspace identity, supported languages, runtime values, spaces, views, dashboard sections, and semantic types.
 4. Confirm all paths are workspace-relative and no `workspace.root` configuration field is present.
 5. Confirm any configured guidelines are ordinary Markdown paths inside the starter workspace.
+6. Confirm the starter workspace's Agent bootstrap material has a canonical `skills/forma-cli/SKILL.md` source and an aligned `.agents/skills/forma-cli/SKILL.md` runtime entrypoint when Agent bootstrap is enabled.
 
 ## Expected Results
 
 - The starter config is self-contained and does not depend on this repository's `knowledge/` layout.
 - The config can be used by Agents without hard-coded paths.
 - The starter remains safe to copy as a user template.
+- The Agent bootstrap skill is a reviewable starter file, not a generated copy of workspace-projected guideline skills.
 
 ## Coverage
 

@@ -69,7 +69,7 @@ Use Forma CLI operations and a thin Agent skill for repository knowledge checks,
 - `forma knowledge health --json` reports reference and backlink health without a persistent index file.
 - `forma tasks list --json` and `forma tasks inspect ... --json` expose task metadata.
 - `forma tasks list --json` exposes task status and readiness metadata for status-based board review.
-- `.agents/skills/forma-cli/SKILL.md` routes Agent read, audit, and selection work through Forma CLI.
+- `skills/forma-cli/SKILL.md` is the canonical Forma CLI Agent skill source, and `.agents/skills/forma-cli/SKILL.md` is the aligned installed Agent entrypoint for read, audit, and selection work through Forma CLI.
 - MCP remains out of scope for this release slice.
 
 ## Follow-up
