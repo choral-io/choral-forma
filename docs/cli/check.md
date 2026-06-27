@@ -19,6 +19,10 @@ order: 40
 
 `forma check --json` validates configuration, indexed pages, schemas, and diagnostics without writing hidden state.
 
+## CLI Help
+
+Use `forma check --json` to validate the current workspace after changing config, templates, schemas, guidelines, or Markdown content.
+
 ## Agent Guidance
 
 Run this after changing `.forma.yml`, config nodes, templates, or shared Markdown content.

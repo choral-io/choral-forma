@@ -18,6 +18,10 @@ order: 100
 
 `.forma.yml` is the single configuration entry point. All persisted file references are workspace-relative POSIX paths resolved from the directory containing `.forma.yml`.
 
+## CLI Help
+
+Use `forma config inspect --json` to inspect the effective workspace configuration and source paths. Use `forma check --json` after editing `.forma.yml` or included config nodes.
+
 ## Reference
 
 The minimal empty workspace contains `schemaVersion`, `workspace`, `include`, and `runtime.values`.

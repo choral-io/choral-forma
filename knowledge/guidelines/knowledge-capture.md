@@ -192,6 +192,27 @@ Use the effective config, not path memory:
 - Do not copy secrets, private notes, local scratch material, or page content instructions into shared knowledge.
 - Do not silently rewrite unrelated content while performing a focused knowledge edit.
 
+### Product Documentation Authoring
+
+Product documentation under `docs/` is the product-facing source for Human docs, embedded CLI docs, help excerpts, and built-in Agent skill output. Source documents may include rich Human-facing material such as diagrams, screenshots, Mermaid charts, and structured visual examples.
+
+Treat rich material as supplemental unless the same concept also has a complete plain-text explanation. Any information needed by `forma help`, `forma skills`, Agent guidance, or other text-only projections must be available in ordinary Markdown prose, lists, tables, or code blocks.
+
+Use stable projection sections:
+
+- `## Overview` for the primary Human-readable explanation;
+- `## CLI Help` for concise CLI/help text;
+- `## Agent Guidance` for skill or Agent-facing procedure;
+- `## Reference` for stable details, examples, schema fragments, and configuration snippets.
+
+When editing docs:
+
+- do not make a diagram, image, screenshot, or visual layout the only source of important information;
+- keep `## CLI Help` and `## Agent Guidance` text-only, using Markdown prose, lists, tables, and fenced code blocks;
+- allow rich diagrams and screenshots in docs-oriented sections only when the text around them explains the same facts;
+- ensure any document with `surfaces: [help]` has a useful `## CLI Help` section;
+- ensure any document with `surfaces: [skill]` has a useful `## Agent Guidance` section.
+
 ### Failure Handling
 
 If `check` or `knowledge health` fails after an edit:
