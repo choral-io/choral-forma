@@ -100,6 +100,19 @@ runtime:
             transform: slugify
 ```
 
+For `ref` fields, prefer a separate runtime value whose value is the complete workspace reference expected by that workspace schema:
+
+```yaml
+runtime:
+    values:
+        currentUserRef:
+            kind: const
+            value: people/alex-chen
+            required: true
+```
+
+`people/alex-chen` is only an example. Use the workspace's configured reference path.
+
 Included Markdown config nodes use frontmatter as their machine-readable configuration and Markdown body as Human-readable documentation. In the current P0 configuration model, a configured content group is commonly declared as a taxonomy term:
 
 ```yaml

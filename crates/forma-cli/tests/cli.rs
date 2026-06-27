@@ -269,11 +269,13 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(get_stdout.contains("# Workspace Configuration"));
     assert!(get_stdout.contains("workspace-relative POSIX paths"));
     assert!(get_stdout.contains("currentUserId"));
+    assert!(get_stdout.contains("currentUserRef"));
     assert!(get_stdout.contains("currentDate"));
     assert!(get_stdout.contains("kind: gitConfig"));
     assert!(get_stdout.contains("kind: const"));
     assert!(get_stdout.contains("required: true"));
     assert!(get_stdout.contains("workspace.timezone"));
+    assert!(get_stdout.contains("Use the workspace's configured reference path."));
     assert!(!get_stdout.contains(r#""operation":"docs.get""#));
 
     let templates = forma(&root)
@@ -288,7 +290,8 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     );
     assert!(templates.stderr.is_empty());
     let templates_stdout = String::from_utf8_lossy(&templates.stdout);
-    assert!(templates_stdout.contains("runtime.values.currentUserId"));
+    assert!(templates_stdout.contains("runtime.values.currentUserRef"));
+    assert!(templates_stdout.contains("Do not assume a built-in directory"));
     assert!(templates_stdout.contains("runtime.values.currentDateTime"));
 
     std::fs::remove_dir_all(root).unwrap();
