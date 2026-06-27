@@ -330,19 +330,19 @@ function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
         <div className="flex flex-col gap-6">
             <WorkspaceOverview dashboard={dashboard} />
             <RouteBodySection
-                description="Start from the main read-only surfaces of this workspace."
+                description="Start with one workflow, then browse the content and views it defines."
                 title="Workspace entry points"
             >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <NavigationCard
-                        description="Browse project knowledge by partition."
+                        description="Browse the content groups defined by this workspace."
                         icon={Layers3}
                         meta={`${String(dashboard.spaces.length)} spaces`}
                         title="Spaces"
                         to="/spaces"
                     />
                     <NavigationCard
-                        description="Open the global repository page index."
+                        description="Open the workspace page index."
                         icon={FileText}
                         meta={`${String(dashboard.entries.length)} indexed`}
                         title="Pages"
@@ -1072,7 +1072,7 @@ function SpacesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
         <div className="flex flex-col gap-6">
             <SpacesOverview dashboard={dashboard} />
             <RouteBodySection
-                description="Top-level knowledge partitions for browsing decisions, tasks, architecture, and design."
+                description="Start with one workflow, then browse the content groups it defines."
                 meta={`${String(dashboard.spaces.length)} spaces`}
                 title="Browse spaces"
             >
@@ -1087,7 +1087,7 @@ function SpacePage({ entries, space }: { entries: DashboardEntry[]; space: Dashb
         <div className="flex flex-col gap-6">
             <SpaceSummary space={space} />
             <RouteBodySection
-                description="Repository-backed pages in this knowledge partition."
+                description="Markdown-backed pages in this configured content group."
                 meta={`${String(entries.length)} pages`}
                 title="Pages"
             >
@@ -1095,7 +1095,7 @@ function SpacePage({ entries, space }: { entries: DashboardEntry[]; space: Dashb
                     <PagesList entries={entries} />
                 ) : (
                     <EmptyState
-                        description="The workspace index does not include pages for this space yet."
+                        description="Add the first Markdown page for this workflow, then verify it with forma check."
                         icon={FileText}
                         title="No pages"
                     />
@@ -1122,7 +1122,7 @@ function SpaceContextPanel({
                         <div>
                             <h2 className="text-sm font-semibold">Space Context</h2>
                             <p className="text-muted-foreground mt-1 text-sm/6">
-                                Route-level read model for the selected knowledge partition.
+                                Route-level read model for the selected configured content group.
                             </p>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
@@ -1153,7 +1153,7 @@ function ViewsPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
         <div className="flex flex-col gap-6">
             <ViewsOverview dashboard={dashboard} />
             <RouteBodySection
-                description="Saved read-only projections over indexed workspace knowledge."
+                description="Saved read-only projections over indexed workspace content."
                 meta={`${String(dashboard.views.length)} views`}
                 title="Browse views"
             >
@@ -1370,7 +1370,7 @@ function SpacesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                         <Badge variant={warningCount > 0 ? "secondary" : "default"}>{dashboard.status}</Badge>
                         <CardTitle className="mt-4">Spaces overview</CardTitle>
                         <CardDescription className="mt-2">
-                            Repository-backed partitions that organize project knowledge for browsing.
+                            Content groups defined by the workspace for browsing.
                         </CardDescription>
                     </div>
                     <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-md">
@@ -1399,7 +1399,7 @@ function PagesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                         <Badge variant={warningCount > 0 ? "secondary" : "default"}>{dashboard.status}</Badge>
                         <CardTitle className="mt-4">Pages overview</CardTitle>
                         <CardDescription className="mt-2">
-                            Global read-only index for repository pages across all knowledge spaces.
+                            Global read-only index for Markdown pages across configured spaces.
                         </CardDescription>
                     </div>
                     <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-md">

@@ -8,7 +8,7 @@ export function DiagnosticsPanel({
     description = "Read-only signals from workspace checks and planned V2 surfaces.",
     diagnostics,
     emptyLabel = "No diagnostics found.",
-    title = "Knowledge Health",
+    title = "Workspace Health",
 }: {
     description?: string;
     diagnostics: DashboardDiagnostic[];
@@ -71,7 +71,7 @@ export function DiagnosticsPanel({
     );
 }
 
-export function KnowledgeHealthPanel({ health }: { health: DashboardHealth }) {
+export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
     const groups = healthCategoryOrder
         .map((category) => ({
             category,
@@ -83,7 +83,7 @@ export function KnowledgeHealthPanel({ health }: { health: DashboardHealth }) {
         <section className="flex flex-col gap-4">
             <div>
                 <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold">Knowledge Health</h2>
+                    <h2 className="text-sm font-semibold">Workspace Health</h2>
                     <Badge variant={health.status === "failed" ? "destructive" : "secondary"}>{health.status}</Badge>
                 </div>
                 <p className="text-muted-foreground mt-1 text-sm/6">

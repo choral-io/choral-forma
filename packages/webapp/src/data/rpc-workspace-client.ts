@@ -3,13 +3,13 @@ import {
     type Diagnostic,
     type FileReferencesResult,
     type FileRenderResult,
-    type KnowledgeHealthFinding,
-    type KnowledgeHealthResult,
     type OperationStatus,
     type ReferenceEdge,
     type ViewRenderItem,
     type ViewRenderOutput,
     type WorkspaceDashboardResult,
+    type WorkspaceHealthFinding,
+    type WorkspaceHealthResult,
 } from "@choral-forma/shared";
 
 import { formatRelativeDateTime } from "@/lib/date-time";
@@ -42,7 +42,7 @@ export class RpcWorkspaceClient implements WorkspaceClient {
     async getDashboard(): Promise<WorkspaceDashboard> {
         const [dashboardResult, healthResult] = await Promise.all([
             this.#rpc.workspaceDashboard(),
-            this.#rpc.knowledgeHealth(),
+            this.#rpc.workspaceHealth(),
         ]);
         this.#dashboard = mapWorkspaceDashboard(dashboardResult, healthResult);
         return this.#dashboard;
@@ -78,7 +78,7 @@ export class RpcWorkspaceClient implements WorkspaceClient {
 
 function mapWorkspaceDashboard(
     result: WorkspaceDashboardResult,
-    healthResult: KnowledgeHealthResult,
+    healthResult: WorkspaceHealthResult,
 ): WorkspaceDashboard {
     const entries = result.entries.map(mapEntry);
     const health = mapDashboardHealth(healthResult, entries);
@@ -87,7 +87,7 @@ function mapWorkspaceDashboard(
     return {
         workspaceName: result.workspace.name,
         workspaceLogo: result.workspace.logo,
-        tagline: "Repository-backed workspace knowledge.",
+        tagline: "Markdown-backed workspace content.",
         status: maxHealth(mapStatus(result.status), health.status),
         spaces: result.spaces.map((space) => mapSpace(space, entries)),
         entries,
@@ -97,7 +97,7 @@ function mapWorkspaceDashboard(
     };
 }
 
-function mapDashboardHealth(result: KnowledgeHealthResult, entries: DashboardEntry[]): DashboardHealth {
+function mapDashboardHealth(result: WorkspaceHealthResult, entries: DashboardEntry[]): DashboardHealth {
     return {
         status: mapStatus(result.status),
         diagnostics: (result.diagnostics ?? []).map(mapDiagnostic),
@@ -105,7 +105,7 @@ function mapDashboardHealth(result: KnowledgeHealthResult, entries: DashboardEnt
     };
 }
 
-function mapHealthFinding(finding: KnowledgeHealthFinding, entries: DashboardEntry[]): DashboardHealthFinding {
+function mapHealthFinding(finding: WorkspaceHealthFinding, entries: DashboardEntry[]): DashboardHealthFinding {
     const entry = entries.find((item) => item.path === finding.path);
 
     return {
