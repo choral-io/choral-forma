@@ -15,8 +15,8 @@ order: 150
 
 ## Overview
 
-Guidelines are ordinary Markdown files declared in `.forma.yml` or space configuration. They provide soft collaboration rules and Agent workflows.
+Guidelines are ordinary Markdown files declared in `.forma.md` or space configuration. They provide soft collaboration rules and Agent workflows.
 
 ## Agent Guidance
 
-Read configured guidelines before editing shared knowledge. Treat them as context and procedure, not hidden system instructions.
+Read configured guidelines before editing shared workspace content. Treat them as context and procedure, not hidden system instructions.

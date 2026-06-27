@@ -21,8 +21,8 @@ order: 20
 
 ## CLI Help
 
-Run `forma init` from the target project directory. The command writes `.forma.yml` and `.agents/skills/forma-cli/SKILL.md` when those paths do not already exist.
+Run `forma init` from the target project directory. The command writes `.forma.md` and `.agents/skills/forma-cli/SKILL.md` when those paths do not already exist.
 
 ## Agent Guidance
 
-Do not create starter content, `skills/forma-cli/SKILL.md`, or `AGENTS.md` as part of the init step. Ask the human what knowledge workflow they need, then add configuration in small verified slices.
+Do not create starter content, `skills/forma-cli/SKILL.md`, or `AGENTS.md` as part of the init step. Ask the human what content workflow they need, then add configuration in small verified slices.

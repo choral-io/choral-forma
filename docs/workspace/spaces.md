@@ -29,7 +29,7 @@ schemaVersion: 1
 kind: term
 taxonomy: spaces
 title: Notes
-description: Shared knowledge notes.
+description: Shared reference notes.
 include:
     - "notes/**/*.md"
 display:
@@ -65,7 +65,7 @@ schema:
 ---
 # Notes
 
-Shared knowledge notes.
+Shared reference notes.
 ```
 
 The `create.template` value points to the template used by `forma create`. It is nested under `create`, not a top-level field in the authored config node.

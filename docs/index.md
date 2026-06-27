@@ -14,7 +14,13 @@ order: 0
 
 ## Overview
 
-Forma helps teams keep repository-backed Markdown knowledge readable, structured, and inspectable through explicit configuration.
+Forma helps teams keep repository-backed Markdown content readable, structured, and inspectable through explicit configuration.
+
+## Abstract Core, Concrete Workflows
+
+Forma's core model is intentionally small: workspaces, entries, spaces, schemas, templates, views, guidelines, and relations. These are building blocks, not a fixed domain model.
+
+Start from a concrete workflow instead of from the abstract model. A workspace may organize client work, product planning, research notes, runbooks, writing projects, decisions, tasks, or something else. Those names come from the user's context and configuration; they are examples, not Forma built-ins.
 
 ## Documentation Surfaces
 
