@@ -213,6 +213,15 @@ When editing docs:
 - ensure any document with `surfaces: [help]` has a useful `## CLI Help` section;
 - ensure any document with `surfaces: [skill]` has a useful `## Agent Guidance` section.
 
+Run the docs-backed Agent bootstrap pressure gate when a change affects:
+
+- `docs/agents/**`;
+- `docs/workspace/**` content used by empty-workspace setup;
+- `forma skills` output or embedded skill projection;
+- `forma init` output or generated Agent runtime skill content.
+
+The gate is [[test-cases/forma-cli-docs-bootstrap]]. At minimum, record whether the wrong-config baseline still fails, whether the guided first content group path passes, and whether isolated-page health warnings are interpreted correctly.
+
 ### Failure Handling
 
 If `check` or `knowledge health` fails after an edit:

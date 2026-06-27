@@ -43,6 +43,13 @@ Use `forma init` only to create the minimal Forma bootstrap. Do not create `skil
 
 After init, ask the human what knowledge structure they need. Add spaces, templates, views, and guidelines in small slices. Verify each slice with `forma check --json`.
 
+Before authoring the first content group, load the relevant embedded docs:
+
+- `forma docs get workspace.configuration`
+- `forma docs get workspace.spaces`
+- `forma docs get workspace.templates`
+- `forma docs get agents.workspace-bootstrap`
+
 ### Common Read Commands
 
 - `forma tasks list --json`

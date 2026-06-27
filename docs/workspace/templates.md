@@ -15,7 +15,39 @@ order: 130
 
 ## Overview
 
-Templates are Markdown files referenced by a space create configuration. They use `{{ input.name }}` placeholders for values resolved by `forma create`.
+Templates are Markdown files referenced by a configured content group's `create.template` setting. They use `{{ input.title }}`, `{{ input.summary }}`, or other configured input placeholders resolved by `forma create`.
+
+## Reference
+
+Reference a template from `create.template` in the content group config:
+
+```yaml
+create:
+    directory: notes
+    filename: "{{ input.slug }}.md"
+    template: .forma/spaces/templates/note.md
+    inputs:
+        title:
+            required: true
+        slug:
+            default: "{{ input.title }}"
+            transform: slugify
+```
+
+A minimal template can define frontmatter and body content:
+
+```markdown
+---
+title: "{{ input.title }}"
+summary: "{{ input.summary }}"
+type: note
+tags: []
+---
+
+# {{ input.title }}
+
+{{ input.summary }}
+```
 
 ## Agent Guidance
 

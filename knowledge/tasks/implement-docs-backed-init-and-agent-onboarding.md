@@ -419,6 +419,8 @@ GREEN validation evidence:
 - Repository `forma check --json`: passed.
 - Repository `forma knowledge health --json`: passed.
 - `CI=true mise run check`: passed.
+- [[test-cases/forma-cli-docs-bootstrap]] records the docs-backed Agent bootstrap pressure suite.
+- Manual pressure run against `/private/tmp/forma-pressure.JO0ol7`: wrong top-level `template` config failed as expected; guided `kind: term` + `taxonomy: spaces` config passed `config inspect`, `check`, `create`, `list`, and `inspect`; isolated-page health warnings cleared after adding explicit links.
 
 ## Open Questions
 
