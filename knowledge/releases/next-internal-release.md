@@ -2,11 +2,11 @@
 schemaVersion: 1
 kind: release
 title: Next Internal Release
-summary: Internal release gate for proving the Forma-managed content workflow against the starter-kit pressure suite and current project knowledge.
+summary: Internal release gate for proving Forma CLI onboarding, `.forma.md` configuration, generic read operations, and workspace content workflows.
 scope: project
 type: release
 status: ready-for-review
-version: v0.1.0-alpha.6
+version: v0.1.0-alpha.8
 date: 2026-06-27
 owners:
     - "members/tiscs"
@@ -28,7 +28,7 @@ relatedMetrics:
 
 ## Scope
 
-This internal release should prove that Forma can manage this repository's project knowledge through configured Markdown spaces, schemas, guidelines, CLI checks, and WebApp read surfaces without relying on the old `knowledge-workflow` skills.
+This internal release should prove that Forma can manage this repository's project content through configured Markdown spaces, schemas, guidelines, CLI checks, embedded Agent docs, and WebApp read surfaces without relying on the old `knowledge-workflow` skills.
 
 The release is internal. It does not require public packaging, public documentation polish, MCP support, editor-extension support, or comprehensive write-operation coverage.
 
@@ -36,10 +36,14 @@ The release is internal. It does not require public packaging, public documentat
 
 - Forma CLI and configured guidelines are the primary Agent-facing content workflow.
 - Forma exposes Agent-facing skills from the configured workspace, with `forma-cli-core` embedded from a Markdown source asset and the project-local `forma-cli` skill aligned with the installed Agent entrypoint.
-- The project knowledge base uses configured spaces for product direction, tasks, test cases, releases, metrics, and user stories.
+- `forma init` creates a minimal `.forma.md` workspace bootstrap and Agent runtime entrypoint for empty or ordinary project directories.
+- `.forma.md` is the only active configuration entrypoint; legacy `.forma.yml` behavior is removed from the current product path.
+- Generic read operations replace task-specific CLI and RPC helpers for list, inspect, and view rendering workflows.
+- The project content workspace uses configured spaces for product direction, tasks, test cases, releases, metrics, and user stories.
 - The starter-kit validation suite is available outside the starter-kit template and can be used for pressure testing.
 - The read-only WebApp includes workspace health context and graph node popup refinements.
-- The project knowledge base stays valid under Forma checks and health diagnostics.
+- Product-facing docs, Agent guidance, and WebApp copy use neutral content-workspace language while preserving Choral Forma and Forma product naming.
+- The project content workspace stays valid under Forma checks and health diagnostics.
 
 ## Validation
 
@@ -55,15 +59,14 @@ Required validation:
 
 Current validation result:
 
-- Candidate version: `v0.1.0-alpha.6`.
-- Candidate cutline before recording this validation note: `848d655 docs: define forma cli agent skill source`.
-- Latest previous tag: `v0.1.0-alpha.5`.
+- Candidate version: `v0.1.0-alpha.8`.
+- Candidate cutline before recording this validation note: `0190809 test: align builtin skill wording expectation`.
+- Latest previous tag: `v0.1.0-alpha.7`.
 - Repository `config inspect`, `check`, `workspace health`, and full `CI=true mise run check`: passed.
-- Starter-kit `config inspect`, `check`, `workspace health`, `skills list`, `tasks list`, and `inspect notes/getting-started.md`: passed.
-- Starter-kit local server smoke passed for HTTP root, `workspace.dashboard`, `file.render`, and `view.render` JSON-RPC operations.
+- Starter-kit `check`: passed.
 - Starter-kit pressure validation: passed for this internal validation pass; see [[experiments/starter-kit-agent-pressure-validation]].
 - Readiness metric: `ready`; see [[metrics/knowledge-workflow-replacement-readiness]].
-- Non-blocking verification output: Vite reported chunk-size warnings, and macOS SDK discovery emitted sandbox-like `xcrun`/`xcodebuild` cache warnings; all validation commands exited successfully.
+- Non-blocking verification output: Vite reported chunk-size warnings; all validation commands exited successfully.
 
 ## Rollout Plan
 
@@ -79,7 +82,7 @@ The old `knowledge-workflow` skills are not product runtime requirements. Their 
 
 Draft release note:
 
-> Forma is now usable as the primary knowledge-management workflow for this repository's project knowledge, with configured spaces, schemas, guidelines, CLI checks, and starter-kit pressure validation as the review baseline.
+> Forma now supports the next internal onboarding path: initialize a minimal `.forma.md` workspace, use embedded Agent docs and workspace-projected skills, browse configured content through the read-only WebApp, and rely on generic read operations instead of task-specific helpers.
 
 ## Rollback Plan
 
