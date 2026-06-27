@@ -26,7 +26,7 @@ Use this guideline when you add, review, or reorder tasks in the workspace.
 
 ## Guidance
 
-1. Prefer tasks that unblock other work, reduce confusion for readers, or convert repeated discussion into durable knowledge.
+1. Prefer tasks that unblock other work, reduce confusion for readers, or convert repeated discussion into durable content.
 2. Keep each task narrow enough to finish in one review cycle. If it needs several independent outcomes, split it.
 3. Record task dependencies explicitly with `blockedBy` when the order matters.
 4. Keep exploratory ideas as small tasks or local notes until the team knows they belong in the shared workspace.

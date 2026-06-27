@@ -7,9 +7,9 @@ updatedAt: "2026-06-03T18:00:00Z"
 
 # 欢迎使用 Choral Forma
 
-Choral Forma 可以把一个本地 Markdown 文件夹变成只读知识浏览器。文件仍然是普通、可移植的 Markdown，WebApp 负责补充导航、引用、空间、保存视图和诊断信息。
+Choral Forma 可以把一个本地 Markdown 文件夹变成只读内容工作区。文件仍然是普通、可移植的 Markdown，WebApp 负责补充导航、引用、空间、保存视图和诊断信息。
 
-![Choral Forma knowledge workspace hero](../assets/markdown-hero.png)
+![Choral Forma content workspace hero](../assets/markdown-hero.png)
 
 ## 这个工作区展示什么
 
@@ -20,7 +20,7 @@ Choral Forma 可以把一个本地 Markdown 文件夹变成只读知识浏览器
 - [[notes/connect-pages|连接页面]] 展示链接、反向链接和图谱浏览。
 - [[notes/saved-views|保存视图]] 说明表格、列表、看板和图谱视图。
 - [[notes/create-pages|创建页面]] 展示未来的创建流程如何通过输入字段和模板描述。
-- [[guidelines/workspace-operations|指南]] 展示共享操作知识如何和笔记、任务一起维护。
+- [[guidelines/workspace-operations|指南]] 展示共享操作规范如何和笔记、任务一起维护。
 
 ## 建议的第一步
 

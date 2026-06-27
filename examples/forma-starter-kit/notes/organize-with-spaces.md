@@ -11,12 +11,12 @@ Spaces are not a hardcoded product partition. This starter kit configures `space
 
 | Space      | Term file                     | Includes             | Purpose                           |
 | ---------- | ----------------------------- | -------------------- | --------------------------------- |
-| Notes      | `.forma/spaces/notes.md`      | `notes/**/*.md`      | Guides and knowledge pages        |
+| Notes      | `.forma/spaces/notes.md`      | `notes/**/*.md`      | Guides and reference pages        |
 | Tasks      | `.forma/spaces/tasks.md`      | `tasks/**/*.md`      | Work items with owners and status |
 | Members    | `.forma/spaces/members.md`    | `members/**/*.md`    | People referenced by tasks        |
 | Guidelines | `.forma/spaces/guidelines.md` | `guidelines/**/*.md` | Shared operating guidance         |
 
-Each term defines its own matching rule, create flow, display conventions, and list-page template. The knowledge files remain normal Markdown with frontmatter.
+Each term defines its own matching rule, create flow, display conventions, and list-page template. The content files remain normal Markdown with frontmatter.
 
 ## Why Spaces Matter
 
@@ -28,6 +28,6 @@ The configured taxonomy gives the WebApp enough structure to power:
 - member and task references;
 - workspace diagnostics.
 
-For a real team workspace, start with a small taxonomy that matches how your team already organizes knowledge. You can add other taxonomies later without making `spaces` a special built-in concept.
+For a real team workspace, start with a small taxonomy that matches how your team already organizes durable content. You can add other taxonomies later without making `spaces` a special built-in concept.
 
 In this starter, the spaces also reinforce a practical workflow: tasks can refer to [[members/mira-chen|members]], and shared guidelines such as [[guidelines/task-selection|Task Selection]] stay close to the work they shape.

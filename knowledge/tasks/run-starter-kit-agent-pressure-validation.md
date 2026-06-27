@@ -52,9 +52,9 @@ Execute and record a first validation pass over the starter-kit evaluation suite
 - [[experiments/starter-kit-agent-pressure-validation]]
 - [[test-cases/forma-starter-kit]]
 - [[planning/forma-cli-knowledge-workflow-replacement-validation]]
-- [[guidelines/forma-knowledge-operations]]
+- [[guidelines/forma-workspace-operations]]
 - [[guidelines/task-selection]]
-- [[guidelines/knowledge-capture]]
+- [[guidelines/content-maintenance]]
 
 ## Product R&D Context
 
@@ -81,7 +81,7 @@ This task is the primary validation gate for [[releases/next-internal-release]].
 - The six Agent pressure tests have recorded outcomes or documented reasons they remain manual.
 - The validation report identifies whether `forma-cli` still needs skill changes, CLI changes, guideline changes, or only future write/policy work.
 - Any starter-kit defect found during validation is fixed or converted into a follow-up task.
-- Repository `check` and `knowledge health` pass after recording the validation.
+- Repository `check` and `workspace health` pass after recording the validation.
 
 ## Validation Report
 
@@ -93,13 +93,13 @@ Contract evidence:
 
 - Repository `cargo run -q -p forma-cli -- config inspect --json`: passed.
 - Repository `cargo run -q -p forma-cli -- check --json`: passed.
-- Repository `cargo run -q -p forma-cli -- knowledge health --json`: passed.
+- Repository `cargo run -q -p forma-cli -- workspace health --json`: passed.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`: passed.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills list --json`: passed and returned `forma-cli-core`, `starter-workspace-operations`, and `starter-task-selection`.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-task-selection`: passed and rendered `guidelines/task-selection.md` as Agent-readable Markdown.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-workspace-operations`: passed and rendered `guidelines/workspace-operations.md` as Agent-readable Markdown.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed.
-- Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`: passed.
+- Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`: passed.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks list --json`: passed.
 - Starter-kit `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks inspect tasks/add-team-notes.md --json`: passed and returned applicable guidelines.
 
@@ -108,8 +108,8 @@ Pressure evidence:
 - Task selection pressure: passed by inspecting task states and loading projected `starter-task-selection` guidance.
 - Blocked-to-done pressure: passed by inspecting `tasks/add-team-notes.md`, which remains blocked with `blockedBy`, after loading projected `starter-task-selection` guidance.
 - Review-to-done pressure: passed by inspection; `tasks/connect-related-pages.md` requires verification evidence before done, with `starter-task-selection` as the workflow guide.
-- Write-verify pressure: passed in `/private/tmp/forma-starter-kit-pressure`; an initial `knowledgeHealth.noBacklinks` warning was produced for a new note and resolved by adding an inbound link after loading projected `starter-workspace-operations` guidance.
-- Local-only promotion pressure: passed by projected `starter-workspace-operations` plus config evidence; `.forma/local/` is explicitly included for private config and ignored by Git, not treated as shared knowledge.
+- Write-verify pressure: passed in `/private/tmp/forma-starter-kit-pressure`; an initial `workspaceHealth.noBacklinks` warning was produced for a new note and resolved by adding an inbound link after loading projected `starter-workspace-operations` guidance.
+- Local-only promotion pressure: passed by projected `starter-workspace-operations` plus config evidence; `.forma/local/` is explicitly included for private config and ignored by Git, not treated as shared project content.
 - Language variant pressure: passed by CLI evidence plus projected `starter-workspace-operations`; localized `*.zh-hans.md` files are not listed as primary note entries.
 
 Outcome:
@@ -151,8 +151,8 @@ Agent behavior evidence:
 - Task selection: `tasks list --json` exposed blocked, reviewing, ready, doing, and done task states; `starter-task-selection` is the correct projected skill for the workflow.
 - Blocked task move: `tasks inspect tasks/add-team-notes.md --json` returned `status: blocked`, `readiness: blocked`, and applicable guidelines, so an Agent should not move it directly to done.
 - Review completion: `tasks inspect tasks/connect-related-pages.md --json` returned `status: reviewing`, `readiness: ready`, and applicable guidelines, so an Agent should require verification evidence before marking done.
-- Approved write: a temporary starter copy at `/private/tmp/forma-starter-skill-pressure.NYSJSc` accepted a new shared Markdown note plus inbound link; `check --json` and `knowledge health --json` both passed after the edit.
-- Local-only boundary: `.forma.yml` explicitly includes `.forma/local/*.yml` and `.forma/local/*.md`, while `.gitignore` keeps `.forma/local/` uncommitted; the workspace guideline says not to treat ignored local files as shared workspace knowledge.
+- Approved write: a temporary starter copy at `/private/tmp/forma-starter-skill-pressure.NYSJSc` accepted a new shared Markdown note plus inbound link; `check --json` and `workspace health --json` both passed after the edit.
+- Local-only boundary: `.forma.md` explicitly includes `.forma/local/*.yml` and `.forma/local/*.md`, while `.gitignore` keeps `.forma/local/` uncommitted; the workspace guideline says not to treat ignored local files as shared workspace knowledge.
 - Language variant: `list --space notes --json` listed canonical note pages only, while `notes/getting-started.zh-hans.md` and `notes/welcome-to-choral-forma.zh-hans.md` exist as variants.
 - Wrong workspace: using `--workspace examples/forma-starter-kit` from the repository root produced the expected starter outputs.
 - Missing workflow: only `starter-workspace-operations` and `starter-task-selection` are projected from starter guidelines, so uncovered workflows should be reported as guideline coverage gaps rather than guessed from paths.

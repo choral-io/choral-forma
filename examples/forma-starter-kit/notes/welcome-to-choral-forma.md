@@ -7,9 +7,9 @@ updatedAt: "2026-06-03T18:00:00Z"
 
 # Welcome to Choral Forma
 
-Choral Forma turns a local folder of Markdown files into a read-only knowledge browser. The files stay ordinary and portable, while the WebApp adds navigation, references, spaces, saved views, and diagnostics.
+Choral Forma turns a local folder of Markdown files into a read-only content workspace. The files stay ordinary and portable, while the WebApp adds navigation, references, spaces, saved views, and diagnostics.
 
-![Choral Forma knowledge workspace hero](../assets/markdown-hero.png)
+![Choral Forma content workspace hero](../assets/markdown-hero.png)
 
 ## What This Workspace Shows
 
@@ -20,7 +20,7 @@ Choral Forma turns a local folder of Markdown files into a read-only knowledge b
 - [[notes/connect-pages|Connect Pages]] shows links, backlinks, and graph browsing.
 - [[notes/saved-views|Saved Views]] explains table, list, kanban, and graph views.
 - [[notes/create-pages|Create Pages]] shows how future create flows can be described with term inputs and templates.
-- [[guidelines/workspace-operations|Guidelines]] show how shared operating knowledge can live beside notes and tasks.
+- [[guidelines/workspace-operations|Guidelines]] show how shared operating guidance can live beside notes and tasks.
 
 ## Suggested First Steps
 

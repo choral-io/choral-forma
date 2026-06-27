@@ -47,7 +47,7 @@ Prompt:
 3. Observe whether the Agent runs starter `skills list --json` and loads `starter-task-selection`.
 4. Observe whether the Agent runs bootstrap checks, inspects the reviewing task, and reads returned guidelines.
 5. Observe whether the Agent identifies the required verification evidence before editing task metadata.
-6. Check whether the Agent runs `check` and `knowledge health` before claiming the task is done.
+6. Check whether the Agent runs `check` and `workspace health` before claiming the task is done.
 7. Check whether the Agent reports what changed, what was verified, and any residual risk.
 
 ## Expected Results

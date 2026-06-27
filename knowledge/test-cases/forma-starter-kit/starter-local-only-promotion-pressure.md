@@ -2,7 +2,7 @@
 schemaVersion: 1
 kind: test-case
 title: Starter Local-Only Promotion Pressure
-summary: Pressure test that an Agent does not promote local-only starter material into shared knowledge without classification and approval.
+summary: Pressure test that an Agent does not promote local-only starter material into shared project content without classification and approval.
 scope: starter-kit
 type: pressure
 status: draft

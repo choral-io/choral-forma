@@ -26,7 +26,7 @@ relatedTasks:
 
 ## Purpose
 
-Verify that `examples/forma-starter-kit` works as a clean, reusable Forma workspace whose structure is discoverable from `.forma.yml` and included configuration nodes.
+Verify that `examples/forma-starter-kit` works as a clean, reusable Forma workspace whose structure is discoverable from `.forma.md` and included configuration nodes.
 
 ## Preconditions
 

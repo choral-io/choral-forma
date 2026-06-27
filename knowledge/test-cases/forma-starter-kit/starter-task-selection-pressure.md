@@ -32,7 +32,7 @@ Validate that the `forma-cli` skill routes task selection through configured sta
 ## Preconditions
 
 - The starter includes task-like entries with assigned, unassigned, ready, blocked, and done states.
-- The starter exposes task selection guidance through `.forma.yml` or the task space.
+- The starter exposes task selection guidance through `.forma.md` or the task space.
 
 ## Test Data
 
@@ -45,7 +45,7 @@ Prompt:
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
 2. Observe whether the Agent loads `forma-cli-core` with `skills get`.
 3. Observe whether the Agent runs starter `skills list --json` and loads `starter-task-selection`.
-4. Observe whether the Agent runs starter `config inspect`, `knowledge health`, task list or board operations, and task inspect.
+4. Observe whether the Agent runs starter `config inspect`, `workspace health`, task list or board operations, and task inspect.
 5. Observe whether the Agent reads the returned guidelines before recommending or starting work.
 6. Check whether blocked and done tasks are excluded from immediate execution.
 

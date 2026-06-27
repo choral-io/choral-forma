@@ -7,7 +7,7 @@ updatedAt: "2026-06-03T18:00:00Z"
 
 # Getting Started
 
-This example workspace lives under `examples/forma-starter-kit`. It is shaped around a single `.forma.yml` entry plus ordinary Markdown pages.
+This example workspace lives under `examples/forma-starter-kit`. It is shaped around a single `.forma.md` entry plus ordinary Markdown pages.
 
 ## Serve The WebApp
 
@@ -19,15 +19,15 @@ Open the printed local URL in your browser. The WebApp uses the same workspace f
 
 ## How It Works
 
-Forma reads `.forma.yml`, follows its includes, scans the configured Markdown files, and builds the read model for pages, taxonomies, views, references, diagnostics, and WebApp navigation context.
+Forma reads `.forma.md`, follows its includes, scans the configured Markdown files, and builds the read model for pages, taxonomies, views, references, diagnostics, and WebApp navigation context.
 
 The starter does not use a committed persistent index. When the local server starts, it can rebuild the read model from repository files.
 
 ## Language Variants
 
-The starter declares `en` and `zh-Hans` in `.forma.yml`. Files such as `notes/getting-started.zh-hans.md` are language variants of their canonical pages, not separate guide pages.
+The starter declares `en` and `zh-Hans` in `.forma.md`. Files such as `notes/getting-started.zh-hans.md` are language variants of their canonical pages, not separate guide pages.
 
-## Knowledge Health
+## Workspace Health
 
 The WebApp can surface diagnostics from the read model. Health checks should help readers notice configuration, parsing, reference, and view issues without requiring them to inspect every file manually.
 

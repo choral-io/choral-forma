@@ -7,7 +7,7 @@ updatedAt: "2026-06-03T18:00:00Z"
 
 # Core Concepts
 
-Choral Forma starts with ordinary Markdown files and adds just enough structure for a read-only knowledge browser.
+Choral Forma starts with ordinary Markdown files and adds just enough structure for a read-only content workspace.
 
 ## Page
 

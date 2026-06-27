@@ -20,7 +20,7 @@ Long inline values should wrap naturally, including paths such as `examples/form
 - Keep notes short and scannable.
 - Link related pages when the relationship matters.
   - Nested lists are useful for examples and checklists.
-  - Inline code such as `.forma.yml` should remain readable.
+  - Inline code such as `.forma.md` should remain readable.
 
 1. Edit Markdown files in your normal editor.
 2. Run the local Forma server.
@@ -57,6 +57,6 @@ const sourceOfTruth = "repository-markdown";
 
 Images can live beside the Markdown files and be referenced with ordinary relative paths.
 
-![Choral Forma knowledge workspace hero](../assets/markdown-hero.png)
+![Choral Forma content workspace hero](../assets/markdown-hero.png)
 
 When you are done here, jump back to [[notes/welcome-to-choral-forma|Welcome to Choral Forma]] or continue to [[notes/saved-views|Saved Views]].

@@ -17,7 +17,7 @@ Use standard Markdown links when you want editor-agnostic portability:
 - [Markdown Reader](./markdown-reader.md)
 - [Workspace Operations](../guidelines/workspace-operations.md)
 
-Use wikilinks when that is natural for your local knowledge workflow:
+Use wikilinks when that is natural for your local content workflow:
 
 - [[notes/welcome-to-choral-forma|Welcome to Choral Forma]]
 - [[notes/saved-views|Saved Views]]

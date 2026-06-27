@@ -52,7 +52,7 @@ Align the backend configuration loader, read model, shared TypeScript contracts,
 
 ## Context
 
-The starter kit demonstrates the intended first public configuration shape: `.forma.yml` is the root configuration entry, `.forma/` is only a conventional support directory, Markdown configuration nodes carry frontmatter configuration plus body render templates, and ordinary views use `source.type: pages` with taxonomy filters and `field` bindings.
+The starter kit demonstrates the intended first public configuration shape: `.forma.md` is the root configuration entry, `.forma/` is only a conventional support directory, Markdown configuration nodes carry frontmatter configuration plus body render templates, and ordinary views use `source.type: pages` with taxonomy filters and `field` bindings.
 
 The backend and WebApp should stay aligned with that baseline without preserving compatibility paths for earlier unshipped config shapes. No stable public config contract has shipped yet, so stale assumptions should be removed from product-facing behavior rather than retained as aliases.
 
@@ -60,8 +60,8 @@ This task should preserve the current user-facing "Spaces" experience for the st
 
 ## In Scope
 
-- Load `.forma.yml` as the main workspace configuration entry.
-- Resolve `.forma.yml` `include` patterns for committed Markdown configuration nodes and local extension points.
+- Load `.forma.md` as the main workspace configuration entry.
+- Resolve `.forma.md` `include` patterns for committed Markdown configuration nodes and local extension points.
 - Parse Markdown configuration node frontmatter for dashboard, taxonomy, term, view, and template-adjacent configuration.
 - Project the starter `spaces` taxonomy into the current backend compatibility surface until the final runtime object model is designed.
 - Discover pages from configured taxonomy term include patterns.
@@ -84,8 +84,8 @@ This task should preserve the current user-facing "Spaces" experience for the st
 
 ## Acceptance Criteria
 
-- `forma check` succeeds against `examples/forma-starter-kit/` through the new `.forma.yml`-based loader.
-- The backend uses the `.forma.yml` include-driven starter-kit baseline without requiring separate registry files.
+- `forma check` succeeds against `examples/forma-starter-kit/` through the new `.forma.md`-based loader.
+- The backend uses the `.forma.md` include-driven starter-kit baseline without requiring separate registry files.
 - Legacy starter/config/view shapes are removed from product-facing starter generation, operation fixtures, shared contracts, and WebApp mapping code.
 - Starter taxonomy terms are discovered as page classification inputs without treating `spaces` as a built-in product primitive.
 - Starter views under `examples/forma-starter-kit/.forma/views/*.md` are discovered from top-level Markdown frontmatter.
@@ -113,10 +113,10 @@ It is related to the completed view-source/query alignment work, but it should n
 
 - `mise run check` passed.
 - `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json` passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json` passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json` passed with 0 errors and 0 warnings.
 - `cargo run -q -p forma-cli -- check --json` passed for the project workspace.
 - `git diff --check` passed.
-- Project `knowledge health` still reports 8 existing warning-level graph/connectivity findings outside the starter-kit change scope.
+- Project `workspace health` still reports 8 existing warning-level graph/connectivity findings outside the starter-kit change scope.
 
 ## Open Questions
 

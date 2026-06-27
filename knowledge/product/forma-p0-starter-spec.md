@@ -24,7 +24,7 @@ This starter specification stays aligned with [Product direction](product-direct
 
 The starter baseline is include-driven and Markdown-first:
 
-- `.forma.yml` is the single committed configuration entry point.
+- `.forma.md` is the single committed configuration entry point.
 - `.forma/` is a conventional support directory for dashboard, spaces, templates, views, and local-only overrides. It is not a hidden workspace root or persistent store.
 - Markdown under content directories remains the source of truth.
 - No committed persistent index is part of the starter.
@@ -63,18 +63,18 @@ Starter task readiness uses these values:
 
 The committed example workspace demonstrates canonical `en` content plus `zh-Hans` variants where useful for the starter tour.
 
-Future initialization may choose a single configured language in `.forma.yml`. It does not need to generate multilingual starter content by default.
+Future initialization may choose a single configured language in `.forma.md`. It does not need to generate multilingual starter content by default.
 
 ## Current Init And Future Starter Installation
 
 Current `forma init` creates only:
 
-- `.forma.yml`
+- `.forma.md`
 - `.agents/skills/forma-cli/SKILL.md`
 
 Future starter-kit installation should be derived from an explicit starter/template source and should create or copy a minimal workspace shape equivalent to:
 
-- `.forma.yml`
+- `.forma.md`
 - `.forma/dashboard.md`
 - `.forma/spaces/index.md`
 - `.forma/spaces/{notes,tasks,members,guidelines}.md`
@@ -91,7 +91,7 @@ Future initialization does not need to copy:
 
 ## Config Shape
 
-Starter `.forma.yml` uses include-based config:
+Starter `.forma.md` uses include-based config:
 
 ```yaml
 schemaVersion: 1
@@ -134,7 +134,7 @@ The starter should expose:
 - a task kanban view using the status lifecycle above;
 - notes and members table views;
 - graph, guide, and recent-work views;
-- a dashboard that surfaces workspace overview, recent pages, and knowledge health.
+- a dashboard that surfaces workspace overview, recent pages, and workspace health.
 
 The generated workspace can stay empty when initialization returns. The committed example workspace remains the richer demo and smoke-validation baseline.
 

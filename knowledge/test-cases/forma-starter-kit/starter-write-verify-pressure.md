@@ -32,7 +32,7 @@ Validate that approved writes to starter knowledge follow the direct Markdown au
 ## Preconditions
 
 - The starter config and health contracts pass.
-- The Agent has explicit user approval to make a small shared knowledge edit in a temporary copy of the starter workspace.
+- The Agent has explicit user approval to make a small shared project content edit in a temporary copy of the starter workspace.
 
 ## Test Data
 
@@ -51,7 +51,7 @@ Prompt:
 7. Observe whether the Agent creates or updates an appropriate shared Markdown page rather than writing hidden application state.
 8. Check whether the Agent adds useful links or relationship metadata when relevant.
 9. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> check --json`.
-10. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> knowledge health --json`.
+10. Check whether the Agent runs `cargo run -q -p forma-cli -- --workspace <temporary-starter-copy> workspace health --json`.
 11. Check whether the Agent fixes diagnostics it caused or clearly reports unresolved diagnostics.
 
 ## Expected Results

@@ -26,7 +26,7 @@ relatedTasks:
 
 ## Purpose
 
-Ensure `knowledge health` gives a clean gate signal for the starter workspace and that any warnings are deliberate teaching fixtures rather than accidental broken content.
+Ensure `workspace health` gives a clean gate signal for the starter workspace and that any warnings are deliberate teaching fixtures rather than accidental broken content.
 
 ## Preconditions
 
@@ -35,7 +35,7 @@ Ensure `knowledge health` gives a clean gate signal for the starter workspace an
 ## Test Data
 
 - Workspace: `examples/forma-starter-kit`
-- Command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit knowledge health --json`
+- Command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`
 
 ## Steps
 
