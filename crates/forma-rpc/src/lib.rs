@@ -34,6 +34,8 @@ pub enum Operation {
     TasksInspect,
     #[serde(rename = "create")]
     Create,
+    #[serde(rename = "init")]
+    Init,
     #[serde(rename = "view.render")]
     ViewRender,
     #[serde(rename = "file.render")]
@@ -61,6 +63,7 @@ impl Operation {
             Self::BoardShow => "board.show",
             Self::TasksInspect => "tasks.inspect",
             Self::Create => "create",
+            Self::Init => "init",
             Self::ViewRender => "view.render",
             Self::FileRender => "file.render",
             Self::FileReferences => "file.references",
@@ -83,6 +86,7 @@ pub enum OperationRequest {
     BoardShow(BoardShowRequest),
     TasksInspect(TasksInspectRequest),
     Create(CreateRequest),
+    Init(InitRequest),
     ViewRender(ViewRenderRequest),
     FileRender(FileRenderRequest),
     FileReferences(FileReferencesRequest),
@@ -157,6 +161,18 @@ pub struct CreateRequest {
     pub space: String,
     #[serde(default)]
     pub inputs: BTreeMap<String, serde_yml::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct InitRequest {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
+    #[serde(default)]
+    pub timezone: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -312,6 +328,17 @@ impl Dispatcher {
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::Create, error)))
             }
+            OperationRequest::Init(request) => forma_core::init_workspace(
+                root,
+                request
+                    .name
+                    .as_deref()
+                    .unwrap_or("Untitled Forma Workspace"),
+                request.language.as_deref().unwrap_or("en"),
+                request.timezone.as_deref().unwrap_or("UTC"),
+            )
+            .map(OperationResult::from)
+            .or_else(|error| Ok(core_error_result(Operation::Init, error))),
             OperationRequest::ViewRender(request) => {
                 forma_core::render_view(root, &request.view, request.params)
                     .map(OperationResult::from)
@@ -542,6 +569,15 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "init" => serde_json::from_value::<InitRequest>(params)
+            .map(OperationRequest::Init)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         "view.render" => serde_json::from_value::<ViewRenderRequest>(params)
             .map(OperationRequest::ViewRender)
             .map_err(|_| {
@@ -697,6 +733,23 @@ impl From<forma_core::CreateResult> for OperationResult {
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("created".to_string(), json!(result.created));
         data.insert("inputs".to_string(), json!(result.inputs));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::InitResult> for OperationResult {
+    fn from(result: forma_core::InitResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("writtenPaths".to_string(), json!(result.written_paths));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1189,6 +1242,25 @@ mod tests {
             response["result"]["summary"],
             json!({"errors":1,"warnings":0,"infos":0})
         );
+    }
+
+    #[test]
+    fn json_rpc_dispatches_init() {
+        let root = fixture_root("init-rpc");
+        fs::create_dir_all(&root).unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"init","params":{"name":"Acme Knowledge"}}"#,
+        );
+
+        assert_eq!(response["result"]["operation"], "init");
+        assert_eq!(response["result"]["status"], "passed");
+        assert_eq!(response["result"]["workspace"]["name"], "Acme Knowledge");
+        assert!(root.join(".forma.yml").is_file());
+        assert!(root.join(".agents/skills/forma-cli/SKILL.md").is_file());
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

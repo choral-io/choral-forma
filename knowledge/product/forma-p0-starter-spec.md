@@ -16,7 +16,7 @@ tags:
 
 Define the P0 starter workspace shape for Choral Forma.
 
-`examples/forma-starter-kit/` is the accepted copyable example workspace baseline. The CLI no longer exposes workspace initialization in P0; future initialization should be redesigned from the committed starter-kit or another explicit template source instead of maintaining a duplicated embedded starter.
+`examples/forma-starter-kit/` is the accepted copyable example workspace baseline. Current `forma init` is bootstrap-only and does not install this starter. Future starter-kit initialization should be redesigned from the committed starter-kit or another explicit template source instead of maintaining a duplicated embedded starter.
 
 This starter specification stays aligned with [Product direction](product-direction.md) and [Forma P0 core architecture](../decisions/forma-p0-core-architecture.md).
 
@@ -65,9 +65,14 @@ The committed example workspace demonstrates canonical `en` content plus `zh-Han
 
 Future initialization may choose a single configured language in `.forma.yml`. It does not need to generate multilingual starter content by default.
 
-## Future Initialization Scope
+## Current Init And Future Starter Installation
 
-Initialization is temporarily not exposed through the CLI or JSON-RPC API. When it returns, it should be derived from an explicit starter/template source and should create or copy a minimal workspace shape equivalent to:
+Current `forma init` creates only:
+
+- `.forma.yml`
+- `.agents/skills/forma-cli/SKILL.md`
+
+Future starter-kit installation should be derived from an explicit starter/template source and should create or copy a minimal workspace shape equivalent to:
 
 - `.forma.yml`
 - `.forma/dashboard.md`

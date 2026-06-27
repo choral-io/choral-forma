@@ -37,7 +37,7 @@ Before task, review, audit, or knowledge work, Agents should run:
 - `cargo run -q -p forma-cli -- config inspect --json`
 - `cargo run -q -p forma-cli -- knowledge health --json`
 
-The built-in `forma-cli-core` guide is packaged with the Forma binary from the code asset `crates/forma-core/assets/skills/forma-cli-core.md`. It is a code asset, not a project knowledge guideline, and does not need to be listed in `.forma.yml`.
+The built-in `forma-cli-core` guide is packaged with the Forma binary from the product documentation source `docs/agents/forma-cli-core.md`. It is embedded product documentation, not a project knowledge guideline, and does not need to be listed in `.forma.yml`.
 
 Agents should then use `cargo run -q -p forma-cli -- skills list --json` to discover workspace-projected skills and load guideline files declared by `config inspect` before task, board, review, proposal, or shared knowledge operations. Guidelines may include general rules as well as workflow-specific procedures.
 

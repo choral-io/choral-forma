@@ -57,11 +57,16 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 | KnowledgeHealth | `knowledge.health` | `forma knowledge health [--json]` | No |
 | SkillsList | `skills.list` | `forma skills list [--json]` | No |
 | SkillsGet | `skills.get` | `forma skills get <id> [--json]` | No |
+| Init | `init` | `forma init [--name <name>] [--language <tag>] [--timezone <tz>] [--json]` | Yes |
 | Create | `create` | `forma create <space> [--input <name=value>]... [--json]` | Yes |
 | ViewRender | `view.render` | No required P0 CLI command | No |
 | Serve | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...` | No |
 
 `Serve` is a CLI mode, not a domain operation. The server exposes operation methods through `POST /rpc` and serves static WebApp assets. It may compute diagnostics in memory and expose check status through operation results, but it must not write files in P0.
+
+`forma docs list` and `forma docs get <id>` are local CLI documentation surfaces over embedded product docs. They are not workspace operations and do not require JSON-RPC methods in P0.
+
+`Init` is a bootstrap operation. In P0 it writes only `.forma.yml` and `.agents/skills/forma-cli/SKILL.md`, and it must refuse to overwrite existing target files. It does not install starter-kit content or infer a knowledge structure.
 
 `ViewRender` is required for the P0 WebApp and local HTTP API so the GUI can render page, table, and kanban views. View metadata should also allow graph views to be discovered even when P0 does not yet render an interactive graph. A direct CLI command for view rendering can wait until there is product demand.
 
@@ -115,7 +120,8 @@ CLI adapters should gate write operations by risk and predictability.
 
 P0 command classification:
 
-- Workspace initialization is temporarily not exposed in P0. When it returns, it should require confirmation because it creates workspace structure and configuration.
+- Bootstrap-only `forma init` may proceed without confirmation when target paths do not exist because it writes a small, predictable set of files and refuses overwrites.
+- Future starter-kit installation should require confirmation because it creates broader workspace structure and configuration.
 - `forma create` does not require confirmation in P0 because it writes one new entry, uses space-defined inputs and templates, and fails on path conflicts.
 - `forma refresh` or an equivalent in-memory read-model rebuild operation does not require confirmation because it writes nothing by default.
 - `forma check`, `forma config inspect`, `forma inspect`, `forma list`, and `forma serve` do not require confirmation because they are read-only in P0.

@@ -1,5 +1,6 @@
 pub mod config;
 pub mod diagnostics;
+pub mod docs;
 pub mod index;
 pub mod markdown;
 pub mod operations;
@@ -13,6 +14,7 @@ pub use config::{
 pub use diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
 };
+pub use docs::{DocsError, EmbeddedDoc, EmbeddedSkill, embedded_doc, embedded_docs};
 pub use index::{
     CheckResult, Discovery, IndexEntry, IndexReference, IndexSpace, IndexView, IndexWorkspace,
     ReferenceIntent, ReferenceSource, SummaryIndex, check_workspace, discover_workspace,
@@ -24,15 +26,16 @@ pub use markdown::{
 pub use operations::{
     BoardColumn, BoardShowResult, ConfigInspectResult, ConfigSource, CreateInputResult,
     CreateInputSource, CreateResult, CreatedEntry, DashboardEntrySummary, DashboardSpace,
-    DashboardViewSummary, FileReferencesResult, FilesListResult, InspectEntry, InspectResult,
-    ListEntry, ListResult, ListedSpace, OperationError, ReferenceEdge, ReferenceFile, SkillDetail,
-    SkillSource, SkillSummary, SkillsGetResult, SkillsListResult, TaskSummary, TasksInspectResult,
-    TasksListResult, WorkspaceDashboardResult, WorkspaceFile, WorkspaceFileFeature,
-    WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary, board_show, create_entry,
-    detect_environment_timezone, inspect_config, inspect_entry_by_path, inspect_entry_by_space,
-    is_public_workspace_path_allowed, is_raw_workspace_path_allowed, list_file_references,
-    list_files, list_space, media_type_for_workspace_path, operation_error_diagnostic, skills_get,
-    skills_list, tasks_inspect, tasks_list, workspace_dashboard,
+    DashboardViewSummary, FileReferencesResult, FilesListResult, InitResult, InspectEntry,
+    InspectResult, ListEntry, ListResult, ListedSpace, OperationError, ReferenceEdge,
+    ReferenceFile, SkillDetail, SkillSource, SkillSummary, SkillsGetResult, SkillsListResult,
+    TaskSummary, TasksInspectResult, TasksListResult, WorkspaceDashboardResult, WorkspaceFile,
+    WorkspaceFileFeature, WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary, board_show,
+    create_entry, detect_environment_timezone, init_workspace, inspect_config,
+    inspect_entry_by_path, inspect_entry_by_space, is_public_workspace_path_allowed,
+    is_raw_workspace_path_allowed, list_file_references, list_files, list_space,
+    media_type_for_workspace_path, operation_error_diagnostic, skills_get, skills_list,
+    tasks_inspect, tasks_list, workspace_dashboard,
 };
 pub use path::{
     FORMA_CONFIG_PATH, PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,

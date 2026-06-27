@@ -105,6 +105,24 @@ cargo run -p forma-cli -- --workspace examples/forma-starter-kit serve
 
 Then open the printed local URL in a browser. Release builds embed the WebApp assets in the `forma` binary; development builds may show the embedded asset placeholder until `packages/webapp` has been built.
 
+## Start An Empty Workspace
+
+Use `forma init` in an empty or ordinary project directory to create the minimal Forma bootstrap:
+
+```sh
+forma init --name "Acme Knowledge"
+```
+
+The command writes only `.forma.yml` and `.agents/skills/forma-cli/SKILL.md`, and refuses to overwrite existing bootstrap files. It does not copy the starter kit, create default spaces, edit `AGENTS.md`, or generate canonical `skills/` sources.
+
+After initialization, use the embedded Agent guide and checks:
+
+```sh
+forma skills get forma-cli-core
+forma check --json
+forma docs list
+```
+
 ## Installing Forma
 
 P0 releases are distributed as GitHub Release artifacts. Release builds embed the built WebApp assets into the Rust binary, so end users do not need Node.js, pnpm, Vite, or another frontend runtime to run `forma serve`.

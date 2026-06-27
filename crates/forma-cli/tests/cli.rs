@@ -174,8 +174,162 @@ fn skills_get_builtin_core_prints_markdown_without_workspace_config() {
     assert!(stdout.contains("# Forma CLI Core"));
     assert!(stdout.contains("Run Forma commands from the target workspace root."));
     assert!(stdout.contains("Built-in skill: forma-cli-core"));
+    assert!(stdout.contains("Empty Workspace Setup"));
+    assert!(stdout.contains("Do not create `skills/forma-cli/SKILL.md`"));
     assert!(stdout.contains("forma skills list --json"));
     assert!(!stdout.contains(r#""operation":"skills.get""#));
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn docs_list_and_get_expose_embedded_product_docs() {
+    let root = fixture_root("docs-list-get");
+    std::fs::create_dir_all(&root).unwrap();
+
+    let list = forma(&root)
+        .args(["docs", "list", "--json"])
+        .output()
+        .expect("forma docs list should run");
+
+    assert!(
+        list.status.success(),
+        "{}",
+        String::from_utf8_lossy(&list.stderr)
+    );
+    assert!(list.stderr.is_empty());
+    let list_stdout = String::from_utf8_lossy(&list.stdout);
+    assert!(list_stdout.contains(r#""operation":"docs.list""#));
+    assert!(list_stdout.contains(r#""id":"workspace.configuration""#));
+    assert!(list_stdout.contains(r#""id":"agents.forma-cli-core""#));
+
+    let get = forma(&root)
+        .args(["docs", "get", "workspace.configuration"])
+        .output()
+        .expect("forma docs get should run");
+
+    assert!(
+        get.status.success(),
+        "{}",
+        String::from_utf8_lossy(&get.stderr)
+    );
+    assert!(get.stderr.is_empty());
+    let get_stdout = String::from_utf8_lossy(&get.stdout);
+    assert!(get_stdout.contains("# Workspace Configuration"));
+    assert!(get_stdout.contains("workspace-relative POSIX paths"));
+    assert!(!get_stdout.contains(r#""operation":"docs.get""#));
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn init_creates_minimal_workspace_and_agent_runtime_skill() {
+    let root = fixture_root("init-minimal-workspace");
+    std::fs::create_dir_all(&root).unwrap();
+
+    let output = forma(&root)
+        .args(["init", "--name", "Acme Knowledge", "--json"])
+        .output()
+        .expect("forma init should run");
+
+    assert!(
+        output.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+    let stdout: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(stdout["operation"], "init");
+    assert_eq!(stdout["status"], "passed");
+    assert_eq!(stdout["workspace"]["name"], "Acme Knowledge");
+    assert!(
+        stdout["writtenPaths"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|path| path == ".forma.yml")
+    );
+    assert!(
+        stdout["writtenPaths"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|path| path == ".agents/skills/forma-cli/SKILL.md")
+    );
+
+    let config = std::fs::read_to_string(root.join(".forma.yml")).unwrap();
+    assert!(config.contains("name: \"Acme Knowledge\""));
+    assert!(config.contains("canonicalLanguage: \"en\""));
+    assert!(config.contains("- \".forma/spaces/*.md\""));
+    assert!(!root.join("skills/forma-cli/SKILL.md").exists());
+    assert!(!root.join("AGENTS.md").exists());
+
+    let skill = std::fs::read_to_string(root.join(".agents/skills/forma-cli/SKILL.md")).unwrap();
+    assert!(skill.contains("name: forma-cli"));
+    assert!(skill.contains("forma skills get forma-cli-core"));
+    assert!(skill.contains("workspace root"));
+
+    let inspect = forma(&root)
+        .args(["config", "inspect", "--json"])
+        .output()
+        .expect("forma config inspect should run after init");
+    assert!(
+        inspect.status.success(),
+        "{}",
+        String::from_utf8_lossy(&inspect.stderr)
+    );
+    let inspect_stdout = String::from_utf8_lossy(&inspect.stdout);
+    assert!(inspect_stdout.contains(r#""operation":"config.inspect""#));
+    assert!(inspect_stdout.contains(r#""name":"Acme Knowledge""#));
+
+    let check = forma(&root)
+        .args(["check", "--json"])
+        .output()
+        .expect("forma check should run after init");
+    assert!(
+        check.status.success(),
+        "{}",
+        String::from_utf8_lossy(&check.stderr)
+    );
+    assert!(String::from_utf8_lossy(&check.stdout).contains(r#""status":"passed""#));
+
+    let skills = forma(&root)
+        .args(["skills", "list", "--json"])
+        .output()
+        .expect("forma skills list should run after init");
+    assert!(
+        skills.status.success(),
+        "{}",
+        String::from_utf8_lossy(&skills.stderr)
+    );
+    assert!(String::from_utf8_lossy(&skills.stdout).contains(r#""id":"forma-cli-core""#));
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn init_refuses_existing_config_without_overwriting() {
+    let root = fixture_root("init-existing-config");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join(".forma.yml"), "existing: true\n").unwrap();
+
+    let output = forma(&root)
+        .args(["init", "--name", "Acme Knowledge", "--json"])
+        .output()
+        .expect("forma init should run");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(r#""operation":"init""#));
+    assert!(stdout.contains(r#""status":"failed""#));
+    assert!(stdout.contains(r#""code":"init.pathExists""#));
+    assert_eq!(
+        std::fs::read_to_string(root.join(".forma.yml")).unwrap(),
+        "existing: true\n"
+    );
+    assert!(!root.join(".agents/skills/forma-cli/SKILL.md").exists());
 
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -870,25 +1024,6 @@ fn create_reports_path_conflicts_and_unknown_inputs_as_json_failures() {
     let unknown_stdout = String::from_utf8_lossy(&unknown.stdout);
     assert!(unknown_stdout.contains(r#""status":"failed""#));
     assert!(unknown_stdout.contains(r#""code":"operation.inputInvalid""#));
-
-    std::fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
-fn init_subcommand_is_not_available() {
-    let root = fixture_root("init-disabled");
-    std::fs::create_dir_all(&root).unwrap();
-
-    let output = forma(&root)
-        .args(["init", "--name", "Acme Knowledge"])
-        .output()
-        .unwrap();
-
-    assert!(!output.status.success());
-    assert!(output.stdout.is_empty());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("unrecognized subcommand 'init'"));
-    assert!(!root.join(".forma").exists());
 
     std::fs::remove_dir_all(root).unwrap();
 }

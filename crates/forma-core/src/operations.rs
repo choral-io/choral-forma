@@ -11,6 +11,7 @@ use crate::config::{
     ConfigError, LoadMode, WorkspaceConfig, WorkspaceSettings, config_source_paths, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
+use crate::docs::embedded_doc;
 use crate::index::{
     IndexEntry, IndexReference, ReferenceIntent, ReferenceSource, config_error_diagnostic,
     discover_workspace,
@@ -20,8 +21,6 @@ use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
 };
-
-const FORMA_CLI_CORE_SKILL: &str = include_str!("../assets/skills/forma-cli-core.md");
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -109,6 +108,18 @@ pub struct CreateResult {
     pub workspace: WorkspaceSummary,
     pub created: CreatedEntry,
     pub inputs: BTreeMap<String, CreateInputResult>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InitResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub written_paths: Vec<String>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -661,6 +672,80 @@ pub fn create_entry(
             template: space.template.clone(),
         },
         inputs,
+        summary,
+        diagnostics,
+    })
+}
+
+pub fn init_workspace(
+    root: impl AsRef<Path>,
+    name: &str,
+    canonical_language: &str,
+    timezone: &str,
+) -> Result<InitResult, OperationError> {
+    let root = root.as_ref();
+    let workspace_name = if name.trim().is_empty() {
+        "Untitled Forma Workspace"
+    } else {
+        name.trim()
+    };
+    let language = if canonical_language.trim().is_empty() {
+        "en"
+    } else {
+        canonical_language.trim()
+    };
+    let timezone = if timezone.trim().is_empty() {
+        "UTC"
+    } else {
+        timezone.trim()
+    };
+
+    let target_paths = [FORMA_CONFIG_PATH, ".agents/skills/forma-cli/SKILL.md"];
+    let existing = target_paths
+        .iter()
+        .find(|path| root.join(path).exists())
+        .copied();
+
+    if let Some(path) = existing {
+        let diagnostics = vec![
+            Diagnostic::error("init.pathExists", "Initialization target already exists.")
+                .with_path(path)
+                .with_expected("Run init in a directory without existing Forma bootstrap files."),
+        ];
+        let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+        return Ok(InitResult {
+            schema_version: 1,
+            operation: "init".to_string(),
+            status: summary.status(),
+            workspace: WorkspaceSummary {
+                root: ".".to_string(),
+                name: workspace_name.to_string(),
+                logo: None,
+            },
+            written_paths: Vec::new(),
+            summary,
+            diagnostics,
+        });
+    }
+
+    let config = minimal_config_source(workspace_name, language, timezone);
+    let skill = forma_cli_runtime_skill_source();
+
+    write_workspace_file(root, FORMA_CONFIG_PATH, &config)?;
+    write_workspace_file(root, ".agents/skills/forma-cli/SKILL.md", skill)?;
+
+    let diagnostics = Vec::new();
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+    Ok(InitResult {
+        schema_version: 1,
+        operation: "init".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace_name.to_string(),
+            logo: None,
+        },
+        written_paths: target_paths.iter().map(|path| path.to_string()).collect(),
         summary,
         diagnostics,
     })
@@ -2089,19 +2174,21 @@ struct SkillMetadata {
 }
 
 fn builtin_skills() -> Vec<SkillDetail> {
+    let doc = embedded_doc("agents.forma-cli-core")
+        .expect("embedded docs should parse")
+        .expect("forma-cli-core embedded doc should exist");
+    let skill = doc
+        .skill
+        .expect("forma-cli-core embedded doc should declare skill metadata");
     vec![SkillDetail {
-        id: "forma-cli-core".to_string(),
-        title: "Forma CLI Core".to_string(),
-        description: "Use to bootstrap Forma CLI knowledge operations and discover workspace-projected skills.".to_string(),
+        id: skill.id,
+        title: skill.title,
+        description: skill.description,
         source: SkillSource::BuiltIn,
         source_path: "builtin:forma-cli-core".to_string(),
-        triggers: vec![
-            "forma cli".to_string(),
-            "knowledge operations".to_string(),
-            "discover workspace skills".to_string(),
-        ],
-        order: Some(0),
-        content: FORMA_CLI_CORE_SKILL.to_string(),
+        triggers: skill.triggers,
+        order: skill.order,
+        content: builtin_skill_markdown_content("builtin:forma-cli-core", &doc.body),
     }]
 }
 
@@ -2143,6 +2230,89 @@ fn skill_markdown_content(source_path: &str, document: &FormaMarkdownDocument) -
     format!(
         "---\nsource: {source_path}\n---\n\n<!-- Source guideline: {source_path} -->\n\n{body}\n"
     )
+}
+
+fn builtin_skill_markdown_content(source_path: &str, body: &str) -> String {
+    let body = body.trim_start_matches('\n').trim_end();
+    format!("---\nsource: {source_path}\n---\n\n{body}\n")
+}
+
+fn write_workspace_file(root: &Path, path: &str, content: &str) -> Result<(), OperationError> {
+    let target = root.join(path);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|source| ConfigError::Write {
+            path: parent.to_string_lossy().replace('\\', "/"),
+            source,
+        })?;
+    }
+    fs::write(&target, content).map_err(|source| ConfigError::Write {
+        path: path.to_string(),
+        source,
+    })?;
+    Ok(())
+}
+
+fn minimal_config_source(name: &str, language: &str, timezone: &str) -> String {
+    format!(
+        r#"schemaVersion: 1
+
+workspace:
+  name: "{name}"
+  canonicalLanguage: "{language}"
+  supportedLanguages:
+    - "{language}"
+  timezone: "{timezone}"
+
+include:
+  - ".forma/*.md"
+  - ".forma/spaces/*.md"
+  - ".forma/views/*.md"
+  - ".forma/local/*.yml"
+  - ".forma/local/*.md"
+
+runtime:
+  values:
+    currentDateTime:
+      kind: currentDateTime
+    workspaceRoot:
+      kind: workspaceRoot
+"#,
+        name = yaml_double_quoted(name),
+        language = yaml_double_quoted(language),
+        timezone = yaml_double_quoted(timezone)
+    )
+}
+
+fn yaml_double_quoted(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn forma_cli_runtime_skill_source() -> &'static str {
+    r#"---
+name: forma-cli
+description: Use for Forma workspace bootstrap, knowledge operations, and Agent-facing read workflows through the local `forma` binary.
+---
+
+# Forma CLI
+
+Run Forma commands from the target workspace root. If you cannot guarantee the current working directory, pass `--workspace <path>` explicitly.
+
+Before Forma knowledge or configuration work, load the built-in guide:
+
+```sh
+forma skills get forma-cli-core
+```
+
+Then inspect the workspace:
+
+```sh
+forma skills list --json
+forma config inspect --json
+forma knowledge health --json
+```
+
+Use the built-in guide and any workspace-projected skills before creating spaces, templates, views, guidelines, or shared Markdown content.
+"#
 }
 
 fn collect_workspace_skills(

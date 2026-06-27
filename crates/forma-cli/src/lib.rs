@@ -14,7 +14,7 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use clap::{Parser, Subcommand};
 use forma_rpc::{
-    BoardShowRequest, CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher,
+    BoardShowRequest, CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest,
     InspectRequest, KnowledgeHealthRequest, ListRequest, OperationRequest, SkillsGetRequest,
     SkillsListRequest, TasksInspectRequest, TasksListRequest,
 };
@@ -56,6 +56,16 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    Init {
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        language: Option<String>,
+        #[arg(long)]
+        timezone: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     Inspect {
         #[arg(long)]
         space: Option<String>,
@@ -76,6 +86,10 @@ enum Command {
     Board {
         #[command(subcommand)]
         command: BoardCommand,
+    },
+    Docs {
+        #[command(subcommand)]
+        command: DocsCommand,
     },
     Config {
         #[command(subcommand)]
@@ -127,6 +141,19 @@ enum TasksCommand {
 #[derive(Debug, Subcommand)]
 enum BoardCommand {
     Show {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum DocsCommand {
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    Get {
+        id: String,
         #[arg(long)]
         json: bool,
     },
@@ -195,6 +222,21 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             exit_if_failed(&result);
             Ok(())
         }
+        Some(Command::Init {
+            name,
+            language,
+            timezone,
+            json,
+        }) => {
+            let result = dispatcher.dispatch(OperationRequest::Init(InitRequest {
+                name,
+                language,
+                timezone,
+            }))?;
+            print_result(&result, json, "init");
+            exit_if_failed(&result);
+            Ok(())
+        }
         Some(Command::Inspect {
             space,
             locator,
@@ -248,6 +290,16 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                     dispatcher.dispatch(OperationRequest::BoardShow(BoardShowRequest {}))?;
                 print_result(&result, json, "board show");
                 exit_if_failed(&result);
+                Ok(())
+            }
+        },
+        Some(Command::Docs { command }) => match command {
+            DocsCommand::List { json } => {
+                print_docs_list(json)?;
+                Ok(())
+            }
+            DocsCommand::Get { id, json } => {
+                print_docs_get(&id, json)?;
                 Ok(())
             }
         },
@@ -345,6 +397,88 @@ fn print_skills_list_result(result: &forma_rpc::OperationResult, json: bool) {
             println!("{id}\t{title}\t{source}");
         }
     }
+}
+
+fn print_docs_list(json: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let docs = forma_core::embedded_docs()?;
+    if json {
+        let docs = docs
+            .iter()
+            .map(|doc| {
+                serde_json::json!({
+                    "id": doc.id,
+                    "title": doc.title,
+                    "summary": doc.summary,
+                    "path": doc.path,
+                    "audience": doc.audience,
+                    "surfaces": doc.surfaces,
+                    "order": doc.order,
+                })
+            })
+            .collect::<Vec<_>>();
+        println!(
+            "{}",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "operation": "docs.list",
+                "status": "passed",
+                "docs": docs,
+                "summary": { "errors": 0, "warnings": 0, "infos": 0 },
+                "diagnostics": [],
+            })
+        );
+    } else {
+        println!("docs list passed");
+        for doc in docs {
+            println!("{}\t{}\t{}", doc.id, doc.title, doc.path);
+        }
+    }
+    Ok(())
+}
+
+fn print_docs_get(id: &str, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(doc) = forma_core::embedded_doc(id)? else {
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "schemaVersion": 1,
+                    "operation": "docs.get",
+                    "status": "failed",
+                    "summary": { "errors": 1, "warnings": 0, "infos": 0 },
+                    "diagnostics": [{
+                        "severity": "error",
+                        "code": "docs.notFound",
+                        "message": "Documentation topic was not found.",
+                        "actual": id,
+                    }],
+                })
+            );
+        } else {
+            eprintln!("error docs.notFound Documentation topic was not found: {id}");
+        }
+        std::process::exit(1);
+    };
+
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "operation": "docs.get",
+                "status": "passed",
+                "doc": doc,
+                "summary": { "errors": 0, "warnings": 0, "infos": 0 },
+                "diagnostics": [],
+            })
+        );
+    } else {
+        print!("{}", doc.body);
+        if !doc.body.ends_with('\n') {
+            println!();
+        }
+    }
+    Ok(())
 }
 
 fn print_skill_get_result(result: &forma_rpc::OperationResult, json: bool) {

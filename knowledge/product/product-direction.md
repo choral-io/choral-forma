@@ -1095,7 +1095,7 @@ Space-scoped bare entry locators may use the corresponding space-backed type inp
 
 With the starter tasks space, `forma inspect tasks/user-registration` is a path-like locator for `tasks/user-registration.md`, while `forma inspect --space tasks user-registration` resolves the same entry through the `tasks` space.
 
-P0 CLI should prioritize reading, indexing, checking, and inspection before safe write operations. The current write baseline is minimal create against an existing configured workspace; workspace initialization is temporarily removed and should be redesigned before it returns. Required P0 commands:
+P0 CLI should prioritize reading, indexing, checking, and inspection before broader write operations. The current write baseline includes bootstrap-only workspace initialization plus minimal create against an existing configured workspace. Starter-kit installation, migration, and broad workspace generation remain future work. Required P0 commands:
 
 ```text
 - forma config inspect [--json]
@@ -1110,6 +1110,9 @@ P0 CLI should prioritize reading, indexing, checking, and inspection before safe
 - forma knowledge health [--json]
 - forma skills list [--json]
 - forma skills get <id> [--json]
+- forma docs list [--json]
+- forma docs get <id> [--json]
+- forma init [--name <name>] [--language <tag>] [--timezone <tz>] [--json]
 - forma create <space> [--input <name=value>]... [--json]
 - forma serve
 
@@ -1129,9 +1132,11 @@ P1:
 
 All read commands should support stable JSON output for GUI and Agent use. Human-oriented output should remain concise and explainable.
 
-`forma create` should use configured create inputs, defaults, transforms, and templates, fail on path conflicts, and rely on subsequent read operations to rebuild their in-memory projections from source files. Future initialization should be redesigned around the committed starter-kit or an explicit template source rather than a duplicated embedded starter.
+`forma init` should only create the minimal Forma bootstrap in this stage: `.forma.yml` and `.agents/skills/forma-cli/SKILL.md`. It should not copy starter-kit content, edit `AGENTS.md`, or generate canonical `skills/forma-cli/SKILL.md`.
 
-CLI confirmation should be based on operation risk. Read-only commands should not ask for confirmation. Single-file, predictable, non-destructive writes can avoid confirmation when they fail on conflicts or invalid inputs. Initialization, physical deletion, path moves or renames that change references, automatic fixes, batch updates, and multi-file or reference-changing writes should require confirmation.
+`forma create` should use configured create inputs, defaults, transforms, and templates, fail on path conflicts, and rely on subsequent read operations to rebuild their in-memory projections from source files. Future starter-kit initialization should be redesigned around the committed starter-kit or an explicit template source rather than a duplicated embedded starter.
+
+CLI confirmation should be based on operation risk. Read-only commands should not ask for confirmation. Single-file, predictable, non-destructive writes can avoid confirmation when they fail on conflicts or invalid inputs. Bootstrap-only `forma init` can proceed when target paths do not exist and must refuse to overwrite existing bootstrap files. Starter-kit installation, physical deletion, path moves or renames that change references, automatic fixes, batch updates, and multi-file or reference-changing writes should require confirmation.
 
 In current P0, `forma create` does not require confirmation because it writes one new entry and fails on path conflicts. Future initialization should require confirmation because it would create workspace structure and configuration; interactive shells should show resolved initialization parameters and planned writes before asking for confirmation, while non-interactive shells should fail without writing unless explicitly bypassed.
 

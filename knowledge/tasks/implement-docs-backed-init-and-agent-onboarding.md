@@ -9,7 +9,7 @@ priority: P0
 value: H
 module: cli
 effort: L
-status: todo
+status: reviewing
 readiness: ready
 owners:
     - "members/tiscs"
@@ -178,7 +178,7 @@ The embedded docs registry should be reusable by:
 Initial command:
 
 ```sh
-forma init [--name <name>] [--language <tag>] [--timezone <tz>] [--yes] [--json]
+forma init [--name <name>] [--language <tag>] [--timezone <tz>] [--json]
 ```
 
 Behavior:
@@ -326,7 +326,7 @@ Re-run the same scenarios and add targeted guidance for any new rationalizations
 
 ### Slice 2: Built-In Skill From Docs
 
-- Move built-in `forma-cli-core` content from `crates/forma-core/assets/skills/forma-cli-core.md` to `docs/agents/forma-cli-core.md`.
+- Keep built-in `forma-cli-core` content in `docs/agents/forma-cli-core.md`.
 - Update `skills list/get` to read the embedded docs registry.
 - Keep output shape compatible with existing `skills.list` and `skills.get`.
 - Add tests proving built-in skill still works without `.forma.yml`.
@@ -387,10 +387,42 @@ Re-run the same scenarios and add targeted guidance for any new rationalizations
 - Can Agent guidance reliably bootstrap a workspace from Human goals?
 - Are the pressure scenarios strong enough to catch overfitting to the current starter-kit?
 
+## Implementation Notes
+
+Initial implementation completed the bootstrap-only slice:
+
+- Added product-facing `docs/` source files for getting started, CLI usage, workspace configuration, spaces, schemas, templates, views, guidelines, and Agent guidance.
+- Added an embedded docs registry in `forma-core`.
+- Moved built-in `forma-cli-core` output to `docs/agents/forma-cli-core.md` through the embedded docs registry.
+- Added `forma docs list` and `forma docs get <id>` as the first docs-backed help surface.
+- Reintroduced `forma init` as a new minimal bootstrap command.
+- Added JSON-RPC `init` wiring for operation-model consistency.
+- Removed the previous standalone built-in skill code asset.
+
+RED baseline evidence:
+
+- In an empty temporary project, `forma init --json` failed because the subcommand did not exist.
+- In an empty temporary project, `forma config inspect --json`, `forma check --json`, and `forma create notes ... --json` failed on missing `.forma.yml`.
+- Existing `forma skills get forma-cli-core` could bootstrap read operations but did not provide enough configuration authoring guidance for empty workspace setup.
+
+GREEN validation evidence:
+
+- `cargo test -p forma-core docs::tests`: passed.
+- `cargo test -p forma-cli`: passed.
+- `cargo test -p forma-rpc`: passed.
+- Temporary empty workspace smoke:
+    - `forma init --name "Acme Knowledge" --json`: passed.
+    - `forma check --json`: passed.
+    - `forma skills get forma-cli-core`: printed docs-backed Agent guidance including empty workspace setup boundaries.
+    - `forma docs list --json`: returned embedded docs.
+    - generated files were only `.forma.yml` and `.agents/skills/forma-cli/SKILL.md`.
+- Repository `forma check --json`: passed.
+- Repository `forma knowledge health --json`: passed.
+- `CI=true mise run check`: passed.
+
 ## Open Questions
 
-- Should the first docs-backed command be `forma help <topic>` or `forma docs get <id>`?
 - Should `forma init` default workspace name come from the directory name instead of `"Untitled Forma Workspace"`?
 - Should `forma init` include `currentUserId` runtime value by default, or wait until a member/profile concept exists?
-- Should empty workspace produce a warning, an info diagnostic, or a clean pass?
-- Should `--yes` be required for non-interactive writes, or can init proceed when the target paths do not exist?
+- Should `forma docs get <id>` later integrate with clap help as `forma help <topic>`?
+- Should a later interactive or force-enabled `forma init` add an explicit confirmation flag, or is the current non-overwriting bootstrap enough for internal use?
