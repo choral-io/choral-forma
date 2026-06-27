@@ -73,14 +73,12 @@ schema:
         summary:
             type: string
         status:
-            type: enum
-            enum: taskStatus
+            type: taskStatus
             required: true
         assignees:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
         dueDate:
             type: date
         createdAt:
@@ -92,11 +90,11 @@ schema:
 
 ## Semantic Types
 
-The P0 starter does not require a standalone semantic type file. It keeps create inputs, select options, and taxonomy membership on the relevant Markdown configuration nodes, such as `.forma/spaces/*.md`.
+Named types are explicit workspace-level configuration. They may be declared in root `.forma.md` or in included configuration nodes, and duplicate names are configuration errors.
 
 Future semantic type configuration can use Markdown configuration nodes if the workspace needs reusable value meanings beyond inline create inputs. The first useful kinds are likely:
 
-- `kind: space`: values resolve to entries in a space.
+- `kind: ref`: values resolve to entries from the configured content group referenced by `source`.
 - `kind: enum`: values must be one of a static list.
 
 Example:
@@ -104,16 +102,22 @@ Example:
 ```yaml
 ---
 schemaVersion: 1
-kind: semantic-type
-title: Task Status
-type: enum
-values:
-    - todo
-    - ready
-    - doing
-    - blocked
-    - reviewing
-    - done
+kind: types
+types:
+    taskStatus:
+        kind: enum
+        values:
+            - todo
+            - ready
+            - doing
+            - blocked
+            - reviewing
+            - done
+    member:
+        kind: ref
+        source: .forma/spaces/members
+        input:
+            transform: slugify
 ---
 ```
 
@@ -163,12 +167,11 @@ schema:
         summary:
             type: string
         status:
-            type: string
+            type: taskStatus
         assignees:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
         dueDate:
             type: string
         createdAt:
@@ -282,7 +285,7 @@ P0 validation should be diagnostic-first:
 - Parse entry frontmatter into generic YAML values.
 - Determine space membership from space `include` rules.
 - Validate known fields against the space schema.
-- Resolve semantic references where schema fields use `type: ref`.
+- Resolve semantic references where schema fields use a named `kind: ref` type.
 - Report unknown, invalid, unresolved, stale, and ambiguous cases with structured diagnostics.
 
 P0 should not automatically fix schema violations. `forma check` reports enough information for a human or Agent to repair files manually.

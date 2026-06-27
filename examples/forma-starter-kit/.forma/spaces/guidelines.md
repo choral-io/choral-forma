@@ -16,13 +16,11 @@ schema:
     owners:
       type: list
       items:
-        type: ref
-        target: member
+        type: member
     reviewers:
       type: list
       items:
-        type: ref
-        target: member
+        type: member
     createdAt:
       type: string
     updatedAt:

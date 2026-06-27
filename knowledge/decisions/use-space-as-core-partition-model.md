@@ -40,7 +40,7 @@ The previous `collection` terminology should be removed instead of kept as a com
 
 - Space-like taxonomy and term configuration is loaded from `.forma.md` includes rather than a dedicated spaces registry file.
 - Effective configuration exposes spaces from included term configuration.
-- semantic type definitions use `kind: space` and `space: <id>`.
+- Later schema work superseded the early semantic-type detail: named reference types now use `kind: ref` and a workspace-relative config `source` path, such as `.forma/spaces/members`.
 - view definitions use `view.space`.
 - query targets use `entry.space`.
 - CLI and RPC write operations continue to exist, but their parameters use `space` instead of `collection`.

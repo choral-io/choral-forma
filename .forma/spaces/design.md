@@ -19,8 +19,7 @@ schema:
         owners:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
         tags:
             type: list
             items:
@@ -32,8 +31,7 @@ schema:
         reviewers:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
 display:
     order: 25
 description: Design artifacts, UX patterns, and implementation UI specs.

@@ -3,6 +3,8 @@ use std::process::Command;
 
 use chrono::{DateTime, SecondsFormat, Utc};
 use chrono_tz::Tz;
+use serde::de::{self, Deserializer};
+use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
 use serde_yml::{Number, Value};
 
@@ -12,127 +14,219 @@ use crate::config::{
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::path::{FORMA_CONFIG_PATH, slugify_path_segment};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SchemaNode {
     Object {
-        #[serde(default)]
         fields: BTreeMap<String, SchemaNode>,
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
         label: Option<String>,
     },
     String {
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
         label: Option<String>,
     },
     Number {
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
         label: Option<String>,
     },
     Integer {
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
         label: Option<String>,
     },
     Boolean {
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
         label: Option<String>,
     },
     Date {
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
         label: Option<String>,
     },
-    #[serde(rename = "datetime")]
     DateTime {
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
         label: Option<String>,
     },
     Const {
         value: Value,
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
         label: Option<String>,
     },
     Enum {
-        #[serde(rename = "enum")]
         enum_type: String,
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
+        label: Option<String>,
+    },
+    Named {
+        name: String,
+        required: bool,
+        readonly: bool,
+        hidden: bool,
         label: Option<String>,
     },
     Ref {
         target: Option<String>,
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
         label: Option<String>,
     },
     List {
         items: Box<SchemaNode>,
-        #[serde(default)]
         required: bool,
-        #[serde(default)]
         readonly: bool,
-        #[serde(default)]
         hidden: bool,
-        #[serde(default)]
         label: Option<String>,
     },
+}
+
+#[derive(Debug, Deserialize)]
+struct RawSchemaNode {
+    #[serde(rename = "type")]
+    type_name: String,
+    #[serde(default)]
+    fields: BTreeMap<String, SchemaNode>,
+    #[serde(default)]
+    required: bool,
+    #[serde(default)]
+    readonly: bool,
+    #[serde(default)]
+    hidden: bool,
+    #[serde(default)]
+    label: Option<String>,
+    #[serde(default)]
+    value: Option<Value>,
+    #[serde(rename = "enum", default)]
+    enum_type: Option<String>,
+    #[serde(default)]
+    target: Option<String>,
+    #[serde(default)]
+    items: Option<Box<SchemaNode>>,
+}
+
+impl<'de> Deserialize<'de> for SchemaNode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = RawSchemaNode::deserialize(deserializer)?;
+        let required = raw.required;
+        let readonly = raw.readonly;
+        let hidden = raw.hidden;
+        let label = raw.label;
+
+        match raw.type_name.as_str() {
+            "object" => Ok(Self::Object {
+                fields: raw.fields,
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            "string" => Ok(Self::String {
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            "number" => Ok(Self::Number {
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            "integer" => Ok(Self::Integer {
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            "boolean" => Ok(Self::Boolean {
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            "date" => Ok(Self::Date {
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            "datetime" => Ok(Self::DateTime {
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            "const" => Ok(Self::Const {
+                value: raw.value.ok_or_else(|| de::Error::missing_field("value"))?,
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            "enum" => Ok(Self::Enum {
+                enum_type: raw
+                    .enum_type
+                    .ok_or_else(|| de::Error::missing_field("enum"))?,
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            "ref" => Ok(Self::Ref {
+                target: raw.target,
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            "list" => Ok(Self::List {
+                items: raw.items.ok_or_else(|| de::Error::missing_field("items"))?,
+                required,
+                readonly,
+                hidden,
+                label,
+            }),
+            named_type => {
+                if raw.value.is_some()
+                    || raw.enum_type.is_some()
+                    || raw.target.is_some()
+                    || raw.items.is_some()
+                    || !raw.fields.is_empty()
+                {
+                    return Err(de::Error::custom(format!(
+                        "named schema type `{named_type}` only accepts metadata fields"
+                    )));
+                }
+
+                Ok(Self::Named {
+                    name: named_type.to_string(),
+                    required,
+                    readonly,
+                    hidden,
+                    label,
+                })
+            }
+        }
+    }
 }
 
 impl SchemaNode {
@@ -147,10 +241,171 @@ impl SchemaNode {
             | Self::DateTime { required, .. }
             | Self::Const { required, .. }
             | Self::Enum { required, .. }
+            | Self::Named { required, .. }
             | Self::Ref { required, .. }
             | Self::List { required, .. } => *required,
         }
     }
+}
+
+impl Serialize for SchemaNode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(None)?;
+        match self {
+            Self::Object {
+                fields,
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "object")?;
+                if !fields.is_empty() {
+                    map.serialize_entry("fields", fields)?;
+                }
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::String {
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "string")?;
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::Number {
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "number")?;
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::Integer {
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "integer")?;
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::Boolean {
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "boolean")?;
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::Date {
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "date")?;
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::DateTime {
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "datetime")?;
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::Const {
+                value,
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "const")?;
+                map.serialize_entry("value", value)?;
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::Enum {
+                enum_type,
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "enum")?;
+                map.serialize_entry("enum", enum_type)?;
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::Named {
+                name,
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", name)?;
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::Ref {
+                target,
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "ref")?;
+                if let Some(target) = target {
+                    map.serialize_entry("target", target)?;
+                }
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+            Self::List {
+                items,
+                required,
+                readonly,
+                hidden,
+                label,
+            } => {
+                map.serialize_entry("type", "list")?;
+                map.serialize_entry("items", items)?;
+                serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
+            }
+        }
+        map.end()
+    }
+}
+
+fn serialize_schema_metadata<M>(
+    map: &mut M,
+    required: bool,
+    readonly: bool,
+    hidden: bool,
+    label: &Option<String>,
+) -> Result<(), M::Error>
+where
+    M: SerializeMap,
+{
+    if required {
+        map.serialize_entry("required", &required)?;
+    }
+    if readonly {
+        map.serialize_entry("readonly", &readonly)?;
+    }
+    if hidden {
+        map.serialize_entry("hidden", &hidden)?;
+    }
+    if let Some(label) = label {
+        map.serialize_entry("label", label)?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -556,13 +811,18 @@ fn validate_schema_node(
                 );
             }
         }
+        SchemaNode::Named { name, .. } => {
+            validate_named_schema_type(config, name, path, field, diagnostics);
+        }
         SchemaNode::Ref { target, .. } => {
             if let Some(target) = target {
-                if !matches!(config.types.get(target), Some(SemanticType::Space { .. })) {
+                if !matches!(config.types.get(target), Some(SemanticType::Ref { .. })) {
                     diagnostics.push(
                         Diagnostic::error(
                             "schema.ref.invalid",
-                            format!("Reference target `{target}` is not a space semantic type."),
+                            format!(
+                                "Reference target `{target}` is not a reference semantic type."
+                            ),
                         )
                         .with_path(path)
                         .with_location(DiagnosticLocation::Config {
@@ -669,10 +929,6 @@ fn validate_value_node(
             }
         }
         SchemaNode::Enum { enum_type, .. } => {
-            let Some(actual) = value.as_str() else {
-                diagnostics.push(type_error(path, field, "enum string", value));
-                return;
-            };
             let Some(SemanticType::Enum { values }) = config.types.get(enum_type) else {
                 diagnostics.push(
                     Diagnostic::error(
@@ -685,33 +941,26 @@ fn validate_value_node(
                 );
                 return;
             };
-            if !values.iter().any(|value| value == actual) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "schema.enum.valueInvalid",
-                        format!("Field `{field}` has an invalid enum value."),
-                    )
-                    .with_path(path)
-                    .with_location(frontmatter_field_location(field))
-                    .with_actual(actual.to_string())
-                    .with_expected(values.join(", ")),
-                );
-            }
+
+            validate_enum_value(values, value, path, field, diagnostics);
+        }
+        SchemaNode::Named { name, .. } => {
+            validate_named_value(config, name, value, path, field, diagnostics);
         }
         SchemaNode::Ref { target, .. } => {
-            if !value.is_string() {
-                diagnostics.push(type_error(path.clone(), field, "reference string", value));
-            }
+            validate_reference_value(value, path.clone(), field, diagnostics);
             if let Some(target) = target {
-                if !matches!(config.types.get(target), Some(SemanticType::Space { .. })) {
+                if !matches!(config.types.get(target), Some(SemanticType::Ref { .. })) {
                     diagnostics.push(
                         Diagnostic::error(
                             "schema.ref.invalid",
-                            format!("Reference target `{target}` is not a space semantic type."),
+                            format!(
+                                "Reference target `{target}` is not a reference semantic type."
+                            ),
                         )
                         .with_path(path)
                         .with_location(frontmatter_field_location(field))
-                        .with_expected(format!("space semantic type `{target}`")),
+                        .with_expected(format!("reference semantic type `{target}`")),
                     );
                 }
             }
@@ -756,6 +1005,108 @@ fn validate_date_like(
             .with_expected(expected.to_string()),
         );
     }
+}
+
+fn validate_named_schema_type(
+    config: &WorkspaceConfig,
+    name: &str,
+    path: &str,
+    field: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if is_primitive_schema_type(name) || !config.types.contains_key(name) {
+        diagnostics.push(
+            Diagnostic::error(
+                "schema.type.invalid",
+                format!("Schema type `{name}` is not a defined named type."),
+            )
+            .with_path(path)
+            .with_location(DiagnosticLocation::Config {
+                field: field.to_string(),
+            }),
+        );
+    }
+}
+
+fn validate_named_value(
+    config: &WorkspaceConfig,
+    name: &str,
+    value: &Value,
+    path: String,
+    field: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match config.types.get(name) {
+        Some(SemanticType::Enum { values }) => {
+            validate_enum_value(values, value, path, field, diagnostics);
+        }
+        Some(SemanticType::Ref { .. }) => {
+            validate_reference_value(value, path, field, diagnostics);
+        }
+        None => diagnostics.push(
+            Diagnostic::error(
+                "schema.type.invalid",
+                format!("Schema type `{name}` is not a defined named type."),
+            )
+            .with_path(path)
+            .with_location(frontmatter_field_location(field))
+            .with_expected(format!("defined named type `{name}`")),
+        ),
+    }
+}
+
+fn validate_enum_value(
+    values: &[String],
+    value: &Value,
+    path: String,
+    field: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(actual) = value.as_str() else {
+        diagnostics.push(type_error(path, field, "enum string", value));
+        return;
+    };
+
+    if !values.iter().any(|value| value == actual) {
+        diagnostics.push(
+            Diagnostic::error(
+                "schema.enum.valueInvalid",
+                format!("Field `{field}` has an invalid enum value."),
+            )
+            .with_path(path)
+            .with_location(frontmatter_field_location(field))
+            .with_actual(actual.to_string())
+            .with_expected(values.join(", ")),
+        );
+    }
+}
+
+fn validate_reference_value(
+    value: &Value,
+    path: String,
+    field: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if !value.is_string() {
+        diagnostics.push(type_error(path, field, "reference string", value));
+    }
+}
+
+fn is_primitive_schema_type(name: &str) -> bool {
+    matches!(
+        name,
+        "object"
+            | "string"
+            | "number"
+            | "integer"
+            | "boolean"
+            | "date"
+            | "datetime"
+            | "const"
+            | "enum"
+            | "ref"
+            | "list"
+    )
 }
 
 fn type_error(path: String, field: &str, expected: &str, actual: &Value) -> Diagnostic {
@@ -924,11 +1275,12 @@ mod tests {
                 ),
                 (
                     "member".to_string(),
-                    SemanticType::Space {
-                        space: "members".to_string(),
+                    SemanticType::Ref {
+                        source: ".forma/spaces/members".to_string(),
                         input: TypeInput {
                             transform: Some("slugify".to_string()),
                         },
+                        space: Some("members".to_string()),
                     },
                 ),
             ]),
@@ -976,6 +1328,74 @@ fields:
         );
 
         assert!(validate_space_schemas(&config).is_empty());
+    }
+
+    #[test]
+    fn validates_schema_named_ref_and_enum_types() {
+        let config = config_with_task_schema(
+            r#"
+type: object
+fields:
+  status:
+    type: taskStatus
+    required: true
+    readonly: true
+    label: Status
+  owner:
+    type: member
+    hidden: true
+    label: Owner
+  assignees:
+    type: list
+    items:
+      type: member
+"#,
+        );
+
+        assert!(validate_space_schemas(&config).is_empty());
+    }
+
+    #[test]
+    fn validates_named_ref_and_enum_values() {
+        let config = config_with_task_schema(
+            r#"
+type: object
+fields:
+  status:
+    type: taskStatus
+    required: true
+  owner:
+    type: member
+    required: true
+"#,
+        );
+        let schema = parse_space_schema(&config.spaces["tasks"]).unwrap();
+        let value = serde_yml::from_str(
+            r#"
+status: doing
+owner: alex-chen
+"#,
+        )
+        .unwrap();
+
+        assert!(validate_schema_value(&config, &schema, &value, "tasks/foo.md").is_empty());
+    }
+
+    #[test]
+    fn reports_unknown_schema_named_type() {
+        let config = config_with_task_schema(
+            r#"
+type: object
+fields:
+  owner:
+    type: missingPerson
+"#,
+        );
+
+        let diagnostics = validate_space_schemas(&config);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "schema.type.invalid");
     }
 
     #[test]
@@ -1080,13 +1500,13 @@ assignees: alex-chen
     }
 
     #[test]
-    fn reports_unknown_schema_node_type() {
+    fn reports_invalid_schema_node_shape() {
         let config = config_with_task_schema(
             r#"
 type: object
 fields:
   title:
-    type: unknownType
+    type: list
 "#,
         );
 

@@ -167,14 +167,13 @@ schema:
         summary:
             type: string
         status:
-            type: string
+            type: taskStatus
         readiness:
-            type: string
+            type: taskReadiness
         assignees:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
 conventions:
     titleField: fields.title
     summaryField: fields.summary
@@ -188,8 +187,7 @@ Space `schema` should describe entry metadata structure, user-facing labels, and
 
 ```yaml
 status:
-    type: enum
-    enum: taskStatus
+    type: taskStatus
     label: Status
     description: Current delivery state.
     required: true
@@ -245,8 +243,8 @@ types:
         values: [todo, doing, done]
 
     member:
-        kind: space
-        space: members
+        kind: ref
+        source: .forma/spaces/members
         input:
             transform: slugify
 ```
@@ -260,8 +258,8 @@ Space-backed types may define input normalization for bare user-entered values:
 ```yaml
 types:
     note:
-        kind: space
-        space: notes
+        kind: ref
+        source: .forma/spaces/notes
         input:
             transform: slugify
 ```
@@ -426,8 +424,7 @@ assignees:
     type: list
     label: Assignees
     items:
-        type: ref
-        target: member
+        type: member
 ```
 
 When groups are added later, the `assignees` field can keep its name and list shape while its item target evolves to an `assignee` union over `member` and `group`.

@@ -21,8 +21,7 @@ schema:
         owners:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
         tags:
             type: list
             items:
@@ -36,8 +35,7 @@ schema:
         metrics:
             type: list
             items:
-                type: ref
-                target: metric
+                type: metric
                 guardrails:
                     type: list
                     items:
@@ -45,13 +43,11 @@ schema:
         relatedUserStories:
             type: list
             items:
-                type: ref
-                target: user-story
+                type: user-story
         relatedReleases:
             type: list
             items:
-                type: ref
-                target: release
+                type: release
 display:
     order: 57
 description: Product and workflow experiments with metrics, guardrails, and decisions.

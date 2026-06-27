@@ -737,16 +737,17 @@ fn collect_ref_fields_inner(
         SchemaNode::List { items, .. } => {
             collect_ref_fields_inner(config, items, field_path, true, fields)
         }
+        SchemaNode::Named { name, .. } => {
+            if let Some(field) = ref_field_for_semantic_type(config, name, field_path, many, true) {
+                fields.push(field);
+            }
+        }
         SchemaNode::Ref { target, .. } => {
             if let Some(target) = target {
-                if let Some(SemanticType::Space { space, input }) = config.types.get(target) {
-                    fields.push(RefField {
-                        field: field_path.to_string(),
-                        semantic_type: Some(target.clone()),
-                        space: Some(space.clone()),
-                        transform: input.transform.clone(),
-                        many,
-                    });
+                if let Some(field) =
+                    ref_field_for_semantic_type(config, target, field_path, many, true)
+                {
+                    fields.push(field);
                 }
             } else {
                 fields.push(RefField {
@@ -767,6 +768,27 @@ fn collect_ref_fields_inner(
         | SchemaNode::Const { .. }
         | SchemaNode::Enum { .. } => {}
     }
+}
+
+fn ref_field_for_semantic_type(
+    config: &WorkspaceConfig,
+    type_name: &str,
+    field_path: &str,
+    many: bool,
+    include_semantic_type: bool,
+) -> Option<RefField> {
+    let semantic_type = config.types.get(type_name)?;
+    let transform = match semantic_type {
+        SemanticType::Ref { input, .. } => input.transform.clone(),
+        SemanticType::Enum { .. } => return None,
+    };
+    Some(RefField {
+        field: field_path.to_string(),
+        semantic_type: include_semantic_type.then(|| type_name.to_string()),
+        space: semantic_type.space().map(ToOwned::to_owned),
+        transform,
+        many,
+    })
 }
 
 fn resolve_frontmatter_refs(
@@ -1882,6 +1904,66 @@ mod tests {
     }
 
     #[test]
+    fn resolves_named_ref_type_frontmatter_references() {
+        let root = fixture_root("named-ref-frontmatter");
+        fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
+        fs::create_dir_all(root.join(FIXTURE_VIEWS_DIR)).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  member:\n    kind: ref\n    source: .forma/spaces/members\n    input:\n      transform: slugify\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+        );
+        write_workspace_file(
+            &root,
+            ".forma/spaces/members.md",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Members\ninclude:\n  - members/**/*.md\ncreate:\n  directory: members\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/member.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: title\nschema:\n  type: object\n  fields:\n    kind:\n      type: string\n    title:\n      type: string\n---\n\n# Members\n",
+        );
+        write_workspace_file(
+            &root,
+            ".forma/spaces/tasks.md",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Tasks\ninclude:\n  - tasks/**/*.md\ncreate:\n  directory: tasks\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/task.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: title\nschema:\n  type: object\n  fields:\n    kind:\n      type: string\n    title:\n      type: string\n    assignees:\n      type: list\n      items:\n        type: member\n---\n\n# Tasks\n",
+        );
+        write_workspace_file(
+            &root,
+            ".forma/spaces/templates/member.md",
+            "---\nkind: member\ntitle: \"{{ input.title }}\"\n---\n",
+        );
+        write_workspace_file(
+            &root,
+            ".forma/spaces/templates/task.md",
+            "---\nkind: task\ntitle: \"{{ input.title }}\"\n---\n",
+        );
+        write_entry(
+            &root,
+            "members/alex-chen.md",
+            "---\nkind: member\ntitle: Alex Chen\n---\n",
+        );
+        write_entry(
+            &root,
+            "tasks/connect-related-pages.md",
+            "---\nkind: task\ntitle: Connect Related Pages\nassignees:\n  - Alex Chen\n---\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+        let entry = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "tasks/connect-related-pages.md")
+            .unwrap();
+
+        assert!(
+            discovery.diagnostics.is_empty(),
+            "{:#?}",
+            discovery.diagnostics
+        );
+        assert_eq!(entry.refs.len(), 1);
+        assert_eq!(entry.refs[0].target_path, "members/alex-chen.md");
+        assert_eq!(entry.refs[0].semantic_type.as_deref(), Some("member"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn frontmatter_refs_do_not_accept_wikilink_markup() {
         let root = fixture_root("frontmatter-wikilink-ref");
         write_workspace(&root);
@@ -2086,7 +2168,7 @@ mod tests {
         fs::create_dir_all(root.join(FIXTURE_VIEWS_DIR)).unwrap();
         write_config(
             root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  member:\n    kind: ref\n    source: .forma/spaces/members\n    input:\n      transform: slugify\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
         );
         for (path, title, include, template, title_field, summary_field) in [
             (
@@ -2157,9 +2239,19 @@ mod tests {
     }
 
     fn write_config(root: &Path, yaml: impl AsRef<str>) {
+        let yaml = yaml.as_ref();
+        let yaml = if yaml.contains("\ntypes:\n") || yaml.starts_with("types:\n") {
+            yaml.to_string()
+        } else {
+            yaml.replacen(
+                "\ninclude:\n",
+                "\ntypes:\n  member:\n    kind: ref\n    source: .forma/spaces/members\n    input:\n      transform: slugify\n\ninclude:\n",
+                1,
+            )
+        };
         fs::write(
             root.join(FORMA_CONFIG_PATH),
-            format!("---\n{}---\n\n# Forma Workspace\n", yaml.as_ref()),
+            format!("---\n{}---\n\n# Forma Workspace\n", yaml),
         )
         .unwrap();
     }

@@ -275,6 +275,8 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(get_stdout.contains("required: true"));
     assert!(get_stdout.contains("workspace.timezone"));
     assert!(get_stdout.contains("keep runtime values as identity inputs"));
+    assert!(get_stdout.contains("source: .forma/spaces/people"));
+    assert!(get_stdout.contains("duplicate type names"));
     assert!(!get_stdout.contains(r#""operation":"docs.get""#));
 
     let templates = forma(&root)
@@ -306,10 +308,10 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     );
     assert!(schemas.stderr.is_empty());
     let schemas_stdout = String::from_utf8_lossy(&schemas.stdout);
-    assert!(schemas_stdout.contains("configured semantic type"));
-    assert!(schemas_stdout.contains("not a directory name"));
+    assert!(schemas_stdout.contains("type: person"));
+    assert!(schemas_stdout.contains("configured named ref type"));
     assert!(schemas_stdout.contains("currentUserId"));
-    assert!(schemas_stdout.contains("Do not infer ref paths from directory names or runtime value names"));
+    assert!(schemas_stdout.contains("Do not infer ref paths from directory names"));
 
     std::fs::remove_dir_all(root).unwrap();
 }

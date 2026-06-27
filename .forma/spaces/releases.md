@@ -25,8 +25,7 @@ schema:
         owners:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
         tags:
             type: list
             items:
@@ -34,23 +33,19 @@ schema:
         relatedTasks:
             type: list
             items:
-                type: ref
-                target: task
+                type: task
         relatedTestCases:
             type: list
             items:
-                type: ref
-                target: test-case
+                type: test-case
         relatedExperiments:
             type: list
             items:
-                type: ref
-                target: experiment
+                type: experiment
         relatedMetrics:
             type: list
             items:
-                type: ref
-                target: metric
+                type: metric
 display:
     order: 95
 description: Release scope, validation, rollout, and follow-up records.

@@ -1965,6 +1965,16 @@ mod tests {
         let root = fixture_root("graph-view-custom-field-schema");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
+        let config_path = root.join(FORMA_CONFIG_PATH);
+        let config = fs::read_to_string(&config_path).unwrap();
+        fs::write(
+            &config_path,
+            config.replace(
+                "  taskStatus:\n",
+                "  project:\n    kind: ref\n    source: .forma/spaces/projects\n    input:\n      transform: slugify\n  taskStatus:\n",
+            ),
+        )
+        .unwrap();
         fs::create_dir_all(root.join("projects")).unwrap();
         fs::create_dir_all(root.join("notes")).unwrap();
         fs::write(
@@ -1974,7 +1984,7 @@ mod tests {
         .unwrap();
         fs::write(
             root.join(".forma/spaces/notes.md"),
-            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\ncreate:\n  directory: notes\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: title\nschema:\n  type: object\n  fields:\n    kind:\n      type: const\n      value: note\n    title:\n      type: string\n    project:\n      type: ref\n      target: project\n---\n\n# Notes\n",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\ncreate:\n  directory: notes\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: title\nschema:\n  type: object\n  fields:\n    kind:\n      type: const\n      value: note\n    title:\n      type: string\n    project:\n      type: project\n---\n\n# Notes\n",
         )
         .unwrap();
         fs::write(

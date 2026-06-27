@@ -21,8 +21,7 @@ schema:
         owners:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
         tags:
             type: list
             items:
@@ -40,13 +39,11 @@ schema:
         relatedExperiments:
             type: list
             items:
-                type: ref
-                target: experiment
+                type: experiment
         relatedReleases:
             type: list
             items:
-                type: ref
-                target: release
+                type: release
 display:
     order: 55
 description: Product, quality, and delivery metric definitions.

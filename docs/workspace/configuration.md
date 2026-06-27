@@ -102,6 +102,25 @@ runtime:
 
 For `ref` fields, keep runtime values as identity inputs and let the workspace template express the reference path explicitly. For example, a workspace may use `{{ runtime.values.currentUserId }}` inside `people/{{ runtime.values.currentUserId }}` if that is the configured reference form for the target content type. Do not introduce extra runtime values that only duplicate a path assembled from other runtime values.
 
+Named types define reusable schema meanings. They may be declared in root `.forma.md` or in included config nodes. Effective config merges them into one global `types` map, and duplicate type names are reported as configuration errors.
+
+```yaml
+types:
+    person:
+        kind: ref
+        source: .forma/spaces/people
+        input:
+            transform: slugify
+    noteStatus:
+        kind: enum
+        values:
+            - draft
+            - active
+            - archived
+```
+
+`source` is a workspace-relative config path resolved from the directory containing `.forma.md`, not a taxonomy-qualified logical id. The `.md` extension may be omitted for Markdown config nodes.
+
 Included Markdown config nodes use frontmatter as their machine-readable configuration and Markdown body as Human-readable documentation. In the current P0 configuration model, a configured content group is commonly declared as a taxonomy term:
 
 ```yaml

@@ -21,18 +21,15 @@ schema:
         owners:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
         assignees:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
         reviewers:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
         tags:
             type: list
             items:

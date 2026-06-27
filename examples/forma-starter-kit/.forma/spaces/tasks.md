@@ -14,31 +14,27 @@ schema:
     summary:
       type: string
     status:
-      type: string
+      type: taskStatus
     readiness:
-      type: string
+      type: taskReadiness
     priority:
-      type: string
+      type: taskPriority
     owners:
       type: list
       items:
-        type: ref
-        target: member
+        type: member
     assignees:
       type: list
       items:
-        type: ref
-        target: member
+        type: member
     reviewers:
       type: list
       items:
-        type: ref
-        target: member
+        type: member
     blockedBy:
       type: list
       items:
-        type: ref
-        target: task
+        type: task
     dueDate:
       type: string
 guidelines:

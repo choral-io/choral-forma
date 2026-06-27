@@ -25,8 +25,7 @@ schema:
         owners:
             type: list
             items:
-                type: ref
-                target: member
+                type: member
         tags:
             type: list
             items:
@@ -34,13 +33,11 @@ schema:
         relatedTasks:
             type: list
             items:
-                type: ref
-                target: task
+                type: task
         coversUserStories:
             type: list
             items:
-                type: ref
-                target: user-story
+                type: user-story
         coversProduct:
             type: list
             items:
