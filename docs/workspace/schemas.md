@@ -53,6 +53,8 @@ Common field shapes:
 
 Define named types before using them in schemas. Use `kind: entryRef` named types for references to configured content groups, and `kind: enum` named types for constrained scalar values. The low-level `type: entryRef` and `type: enum` primitives are implementation shapes; workspace-authored schemas should prefer named types because they make the relationship or value meaning explicit.
 
+Older pre-release workspaces may use `kind: ref` in `types` or `type: ref` in schemas. Current Forma uses `entryRef` for entry references. Replace named type `kind: ref` with `kind: entryRef`. Replace low-level schema `type: ref` with `type: entryRef`, or preferably use the configured named type directly.
+
 For an entry reference field, store the workspace reference path that resolves to one entry of that named type. For example, if `owner.type` is `person`, do not store a raw runtime id such as `alex-chen`; store the reference path that resolves to the configured `person` entry in this workspace.
 
 When defining templates or create defaults for entry reference fields, inspect the field schema first. If the default should point to the current user, use a runtime identity value such as `currentUserId` only as an input to the workspace's explicit reference path. For example, `people/{{ runtime.values.currentUserId }}` is valid only when `people/<id>` is the configured reference form for the `person` type in that workspace.

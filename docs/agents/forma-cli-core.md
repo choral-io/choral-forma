@@ -27,7 +27,7 @@ order: 200
 
 Run `forma` commands from the target workspace root. If the Agent cannot guarantee its current working directory, pass `--workspace <path>` explicitly.
 
-Commands below use `forma` as the logical CLI name. If the binary is not installed, use the project-local wrapper, for example `cargo run -q -p forma-cli -- <command>`.
+Commands below use `forma` as the CLI name.
 
 ### Required First Steps
 
@@ -36,6 +36,12 @@ Commands below use `forma` as the logical CLI name. If the binary is not install
 - `forma workspace health --json`
 
 If `config inspect` reports missing `.forma.md`, ask whether to run `forma init` for a minimal bootstrap.
+
+If `config inspect`, `check`, or `workspace health` reports pre-release migration diagnostics, apply the mechanical config migration before changing content:
+
+- `config.legacyRootInclude`: replace root `.forma.md` field `include` with `imports`. Do not rename term or view `include` fields.
+- `config.legacyRefKind`: replace named type `kind: ref` with `kind: entryRef`.
+- `schema.legacyRefType`: replace schema `type: ref` with `type: entryRef`, or use a configured named `entryRef` type.
 
 ### Empty Workspace Setup
 

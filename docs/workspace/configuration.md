@@ -28,6 +28,19 @@ Forma does not infer workspace semantics from directory names. A directory named
 
 Use `forma config inspect --json` to inspect the effective workspace configuration and source paths. Use `forma check --json` after editing `.forma.md` or imported config nodes.
 
+## Migration Notes
+
+Older pre-release workspaces may still use root `include` to load config files. Current Forma uses `imports` for root config imports. Change only the root `.forma.md` field name; keep `include` in term and view config nodes because those fields select content.
+
+```yaml
+imports:
+    - ".forma/*.md"
+    - ".forma/spaces/*.md"
+    - ".forma/views/*.md"
+```
+
+If `forma check --json` reports `config.legacyRootInclude`, replace root `include` with `imports`. If it reports `config.legacyRefKind`, replace named type `kind: ref` with `kind: entryRef`.
+
 ## Reference
 
 The minimal `.forma.md` contains `schemaVersion`, `workspace`, `runtime.values`, and `imports` in frontmatter.

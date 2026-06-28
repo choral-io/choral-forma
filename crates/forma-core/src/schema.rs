@@ -494,12 +494,26 @@ pub fn validate_space_schemas(config: &WorkspaceConfig) -> Vec<Diagnostic> {
                 &field_path,
                 &mut diagnostics,
             ),
-            Err(error) => diagnostics.push(
-                Diagnostic::error("schema.invalid", "Space schema is invalid.")
-                    .with_path(FORMA_CONFIG_PATH)
-                    .with_location(DiagnosticLocation::Config { field: field_path })
-                    .with_actual(error),
-            ),
+            Err(error) => {
+                let diagnostic = if error
+                    .contains("named schema type `ref` only accepts metadata fields")
+                {
+                    Diagnostic::error(
+                        "schema.legacyRefType",
+                        "Schema field type `ref` has been renamed to `entryRef`.",
+                    )
+                    .with_actual("replace `type: ref` with `type: entryRef`, or use a configured named entryRef type".to_string())
+                } else {
+                    Diagnostic::error("schema.invalid", "Space schema is invalid.")
+                        .with_actual(error)
+                };
+
+                diagnostics.push(
+                    diagnostic
+                        .with_path(FORMA_CONFIG_PATH)
+                        .with_location(DiagnosticLocation::Config { field: field_path }),
+                );
+            }
         }
     }
 
@@ -1419,7 +1433,7 @@ fields:
         let diagnostics = validate_space_schemas(&config);
 
         assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].code, "schema.invalid");
+        assert_eq!(diagnostics[0].code, "schema.legacyRefType");
     }
 
     #[test]

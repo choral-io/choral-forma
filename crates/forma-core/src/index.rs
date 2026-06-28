@@ -1358,12 +1358,24 @@ pub(crate) fn config_error_diagnostic(error: ConfigError) -> Diagnostic {
                 .with_path(path)
                 .with_actual(source.to_string())
         }
-        ConfigError::Parse { path, source } => Diagnostic::error(
-            "config.parseFailed",
-            "Configuration file could not be parsed.",
-        )
-        .with_path(path)
-        .with_actual(source.to_string()),
+        ConfigError::Parse { path, source } => {
+            let actual = source.to_string();
+            if actual.contains("unknown variant `ref`, expected `entryRef` or `enum`") {
+                Diagnostic::error(
+                    "config.legacyRefKind",
+                    "Named reference type kind `ref` has been renamed to `entryRef`.",
+                )
+                .with_path(path)
+                .with_actual("replace `kind: ref` with `kind: entryRef`".to_string())
+            } else {
+                Diagnostic::error(
+                    "config.parseFailed",
+                    "Configuration file could not be parsed.",
+                )
+                .with_path(path)
+                .with_actual(actual)
+            }
+        }
         ConfigError::LegacyRootInclude { path } => Diagnostic::error(
             "config.legacyRootInclude",
             "Root config field `include` has been renamed to `imports`.",
@@ -2061,6 +2073,28 @@ mod tests {
         assert_eq!(result.status, OperationStatus::Failed);
         assert_eq!(result.diagnostics.len(), 1);
         assert_eq!(result.diagnostics[0].code, "config.parseFailed");
+        assert_eq!(
+            result.diagnostics[0].path.as_deref(),
+            Some(FORMA_CONFIG_PATH)
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_ref_type_kind_produces_migration_diagnostic() {
+        let root = fixture_root("legacy-ref-kind-diagnostic");
+        write_workspace(&root);
+        fs::write(
+            root.join(FORMA_CONFIG_PATH),
+            "---\nschemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  member:\n    kind: ref\n    source: .forma/spaces/members\n---\n",
+        )
+        .unwrap();
+
+        let result = check_workspace(&root);
+
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert_eq!(result.diagnostics.len(), 1);
+        assert_eq!(result.diagnostics[0].code, "config.legacyRefKind");
         assert_eq!(
             result.diagnostics[0].path.as_deref(),
             Some(FORMA_CONFIG_PATH)
