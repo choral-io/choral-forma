@@ -1914,6 +1914,11 @@ mod tests {
         );
         write_workspace_file(
             &root,
+            ".forma/spaces/index.md",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
+        );
+        write_workspace_file(
+            &root,
             ".forma/spaces/members.md",
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Members\ninclude:\n  - members/**/*.md\ncreate:\n  directory: members\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/member.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: title\nschema:\n  type: object\n  fields:\n    kind:\n      type: string\n    title:\n      type: string\n---\n\n# Members\n",
         );
@@ -2170,6 +2175,11 @@ mod tests {
             root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  member:\n    kind: ref\n    source: .forma/spaces/members\n    input:\n      transform: slugify\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
         );
+        fs::write(
+            root.join(".forma/spaces/index.md"),
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
+        )
+        .unwrap();
         for (path, title, include, template, title_field, summary_field) in [
             (
                 ".forma/spaces/notes.md",

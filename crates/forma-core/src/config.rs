@@ -247,6 +247,8 @@ struct ConfigFile {
 #[serde(rename_all = "camelCase")]
 struct ConfigNode {
     #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
     kind: Option<String>,
     #[serde(default)]
     taxonomy: Option<String>,
@@ -356,6 +358,7 @@ fn load_config_nodes(
     let mut spaces = BTreeMap::new();
     let mut space_sources = BTreeMap::new();
     let mut diagnostics = Vec::new();
+    let mut referenced_taxonomies = Vec::new();
 
     for public_path in included_markdown_config_paths(root, &config_file.include) {
         let source =
@@ -387,11 +390,18 @@ fn load_config_nodes(
             continue;
         }
         if node.kind.as_deref() == Some("taxonomy") {
-            taxonomies.insert(view_id_from_config_path(&public_path), frontmatter);
+            let taxonomy_id = node
+                .id
+                .clone()
+                .unwrap_or_else(|| view_id_from_config_path(&public_path));
+            taxonomies.insert(taxonomy_id, frontmatter);
             continue;
         }
         if node.kind.as_deref() != Some("term") || node.taxonomy.as_deref() != Some("spaces") {
             continue;
+        }
+        if let Some(taxonomy) = &node.taxonomy {
+            referenced_taxonomies.push((taxonomy.clone(), public_path.clone()));
         }
         let Some(space_id) = Path::new(&public_path)
             .file_stem()
@@ -431,6 +441,24 @@ fn load_config_nodes(
                 schema,
             },
         );
+    }
+
+    for (taxonomy, public_path) in referenced_taxonomies {
+        if !taxonomies.contains_key(&taxonomy) {
+            diagnostics.push(
+                Diagnostic::warning(
+                    "config.taxonomyMissing",
+                    format!("Term config references taxonomy `{taxonomy}`, but no taxonomy config with id `{taxonomy}` was found."),
+                )
+                .with_path(public_path)
+                .with_location(DiagnosticLocation::Frontmatter {
+                    field: "taxonomy".to_string(),
+                    index: None,
+                })
+                .with_actual(taxonomy.clone())
+                .with_expected(format!("kind: taxonomy with id: {taxonomy}")),
+            );
+        }
     }
 
     Ok((dashboard, taxonomies, spaces, space_sources, diagnostics))
@@ -1087,7 +1115,7 @@ mod tests {
             Value::String("dashboard".to_string())
         );
         assert_eq!(
-            workspace.config.taxonomies["index"]["kind"],
+            workspace.config.taxonomies["spaces"]["kind"],
             Value::String("taxonomy".to_string())
         );
         assert_eq!(workspace.config.types["task"].space(), Some("tasks"));
@@ -1121,6 +1149,7 @@ mod tests {
             ".forma/spaces/people.md",
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: People\ninclude:\n  - people/**/*.md\n---\n\n# People\n",
         );
+        write_spaces_taxonomy(&root);
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 
@@ -1150,6 +1179,7 @@ mod tests {
             ".forma/spaces/people.md",
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: People\ninclude:\n  - people/**/*.md\n---\n\n# People\n",
         );
+        write_spaces_taxonomy(&root);
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 
@@ -1176,6 +1206,7 @@ mod tests {
             ".forma/spaces/people.md",
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: People\ninclude:\n  - people/**/*.md\n---\n\n# People\n",
         );
+        write_spaces_taxonomy(&root);
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 
@@ -1249,6 +1280,32 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.code == "config.type.duplicate"
                     && diagnostic.path.as_deref() == Some(".forma/local/types.yml"))
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_missing_taxonomy_for_space_terms() {
+        let root = fixture_root("missing-term-taxonomy");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/spaces/notes.md",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\n---\n\n# Notes\n",
+        );
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert!(
+            workspace
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "config.taxonomyMissing"
+                    && diagnostic.path.as_deref() == Some(".forma/spaces/notes.md"))
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -1331,6 +1388,7 @@ mod tests {
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ndescription: Notes.\nguidelines:\n  - knowledge/guidelines/operations.md\ninclude:\n  - notes/**/*.md\n---\n\n# Notes\n",
         )
         .unwrap();
+        write_spaces_taxonomy(&root);
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 
@@ -1407,6 +1465,7 @@ mod tests {
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ndescription: Notes.\nguidelines:\n  - knowledge/guidelines/not-markdown.txt\ninclude:\n  - notes/**/*.md\n---\n\n# Notes\n",
         )
         .unwrap();
+        write_spaces_taxonomy(&root);
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 
@@ -1647,9 +1706,19 @@ mod tests {
             ),
         )
         .unwrap();
+        write_spaces_taxonomy(root);
         fs::write(
             root.join(".forma/spaces/templates/note.md"),
             "---\nkind: note\ntitle: \"{{ input.title }}\"\n---\n\n# {{ input.title }}\n",
+        )
+        .unwrap();
+    }
+
+    fn write_spaces_taxonomy(root: &Path) {
+        fs::create_dir_all(root.join(".forma/spaces")).unwrap();
+        fs::write(
+            root.join(".forma/spaces/index.md"),
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
         )
         .unwrap();
     }
