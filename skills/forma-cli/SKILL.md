@@ -7,7 +7,7 @@ description: Use for Forma workspace operations, workspace inspection, configura
 
 Run from the target workspace root, or pass `--workspace <path>`.
 
-If `forma` is missing, ask the human to install it first: https://github.com/choral-io/choral-forma#install-scripts
+If `forma` is missing, install it from https://github.com/choral-io/choral-forma#install-scripts. Installation requires internet access. Verify with `forma --version`.
 
 Bootstrap:
 

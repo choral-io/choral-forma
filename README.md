@@ -145,33 +145,45 @@ Each artifact is paired with a `.sha256` checksum file.
 Unix-like systems:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/choral-io/choral-forma/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/choral-io/choral-forma/main/install.sh | sh -s -- v0.1.0-alpha.10
 ```
 
 Windows PowerShell:
 
 ```powershell
-iwr https://raw.githubusercontent.com/choral-io/choral-forma/main/install.ps1 -UseBasicParsing | iex
+$script = iwr https://raw.githubusercontent.com/choral-io/choral-forma/main/install.ps1 -UseBasicParsing
+& ([scriptblock]::Create($script.Content)) -Version v0.1.0-alpha.10
 ```
 
-The scripts install the latest GitHub Release by default. Pass a release tag to pin a version, or set `FORMA_INSTALL_DIR` to override the install directory.
+During the alpha stage, install a pinned release tag. GitHub does not expose prereleases through the `latest` release endpoint used by some installers and tools. Update the tag in these examples before publishing each new alpha release. Set `FORMA_INSTALL_DIR` to override the install directory.
 
 ### mise GitHub Backend
 
 Forma release assets are also intended to work with mise's GitHub backend:
 
 ```sh
-mise use -g github:choral-io/choral-forma
+# Installing from GitHub Releases requires internet access. If the current
+# environment is sandboxed without network access, run these install steps
+# outside the sandbox, then use the installed shim from sandboxed sessions.
+mise use github:choral-io/choral-forma@v0.1.0-alpha.10
+mise install github:choral-io/choral-forma@v0.1.0-alpha.10
+forma --version
 ```
 
 A project or user config can declare the same tool:
 
 ```toml
 [tools]
-"github:choral-io/choral-forma" = "latest"
+"github:choral-io/choral-forma" = "v0.1.0-alpha.10"
 ```
 
-Mise normally autodetects the matching GitHub Release asset from OS and architecture. If autodetection is not enough for a team's environment, add platform-specific `asset_pattern` values as described in the [mise GitHub backend documentation](https://mise.jdx.dev/dev-tools/backends/github.html).
+Mise normally autodetects the matching GitHub Release asset from OS and architecture. During the alpha stage, pin a release tag because `latest` does not resolve prerelease-only repositories. If autodetection is not enough for a team's environment, add platform-specific `asset_pattern` values as described in the [mise GitHub backend documentation](https://mise.jdx.dev/dev-tools/backends/github.html).
+
+After installation, verify that the CLI is available:
+
+```sh
+forma --version
+```
 
 ## CI And Release Baseline
 
