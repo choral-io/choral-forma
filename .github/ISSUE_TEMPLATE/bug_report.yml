@@ -1,0 +1,57 @@
+name: Bug report
+description: Report a reproducible problem in the Forma CLI, WebApp, docs, or examples.
+title: "Bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Forma. This project is in public alpha, so reports are used for product feedback and triage, not as a support SLA.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the commands, workspace shape, or browser steps needed to reproduce the problem.
+      placeholder: |
+        1. Run `forma ...`
+        2. Open ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Forma version
+      description: Run `forma --version` if available.
+      placeholder: "forma 0.1.0"
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, shell, browser, package manager, and anything else relevant.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste relevant output. Remove secrets, tokens, private workspace content, and personal data before posting.
+      render: text

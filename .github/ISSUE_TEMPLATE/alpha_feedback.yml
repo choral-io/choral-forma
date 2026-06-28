@@ -1,0 +1,34 @@
+name: Alpha feedback
+description: Share feedback, feature requests, and product suggestions for Forma.
+title: "Feedback: "
+labels:
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for alpha feedback, feature requests, and product suggestions. External pull requests are not accepted before beta, and issue discussion does not imply a feature commitment.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What were you trying to do with Forma?
+    validations:
+      required: true
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Feedback
+      description: What was confusing, useful, missing, unexpectedly hard, or worth adding?
+    validations:
+      required: true
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Scenario or workspace shape
+      description: Describe the content/workspace pattern if it helps explain the feedback. Do not include private workspace content.
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested direction
+      description: Optional. What would have made the experience better?

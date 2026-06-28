@@ -10,7 +10,9 @@ Product-facing Forma docs, examples, UI copy, and CLI guidance should default to
 
 ## Current Status
 
-This repository is in P0 internal-test stabilization. It contains:
+This repository is in P0 public-alpha stabilization. It is source-visible for early evaluation and installation, but it is not a production release. Public issue tracking is open for alpha feedback; external pull requests are not accepted before beta.
+
+It contains:
 
 - A repository-backed project workspace under `knowledge/`.
 - Configured space schemas for product, concepts, decisions, planning, tasks, members, and workspace material.
@@ -20,7 +22,7 @@ This repository is in P0 internal-test stabilization. It contains:
 - A pnpm web workspace for the local read-only WebApp under `packages/`.
 - Project tool versions declared through `package.json` and `rust-toolchain.toml`, with mise tasks for Rust and web checks.
 
-The current application code implements the P0 read, inspect, check, render, serve, create, resource-preview, reference-navigation, and read-only WebApp surfaces. It is an internal-test candidate, not a production release.
+The current application code implements the P0 read, inspect, check, render, serve, create, resource-preview, reference-navigation, and read-only WebApp surfaces. It is an alpha candidate for early feedback, not a production release.
 
 ## Repository Layout
 

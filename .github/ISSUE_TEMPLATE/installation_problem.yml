@@ -1,0 +1,50 @@
+name: Installation problem
+description: Report trouble installing or running the released Forma binary.
+title: "Install: "
+labels:
+  - installation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for installation script, release artifact, PATH, checksum, or first-run problems. This project is in public alpha and does not provide a support SLA.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What installation step failed?
+    validations:
+      required: true
+  - type: dropdown
+    id: method
+    attributes:
+      label: Installation method
+      options:
+        - install.sh
+        - install.ps1
+        - mise GitHub backend
+        - manual release artifact download
+        - cargo build from source
+        - other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Release tag or version
+      placeholder: "v0.1.0-alpha.10"
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, shell, and package manager/tool versions if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and output
+      description: Paste the command and output. Remove secrets, tokens, private paths, and personal data before posting.
+      render: sh
+    validations:
+      required: true
