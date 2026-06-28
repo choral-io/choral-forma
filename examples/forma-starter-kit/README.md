@@ -4,7 +4,7 @@ This workspace is a small, copyable starter for Choral Forma. It is designed to 
 
 If this is your first time opening the starter, begin with `notes/welcome-to-choral-forma.md` and `notes/getting-started.md`. They introduce the example and show where to start editing it for your own team.
 
-The workspace keeps everything inspectable in the repository. Markdown files hold the content. `.forma/` holds the supporting configuration for spaces, templates, views, and the dashboard.
+The workspace keeps everything inspectable in the repository. Markdown files hold the content. `.forma.md` is the configuration entry point, and `.forma/` holds imported configuration for spaces, templates, views, and optional local files.
 
 The example includes:
 
@@ -37,7 +37,7 @@ Included configuration nodes use their configuration path as identity; `kind` de
 
 Forma does not interpret `.gitignore` as workspace semantics. Personal or private configuration should be introduced through explicit configuration such as this starter's `.forma/local/*.yml` and `.forma/local/*.md` import patterns, or through a future `--config` style mechanism, rather than by relying on ignored path names alone. This starter's `.gitignore` keeps `.forma/local/` uncommitted for copied workspaces, but Forma loads those files only because `.forma.md` names the patterns.
 
-Markdown configuration nodes can use `<!-- forma:content -->` as the explicit slot for generated content such as dashboard sections, taxonomy terms, term pages, or view projections. If the slot is omitted, Forma should append the generated content after the Markdown body.
+Markdown configuration nodes can use `<!-- forma:content -->` as the explicit slot for generated content such as taxonomy terms, term pages, or view projections. If the slot is omitted, Forma should append the generated content after the Markdown body.
 
 Saved views use `source.type: pages` for ordinary projections over recognized pages. Page-source views filter by higher-level semantics such as taxonomy values rather than file globs. Taxonomy filters use list values, even when matching a single term. Table columns are objects so labels and future display options can be added without changing the column shape. Runtime field bindings use explicit paths: user frontmatter fields are addressed as `fields.*`, file facts as `source.*`, primary taxonomy data as `taxonomy.*`, and full taxonomy membership as `taxonomies.*`. Queries use `field`, matching table columns and sort entries, rather than a separate `target` key. Result ordering remains a view-level `sort` block; kanban columns may define their own local `sort` because each column is a separate result group.
 

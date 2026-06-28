@@ -27,13 +27,13 @@ blockedBy: []
 relatedTo:
     - "architecture/repository-forma-workspace-migration-design"
     - "planning/repository-knowledge-content-migration-audit"
-    - "planning/workspace-support-material-classification"
+    - "planning/workspace-material-classification"
     - "planning/repository-knowledge-content-migration-report"
     - "tasks/migrate-repository-knowledge-to-forma-workspace"
     - "tasks/audit-repository-knowledge-migration-scope"
     - "tasks/clean-obsolete-knowledge-workflow-language"
     - "tasks/normalize-repository-relationship-metadata"
-    - "tasks/classify-workspace-support-material"
+    - "tasks/classify-workspace-material"
 
 reportedBy:
 affectedArea: Repository knowledge content migration
@@ -49,7 +49,7 @@ Migrate current repository knowledge content into the target Forma workspace str
 
 - [[architecture/repository-forma-workspace-migration-design]]
 - [[planning/repository-knowledge-content-migration-audit]]
-- [[planning/workspace-support-material-classification]]
+- [[planning/workspace-material-classification]]
 - [[planning/repository-knowledge-content-migration-report]]
 - [[tasks/load-user-authored-space-schemas]]
 - [[tasks/migrate-repository-knowledge-to-forma-workspace]]
@@ -87,7 +87,7 @@ Execution split:
 - [[tasks/audit-repository-knowledge-migration-scope]] is the first executable slice and should produce the migration inventory.
 - [[tasks/clean-obsolete-knowledge-workflow-language]] should use the audit to remove non-current workflow compatibility wording.
 - [[tasks/normalize-repository-relationship-metadata]] should use the audit to canonicalize Forma-owned relationship fields.
-- [[tasks/classify-workspace-support-material]] should use the audit to decide what support material becomes shared project content.
+- [[tasks/classify-workspace-material]] should use the audit to decide what support material becomes shared project content.
 
 The umbrella task should become reviewable only after the split tasks produce the migration report and leave no migration-caused health warnings.
 

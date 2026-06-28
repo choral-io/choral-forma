@@ -90,7 +90,7 @@ Expected design outputs:
 - workspace identity, canonical language, supported languages, and local-only boundaries;
 - space list and source include/exclude patterns;
 - schemas for product, architecture, decisions, concepts, discovery, guidelines, tasks, members, planning, and shared workspace material where each remains useful;
-- templates for new task, knowledge, member, decision, and workspace-support entries;
+- templates for new task, knowledge, member, decision, and workspace entries;
 - page, list, kanban, table, and graph views that represent the migrated knowledge base;
 - graph edge configuration for body links, embeds, and schema-declared field relations;
 - health rule policy for broken references, unsupported fragments, isolated entries, local-only files, archived content, members, tasks, and external-source-heavy research documents.

@@ -145,7 +145,7 @@ P0 should use a serde-compatible YAML parser, with `serde_yml` as the preferred 
 
 The target configuration model should start from one explicit `.forma.md` entry at the workspace configuration root. Supporting files may live anywhere that `.forma.md` references. `.forma/` remains a recommended conventional support directory, but it should not be treated as a privileged store by itself.
 
-Configuration sections such as workspace identity, runtime values, taxonomies, templates, views, navigation, dashboard sections, and optional index settings should parse into typed Rust structs where practical. Unknown config fields should produce diagnostics or warnings rather than immediate hard failures, so future-version or manually edited config can remain inspectable.
+Configuration sections such as workspace identity, runtime values, taxonomies, templates, views, navigation, root dashboard configuration, and optional index settings should parse into typed Rust structs where practical. Unknown config fields should produce diagnostics or warnings rather than immediate hard failures, so future-version or manually edited config can remain inspectable.
 
 ### Guidelines And Future Policies
 
@@ -423,4 +423,4 @@ Future adapters should extend through Forma RPC instead of duplicating core beha
 
 ## Related Research
 
-- [Forma Markdown Parser Spike Report](../workspace/tiscs/research/forma-markdown-parser-spike-report.md)
+- Historical parser spike report: `knowledge/workspace/tiscs/research/forma-markdown-parser-spike-report.md`

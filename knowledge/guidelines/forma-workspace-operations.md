@@ -72,6 +72,16 @@ Do not commit:
 
 Treat local-only status as workflow guidance, explicit user context, or a future explicit configuration-entry concern, not as an intrinsic Forma path rule. Forma runtime does not infer knowledge semantics from `.gitignore`, and a directory named `local/` is ordinary content unless the current Human/Agent workflow treats it as private.
 
+Shared team knowledge must not link to member local content. Do not add wikilinks, Markdown links, or frontmatter relationship fields that target `knowledge/workspace/*/local/**`, `.forma/local/**`, or other local-only paths. If a shared page needs to acknowledge that local material exists, mention the local path as plain code text and ask before promoting any content from it.
+
+## Member Workspace Placement
+
+- `knowledge/workspace/<member-id>/index.md` is the shared entry page for a member workspace.
+- `knowledge/workspace/<member-id>/handoffs/` stores working handoffs and continuation notes that are not indexed by default.
+- `knowledge/workspace/<member-id>/research/` stores working support research evidence that is not indexed by default.
+- `knowledge/workspace/<member-id>/local/` stores local-only drafts, logs, worklists, scratchpads, and private execution context.
+- Promote workspace material only after a human approves the destination and scope. Stable conclusions should move to the relevant canonical space instead of staying in workspace indefinitely.
+
 ## Task Workflow
 
 - Task board membership is stored in task `status`.

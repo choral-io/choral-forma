@@ -2,7 +2,7 @@
 schemaVersion: 1
 kind: term
 taxonomy: spaces
-title: Workspace Support
+title: Workspace
 schema:
     type: object
     fields:
@@ -39,16 +39,17 @@ schema:
 
 display:
     order: 100
-description: Shared workspace handoffs and research support notes.
+description: Shared member workspace entry pages.
 include:
-    - "knowledge/workspace/*/handoffs/**/*.md"
-    - "knowledge/workspace/*/research/**/*.md"
+    - "knowledge/workspace/*/index.md"
 
 conventions:
     titleField: fields.title
     summaryField: fields.summary
 ---
 
-# Workspace Support
+# Workspace
 
-Shared handoffs and support research notes.
+Shared member workspace entry pages.
+
+This space intentionally indexes only member workspace entry pages. Handoffs, research notes, and local workspace material are working context until a human explicitly promotes them into a canonical project space. Shared entries may mention workspace-local paths as plain code text when needed, but must not create links or frontmatter references to member local files.

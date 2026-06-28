@@ -31,7 +31,7 @@ relatedTo:
     - "tasks/migrate-repository-knowledge-content"
     - "tasks/clean-obsolete-knowledge-workflow-language"
     - "tasks/normalize-repository-relationship-metadata"
-    - "tasks/classify-workspace-support-material"
+    - "tasks/classify-workspace-material"
 
 reportedBy:
 affectedArea: Repository knowledge content migration
@@ -55,7 +55,7 @@ Produce a concise migration inventory that turns [[tasks/migrate-repository-know
 - Compare the currently configured Forma spaces with the migration design.
 - Classify remaining Knowledge Workflow references as obsolete language, intentional migration history, or current replacement guidance.
 - Identify relationship metadata fields that need canonical path-qualified references.
-- Identify workspace-support material that should be promoted, retained as support material, or left local-only.
+- Identify workspace material that should be promoted, retained as support material, or left local-only.
 - Record the proposed execution order for the follow-up migration tasks.
 
 ## Out of Scope
@@ -69,7 +69,7 @@ Produce a concise migration inventory that turns [[tasks/migrate-repository-know
 - A migration audit note is added under `knowledge/planning/`.
 - The audit lists configured spaces, migration gaps, and deliberate extra spaces.
 - The audit classifies old Knowledge Workflow references before cleanup begins.
-- The audit identifies relationship metadata and workspace-support cleanup candidates.
+- The audit identifies relationship metadata and workspace cleanup candidates.
 - The audit recommends which follow-up task should be promoted next.
 - `cargo run -q -p forma-cli -- check --json` passes after the audit is added.
 

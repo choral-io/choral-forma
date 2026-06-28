@@ -148,6 +148,8 @@ mode: primary
 ---
 ```
 
+`mode: primary` means one page should match at most one term in that taxonomy. `mode: multiple` means one page may match several terms in that taxonomy. A page may belong to terms from different taxonomies at the same time. In the current P0 implementation, Forma fully enforces this uniqueness rule for the configured `spaces` projection; generalized primary-taxonomy validation is a planned extension.
+
 In the current P0 configuration model, a configured content group is commonly declared as a taxonomy term:
 
 ```yaml

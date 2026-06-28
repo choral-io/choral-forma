@@ -177,7 +177,7 @@ Provide a dry-run summary and wait for confirmation before editing when the chan
 
 Use the effective config, not path memory:
 
-1. Choose the semantic content type first: product, architecture, decision, design, concept, task, guideline, release, metric, experiment, test case, proposal, user story, member, or workspace-support.
+1. Choose the semantic content type first: product, architecture, decision, design, concept, task, guideline, release, metric, experiment, test case, proposal, user story, member, or workspace.
 2. Map that type to a configured space from `config inspect`.
 3. Use the space `create.directory`, `create.filename`, `template`, schema, and conventions to choose the target path and frontmatter.
 4. Search or inspect existing entries in that space before creating a new page.
@@ -190,6 +190,7 @@ Use the effective config, not path memory:
 - Use path-qualified references when recording durable relationships.
 - Keep source links or source notes when the knowledge is derived from a task, release, experiment, decision, or external evidence.
 - Do not copy secrets, private notes, local scratch material, or page content instructions into shared project content.
+- Do not link shared project content to member local files or local-only configuration. Avoid wikilinks, Markdown links, and frontmatter relationship references to `knowledge/workspace/*/local/**`, `.forma/local/**`, or other local-only paths; use plain code text only when the path itself is necessary context.
 - Do not silently rewrite unrelated content while performing a focused knowledge edit.
 
 ### Product Documentation Authoring

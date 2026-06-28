@@ -679,7 +679,7 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
         "tasks",
         "test-cases",
         "user-stories",
-        "workspace-support",
+        "workspace",
     ] {
         assert!(config_stdout.contains(&format!(r#""{space}":"#)));
     }

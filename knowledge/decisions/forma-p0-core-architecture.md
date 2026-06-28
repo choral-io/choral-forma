@@ -257,8 +257,8 @@ Comrak and pulldown-cmark were considered for Markdown parsing. Comrak remains a
 
 - [Forma core technical direction](../architecture/forma-core-technical-direction.md)
 - [Product direction](../product/product-direction.md)
-- [Markdown parser spike handoff](../workspace/tiscs/handoffs/forma-markdown-parser-spike.md)
-- [Markdown parser spike report](../workspace/tiscs/research/forma-markdown-parser-spike-report.md)
+- Historical parser spike handoff: `knowledge/workspace/tiscs/handoffs/forma-markdown-parser-spike.md`
+- Historical parser spike report: `knowledge/workspace/tiscs/research/forma-markdown-parser-spike-report.md`
 
 ## Open Questions
 

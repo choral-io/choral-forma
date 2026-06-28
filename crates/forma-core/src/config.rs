@@ -41,8 +41,8 @@ pub struct WorkspaceConfig {
     pub runtime: RuntimeConfig,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub guidelines: Vec<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub dashboard: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dashboard: Option<Value>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub taxonomies: BTreeMap<String, Value>,
     #[serde(default)]
@@ -245,6 +245,8 @@ struct ConfigFile {
     runtime: RuntimeConfig,
     #[serde(default)]
     guidelines: Vec<String>,
+    #[serde(default)]
+    dashboard: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -319,7 +321,7 @@ pub fn load_workspace(
         })?;
     reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
 
-    let (dashboard, taxonomies, spaces, space_sources, node_diagnostics) =
+    let (taxonomies, spaces, space_sources, node_diagnostics) =
         load_config_nodes(root, &config_file, mode, &mut types)?;
     diagnostics.extend(node_diagnostics);
 
@@ -328,7 +330,7 @@ pub fn load_workspace(
         workspace: config_file.workspace,
         runtime: config_file.runtime,
         guidelines: config_file.guidelines,
-        dashboard,
+        dashboard: config_file.dashboard,
         taxonomies,
         types,
         spaces,
@@ -361,14 +363,12 @@ fn load_config_nodes(
 ) -> Result<
     (
         BTreeMap<String, Value>,
-        BTreeMap<String, Value>,
         BTreeMap<String, SpaceDefinition>,
         BTreeMap<String, String>,
         Vec<Diagnostic>,
     ),
     ConfigError,
 > {
-    let mut dashboard = BTreeMap::new();
     let mut taxonomies = BTreeMap::new();
     let mut spaces = BTreeMap::new();
     let mut space_sources = BTreeMap::new();
@@ -399,10 +399,6 @@ fn load_config_nodes(
             if has_explicit_type_kind {
                 continue;
             }
-        }
-        if node.kind.as_deref() == Some("dashboard") {
-            dashboard.insert(view_id_from_config_path(&public_path), frontmatter);
-            continue;
         }
         if node.kind.as_deref() == Some("taxonomy") {
             let taxonomy_id = node
@@ -476,7 +472,7 @@ fn load_config_nodes(
         }
     }
 
-    Ok((dashboard, taxonomies, spaces, space_sources, diagnostics))
+    Ok((taxonomies, spaces, space_sources, diagnostics))
 }
 
 pub fn config_source_paths(
@@ -860,46 +856,47 @@ fn validate_dashboard_paths(
     config: &WorkspaceConfig,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    for (dashboard_id, dashboard) in &config.dashboard {
-        let Some(sections) = mapping_get(dashboard, "sections").and_then(Value::as_sequence) else {
+    let Some(dashboard) = &config.dashboard else {
+        return;
+    };
+    let Some(sections) = mapping_get(dashboard, "sections").and_then(Value::as_sequence) else {
+        return;
+    };
+    for (index, section) in sections.iter().enumerate() {
+        let Some(source) = mapping_get(section, "source") else {
             continue;
         };
-        for (index, section) in sections.iter().enumerate() {
-            let Some(source) = mapping_get(section, "source") else {
-                continue;
-            };
-            if mapping_get(source, "type").and_then(Value::as_str) != Some("view") {
-                continue;
-            }
-            let Some(view) = mapping_get(source, "view").and_then(Value::as_str) else {
-                continue;
-            };
-            let field = format!("dashboard.{dashboard_id}.sections[{index}].source.view");
-            match WorkspacePath::parse_config(view) {
-                Ok(path) => push_required_markdown_file_diagnostic(
-                    diagnostics,
-                    root,
-                    "config.dashboardViewMissing",
-                    "Dashboard view source file is missing.",
-                    "config.dashboardViewNotFile",
-                    "Dashboard view source path does not point to a file.",
-                    "config.dashboardViewNotMarkdown",
-                    "Dashboard view source path must point to a Markdown file.",
-                    &field,
-                    view,
-                    &path,
-                ),
-                Err(error) => {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "config.pathInvalid",
-                            format!("Dashboard view source path is invalid: {error}."),
-                        )
-                        .with_path(FORMA_CONFIG_PATH)
-                        .with_location(DiagnosticLocation::Config { field })
-                        .with_actual(view.to_string()),
-                    );
-                }
+        if mapping_get(source, "type").and_then(Value::as_str) != Some("view") {
+            continue;
+        }
+        let Some(view) = mapping_get(source, "view").and_then(Value::as_str) else {
+            continue;
+        };
+        let field = format!("dashboard.sections[{index}].source.view");
+        match WorkspacePath::parse_config(view) {
+            Ok(path) => push_required_markdown_file_diagnostic(
+                diagnostics,
+                root,
+                "config.dashboardViewMissing",
+                "Dashboard view source file is missing.",
+                "config.dashboardViewNotFile",
+                "Dashboard view source path does not point to a file.",
+                "config.dashboardViewNotMarkdown",
+                "Dashboard view source path must point to a Markdown file.",
+                &field,
+                view,
+                &path,
+            ),
+            Err(error) => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "config.pathInvalid",
+                        format!("Dashboard view source path is invalid: {error}."),
+                    )
+                    .with_path(FORMA_CONFIG_PATH)
+                    .with_location(DiagnosticLocation::Config { field })
+                    .with_actual(view.to_string()),
+                );
             }
         }
     }
@@ -1126,8 +1123,8 @@ mod tests {
             Some("fields.title")
         );
         assert_eq!(
-            workspace.config.dashboard["dashboard"]["kind"],
-            Value::String("dashboard".to_string())
+            workspace.config.dashboard.as_ref().unwrap()["title"],
+            Value::String("Dashboard".to_string())
         );
         assert_eq!(
             workspace.config.taxonomies["spaces"]["kind"],
@@ -1344,12 +1341,7 @@ mod tests {
         let root = fixture_root("invalid-ref-type-source");
         write_root_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/dashboard.md\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/dashboard\n  missing:\n    kind: entryRef\n    source: .forma/spaces/missing\n",
-        );
-        write_config_node(
-            &root,
-            ".forma/dashboard.md",
-            "---\nschemaVersion: 1\nkind: dashboard\ntitle: Dashboard\n---\n\n# Dashboard\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/views/people\n  missing:\n    kind: entryRef\n    source: .forma/spaces/missing\n",
         );
         write_config_node(
             &root,
@@ -1668,13 +1660,8 @@ mod tests {
         fs::create_dir_all(root.join(".forma")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/dashboard.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ndashboard:\n  title: Dashboard\n  sections:\n    - id: recent\n      title: Recent\n      source:\n        type: view\n        view: .forma/views/recent.md\n",
         );
-        fs::write(
-            root.join(".forma/dashboard.md"),
-            "---\nschemaVersion: 1\nkind: dashboard\ntitle: Dashboard\nsections:\n  - id: recent\n    title: Recent\n    source:\n      type: view\n      view: .forma/views/recent.md\n---\n\n# Dashboard\n",
-        )
-        .unwrap();
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 

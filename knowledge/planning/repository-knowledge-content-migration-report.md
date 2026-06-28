@@ -10,7 +10,7 @@ tags:
 sources:
     - "architecture/repository-forma-workspace-migration-design"
     - "planning/repository-knowledge-content-migration-audit"
-    - "planning/workspace-support-material-classification"
+    - "planning/workspace-material-classification"
     - "tasks/migrate-repository-knowledge-content"
 ---
 
@@ -33,7 +33,7 @@ The migration did not require a broad directory move because the current `.forma
 ## Changed Knowledge
 
 - Added [[planning/repository-knowledge-content-migration-audit]].
-- Added [[planning/workspace-support-material-classification]].
+- Added [[planning/workspace-material-classification]].
 - Split [[tasks/migrate-repository-knowledge-content]] into reviewable migration slices.
 - Removed the invalid `forma board show` command from current guidelines.
 - Normalized decision supersession metadata from wikilink strings to path-qualified refs.
@@ -66,9 +66,9 @@ The first resumed cleanup normalized completed task metadata where the task stat
 
 The next cleanup pass normalized `owners` metadata for current canonical shared project content in the configured product, architecture, decision, concept, discovery, guideline, and repository README spaces.
 
-This pass intentionally did not fill empty `assignees`, `reviewers`, template defaults, or historical workspace-support files:
+This pass intentionally did not fill empty `assignees`, `reviewers`, template defaults, or historical workspace files:
 
 - empty `assignees` can mean unassigned work;
 - empty `reviewers` can mean no review owner has been assigned yet;
 - template defaults should remain neutral for future generated content;
-- historical workspace-support files keep their original context unless promoted into canonical spaces.
+- historical workspace files keep their original context unless promoted into canonical spaces.

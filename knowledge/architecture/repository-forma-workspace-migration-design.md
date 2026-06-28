@@ -62,7 +62,7 @@ The target repository Forma workspace should keep the root-level shared configur
     planning.md
     tasks.md
     members.md
-    workspace-support.md
+    workspace.md
     templates/
       knowledge.md
       member-note.md
@@ -87,8 +87,8 @@ The current minimal repository workspace may keep the broader `knowledge`, `task
 | `knowledge/planning/**` | `planning` | Keep roadmaps, release plans, and delivery status views that still describe current project work. |
 | `knowledge/tasks/**` | `tasks` | Keep active and useful historical task items as delivery records with Forma-owned relation fields. |
 | `knowledge/members/**` | `members` | Keep shared member profiles only. |
-| `knowledge/workspace/*/handoffs/**` | `workspace-support` | Keep handoffs only when still useful as shared support material. |
-| `knowledge/workspace/*/research/**` | `workspace-support` or `discovery` | Promote durable research synthesis to `discovery`; otherwise keep only useful support notes. |
+| `knowledge/workspace/*/handoffs/**` | `workspace` | Keep handoffs only when still useful as shared support material. |
+| `knowledge/workspace/*/research/**` | `workspace` or `discovery` | Promote durable research synthesis to `discovery`; otherwise keep only useful support notes. |
 | `knowledge/workspace/*/local/**` | none | Do not migrate; local-only state remains excluded. |
 | `knowledge/.workflow/**` | none by default | Do not migrate as project facts. Use only as source material when designing Forma-owned replacement behavior. |
 | localized files | variants of canonical pages | Do not list or migrate localized pages as independent source-of-truth entries. |

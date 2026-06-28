@@ -51,6 +51,7 @@ tags:
 
 ## Related Knowledge
 
+- [[workspace/tiscs/index|Galen Workspace]]
 - [[product/product-direction]]
 - [[architecture/forma-core-technical-direction]]
 - [[guidelines/task-selection]]

@@ -57,7 +57,7 @@ Current product planning should prefer:
 Use `planning/` for planning records, audits, and migration evidence. Planning records can support decisions, but should not replace release, metric, user-story, or task records when those configured spaces are a better fit.
 
 - `members/`: member profiles and workspace mapping references
-- `workspace/`: shared member workspaces, handoffs, and local-only personal work areas under `local/`
+- `workspace/`: member workspace entry pages and local-only personal work areas under `local/`
 - `discovery/`: discovery notes, research, and assumptions
 - `product/`: product requirements and user-facing behavior
 - `user-stories/`: actor-centered product stories and use cases
@@ -90,3 +90,12 @@ The repo keeps local working context under ignored or otherwise local-only paths
 - `target/` and other generated caches
 
 These are not committed and not required for active runtime instructions.
+
+Member workspace placement:
+
+- `knowledge/workspace/<member-id>/index.md`: shared entry page for a member workspace.
+- `knowledge/workspace/<member-id>/handoffs/`: working handoffs and continuation notes, not indexed by default.
+- `knowledge/workspace/<member-id>/research/`: working support research evidence, not indexed by default.
+- `knowledge/workspace/<member-id>/local/`: local-only drafts, logs, worklists, scratchpads, and private execution context.
+
+Promote workspace material into a canonical space only after explicit human approval. Shared knowledge must not link to `knowledge/workspace/*/local/**`; mention local paths only as plain code text when necessary.

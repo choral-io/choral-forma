@@ -42,7 +42,7 @@ Verify that `examples/forma-starter-kit` works as a clean, reusable Forma worksp
 
 1. Run the config inspect command.
 2. Confirm the operation status is `passed`.
-3. Confirm the config contains workspace identity, supported languages, runtime values, spaces, views, dashboard sections, and semantic types.
+3. Confirm the config contains workspace identity, supported languages, runtime values, spaces, views, root dashboard configuration, and semantic types.
 4. Confirm all paths are workspace-relative and no `workspace.root` configuration field is present.
 5. Confirm any configured guidelines are ordinary Markdown paths inside the starter workspace.
 6. Confirm the starter workspace's Agent bootstrap material has a canonical `skills/forma-cli/SKILL.md` source and an aligned `.agents/skills/forma-cli/SKILL.md` runtime entrypoint when Agent bootstrap is enabled.

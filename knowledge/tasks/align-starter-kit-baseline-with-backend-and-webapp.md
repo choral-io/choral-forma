@@ -43,7 +43,7 @@ Align the backend configuration loader, read model, shared TypeScript contracts,
 
 ## Sources
 
-- [[workspace/tiscs/handoffs/forma-starter-kit-to-system-refactor]]
+- Historical starter-kit handoff: `knowledge/workspace/tiscs/handoffs/forma-starter-kit-to-system-refactor.md`
 - [[product/forma-p0-starter-spec]]
 - [[architecture/forma-view-query-model]]
 - [[architecture/webapp-v2-read-model-contract]]

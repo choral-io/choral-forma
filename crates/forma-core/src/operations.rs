@@ -3008,7 +3008,6 @@ imports:
         assert!(root.join("notes/created-note.md").is_file());
         assert!(root.join("members/created-member.md").is_file());
         assert!(task.contains("priority: \"medium\""));
-        assert!(root.join(".forma/dashboard.md").is_file());
         assert!(root.join(".forma/views/tasks.md").is_file());
         assert!(root.join(".forma/spaces/templates/guideline.md").is_file());
         assert!(root.join("tasks").is_dir());

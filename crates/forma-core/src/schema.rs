@@ -1280,7 +1280,7 @@ mod tests {
             },
             runtime: RuntimeConfig::default(),
             guidelines: Vec::new(),
-            dashboard: BTreeMap::new(),
+            dashboard: None,
             taxonomies: BTreeMap::new(),
             types: BTreeMap::from([
                 (

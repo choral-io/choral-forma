@@ -25,7 +25,7 @@ This starter specification stays aligned with [Product direction](product-direct
 The starter baseline is import-driven and Markdown-first:
 
 - `.forma.md` is the single committed configuration entry point.
-- `.forma/` is a conventional support directory for dashboard, spaces, templates, views, and local-only overrides. It is not a hidden workspace root or persistent store.
+- `.forma/` is a conventional support directory for imported spaces, templates, views, and local-only overrides. It is not a hidden workspace root or persistent store.
 - Markdown under content directories remains the source of truth.
 - No committed persistent index is part of the starter.
 - `workspace.root` is not part of the config model and must not be generated.
@@ -75,7 +75,6 @@ Current `forma init` creates only:
 Future starter-kit installation should be derived from an explicit starter/template source and should create or copy a minimal workspace shape equivalent to:
 
 - `.forma.md`
-- `.forma/dashboard.md`
 - `.forma/spaces/index.md`
 - `.forma/spaces/{notes,tasks,members,guidelines}.md`
 - `.forma/spaces/templates/{note,task,member,guideline}.md`
@@ -115,11 +114,18 @@ runtime:
             transform: slugify
 
 imports:
-    - ".forma/dashboard.md"
     - ".forma/spaces/*.md"
     - ".forma/views/*.md"
     - ".forma/local/*.yml"
     - ".forma/local/*.md"
+
+dashboard:
+    title: Dashboard
+    sections:
+        - id: overview
+          title: Workspace overview
+          source:
+              type: workspace
 ```
 
 `workspace.timezone` is stored explicitly. Future initialization may resolve it from the current environment when the user does not pass a timezone.
@@ -134,7 +140,7 @@ The starter should expose:
 - a task kanban view using the status lifecycle above;
 - notes and members table views;
 - graph, guide, and recent-work views;
-- a dashboard that surfaces workspace overview, recent pages, and workspace health.
+- root `.forma.md` dashboard configuration for workspace overview, recent pages, and workspace health.
 
 The generated workspace can stay empty when initialization returns. The committed example workspace remains the richer demo and smoke-validation baseline.
 
