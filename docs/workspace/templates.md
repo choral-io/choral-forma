@@ -60,10 +60,10 @@ create:
             default: "{{ runtime.values.currentDateTime }}"
 ```
 
-Define those names under `runtime.values` in `.forma.md` or an explicitly included config file before using them in defaults or templates.
+Define those names under `runtime.values` in `.forma.md` or an explicitly imported config file before using them in defaults or templates.
 
-When a schema field uses a named ref type or a list of named ref values, read that field's schema and the corresponding `types` definition before choosing a default. Store the workspace reference path expected by that named type, not only the raw runtime id. Do not assume a built-in directory such as `members/`, and do not assume the example `people/` prefix applies to other workspaces. If a workflow needs a current-user reference, use `currentUserId` as an identity input and let the template explicitly assemble the workspace's configured reference path.
+When a schema field uses an `entryRef` named type or a list of `entryRef` values, read that field's schema and the corresponding `types` definition before choosing a default. Store the workspace reference path expected by that named type, not only the raw runtime id. Do not assume a built-in directory such as `members/`, and do not assume the example `people/` prefix applies to other workspaces. If a workflow needs a current-user reference, use `currentUserId` as an identity input and let the template explicitly assemble the workspace's configured reference path.
 
 ## Agent Guidance
 
-Keep templates small, readable, and aligned with the configured schema. Verify template paths with `forma check --json`. For ref defaults, inspect the named type definition and existing entries before writing the template.
+Keep templates small, readable, and aligned with the configured schema. Verify template paths with `forma check --json`. For entryRef defaults, inspect the named type definition and existing entries before writing the template.

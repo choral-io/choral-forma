@@ -51,11 +51,11 @@ schema:
         relatedTo:
             type: list
             items:
-                type: ref
+                type: entryRef
         sources:
             type: list
             items:
-                type: ref
+                type: entryRef
         severity:
             type: string
         sprint:

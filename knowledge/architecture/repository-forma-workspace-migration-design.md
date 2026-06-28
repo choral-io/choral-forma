@@ -29,7 +29,7 @@ The migration should first define the target Forma configuration, then migrate c
 ## Goals
 
 - Define the target `.forma/` structure for this repository before broad content changes.
-- Keep repository Markdown and `.forma.md`-included files as the shared source of truth.
+- Keep repository Markdown and `.forma.md`-imported files as the shared source of truth.
 - Keep runtime indexing startup-scan and in memory, with no committed summary index.
 - Make old Knowledge Workflow paths and metadata migration inputs, not compatibility requirements.
 - Preserve useful development knowledge while removing obsolete workflow-process coupling.

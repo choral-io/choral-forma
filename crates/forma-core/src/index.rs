@@ -742,7 +742,7 @@ fn collect_ref_fields_inner(
                 fields.push(field);
             }
         }
-        SchemaNode::Ref { target, .. } => {
+        SchemaNode::EntryRef { target, .. } => {
             if let Some(target) = target {
                 if let Some(field) =
                     ref_field_for_semantic_type(config, target, field_path, many, true)
@@ -779,7 +779,7 @@ fn ref_field_for_semantic_type(
 ) -> Option<RefField> {
     let semantic_type = config.types.get(type_name)?;
     let transform = match semantic_type {
-        SemanticType::Ref { input, .. } => input.transform.clone(),
+        SemanticType::EntryRef { input, .. } => input.transform.clone(),
         SemanticType::Enum { .. } => return None,
     };
     Some(RefField {
@@ -851,13 +851,16 @@ fn resolve_frontmatter_ref_value(
             Ok(transformed) => target = transformed,
             Err(message) => {
                 diagnostics.push(
-                    Diagnostic::error("ref.transformFailed", "Reference input transform failed.")
-                        .with_path(source_path)
-                        .with_location(DiagnosticLocation::Frontmatter {
-                            field: field.field.clone(),
-                            index,
-                        })
-                        .with_actual(message),
+                    Diagnostic::error(
+                        "entryRef.transformFailed",
+                        "Reference input transform failed.",
+                    )
+                    .with_path(source_path)
+                    .with_location(DiagnosticLocation::Frontmatter {
+                        field: field.field.clone(),
+                        index,
+                    })
+                    .with_actual(message),
                 );
                 return;
             }
@@ -875,7 +878,7 @@ fn resolve_frontmatter_ref_value(
             intent: ReferenceIntent::Reference,
         }),
         ResolveResult::Unresolved => diagnostics.push(
-            Diagnostic::error("ref.unresolved", "Reference cannot be resolved.")
+            Diagnostic::error("entryRef.unresolved", "Reference cannot be resolved.")
                 .with_path(source_path)
                 .with_location(DiagnosticLocation::Frontmatter {
                     field: field.field.clone(),
@@ -890,13 +893,16 @@ fn resolve_frontmatter_ref_value(
                 ),
         ),
         ResolveResult::Ambiguous => diagnostics.push(
-            Diagnostic::error("ref.ambiguous", "Reference resolves to multiple entries.")
-                .with_path(source_path)
-                .with_location(DiagnosticLocation::Frontmatter {
-                    field: field.field.clone(),
-                    index,
-                })
-                .with_actual(raw_target.to_string()),
+            Diagnostic::error(
+                "entryRef.ambiguous",
+                "Reference resolves to multiple entries.",
+            )
+            .with_path(source_path)
+            .with_location(DiagnosticLocation::Frontmatter {
+                field: field.field.clone(),
+                index,
+            })
+            .with_actual(raw_target.to_string()),
         ),
     }
 }
@@ -943,7 +949,7 @@ fn resolve_body_refs(
                 intent,
             }),
             ResolveResult::Unresolved => diagnostics.push(
-                Diagnostic::error("ref.unresolved", "Reference cannot be resolved.")
+                Diagnostic::error("entryRef.unresolved", "Reference cannot be resolved.")
                     .with_path(source_path)
                     .with_location(
                         reference
@@ -960,21 +966,24 @@ fn resolve_body_refs(
                     .with_actual(reference.target.clone()),
             ),
             ResolveResult::Ambiguous => diagnostics.push(
-                Diagnostic::error("ref.ambiguous", "Reference resolves to multiple entries.")
-                    .with_path(source_path)
-                    .with_location(
-                        reference
-                            .span
-                            .map(|span| DiagnosticLocation::Body {
-                                line: Some(span.start_line),
-                                column: Some(span.start_column),
-                            })
-                            .unwrap_or(DiagnosticLocation::Body {
-                                line: None,
-                                column: None,
-                            }),
-                    )
-                    .with_actual(reference.target.clone()),
+                Diagnostic::error(
+                    "entryRef.ambiguous",
+                    "Reference resolves to multiple entries.",
+                )
+                .with_path(source_path)
+                .with_location(
+                    reference
+                        .span
+                        .map(|span| DiagnosticLocation::Body {
+                            line: Some(span.start_line),
+                            column: Some(span.start_column),
+                        })
+                        .unwrap_or(DiagnosticLocation::Body {
+                            line: None,
+                            column: None,
+                        }),
+                )
+                .with_actual(reference.target.clone()),
             ),
         }
     }
@@ -1355,6 +1364,12 @@ pub(crate) fn config_error_diagnostic(error: ConfigError) -> Diagnostic {
         )
         .with_path(path)
         .with_actual(source.to_string()),
+        ConfigError::LegacyRootInclude { path } => Diagnostic::error(
+            "config.legacyRootInclude",
+            "Root config field `include` has been renamed to `imports`.",
+        )
+        .with_path(path)
+        .with_actual("replace root `include` with `imports`".to_string()),
     }
 }
 
@@ -1524,7 +1539,7 @@ mod tests {
         write_workspace(&root);
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
         );
         write_entry(
             &root,
@@ -1573,7 +1588,7 @@ mod tests {
         write_workspace(&root);
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\n  - views/*.md\n",
         );
         write_workspace_file(
             &root,
@@ -1635,7 +1650,7 @@ mod tests {
         write_workspace(&root);
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
         );
         write_entry(
             &root,
@@ -1677,7 +1692,7 @@ mod tests {
         write_workspace(&root);
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
         );
         write_entry(
             &root,
@@ -1892,25 +1907,25 @@ mod tests {
             discovery
                 .diagnostics
                 .iter()
-                .any(|diagnostic| diagnostic.code == "ref.unresolved")
+                .any(|diagnostic| diagnostic.code == "entryRef.unresolved")
         );
         assert!(
             discovery
                 .diagnostics
                 .iter()
-                .any(|diagnostic| diagnostic.code == "ref.ambiguous")
+                .any(|diagnostic| diagnostic.code == "entryRef.ambiguous")
         );
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
-    fn resolves_named_ref_type_frontmatter_references() {
+    fn resolves_named_entry_ref_type_frontmatter_references() {
         let root = fixture_root("named-ref-frontmatter");
         fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
         fs::create_dir_all(root.join(FIXTURE_VIEWS_DIR)).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  member:\n    kind: ref\n    source: .forma/spaces/members\n    input:\n      transform: slugify\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  member:\n    kind: entryRef\n    source: .forma/spaces/members\n    input:\n      transform: slugify\nimports:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
         );
         write_workspace_file(
             &root,
@@ -1993,7 +2008,7 @@ mod tests {
 
         assert!(task.refs.is_empty());
         assert!(discovery.diagnostics.iter().any(|diagnostic| {
-            diagnostic.code == "ref.unresolved"
+            diagnostic.code == "entryRef.unresolved"
                 && diagnostic
                     .actual
                     .as_deref()
@@ -2173,7 +2188,7 @@ mod tests {
         fs::create_dir_all(root.join(FIXTURE_VIEWS_DIR)).unwrap();
         write_config(
             root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  member:\n    kind: ref\n    source: .forma/spaces/members\n    input:\n      transform: slugify\ninclude:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  member:\n    kind: entryRef\n    source: .forma/spaces/members\n    input:\n      transform: slugify\nimports:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
         );
         fs::write(
             root.join(".forma/spaces/index.md"),
@@ -2207,7 +2222,7 @@ mod tests {
             ),
         ] {
             let schema = if title == "Tasks" {
-                "schema:\n  type: object\n  fields:\n    kind:\n      type: string\n    assignees:\n      type: list\n      items:\n        type: ref\n        target: member\n"
+                "schema:\n  type: object\n  fields:\n    kind:\n      type: string\n    assignees:\n      type: list\n      items:\n        type: entryRef\n        target: member\n"
             } else {
                 "schema:\n  type: object\n  fields:\n    kind:\n      type: string\n"
             };
@@ -2254,8 +2269,8 @@ mod tests {
             yaml.to_string()
         } else {
             yaml.replacen(
-                "\ninclude:\n",
-                "\ntypes:\n  member:\n    kind: ref\n    source: .forma/spaces/members\n    input:\n      transform: slugify\n\ninclude:\n",
+                "\nimports:\n",
+                "\ntypes:\n  member:\n    kind: entryRef\n    source: .forma/spaces/members\n    input:\n      transform: slugify\n\nimports:\n",
                 1,
             )
         };

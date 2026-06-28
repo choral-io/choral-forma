@@ -50,7 +50,7 @@ Load and validate schema definitions from `.forma/spaces/*.md` so repository mig
 - Parse user-authored `schema` frontmatter from space definition files.
 - Preserve existing starter fallback behavior only where no schema is configured.
 - Validate configured schema fields with existing Schema DSL diagnostics.
-- Make schema-declared `ref` fields available to indexing and graph field edge rendering.
+- Make schema-declared `entryRef` fields available to indexing and graph field edge rendering.
 
 ## Out of Scope
 
@@ -76,7 +76,7 @@ Load and validate schema definitions from `.forma/spaces/*.md` so repository mig
 
 | Field | Evidence |
 | --- | --- |
-| Scope completed | User-authored space schemas load into runtime config; fallback behavior is preserved; schema-declared ref fields can drive graph field edges. |
+| Scope completed | User-authored space schemas load into runtime config; fallback behavior is preserved; schema-declared entryRef fields can drive graph field edges. |
 | Files changed | `crates/forma-core/src/config.rs`, `crates/forma-core/src/render.rs`, and this task. |
 | Knowledge updated | Yes: this task records implementation notes and review evidence. |
 | Checks run | `cargo test`, Prettier check for changed knowledge files, `forma check --json`, `forma config inspect --json`, `forma list --space tasks --json`, and `forma workspace health --json` passed or returned the existing accepted health warning baseline. |

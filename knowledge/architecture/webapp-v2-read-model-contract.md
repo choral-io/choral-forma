@@ -21,7 +21,7 @@ The WebApp remains a lightweight standalone knowledge browser. It should consume
 ## Goals
 
 - Provide the minimum read model needed to replace deterministic WebApp mock data.
-- Keep repository Markdown and `.forma.md`-included configuration as the source of truth.
+- Keep repository Markdown and `.forma.md`-imported configuration as the source of truth.
 - Keep WebApp rendering read-only until reviewable write operations are designed.
 - Reuse existing operation semantics where possible: `files.list`, `file.render`, `file.references`, `check`, and `view.render`.
 - Add aggregate read operations only when the GUI needs route-level data that is awkward or inefficient to compose in the browser.

@@ -43,6 +43,8 @@ Use `forma init` only to create the minimal Forma bootstrap. Do not create `skil
 
 After init, ask the human what content structure they need. Add spaces, templates, views, and guidelines in small slices. Verify each slice with `forma check --json`.
 
+When editing root `.forma.md`, keep top-level fields in this order when present: `schemaVersion`, `workspace`, `runtime`, `imports`, `guidelines`, then `types`. Do not add unused fields only to complete the sequence.
+
 Before authoring the first content group, load the relevant embedded docs:
 
 - `forma docs get workspace.configuration`

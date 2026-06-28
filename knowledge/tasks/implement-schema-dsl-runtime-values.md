@@ -48,7 +48,7 @@ The Schema DSL is the P0 user-authored object constraint language. Runtime value
 
 ## In Scope
 
-- Implement Schema DSL node types: `object`, `string`, `number`, `integer`, `boolean`, `date`, `datetime`, `const`, `enum`, `ref`, and `list`.
+- Implement Schema DSL node types: `object`, `string`, `number`, `integer`, `boolean`, `date`, `datetime`, `const`, `enum`, `entryRef`, and `list`.
 - Implement field-local `required: true`, `readonly`, and `hidden` hints.
 - Implement semantic types for static enums and space-backed references.
 - Implement simple `{{ path.to.value }}` placeholder resolution with cycle detection.

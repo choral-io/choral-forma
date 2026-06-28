@@ -122,7 +122,7 @@ P0 command classification:
 - `forma create` does not require confirmation in P0 because it writes one new entry, uses space-defined inputs and templates, and fails on path conflicts.
 - `forma refresh` or an equivalent in-memory read-model rebuild operation does not require confirmation because it writes nothing by default.
 - `forma check`, `forma config inspect`, `forma inspect`, `forma list`, and `forma serve` do not require confirmation because they are read-only in P0.
-- `forma config inspect --path <path>` may inspect only known configuration source files reported by the operation, starting with `.forma.md` and any explicitly included configuration files. It is not a general workspace file read API.
+- `forma config inspect --path <path>` may inspect only known configuration source files reported by the operation, starting with `.forma.md` and any explicitly imported configuration files. It is not a general workspace file read API.
 
 Future command classification:
 
@@ -251,7 +251,7 @@ Diagnostic object outline:
 ```json
 {
     "severity": "error",
-    "code": "ref.unresolved",
+    "code": "entryRef.unresolved",
     "message": "Reference cannot be resolved.",
     "path": "tasks/user-registration.md",
     "location": {

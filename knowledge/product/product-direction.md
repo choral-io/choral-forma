@@ -209,7 +209,7 @@ date
 datetime
 const
 enum
-ref
+entryRef
 list
 ```
 
@@ -243,7 +243,7 @@ types:
         values: [todo, doing, done]
 
     member:
-        kind: ref
+        kind: entryRef
         source: .forma/spaces/members
         input:
             transform: slugify
@@ -258,7 +258,7 @@ Space-backed types may define input normalization for bare user-entered values:
 ```yaml
 types:
     note:
-        kind: ref
+        kind: entryRef
         source: .forma/spaces/notes
         input:
             transform: slugify
@@ -544,10 +544,10 @@ array append/remove: not supported
 same-layer conflict: invalid unless a file boundary explicitly owns it
 ```
 
-Configuration sections and included files should have clear responsibility boundaries:
+Configuration sections and imported files should have clear responsibility boundaries:
 
 ```text
-.forma.md owns the main configuration entry and includes.
+.forma.md owns the main configuration entry and imports.
 workspace owns identity, language, timezone, and presentation metadata such as logo.
 runtime owns runtime values.
 Markdown config nodes under .forma/spaces/ own space schemas and starter space taxonomy terms.
@@ -1030,7 +1030,7 @@ Input resolution should treat inputs as a dependency graph:
 
 Dependencies read another input's final value after its transform. Template and filename rendering happens only after all inputs are resolved.
 
-Semantic field context should control serialization. For example, if `assignees` is a many-valued `member` reference field, a member id can be serialized as a path-qualified member ref. The write should fail before creating an invalid space entry.
+Semantic field context should control serialization. For example, if `assignees` is a many-valued `member` reference field, a member id can be serialized as a path-qualified member entry reference. The write should fail before creating an invalid space entry.
 
 The MVP should not require bulk creation, loops, executable hooks, overwrite modes, or multi-file transactions.
 
@@ -1051,7 +1051,7 @@ forma unset tasks/foo.md dueDate
 
 `set` should replace a single-value field or replace the whole value of a many-valued field. `add` and `remove` should operate on many-valued fields. `unset` should remove a field. A later `clear` command can explicitly set a field to null if that distinction becomes important.
 
-Reference input should be permissive when the field context is known. Users and Agents may provide values such as `alex-chen`, `members/alex-chen`, or `members/alex-chen.md` for an assignees field. Product writes should normalize resolved metadata references to path-qualified entry refs such as `members/alex-chen`. Many-valued reference fields should deduplicate by resolved identity, not by raw string.
+Reference input should be permissive when the field context is known. Users and Agents may provide values such as `alex-chen`, `members/alex-chen`, or `members/alex-chen.md` for an assignees field. Product writes should normalize resolved metadata references to path-qualified entry references such as `members/alex-chen`. Many-valued reference fields should deduplicate by resolved identity, not by raw string.
 
 Edits should preserve YAML ordering, unknown fields, comments where practical, and the Markdown body. The product should avoid full-document rewrites for small metadata changes. Validation should run before writing, and force writes should remain out of the MVP.
 
@@ -1275,7 +1275,7 @@ Recommended P0 JSON shape:
     "diagnostics": [
         {
             "severity": "error",
-            "code": "ref.unresolved",
+            "code": "entryRef.unresolved",
             "message": "Reference cannot be resolved.",
             "path": "tasks/user-registration.md",
             "location": {
@@ -1285,7 +1285,7 @@ Recommended P0 JSON shape:
             },
             "actual": "[[members/tics]]",
             "expected": {
-                "type": "ref",
+                "type": "entryRef",
                 "target": "member"
             },
             "suggestions": [
@@ -1327,7 +1327,7 @@ runtime.*
 space.*
 schema.*
 entry.*
-ref.*
+entryRef.*
 view.*
 template.*
 create.*

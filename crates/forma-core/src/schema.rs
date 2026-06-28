@@ -80,7 +80,7 @@ pub enum SchemaNode {
         hidden: bool,
         label: Option<String>,
     },
-    Ref {
+    EntryRef {
         target: Option<String>,
         required: bool,
         readonly: bool,
@@ -191,7 +191,7 @@ impl<'de> Deserialize<'de> for SchemaNode {
                 hidden,
                 label,
             }),
-            "ref" => Ok(Self::Ref {
+            "entryRef" => Ok(Self::EntryRef {
                 target: raw.target,
                 required,
                 readonly,
@@ -242,7 +242,7 @@ impl SchemaNode {
             | Self::Const { required, .. }
             | Self::Enum { required, .. }
             | Self::Named { required, .. }
-            | Self::Ref { required, .. }
+            | Self::EntryRef { required, .. }
             | Self::List { required, .. } => *required,
         }
     }
@@ -354,14 +354,14 @@ impl Serialize for SchemaNode {
                 map.serialize_entry("type", name)?;
                 serialize_schema_metadata(&mut map, *required, *readonly, *hidden, label)?;
             }
-            Self::Ref {
+            Self::EntryRef {
                 target,
                 required,
                 readonly,
                 hidden,
                 label,
             } => {
-                map.serialize_entry("type", "ref")?;
+                map.serialize_entry("type", "entryRef")?;
                 if let Some(target) = target {
                     map.serialize_entry("target", target)?;
                 }
@@ -814,14 +814,17 @@ fn validate_schema_node(
         SchemaNode::Named { name, .. } => {
             validate_named_schema_type(config, name, path, field, diagnostics);
         }
-        SchemaNode::Ref { target, .. } => {
+        SchemaNode::EntryRef { target, .. } => {
             if let Some(target) = target {
-                if !matches!(config.types.get(target), Some(SemanticType::Ref { .. })) {
+                if !matches!(
+                    config.types.get(target),
+                    Some(SemanticType::EntryRef { .. })
+                ) {
                     diagnostics.push(
                         Diagnostic::error(
-                            "schema.ref.invalid",
+                            "schema.entryRef.invalid",
                             format!(
-                                "Reference target `{target}` is not a reference semantic type."
+                                "Entry reference target `{target}` is not an entryRef semantic type."
                             ),
                         )
                         .with_path(path)
@@ -947,20 +950,23 @@ fn validate_value_node(
         SchemaNode::Named { name, .. } => {
             validate_named_value(config, name, value, path, field, diagnostics);
         }
-        SchemaNode::Ref { target, .. } => {
+        SchemaNode::EntryRef { target, .. } => {
             validate_reference_value(value, path.clone(), field, diagnostics);
             if let Some(target) = target {
-                if !matches!(config.types.get(target), Some(SemanticType::Ref { .. })) {
+                if !matches!(
+                    config.types.get(target),
+                    Some(SemanticType::EntryRef { .. })
+                ) {
                     diagnostics.push(
                         Diagnostic::error(
-                            "schema.ref.invalid",
+                            "schema.entryRef.invalid",
                             format!(
-                                "Reference target `{target}` is not a reference semantic type."
+                                "Entry reference target `{target}` is not an entryRef semantic type."
                             ),
                         )
                         .with_path(path)
                         .with_location(frontmatter_field_location(field))
-                        .with_expected(format!("reference semantic type `{target}`")),
+                        .with_expected(format!("entryRef semantic type `{target}`")),
                     );
                 }
             }
@@ -1040,7 +1046,7 @@ fn validate_named_value(
         Some(SemanticType::Enum { values }) => {
             validate_enum_value(values, value, path, field, diagnostics);
         }
-        Some(SemanticType::Ref { .. }) => {
+        Some(SemanticType::EntryRef { .. }) => {
             validate_reference_value(value, path, field, diagnostics);
         }
         None => diagnostics.push(
@@ -1104,7 +1110,7 @@ fn is_primitive_schema_type(name: &str) -> bool {
             | "datetime"
             | "const"
             | "enum"
-            | "ref"
+            | "entryRef"
             | "list"
     )
 }
@@ -1275,7 +1281,7 @@ mod tests {
                 ),
                 (
                     "member".to_string(),
-                    SemanticType::Ref {
+                    SemanticType::EntryRef {
                         source: ".forma/spaces/members".to_string(),
                         input: TypeInput {
                             transform: Some("slugify".to_string()),
@@ -1322,7 +1328,7 @@ fields:
   assignees:
     type: list
     items:
-      type: ref
+      type: entryRef
       target: member
 "#,
         );
@@ -1331,7 +1337,7 @@ fields:
     }
 
     #[test]
-    fn validates_schema_named_ref_and_enum_types() {
+    fn validates_schema_named_entry_ref_and_enum_types() {
         let config = config_with_task_schema(
             r#"
 type: object
@@ -1356,7 +1362,7 @@ fields:
     }
 
     #[test]
-    fn validates_named_ref_and_enum_values() {
+    fn validates_named_entry_ref_and_enum_values() {
         let config = config_with_task_schema(
             r#"
 type: object
@@ -1399,6 +1405,24 @@ fields:
     }
 
     #[test]
+    fn rejects_legacy_ref_schema_primitive() {
+        let config = config_with_task_schema(
+            r#"
+type: object
+fields:
+  assignee:
+    type: ref
+    target: member
+"#,
+        );
+
+        let diagnostics = validate_space_schemas(&config);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "schema.invalid");
+    }
+
+    #[test]
     fn reports_invalid_enum_and_ref_targets() {
         let config = config_with_task_schema(
             r#"
@@ -1408,7 +1432,7 @@ fields:
     type: enum
     enum: missingStatus
   assignee:
-    type: ref
+    type: entryRef
     target: missingUser
 "#,
         );
@@ -1423,7 +1447,7 @@ fields:
         assert!(
             diagnostics
                 .iter()
-                .any(|diagnostic| diagnostic.code == "schema.ref.invalid")
+                .any(|diagnostic| diagnostic.code == "schema.entryRef.invalid")
         );
     }
 
@@ -1447,7 +1471,7 @@ fields:
   assignees:
     type: list
     items:
-      type: ref
+      type: entryRef
       target: member
 "#,
         );

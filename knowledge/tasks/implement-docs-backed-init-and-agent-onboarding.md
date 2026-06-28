@@ -112,7 +112,7 @@ Docs may use frontmatter to support CLI and skill projection:
 ---
 id: workspace.configuration
 title: Workspace Configuration
-summary: Define the minimal `.forma.md` and included config node model.
+summary: Define the minimal `.forma.md` and imported config node model.
 audience:
     - human
     - agent
@@ -203,19 +203,19 @@ workspace:
         - "en"
     timezone: "UTC"
 
-include:
-    - ".forma/*.md"
-    - ".forma/spaces/*.md"
-    - ".forma/views/*.md"
-    - ".forma/local/*.yml"
-    - ".forma/local/*.md"
-
 runtime:
     values:
         currentDateTime:
             kind: currentDateTime
         workspaceRoot:
             kind: workspaceRoot
+
+imports:
+    - ".forma/*.md"
+    - ".forma/spaces/*.md"
+    - ".forma/views/*.md"
+    - ".forma/local/*.yml"
+    - ".forma/local/*.md"
 ```
 
 Acceptance behavior:

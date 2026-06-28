@@ -31,15 +31,15 @@ schema:
         sources:
             type: list
             items:
-                type: ref
+                type: entryRef
         supersedes:
             type: list
             items:
-                type: ref
+                type: entryRef
         supersededBy:
             type: list
             items:
-                type: ref
+                type: entryRef
 display:
     order: 30
 description: Architectural, product, and process decisions as records.

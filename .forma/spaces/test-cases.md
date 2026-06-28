@@ -41,7 +41,7 @@ schema:
         coversProduct:
             type: list
             items:
-                type: ref
+                type: entryRef
 display:
     order: 85
 description: Reusable acceptance and validation cases.

@@ -27,7 +27,7 @@ schema:
         sources:
             type: list
             items:
-                type: ref
+                type: entryRef
 display:
     order: 10
 description: Product-level direction and product scope records.

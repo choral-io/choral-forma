@@ -1547,7 +1547,7 @@ mod tests {
             result
                 .diagnostics
                 .iter()
-                .any(|diagnostic| diagnostic.code == "ref.unresolved")
+                .any(|diagnostic| diagnostic.code == "entryRef.unresolved")
         );
         assert!(
             result
@@ -1736,7 +1736,7 @@ mod tests {
         copy_starter_workspace(&root);
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Render Test\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n  - views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Render Test\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\n  - views/*.md\n",
         );
         fs::create_dir_all(root.join("views")).unwrap();
         fs::write(
@@ -1766,7 +1766,7 @@ mod tests {
         fs::create_dir_all(root.join("views")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/views/*.md\n  - views/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/views/*.md\n  - views/*.md\n",
         );
         fs::write(
             root.join(".forma/views/tasks.md"),
@@ -1971,7 +1971,7 @@ mod tests {
             &config_path,
             config.replace(
                 "  taskStatus:\n",
-                "  project:\n    kind: ref\n    source: .forma/spaces/projects\n    input:\n      transform: slugify\n  taskStatus:\n",
+                "  project:\n    kind: entryRef\n    source: .forma/spaces/projects\n    input:\n      transform: slugify\n  taskStatus:\n",
             ),
         )
         .unwrap();

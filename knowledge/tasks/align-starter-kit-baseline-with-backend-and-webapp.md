@@ -61,7 +61,7 @@ This task should preserve the current user-facing "Spaces" experience for the st
 ## In Scope
 
 - Load `.forma.md` as the main workspace configuration entry.
-- Resolve `.forma.md` `include` patterns for committed Markdown configuration nodes and local extension points.
+- Resolve `.forma.md` `imports` patterns for committed Markdown configuration nodes and local extension points.
 - Parse Markdown configuration node frontmatter for dashboard, taxonomy, term, view, and template-adjacent configuration.
 - Project the starter `spaces` taxonomy into the current backend compatibility surface until the final runtime object model is designed.
 - Discover pages from configured taxonomy term include patterns.
@@ -85,7 +85,7 @@ This task should preserve the current user-facing "Spaces" experience for the st
 ## Acceptance Criteria
 
 - `forma check` succeeds against `examples/forma-starter-kit/` through the new `.forma.md`-based loader.
-- The backend uses the `.forma.md` include-driven starter-kit baseline without requiring separate registry files.
+- The backend uses the `.forma.md` import-driven starter-kit baseline without requiring separate registry files.
 - Legacy starter/config/view shapes are removed from product-facing starter generation, operation fixtures, shared contracts, and WebApp mapping code.
 - Starter taxonomy terms are discovered as page classification inputs without treating `spaces` as a built-in product primitive.
 - Starter views under `examples/forma-starter-kit/.forma/views/*.md` are discovered from top-level Markdown frontmatter.

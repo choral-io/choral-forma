@@ -22,7 +22,7 @@ This starter specification stays aligned with [Product direction](product-direct
 
 ## Baseline
 
-The starter baseline is include-driven and Markdown-first:
+The starter baseline is import-driven and Markdown-first:
 
 - `.forma.md` is the single committed configuration entry point.
 - `.forma/` is a conventional support directory for dashboard, spaces, templates, views, and local-only overrides. It is not a hidden workspace root or persistent store.
@@ -91,7 +91,7 @@ Future initialization does not need to copy:
 
 ## Config Shape
 
-Starter `.forma.md` uses include-based config:
+Starter `.forma.md` uses import-based config:
 
 ```yaml
 schemaVersion: 1
@@ -103,13 +103,6 @@ workspace:
         - en
     timezone: UTC
 
-include:
-    - ".forma/dashboard.md"
-    - ".forma/spaces/*.md"
-    - ".forma/views/*.md"
-    - ".forma/local/*.yml"
-    - ".forma/local/*.md"
-
 runtime:
     values:
         currentDateTime:
@@ -120,6 +113,13 @@ runtime:
             kind: gitConfig
             key: user.name
             transform: slugify
+
+imports:
+    - ".forma/dashboard.md"
+    - ".forma/spaces/*.md"
+    - ".forma/views/*.md"
+    - ".forma/local/*.yml"
+    - ".forma/local/*.md"
 ```
 
 `workspace.timezone` is stored explicitly. Future initialization may resolve it from the current environment when the user does not pass a timezone.

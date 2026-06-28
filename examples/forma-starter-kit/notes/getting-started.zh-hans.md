@@ -19,7 +19,7 @@ cargo run -p forma-cli -- --workspace examples/forma-starter-kit serve
 
 ## 工作方式
 
-Forma 读取 `.forma.md`，跟随其中的 include 配置，扫描已配置的 Markdown 文件，并为页面、分类、导航、视图和引用构建读取模型。
+Forma 读取 `.forma.md`，跟随其中的 imports 配置，扫描已配置的 Markdown 文件，并为页面、分类、导航、视图和引用构建读取模型。
 
 starter 不使用提交到仓库的持久化索引。本地服务启动时，可以直接从仓库文件重新构建读取模型。
 

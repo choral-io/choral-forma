@@ -1,7 +1,7 @@
 ---
 id: workspace.configuration
 title: Workspace Configuration
-summary: Define the minimal `.forma.md` and included config node model.
+summary: Define the minimal `.forma.md` and imported config node model.
 audience:
     - human
     - agent
@@ -18,17 +18,19 @@ order: 100
 
 `.forma.md` is the single configuration entry point. All persisted file references are workspace-relative POSIX paths resolved from the directory containing `.forma.md`.
 
-Forma configuration is built from explicit files. The root `.forma.md` declares workspace settings and `include` patterns in YAML frontmatter. Its Markdown body can explain the workspace for humans and Agents. Included Markdown or YAML config nodes then define higher-level workspace behavior such as content groups, templates, views, guidelines, schemas, and runtime values.
+Forma configuration is built from explicit files. The root `.forma.md` declares workspace settings and `imports` patterns in YAML frontmatter. Its Markdown body can explain the workspace for humans and Agents. Imported Markdown or YAML config nodes then define higher-level workspace behavior such as content groups, templates, views, guidelines, schemas, and runtime values.
+
+When authoring root `.forma.md`, prefer this top-level field order: `schemaVersion`, `workspace`, `runtime`, `imports`, `guidelines`, then `types`. Keep `runtime` near `workspace` because it defines runtime values for the workspace. Keep `types` after imported content configuration because named types often reference configured content definitions. Root `imports` loads configuration files; term and view `include` fields select content.
 
 Forma does not infer workspace semantics from directory names. A directory named `notes`, `tasks`, or `members` has no special meaning until a config node describes how files in that directory should be indexed, created, displayed, or checked.
 
 ## CLI Help
 
-Use `forma config inspect --json` to inspect the effective workspace configuration and source paths. Use `forma check --json` after editing `.forma.md` or included config nodes.
+Use `forma config inspect --json` to inspect the effective workspace configuration and source paths. Use `forma check --json` after editing `.forma.md` or imported config nodes.
 
 ## Reference
 
-The minimal `.forma.md` contains `schemaVersion`, `workspace`, `include`, and `runtime.values` in frontmatter.
+The minimal `.forma.md` contains `schemaVersion`, `workspace`, `runtime.values`, and `imports` in frontmatter.
 
 ```md
 ---
@@ -41,19 +43,19 @@ workspace:
         - "en"
     timezone: "UTC"
 
-include:
-    - ".forma/*.md"
-    - ".forma/spaces/*.md"
-    - ".forma/views/*.md"
-    - ".forma/local/*.yml"
-    - ".forma/local/*.md"
-
 runtime:
     values:
         currentDateTime:
             kind: currentDateTime
         workspaceRoot:
             kind: workspaceRoot
+
+imports:
+    - ".forma/*.md"
+    - ".forma/spaces/*.md"
+    - ".forma/views/*.md"
+    - ".forma/local/*.yml"
+    - ".forma/local/*.md"
 ---
 
 # Untitled Forma Workspace
@@ -100,14 +102,14 @@ runtime:
             transform: slugify
 ```
 
-For `ref` fields, keep runtime values as identity inputs and let the workspace template express the reference path explicitly. For example, a workspace may use `{{ runtime.values.currentUserId }}` inside `people/{{ runtime.values.currentUserId }}` if that is the configured reference form for the target content type. Do not introduce extra runtime values that only duplicate a path assembled from other runtime values.
+For `entryRef` fields, keep runtime values as identity inputs and let the workspace template express the reference path explicitly. For example, a workspace may use `{{ runtime.values.currentUserId }}` inside `people/{{ runtime.values.currentUserId }}` if that is the configured reference form for the target content type. Do not introduce extra runtime values that only duplicate a path assembled from other runtime values.
 
-Named types define reusable schema meanings. They may be declared in root `.forma.md` or in included config nodes. Effective config merges them into one global `types` map, and duplicate type names are reported as configuration errors.
+Named types define reusable schema meanings. They may be declared in root `.forma.md` or in imported config nodes. Effective config merges them into one global `types` map, and duplicate type names are reported as configuration errors.
 
 ```yaml
 types:
     person:
-        kind: ref
+        kind: entryRef
         source: .forma/spaces/people
         input:
             transform: slugify
@@ -167,4 +169,4 @@ schema:
 
 ## Agent Guidance
 
-Do not infer configuration from `.gitignore` or path names. Add config nodes through explicit include patterns. Before adding term nodes, make sure the referenced taxonomy has a `kind: taxonomy` config node with a matching `id`. Then verify the effective model with `forma config inspect --json` and `forma check --json`.
+Do not infer configuration from `.gitignore` or path names. Add config nodes through explicit `imports` patterns. Before adding term nodes, make sure the referenced taxonomy has a `kind: taxonomy` config node with a matching `id`. Then verify the effective model with `forma config inspect --json` and `forma check --json`.

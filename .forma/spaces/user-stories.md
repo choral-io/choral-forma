@@ -33,7 +33,7 @@ schema:
         relatedProduct:
             type: list
             items:
-                type: ref
+                type: entryRef
         relatedTasks:
             type: list
             items:

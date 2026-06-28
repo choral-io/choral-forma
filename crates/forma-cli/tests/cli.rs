@@ -309,9 +309,9 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(schemas.stderr.is_empty());
     let schemas_stdout = String::from_utf8_lossy(&schemas.stdout);
     assert!(schemas_stdout.contains("type: person"));
-    assert!(schemas_stdout.contains("configured named ref type"));
+    assert!(schemas_stdout.contains("configured `entryRef` named type"));
     assert!(schemas_stdout.contains("currentUserId"));
-    assert!(schemas_stdout.contains("Do not infer ref paths from directory names"));
+    assert!(schemas_stdout.contains("Do not infer entry reference paths from directory names"));
 
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -594,7 +594,7 @@ fn create_list_and_inspect_use_operation_json() {
     assert!(
         std::fs::read_to_string(root.join("tasks/user-registration.md"))
             .unwrap()
-            .contains("readiness: \"needs-refinement\"")
+            .contains("priority: \"medium\"")
     );
 
     let list = forma(&root)
@@ -799,8 +799,8 @@ fn repository_check_json_reports_no_reference_regressions() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains(r#""operation":"check"#));
     assert!(stdout.contains(r#""status":"passed"#));
-    assert!(!stdout.contains(r#""code":"ref.unresolved"#));
-    assert!(!stdout.contains(r#""code":"schema.ref.invalid"#));
+    assert!(!stdout.contains(r#""code":"entryRef.unresolved"#));
+    assert!(!stdout.contains(r#""code":"schema.entryRef.invalid"#));
 }
 
 #[test]
@@ -820,7 +820,7 @@ workspace:
     - "en"
   timezone: "UTC"
 
-include:
+imports:
   - ".forma/spaces/*.md"
 "#,
     );
@@ -934,7 +934,7 @@ workspace:
     - "en"
   timezone: "UTC"
 
-include:
+imports:
   - ".forma/spaces/*.md"
   - ".forma/views/*.md"
 "#,
@@ -1142,7 +1142,7 @@ workspace:
     - "en"
   timezone: "UTC"
 
-include:
+imports:
   - ".forma/spaces/*.md"
 "#,
     );

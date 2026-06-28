@@ -103,7 +103,7 @@ pub enum RuntimeValueProvider {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SemanticType {
-    Ref {
+    EntryRef {
         source: String,
         #[serde(default)]
         input: TypeInput,
@@ -118,14 +118,14 @@ pub enum SemanticType {
 impl SemanticType {
     pub fn source(&self) -> Option<&str> {
         match self {
-            Self::Ref { source, .. } => Some(source.as_str()),
+            Self::EntryRef { source, .. } => Some(source.as_str()),
             Self::Enum { .. } => None,
         }
     }
 
     pub fn space(&self) -> Option<&str> {
         match self {
-            Self::Ref { space, .. } => space.as_deref(),
+            Self::EntryRef { space, .. } => space.as_deref(),
             Self::Enum { .. } => None,
         }
     }
@@ -228,6 +228,8 @@ pub enum ConfigError {
         #[source]
         source: serde_yml::Error,
     },
+    #[error("root config field `include` has been renamed to `imports` in {path}")]
+    LegacyRootInclude { path: String },
 }
 
 #[derive(Debug, Deserialize)]
@@ -236,7 +238,9 @@ struct ConfigFile {
     schema_version: u64,
     workspace: WorkspaceSettings,
     #[serde(default)]
-    include: Vec<String>,
+    imports: Vec<String>,
+    #[serde(default)]
+    include: Option<Value>,
     #[serde(default)]
     runtime: RuntimeConfig,
     #[serde(default)]
@@ -300,7 +304,8 @@ pub fn load_workspace(
             path: FORMA_CONFIG_PATH.to_string(),
             source,
         })?;
-    for public_path in included_yaml_config_paths(root, &base_config_file.include) {
+    reject_legacy_root_include(&base_config_file, FORMA_CONFIG_PATH)?;
+    for public_path in included_yaml_config_paths(root, &base_config_file.imports) {
         let mut local_value = read_yaml_value(&root.join(&public_path), &public_path)?;
         let local_types = take_types_from_value(&mut local_value, &public_path)?;
         merge_type_definitions(&mut types, local_types, &public_path, &mut diagnostics);
@@ -312,6 +317,7 @@ pub fn load_workspace(
             path: FORMA_CONFIG_PATH.to_string(),
             source,
         })?;
+    reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
 
     let (dashboard, taxonomies, spaces, space_sources, node_diagnostics) =
         load_config_nodes(root, &config_file, mode, &mut types)?;
@@ -338,6 +344,15 @@ pub fn load_workspace(
     })
 }
 
+fn reject_legacy_root_include(config_file: &ConfigFile, path: &str) -> Result<(), ConfigError> {
+    if config_file.include.is_some() {
+        return Err(ConfigError::LegacyRootInclude {
+            path: path.to_string(),
+        });
+    }
+    Ok(())
+}
+
 fn load_config_nodes(
     root: &Path,
     config_file: &ConfigFile,
@@ -360,7 +375,7 @@ fn load_config_nodes(
     let mut diagnostics = Vec::new();
     let mut referenced_taxonomies = Vec::new();
 
-    for public_path in included_markdown_config_paths(root, &config_file.include) {
+    for public_path in included_markdown_config_paths(root, &config_file.imports) {
         let source =
             fs::read_to_string(root.join(&public_path)).map_err(|source| ConfigError::Read {
                 path: public_path.clone(),
@@ -475,9 +490,9 @@ pub fn config_source_paths(
     }];
     let config_file: ConfigFile =
         read_markdown_frontmatter(&root.join(FORMA_CONFIG_PATH), FORMA_CONFIG_PATH)?;
-    for path in included_yaml_config_paths(root, &config_file.include)
+    for path in included_yaml_config_paths(root, &config_file.imports)
         .into_iter()
-        .chain(included_markdown_config_paths(root, &config_file.include))
+        .chain(included_markdown_config_paths(root, &config_file.imports))
     {
         sources.push(ConfigSourcePath {
             present: root.join(&path).exists(),
@@ -558,7 +573,7 @@ fn resolve_type_sources(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for (type_name, semantic_type) in &mut config.types {
-        let SemanticType::Ref { source, space, .. } = semantic_type else {
+        let SemanticType::EntryRef { source, space, .. } = semantic_type else {
             continue;
         };
         match WorkspacePath::parse_config(source.as_str()) {
@@ -1138,11 +1153,11 @@ mod tests {
     }
 
     #[test]
-    fn loads_explicit_named_ref_types_from_root_config() {
+    fn loads_explicit_named_entry_ref_types_from_root_config() {
         let root = fixture_root("explicit-named-ref-types");
         write_root_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: ref\n    source: .forma/spaces/people\n    input:\n      transform: slugify",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/spaces/people\n    input:\n      transform: slugify",
         );
         write_config_node(
             &root,
@@ -1168,11 +1183,24 @@ mod tests {
     }
 
     #[test]
-    fn resolves_ref_type_sources_after_path_normalization() {
+    fn rejects_legacy_named_ref_type_kind() {
+        let root = fixture_root("legacy-named-ref-type-kind");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  person:\n    kind: ref\n    source: .forma/spaces/people\n",
+        );
+
+        assert!(load_workspace(&root, LoadMode::SharedOnly).is_err());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn resolves_entry_ref_type_sources_after_path_normalization() {
         let root = fixture_root("normalized-named-ref-source");
         write_root_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: ref\n    source: ./.forma/spaces/people",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: entryRef\n    source: ./.forma/spaces/people",
         );
         write_config_node(
             &root,
@@ -1190,16 +1218,16 @@ mod tests {
     }
 
     #[test]
-    fn loads_explicit_named_ref_types_from_included_config_node() {
+    fn loads_explicit_named_entry_ref_types_from_included_config_node() {
         let root = fixture_root("included-named-ref-types");
         write_root_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/types.md\n  - .forma/spaces/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/types.md\n  - .forma/spaces/*.md\n",
         );
         write_config_node(
             &root,
             ".forma/types.md",
-            "---\nschemaVersion: 1\nkind: types\ntypes:\n  person:\n    kind: ref\n    source: .forma/spaces/people\n    input:\n      transform: slugify\n---\n\n# Types\n",
+            "---\nschemaVersion: 1\nkind: types\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/spaces/people\n    input:\n      transform: slugify\n---\n\n# Types\n",
         );
         write_config_node(
             &root,
@@ -1229,12 +1257,12 @@ mod tests {
         let root = fixture_root("duplicate-named-ref-types");
         write_root_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/types.md\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: ref\n    source: .forma/spaces/people",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/types.md\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/spaces/people",
         );
         write_config_node(
             &root,
             ".forma/types.md",
-            "---\nschemaVersion: 1\nkind: types\ntypes:\n  person:\n    kind: ref\n    source: .forma/spaces/team\n---\n\n# Types\n",
+            "---\nschemaVersion: 1\nkind: types\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/spaces/team\n---\n\n# Types\n",
         );
         write_config_node(
             &root,
@@ -1259,12 +1287,12 @@ mod tests {
         let root = fixture_root("duplicate-yaml-named-ref-types");
         write_root_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/local/types.yml\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: ref\n    source: .forma/spaces/people",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/local/types.yml\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/spaces/people",
         );
         write_file(
             &root,
             ".forma/local/types.yml",
-            "types:\n  person:\n    kind: ref\n    source: .forma/spaces/team\n",
+            "types:\n  person:\n    kind: entryRef\n    source: .forma/spaces/team\n",
         );
         write_config_node(
             &root,
@@ -1290,7 +1318,7 @@ mod tests {
         let root = fixture_root("missing-term-taxonomy");
         write_root_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\n",
         );
         write_config_node(
             &root,
@@ -1312,11 +1340,11 @@ mod tests {
     }
 
     #[test]
-    fn reports_ref_type_sources_that_do_not_reference_spaces() {
+    fn reports_entry_ref_type_sources_that_do_not_reference_spaces() {
         let root = fixture_root("invalid-ref-type-source");
         write_root_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/dashboard.md\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: ref\n    source: .forma/dashboard\n  missing:\n    kind: ref\n    source: .forma/spaces/missing\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/dashboard.md\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/dashboard\n  missing:\n    kind: entryRef\n    source: .forma/spaces/missing\n",
         );
         write_config_node(
             &root,
@@ -1376,7 +1404,7 @@ mod tests {
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/operations.md\ninclude:\n  - \".forma/spaces/*.md\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/operations.md\nimports:\n  - \".forma/spaces/*.md\"\n",
         );
         fs::write(
             root.join("knowledge/guidelines/operations.md"),
@@ -1453,7 +1481,7 @@ mod tests {
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n",
         );
         fs::write(
             root.join("knowledge/guidelines/not-markdown.txt"),
@@ -1487,7 +1515,7 @@ mod tests {
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n",
         );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(
@@ -1514,12 +1542,59 @@ mod tests {
     }
 
     #[test]
+    fn imports_config_files_from_root_entrypoint() {
+        let root = fixture_root("imports-config-files");
+        fs::create_dir_all(&root).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n",
+        );
+        fs::create_dir_all(root.join(".forma/spaces")).unwrap();
+        fs::write(
+            root.join(".forma/spaces/index.md"),
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\n---\n\n# Notes\n",
+        )
+        .unwrap();
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert!(workspace.config.spaces.contains_key("notes"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_legacy_root_include_import_field() {
+        let root = fixture_root("legacy-root-include");
+        fs::create_dir_all(&root).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n",
+        );
+
+        let error = load_workspace(&root, LoadMode::SharedOnly).unwrap_err();
+
+        assert!(matches!(
+            error,
+            super::ConfigError::LegacyRootInclude { .. }
+        ));
+        assert!(error.to_string().contains("renamed to `imports`"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn included_local_named_files_are_not_special() {
         let root = fixture_root("local-name-not-special");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
         );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(
@@ -1541,7 +1616,7 @@ mod tests {
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
         );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(root.join(".forma/.gitignore"), "local/\n").unwrap();
@@ -1593,7 +1668,7 @@ mod tests {
         fs::create_dir_all(root.join(".forma")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/dashboard.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/dashboard.md\n",
         );
         fs::write(
             root.join(".forma/dashboard.md"),
@@ -1619,7 +1694,7 @@ mod tests {
         fs::create_dir_all(root.join(".forma/spaces")).unwrap();
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - .forma/spaces/*.md\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\n",
         );
         fs::write(
             root.join(".forma/spaces/notes.md"),
@@ -1696,7 +1771,7 @@ mod tests {
         write_config(
             root,
             format!(
-                "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: {timezone}\ninclude:\n  - \".forma/spaces/*.md\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n\ntypes:\n  note:\n    kind: ref\n    source: .forma/spaces/notes\n"
+                "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: {timezone}\nimports:\n  - \".forma/spaces/*.md\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n\ntypes:\n  note:\n    kind: entryRef\n    source: .forma/spaces/notes\n"
             ),
         );
         fs::write(

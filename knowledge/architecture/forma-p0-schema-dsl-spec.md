@@ -52,7 +52,7 @@ P0 supports these schema node kinds:
 - `datetime`
 - `const`
 - `enum`
-- `ref`
+- `entryRef`
 - `list`
 
 The DSL uses field-local `required: true` instead of JSON Schema-style `required: [...]` arrays. This keeps overrides and partial config composition simple because the required flag travels with the field it describes.
@@ -90,11 +90,11 @@ schema:
 
 ## Semantic Types
 
-Named types are explicit workspace-level configuration. They may be declared in root `.forma.md` or in included configuration nodes, and duplicate names are configuration errors.
+Named types are explicit workspace-level configuration. They may be declared in root `.forma.md` or in imported configuration nodes, and duplicate names are configuration errors.
 
 Future semantic type configuration can use Markdown configuration nodes if the workspace needs reusable value meanings beyond inline create inputs. The first useful kinds are likely:
 
-- `kind: ref`: values resolve to entries from the configured content group referenced by `source`.
+- `kind: entryRef`: values resolve to entries from the configured content group referenced by `source`.
 - `kind: enum`: values must be one of a static list.
 
 Example:
@@ -114,7 +114,7 @@ types:
             - reviewing
             - done
     member:
-        kind: ref
+        kind: entryRef
         source: .forma/spaces/members
         input:
             transform: slugify
@@ -285,7 +285,7 @@ P0 validation should be diagnostic-first:
 - Parse entry frontmatter into generic YAML values.
 - Determine space membership from space `include` rules.
 - Validate known fields against the space schema.
-- Resolve semantic references where schema fields use a named `kind: ref` type.
+- Resolve semantic references where schema fields use a named `kind: entryRef` type.
 - Report unknown, invalid, unresolved, stale, and ambiguous cases with structured diagnostics.
 
 P0 should not automatically fix schema violations. `forma check` reports enough information for a human or Agent to repair files manually.

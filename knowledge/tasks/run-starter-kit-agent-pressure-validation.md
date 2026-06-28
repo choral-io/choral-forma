@@ -152,7 +152,7 @@ Agent behavior evidence:
 - Blocked task move: `tasks inspect tasks/add-team-notes.md --json` returned `status: blocked`, `readiness: blocked`, and applicable guidelines, so an Agent should not move it directly to done.
 - Review completion: `tasks inspect tasks/connect-related-pages.md --json` returned `status: reviewing`, `readiness: ready`, and applicable guidelines, so an Agent should require verification evidence before marking done.
 - Approved write: a temporary starter copy at `/private/tmp/forma-starter-skill-pressure.NYSJSc` accepted a new shared Markdown note plus inbound link; `check --json` and `workspace health --json` both passed after the edit.
-- Local-only boundary: `.forma.md` explicitly includes `.forma/local/*.yml` and `.forma/local/*.md`, while `.gitignore` keeps `.forma/local/` uncommitted; the workspace guideline says not to treat ignored local files as shared workspace knowledge.
+- Local-only boundary: `.forma.md` explicitly imports `.forma/local/*.yml` and `.forma/local/*.md`, while `.gitignore` keeps `.forma/local/` uncommitted; the workspace guideline says not to treat ignored local files as shared workspace knowledge.
 - Language variant: `list --space notes --json` listed canonical note pages only, while `notes/getting-started.zh-hans.md` and `notes/welcome-to-choral-forma.zh-hans.md` exist as variants.
 - Wrong workspace: using `--workspace examples/forma-starter-kit` from the repository root produced the expected starter outputs.
 - Missing workflow: only `starter-workspace-operations` and `starter-task-selection` are projected from starter guidelines, so uncovered workflows should be reported as guideline coverage gaps rather than guessed from paths.

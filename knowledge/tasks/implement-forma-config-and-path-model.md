@@ -51,7 +51,7 @@ Forma public contracts use workspace-relative POSIX paths. `.forma.md` is the wo
 ## In Scope
 
 - Locate and validate the workspace root.
-- Load `.forma.md` and its explicit include files.
+- Load `.forma.md` and its explicit imports.
 - Load explicit include files and leave local/personal override selection to explicit configuration entry mechanisms.
 - Model `workspace.name`, `canonicalLanguage`, `supportedLanguages`, and `timezone`.
 - Normalize public paths to workspace-relative POSIX strings.

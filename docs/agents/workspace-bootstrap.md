@@ -65,7 +65,7 @@ For the first content group:
 10. Add a guideline or view only if the first workflow needs it now. Before doing that, load `workspace.guidelines` or `workspace.views`.
 11. Run `forma workspace health --json` and explain warnings in terms of the human's expected relationships.
 
-After the first slice works, repeat the same loop for the next content group. Add cross-space reference fields only when both sides of the relationship are defined. Before adding a cross-content reference field, define a named ref type in `.forma.md` or an included config node. Use that named type in the space schema; do not write `target: member` or infer a target from a directory name.
+After the first slice works, repeat the same loop for the next content group. Add cross-space reference fields only when both sides of the relationship are defined. Before adding a cross-content reference field, define an `entryRef` named type in `.forma.md` or an imported config node. Use that named type in the space schema; do not write `target: member` or infer a target from a directory name.
 
 ## Worked First Slice Example
 

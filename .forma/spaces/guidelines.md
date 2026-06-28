@@ -27,7 +27,7 @@ schema:
         sources:
             type: list
             items:
-                type: ref
+                type: entryRef
 display:
     order: 60
 description: Team and repository guidelines.

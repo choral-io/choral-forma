@@ -27,7 +27,7 @@ schema:
         sources:
             type: list
             items:
-                type: ref
+                type: entryRef
 display:
     order: 40
 description: Shared concept glossary and abstractions.

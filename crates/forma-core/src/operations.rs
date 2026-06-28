@@ -1386,14 +1386,14 @@ fn workspace_health_finding_from_diagnostic(
 ) -> Option<WorkspaceHealthFinding> {
     let path = diagnostic.path.clone().unwrap_or_else(|| ".".to_string());
     match diagnostic.code.as_str() {
-        "ref.unresolved" => Some(WorkspaceHealthFinding {
+        "entryRef.unresolved" => Some(WorkspaceHealthFinding {
             category: WorkspaceHealthCategory::BrokenReference,
             severity: DiagnosticSeverity::Warning,
             path,
             message: "Reference cannot be resolved.".to_string(),
             target: diagnostic.actual.clone(),
         }),
-        "ref.ambiguous" => Some(WorkspaceHealthFinding {
+        "entryRef.ambiguous" => Some(WorkspaceHealthFinding {
             category: WorkspaceHealthCategory::AmbiguousReference,
             severity: DiagnosticSeverity::Warning,
             path,
@@ -1422,7 +1422,7 @@ fn workspace_health_config_finding_from_diagnostic(
 fn is_reference_problem_diagnostic(diagnostic: &Diagnostic) -> bool {
     matches!(
         diagnostic.code.as_str(),
-        "ref.unresolved" | "ref.ambiguous" | "ref.transformFailed"
+        "entryRef.unresolved" | "entryRef.ambiguous" | "entryRef.transformFailed"
     )
 }
 
@@ -1430,7 +1430,10 @@ fn read_operation_diagnostics(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
     diagnostics
         .into_iter()
         .map(|mut diagnostic| {
-            if matches!(diagnostic.code.as_str(), "ref.unresolved" | "ref.ambiguous") {
+            if matches!(
+                diagnostic.code.as_str(),
+                "entryRef.unresolved" | "entryRef.ambiguous"
+            ) {
                 diagnostic.severity = DiagnosticSeverity::Warning;
             }
             diagnostic
@@ -1882,19 +1885,19 @@ workspace:
     - "{language}"
   timezone: "{timezone}"
 
-include:
-  - ".forma/*.md"
-  - ".forma/spaces/*.md"
-  - ".forma/views/*.md"
-  - ".forma/local/*.yml"
-  - ".forma/local/*.md"
-
 runtime:
   values:
     currentDateTime:
       kind: currentDateTime
     workspaceRoot:
       kind: workspaceRoot
+
+imports:
+  - ".forma/*.md"
+  - ".forma/spaces/*.md"
+  - ".forma/views/*.md"
+  - ".forma/local/*.yml"
+  - ".forma/local/*.md"
 ---
 
 # {name}
@@ -2328,7 +2331,7 @@ mod tests {
             narrowed.config["workspace"]["name"],
             Value::String("Choral Forma Example".to_string())
         );
-        assert!(narrowed.config.get("include").is_some());
+        assert!(narrowed.config.get("imports").is_some());
 
         fs::write(root.join("notes.yml"), "secret: value").unwrap();
         assert!(matches!(
@@ -2352,7 +2355,7 @@ workspace:
   supportedLanguages:
     - en
   timezone: UTC
-include:
+imports:
   - .forma/spaces/*.md
 "#,
         );
@@ -2728,7 +2731,7 @@ workspace:
     - en
     - zh-Hans
   timezone: UTC
-include:
+imports:
   - .forma/spaces/*.md
   - .forma/views/*.md
 "#,
@@ -2784,7 +2787,7 @@ workspace:
   logo:
     path: "assets/logo.svg"
     alt: "Logo Alt"
-include:
+imports:
   - ".forma/spaces/*.md"
   - ".forma/views/*.md"
 "#,
@@ -3004,7 +3007,7 @@ include:
         let task = fs::read_to_string(root.join("tasks/created-task.md")).unwrap();
         assert!(root.join("notes/created-note.md").is_file());
         assert!(root.join("members/created-member.md").is_file());
-        assert!(task.contains("readiness: \"needs-refinement\""));
+        assert!(task.contains("priority: \"medium\""));
         assert!(root.join(".forma/dashboard.md").is_file());
         assert!(root.join(".forma/views/tasks.md").is_file());
         assert!(root.join(".forma/spaces/templates/guideline.md").is_file());
@@ -3460,9 +3463,12 @@ include:
             refs: Vec::new(),
         }];
         let diagnostics = vec![
-            Diagnostic::error("ref.transformFailed", "Reference input transform failed.")
-                .with_path("notes/linked.md")
-                .with_actual("unknown transform `badTransform`"),
+            Diagnostic::error(
+                "entryRef.transformFailed",
+                "Reference input transform failed.",
+            )
+            .with_path("notes/linked.md")
+            .with_actual("unknown transform `badTransform`"),
         ];
 
         let result = build_workspace_health_result("Synthetic Workspace", &entries, &diagnostics);
@@ -3472,7 +3478,7 @@ include:
             result
                 .diagnostics
                 .iter()
-                .any(|diagnostic| diagnostic.code == "ref.transformFailed")
+                .any(|diagnostic| diagnostic.code == "entryRef.transformFailed")
         );
         assert!(!result.findings.iter().any(|finding| {
             finding.category == WorkspaceHealthCategory::ConfigDiagnostic

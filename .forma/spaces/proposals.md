@@ -37,11 +37,11 @@ schema:
         sources:
             type: list
             items:
-                type: ref
+                type: entryRef
         relatedTo:
             type: list
             items:
-                type: ref
+                type: entryRef
 display:
     order: 75
 description: Reviewable content, task, and decision proposals before canonical conversion.

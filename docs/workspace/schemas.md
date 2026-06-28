@@ -41,24 +41,24 @@ schema:
 
 Common field shapes:
 
-| Shape                 | Use for                                             |
-| --------------------- | --------------------------------------------------- |
-| `type: string`        | titles, summaries, statuses, short labels           |
-| `type: date`          | due dates, publication dates, review dates          |
-| `type: datetime`      | event times and timestamped records                 |
-| `type: list`          | tags, participants, related entries                 |
-| `type: person`        | one reference through a configured named ref type   |
-| `type: list` of named | many references through a configured named ref type |
-| `type: noteStatus`    | constrained value through a configured enum type    |
+| Shape                 | Use for                                                    |
+| --------------------- | ---------------------------------------------------------- |
+| `type: string`        | titles, summaries, statuses, short labels                  |
+| `type: date`          | due dates, publication dates, review dates                 |
+| `type: datetime`      | event times and timestamped records                        |
+| `type: list`          | tags, participants, related entries                        |
+| `type: person`        | one reference through a configured `entryRef` named type   |
+| `type: list` of named | many references through a configured `entryRef` named type |
+| `type: noteStatus`    | constrained value through a configured enum type           |
 
-Define named types before using them in schemas. Use `kind: ref` named types for references to configured content groups, and `kind: enum` named types for constrained scalar values. The low-level `type: ref` and `type: enum` primitives are implementation shapes; workspace-authored schemas should prefer named types because they make the relationship or value meaning explicit.
+Define named types before using them in schemas. Use `kind: entryRef` named types for references to configured content groups, and `kind: enum` named types for constrained scalar values. The low-level `type: entryRef` and `type: enum` primitives are implementation shapes; workspace-authored schemas should prefer named types because they make the relationship or value meaning explicit.
 
-For a named ref field, store the workspace reference path that resolves to one entry of that named type. For example, if `owner.type` is `person`, do not store a raw runtime id such as `alex-chen`; store the reference path that resolves to the configured `person` entry in this workspace.
+For an entry reference field, store the workspace reference path that resolves to one entry of that named type. For example, if `owner.type` is `person`, do not store a raw runtime id such as `alex-chen`; store the reference path that resolves to the configured `person` entry in this workspace.
 
-When defining templates or create defaults for ref fields, inspect the field schema first. If the default should point to the current user, use a runtime identity value such as `currentUserId` only as an input to the workspace's explicit reference path. For example, `people/{{ runtime.values.currentUserId }}` is valid only when `people/<id>` is the configured reference form for the `person` type in that workspace.
+When defining templates or create defaults for entry reference fields, inspect the field schema first. If the default should point to the current user, use a runtime identity value such as `currentUserId` only as an input to the workspace's explicit reference path. For example, `people/{{ runtime.values.currentUserId }}` is valid only when `people/<id>` is the configured reference form for the `person` type in that workspace.
 
 ## Agent Guidance
 
 Keep schema fields minimal and aligned with the human workflow. Prefer camelCase field names unless the existing workspace uses another convention.
 
-Do not add fields only because they might be useful someday. Add the few fields needed for the first list, table, create template, or Agent workflow, then verify with `forma check --json`. Do not infer ref paths from directory names or runtime value names; use configured named types and existing workspace references.
+Do not add fields only because they might be useful someday. Add the few fields needed for the first list, table, create template, or Agent workflow, then verify with `forma check --json`. Do not infer entry reference paths from directory names or runtime value names; use configured named types and existing workspace references.

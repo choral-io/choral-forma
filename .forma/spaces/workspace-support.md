@@ -27,7 +27,7 @@ schema:
         sources:
             type: list
             items:
-                type: ref
+                type: entryRef
         assignees:
             type: list
             items:

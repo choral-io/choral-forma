@@ -27,7 +27,7 @@ schema:
         sources:
             type: list
             items:
-                type: ref
+                type: entryRef
 display:
     order: 50
 description: Discovery notes and feature exploration results.
