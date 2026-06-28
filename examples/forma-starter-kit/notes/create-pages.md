@@ -16,12 +16,11 @@ Each term can define:
 - which inputs the user or tool should provide;
 - which default values should be filled by runtime helpers.
 
-For example, `.forma/spaces/tasks.md` points to `.forma/spaces/templates/task.md`. The term defines inputs such as title, status, readiness, priority, owners, assignees, reviewers, and due date. The template turns those inputs into ordinary Markdown frontmatter and body content.
+For example, `.forma/spaces/tasks.md` points to `.forma/spaces/templates/task.md`. The term defines inputs such as title, status, priority, owners, assignees, reviewers, and due date. The template turns those inputs into ordinary Markdown frontmatter and body content.
 
 ```yaml
 title: "{{ input.title }}"
 status: "{{ input.status }}"
-readiness: "{{ input.readiness }}"
 priority: "{{ input.priority }}"
 owners: []
 ```

@@ -2,7 +2,6 @@
 title: "Collect Onboarding Questions"
 summary: "Capture the first questions new readers ask before deciding how the starter should change."
 status: "todo"
-readiness: "needs-refinement"
 priority: "low"
 owners:
   - members/mira-chen

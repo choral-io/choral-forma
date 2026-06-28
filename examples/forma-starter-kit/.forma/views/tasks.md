@@ -5,7 +5,7 @@ mode: kanban
 title: Tasks
 display:
   order: 50
-description: Example work tracked with status, readiness, and review fields.
+description: Example work tracked with status, ownership, review, and dependency fields.
 source:
   type: pages
   taxonomy:
@@ -20,7 +20,6 @@ kanban:
       - fields.assignees
     badgeFields:
       - fields.priority
-      - fields.readiness
       - fields.dueDate
   columns:
     - id: todo

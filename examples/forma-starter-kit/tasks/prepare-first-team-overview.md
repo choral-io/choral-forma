@@ -2,7 +2,6 @@
 title: "Prepare First Team Overview"
 summary: "Draft the first real team overview page so the starter can be replaced incrementally."
 status: "ready"
-readiness: "ready"
 priority: "medium"
 owners:
   - members/sam-rivera

@@ -2,7 +2,6 @@
 title: "Add Team Notes"
 summary: "Replace the starter guide with a few real team pages."
 status: "blocked"
-readiness: "blocked"
 priority: "high"
 owners:
   - members/sam-rivera

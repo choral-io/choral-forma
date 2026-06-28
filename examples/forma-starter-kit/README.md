@@ -10,7 +10,7 @@ The example includes:
 
 - `notes/`: guide pages that explain the product surfaces and workspace model;
 - `notes/*.zh-hans.md`: Simplified Chinese variants discovered by the `entry-name.lang.md` convention;
-- `tasks/`: example workflow items with ownership, review, readiness, and dependencies;
+- `tasks/`: example workflow items with ownership, review status, and dependencies;
 - `members/`: example member pages referenced by tasks;
 - `guidelines/`: generic operating guidance for running the workspace;
 - `assets/markdown-hero.png`: an image used by the reader examples;

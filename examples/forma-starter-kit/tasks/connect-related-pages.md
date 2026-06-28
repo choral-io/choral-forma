@@ -2,7 +2,6 @@
 title: "Connect Related Pages"
 summary: "Add links between pages so references, backlinks, and graph views become useful."
 status: "reviewing"
-readiness: "ready"
 priority: "medium"
 owners:
   - members/mira-chen

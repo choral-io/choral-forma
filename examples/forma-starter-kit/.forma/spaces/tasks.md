@@ -15,8 +15,6 @@ schema:
       type: string
     status:
       type: taskStatus
-    readiness:
-      type: taskReadiness
     priority:
       type: taskPriority
     owners:
@@ -68,18 +66,6 @@ create:
           label: Blocked
         - value: reviewing
           label: Reviewing
-        - value: done
-          label: Done
-    readiness:
-      type: select
-      default: needs-refinement
-      options:
-        - value: needs-refinement
-          label: Needs Refinement
-        - value: ready
-          label: Ready
-        - value: blocked
-          label: Blocked
         - value: done
           label: Done
     priority:

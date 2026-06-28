@@ -2,7 +2,6 @@
 title: "Review Starter Workspace"
 summary: "Walk through the guide notes and confirm the starter kit makes sense."
 status: "doing"
-readiness: "ready"
 priority: "high"
 owners:
   - members/mira-chen

@@ -2,7 +2,6 @@
 title: "Publish Read-only Workspace"
 summary: "Serve the workspace locally and share the read-only browser with the team."
 status: "done"
-readiness: "done"
 priority: "low"
 owners:
   - members/sam-rivera
