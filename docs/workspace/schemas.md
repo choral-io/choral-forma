@@ -29,8 +29,6 @@ schema:
             type: string
         summary:
             type: string
-        status:
-            type: string
         tags:
             type: list
             items:
