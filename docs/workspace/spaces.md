@@ -21,7 +21,21 @@ Forma core does not have built-in task, note, member, or guideline domain concep
 
 ## Reference
 
-Use `kind: term` with `taxonomy: spaces` to declare a content group in an included Markdown config node.
+Define the taxonomy before adding terms. The taxonomy config node gives Human readers, Agents, and diagnostics a concrete declaration for the classification system that terms belong to.
+
+```yaml
+---
+schemaVersion: 1
+kind: taxonomy
+id: spaces
+title: Spaces
+mode: primary
+description: Primary content groups for this workspace.
+---
+# Spaces
+```
+
+Use `kind: term` with `taxonomy: spaces` to declare a content group in an included Markdown config node. The `taxonomy` value must match the taxonomy config node `id`.
 
 ```yaml
 ---
@@ -73,6 +87,8 @@ The `create.template` value points to the template used by `forma create`. It is
 ## Agent Guidance
 
 Create a content group only after the human describes a durable content category. Define include patterns, schema, create behavior, and guidelines explicitly.
+
+Before adding the first term for a taxonomy, add the taxonomy config node with a stable `id`. If `forma check --json` reports `config.taxonomyMissing`, add the missing taxonomy config instead of creating more term files.
 
 After adding or changing a content group, run:
 

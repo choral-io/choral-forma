@@ -121,7 +121,19 @@ types:
 
 `source` is a workspace-relative config path resolved from the directory containing `.forma.md`, not a taxonomy-qualified logical id. The `.md` extension may be omitted for Markdown config nodes.
 
-Included Markdown config nodes use frontmatter as their machine-readable configuration and Markdown body as Human-readable documentation. In the current P0 configuration model, a configured content group is commonly declared as a taxonomy term:
+Included Markdown config nodes use frontmatter as their machine-readable configuration and Markdown body as Human-readable documentation. A taxonomy should be declared before its terms:
+
+```yaml
+---
+schemaVersion: 1
+kind: taxonomy
+id: spaces
+title: Spaces
+mode: primary
+---
+```
+
+In the current P0 configuration model, a configured content group is commonly declared as a taxonomy term:
 
 ```yaml
 ---
@@ -151,8 +163,8 @@ schema:
 ---
 ```
 
-`taxonomy: spaces` projects this config node into the effective `spaces` map reported by `forma config inspect --json`. `space`, `note`, `task`, and similar names are not built-in domain objects; they are configured patterns derived from explicit config.
+`taxonomy: spaces` must match a declared taxonomy `id`. It also projects this config node into the effective `spaces` map reported by `forma config inspect --json`. `space`, `note`, `task`, and similar names are not built-in domain objects; they are configured patterns derived from explicit config.
 
 ## Agent Guidance
 
-Do not infer configuration from `.gitignore` or path names. Add config nodes through explicit include patterns, then verify the effective model with `forma config inspect --json`.
+Do not infer configuration from `.gitignore` or path names. Add config nodes through explicit include patterns. Before adding term nodes, make sure the referenced taxonomy has a `kind: taxonomy` config node with a matching `id`. Then verify the effective model with `forma config inspect --json` and `forma check --json`.

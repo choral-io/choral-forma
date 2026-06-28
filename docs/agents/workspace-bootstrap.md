@@ -55,14 +55,15 @@ For the first content group:
 
 1. Load `workspace.configuration`, `workspace.spaces`, `workspace.schemas`, and `workspace.templates` with `forma docs get`.
 2. Confirm the first slice with the human: one space id, directory, key fields, and one template.
-3. Add one included config node, commonly `kind: term` with `taxonomy: spaces`.
-4. Add one template referenced by `create.template`.
-5. Run `forma config inspect --json` and confirm the expected entry appears under `spaces`.
-6. Run `forma check --json`.
-7. Create one or two sample pages with `forma create <space-id> --input ... --json`.
-8. Verify with `forma list --space <space-id> --json` and `forma inspect <path> --json`.
-9. Add a guideline or view only if the first workflow needs it now. Before doing that, load `workspace.guidelines` or `workspace.views`.
-10. Run `forma workspace health --json` and explain warnings in terms of the human's expected relationships.
+3. Add the taxonomy config node first if it does not already exist, for example `kind: taxonomy` with `id: spaces`.
+4. Add one included term config node, commonly `kind: term` with `taxonomy: spaces`.
+5. Add one template referenced by `create.template`.
+6. Run `forma config inspect --json` and confirm the expected entry appears under `taxonomies` and `spaces`.
+7. Run `forma check --json`. If it reports `config.taxonomyMissing`, add the missing taxonomy config before creating content.
+8. Create one or two sample pages with `forma create <space-id> --input ... --json`.
+9. Verify with `forma list --space <space-id> --json` and `forma inspect <path> --json`.
+10. Add a guideline or view only if the first workflow needs it now. Before doing that, load `workspace.guidelines` or `workspace.views`.
+11. Run `forma workspace health --json` and explain warnings in terms of the human's expected relationships.
 
 After the first slice works, repeat the same loop for the next content group. Add cross-space reference fields only when both sides of the relationship are defined. Before adding a cross-content reference field, define a named ref type in `.forma.md` or an included config node. Use that named type in the space schema; do not write `target: member` or infer a target from a directory name.
 
@@ -79,6 +80,20 @@ This is a pattern example, not a default recommendation. Do not create `clients`
 - first verification: create two client pages, list `clients`, inspect one page, and run `forma check --json`.
 
 The first config node can look like this:
+
+```yaml
+---
+schemaVersion: 1
+kind: taxonomy
+id: spaces
+title: Spaces
+mode: primary
+description: Primary content groups for this workspace.
+---
+# Spaces
+```
+
+The first term config node can look like this:
 
 ```yaml
 ---
