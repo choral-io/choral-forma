@@ -36,7 +36,7 @@ The current application code implements the P0 read, inspect, check, render, ser
 - `crates/forma-cli/`: Rust `forma` binary, CLI handlers, local HTTP server, and embedded WebApp asset serving.
 - `packages/shared/`: shared TypeScript RPC client and operation result types.
 - `packages/webapp/`: Vite React read-only Forma WebApp for browsing configured workspaces.
-- `examples/`: committed example Forma workspaces for learning and demos.
+- `examples/`: committed example Forma workspaces for learning, demos, and copyable templates.
 - `skills/`: canonical project-local Agent skill sources that follow the skills.sh-style `skills/<name>/SKILL.md` layout.
 - `.agents/skills/`: installed Agent runtime entrypoints aligned with the canonical skill sources.
 - `.claude/skills`: symlink to `.agents/skills` for Claude Code compatibility.
@@ -97,12 +97,14 @@ Example workspaces are separate from this repository's `knowledge/` project work
 
 - `examples/minimal-workspace/` is the smallest committed workspace shape.
 - `examples/getting-started-workspace/` is the guided product demo and reader/view fixture.
+- `examples/software-product-rd-workspace/` is a copyable software product R&D team template.
 
 Check the example workspace:
 
 ```sh
 forma --workspace examples/minimal-workspace check --json
 forma --workspace examples/getting-started-workspace check --json
+forma --workspace examples/software-product-rd-workspace check --json
 ```
 
 Serve the read-only WebApp and RPC backend from an example workspace:
