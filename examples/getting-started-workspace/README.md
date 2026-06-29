@@ -19,7 +19,7 @@ The example includes:
 - `.forma/spaces/*.md`: term definitions for the configured spaces and their create flows;
 - `.forma/spaces/templates/`: templates for creating new pages in the spaces taxonomy;
 - `.forma/views/`: saved table, list, kanban, and graph view pages;
-- `.forma/local/*.yml` and `.forma/local/*.md`: optional private configuration loaded only because this getting-started workspace's `.forma.md` explicitly imports those patterns.
+- `.forma/local/*.md`: optional private configuration loaded only because this getting-started workspace's `.forma.md` explicitly imports that pattern.
 
 Serve it locally with:
 
@@ -35,7 +35,7 @@ Workspace-level guidelines live in `.forma.md`. In this getting-started workspac
 
 Included configuration nodes use their configuration path as identity; `kind` describes how the node behaves. All persisted configuration file references are workspace-relative POSIX paths resolved from the directory that contains `.forma.md`, regardless of the file that contains the reference.
 
-Forma does not interpret `.gitignore` as workspace semantics. Personal or private configuration should be introduced through explicit configuration such as this getting-started workspace's `.forma/local/*.yml` and `.forma/local/*.md` import patterns, or through a future `--config` style mechanism, rather than by relying on ignored path names alone. This getting-started workspace's `.gitignore` keeps `.forma/local/` uncommitted for copied workspaces, but Forma loads those files only because `.forma.md` names the patterns.
+Forma does not interpret `.gitignore` as workspace semantics. Personal or private configuration should be introduced through explicit configuration such as this getting-started workspace's `.forma/local/*.md` import pattern, or through a future `--config` style mechanism, rather than by relying on ignored path names alone. This getting-started workspace's `.gitignore` keeps `.forma/local/` uncommitted for copied workspaces, but Forma loads those files only because `.forma.md` names the pattern.
 
 Markdown configuration nodes can use `<!-- forma:content -->` as the explicit slot for generated content such as taxonomy terms, term pages, or view projections. If the slot is omitted, Forma should append the generated content after the Markdown body.
 

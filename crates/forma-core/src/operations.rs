@@ -1896,7 +1896,6 @@ imports:
   - ".forma/*.md"
   - ".forma/spaces/*.md"
   - ".forma/views/*.md"
-  - ".forma/local/*.yml"
   - ".forma/local/*.md"
 ---
 
@@ -2313,7 +2312,10 @@ mod tests {
 
         assert_eq!(result.operation, "config.inspect");
         assert_eq!(result.status, OperationStatus::Passed);
-        assert_eq!(result.workspace.name, "Choral Forma Example");
+        assert_eq!(
+            result.workspace.name,
+            "Choral Forma Getting Started Workspace"
+        );
         assert_eq!(
             result.config["workspace"]["timezone"],
             Value::String("UTC".to_string())
@@ -2329,7 +2331,7 @@ mod tests {
         let narrowed = inspect_config(&root, Some(".forma.md")).unwrap();
         assert_eq!(
             narrowed.config["workspace"]["name"],
-            Value::String("Choral Forma Example".to_string())
+            Value::String("Choral Forma Getting Started Workspace".to_string())
         );
         assert!(narrowed.config.get("imports").is_some());
 
@@ -3153,7 +3155,11 @@ imports:
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/local")).unwrap();
-        fs::write(root.join(".forma/local/profile.yml"), "spaces: {}\n").unwrap();
+        fs::write(
+            root.join(".forma/local/profile.md"),
+            "---\nspaces: {}\n---\n",
+        )
+        .unwrap();
 
         let result = list_files(&root).unwrap();
 
@@ -3161,7 +3167,7 @@ imports:
             result
                 .files
                 .iter()
-                .any(|file| file.path == ".forma/local/profile.yml")
+                .any(|file| file.path == ".forma/local/profile.md")
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -3191,7 +3197,7 @@ imports:
     #[test]
     fn raw_workspace_path_policy_excludes_config_entry_path() {
         assert!(!is_raw_workspace_path_allowed(".forma.md"));
-        assert!(is_raw_workspace_path_allowed(".forma/local/profile.yml"));
+        assert!(is_raw_workspace_path_allowed(".forma/local/profile.md"));
         assert!(is_raw_workspace_path_allowed(".forma/assets/logo.svg"));
         assert!(is_raw_workspace_path_allowed("notes/public.md"));
     }
@@ -3357,7 +3363,10 @@ imports:
         assert_eq!(result.operation, "workspace.health");
         assert_eq!(result.status, OperationStatus::Warning);
         assert_eq!(result.workspace.root, ".");
-        assert_eq!(result.workspace.name, "Choral Forma Example");
+        assert_eq!(
+            result.workspace.name,
+            "Choral Forma Getting Started Workspace"
+        );
         assert!(result.findings.iter().any(|finding| {
             finding.category == WorkspaceHealthCategory::BrokenReference
                 && finding.path == "notes/linked.md"

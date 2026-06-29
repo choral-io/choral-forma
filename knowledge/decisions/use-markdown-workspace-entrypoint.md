@@ -49,7 +49,7 @@ Forma does not read `.forma.yml`, does not fall back to it, and does not provide
 - Existing internal workspaces must rename `.forma.yml` to `.forma.md` and wrap the previous YAML in Markdown frontmatter.
 - `.forma/` remains a recommended support directory only; it is not a privileged root.
 - Included Markdown config nodes keep the same frontmatter-based model.
-- Explicitly included YAML config nodes can still exist as lower-level config fragments, but they are not entrypoints.
+- Included config nodes use Markdown frontmatter, matching the `.forma.md` entrypoint model.
 
 ## Rejected Alternatives
 

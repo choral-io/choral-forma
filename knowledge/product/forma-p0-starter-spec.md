@@ -116,7 +116,6 @@ runtime:
 imports:
     - ".forma/spaces/*.md"
     - ".forma/views/*.md"
-    - ".forma/local/*.yml"
     - ".forma/local/*.md"
 
 dashboard:

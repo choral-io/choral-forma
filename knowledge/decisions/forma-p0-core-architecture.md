@@ -79,7 +79,7 @@ P0 should:
 - Avoid rewriting existing Markdown bodies.
 - Generate new files from templates.
 
-Use a serde-compatible YAML parser for P0, with `serde_yml` as the preferred candidate. Forma should split frontmatter and Markdown body itself before YAML parsing. P0 `.forma/*.yml` configuration should parse into typed Rust structs where practical, while entry frontmatter should parse into a generic YAML value before space schema validation because spaces are user-defined.
+Use a serde-compatible YAML parser for P0, with `serde_yml` as the preferred candidate. Forma should split frontmatter and Markdown body itself before YAML parsing. P0 Markdown configuration frontmatter should parse into typed Rust structs where practical, while entry frontmatter should parse into a generic YAML value before space schema validation because spaces are user-defined.
 
 Unknown configuration fields should produce diagnostics or warnings rather than immediate hard failures. P0 should not modify existing frontmatter. Future structured edit commands should use a separately designed metadata patcher that preserves the Markdown body, unknown frontmatter fields, ordering, and comments where practical.
 

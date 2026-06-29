@@ -59,7 +59,7 @@ Make `.forma.md` the only Forma workspace entrypoint and remove runtime, docs, s
 - Automatic migration from `.forma.yml`.
 - Dual-entrypoint fallback.
 - Profile overlay implementation.
-- Removing explicitly included YAML config fragments.
+- Automatically migrating arbitrary old YAML config fragments.
 
 ## Acceptance Criteria
 

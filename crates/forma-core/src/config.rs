@@ -307,8 +307,12 @@ pub fn load_workspace(
             source,
         })?;
     reject_legacy_root_include(&base_config_file, FORMA_CONFIG_PATH)?;
-    for public_path in included_yaml_config_paths(root, &base_config_file.imports) {
-        let mut local_value = read_yaml_value(&root.join(&public_path), &public_path)?;
+    for public_path in included_markdown_config_paths(root, &base_config_file.imports) {
+        let mut local_value =
+            read_markdown_frontmatter_value(&root.join(&public_path), &public_path)?;
+        if config_node_kind(&local_value).is_some() {
+            continue;
+        }
         let local_types = take_types_from_value(&mut local_value, &public_path)?;
         merge_type_definitions(&mut types, local_types, &public_path, &mut diagnostics);
         deep_merge(&mut config_value, local_value);
@@ -486,10 +490,7 @@ pub fn config_source_paths(
     }];
     let config_file: ConfigFile =
         read_markdown_frontmatter(&root.join(FORMA_CONFIG_PATH), FORMA_CONFIG_PATH)?;
-    for path in included_yaml_config_paths(root, &config_file.imports)
-        .into_iter()
-        .chain(included_markdown_config_paths(root, &config_file.imports))
-    {
+    for path in included_markdown_config_paths(root, &config_file.imports) {
         sources.push(ConfigSourcePath {
             present: root.join(&path).exists(),
             path,
@@ -618,8 +619,8 @@ fn included_markdown_config_paths(root: &Path, include: &[String]) -> Vec<String
     included_config_paths(root, include, &["md", "mdx"])
 }
 
-fn included_yaml_config_paths(root: &Path, include: &[String]) -> Vec<String> {
-    included_config_paths(root, include, &["yml", "yaml"])
+fn config_node_kind(value: &Value) -> Option<&str> {
+    value.get("kind").and_then(|kind| kind.as_str())
 }
 
 fn included_config_paths(root: &Path, include: &[String], extensions: &[&str]) -> Vec<String> {
@@ -675,24 +676,6 @@ fn collect_included_files(
             }
         }
     }
-}
-
-fn read_yaml<T: for<'de> Deserialize<'de>>(
-    path: &Path,
-    public_path: &str,
-) -> Result<T, ConfigError> {
-    let contents = fs::read_to_string(path).map_err(|source| ConfigError::Read {
-        path: public_path.to_string(),
-        source,
-    })?;
-    serde_yml::from_str(&contents).map_err(|source| ConfigError::Parse {
-        path: public_path.to_string(),
-        source,
-    })
-}
-
-fn read_yaml_value(path: &Path, public_path: &str) -> Result<Value, ConfigError> {
-    read_yaml(path, public_path)
 }
 
 fn read_markdown_frontmatter<T: for<'de> Deserialize<'de>>(
@@ -1283,16 +1266,16 @@ mod tests {
     }
 
     #[test]
-    fn reports_duplicate_named_types_from_yaml_includes() {
-        let root = fixture_root("duplicate-yaml-named-ref-types");
+    fn reports_duplicate_named_types_from_markdown_local_includes() {
+        let root = fixture_root("duplicate-local-markdown-named-ref-types");
         write_root_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/local/types.yml\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/spaces/people",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/local/types.md\n  - .forma/spaces/*.md\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/spaces/people",
         );
-        write_file(
+        write_config_node(
             &root,
-            ".forma/local/types.yml",
-            "types:\n  person:\n    kind: entryRef\n    source: .forma/spaces/team\n",
+            ".forma/local/types.md",
+            "---\ntypes:\n  person:\n    kind: entryRef\n    source: .forma/spaces/team\n---\n\n# Local Types\n",
         );
         write_config_node(
             &root,
@@ -1307,7 +1290,7 @@ mod tests {
                 .diagnostics
                 .iter()
                 .any(|diagnostic| diagnostic.code == "config.type.duplicate"
-                    && diagnostic.path.as_deref() == Some(".forma/local/types.yml"))
+                    && diagnostic.path.as_deref() == Some(".forma/local/types.md"))
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -1510,12 +1493,12 @@ mod tests {
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.md\"\nruntime:\n  values:\n    currentDate:\n      kind: currentDate\n",
         );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(
-            root.join(".forma/local/profile.yml"),
-            "workspace:\n  timezone: Europe/Paris\nruntime:\n  values:\n    currentUserId:\n      kind: const\n      value: alex-chen\n",
+            root.join(".forma/local/profile.md"),
+            "---\nworkspace:\n  timezone: Europe/Paris\nruntime:\n  values:\n    currentUserId:\n      kind: const\n      value: alex-chen\n---\n",
         )
         .unwrap();
 
@@ -1589,12 +1572,12 @@ mod tests {
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.md\"\n",
         );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(
-            root.join(".forma/local/profile.yml"),
-            "workspace:\n  timezone: Europe/Paris\n",
+            root.join(".forma/local/profile.md"),
+            "---\nworkspace:\n  timezone: Europe/Paris\n---\n",
         )
         .unwrap();
 
@@ -1611,13 +1594,13 @@ mod tests {
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
             &root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.yml\"\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/spaces/*.md\"\n  - \".forma/local/*.md\"\n",
         );
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(root.join(".forma/.gitignore"), "local/\n").unwrap();
         fs::write(
-            root.join(".forma/local/profile.yml"),
-            "workspace:\n  timezone: Europe/Paris\n",
+            root.join(".forma/local/profile.md"),
+            "---\nworkspace:\n  timezone: Europe/Paris\n---\n",
         )
         .unwrap();
 
@@ -1630,7 +1613,7 @@ mod tests {
         assert!(
             sources
                 .iter()
-                .any(|source| source.path == ".forma/local/profile.yml")
+                .any(|source| source.path == ".forma/local/profile.md")
         );
 
         fs::remove_dir_all(root).unwrap();

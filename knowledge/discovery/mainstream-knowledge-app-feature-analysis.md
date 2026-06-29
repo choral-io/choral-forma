@@ -243,7 +243,7 @@ Implications for Choral Forma:
 - Keep `{{ ... }}` placeholders path-oriented and inspectable.
 - Do not add loops, conditionals, arbitrary functions, partials, or file/network access to P0 templates.
 - Let structured view queries handle space filtering instead of embedding query logic in templates.
-- Keep configuration concise even when the internal model is split across `settings.yml`, `types.yml`, `spaces.yml`, `templates/`, and `views/`. P0 should keep the user-authored Schema DSL in space configuration rather than requiring separate `.forma/schemas/` authoring files.
+- Keep configuration concise even when the internal model is split across Markdown config nodes for settings, types, spaces, templates, and views. P0 should keep the user-authored Schema DSL in space configuration rather than requiring separate `.forma/schemas/` authoring files.
 
 ### Tolaria
 

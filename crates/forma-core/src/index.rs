@@ -2206,8 +2206,8 @@ mod tests {
         write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(
-            root.join(".forma/local/profile.yml"),
-            "workspace:\n  name: Explicitly Included\n",
+            root.join(".forma/local/profile.md"),
+            "---\nworkspace:\n  name: Explicitly Included\n---\n",
         )
         .unwrap();
 
@@ -2222,7 +2222,7 @@ mod tests {
         fs::create_dir_all(root.join(FIXTURE_VIEWS_DIR)).unwrap();
         write_config(
             root,
-            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  member:\n    kind: entryRef\n    source: .forma/spaces/members\n    input:\n      transform: slugify\nimports:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.yml\n",
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  member:\n    kind: entryRef\n    source: .forma/spaces/members\n    input:\n      transform: slugify\nimports:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n  - .forma/local/*.md\n",
         );
         fs::write(
             root.join(".forma/spaces/index.md"),

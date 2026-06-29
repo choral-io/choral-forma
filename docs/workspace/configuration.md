@@ -18,7 +18,7 @@ order: 100
 
 `.forma.md` is the single configuration entry point. All persisted file references are workspace-relative POSIX paths resolved from the directory containing `.forma.md`.
 
-Forma configuration is built from explicit files. The root `.forma.md` declares workspace settings and `imports` patterns in YAML frontmatter. Its Markdown body can explain the workspace for humans and Agents. Imported Markdown or YAML config nodes then define higher-level workspace behavior such as content groups, templates, views, guidelines, schemas, and runtime values.
+Forma configuration is built from explicit Markdown files. The root `.forma.md` declares workspace settings and `imports` patterns in YAML frontmatter. Its Markdown body can explain the workspace for humans and Agents. Imported Markdown config nodes then define higher-level workspace behavior such as content groups, templates, views, guidelines, schemas, and runtime values.
 
 When authoring root `.forma.md`, prefer this top-level field order: `schemaVersion`, `workspace`, `runtime`, `imports`, `guidelines`, then `types`. Keep `runtime` near `workspace` because it defines runtime values for the workspace. Keep `types` after imported content configuration because named types often reference configured content definitions. Root `imports` loads configuration files; term and view `include` fields select content.
 
@@ -67,7 +67,6 @@ imports:
     - ".forma/*.md"
     - ".forma/spaces/*.md"
     - ".forma/views/*.md"
-    - ".forma/local/*.yml"
     - ".forma/local/*.md"
 ---
 

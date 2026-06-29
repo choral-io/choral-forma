@@ -31,4 +31,4 @@ Use this guideline when you first copy the getting-started example, when you rev
 3. Prefer updating an existing page before creating a new one when the topic is already covered.
 4. Use finished work such as [[tasks/publish-read-only-workspace|Publish Read-only Workspace]] as reference material, not as a reason to accumulate stale tasks.
 5. When onboarding someone new, point them to [[notes/getting-started|Getting Started]] and [[notes/welcome-to-choral-forma|Welcome to Choral Forma]] before deeper process notes.
-6. Keep personal configuration in explicitly included private paths when the copied workspace defines them. This getting-started workspace includes optional `.forma/local/*.yml` and `.forma/local/*.md` patterns in `.forma.md`, and its `.gitignore` keeps `.forma/local/` uncommitted. Do not treat ignored files as shared workspace content.
+6. Keep personal configuration in explicitly included private paths when the copied workspace defines them. This getting-started workspace includes an optional `.forma/local/*.md` pattern in `.forma.md`, and its `.gitignore` keeps `.forma/local/` uncommitted. Do not treat ignored files as shared workspace content.

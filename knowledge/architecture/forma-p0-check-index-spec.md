@@ -49,7 +49,7 @@ Pipeline phases:
 3. Normalize all public paths to workspace-relative POSIX-style paths.
 4. Discover candidate source files from configured page sources, taxonomy source rules, view definitions, and navigation/dashboard references.
 5. Split Markdown frontmatter and body.
-6. Parse YAML configuration and entry frontmatter.
+6. Parse configuration and entry YAML frontmatter.
 7. Parse Markdown body into the chosen Markdown AST.
 8. Enrich the parsed document into `FormaAST` by scanning wikilinks, Markdown links, wikilink embeds, and Forma directives.
 9. Classify pages into configured taxonomies and views.
@@ -163,7 +163,7 @@ Recommended P0 JSON shape:
 
 Index references must distinguish intent:
 
-- `reference`: structured metadata or configuration reference, usually from frontmatter or `.forma/*.yml`.
+- `reference`: structured metadata or configuration reference, usually from frontmatter or `.forma/*.md` config nodes.
 - `link`: body Markdown link or ordinary wikilink that points to another workspace object.
 - `embed`: wikilink embedded reference such as `![[notes/project-brief]]`.
 
@@ -297,7 +297,7 @@ Diagnostic locations should be structured rather than embedded in message text. 
 
 P0 location kinds:
 
-- `config`: location in a `.forma/*.yml` configuration file.
+- `config`: location in `.forma.md` or an imported `.forma/*.md` configuration node.
 - `frontmatter`: location in entry or view frontmatter.
 - `body`: location in Markdown body.
 - `file`: whole-file diagnostic.
