@@ -45,7 +45,7 @@ If `config inspect`, `check`, or `workspace health` reports pre-release migratio
 
 ### Empty Workspace Setup
 
-Use `forma init` only to create the minimal Forma bootstrap. Do not create `skills/forma-cli/SKILL.md`, do not edit `AGENTS.md`, and do not copy starter-kit content unless the human explicitly asks for that source.
+Use `forma init` only to create the minimal Forma bootstrap. Do not create `skills/forma-cli/SKILL.md`, do not edit `AGENTS.md`, and do not copy example workspace content unless the human explicitly asks for that source.
 
 After init, ask the human what content structure they need. Add spaces, templates, views, and guidelines in small slices. Verify each slice with `forma check --json`.
 

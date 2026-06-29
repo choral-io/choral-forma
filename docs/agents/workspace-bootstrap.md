@@ -162,7 +162,7 @@ After this works, ask whether the next slice should be `engagements`, `meeting-n
 
 Do not start by creating a large taxonomy, many schemas, or many views. A good first workspace can be one configured space, one template, and two sample entries.
 
-Do not copy starter-kit content unless the human explicitly asks to start from that example. Use starter-kit as a learning reference, not as the default shape of a new workspace.
+Do not copy example workspace content unless the human explicitly asks to start from that example. Use examples as learning references, not as the default shape of a new workspace.
 
 Do not invent built-in domain types. Treat names such as `notes`, `tasks`, and `members` as user-defined content groups unless the workspace config defines them.
 

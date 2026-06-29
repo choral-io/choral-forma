@@ -2241,7 +2241,7 @@ mod tests {
     fn copy_starter_workspace(root: &Path) {
         let source = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
-            .join("examples/forma-starter-kit");
+            .join("examples/getting-started-workspace");
         copy_dir_recursive(&source, root);
         remove_guideline_references(root);
         clear_starter_content(root);
@@ -2946,7 +2946,11 @@ imports:
     #[test]
     fn create_entry_from_repository_starter_templates_uses_in_memory_index() {
         let root = fixture_root("repository-starter-create");
-        copy_dir_all(repository_root().join("examples/forma-starter-kit"), &root).unwrap();
+        copy_dir_all(
+            repository_root().join("examples/getting-started-workspace"),
+            &root,
+        )
+        .unwrap();
 
         let result = create_entry(
             &root,

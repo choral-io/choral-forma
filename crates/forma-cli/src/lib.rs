@@ -1023,7 +1023,7 @@ mod tests {
     fn copy_starter_workspace(root: &Path) {
         let source = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
-            .join("examples/forma-starter-kit");
+            .join("examples/getting-started-workspace");
         copy_dir_recursive(&source, root);
         remove_guideline_references(root);
         clear_starter_content(root);

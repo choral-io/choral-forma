@@ -1104,11 +1104,14 @@ mod tests {
     fn loads_repository_starter_kit_config() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
-            .join("examples/forma-starter-kit");
+            .join("examples/getting-started-workspace");
 
         let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
 
-        assert_eq!(workspace.config.workspace.name, "Choral Forma Example");
+        assert_eq!(
+            workspace.config.workspace.name,
+            "Choral Forma Getting Started Workspace"
+        );
         assert_eq!(workspace.config.workspace.timezone, "UTC");
         assert_eq!(workspace.config.spaces["tasks"].include, "tasks/**/*.md");
         assert_eq!(

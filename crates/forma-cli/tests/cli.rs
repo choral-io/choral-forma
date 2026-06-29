@@ -8,7 +8,7 @@ use serde_json::Value;
 fn copy_starter_workspace(root: &Path) {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
-        .join("examples/forma-starter-kit");
+        .join("examples/getting-started-workspace");
     copy_dir_recursive(&source, root);
     remove_guideline_references(root);
     clear_starter_content(root);
@@ -747,14 +747,14 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
 #[test]
 fn starter_workspace_config_exposes_expected_spaces_and_excludes_removed_spaces() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let workspace = root.join("examples/forma-starter-kit");
+    let workspace = root.join("examples/getting-started-workspace");
     let workspace = workspace
         .to_str()
         .expect("workspace path should be valid UTF-8");
     let output = forma(&root)
         .args(["--workspace", workspace, "config", "inspect", "--json"])
         .output()
-        .expect("forma --workspace examples/forma-starter-kit config inspect should run");
+        .expect("forma --workspace examples/getting-started-workspace config inspect should run");
 
     assert!(
         output.status.success(),

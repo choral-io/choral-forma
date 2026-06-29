@@ -944,7 +944,7 @@ mod tests {
     fn copy_starter_workspace(root: &Path) {
         let source = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
-            .join("examples/forma-starter-kit");
+            .join("examples/getting-started-workspace");
         copy_dir_recursive(&source, root);
         remove_guideline_references(root);
         clear_starter_content(root);
@@ -1236,7 +1236,7 @@ mod tests {
         assert_eq!(response["result"]["operation"], "workspace.dashboard");
         assert_eq!(
             response["result"]["workspace"]["name"],
-            "Choral Forma Example"
+            "Choral Forma Getting Started Workspace"
         );
         assert!(response["result"]["spaces"].as_array().unwrap().len() >= 3);
         assert_eq!(response["result"]["entries"][0]["path"], "notes/source.md");

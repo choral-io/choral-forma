@@ -36,7 +36,7 @@ The current application code implements the P0 read, inspect, check, render, ser
 - `crates/forma-cli/`: Rust `forma` binary, CLI handlers, local HTTP server, and embedded WebApp asset serving.
 - `packages/shared/`: shared TypeScript RPC client and operation result types.
 - `packages/webapp/`: Vite React read-only Forma WebApp for browsing configured workspaces.
-- `examples/forma-starter-kit/`: committed starter workspace for demos, smoke validation, and reader/view examples.
+- `examples/getting-started-workspace/`: guided workspace for demos, smoke validation, and reader/view examples.
 - `skills/`: canonical project-local Agent skill sources that follow the skills.sh-style `skills/<name>/SKILL.md` layout.
 - `.agents/skills/`: installed Agent runtime entrypoints aligned with the canonical skill sources.
 - `.agents/.local/`: local-only Agent runtime state, ignored by git.
@@ -91,20 +91,20 @@ Run all checks:
 mise run check
 ```
 
-## Run The Starter Kit
+## Run The Getting Started Workspace
 
-`examples/forma-starter-kit/` is the default committed example workspace. It is separate from this repository's `knowledge/` project workspace and is intended for product demos, smoke validation, and reader/view fixtures.
+`examples/getting-started-workspace/` is the committed example workspace. It is separate from this repository's `knowledge/` project workspace and is intended for product demos, smoke validation, and reader/view fixtures.
 
 Check the example workspace:
 
 ```sh
-cargo run -p forma-cli -- --workspace examples/forma-starter-kit check
+forma --workspace examples/getting-started-workspace check --json
 ```
 
 Serve the read-only WebApp and RPC backend from the example workspace:
 
 ```sh
-cargo run -p forma-cli -- --workspace examples/forma-starter-kit serve
+cargo run -p forma-cli -- --workspace examples/getting-started-workspace serve
 ```
 
 Then open the printed local URL in a browser. Release builds embed the WebApp assets in the `forma` binary; development builds may show the embedded asset placeholder until `packages/webapp` has been built.
@@ -117,7 +117,7 @@ Use `forma init` in an empty or ordinary project directory to create the minimal
 forma init --name "Acme Workspace"
 ```
 
-The command writes only `.forma.md` and `.agents/skills/forma-cli/SKILL.md`, and refuses to overwrite existing bootstrap files. It does not copy the starter kit, create default spaces, edit `AGENTS.md`, or generate canonical `skills/` sources.
+The command writes only `.forma.md` and `.agents/skills/forma-cli/SKILL.md`, and refuses to overwrite existing bootstrap files. It does not copy example workspace content, create default spaces, edit `AGENTS.md`, or generate canonical `skills/` sources.
 
 After initialization, use the embedded Agent guide and checks:
 
@@ -165,8 +165,8 @@ Forma release assets are also intended to work with mise's GitHub backend:
 # Installing from GitHub Releases requires internet access. If the current
 # environment is sandboxed without network access, run these install steps
 # outside the sandbox, then use the installed shim from sandboxed sessions.
-mise use github:choral-io/choral-forma@v0.1.0-alpha.10
-mise install github:choral-io/choral-forma@v0.1.0-alpha.10
+mise use github:choral-io/choral-forma@0.1.0-alpha.10
+mise install github:choral-io/choral-forma@0.1.0-alpha.10
 forma --version
 ```
 
@@ -174,10 +174,10 @@ A project or user config can declare the same tool:
 
 ```toml
 [tools]
-"github:choral-io/choral-forma" = "v0.1.0-alpha.10"
+"github:choral-io/choral-forma" = "0.1.0-alpha.10"
 ```
 
-Mise normally autodetects the matching GitHub Release asset from OS and architecture. During the alpha stage, pin a release tag because `latest` does not resolve prerelease-only repositories. If autodetection is not enough for a team's environment, add platform-specific `asset_pattern` values as described in the [mise GitHub backend documentation](https://mise.jdx.dev/dev-tools/backends/github.html).
+Mise normally autodetects the matching GitHub Release asset from OS and architecture. During the alpha stage, pin a release version because `latest` does not resolve prerelease-only repositories. GitHub release tags use the `v0.1.0-alpha.10` form, while mise normalizes the GitHub backend tool version to `0.1.0-alpha.10`. If autodetection is not enough for a team's environment, add platform-specific `asset_pattern` values as described in the [mise GitHub backend documentation](https://mise.jdx.dev/dev-tools/backends/github.html).
 
 After installation, verify that the CLI is available:
 
