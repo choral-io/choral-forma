@@ -50,13 +50,13 @@ The resolved warnings were relationship-density warnings rather than broken or a
 
 ## Starter-Kit Alignment Pass
 
-The starter-kit validation pass confirmed that `examples/forma-starter-kit` remains clean enough to serve as the product-level evaluation fixture before continuing current repository migration:
+The starter-kit validation pass confirmed that `examples/getting-started-workspace` remains clean enough to serve as the product-level evaluation fixture before continuing current repository migration:
 
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`: passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`: passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks list --json`: passed and exposed the intended sample task states.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks inspect --json tasks/add-team-notes.md`: passed and returned workspace plus task-specific guidelines.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace config inspect --json`: passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace check --json`: passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace workspace health --json`: passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace tasks list --json`: passed and exposed the intended sample task states.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace tasks inspect --json tasks/add-team-notes.md`: passed and returned workspace plus task-specific guidelines.
 
 The current repository migration can therefore continue from the project workspace itself rather than by changing the starter baseline.
 
@@ -72,3 +72,7 @@ This pass intentionally did not fill empty `assignees`, `reviewers`, template de
 - empty `reviewers` can mean no review owner has been assigned yet;
 - template defaults should remain neutral for future generated content;
 - historical workspace files keep their original context unless promoted into canonical spaces.
+
+## Follow-up Alignment Plan
+
+The next repository knowledge alignment pass is tracked in [[planning/project-knowledge-space-alignment-plan]]. That plan narrows the follow-up from broad migration to space naming and evidence-flow alignment, especially `discovery` to `research` and `test-cases` to `validation`.
