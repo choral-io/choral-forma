@@ -36,10 +36,10 @@ The current application code implements the P0 read, inspect, check, render, ser
 - `crates/forma-cli/`: Rust `forma` binary, CLI handlers, local HTTP server, and embedded WebApp asset serving.
 - `packages/shared/`: shared TypeScript RPC client and operation result types.
 - `packages/webapp/`: Vite React read-only Forma WebApp for browsing configured workspaces.
-- `examples/getting-started-workspace/`: guided workspace for demos, smoke validation, and reader/view examples.
+- `examples/`: committed example Forma workspaces for learning and demos.
 - `skills/`: canonical project-local Agent skill sources that follow the skills.sh-style `skills/<name>/SKILL.md` layout.
 - `.agents/skills/`: installed Agent runtime entrypoints aligned with the canonical skill sources.
-- `.agents/.local/`: local-only Agent runtime state, ignored by git.
+- `.claude/skills`: symlink to `.agents/skills` for Claude Code compatibility.
 - `AGENTS.md`: repository instructions for AI agents.
 - `CLAUDE.md`: symlink to `AGENTS.md` for Claude Code compatibility.
 - `mise.toml`: project tool and task configuration.
@@ -91,17 +91,21 @@ Run all checks:
 mise run check
 ```
 
-## Run The Getting Started Workspace
+## Run Example Workspaces
 
-`examples/getting-started-workspace/` is the committed example workspace. It is separate from this repository's `knowledge/` project workspace and is intended for product demos, smoke validation, and reader/view fixtures.
+Example workspaces are separate from this repository's `knowledge/` project workspace:
+
+- `examples/minimal-workspace/` is the smallest committed workspace shape.
+- `examples/getting-started-workspace/` is the guided product demo and reader/view fixture.
 
 Check the example workspace:
 
 ```sh
+forma --workspace examples/minimal-workspace check --json
 forma --workspace examples/getting-started-workspace check --json
 ```
 
-Serve the read-only WebApp and RPC backend from the example workspace:
+Serve the read-only WebApp and RPC backend from an example workspace:
 
 ```sh
 cargo run -p forma-cli -- --workspace examples/getting-started-workspace serve
