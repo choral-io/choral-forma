@@ -14,7 +14,7 @@ tags:
 
 ## Context
 
-The WebApp V2 fake-data shell has stabilized enough to switch from renderer polish to real backend integration. The next implementation phase should make the Rust backend provide the read-only data needed by the GUI instead of continuing to grow WebApp-local mock projections. Product code should not carry a mock-data switch; demonstrations should run the backend against a real example workspace such as `examples/forma-starter-kit/`.
+The WebApp V2 fake-data shell has stabilized enough to switch from renderer polish to real backend integration. The next implementation phase should make the Rust backend provide the read-only data needed by the GUI instead of continuing to grow WebApp-local mock projections. Product code should not carry a mock-data switch; demonstrations should run the backend against a real example workspace such as `examples/getting-started-workspace/`.
 
 The WebApp remains a lightweight standalone knowledge browser. It should consume shared Forma operations and must not infer diagnostics, evaluate view queries, or duplicate reference resolution in the browser. Markdown rendering is a client concern for the WebApp reader, while Markdown analysis, read-model construction, diagnostics, and reference resolution remain backend concerns.
 

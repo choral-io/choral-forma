@@ -59,7 +59,7 @@ Use these prompts against fresh empty directories after `forma init`. Each promp
 
 ## Failure Signals
 
-- Copies `examples/forma-starter-kit` or this repository's `knowledge/` structure without explicit request.
+- Copies `examples/getting-started-workspace` or this repository's `knowledge/` structure without explicit request.
 - Creates a broad taxonomy before the first slice is confirmed.
 - Uses a top-level `template` field instead of `create.template`.
 - Assumes local/private path semantics from directory names.

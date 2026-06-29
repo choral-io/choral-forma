@@ -44,7 +44,7 @@ Prompt:
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
 2. Observe whether the Agent loads `forma-cli-core` with `skills get`.
-3. Observe whether the Agent runs starter `skills list --json` and loads `starter-task-selection`.
+3. Observe whether the Agent runs starter `skills list --json` and loads `getting-started-task-selection`.
 4. Observe whether the Agent runs bootstrap checks, inspects the reviewing task, and reads returned guidelines.
 5. Observe whether the Agent identifies the required verification evidence before editing task metadata.
 6. Check whether the Agent runs `check` and `workspace health` before claiming the task is done.

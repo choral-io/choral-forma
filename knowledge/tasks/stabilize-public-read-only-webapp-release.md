@@ -103,10 +103,10 @@ This task is the release stabilization umbrella for the first public read-only r
 ## Validation Notes
 
 - Confirmed the product WebApp data path uses Forma RPC only; product-side mock workspace client code has been removed.
-- Promoted `examples/forma-starter-kit` as the committed example workspace for demos, smoke validation, and reader/view fixtures.
-- Verified `cargo run -p forma-cli -- --workspace examples/forma-starter-kit check` passes.
+- Promoted `examples/getting-started-workspace` as the committed example workspace for demos, smoke validation, and reader/view fixtures.
+- Verified `cargo run -p forma-cli -- --workspace examples/getting-started-workspace check` passes.
 - Verified `pnpm --filter @choral-forma/webapp build` rebuilds WebApp assets.
-- Verified `forma serve` can serve the rebuilt embedded WebApp assets from `examples/forma-starter-kit` without a Vite dev server.
+- Verified `forma serve` can serve the rebuilt embedded WebApp assets from `examples/getting-started-workspace` without a Vite dev server.
 
 ### 2026-06-24 Gap Audit
 
@@ -114,12 +114,12 @@ Commands and checks run:
 
 - `cargo run -q -p forma-cli -- config inspect --json`: passed.
 - `cargo run -q -p forma-cli -- workspace health --json`: passed.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`: passed.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace config inspect --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace check --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace workspace health --json`: passed.
 - `pnpm --filter @choral-forma/webapp check`: passed.
 - `pnpm --filter @choral-forma/webapp build`: passed with the existing Vite large-chunk warning from bundled Markdown/code-highlighting assets.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit serve --bind 127.0.0.1:4173`: passed after localhost binding approval.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace serve --bind 127.0.0.1:4173`: passed after localhost binding approval.
 - HTTP smoke against `http://127.0.0.1:4173`: root SPA route, document SPA route, `/rpc`, `/raw/assets/logo.svg`, and `/favicon.svg` returned expected successful responses.
 - JSON-RPC smoke through `forma serve`: `workspace.dashboard`, `file.render`, `file.references`, `view.render` for kanban, and `view.render` for graph returned `passed` results.
 - Browser smoke with Edge through Playwright: dashboard, `notes/markdown-reader`, graph view, and a `390px` wide document viewport rendered non-empty read-only UI without horizontal overflow.
@@ -148,16 +148,16 @@ Commands and checks run:
 
 - `cargo run -q -p forma-cli -- config inspect --json`: passed.
 - `cargo run -q -p forma-cli -- workspace health --json`: passed.
-- `cargo run -q -p forma-cli -- tasks inspect knowledge/tasks/stabilize-public-read-only-webapp-release.md --json`: passed.
+- `cargo run -q -p forma-cli -- inspect --space tasks stabilize-public-read-only-webapp-release --json`: passed.
 - `pnpm --filter @choral-forma/webapp check`: passed with the local pnpm version warning.
 - `pnpm --filter @choral-forma/shared check`: passed with the local pnpm version warning.
 - `pnpm exec vitest run packages/shared/src/index.test.ts`: passed.
 - `pnpm --filter @choral-forma/webapp build`: passed with the existing Vite large-chunk warning.
 - `cargo run -q -p forma-cli -- check --json`: passed.
 - `cargo run -q -p forma-cli -- workspace health --json`: passed.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json`: passed.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`: passed.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit serve --bind 127.0.0.1:4173`: passed for embedded WebApp serving.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace check --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace workspace health --json`: passed.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace serve --bind 127.0.0.1:4173`: passed for embedded WebApp serving.
 
 HTTP and JSON-RPC smoke:
 

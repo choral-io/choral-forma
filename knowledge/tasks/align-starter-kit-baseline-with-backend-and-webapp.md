@@ -39,7 +39,7 @@ affectedArea: Starter-kit configuration, backend read model, shared RPC contract
 
 ## Goal
 
-Align the backend configuration loader, read model, shared TypeScript contracts, and WebApp route data with `examples/forma-starter-kit/` as the baseline.
+Align the backend configuration loader, read model, shared TypeScript contracts, and WebApp route data with `examples/getting-started-workspace/` as the baseline.
 
 ## Sources
 
@@ -48,7 +48,7 @@ Align the backend configuration loader, read model, shared TypeScript contracts,
 - [[architecture/forma-view-query-model]]
 - [[architecture/webapp-v2-read-model-contract]]
 - [[decisions/use-settings-driven-taxonomy-and-navigation-model]]
-- `examples/forma-starter-kit/`
+- `examples/getting-started-workspace/`
 
 ## Context
 
@@ -70,7 +70,7 @@ This task should preserve the current user-facing "Spaces" experience for the st
 - Update shared TypeScript contracts and WebApp mapping code away from `source.kind` toward `source.type`.
 - Keep the WebApp's visible starter "Spaces" route behavior stable while deriving it from configured taxonomy data.
 - Remove legacy starter/config/view assumptions instead of preserving compatibility for old unshipped shapes.
-- Update starter generation, operation fixtures, and tests so product behavior validates against `examples/forma-starter-kit/`.
+- Update starter generation, operation fixtures, and tests so product behavior validates against `examples/getting-started-workspace/`.
 - Validate backend, shared package, WebApp, and full project checks where practical.
 
 ## Out Of Scope
@@ -84,11 +84,11 @@ This task should preserve the current user-facing "Spaces" experience for the st
 
 ## Acceptance Criteria
 
-- `forma check` succeeds against `examples/forma-starter-kit/` through the new `.forma.md`-based loader.
+- `forma check` succeeds against `examples/getting-started-workspace/` through the new `.forma.md`-based loader.
 - The backend uses the `.forma.md` import-driven starter-kit baseline without requiring separate registry files.
 - Legacy starter/config/view shapes are removed from product-facing starter generation, operation fixtures, shared contracts, and WebApp mapping code.
 - Starter taxonomy terms are discovered as page classification inputs without treating `spaces` as a built-in product primitive.
-- Starter views under `examples/forma-starter-kit/.forma/views/*.md` are discovered from top-level Markdown frontmatter.
+- Starter views under `examples/getting-started-workspace/.forma/views/*.md` are discovered from top-level Markdown frontmatter.
 - `source.type: pages` and taxonomy filters are accepted for list, table, kanban, and graph views.
 - Query predicates and display bindings use `field` paths such as `fields.status` instead of `target: frontmatter.status` in starter-facing behavior.
 - Table column objects expose both stable field ids and labels in current read-model output, and kanban column sort definitions from the starter kit are parsed and applied or safely normalized.
@@ -105,15 +105,15 @@ It is related to the completed view-source/query alignment work, but it should n
 ## Implementation Notes
 
 - Removed the backend view-query compatibility path that accepted legacy `target` predicates. View query predicates now use the starter-facing `field` key only, and a regression test covers rejection of `target: fields.status`.
-- Reworked `examples/forma-starter-kit/` into the six-space baseline: notes, tasks, members, decisions, proposals, and guidelines. Removed legacy unshipped `todos` and `users` starter assumptions from the example, generator, fixtures, and tests.
+- Reworked `examples/getting-started-workspace/` into the six-space baseline: notes, tasks, members, decisions, proposals, and guidelines. Removed legacy unshipped `todos` and `users` starter assumptions from the example, generator, fixtures, and tests.
 - Added `knowledge/test-cases/forma-starter-kit/` as a project-level evaluation suite so pressure tests and gate cases stay outside the copyable starter workspace.
 - Removed the earlier shared-profile path example from the starter baseline. Future profile fragments, if introduced, should be selected by explicit workspace-relative references rather than any built-in profile directory.
 
 ## Review Evidence
 
 - `mise run check` passed.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json` passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json` passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace check --json` passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace workspace health --json` passed with 0 errors and 0 warnings.
 - `cargo run -q -p forma-cli -- check --json` passed for the project workspace.
 - `git diff --check` passed.
 - Project `workspace health` still reports 8 existing warning-level graph/connectivity findings outside the starter-kit change scope.

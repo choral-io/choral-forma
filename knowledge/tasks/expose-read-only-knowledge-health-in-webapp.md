@@ -104,7 +104,7 @@ This task follows reference navigation because no-backlink and no-outgoing signa
 - `pnpm --filter @choral-forma/webapp build`
 - `cargo run -q -p forma-cli -- check --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace workspace health --json`
 - Temporary starter-kit smoke workspace with a broken wikilink showed `Broken references`, the missing target, and a working affected-entry route in the WebApp Context Panel.
 
 ## Review Notes

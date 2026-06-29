@@ -1,8 +1,8 @@
 ---
 schemaVersion: 1
 kind: planning
-title: "Forma CLI Knowledge Workflow Replacement Validation"
-summary: "Validation summary for using Forma CLI, guidelines, and starter-kit pressure tests to replace the old knowledge-workflow skills."
+title: "Forma CLI Product Workflow Validation"
+summary: "Validation summary for using Forma CLI, guidelines, and starter-kit pressure tests as the product-oriented successor to the old knowledge-workflow skills."
 scope: project
 type: validation
 owners:
@@ -24,11 +24,11 @@ sources:
     - "guidelines/content-maintenance"
 ---
 
-# Forma CLI Knowledge Workflow Replacement Validation
+# Forma CLI Product Workflow Validation
 
 ## Purpose
 
-Evaluate whether Forma CLI plus configured guidelines can now replace the old knowledge-workflow skills as the primary Human and Agent entrypoint for repository knowledge work.
+Evaluate whether Forma CLI plus configured guidelines can now support this repository's product R&D workflow without recreating the old `knowledge-workflow` skill system.
 
 ## Current Product R&D Role
 
@@ -38,15 +38,17 @@ Current readiness should be judged through [[metrics/knowledge-workflow-replacem
 
 ## Current Result
 
-The replacement is usable for current project knowledge management:
+The current Forma-based workflow is usable for current project knowledge management and product R&D:
 
 - The repository knowledge workspace is discoverable from `.forma.md`.
-- Repository `check`, `workspace health`, and `tasks list` pass with no diagnostics.
+- Repository `check`, `workspace health`, and `list --space tasks` pass with no diagnostics.
 - The project-local `forma-cli` skill is config-driven and does not hard-code repository knowledge paths.
 - Guidelines now carry the soft task-selection, content-maintenance, local-only, review-evidence, and write-boundary rules previously spread across old skills.
 - The starter-kit example is clean enough to act as a product-level evaluation fixture instead of borrowing this repository's own knowledge structure.
 
-This is not yet a hard-constraint replacement. Forma currently provides evidence and guidance; Human and Agent behavior still enforce the soft rules until policy-aware write operations exist.
+This is not intended to be a full behavioral clone of the old workflow. The old skills are useful as pressure-test material, but the product direction is to keep only the workflow pieces that help Forma users manage repository-backed Markdown in a reviewable way.
+
+Forma currently provides evidence and guidance; Human and Agent behavior still enforce the soft rules until policy-aware write operations exist.
 
 ## Evidence
 
@@ -54,19 +56,19 @@ Repository workspace:
 
 - `cargo run -q -p forma-cli -- config inspect --json` passed with 0 errors and 0 warnings.
 - `cargo run -q -p forma-cli -- workspace health --json` passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- tasks list --json` passed.
+- `cargo run -q -p forma-cli -- list --space tasks --json` passed.
 
 Starter-kit workspace:
 
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json` passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json` passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json` passed with 0 errors and 0 warnings.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks list --json` passed and exposed ready, doing, reviewing, blocked, done, and needs-refinement examples.
-- `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit tasks inspect --json tasks/add-team-notes.md` passed and returned workspace plus task-specific guidelines.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace config inspect --json` passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace check --json` passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace workspace health --json` passed with 0 errors and 0 warnings.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace list --space tasks --json` passed and exposed ready, doing, reviewing, blocked, done, and needs-refinement examples.
+- `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace inspect --space tasks add-team-notes --json` passed and returned workspace plus task-specific guidelines.
 
-## Coverage Against Old Skill Value
+## Product Workflow Coverage
 
-Covered by current Forma mechanisms:
+Covered by current Forma mechanisms and still relevant to product R&D:
 
 - Bootstrap from a configured workspace rather than hidden workflow files.
 - Task inventory and board-state read through task metadata.
@@ -76,28 +78,31 @@ Covered by current Forma mechanisms:
 - Local-only handling as workflow guidance, not runtime path magic.
 - Starter-kit pressure scenarios kept outside the copyable starter workspace.
 
-Partially covered:
+Productization gaps:
 
-- Agent behavior under adversarial or shortcut prompts is represented by pressure test cases but is not yet continuously exercised.
-- Review evidence is documented in guidelines, but there is no first-class operation that packages evidence into a review artifact.
-- Writes are currently ordinary approved Markdown edits followed by checks, not reviewable Forma operations.
+- Reviewable write operations: writes are currently ordinary approved Markdown edits followed by checks, not proposal, dry-run, approval, apply, and verification operations shared by CLI, RPC, WebApp, and Agents.
+- Minimal policy gates: task status, readiness, local-only boundaries, and reference health are still guideline-enforced instead of machine-readable operation preconditions.
+- Review evidence: guidelines describe the expected evidence, but no first-class operation packages it into a review artifact.
+- Agent pressure validation: adversarial and shortcut prompts are represented by pressure test cases but are not yet continuously exercised.
 
-Not covered yet:
+Explicitly not migrated:
 
-- Machine-readable policy enforcement for task status transitions.
-- Reviewable write-operation proposal, dry-run, apply, and verification flows.
-- Executable harnesses for the starter-kit Agent pressure tests.
+- The old `.workflow/runtime.md`, `manifest.yml`, rules, schemas, and templates directory model.
+- `planning/KANBAN.md`; task board state now comes from task `status` and Forma views.
+- A one-to-one recreation of old delivery, intake, capture, audit, assistant, and worklist skills.
+- Personal execution-loop mechanics such as local `run-loop`, worker protocol, and daily execution logs as product core.
+- Detailed task scoring tables unless a concrete product workflow needs them.
 
-## Next Validation Slice
+## Next Product Slice
 
-The highest-value next slice is [[tasks/run-starter-kit-agent-pressure-validation]].
+The highest-value next product slice is [[tasks/design-reviewable-forma-write-operations]].
 
-That task should execute the existing starter-kit test cases as an evaluation pass, record which cases can be verified by CLI evidence today, and separate remaining manual Agent pressure cases from product/runtime gaps.
+That task should design the minimal shared operation flow for a narrow structured write, such as a space/schema-driven single-entry metadata patch or manual Action over that patch. It should produce proposal, dry-run, diagnostics, explicit approval, apply, and post-apply verification behavior without treating this repository's `tasks` space as a built-in Forma concept.
 
-For product R&D tracking, that slice is now represented as [[experiments/starter-kit-agent-pressure-validation]] and gates [[releases/next-internal-release]] through [[metrics/knowledge-workflow-replacement-readiness]].
+[[tasks/design-forma-policy-runtime]] should remain downstream until a concrete write-operation consumer exists. [[tasks/run-starter-kit-agent-pressure-validation]] remains useful validation evidence, but it should not drive a full clone of the old skill interface.
 
 ## Decision
 
-Continue using `forma-cli` as the primary replacement for old knowledge-workflow skill entrypoints. Do not reintroduce old workflow files or productize their structure directly.
+Continue using `forma-cli` as the primary product workflow entrypoint. Do not reintroduce old workflow files, and do not productize the old skill structure directly.
 
-The next implementation work should improve verification and write-operation support rather than expanding the skill itself.
+The next implementation work should improve reviewable write-operation support, then attach minimal policy gates to concrete operations. It should avoid expanding Agent skills only to reproduce old workflow behavior.

@@ -17,7 +17,7 @@ tags:
 
 ## Purpose
 
-Hand off the next phase of Choral Forma work: stabilize `examples/forma-starter-kit/` as the user-facing configuration and content baseline, then refactor backend, WebApp contracts, and documentation backward from that baseline.
+Hand off the next phase of Choral Forma work: stabilize `examples/getting-started-workspace/` as the user-facing configuration and content baseline, then refactor backend, WebApp contracts, and documentation backward from that baseline.
 
 This handoff is execution context. Canonical product and architecture documents remain the source of truth when they are updated.
 
@@ -32,13 +32,13 @@ Relevant knowledge:
 
 Relevant example workspace:
 
-- `examples/forma-starter-kit/.forma.md`
-- `examples/forma-starter-kit/.forma/dashboard.md`
-- `examples/forma-starter-kit/.forma/spaces/index.md`
-- `examples/forma-starter-kit/.forma/spaces/*.md`
-- `examples/forma-starter-kit/.forma/views/*.md`
-- `examples/forma-starter-kit/.forma/spaces/templates/*.md`
-- `examples/forma-starter-kit/README.md`
+- `examples/getting-started-workspace/.forma.md`
+- `examples/getting-started-workspace/.forma/dashboard.md`
+- `examples/getting-started-workspace/.forma/spaces/index.md`
+- `examples/getting-started-workspace/.forma/spaces/*.md`
+- `examples/getting-started-workspace/.forma/views/*.md`
+- `examples/getting-started-workspace/.forma/spaces/templates/*.md`
+- `examples/getting-started-workspace/README.md`
 
 ## Materials
 
@@ -102,7 +102,7 @@ This handoff is complete when the next phase has:
 - backend config/read-model changes aligned with the starter kit;
 - WebApp route and read-model changes aligned with the starter kit;
 - stale terminology and old config shapes removed from implementation;
-- validation against `examples/forma-starter-kit/`.
+- validation against `examples/getting-started-workspace/`.
 
 ## Response
 

@@ -27,7 +27,7 @@ relatedTasks:
 
 ## Purpose
 
-This suite defines project-level validation cases for `examples/forma-starter-kit`. The starter workspace should remain clean and copyable for users, while these test cases live in the Forma project knowledge base as evaluation assets.
+This suite defines project-level validation cases for `examples/getting-started-workspace`. The starter workspace should remain clean and copyable for users, while these test cases live in the Forma project knowledge base as evaluation assets.
 
 This suite is part of the validation chain for [[releases/next-internal-release]] and [[metrics/knowledge-workflow-replacement-readiness]].
 
@@ -53,14 +53,14 @@ This suite is part of the validation chain for [[releases/next-internal-release]
 
 Agent-facing tests should exercise the current Forma skill mode:
 
-1. Load the built-in CLI guide with `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get forma-cli-core`.
-2. Discover workspace-projected skills with `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills list --json`.
-3. Load `starter-workspace-operations` for starter knowledge, local-only, language-variant, and write-classification workflows.
-4. Load `starter-task-selection` for starter task selection, blocker, review, and status workflows.
-5. Use `--workspace examples/forma-starter-kit` whenever the Agent is not executing from the starter workspace root.
+1. Load the built-in CLI guide with `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace skills get forma-cli-core`.
+2. Discover workspace-projected skills with `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace skills list --json`.
+3. Load `getting-started-workspace-operations` for starter knowledge, local-only, language-variant, and write-classification workflows.
+4. Load `getting-started-task-selection` for starter task selection, blocker, review, and status workflows.
+5. Use `--workspace examples/getting-started-workspace` whenever the Agent is not executing from the starter workspace root.
 
 ## Evaluation Boundary
 
-- Keep evaluation assets outside `examples/forma-starter-kit` so users can copy the starter without test-only material.
+- Keep evaluation assets outside `examples/getting-started-workspace` so users can copy the starter without test-only material.
 - Use the starter workspace to validate Forma product principles, CLI/RPC contracts, WebApp behavior, and the `forma-cli` skill gate.
 - Do not copy this repository's project knowledge structure into the starter unless the structure is also a product-level starter recommendation.

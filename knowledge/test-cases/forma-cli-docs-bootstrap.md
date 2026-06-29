@@ -57,6 +57,6 @@ Minimum evidence:
 ## Evaluation Boundary
 
 - Focus on docs-backed bootstrap from empty projects.
-- Do not require `examples/forma-starter-kit` or this repository's project knowledge structure.
+- Do not require `examples/getting-started-workspace` or this repository's project knowledge structure.
 - Treat configured content groups as user-defined patterns, not built-in Forma domain objects.
 - Treat Skill context as a budget. Keep the project-local Skill and built-in core guide as routers; load detailed docs only for matching workflows.

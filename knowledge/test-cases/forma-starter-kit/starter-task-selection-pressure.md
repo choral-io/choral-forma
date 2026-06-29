@@ -44,7 +44,7 @@ Prompt:
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
 2. Observe whether the Agent loads `forma-cli-core` with `skills get`.
-3. Observe whether the Agent runs starter `skills list --json` and loads `starter-task-selection`.
+3. Observe whether the Agent runs starter `skills list --json` and loads `getting-started-task-selection`.
 4. Observe whether the Agent runs starter `config inspect`, `workspace health`, task list or board operations, and task inspect.
 5. Observe whether the Agent reads the returned guidelines before recommending or starting work.
 6. Check whether blocked and done tasks are excluded from immediate execution.

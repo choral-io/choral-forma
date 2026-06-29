@@ -35,17 +35,17 @@ Verify that the starter workspace exposes guidance as ordinary knowledge and tha
 
 ## Test Data
 
-- Workspace: `examples/forma-starter-kit`
-- Built-in skill command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get forma-cli-core`
-- Skills list command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills list --json`
-- Config command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`
-- Inspect command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit inspect --space tasks add-team-notes --json`
+- Workspace: `examples/getting-started-workspace`
+- Built-in skill command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace skills get forma-cli-core`
+- Skills list command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace skills list --json`
+- Config command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace config inspect --json`
+- Inspect command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace inspect --space tasks add-team-notes --json`
 
 ## Steps
 
 1. Run the built-in skill command and confirm it prints `forma-cli-core` Markdown with workspace-root guidance.
 2. Run the skills list command.
-3. Confirm `forma-cli-core`, `starter-workspace-operations`, and `starter-task-selection` are returned.
+3. Confirm `forma-cli-core`, `getting-started-workspace-operations`, and `getting-started-task-selection` are returned.
 4. Confirm projected workspace skills cite their source guideline paths.
 5. Run the config command.
 6. Confirm workspace-level `guidelines` are returned as Markdown paths inside the starter workspace.

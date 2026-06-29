@@ -26,7 +26,7 @@ The current application code implements the P0 read, inspect, check, render, ser
 
 ## Repository Layout
 
-- `knowledge/`: shared project content and repository operating guidance.
+- `knowledge/`: shared project content, planning records, task records, and repository operating guidance.
 - `knowledge/product/`: product direction and user-facing behavior.
 - `knowledge/concepts/`: reusable vocabulary and domain concepts.
 - `knowledge/planning/`: planning notes and board-related knowledge.
@@ -210,7 +210,7 @@ Use the local Forma config as the active project workspace context:
 - `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json`
 - `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
 
-For project context, start with [knowledge/README.md](knowledge/README.md). Keep durable project facts in `knowledge/` and keep local personal notes and Agent runtime state out of git.
+For project context, start from the configured Forma workspace: product direction in [knowledge/product/product-direction.md](knowledge/product/product-direction.md), release state in [knowledge/releases/next-internal-release.md](knowledge/releases/next-internal-release.md), and current delivery state through `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`. Keep durable project facts in `knowledge/` and keep local personal notes and Agent runtime state out of git.
 
 ## Commit Messages
 

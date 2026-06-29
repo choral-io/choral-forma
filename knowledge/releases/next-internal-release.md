@@ -15,7 +15,13 @@ tags:
     - internal
     - validation
 relatedTasks:
+    - "tasks/implement-docs-backed-init-and-agent-onboarding"
+    - "tasks/migrate-config-entrypoint-to-forma-md"
+    - "tasks/generalize-task-specific-read-operations"
+    - "tasks/stabilize-public-read-only-webapp-release"
+    - "tasks/run-p0-release-validation-and-cutline-check"
     - "tasks/run-starter-kit-agent-pressure-validation"
+    - "tasks/add-linux-arm64-release-artifact"
 relatedTestCases:
     - "test-cases/forma-starter-kit"
 relatedExperiments:
@@ -67,6 +73,12 @@ Current validation result:
 - Starter-kit pressure validation: passed for this internal validation pass; see [[experiments/starter-kit-agent-pressure-validation]].
 - Readiness metric: `ready`; see [[metrics/knowledge-workflow-replacement-readiness]].
 - Non-blocking verification output: Vite reported chunk-size warnings; all validation commands exited successfully.
+
+Task-board alignment:
+
+- This release record being `ready-for-review` does not imply that every related task has been moved to `done`.
+- Use `cargo run -q -p forma-cli -- view render .forma/views/task-board --json` as the source of truth for current task status.
+- Reviewing or doing tasks must still be closed through explicit task-board review before any final release publish action.
 
 ## Rollout Plan
 

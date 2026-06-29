@@ -32,7 +32,7 @@ Validate the Agent behavior that sits above the `forma skills` interface. The Ag
 
 - The starter skill interface contract passes.
 - The Agent has access to the project-local `forma-cli` skill.
-- The Agent can run Forma commands from the repository root with `--workspace examples/forma-starter-kit`.
+- The Agent can run Forma commands from the repository root with `--workspace examples/getting-started-workspace`.
 
 ## Test Data
 

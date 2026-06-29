@@ -360,7 +360,7 @@ Re-run the same scenarios and add targeted guidance for any new rationalizations
 ## Out Of Scope
 
 - Remote starter-kit registry.
-- Copying `examples/forma-starter-kit` through `forma init`.
+- Copying `examples/getting-started-workspace` through `forma init`.
 - Full interactive wizard.
 - WebApp editing flows.
 - MCP server.

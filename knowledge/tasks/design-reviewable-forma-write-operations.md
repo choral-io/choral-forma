@@ -2,7 +2,7 @@
 scope: project
 type: task
 title: Design Reviewable Forma Write Operations
-summary: Define proposal, dry-run, apply, and verification behavior for future writable Forma workflows.
+summary: Define the minimal proposal, dry-run, apply, and verification behavior for the first writable Forma product workflow.
 priority: P1
 severity:
 value: H
@@ -43,15 +43,17 @@ affectedArea: Forma write operations
 
 ## Goal
 
-Define proposal, dry-run, apply, and verification behavior for future writable Forma workflows.
+Define the minimal proposal, dry-run, apply, and verification behavior for the first writable Forma product workflow.
 
 ## Deferral Note
 
 Deferred on 2026-06-24.
 
-Current product focus is returning to the public read-only WebApp release. Write-capable product behavior should not be designed as an isolated frontmatter patch primitive because useful writes need a broader operation, manual action, proposal, policy, and later trigger model. That scope is still important, but it should follow read-only stabilization.
+Current product focus is returning to the public read-only WebApp release. Write-capable product behavior should not be designed as a clone of old `knowledge-workflow` skills or as an isolated frontmatter patch primitive. Useful writes need a small shared operation boundary that can support manual action, proposal, policy, and later trigger models.
 
-When this task is refined again, it should avoid treating any configured document type, such as the repository's tasks space, as a built-in Forma concept. The likely first write design should be space/schema-driven and should decide whether manual Actions are part of the same slice while keeping Triggers downstream.
+When this task is refined again, it should avoid treating any configured document type, such as the repository's tasks space, as a built-in Forma concept. The first write design should be space/schema-driven and should decide whether manual Actions are part of the same slice while keeping Triggers downstream.
+
+The purpose is to improve the current product R&D workflow, not to fully recreate old delivery, intake, capture, audit, assistant, or personal worklist behavior.
 
 ## Sources
 
@@ -67,6 +69,7 @@ When this task is refined again, it should avoid treating any configured documen
 - Identify pre-apply and post-apply checks for CLI, RPC, WebApp, and Agent surfaces.
 - Define how proposed changes are reviewed before file writes.
 - Define how direct Git diffs, generated dry-runs, and future persisted proposals relate without making proposal persistence a prerequisite.
+- Define which old workflow behaviors are intentionally out of product scope for this slice.
 - Identify follow-up tasks that become unblocked by the accepted write-operation design.
 
 ## Out Of Scope
@@ -77,6 +80,7 @@ When this task is refined again, it should avoid treating any configured documen
 - Designing AI Chat behavior.
 - Designing WebApp-specific interaction details beyond the shared operation boundary.
 - Designing broad Markdown body patching, move, rename, delete, or automatic fix commands.
+- Recreating old `knowledge-workflow` skill routing, personal worklist loops, or `planning/KANBAN.md`.
 
 ## Design Direction
 
@@ -96,7 +100,7 @@ read workspace
 -> return verification evidence
 ```
 
-The first concrete operation family should be narrow and structured. It should be generic and space/schema-driven, such as a single-entry frontmatter patch or manual Action invocation over that patch, rather than a built-in task transition model.
+The first concrete operation family should be narrow and structured. It should be generic and space/schema-driven, such as a single-entry metadata patch or manual Action invocation over that patch, rather than a built-in task transition model.
 
 The design should keep these concepts separate:
 
@@ -123,4 +127,5 @@ The design should keep these concepts separate:
 - The task explains how CLI, RPC, WebApp, and Agents share the same write boundary.
 - The task separates generated dry-run results from future persisted proposal records.
 - The task states how policy runtime work is sequenced after the operation design.
+- The task explicitly names nonessential old workflow mechanics that remain outside product scope.
 - The task records follow-up implementation or design tasks with observable acceptance criteria.

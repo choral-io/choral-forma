@@ -108,11 +108,11 @@ Validation matrix:
 
 Starter workspace smoke test:
 
-- Workspace: `examples/forma-starter-kit`.
+- Workspace: `examples/getting-started-workspace`.
 - `forma config inspect --json`: passed.
 - `forma check --json`: passed with zero errors, warnings, and infos.
 - `forma workspace health --json`: passed with zero findings.
-- `forma skills list --json`: passed and returned `forma-cli-core`, `starter-workspace-operations`, and `starter-task-selection`.
+- `forma skills list --json`: passed and returned `forma-cli-core`, `getting-started-workspace-operations`, and `getting-started-task-selection`.
 - `forma list --space tasks --json`: passed.
 - `forma inspect notes/getting-started.md --json`: passed.
 - `forma serve --bind 127.0.0.1:0`: required approved localhost binding and passed at `http://127.0.0.1:50349`.

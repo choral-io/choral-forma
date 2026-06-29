@@ -36,12 +36,12 @@ Verify that `forma skills` is a stable Agent-facing interface: Agents can discov
 
 ## Test Data
 
-- Workspace: `examples/forma-starter-kit`
-- List command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills list --json`
-- Built-in get command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get forma-cli-core`
-- Projected task skill command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-task-selection`
-- Projected workspace skill command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get starter-workspace-operations`
-- Missing skill command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit skills get missing-skill`
+- Workspace: `examples/getting-started-workspace`
+- List command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace skills list --json`
+- Built-in get command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace skills get forma-cli-core`
+- Projected task skill command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace skills get getting-started-task-selection`
+- Projected workspace skill command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace skills get getting-started-workspace-operations`
+- Missing skill command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace skills get missing-skill`
 - Boundary fixtures:
     - No projected skills: remove `skill` metadata from configured guideline files in a temporary starter copy.
     - Duplicate skill id: set two configured guidelines to the same `skill.id` in a temporary starter copy.
@@ -51,7 +51,7 @@ Verify that `forma skills` is a stable Agent-facing interface: Agents can discov
 
 1. Run the list command.
 2. Confirm the JSON status is `passed`.
-3. Confirm the list includes `forma-cli-core`, `starter-workspace-operations`, and `starter-task-selection`.
+3. Confirm the list includes `forma-cli-core`, `getting-started-workspace-operations`, and `getting-started-task-selection`.
 4. Confirm each listed skill has stable Agent-facing fields: `id`, `title`, `description`, `source`, `sourcePath`, `order`, and `triggers`.
 5. Confirm `forma-cli-core` has `source: builtIn` and `sourcePath: builtin:forma-cli-core`.
 6. Confirm projected starter skills have `source: guideline` and source paths that point to ordinary starter Markdown guideline files.

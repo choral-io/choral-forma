@@ -34,8 +34,8 @@ Ensure `workspace health` gives a clean gate signal for the starter workspace an
 
 ## Test Data
 
-- Workspace: `examples/forma-starter-kit`
-- Command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit workspace health --json`
+- Workspace: `examples/getting-started-workspace`
+- Command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace workspace health --json`
 
 ## Steps
 

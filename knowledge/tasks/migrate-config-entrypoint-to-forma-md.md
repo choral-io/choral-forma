@@ -50,7 +50,7 @@ Make `.forma.md` the only Forma workspace entrypoint and remove runtime, docs, s
 - Change runtime entrypoint discovery and source reporting to `.forma.md`.
 - Parse `.forma.md` frontmatter as the root workspace configuration.
 - Update `forma init` to write `.forma.md`.
-- Migrate this repository and `examples/forma-starter-kit` to `.forma.md`.
+- Migrate this repository and `examples/getting-started-workspace` to `.forma.md`.
 - Update docs, embedded Agent guidance, tests, and knowledge references.
 - Verify CLI, RPC, starter-kit, project knowledge, and full checks.
 

@@ -35,8 +35,8 @@ Validate that the starter workspace expresses its content model through Forma co
 
 ## Test Data
 
-- Workspace: `examples/forma-starter-kit`
-- Command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`
+- Workspace: `examples/getting-started-workspace`
+- Command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace config inspect --json`
 
 ## Steps
 
@@ -45,7 +45,7 @@ Validate that the starter workspace expresses its content model through Forma co
 3. Confirm task-like fields include status, readiness, priority, assignees, owners, reviewers, and blockers.
 4. Confirm relationship fields use explicit ref targets where the target is known, such as task assignees to members and task blockers to tasks.
 5. Confirm guideline pages can express ownership and review without requiring a separate workflow system.
-6. Confirm `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit check --json` still passes after schema inspection.
+6. Confirm `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace check --json` still passes after schema inspection.
 
 ## Expected Results
 

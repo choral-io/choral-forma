@@ -16,7 +16,7 @@ tags:
 
 Define the P0 starter workspace shape for Choral Forma.
 
-`examples/forma-starter-kit/` is the accepted copyable example workspace baseline. Current `forma init` is bootstrap-only and does not install this starter. Future starter-kit initialization should be redesigned from the committed starter-kit or another explicit template source instead of maintaining a duplicated embedded starter.
+`examples/getting-started-workspace/` is the accepted copyable example workspace baseline. Current `forma init` is bootstrap-only and does not install this starter. Future starter-kit initialization should be redesigned from the committed starter-kit or another explicit template source instead of maintaining a duplicated embedded starter.
 
 This starter specification stays aligned with [Product direction](product-direction.md) and [Forma P0 core architecture](../decisions/forma-p0-core-architecture.md).
 
@@ -83,7 +83,7 @@ Future starter-kit installation should be derived from an explicit starter/templ
 
 Future initialization does not need to copy:
 
-- sample notes, tasks, members, or guidelines from `examples/forma-starter-kit`
+- sample notes, tasks, members, or guidelines from `examples/getting-started-workspace`
 - example assets such as logo files
 - workspace-level guideline pages
 - a committed index or hidden state store

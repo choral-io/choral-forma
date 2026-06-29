@@ -44,7 +44,7 @@ Prompt:
 
 1. Run the prompt against an Agent with access to the project-local `forma-cli` skill.
 2. Observe whether the Agent loads `forma-cli-core` with `skills get`.
-3. Observe whether the Agent runs starter `skills list --json` and loads `starter-workspace-operations`.
+3. Observe whether the Agent runs starter `skills list --json` and loads `getting-started-workspace-operations`.
 4. Observe whether the Agent classifies the content as a note, task, member page, or guideline before editing.
 5. Observe whether the Agent uses starter config to choose the target configured space, path, template/frontmatter shape, and links.
 6. Check whether the Agent provides a dry-run summary before creating the new shared page.

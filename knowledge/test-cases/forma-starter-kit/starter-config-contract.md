@@ -26,7 +26,7 @@ relatedTasks:
 
 ## Purpose
 
-Verify that `examples/forma-starter-kit` works as a clean, reusable Forma workspace whose structure is discoverable from `.forma.md` and imported configuration nodes.
+Verify that `examples/getting-started-workspace` works as a clean, reusable Forma workspace whose structure is discoverable from `.forma.md` and imported configuration nodes.
 
 ## Preconditions
 
@@ -35,8 +35,8 @@ Verify that `examples/forma-starter-kit` works as a clean, reusable Forma worksp
 
 ## Test Data
 
-- Workspace: `examples/forma-starter-kit`
-- Command: `cargo run -q -p forma-cli -- --workspace examples/forma-starter-kit config inspect --json`
+- Workspace: `examples/getting-started-workspace`
+- Command: `cargo run -q -p forma-cli -- --workspace examples/getting-started-workspace config inspect --json`
 
 ## Steps
 
