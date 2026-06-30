@@ -67,7 +67,7 @@ Context budget targets:
 - `agents.workspace-design-discovery` stays under 900 words unless a split reference doc is introduced;
 - `agents.workspace-bootstrap` stays under 1,100 words unless a split reference doc is introduced;
 - `workspace.first-slice-config` stays under 700 words and is the default first-slice config reference;
-- full `workspace.configuration` is loaded only for runtime values, named types, migration details, or full reference behavior;
+- context-pressure optimizations do not hide escalation conditions: load full `workspace.configuration` for runtime values, named types, `entryRef`, migration/debug, local identity defaults, or full reference behavior;
 - ordinary read or health workflows load only the project-local skill and `forma-cli-core`.
 - example acceleration remains optional and is never required for empty-workspace bootstrap, read-only health, or default discovery.
 

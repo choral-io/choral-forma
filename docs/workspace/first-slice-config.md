@@ -17,7 +17,7 @@ order: 105
 
 Use this doc when creating the first content group after `forma init`. It is the short path for a small no-example workspace slice.
 
-Load `workspace.configuration` only when you need runtime values, named types, migration details, or full reference behavior.
+Stay on this doc for one simple content group with scalar fields. Load `workspace.configuration` before writing if the first slice needs custom runtime values, named types, `entryRef` fields, migration diagnostics, local identity defaults, or full reference behavior.
 
 ## Root Config
 
