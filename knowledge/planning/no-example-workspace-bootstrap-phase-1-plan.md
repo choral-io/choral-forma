@@ -309,7 +309,8 @@ Phase 2 is complete when:
 - examples are loaded only after explicit human request or accepted no-example design brief;
 - example-assisted flows require a dry run before writing files;
 - ordinary read or health workflows load only the project-local skill and `forma-cli-core`;
-- context budget evidence is recorded for core, discovery, bootstrap, and accelerator docs;
+- first-slice bootstrap uses the short `workspace.first-slice-config` reference by default;
+- context budget evidence is recorded for core, discovery, bootstrap, first-slice config, and accelerator docs;
 - `cargo test -p forma-core`, `forma check --json`, and `forma workspace health --json` pass.
 
 ## Follow-Up

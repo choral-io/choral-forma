@@ -251,6 +251,7 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     let list_stdout = String::from_utf8_lossy(&list.stdout);
     assert!(list_stdout.contains(r#""operation":"docs.list""#));
     assert!(list_stdout.contains(r#""id":"workspace.configuration""#));
+    assert!(list_stdout.contains(r#""id":"workspace.first-slice-config""#));
     assert!(list_stdout.contains(r#""id":"cli.view""#));
     assert!(list_stdout.contains(r#""id":"agents.forma-cli-core""#));
     assert!(list_stdout.contains(r#""id":"agents.workspace-example-accelerator""#));
@@ -279,6 +280,23 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(get_stdout.contains("source: .forma/spaces/people"));
     assert!(get_stdout.contains("duplicate type names"));
     assert!(!get_stdout.contains(r#""operation":"docs.get""#));
+
+    let first_slice = forma(&root)
+        .args(["docs", "get", "workspace.first-slice-config"])
+        .output()
+        .expect("forma docs get workspace.first-slice-config should run");
+
+    assert!(
+        first_slice.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first_slice.stderr)
+    );
+    assert!(first_slice.stderr.is_empty());
+    let first_slice_stdout = String::from_utf8_lossy(&first_slice.stdout);
+    assert!(first_slice_stdout.contains("# First-Slice Config"));
+    assert!(first_slice_stdout.contains("kind: taxonomy"));
+    assert!(first_slice_stdout.contains("kind: term"));
+    assert!(first_slice_stdout.contains("not Forma built-ins"));
 
     let templates = forma(&root)
         .args(["docs", "get", "workspace.templates"])

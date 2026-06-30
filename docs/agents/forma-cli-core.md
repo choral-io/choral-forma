@@ -66,7 +66,7 @@ For domain discovery or workspace design, load:
 
 Before authoring the first content group, load the relevant embedded docs:
 
-- `forma docs get workspace.configuration`
+- `forma docs get workspace.first-slice-config`
 - `forma docs get workspace.spaces`
 - `forma docs get workspace.schemas`
 - `forma docs get workspace.templates`

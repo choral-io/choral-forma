@@ -74,7 +74,7 @@ Keep the dry run small enough for the human to reject or adjust. If the human de
 
 For the first content group:
 
-1. Load `workspace.configuration`, `workspace.spaces`, `workspace.schemas`, and `workspace.templates` with `forma docs get`.
+1. Load `workspace.first-slice-config`, `workspace.spaces`, `workspace.schemas`, and `workspace.templates` with `forma docs get`.
 2. Confirm the first-slice dry run with the human.
 3. Add the taxonomy config node first if it does not already exist, for example `kind: taxonomy` with `id: spaces`.
 4. Add one included term config node, commonly `kind: term` with `taxonomy: spaces`.
@@ -100,7 +100,7 @@ If the human says they run a consulting practice and need clients, engagements, 
 - template: `.forma/spaces/templates/client.md`;
 - first verification: create two client pages, list `clients`, inspect one page, and run `forma check --json`.
 
-Implement that shape with the syntax from `workspace.spaces`, `workspace.schemas`, and `workspace.templates`. After it works, ask whether the next slice should be `engagements`, `meeting-notes`, or `decisions`. Add reference fields only when the related space exists.
+Implement that shape with the syntax from `workspace.first-slice-config`, `workspace.spaces`, `workspace.schemas`, and `workspace.templates`. After it works, ask whether the next slice should be `engagements`, `meeting-notes`, or `decisions`. Add reference fields only when the related space exists.
 
 ## Avoid Over-Modeling
 

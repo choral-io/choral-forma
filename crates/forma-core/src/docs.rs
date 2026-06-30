@@ -40,6 +40,10 @@ const EMBEDDED_DOC_SOURCES: &[(&str, &str)] = &[
         include_str!("../../../docs/workspace/configuration.md"),
     ),
     (
+        "docs/workspace/first-slice-config.md",
+        include_str!("../../../docs/workspace/first-slice-config.md"),
+    ),
+    (
         "docs/workspace/spaces.md",
         include_str!("../../../docs/workspace/spaces.md"),
     ),

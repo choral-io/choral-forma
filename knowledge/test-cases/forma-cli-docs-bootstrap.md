@@ -66,6 +66,8 @@ Context budget targets:
 - `forma-cli-core` stays under 500 words and contains no worked examples;
 - `agents.workspace-design-discovery` stays under 900 words unless a split reference doc is introduced;
 - `agents.workspace-bootstrap` stays under 1,100 words unless a split reference doc is introduced;
+- `workspace.first-slice-config` stays under 700 words and is the default first-slice config reference;
+- full `workspace.configuration` is loaded only for runtime values, named types, migration details, or full reference behavior;
 - ordinary read or health workflows load only the project-local skill and `forma-cli-core`.
 - example acceleration remains optional and is never required for empty-workspace bootstrap, read-only health, or default discovery.
 
@@ -82,7 +84,7 @@ Phase 2 completion evidence:
 
 - `workspace-design-discovery-pressure` has at least one recorded non-example domain run;
 - `example-accelerator-boundary-pressure` has default and explicit-example boundary evidence;
-- context budget records `forma-cli-core`, `agents.workspace-design-discovery`, `agents.workspace-bootstrap`, and `agents.workspace-example-accelerator`;
+- context budget records `forma-cli-core`, `agents.workspace-design-discovery`, `agents.workspace-bootstrap`, `workspace.first-slice-config`, and `agents.workspace-example-accelerator`;
 - repository checks pass.
 
 ## Evaluation Boundary
@@ -143,3 +145,22 @@ Wrong-config baseline:
 Execution note:
 
 - A shell quoting issue turned `--input amountRequested="$75000"` into an empty value because `$75000` was expanded by the shell. The temporary sample files were corrected manually. Future command examples that include dollar amounts should quote or escape `$` carefully.
+
+### 2026-06-30 First-Slice Reference Budget Split
+
+Default first-slice bootstrap now loads `workspace.first-slice-config` instead of full `workspace.configuration`.
+
+Context budget evidence:
+
+```text
+122  skills/forma-cli/SKILL.md
+486  docs/agents/forma-cli-core.md
+413  docs/agents/workspace-design-discovery.md
+1028 docs/agents/workspace-bootstrap.md
+281  docs/workspace/first-slice-config.md
+377  docs/workspace/spaces.md
+482  docs/workspace/schemas.md
+294  docs/workspace/templates.md
+```
+
+Full `workspace.configuration` remains available as a 999-word reference for runtime values, named types, migration details, and full configuration behavior, but it is no longer the default first-slice config doc.
