@@ -300,6 +300,18 @@ Phase 1 is complete when these evidence records exist and pass:
 
 Phase 2 may start only after the no-example path remains usable without examples. Phase 2 examples are accelerators for humans who explicitly ask for a fast start, not dependencies of default workspace setup.
 
+## Phase 2 Completion Gate
+
+Phase 2 is complete when:
+
+- no-example bootstrap remains the default path;
+- workspace design discovery produces a design brief before first-slice config;
+- examples are loaded only after explicit human request or accepted no-example design brief;
+- example-assisted flows require a dry run before writing files;
+- ordinary read or health workflows load only the project-local skill and `forma-cli-core`;
+- context budget evidence is recorded for core, discovery, bootstrap, and accelerator docs;
+- `cargo test -p forma-core`, `forma check --json`, and `forma workspace health --json` pass.
+
 ## Follow-Up
 
 After Phase 1 passes, Phase 2 can decide how examples should accelerate setup without becoming the default source of truth. That later work can include example selection, copy/adapt flows, and starter workspaces, but only after the no-example baseline is proven usable.

@@ -78,6 +78,13 @@ Phase 2 entry gate:
 - ordinary read or health workflows do not load discovery, bootstrap, schema, template, or example accelerator docs;
 - `cargo test -p forma-core`, `forma check --json`, and `forma workspace health --json` pass.
 
+Phase 2 completion evidence:
+
+- `workspace-design-discovery-pressure` has at least one recorded non-example domain run;
+- `example-accelerator-boundary-pressure` has default and explicit-example boundary evidence;
+- context budget records `forma-cli-core`, `agents.workspace-design-discovery`, `agents.workspace-bootstrap`, and `agents.workspace-example-accelerator`;
+- repository checks pass.
+
 ## Evaluation Boundary
 
 - Focus on docs-backed bootstrap from empty projects.
