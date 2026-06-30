@@ -64,6 +64,10 @@ const EMBEDDED_DOC_SOURCES: &[(&str, &str)] = &[
         include_str!("../../../docs/agents/forma-cli-core.md"),
     ),
     (
+        "docs/agents/workspace-design-discovery.md",
+        include_str!("../../../docs/agents/workspace-design-discovery.md"),
+    ),
+    (
         "docs/agents/workspace-bootstrap.md",
         include_str!("../../../docs/agents/workspace-bootstrap.md"),
     ),
@@ -224,12 +228,12 @@ mod tests {
 
     #[test]
     fn embedded_doc_lookup_returns_doc_by_id() {
-        let doc = embedded_doc("workspace.configuration")
+        let doc = embedded_doc("agents.workspace-design-discovery")
             .expect("embedded docs should parse")
-            .expect("workspace configuration doc should exist");
+            .expect("workspace design discovery doc should exist");
 
-        assert_eq!(doc.path, "docs/workspace/configuration.md");
+        assert_eq!(doc.path, "docs/agents/workspace-design-discovery.md");
         assert!(doc.surfaces.contains(&"docs".to_string()));
-        assert!(doc.body.contains("workspace-relative POSIX paths"));
+        assert!(doc.body.contains("# Workspace Design Discovery"));
     }
 }

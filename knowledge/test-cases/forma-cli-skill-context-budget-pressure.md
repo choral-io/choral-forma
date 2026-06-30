@@ -41,7 +41,7 @@ Prompt an Agent in an existing configured workspace:
 - Reads the project-local `forma-cli` Skill.
 - Runs or loads `forma-cli-core`.
 - Runs `config inspect --json` and `workspace health --json`.
-- Does not load `agents.workspace-bootstrap`, `workspace.schemas`, `workspace.templates`, or starter-kit docs because no empty-workspace setup or config authoring is requested.
+- Does not load `agents.workspace-design-discovery`, `agents.workspace-bootstrap`, `workspace.schemas`, `workspace.templates`, or starter-kit docs because no workspace design, empty-workspace setup, or config authoring is requested.
 - Reports findings from command output.
 
 ## Failure Signals

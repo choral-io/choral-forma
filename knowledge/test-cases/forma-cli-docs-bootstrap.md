@@ -35,6 +35,7 @@ Validate that Forma CLI, embedded product docs, and Agent-facing skill output ca
 - [[test-cases/docs-backed-agent-bootstrap-pressure]]
 - [[test-cases/scenario-driven-workspace-bootstrap-pressure]]
 - [[test-cases/forma-cli-skill-context-budget-pressure]]
+- [[test-cases/workspace-design-discovery-pressure]]
 
 ## Gate Usage
 
@@ -61,6 +62,7 @@ Context budget targets:
 
 - project-local `skills/forma-cli/SKILL.md` stays under 200 words;
 - `forma-cli-core` stays under 500 words and contains no worked examples;
+- `agents.workspace-design-discovery` stays under 900 words unless a split reference doc is introduced;
 - `agents.workspace-bootstrap` stays under 1,100 words unless a split reference doc is introduced;
 - ordinary read or health workflows load only the project-local skill and `forma-cli-core`.
 

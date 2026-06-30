@@ -45,20 +45,24 @@ If `config inspect`, `check`, or `workspace health` reports pre-release migratio
 
 ### Read-Only Commands
 
-For existing-workspace read, list, inspect, view, check, or health-only requests, do not load `agents.workspace-bootstrap` or workspace schema/template reference docs unless the human asks to design or change workspace structure.
+For existing-workspace read, list, inspect, view, check, or health-only requests, do not load `agents.workspace-design-discovery`, `agents.workspace-bootstrap`, or workspace schema/template reference docs unless the human asks to design or change workspace structure.
 
 - `forma list --space <space-id> --json`
 - `forma inspect <path> --json`
 - `forma inspect --space <space-id> <entry-id> --json`
 - `forma view render <view-id-or-path> --json`
 
-### Only If Initializing Or Authoring Workspace Config
+### Only If Designing Or Authoring Workspace Config
 
 Use `forma init` only to create the minimal Forma bootstrap. The default empty-workspace path is no-example bootstrap: start from the human's real content workflow instead of copying example workspace content. Do not create `skills/forma-cli/SKILL.md`, do not edit `AGENTS.md`, and do not copy example workspace content unless the human explicitly asks for that source.
 
 After init, ask the human what content structure they need. Add spaces, templates, views, and guidelines in small slices. Verify each slice with `forma check --json`.
 
 When editing root `.forma.md`, keep top-level fields in this order when present: `schemaVersion`, `workspace`, `runtime`, `imports`, `guidelines`, then `types`. Do not add unused fields only to complete the sequence.
+
+For domain discovery or workspace design, load:
+
+- `forma docs get agents.workspace-design-discovery`
 
 Before authoring the first content group, load the relevant embedded docs:
 
