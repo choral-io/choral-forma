@@ -25,7 +25,7 @@ order: 200
 
 ## Agent Guidance
 
-Run `forma` commands from the target workspace root. If the Agent cannot guarantee its current working directory, pass `--workspace <path>` explicitly.
+Run `forma` commands from the target workspace root, or pass `--workspace <path>`.
 
 Commands below use `forma` as the CLI name.
 
@@ -45,7 +45,7 @@ If `config inspect`, `check`, or `workspace health` reports pre-release migratio
 
 ### Read-Only Commands
 
-For existing-workspace read, list, inspect, view, check, or health-only requests, do not load `agents.workspace-design-discovery`, `agents.workspace-bootstrap`, or workspace schema/template reference docs unless the human asks to design or change workspace structure.
+For existing-workspace read, list, inspect, view, check, or health-only requests, do not load design, bootstrap, example accelerator, schema, or template docs unless the human asks to design or change workspace structure.
 
 - `forma list --space <space-id> --json`
 - `forma inspect <path> --json`
@@ -54,7 +54,7 @@ For existing-workspace read, list, inspect, view, check, or health-only requests
 
 ### Only If Designing Or Authoring Workspace Config
 
-Use `forma init` only to create the minimal Forma bootstrap. The default empty-workspace path is no-example bootstrap: start from the human's real content workflow instead of copying example workspace content. Do not create `skills/forma-cli/SKILL.md`, do not edit `AGENTS.md`, and do not copy example workspace content unless the human explicitly asks for that source.
+Use `forma init` only for minimal bootstrap. The default empty-workspace path is no-example bootstrap: start from the human's real content workflow instead of copying example workspace content. Do not create `skills/forma-cli/SKILL.md`, edit `AGENTS.md`, or copy examples unless the human asks for that source.
 
 After init, ask the human what content structure they need. Add spaces, templates, views, and guidelines in small slices. Verify each slice with `forma check --json`.
 
@@ -71,6 +71,10 @@ Before authoring the first content group, load the relevant embedded docs:
 - `forma docs get workspace.schemas`
 - `forma docs get workspace.templates`
 - `forma docs get agents.workspace-bootstrap`
+
+For explicit example, starter, or accepted-brief fast-start requests, load:
+
+- `forma docs get agents.workspace-example-accelerator`
 
 ### Workspace Skills
 

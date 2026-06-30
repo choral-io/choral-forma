@@ -72,6 +72,10 @@ const EMBEDDED_DOC_SOURCES: &[(&str, &str)] = &[
         include_str!("../../../docs/agents/workspace-bootstrap.md"),
     ),
     (
+        "docs/agents/workspace-example-accelerator.md",
+        include_str!("../../../docs/agents/workspace-example-accelerator.md"),
+    ),
+    (
         "docs/agents/workspace-maintenance.md",
         include_str!("../../../docs/agents/workspace-maintenance.md"),
     ),
@@ -228,12 +232,27 @@ mod tests {
 
     #[test]
     fn embedded_doc_lookup_returns_doc_by_id() {
-        let doc = embedded_doc("agents.workspace-design-discovery")
-            .expect("embedded docs should parse")
-            .expect("workspace design discovery doc should exist");
+        let cases = [
+            (
+                "agents.workspace-design-discovery",
+                "docs/agents/workspace-design-discovery.md",
+                "# Workspace Design Discovery",
+            ),
+            (
+                "agents.workspace-example-accelerator",
+                "docs/agents/workspace-example-accelerator.md",
+                "# Workspace Example Accelerator",
+            ),
+        ];
 
-        assert_eq!(doc.path, "docs/agents/workspace-design-discovery.md");
-        assert!(doc.surfaces.contains(&"docs".to_string()));
-        assert!(doc.body.contains("# Workspace Design Discovery"));
+        for (id, expected_path, expected_heading) in cases {
+            let doc = embedded_doc(id)
+                .expect("embedded docs should parse")
+                .expect("agent doc should exist");
+
+            assert_eq!(doc.path, expected_path);
+            assert!(doc.surfaces.contains(&"docs".to_string()));
+            assert!(doc.body.contains(expected_heading));
+        }
     }
 }

@@ -36,10 +36,11 @@ Validate that Forma CLI, embedded product docs, and Agent-facing skill output ca
 - [[test-cases/scenario-driven-workspace-bootstrap-pressure]]
 - [[test-cases/forma-cli-skill-context-budget-pressure]]
 - [[test-cases/workspace-design-discovery-pressure]]
+- [[test-cases/example-accelerator-boundary-pressure]]
 
 ## Gate Usage
 
-This suite is the Phase 1 no-example bootstrap gate. It should prove that an Agent can start from an empty initialized workspace, design one first content slice from human domain language, and verify it without loading or copying examples.
+This suite is the Phase 1 no-example bootstrap gate and the Phase 2 example-boundary gate. It should prove that an Agent can start from an empty initialized workspace, design one first content slice from human domain language, and verify it without loading or copying examples by default, while still keeping explicit example acceleration available only on request.
 
 Run this suite before considering changes ready for review when the change affects:
 
@@ -57,6 +58,7 @@ Minimum evidence:
 - `check`, `create`, `list`, `inspect`, and `view render` pass for the guided content group;
 - isolated-page health warnings are reported as relationship feedback and can be cleared by adding explicit links.
 - context pressure evidence records the loaded skills/docs and approximate word counts for Agent-facing guidance.
+- Phase 2 boundary coverage proves the example accelerator loads only for explicit example-backed requests or accepted-brief fast paths.
 
 Context budget targets:
 
@@ -65,13 +67,15 @@ Context budget targets:
 - `agents.workspace-design-discovery` stays under 900 words unless a split reference doc is introduced;
 - `agents.workspace-bootstrap` stays under 1,100 words unless a split reference doc is introduced;
 - ordinary read or health workflows load only the project-local skill and `forma-cli-core`.
+- example acceleration remains optional and is never required for empty-workspace bootstrap, read-only health, or default discovery.
 
 Phase 2 entry gate:
 
 - no-example grant applications evidence is recorded;
 - workspace design discovery evidence is recorded for at least one non-project-management domain;
+- example accelerator boundary evidence is recorded for explicit-request and accepted-brief flows;
 - wrong-config baseline reports `config.unknownNodeKind`;
-- ordinary read or health workflows do not load discovery, bootstrap, schema, template, or example docs;
+- ordinary read or health workflows do not load discovery, bootstrap, schema, template, or example accelerator docs;
 - `cargo test -p forma-core`, `forma check --json`, and `forma workspace health --json` pass.
 
 ## Evaluation Boundary

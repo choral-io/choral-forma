@@ -253,6 +253,7 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(list_stdout.contains(r#""id":"workspace.configuration""#));
     assert!(list_stdout.contains(r#""id":"cli.view""#));
     assert!(list_stdout.contains(r#""id":"agents.forma-cli-core""#));
+    assert!(list_stdout.contains(r#""id":"agents.workspace-example-accelerator""#));
 
     let get = forma(&root)
         .args(["docs", "get", "workspace.configuration"])
@@ -312,6 +313,22 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(schemas_stdout.contains("configured `entryRef` named type"));
     assert!(schemas_stdout.contains("currentUserId"));
     assert!(schemas_stdout.contains("Do not infer entry reference paths from directory names"));
+
+    let agent_get = forma(&root)
+        .args(["docs", "get", "agents.workspace-example-accelerator"])
+        .output()
+        .expect("forma docs get should run for agent docs");
+
+    assert!(
+        agent_get.status.success(),
+        "{}",
+        String::from_utf8_lossy(&agent_get.stderr)
+    );
+    assert!(agent_get.stderr.is_empty());
+    let agent_get_stdout = String::from_utf8_lossy(&agent_get.stdout);
+    assert!(agent_get_stdout.contains("# Workspace Example Accelerator"));
+    assert!(agent_get_stdout.contains("explicitly asks"));
+    assert!(agent_get_stdout.contains("copy`, `adapt`, or `skip"));
 
     std::fs::remove_dir_all(root).unwrap();
 }
