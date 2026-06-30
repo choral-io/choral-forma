@@ -61,3 +61,51 @@ Run each prompt in a fresh conversation or reset context:
 ## Evidence Or Execution Notes
 
 Record prompt, questions asked, design brief, accepted first slice, loaded docs, word counts, temporary workspace path, commands, diagnostics, and follow-up changes.
+
+### 2026-06-30 Lab Calibration Discovery Run
+
+Temporary workspace: `/private/tmp/forma-discovery-lab.80YKFz`.
+
+Design brief:
+
+- Business outcome: track calibration status, due dates, and certificate evidence for lab instruments.
+- Content candidates: instruments, calibration records, vendors, certificates, maintenance events.
+- First slice: `calibrations`, because users can create two real records immediately and verify due-date tracking.
+- Deferred slices: instruments, vendors, certificates, maintenance events.
+- Lifecycle fields: `status`, `performedDate`, `dueDate`.
+- Retrieval fields: `instrumentName`, `calibrationType`, `status`, `dueDate`, `vendorName`, `tags`.
+- Relationship strategy: use scalar `instrumentName` and `vendorName` in the first slice; defer `entryRef` fields until `instruments` and `vendors` spaces exist.
+- Operating rules: defer guidelines until the first records prove the review workflow.
+- Verification path: `config inspect`, `check`, `create`, `list`, `inspect`, `workspace health`.
+
+Loaded docs:
+
+- `forma-cli-core`
+- `agents.workspace-design-discovery`
+- `agents.workspace-bootstrap`
+- `workspace.configuration`
+- `workspace.spaces`
+- `workspace.schemas`
+- `workspace.templates`
+
+No example workspace content was loaded or copied.
+
+Context budget evidence:
+
+```text
+122  skills/forma-cli/SKILL.md
+490  docs/agents/forma-cli-core.md
+413  docs/agents/workspace-design-discovery.md
+1027 docs/agents/workspace-bootstrap.md
+```
+
+Verification results:
+
+- `forma init --name "Lab Calibration" --json`: passed and wrote only `.forma.md` plus `.agents/skills/forma-cli/SKILL.md`.
+- `forma skills list --json`: passed and returned only the built-in `forma-cli-core` skill.
+- `forma config inspect --json`: passed and reported `spaces.calibrations`.
+- `forma check --json`: passed after the first-slice config and sample records were present.
+- `forma create calibrations ... --json`: passed for two records.
+- `forma list --space calibrations --json`: the plan's original sample with `performedDate=""` failed `schema.format.invalid` for a `date` field; after removing the optional empty `performedDate` from the due calibration record, the command passed and returned both records.
+- `forma inspect calibrations/pipette-p-200-quarterly-calibration.md --json`: passed.
+- `forma workspace health --json`: after removing the invalid empty `performedDate`, the command returned `status: warning` with isolated-page `noBacklinks` and `noOutgoingReferences` findings, which matched the expected relationship feedback for an unlinked first slice.

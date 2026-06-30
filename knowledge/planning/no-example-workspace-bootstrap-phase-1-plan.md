@@ -288,6 +288,18 @@ Phase 1 is complete when:
 - examples remain optional accelerators rather than required inputs;
 - repository `check` and `workspace health` pass after the content changes.
 
+## Phase 1 Completion Gate
+
+Phase 1 is complete when these evidence records exist and pass:
+
+- no-example grant applications first-slice run;
+- lab calibration discovery and first-slice run;
+- wrong-config baseline reports `config.unknownNodeKind`;
+- read-only context pressure test confirms ordinary health/read workflows do not load discovery, bootstrap, schema, template, or example docs;
+- repository `check`, `workspace health`, and `cargo test -p forma-core` pass.
+
+Phase 2 may start only after the no-example path remains usable without examples. Phase 2 examples are accelerators for humans who explicitly ask for a fast start, not dependencies of default workspace setup.
+
 ## Follow-Up
 
 After Phase 1 passes, Phase 2 can decide how examples should accelerate setup without becoming the default source of truth. That later work can include example selection, copy/adapt flows, and starter workspaces, but only after the no-example baseline is proven usable.

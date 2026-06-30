@@ -66,6 +66,14 @@ Context budget targets:
 - `agents.workspace-bootstrap` stays under 1,100 words unless a split reference doc is introduced;
 - ordinary read or health workflows load only the project-local skill and `forma-cli-core`.
 
+Phase 2 entry gate:
+
+- no-example grant applications evidence is recorded;
+- workspace design discovery evidence is recorded for at least one non-project-management domain;
+- wrong-config baseline reports `config.unknownNodeKind`;
+- ordinary read or health workflows do not load discovery, bootstrap, schema, template, or example docs;
+- `cargo test -p forma-core`, `forma check --json`, and `forma workspace health --json` pass.
+
 ## Evaluation Boundary
 
 - Focus on docs-backed bootstrap from empty projects.
