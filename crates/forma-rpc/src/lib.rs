@@ -1271,7 +1271,7 @@ mod tests {
         assert_eq!(response["result"]["operation"], "workspace.health");
         assert_eq!(
             response["result"]["workspace"]["name"],
-            "Choral Forma Example"
+            "Choral Forma Getting Started Workspace"
         );
         assert_eq!(response["result"]["status"], "warning");
         assert_eq!(

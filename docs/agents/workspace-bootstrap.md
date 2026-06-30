@@ -55,18 +55,18 @@ Before writing shared config or content files, propose one first slice and wait 
 
 Use this compact format:
 
-| Field | Required content |
-| --- | --- |
-| Goal | The human workflow being organized first |
-| Real examples | Two or three item examples from the human's domain |
-| Space | Space id, title, directory, and include pattern |
-| Schema | Minimal fields needed for listing, comparing, creating, or reviewing |
-| Relationships | Reference fields to add now, or relationships explicitly deferred |
-| Template | Template path, filename pattern, required inputs, and default values |
-| Optional view/guideline | Add only if needed for the first workflow |
-| Files to create | Config, template, view/guideline, and sample entry paths |
-| Verification | Exact `forma` commands to run after edits |
-| Context loaded | Skill and docs used for this slice |
+| Field                   | Required content                                                     |
+| ----------------------- | -------------------------------------------------------------------- |
+| Goal                    | The human workflow being organized first                             |
+| Real examples           | Two or three item examples from the human's domain                   |
+| Space                   | Space id, title, directory, and include pattern                      |
+| Schema                  | Minimal fields needed for listing, comparing, creating, or reviewing |
+| Relationships           | Reference fields to add now, or relationships explicitly deferred    |
+| Template                | Template path, filename pattern, required inputs, and default values |
+| Optional view/guideline | Add only if needed for the first workflow                            |
+| Files to create         | Config, template, view/guideline, and sample entry paths             |
+| Verification            | Exact `forma` commands to run after edits                            |
+| Context loaded          | Skill and docs used for this slice                                   |
 
 Keep the dry run small enough for the human to reject or adjust. If the human describes many content groups, choose only the first durable group and defer the rest.
 

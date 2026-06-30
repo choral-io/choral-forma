@@ -34,17 +34,17 @@ Ask questions in small batches. Stop when the next answer would not change the f
 
 Before writing config, summarize:
 
-| Field | Required content |
-| --- | --- |
-| Business outcome | The practical result the workspace supports |
-| Content candidates | Candidate spaces in the human's language |
-| First slice | One content group to implement first and why |
-| Deferred slices | Content groups not implemented in the first pass |
-| Lifecycle fields | Status or date fields needed now |
-| Retrieval fields | Fields needed for lists, tables, filters, or review |
+| Field                 | Required content                                                    |
+| --------------------- | ------------------------------------------------------------------- |
+| Business outcome      | The practical result the workspace supports                         |
+| Content candidates    | Candidate spaces in the human's language                            |
+| First slice           | One content group to implement first and why                        |
+| Deferred slices       | Content groups not implemented in the first pass                    |
+| Lifecycle fields      | Status or date fields needed now                                    |
+| Retrieval fields      | Fields needed for lists, tables, filters, or review                 |
 | Relationship strategy | Entry references now, Markdown links now, or deferred relationships |
-| Operating rules | Guidelines needed now or deferred |
-| Verification path | Commands that will prove the first slice works |
+| Operating rules       | Guidelines needed now or deferred                                   |
+| Verification path     | Commands that will prove the first slice works                      |
 
 ## First-Slice Selection Rules
 

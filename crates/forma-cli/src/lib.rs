@@ -1149,7 +1149,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
         let body = String::from_utf8_lossy(&body);
-        assert!(body.contains(r#""name":"Choral Forma Example""#));
+        assert!(body.contains(r#""name":"Choral Forma Getting Started Workspace""#));
 
         fs::remove_dir_all(root).unwrap();
     }
