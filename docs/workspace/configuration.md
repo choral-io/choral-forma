@@ -179,6 +179,8 @@ schema:
 ---
 ```
 
+`create.directory` and `create.filename` are rendered with the same create-time placeholder context. Both may reference configured `input.*` values and runtime values, and the combined rendered path must remain a workspace-relative path.
+
 `taxonomy: spaces` must match a declared taxonomy `id`. It also projects this config node into the effective `spaces` map reported by `forma config inspect --json`. `space`, `note`, `task`, and similar names are not built-in domain objects; they are configured patterns derived from explicit config.
 
 ## Agent Guidance

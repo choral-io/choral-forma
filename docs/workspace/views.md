@@ -19,6 +19,8 @@ Views are configured Markdown nodes that describe read-only projections such as 
 
 View config uses `mode` to select the projection and `source` to choose the candidate pages. Do not use `projection` or `query.source`; those are not the current view DSL.
 
+View parameters and embedded view comments such as `<!-- forma-view: ... -->` are future design targets, not current workspace view syntax. Current views are directly rendered page views, and `forma view render` does not evaluate `{{ params.* }}` placeholders in view definitions.
+
 Minimal table view:
 
 ```md

@@ -1124,6 +1124,82 @@ fn global_workspace_option_selects_operation_root() {
 }
 
 #[test]
+fn create_renders_directory_and_filename_templates() {
+    let root = fixture_root("create-directory-template-cli");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+    std::fs::write(
+        root.join(".forma/spaces/notes.md"),
+        r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Notes
+display:
+  order: 10
+description: Notes
+include:
+  - "notes/**/*.md"
+create:
+  directory: "notes/{{ input.collection }}"
+  filename: "{{ input.slug }}.md"
+  template: ".forma/spaces/templates/note.md"
+  inputs:
+    title:
+      required: true
+    collection:
+      required: true
+      transform: slugify
+    summary:
+      default: ""
+    slug:
+      type: string
+      default: "{{ input.title }}"
+      transform: slugify
+    createdAt:
+      default: "{{ runtime.values.currentDateTime }}"
+    updatedAt:
+      default: "{{ runtime.values.currentDateTime }}"
+conventions:
+  titleField: fields.title
+  summaryField: fields.summary
+---
+
+# Notes
+"#,
+    )
+    .unwrap();
+
+    let create = forma(&root)
+        .args([
+            "create",
+            "notes",
+            "--input",
+            "title=Directory Template",
+            "--input",
+            "collection=Research Notes",
+            "--json",
+        ])
+        .output()
+        .expect("forma create should run");
+
+    assert!(
+        create.status.success(),
+        "{}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+    let create_stdout = String::from_utf8_lossy(&create.stdout);
+    assert!(create_stdout.contains(r#""path":"notes/research-notes/directory-template.md""#));
+    assert!(
+        root.join("notes/research-notes/directory-template.md")
+            .is_file()
+    );
+    assert!(!root.join("notes/{{ input.collection }}").exists());
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn create_reports_path_conflicts_and_unknown_inputs_as_json_failures() {
     let root = fixture_root("starter-conflicts");
     std::fs::create_dir_all(&root).unwrap();

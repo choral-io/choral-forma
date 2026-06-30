@@ -531,7 +531,12 @@ pub fn create_entry(
     let Some(filename) = filename.value else {
         return Err(OperationError::InvalidInput("filename".to_string()));
     };
-    let rendered_path = WorkspacePath::parse_config(format!("{}/{}", create.directory, filename))?;
+    let directory = render_placeholder_template(&create.directory, &context);
+    diagnostics.extend(directory.diagnostics);
+    let Some(directory) = directory.value else {
+        return Err(OperationError::InvalidInput("directory".to_string()));
+    };
+    let rendered_path = WorkspacePath::parse_config(format!("{directory}/{filename}"))?;
     let public_path = rendered_path.as_str().to_string();
     if root.as_ref().join(&public_path).exists() {
         return Err(OperationError::PathConflict(public_path));
@@ -553,7 +558,7 @@ pub fn create_entry(
 
     if let Some(parent) = root.as_ref().join(&public_path).parent() {
         fs::create_dir_all(parent).map_err(|source| OperationError::Io {
-            path: create.directory.clone(),
+            path: directory.clone(),
             source,
         })?;
     }
@@ -3021,6 +3026,139 @@ imports:
         assert!(root.join("guidelines").is_dir());
         assert!(!root.join("todos").exists());
         assert!(!root.join("users").exists());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn create_entry_renders_directory_and_filename_templates_with_same_inputs() {
+        let root = fixture_root("create-directory-template");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Notes
+include:
+  - notes/**/*.md
+create:
+  directory: "notes/{{ input.collection }}"
+  filename: "{{ input.slug }}.md"
+  template: .forma/spaces/templates/note.md
+  inputs:
+    title:
+      required: true
+    collection:
+      required: true
+      transform: slugify
+    summary:
+      default: ""
+    slug:
+      default: "{{ input.title }}"
+      transform: slugify
+    createdAt:
+      default: "{{ runtime.values.currentDateTime }}"
+    updatedAt:
+      default: "{{ runtime.values.currentDateTime }}"
+conventions:
+  titleField: fields.title
+  summaryField: fields.summary
+---
+
+# Notes
+"#,
+        )
+        .unwrap();
+
+        let result = create_entry(
+            &root,
+            "notes",
+            [
+                (
+                    "title".to_string(),
+                    Value::String("Directory Template".to_string()),
+                ),
+                (
+                    "collection".to_string(),
+                    Value::String("Research Notes".to_string()),
+                ),
+            ]
+            .into(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.created.path,
+            "notes/research-notes/directory-template.md"
+        );
+        assert!(
+            root.join("notes/research-notes/directory-template.md")
+                .is_file()
+        );
+        assert!(!root.join("notes/{{ input.collection }}").exists());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn create_entry_rejects_unresolved_directory_template() {
+        let root = fixture_root("create-directory-template-unresolved");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/spaces/notes.md"),
+            r#"---
+schemaVersion: 1
+kind: term
+taxonomy: spaces
+title: Notes
+include:
+  - notes/**/*.md
+create:
+  directory: "notes/{{ input.collection }}"
+  filename: "{{ input.slug }}.md"
+  template: .forma/spaces/templates/note.md
+  inputs:
+    title:
+      required: true
+    summary:
+      default: ""
+    slug:
+      default: "{{ input.title }}"
+      transform: slugify
+    createdAt:
+      default: "{{ runtime.values.currentDateTime }}"
+    updatedAt:
+      default: "{{ runtime.values.currentDateTime }}"
+conventions:
+  titleField: fields.title
+  summaryField: fields.summary
+---
+
+# Notes
+"#,
+        )
+        .unwrap();
+
+        let error = create_entry(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Directory Template".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            OperationError::InvalidInput(field) if field == "directory"
+        ));
+        assert!(!root.join("notes/{{ input.collection }}").exists());
 
         fs::remove_dir_all(root).unwrap();
     }
