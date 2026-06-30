@@ -377,11 +377,7 @@ export type FileReferencesResult = BaseOperationResult & {
 };
 
 export type WorkspaceHealthCategory =
-    | "brokenReference"
-    | "ambiguousReference"
-    | "noOutgoingReferences"
-    | "noBacklinks"
-    | "configDiagnostic";
+    "brokenReference" | "ambiguousReference" | "noOutgoingReferences" | "noBacklinks" | "configDiagnostic";
 
 export type WorkspaceHealthFinding = {
     category: WorkspaceHealthCategory;
