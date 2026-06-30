@@ -28,6 +28,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - asset: linux-arm64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            binary: forma
+            archive: tar.gz
           - asset: linux-x64
             os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
