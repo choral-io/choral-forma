@@ -412,6 +412,26 @@ fn load_config_nodes(
             taxonomies.insert(taxonomy_id, frontmatter);
             continue;
         }
+        if let Some(kind) = node.kind.as_deref()
+            && frontmatter.get("schemaVersion").is_some()
+            && !public_path.contains("/templates/")
+            && !matches!(kind, "term" | "types" | "view")
+        {
+            diagnostics.push(
+                Diagnostic::warning(
+                    "config.unknownNodeKind",
+                    format!("Imported config node kind `{kind}` is not recognized."),
+                )
+                .with_path(public_path.clone())
+                .with_location(DiagnosticLocation::Frontmatter {
+                    field: "kind".to_string(),
+                    index: None,
+                })
+                .with_actual(kind.to_string())
+                .with_expected("taxonomy, term, types, or view".to_string()),
+            );
+            continue;
+        }
         if node.kind.as_deref() != Some("term") || node.taxonomy.as_deref() != Some("spaces") {
             continue;
         }
@@ -1318,6 +1338,33 @@ mod tests {
                 .any(|diagnostic| diagnostic.code == "config.taxonomyMissing"
                     && diagnostic.path.as_deref() == Some(".forma/spaces/notes.md"))
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_unknown_imported_config_node_kind() {
+        let root = fixture_root("unknown-config-node-kind");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/spaces/notes.md",
+            "---\nschemaVersion: 1\nkind: space\nid: notes\ntitle: Notes\ninclude:\n  - notes/**/*.md\ntemplate: .forma/spaces/templates/note.md\n---\n\n# Notes\n",
+        );
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert!(
+            workspace
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "config.unknownNodeKind"
+                    && diagnostic.path.as_deref() == Some(".forma/spaces/notes.md"))
+        );
+        assert!(workspace.config.spaces.is_empty());
 
         fs::remove_dir_all(root).unwrap();
     }

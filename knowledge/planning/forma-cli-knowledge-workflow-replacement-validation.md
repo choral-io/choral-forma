@@ -99,6 +99,8 @@ The highest-value next product slice is [[tasks/design-reviewable-forma-write-op
 
 That task should design the minimal shared operation flow for a narrow structured write, such as a space/schema-driven single-entry metadata patch or manual Action over that patch. It should produce proposal, dry-run, diagnostics, explicit approval, apply, and post-apply verification behavior without treating this repository's `tasks` space as a built-in Forma concept.
 
+[[planning/no-example-workspace-bootstrap-phase-1-plan]] defines the Phase 1 plan for improving Human and Agent workspace design from an empty initialized workspace before relying on examples or profile acceleration.
+
 [[tasks/design-forma-policy-runtime]] should remain downstream until a concrete write-operation consumer exists. [[tasks/run-starter-kit-agent-pressure-validation]] remains useful validation evidence, but it should not drive a full clone of the old skill interface.
 
 ## Decision

@@ -25,4 +25,4 @@ Run `forma init` from the target project directory. The command writes `.forma.m
 
 ## Agent Guidance
 
-Do not create getting-started content, `skills/forma-cli/SKILL.md`, or `AGENTS.md` as part of the init step. Ask the human what content workflow they need, then add configuration in small verified slices.
+Do not create getting-started content, `skills/forma-cli/SKILL.md`, or `AGENTS.md` as part of the init step. After init, load `forma-cli-core`; if the human wants workspace setup, use the no-example first-slice path instead of copying example content.

@@ -14,7 +14,7 @@ order: 210
 
 ## Agent Guidance
 
-After `forma init`, help the human turn one real content workflow into a small workspace. The human should describe their business or personal context in ordinary language; the Agent should translate that context into explicit Forma config only after confirming the first slice.
+After `forma init`, help the human turn one real content workflow into a small workspace. The default path is no-example bootstrap: the human should describe their business or personal context in ordinary language; the Agent should translate that context into explicit Forma config only after confirming the first slice.
 
 Do not assume that tasks, notes, members, or guidelines are required in every workspace.
 
@@ -49,12 +49,33 @@ Translate the human's language into workspace concepts only after restating the 
 
 Use the human's domain language for space ids and titles. If the human says "customers", "projects", "incidents", or "recipes", use those names unless there is a clear reason to choose a more general term.
 
+## First-Slice Dry Run
+
+Before writing shared config or content files, propose one first slice and wait for approval.
+
+Use this compact format:
+
+| Field | Required content |
+| --- | --- |
+| Goal | The human workflow being organized first |
+| Real examples | Two or three item examples from the human's domain |
+| Space | Space id, title, directory, and include pattern |
+| Schema | Minimal fields needed for listing, comparing, creating, or reviewing |
+| Relationships | Reference fields to add now, or relationships explicitly deferred |
+| Template | Template path, filename pattern, required inputs, and default values |
+| Optional view/guideline | Add only if needed for the first workflow |
+| Files to create | Config, template, view/guideline, and sample entry paths |
+| Verification | Exact `forma` commands to run after edits |
+| Context loaded | Skill and docs used for this slice |
+
+Keep the dry run small enough for the human to reject or adjust. If the human describes many content groups, choose only the first durable group and defer the rest.
+
 ## Minimal Iteration Order
 
 For the first content group:
 
 1. Load `workspace.configuration`, `workspace.spaces`, `workspace.schemas`, and `workspace.templates` with `forma docs get`.
-2. Confirm the first slice with the human: one space id, directory, key fields, and one template.
+2. Confirm the first-slice dry run with the human.
 3. Add the taxonomy config node first if it does not already exist, for example `kind: taxonomy` with `id: spaces`.
 4. Add one included term config node, commonly `kind: term` with `taxonomy: spaces`.
 5. Add one template referenced by `create.template`.
@@ -67,11 +88,11 @@ For the first content group:
 
 After the first slice works, repeat the same loop for the next content group. Add cross-space reference fields only when both sides of the relationship are defined. Before adding a cross-content reference field, define an `entryRef` named type in `.forma.md` or an imported config node. Use that named type in the space schema; do not write `target: member` or infer a target from a directory name.
 
-## Worked First Slice Example
+## Optional Pattern Reference
 
-If the human says they run a consulting practice and need clients, engagements, meeting notes, and decisions, do not build all four categories immediately. A reasonable first slice might be `clients`.
+Use this only as a pattern check after the human's own first slice is clear. Do not copy it as the default workspace shape.
 
-This is a pattern example, not a default recommendation. Do not create `clients` unless the human's workflow actually needs client records.
+If the human says they run a consulting practice and need clients, engagements, meeting notes, and decisions, do not build all four categories immediately. A reasonable first slice might be `clients`:
 
 - space id: `clients`;
 - directory: `clients`;
@@ -79,84 +100,7 @@ This is a pattern example, not a default recommendation. Do not create `clients`
 - template: `.forma/spaces/templates/client.md`;
 - first verification: create two client pages, list `clients`, inspect one page, and run `forma check --json`.
 
-The first config node can look like this:
-
-```yaml
----
-schemaVersion: 1
-kind: taxonomy
-id: spaces
-title: Spaces
-mode: primary
-description: Primary content groups for this workspace.
----
-# Spaces
-```
-
-The first term config node can look like this:
-
-```yaml
----
-schemaVersion: 1
-kind: term
-taxonomy: spaces
-title: Clients
-description: Client records for consulting work.
-include:
-    - "clients/**/*.md"
-create:
-    directory: clients
-    filename: "{{ input.slug }}.md"
-    template: .forma/spaces/templates/client.md
-    inputs:
-        name:
-            required: true
-        slug:
-            default: "{{ input.name }}"
-            transform: slugify
-        summary:
-            default: ""
-schema:
-    type: object
-    fields:
-        name:
-            type: string
-        summary:
-            type: string
-        status:
-            type: string
-        primaryContact:
-            type: string
-        tags:
-            type: list
-            items:
-                type: string
-conventions:
-    titleField: name
-    summaryField: summary
----
-# Clients
-
-Client records for consulting work.
-```
-
-Keep the template equally small:
-
-```markdown
----
-name: "{{ input.name }}"
-summary: "{{ input.summary }}"
-status: active
-primaryContact: ""
-tags: []
----
-
-# {{ input.name }}
-
-{{ input.summary }}
-```
-
-After this works, ask whether the next slice should be `engagements`, `meeting-notes`, or `decisions`. Add reference fields only when the related space exists.
+Implement that shape with the syntax from `workspace.spaces`, `workspace.schemas`, and `workspace.templates`. After it works, ask whether the next slice should be `engagements`, `meeting-notes`, or `decisions`. Add reference fields only when the related space exists.
 
 ## Avoid Over-Modeling
 

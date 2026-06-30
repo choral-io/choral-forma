@@ -1,7 +1,7 @@
 ---
 id: agents.forma-cli-core
 title: Forma CLI Core
-summary: Bootstrap Forma CLI workspace operations and workspace setup.
+summary: Route Forma CLI workspace operations and setup.
 audience:
     - agent
 surfaces:
@@ -9,7 +9,7 @@ surfaces:
 skill:
     id: forma-cli-core
     title: Forma CLI Core
-    description: Use to bootstrap Forma CLI workspace operations and discover workspace-projected skills.
+    description: Use to run required Forma checks and route to workspace-projected skills or setup docs.
     triggers:
         - forma cli
         - workspace operations
@@ -29,7 +29,7 @@ Run `forma` commands from the target workspace root. If the Agent cannot guarant
 
 Commands below use `forma` as the CLI name.
 
-### Required First Steps
+### Always-Loaded Checks
 
 - `forma skills list --json`
 - `forma config inspect --json`
@@ -43,9 +43,18 @@ If `config inspect`, `check`, or `workspace health` reports pre-release migratio
 - `config.legacyRefKind`: replace named type `kind: ref` with `kind: entryRef`.
 - `schema.legacyRefType`: replace schema `type: ref` with `type: entryRef`, or use a configured named `entryRef` type.
 
-### Empty Workspace Setup
+### Read-Only Commands
 
-Use `forma init` only to create the minimal Forma bootstrap. Do not create `skills/forma-cli/SKILL.md`, do not edit `AGENTS.md`, and do not copy example workspace content unless the human explicitly asks for that source.
+For existing-workspace read, list, inspect, view, check, or health-only requests, do not load `agents.workspace-bootstrap` or workspace schema/template reference docs unless the human asks to design or change workspace structure.
+
+- `forma list --space <space-id> --json`
+- `forma inspect <path> --json`
+- `forma inspect --space <space-id> <entry-id> --json`
+- `forma view render <view-id-or-path> --json`
+
+### Only If Initializing Or Authoring Workspace Config
+
+Use `forma init` only to create the minimal Forma bootstrap. The default empty-workspace path is no-example bootstrap: start from the human's real content workflow instead of copying example workspace content. Do not create `skills/forma-cli/SKILL.md`, do not edit `AGENTS.md`, and do not copy example workspace content unless the human explicitly asks for that source.
 
 After init, ask the human what content structure they need. Add spaces, templates, views, and guidelines in small slices. Verify each slice with `forma check --json`.
 
@@ -58,13 +67,6 @@ Before authoring the first content group, load the relevant embedded docs:
 - `forma docs get workspace.schemas`
 - `forma docs get workspace.templates`
 - `forma docs get agents.workspace-bootstrap`
-
-### Common Read Commands
-
-- `forma list --space <space-id> --json`
-- `forma inspect <path> --json`
-- `forma inspect --space <space-id> <entry-id> --json`
-- `forma view render <view-id-or-path> --json`
 
 ### Workspace Skills
 

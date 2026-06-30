@@ -42,7 +42,7 @@ Validate that the project-local `forma-cli` skill, built-in `forma-cli-core` ski
 Run these scenarios separately:
 
 1. Empty bootstrap: initialize an empty directory and inspect the generated files.
-2. Wrong assumption baseline: try a naive content group config that treats `space` as an intrinsic object or puts `template` at the top level; confirm `check` catches the error.
+2. Wrong assumption baseline: try a naive content group config that treats `space` as an intrinsic object or puts `template` at the top level; confirm `check` reports the expected diagnostic.
 3. Guided first content group: load `forma-cli-core`, then `workspace.configuration`, `workspace.spaces`, `workspace.schemas`, `workspace.templates`, and `agents.workspace-bootstrap`; define a `notes` content group and template from those docs.
 4. First content write: create notes, list the `notes` content group, inspect one note, and render a configured notes view.
 5. Health interpretation: observe isolated-page health warnings before links exist; add explicit links and confirm health passes.
@@ -56,7 +56,7 @@ Run these scenarios separately:
 3. Confirm the built-in skill tells the Agent to load relevant embedded docs before authoring the first content group.
 4. Run `forma docs get workspace.configuration`, `forma docs get workspace.spaces`, `forma docs get workspace.schemas`, `forma docs get workspace.templates`, and `forma docs get agents.workspace-bootstrap`.
 5. Confirm `agents.workspace-bootstrap` asks for real examples, useful fields, relationships, operating rules, and local/private boundaries before writing config.
-6. For the baseline scenario, write an intentionally wrong config and confirm `forma check --json` fails for the expected reason.
+6. For the baseline scenario, write an intentionally wrong config and confirm `forma check --json` reports the expected diagnostic.
 7. For the guided scenario, write a `kind: term` + `taxonomy: spaces` config node and a template referenced by `create.template`.
 8. Run `forma config inspect --json` and confirm the effective config reports the expected entry under `spaces`.
 9. Run `forma check --json`.
@@ -70,7 +70,7 @@ Run these scenarios separately:
 
 - `forma init` creates only `.forma.md` and `.agents/skills/forma-cli/SKILL.md`.
 - The Agent does not assume `notes`, `tasks`, `members`, or `space` are built-in domain concepts.
-- The wrong config fails clearly, proving the pressure scenario catches the previous top-level `template` mistake.
+- The wrong config reports a clear diagnostic, proving the pressure scenario catches the previous top-level `template` mistake.
 - The Agent asks clarifying questions and confirms the first slice before writing config.
 - The Agent maps human domain language to Forma artifacts without presenting `task`, `member`, `note`, or `project` as built-ins.
 - The guided content group appears under `spaces` in `config inspect`.
@@ -134,3 +134,30 @@ Scenario observations:
 - `forma inspect notes/first-note.md --json`: passed and returned the space guideline.
 - `forma view render .forma/views/notes --json`: passed and returned a table projection for the notes view.
 - `forma workspace health --json` reported isolated-page relationship warnings for the single note. This is acceptable first-slice feedback, not a failed bootstrap.
+
+### 2026-06-29 No-Example Grant Applications Run
+
+Temporary workspace: `/private/tmp/forma-no-example-phase1.JfWlhJ`.
+
+Scenario observations:
+
+- `forma init --name "Grant Applications" --json`: passed and wrote only `.forma.md` plus `.agents/skills/forma-cli/SKILL.md`.
+- The first slice was modeled as a single `applications` space with `title`, `summary`, `sponsor`, `status`, `dueDate`, `amountRequested`, and `tags` fields.
+- Funder records, investigators, budget documents, and compliance reviews were explicitly deferred as relationships instead of modeled as first-slice spaces.
+- The config used `kind: taxonomy`, `kind: term`, `taxonomy: spaces`, and `create.template`; `forma config inspect --json` passed and reported `spaces.applications`.
+- `forma check --json`: passed after correct config and sample content.
+- `forma create applications ... --json`: passed for two sample application records.
+- `forma list --space applications --json`: passed and returned both records.
+- `forma inspect applications/stem-outreach-expansion.md --json`: passed and returned the configured metadata.
+- `forma workspace health --json` initially reported isolated-page warnings.
+- After adding explicit Markdown links between the two application records, `forma workspace health --json`: passed.
+- A deliberately wrong config using `kind: space` and top-level `template` now reports `config.unknownNodeKind` with `status: warning`.
+- No example workspace content was loaded or copied.
+
+Context budget evidence:
+
+```text
+122  skills/forma-cli/SKILL.md
+477  docs/agents/forma-cli-core.md
+1027 docs/agents/workspace-bootstrap.md
+```
