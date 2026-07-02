@@ -1397,5 +1397,6 @@ The user-facing experience should not require users to understand Git branches, 
 - How should shared content be split into personal work material without losing provenance?
 - What exact CLI, JSON result, and future skill interfaces are needed for Agents to check workspace health?
 - What conflict and pull request workflows can be made understandable for non-software users?
+- How should structured content artifacts such as JSONL event logs and SQLite projections participate in repository-backed workspaces without turning derived databases into hidden source-of-truth stores? See [[product/structured-artifacts-and-source-facts]].
 - Which future shared personal configuration fields are safe to commit, and when is that extra layer justified?
 - Which runtime values should be available in P0, and how should custom runtime value providers be configured safely later?
