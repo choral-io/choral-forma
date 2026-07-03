@@ -44,10 +44,13 @@ Use this skill when an Agent needs to choose the next task, inspect task readine
 Run:
 
 - `cargo run -q -p forma-cli -- skills get forma-cli-core`
+- `cargo run -q -p forma-cli -- skills get proposal-and-dry-run`
 - `cargo run -q -p forma-cli -- list --space tasks --json`
 - `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
 
 Inspect candidate tasks with `cargo run -q -p forma-cli -- inspect <task-path> --json` or `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json` before recommending or changing status.
+
+Use [[guidelines/proposal-and-dry-run]] before any task status, readiness, blocker, owner, assignee, reviewer, release evidence, or board membership change. Task and board recommendations are proposals until the human explicitly approves the exact change.
 
 ### Task Selection Workflow
 
@@ -61,7 +64,7 @@ Inspect candidate tasks with `cargo run -q -p forma-cli -- inspect <task-path> -
 
 Report the selected task, why it is next, what evidence supports the recommendation, and what must change before execution if it is not ready.
 
-## Evidence To Gather
+### Evidence To Gather
 
 Start from Forma operations, not hidden workflow files:
 
@@ -77,7 +80,7 @@ Inspect candidate tasks with:
 
 Use source documents linked from the task when acceptance, scope, or product intent matters. Use current member context only when ownership, assignment, focus area, or capacity is explicitly relevant.
 
-## Task Selection
+### Task Selection
 
 Select from accepted board tasks before loose task items. Prefer `Ready` tasks over `Backlog` tasks unless the user asks for backlog refinement.
 
@@ -106,7 +109,7 @@ When comparing candidates, value:
 4. Fit with the user's current request and execution window.
 5. Low ambiguity and low cross-module blast radius.
 
-## Readiness And Metadata Audit
+### Readiness And Metadata Audit
 
 Report task quality issues instead of silently fixing them:
 
@@ -122,9 +125,11 @@ Report task quality issues instead of silently fixing them:
 
 Treat `status` as board membership and `readiness` as executability. Do not use `assignees` as board state.
 
-## Board And Task Writes
+### Board And Task Writes
 
 Do not move board cards, change task status, or edit readiness metadata without explicit user approval.
+
+Before proposing or applying task metadata changes, load [[guidelines/proposal-and-dry-run]] and use its task or board change template. If the user asked for evaluation, selection, or review only, stop at a recommendation and do not edit.
 
 For approved board or status changes:
 
@@ -135,7 +140,7 @@ For approved board or status changes:
 - do not move `Reviewing -> Done` while known dependency follow-up is unresolved unless the maintainer explicitly defers it;
 - after completing a task, look for downstream tasks whose blockers may now be resolved.
 
-## Implementation And Review
+### Implementation And Review
 
 Before implementation, read the task, its source context, and relevant product or architecture decisions. Keep code, tests, and knowledge aligned.
 
@@ -151,7 +156,7 @@ Review readiness should include:
 
 Review reports should lead with findings. If no issues are found, say that directly and list any residual test or knowledge gaps.
 
-## Recommendation Output
+### Recommendation Output
 
 When recommending the next task, include:
 

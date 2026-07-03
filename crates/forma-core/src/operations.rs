@@ -696,7 +696,7 @@ pub fn skills_list(root: impl AsRef<Path>) -> Result<SkillsListResult, Operation
     match load_workspace(root, LoadMode::SharedOnly) {
         Ok(workspace) => {
             let (workspace_skills, workspace_diagnostics) =
-                collect_workspace_skills(root, &workspace.config);
+                collect_workspace_skills(root, &workspace.config, false);
             config = Some(workspace.config);
             skills.extend(workspace_skills);
             diagnostics.extend(workspace_diagnostics);
@@ -730,7 +730,11 @@ pub fn skills_list(root: impl AsRef<Path>) -> Result<SkillsListResult, Operation
     })
 }
 
-pub fn skills_get(root: impl AsRef<Path>, id: &str) -> Result<SkillsGetResult, OperationError> {
+pub fn skills_get(
+    root: impl AsRef<Path>,
+    id: &str,
+    full: bool,
+) -> Result<SkillsGetResult, OperationError> {
     let root = root.as_ref();
     let mut skills = builtin_skills();
     let mut diagnostics = Vec::new();
@@ -739,7 +743,7 @@ pub fn skills_get(root: impl AsRef<Path>, id: &str) -> Result<SkillsGetResult, O
     if skills.iter().any(|skill| skill.id == id) {
         if let Ok(workspace) = load_workspace(root, LoadMode::SharedOnly) {
             let (workspace_skills, workspace_diagnostics) =
-                collect_workspace_skills(root, &workspace.config);
+                collect_workspace_skills(root, &workspace.config, full);
             config = Some(workspace.config);
             skills.extend(workspace_skills);
             diagnostics.extend(workspace_diagnostics);
@@ -748,7 +752,7 @@ pub fn skills_get(root: impl AsRef<Path>, id: &str) -> Result<SkillsGetResult, O
         match load_workspace(root, LoadMode::SharedOnly) {
             Ok(workspace) => {
                 let (workspace_skills, workspace_diagnostics) =
-                    collect_workspace_skills(root, &workspace.config);
+                    collect_workspace_skills(root, &workspace.config, full);
                 config = Some(workspace.config);
                 skills.extend(workspace_skills);
                 diagnostics.extend(workspace_diagnostics);
@@ -1851,11 +1855,58 @@ fn configured_guideline_paths(config: &WorkspaceConfig) -> Vec<String> {
     paths
 }
 
-fn skill_markdown_content(source_path: &str, document: &FormaMarkdownDocument) -> String {
+fn skill_markdown_content(
+    source_path: &str,
+    document: &FormaMarkdownDocument,
+    full: bool,
+) -> String {
     let body = document.body.trim_start_matches('\n').trim_end();
+    let body = if full {
+        body
+    } else {
+        agent_skill_section(body).unwrap_or(body)
+    };
     format!(
         "---\nsource: {source_path}\n---\n\n<!-- Source guideline: {source_path} -->\n\n{body}\n"
     )
+}
+
+fn agent_skill_section(body: &str) -> Option<&str> {
+    let mut section_start = None;
+    let mut section_end = body.len();
+    let mut offset = 0;
+
+    for line in body.split_inclusive('\n') {
+        if markdown_heading_level(line) == Some(2) && line.trim() == "## Agent Skill" {
+            section_start = Some(offset);
+            offset += line.len();
+            continue;
+        }
+
+        if section_start.is_some() && matches!(markdown_heading_level(line), Some(1 | 2)) {
+            section_end = offset;
+            break;
+        }
+        offset += line.len();
+    }
+
+    section_start.map(|start| body[start..section_end].trim_end())
+}
+
+fn markdown_heading_level(line: &str) -> Option<usize> {
+    let trimmed = line.trim_start();
+    let hashes = trimmed
+        .chars()
+        .take_while(|character| *character == '#')
+        .count();
+    if hashes == 0 || hashes > 6 {
+        return None;
+    }
+    if trimmed.as_bytes().get(hashes) == Some(&b' ') {
+        Some(hashes)
+    } else {
+        None
+    }
 }
 
 fn builtin_skill_markdown_content(source_path: &str, body: &str) -> String {
@@ -1949,6 +2000,7 @@ Use the built-in guide and any workspace-projected skills before creating spaces
 fn collect_workspace_skills(
     root: &Path,
     config: &WorkspaceConfig,
+    full: bool,
 ) -> (Vec<SkillDetail>, Vec<Diagnostic>) {
     let mut skills = Vec::new();
     let mut diagnostics = Vec::new();
@@ -2021,7 +2073,7 @@ fn collect_workspace_skills(
             source_path: source_path.clone(),
             triggers: metadata.triggers,
             order: metadata.order,
-            content: skill_markdown_content(&source_path, &document),
+            content: skill_markdown_content(&source_path, &document, full),
         });
     }
 
@@ -2041,7 +2093,7 @@ pub(crate) fn workspace_skill_diagnostics(
     config: &WorkspaceConfig,
 ) -> Vec<Diagnostic> {
     let mut skills = builtin_skills();
-    let (workspace_skills, mut diagnostics) = collect_workspace_skills(root, config);
+    let (workspace_skills, mut diagnostics) = collect_workspace_skills(root, config, false);
     skills.extend(workspace_skills);
     diagnostics.extend(duplicate_skill_id_diagnostics(&skills));
     diagnostics
@@ -2410,7 +2462,7 @@ schema:
         let root = fixture_root("skills-builtin-no-config");
         fs::create_dir_all(&root).unwrap();
 
-        let result = skills_get(&root, "forma-cli-core").unwrap();
+        let result = skills_get(&root, "forma-cli-core", false).unwrap();
 
         assert_eq!(result.status, OperationStatus::Passed);
         let skill = result.skill.expect("built-in skill should be returned");
@@ -2428,7 +2480,7 @@ schema:
         fs::create_dir_all(&root).unwrap();
         fs::write(root.join(".forma.md"), "---\nschemaVersion: [\n---\n").unwrap();
 
-        let result = skills_get(&root, "forma-cli-core").unwrap();
+        let result = skills_get(&root, "forma-cli-core", false).unwrap();
 
         assert_eq!(result.status, OperationStatus::Passed);
         let skill = result.skill.expect("built-in skill should be returned");
@@ -2593,7 +2645,7 @@ schema:
         )
         .unwrap();
 
-        let result = skills_get(&root, "forma-cli-core").unwrap();
+        let result = skills_get(&root, "forma-cli-core", false).unwrap();
 
         assert_eq!(result.status, OperationStatus::Failed);
         assert!(result.skill.is_none());
@@ -2617,11 +2669,11 @@ schema:
         );
         fs::write(
             root.join("knowledge/guidelines/authoring.md"),
-            "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Content Capture\n\n## Agent Skill\n\nFollow the workflow.\n",
+            "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Content Capture\n\n## Purpose\n\nHuman-facing background.\n\n## Agent Skill\n\nFollow the workflow.\n\n### Details\n\nKeep agent details.\n\n## Reference\n\nFull reference material.\n",
         )
         .unwrap();
 
-        let result = skills_get(&root, "markdown-authoring").unwrap();
+        let result = skills_get(&root, "markdown-authoring", false).unwrap();
 
         assert_eq!(result.status, OperationStatus::Passed);
         let skill = result.skill.unwrap();
@@ -2631,7 +2683,39 @@ schema:
                 .content
                 .contains("Source guideline: knowledge/guidelines/authoring.md")
         );
+        assert!(skill.content.contains("## Agent Skill"));
         assert!(skill.content.contains("Follow the workflow."));
+        assert!(skill.content.contains("Keep agent details."));
+        assert!(!skill.content.contains("Human-facing background."));
+        assert!(!skill.content.contains("Full reference material."));
+
+        let full_result = skills_get(&root, "markdown-authoring", true).unwrap();
+        let full_skill = full_result.skill.unwrap();
+        assert!(full_skill.content.contains("Human-facing background."));
+        assert!(full_skill.content.contains("Full reference material."));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn skills_get_falls_back_to_full_guideline_when_agent_skill_section_is_missing() {
+        let root = fixture_root("skills-get-without-agent-section");
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/authoring.md\n",
+        );
+        fs::write(
+            root.join("knowledge/guidelines/authoring.md"),
+            "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Content Capture\n\n## Purpose\n\nLegacy guideline body.\n",
+        )
+        .unwrap();
+
+        let result = skills_get(&root, "markdown-authoring", false).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Passed);
+        let skill = result.skill.unwrap();
+        assert!(skill.content.contains("Legacy guideline body."));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -2645,7 +2729,7 @@ schema:
             "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\n",
         );
 
-        let result = skills_get(&root, "missing").unwrap();
+        let result = skills_get(&root, "missing", false).unwrap();
 
         assert_eq!(result.status, OperationStatus::Failed);
         assert!(

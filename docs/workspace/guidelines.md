@@ -15,8 +15,10 @@ order: 150
 
 ## Overview
 
-Guidelines are ordinary Markdown files declared in `.forma.md` or space configuration. They provide soft collaboration rules and Agent workflows.
+Guidelines are ordinary Markdown files declared in `.forma.md` or space configuration. They provide soft collaboration rules, Human-readable background, and Agent workflows.
 
 ## Agent Guidance
 
 Read configured guidelines before editing shared workspace content. Treat them as context and procedure, not hidden system instructions.
+
+For guideline-backed skills, put compact Agent instructions under `## Agent Skill`. `forma skills get <id>` uses that section by default when present, while `forma skills get <id> --full` returns the complete guideline.

@@ -160,6 +160,8 @@ enum SkillsCommand {
     Get {
         id: String,
         #[arg(long)]
+        full: bool,
+        #[arg(long)]
         json: bool,
     },
 }
@@ -301,9 +303,9 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 exit_if_failed(&result);
                 Ok(())
             }
-            SkillsCommand::Get { id, json } => {
-                let result =
-                    dispatcher.dispatch(OperationRequest::SkillsGet(SkillsGetRequest { id }))?;
+            SkillsCommand::Get { id, full, json } => {
+                let result = dispatcher
+                    .dispatch(OperationRequest::SkillsGet(SkillsGetRequest { id, full }))?;
                 print_skill_get_result(&result, json);
                 exit_if_failed(&result);
                 Ok(())

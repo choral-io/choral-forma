@@ -41,6 +41,8 @@ The built-in `forma-cli-core` guide is packaged with the Forma binary from the p
 
 Agents should then use `cargo run -q -p forma-cli -- skills list --json` to discover workspace-projected skills and load guideline files declared by `config inspect` before task, board, review, proposal, or shared project-content operations. Guidelines may include general rules as well as workflow-specific procedures.
 
+For unclear requests, onboarding, recovery, or workflow routing, start with [[guidelines/workspace-onboarding-and-routing]] before loading narrower guidelines.
+
 Agent workflow should be config-driven:
 
 1. Load the built-in CLI guide from `forma skills get forma-cli-core`.

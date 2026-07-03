@@ -186,6 +186,8 @@ pub struct SkillsListRequest {}
 #[serde(rename_all = "camelCase")]
 pub struct SkillsGetRequest {
     pub id: String,
+    #[serde(default)]
+    pub full: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -320,9 +322,11 @@ impl Dispatcher {
             OperationRequest::SkillsList(_) => forma_core::skills_list(root)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::SkillsList, error))),
-            OperationRequest::SkillsGet(request) => forma_core::skills_get(root, &request.id)
-                .map(OperationResult::from)
-                .or_else(|error| Ok(core_error_result(Operation::SkillsGet, error))),
+            OperationRequest::SkillsGet(request) => {
+                forma_core::skills_get(root, &request.id, request.full)
+                    .map(OperationResult::from)
+                    .or_else(|error| Ok(core_error_result(Operation::SkillsGet, error)))
+            }
         }
     }
 
@@ -1292,7 +1296,7 @@ mod tests {
         );
         fs::write(
             root.join("knowledge/guidelines/authoring.md"),
-            "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
+            "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Purpose\n\nHuman-facing background.\n\n## Agent Skill\n\nFollow the workflow.\n\n## Reference\n\nFull reference material.\n",
         )
         .unwrap();
 
@@ -1320,6 +1324,23 @@ mod tests {
                 .as_str()
                 .unwrap()
                 .contains("Follow the workflow.")
+        );
+        assert!(
+            !get["result"]["skill"]["content"]
+                .as_str()
+                .unwrap()
+                .contains("Human-facing background.")
+        );
+
+        let full_get = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"3","method":"skills.get","params":{"id":"markdown-authoring","full":true}}"#,
+        );
+        assert!(
+            full_get["result"]["skill"]["content"]
+                .as_str()
+                .unwrap()
+                .contains("Human-facing background.")
         );
 
         fs::remove_dir_all(root).unwrap();

@@ -78,7 +78,7 @@ For explicit example, starter, or accepted-brief fast-start requests, load:
 
 ### Workspace Skills
 
-Use `forma skills list --json` to discover workspace-projected skills. Use `forma skills get <id>` to load a specific workflow before acting.
+Use `forma skills list --json` to discover workspace-projected skills. Use `forma skills get <id>` to load the compact Agent projection for a specific workflow before acting. Use `forma skills get <id> --full` only when full Human-facing background, reference material, or guideline authoring context is needed.
 
 ### Trust Boundary
 

@@ -6,8 +6,8 @@ summary: Internal release gate for proving Forma CLI onboarding, `.forma.md` con
 scope: project
 type: release
 status: planned
-version: v0.1.0-alpha.11
-date: 2026-06-30
+version: v0.1.0-alpha.12
+date: 2026-07-03
 owners:
     - "members/tiscs"
 tags:
@@ -47,6 +47,8 @@ The release is internal. It does not require public packaging, public documentat
 
 - Forma CLI and configured guidelines are the primary Agent-facing content workflow.
 - Forma exposes Agent-facing skills from the configured workspace, with `forma-cli-core` embedded from a Markdown source asset and the project-local `forma-cli` skill aligned with the installed Agent entrypoint.
+- Workspace guideline skills now expose compact Agent-facing sections by default through `forma skills get`, with `--full` available for the complete guideline text.
+- The project workspace includes configured guideline skills for workspace onboarding and routing, proposal and dry-run handling, workspace audit and reporting, and local worklist execution.
 - `forma init` creates a minimal `.forma.md` workspace bootstrap and Agent runtime entrypoint for empty or ordinary project directories.
 - `.forma.md` is the only active configuration entrypoint; legacy `.forma.yml` behavior is removed from the current product path.
 - Imported Markdown config nodes now report `config.unknownNodeKind` when an included config file uses an unsupported `kind`.
@@ -74,14 +76,14 @@ Required validation:
 
 Current validation result:
 
-- Candidate version: `v0.1.0-alpha.11`.
-- Candidate cutline before final validation: `99f8a61 docs: preserve bootstrap escalation guidance`.
-- Latest previous tag: `v0.1.0-alpha.10`.
-- Current distance from latest previous tag: `v0.1.0-alpha.10-16-g99f8a61`.
-- Repository `config inspect`, `check`, and `workspace health`: pending for final release validation.
-- Full `CI=true mise run check`: pending.
-- Starter-kit validation and pressure evidence review: pending.
-- Release decision: not ready to tag until the validation matrix is rerun and recorded at the current cutline.
+- Candidate version: `v0.1.0-alpha.12`.
+- Candidate cutline before final validation: pending final release-prep commit.
+- Latest previous tag: `v0.1.0-alpha.11`.
+- Current distance from latest previous tag: pending final release-prep commit.
+- Repository `config inspect`, `check`, and `workspace health`: passed locally on 2026-07-03.
+- Full `CI=true mise run check`: passed locally on 2026-07-03 after `pnpm install` stabilized dependency state.
+- Starter-kit validation and pressure evidence review: covered by the configured guideline pressure test cases and current workspace health; no blocking issue found for this internal alpha.
+- Release decision: ready to commit and push `main`; do not tag `v0.1.0-alpha.12` until GitHub Actions passes on pushed `main`.
 
 Validation history:
 
@@ -107,7 +109,7 @@ The old `knowledge-workflow` skills are not product runtime requirements. Their 
 
 Draft release note:
 
-> Forma now supports the next internal onboarding path: initialize a minimal `.forma.md` workspace, use embedded Agent docs and workspace-projected skills, browse configured content through the read-only WebApp, and rely on generic read operations instead of task-specific helpers.
+> Forma now supports compact workspace-projected guideline skills for Agent workflows, reducing default context pressure while keeping full guideline text available on demand. This alpha also expands the project workspace guidelines for onboarding, proposal and dry-run handling, audit/reporting, and local execution workflows.
 
 ## Rollback Plan
 

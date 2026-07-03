@@ -50,6 +50,8 @@ Run:
 
 Read configured workspace guidelines before editing. If acting on a task or entry, inspect that target and read returned guidelines.
 
+For reviewable dry-run, proposal, stop-point, and confirmation behavior, load [[guidelines/proposal-and-dry-run]] before applying this broader authoring workflow.
+
 ### Authoring Workflow
 
 1. Classify the source material as transient context, local-only material, shared project content, task metadata, proposal material, decision material, or sensitive/private material that must not be captured.

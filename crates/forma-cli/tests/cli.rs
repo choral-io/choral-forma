@@ -501,7 +501,7 @@ fn skills_list_json_discovers_builtin_and_configured_guideline_skills() {
     );
     std::fs::write(
         root.join("knowledge/guidelines/authoring.md"),
-        "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
+        "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Purpose\n\nHuman-facing background.\n\n## Agent Skill\n\nFollow the workflow.\n\n## Reference\n\nFull reference material.\n",
     )
     .unwrap();
 
@@ -534,7 +534,7 @@ fn skills_get_workspace_skill_prints_markdown_for_agent_consumption() {
     );
     std::fs::write(
         root.join("knowledge/guidelines/authoring.md"),
-        "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Agent Skill\n\nFollow the workflow.\n",
+        "---\nskill:\n  id: markdown-authoring\n  title: Agent Markdown Authoring\n  description: Use for Markdown edits.\n---\n\n# Authoring\n\n## Purpose\n\nHuman-facing background.\n\n## Agent Skill\n\nFollow the workflow.\n\n## Reference\n\nFull reference material.\n",
     )
     .unwrap();
 
@@ -551,8 +551,25 @@ fn skills_get_workspace_skill_prints_markdown_for_agent_consumption() {
     assert!(output.stderr.is_empty());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Source guideline: knowledge/guidelines/authoring.md"));
+    assert!(stdout.contains("## Agent Skill"));
     assert!(stdout.contains("Follow the workflow."));
+    assert!(!stdout.contains("Human-facing background."));
+    assert!(!stdout.contains("Full reference material."));
     assert!(!stdout.contains(r#""operation":"skills.get""#));
+
+    let full_output = forma(&root)
+        .args(["skills", "get", "markdown-authoring", "--full"])
+        .output()
+        .expect("forma skills get --full should run");
+
+    assert!(
+        full_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&full_output.stderr)
+    );
+    let full_stdout = String::from_utf8_lossy(&full_output.stdout);
+    assert!(full_stdout.contains("Human-facing background."));
+    assert!(full_stdout.contains("Full reference material."));
 
     std::fs::remove_dir_all(root).unwrap();
 }
