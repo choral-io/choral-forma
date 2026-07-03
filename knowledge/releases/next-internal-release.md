@@ -77,9 +77,9 @@ Required validation:
 Current validation result:
 
 - Candidate version: `v0.1.0-alpha.12`.
-- Candidate cutline before final validation: pending final release-prep commit.
+- Candidate cutline before final validation: `6e89fa3 feat: compact guideline skill projections`.
 - Latest previous tag: `v0.1.0-alpha.11`.
-- Current distance from latest previous tag: pending final release-prep commit.
+- Current distance from latest previous tag: `v0.1.0-alpha.11-5-g6e89fa3`.
 - Repository `config inspect`, `check`, and `workspace health`: passed locally on 2026-07-03.
 - Full `CI=true mise run check`: passed locally on 2026-07-03 after `pnpm install` stabilized dependency state.
 - Starter-kit validation and pressure evidence review: covered by the configured guideline pressure test cases and current workspace health; no blocking issue found for this internal alpha.
