@@ -17,17 +17,17 @@ schema:
         type:
             type: string
         priority:
-            type: string
+            type: priority
         value:
-            type: string
+            type: deliveryValue
         module:
             type: string
         effort:
-            type: string
+            type: effort
         status:
-            type: string
+            type: taskStatus
         readiness:
-            type: string
+            type: readiness
         owners:
             type: list
             items:
@@ -89,17 +89,67 @@ create:
         type:
             default: task
         priority:
+            type: select
             default: P2
+            options:
+                - value: P0
+                  label: P0
+                - value: P1
+                  label: P1
+                - value: P2
+                  label: P2
+                - value: P3
+                  label: P3
         value:
+            type: select
             default: M
+            options:
+                - value: H
+                  label: H
+                - value: M
+                  label: M
+                - value: L
+                  label: L
         module:
             default: content
         effort:
+            type: select
             default: M
+            options:
+                - value: S
+                  label: S
+                - value: M
+                  label: M
+                - value: L
+                  label: L
         status:
+            type: select
             default: backlog
+            options:
+                - value: backlog
+                  label: Backlog
+                - value: ready
+                  label: Ready
+                - value: doing
+                  label: Doing
+                - value: reviewing
+                  label: Reviewing
+                - value: blocked
+                  label: Blocked
+                - value: done
+                  label: Done
+                - value: cancelled
+                  label: Cancelled
         readiness:
+            type: select
             default: needs-refinement
+            options:
+                - value: needs-refinement
+                  label: Needs Refinement
+                - value: ready
+                  label: Ready
+                - value: blocked
+                  label: Blocked
         owners:
             default: []
         assignees:

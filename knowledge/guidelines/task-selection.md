@@ -60,6 +60,30 @@ Use [[guidelines/proposal-and-dry-run]] before any task status, readiness, block
 4. Recommend status changes only when the task evidence supports them.
 5. Keep selection grounded in current task metadata and configured board semantics.
 
+### Delivery State Semantics
+
+Use `status` as delivery state and board membership:
+
+- `backlog`: accepted candidate that is not selected for near-term execution.
+- `ready`: ready candidate pool.
+- `doing`: active implementation.
+- `reviewing`: implementation is ready for review.
+- `blocked`: active work cannot continue because a blocker is unresolved.
+- `done`: delivered work is accepted.
+- `cancelled`: intentionally dropped, replaced, duplicated, invalid, or no longer valuable.
+
+Use `readiness` as executability:
+
+- `needs-refinement`: scope, sources, ownership, or acceptance criteria are incomplete.
+- `ready`: the task has enough source material and acceptance criteria to start.
+- `blocked`: a dependency, decision, external condition, or access requirement prevents starting.
+
+Do not change `status`, `readiness`, `blockedBy`, `owners`, `assignees`, or `reviewers` without explicit approval.
+
+### Priority, Value, And Effort
+
+Use `priority` for urgency or ordering pressure, `value` for expected delivery value, and `effort` for relative implementation size. Prefer preserving existing values unless the task evidence clearly supports a proposed change.
+
 ### Report
 
 Report the selected task, why it is next, what evidence supports the recommendation, and what must change before execution if it is not ready.
