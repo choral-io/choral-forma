@@ -9,8 +9,8 @@ priority: "P2"
 value: "M"
 module: "release"
 effort: "S"
-status: "backlog"
-readiness: "needs-refinement"
+status: "done"
+readiness: "ready"
 owners: []
 assignees: []
 reviewers: []
@@ -55,3 +55,8 @@ Before publishing the next Forma release, add a Linux ARM64 release artifact so 
 - `install.sh` can resolve the Linux ARM64 asset using its existing OS and architecture detection.
 - README release artifact list includes Linux ARM64.
 - Release validation includes checking the Linux ARM64 artifact in GitHub Actions output.
+
+## Completion Evidence
+
+- Release workflow run [29152308411](https://github.com/choral-io/choral-forma/actions/runs/29152308411) built and uploaded `forma-linux-arm64.tar.gz` and its checksum for `v0.1.0-alpha.13`.
+- The downloaded archive checksum passed during release verification, and the asset name matches the existing `install.sh` Linux ARM64 mapping.
