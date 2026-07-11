@@ -17,12 +17,11 @@ tags:
     - editor-extension
 
 effort: L
-status: backlog
-readiness: blocked
+status: doing
+readiness: ready
 sprint:
 
-blockedBy:
-    - "tasks/validate-and-release-forma-alpha-13"
+blockedBy: []
 relatedTo:
     - "decisions/editor-extension-primary-product-surface"
     - "architecture/editor-extension-adapter-contract"

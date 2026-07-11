@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: infra
 effort: L
-status: backlog
-readiness: blocked
+status: doing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - release
     - alpha-13
     - validation
-blockedBy:
-    - "tasks/integrate-vsix-ci-release-artifact"
+blockedBy: []
 relatedTo:
     - "releases/next-internal-release"
     - "tasks/implement-vscode-extension-mvp"
@@ -77,3 +76,11 @@ Prove the complete Alpha 13 cutline locally and through GitHub Actions, then pub
 ## Stop Rule
 
 If required review blocks merge, leave the PR green and ready. If credentials or GitHub service state blocks push, merge, tag, or release, record the exact blocker and do not fabricate release evidence.
+
+## Current Evidence
+
+- Local full gate: `CI=true mise run check` passed.
+- Extension gates: typecheck, strict lint, 19 extension unit tests, package contents, VS Code 1.110 trusted, current stable trusted, and VS Code 1.110 restricted-mode Extension Host tests passed.
+- VSIX: `forma-0.1.0-alpha.13.vsix` packaged with extension id `choral-io.forma`, installed into an isolated profile, and activated against a separately built Forma binary.
+- UI: source-first list preview was inspected in VS Code dark and light themes; list/table/kanban and Graph deferred commands are covered by Extension Host integration.
+- Pending: commits, PR CI, merged-main CI, tag, GitHub prerelease, and downloaded release artifact verification.

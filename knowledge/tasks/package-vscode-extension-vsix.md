@@ -3,14 +3,14 @@ schemaVersion: 1
 kind: task
 scope: project
 title: Package VS Code extension VSIX
-summary: Make the Choral Forma extension package distributable, inspectable, and installable as an internal Alpha 13 VSIX.
+summary: Make the Forma for VS Code extension package distributable, inspectable, and installable as an internal Alpha 13 VSIX.
 type: task
 priority: P1
 value: H
 module: infra
 effort: M
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - vscode
     - vsix
     - packaging
-blockedBy:
-    - "tasks/align-forma-release-versioning"
+blockedBy: []
 relatedTo:
     - "tasks/implement-vscode-extension-mvp"
     - "planning/editor-extension-alpha-13-execution-plan"

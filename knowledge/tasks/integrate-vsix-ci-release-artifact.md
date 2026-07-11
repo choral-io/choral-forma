@@ -3,14 +3,14 @@ schemaVersion: 1
 kind: task
 scope: project
 title: Integrate VSIX CI and release artifact
-summary: Build, test, checksum, and upload the Choral Forma VSIX through pull-request CI and the tag-triggered GitHub Release workflow.
+summary: Build, test, checksum, and upload the Forma for VS Code VSIX through pull-request CI and the tag-triggered GitHub Release workflow.
 type: task
 priority: P1
 value: H
 module: infra
 effort: M
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - github-actions
     - vscode
     - release
-blockedBy:
-    - "tasks/package-vscode-extension-vsix"
+blockedBy: []
 relatedTo:
     - "releases/next-internal-release"
     - "tasks/implement-vscode-extension-mvp"

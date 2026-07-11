@@ -34,10 +34,10 @@ The extension must discover preinstalled Forma, navigate repository-backed refer
 ## Confirmed Product Choices
 
 - The first release target is VS Code Desktop with a Node-based workspace extension.
-- The extension id is `choral-io.choral-forma`; the display name is `Choral Forma`.
+- The extension id is `choral-io.forma`; the display name is `Forma for VS Code`; the product website is `https://forma.choral.io`.
 - Users install the Forma binary separately. The extension does not bundle or automatically download it.
 - The extension discovers `forma` through an explicit user setting and `PATH`, then verifies compatibility.
-- The minimum VS Code version is selected from the APIs actually used. Do not pin to the newest release and do not add compatibility work for versions below that feature floor.
+- The minimum supported VS Code version is 1.110. Do not pin to the newest release and do not add compatibility work for versions below that product support floor.
 - The extension should be remote-compatible at low incremental cost by running as `extensionKind: ["workspace"]`. Local workspaces are the release gate; one feasible remote smoke is desirable, but a full Remote SSH, Dev Containers, and WSL matrix is not a release blocker.
 - View source opens as ordinary Markdown. Preview is a derived, read-only surface.
 - Alpha 13 includes list, table, and kanban preview. Graph view definitions receive a clear deferred/unsupported preview state rather than the current fixed-circle renderer.
@@ -84,9 +84,9 @@ Use this objective when starting Goal mode:
 
 ### Extension Package
 
-Create `packages/vscode-extension` as `@choral-forma/vscode-extension`. It is a Node extension with a `main` entrypoint, `extensionKind: ["workspace"]`, limited untrusted-workspace support, and no browser entrypoint. Use esbuild for the runtime bundle and TypeScript for type checking. The `vscode` module remains external.
+Create `packages/vscode-extension` as a pnpm workspace package whose VS Code manifest name is `forma`, producing extension id `choral-io.forma`. A scoped npm-style name cannot be used because VS Code derives the extension id directly from `publisher.name`. It is a Node extension with a `main` entrypoint, `extensionKind: ["workspace"]`, limited untrusted-workspace support, and no browser entrypoint. Use esbuild for the runtime bundle and TypeScript for type checking. The `vscode` module remains external.
 
-Pure modules use the repository's Vitest baseline. Extension Host integration uses the current official `@vscode/test-cli` and `@vscode/test-electron` path. The selected `engines.vscode` floor must be justified by an API inventory and validated against both that minimum and current stable when feasible.
+Pure modules use the repository's Vitest baseline. Extension Host integration uses the current official `@vscode/test-cli` and `@vscode/test-electron` path. The `engines.vscode` floor is 1.110 by product decision, must remain compatible with the API inventory, and is validated against both 1.110 and current stable when feasible.
 
 ### Forma Process Boundary
 
@@ -143,7 +143,7 @@ GitHub Actions must build the VSIX. Pull-request CI should check, build, test, p
 - Release workflow succeeds for all binary targets and the extension package;
 - GitHub prerelease contains every expected archive, checksum, `.vsix`, and VSIX checksum;
 - released binary reports `forma 0.1.0-alpha.13`;
-- VSIX manifest reports `0.1.0-alpha.13` and extension id `choral-io.choral-forma`;
+- VSIX manifest reports `0.1.0-alpha.13` and extension id `choral-io.forma`;
 - installation from the downloaded GitHub Release VSIX succeeds in an isolated VS Code profile;
 - release record and task states reflect verified evidence rather than planned claims.
 

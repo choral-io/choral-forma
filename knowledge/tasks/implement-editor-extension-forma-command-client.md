@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: app
 effort: M
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - vscode
     - cli
     - process
-blockedBy:
-    - "tasks/scaffold-vscode-extension-package"
+blockedBy: []
 relatedTo:
     - "tasks/implement-vscode-extension-mvp"
     - "planning/editor-extension-alpha-13-execution-plan"

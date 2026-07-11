@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: app
 effort: L
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - vscode
     - views
     - webview
-blockedBy:
-    - "tasks/extend-view-render-for-editor-preview"
+blockedBy: []
 relatedTo:
     - "tasks/implement-vscode-extension-mvp"
     - "tasks/design-editor-graph-view-renderer"
