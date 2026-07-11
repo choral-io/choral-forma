@@ -1,0 +1,149 @@
+{
+  "name": "forma",
+  "displayName": "Forma for VS Code",
+  "description": "Navigate and preview repository-backed Forma Markdown workspaces in VS Code.",
+  "version": "0.1.0-alpha.13",
+  "publisher": "choral-io",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "preview": true,
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "forma",
+    "markdown",
+    "knowledge-base",
+    "wikilink",
+    "kanban"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/choral-io/choral-forma.git"
+  },
+  "bugs": {
+    "url": "https://github.com/choral-io/choral-forma/issues"
+  },
+  "homepage": "https://forma.choral.io",
+  "engines": {
+    "vscode": "^1.110.0"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./dist/extension.cjs",
+  "activationEvents": [
+    "workspaceContains:.forma.md",
+    "onLanguage:markdown",
+    "onCommand:forma.refreshWorkspace",
+    "onCommand:forma.openViewPreview"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Source files remain editable, but Forma for VS Code does not execute the Forma binary until the workspace is trusted.",
+      "restrictedConfigurations": [
+        "forma.path"
+      ]
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Forma for VS Code requires filesystem access and a Forma binary beside the workspace extension host."
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "forma.selectWorkspace",
+        "title": "Forma: Select Workspace"
+      },
+      {
+        "command": "forma.inspectConfiguration",
+        "title": "Forma: Inspect Configuration"
+      },
+      {
+        "command": "forma.checkWorkspace",
+        "title": "Forma: Check Workspace"
+      },
+      {
+        "command": "forma.refreshWorkspace",
+        "title": "Forma: Refresh Workspace"
+      },
+      {
+        "command": "forma.openOutput",
+        "title": "Forma: Open Output"
+      },
+      {
+        "command": "forma.openViewPreview",
+        "title": "Forma: Open View Preview"
+      },
+      {
+        "command": "forma.openViewPreviewToSide",
+        "title": "Forma: Open View Preview to the Side"
+      },
+      {
+        "command": "forma.openSource",
+        "title": "Forma: Open Source"
+      },
+      {
+        "command": "forma.openReference",
+        "title": "Forma: Open Reference"
+      }
+    ],
+    "configuration": {
+      "title": "Forma",
+      "properties": {
+        "forma.path": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "Absolute user-level path to a preinstalled Forma binary. When empty, the extension uses forma from PATH."
+        },
+        "forma.commandTimeout": {
+          "type": "number",
+          "default": 15000,
+          "minimum": 1000,
+          "maximum": 120000,
+          "scope": "window",
+          "description": "Maximum duration in milliseconds for one Forma command."
+        }
+      }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "forma.openViewPreviewToSide",
+          "when": "resourceLangId == markdown && isWorkspaceTrusted",
+          "group": "navigation@20"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "lint": "eslint . --cache --cache-location node_modules/.tmp/.eslintcache",
+    "check": "tsc --noEmit",
+    "build": "node scripts/build.mjs --production",
+    "build:dev": "node scripts/build.mjs",
+    "build:watch": "node scripts/build.mjs --watch",
+    "build:test": "node scripts/build-tests.mjs",
+    "test": "vitest run --root ../.. packages/vscode-extension/src",
+    "test:integration": "pnpm build && pnpm build:test && vscode-test && node scripts/run-untrusted-test.mjs",
+    "vscode:prepublish": "pnpm check && pnpm build",
+    "package:contents": "vsce ls --tree --no-dependencies",
+    "package:vsix": "node scripts/package-vsix.mjs",
+    "smoke:vsix": "pnpm build:test && node scripts/smoke-vsix.mjs"
+  },
+  "devDependencies": {
+    "@choral-forma/shared": "workspace:*",
+    "@types/mocha": "~10.0.10",
+    "@types/node": "~24.10.0",
+    "@types/vscode": "~1.110.0",
+    "@vscode/test-cli": "~0.0.15",
+    "@vscode/test-electron": "~3.0.0",
+    "@vscode/vsce": "~3.9.2",
+    "esbuild": "~0.28.1",
+    "mocha": "~11.7.6"
+  }
+}

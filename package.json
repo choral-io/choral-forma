@@ -1,5 +1,5 @@
 {
-  "name": "choral-forma",
+  "name": "@choral-forma/workspace",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -14,8 +14,8 @@
   "scripts": {
     "lint": "pnpm --recursive --if-present lint",
     "build": "pnpm --recursive --if-present build",
-    "test": "vitest run",
-    "check": "pnpm --recursive --if-present check && prettier --check . --cache",
+    "test": "vitest run packages/shared/src packages/webapp/src packages/vscode-extension/src && node --test scripts/release-version.test.mjs",
+    "check": "node scripts/check-release-version.mjs && pnpm --recursive --if-present check && prettier --check . --cache",
     "format": "prettier --write . --cache"
   },
   "devDependencies": {

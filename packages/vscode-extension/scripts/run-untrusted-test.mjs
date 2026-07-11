@@ -1,0 +1,70 @@
+import { spawn } from "node:child_process";
+import { cp, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { downloadAndUnzipVSCode } from "@vscode/test-electron";
+
+const extensionRoot = resolve(import.meta.dirname, "..");
+const scratch = await mkdtemp(join(tmpdir(), "choral-forma-untrusted-"));
+const workspace = join(scratch, "workspace");
+const userData = join(scratch, "user-data");
+const extensions = join(scratch, "extensions");
+const runner = fileURLToPath(new URL("./runner.cjs", import.meta.resolve("@vscode/test-cli")));
+const testFile = resolve(extensionRoot, "dist/test/untrusted.test.cjs");
+const formaTestBin = resolve(
+    extensionRoot,
+    "../..",
+    "target/debug",
+    process.platform === "win32" ? "forma.exe" : "forma",
+);
+
+try {
+    await cp(resolve(extensionRoot, "test-fixtures/basic"), workspace, { recursive: true });
+    const executable = await downloadAndUnzipVSCode({
+        cachePath: resolve(extensionRoot, ".vscode-test"),
+        version: "1.110.0",
+    });
+    const options = JSON.stringify({
+        colorDefault: true,
+        files: [testFile],
+        mochaOpts: { timeout: 20_000, ui: "tdd" },
+        preload: [],
+    });
+    const { ELECTRON_RUN_AS_NODE: _electronRunAsNode, ...environment } = process.env;
+    const code = await run(
+        executable,
+        [
+            "--no-sandbox",
+            "--disable-gpu-sandbox",
+            "--disable-updates",
+            "--skip-welcome",
+            "--skip-release-notes",
+            "--no-cached-data",
+            "--disable-extensions",
+            `--user-data-dir=${userData}`,
+            `--extensions-dir=${extensions}`,
+            `--extensionDevelopmentPath=${extensionRoot}`,
+            `--extensionTestsPath=${runner}`,
+            workspace,
+        ],
+        {
+            ...environment,
+            ELECTRON_RUN_AS_NODE: undefined,
+            FORMA_TEST_BIN: formaTestBin,
+            VSCODE_TEST_OPTIONS: options,
+        },
+    );
+    if (code !== 0) process.exitCode = code;
+} finally {
+    await rm(scratch, { force: true, recursive: true });
+}
+
+async function run(command, args, env) {
+    return await new Promise((resolvePromise, reject) => {
+        const child = spawn(command, args, { env, stdio: "inherit", windowsHide: true });
+        child.once("error", reject);
+        child.once("close", (code) => resolvePromise(code ?? 1));
+    });
+}

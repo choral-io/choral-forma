@@ -12,8 +12,11 @@ lerna-debug.log*
 .pnpm-store/
 target/
 node_modules/
+.vscode-test/
 packages/*/.tmp/
 packages/*/dist/
+dist-release/
+*.vsix
 *.local
 
 # Editor directories and files
