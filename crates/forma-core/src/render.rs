@@ -514,24 +514,23 @@ pub fn render_view(
             prefix.bytes().filter(|byte| *byte == b'\n').count()
         });
     let view_document = view_render_document(&document.body, body_line_offset);
-    let has_mount = !view_document.mounts.is_empty()
-        || document.references.iter().any(|reference| {
-            reference.intent == FormaReferenceIntent::View && reference.target.is_empty()
-        });
-    if !has_mount {
-        diagnostics.push(
-            Diagnostic::error(
-                "view.mountMissing",
-                "View must contain a forma-view mount point.",
-            )
-            .with_path(view_path.clone()),
-        );
+    let has_legacy_mount = document.references.iter().any(|reference| {
+        reference.intent == FormaReferenceIntent::View && reference.target.is_empty()
+    });
+    if view_document.mounts.is_empty() {
+        let message = if has_legacy_mount {
+            "Replace legacy `<!-- forma-view -->` with `<!-- forma:content -->`."
+        } else {
+            "View must contain exactly one `<!-- forma:content -->` marker."
+        };
+        diagnostics
+            .push(Diagnostic::error("view.mountMissing", message).with_path(view_path.clone()));
     }
     if view_document.mounts.len() > 1 {
         diagnostics.push(
             Diagnostic::error(
                 "view.mountMultiple",
-                "View must contain exactly one forma-view mount point.",
+                "View must contain only one `<!-- forma:content -->` marker.",
             )
             .with_path(view_path.clone())
             .with_location(view_document.mounts[1].location.clone()),
@@ -2204,12 +2203,11 @@ mod tests {
         let result = render_view(&root, "notes", BTreeMap::new()).unwrap();
 
         assert_eq!(result.status, crate::OperationStatus::Failed);
-        assert!(
-            result
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "view.mountMissing")
-        );
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "view.mountMissing"
+                && diagnostic.message
+                    == "View must contain exactly one `<!-- forma:content -->` marker."
+        }));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -2269,7 +2267,37 @@ mod tests {
 
         assert_eq!(result.status, crate::OperationStatus::Failed);
         assert!(result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.code == "view.mountMultiple" && diagnostic.location.is_some()
+            diagnostic.code == "view.mountMultiple"
+                && diagnostic.message
+                    == "View must contain only one `<!-- forma:content -->` marker."
+                && diagnostic.location.is_some()
+        }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_legacy_empty_view_mount_with_migration_diagnostic() {
+        let root = fixture_root("view-legacy-empty-mount");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/views/notes.md"),
+            "---\nkind: view\nmode: list\ntitle: Notes\nsource:\n  type: pages\n---\n\n# Notes\n\n<!-- forma-view -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "notes", BTreeMap::new()).unwrap();
+        let document = result
+            .document
+            .as_ref()
+            .expect("view document should be returned");
+
+        assert_eq!(result.status, crate::OperationStatus::Failed);
+        assert!(document.mounts.is_empty());
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "view.mountMissing"
+                && diagnostic.message
+                    == "Replace legacy `<!-- forma-view -->` with `<!-- forma:content -->`."
         }));
         fs::remove_dir_all(root).unwrap();
     }

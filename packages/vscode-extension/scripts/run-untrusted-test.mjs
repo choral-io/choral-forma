@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import { downloadAndUnzipVSCode } from "@vscode/test-electron";
 
+import { createTestEnvironment } from "./test-environment.mjs";
+
 const extensionRoot = resolve(import.meta.dirname, "..");
 const scratch = await mkdtemp(join(tmpdir(), "choral-forma-untrusted-"));
 const workspace = join(scratch, "workspace");
@@ -32,7 +34,6 @@ try {
         mochaOpts: { timeout: 20_000, ui: "tdd" },
         preload: [],
     });
-    const { ELECTRON_RUN_AS_NODE: _electronRunAsNode, ...environment } = process.env;
     const code = await run(
         executable,
         [
@@ -49,12 +50,10 @@ try {
             `--extensionTestsPath=${runner}`,
             workspace,
         ],
-        {
-            ...environment,
-            ELECTRON_RUN_AS_NODE: undefined,
+        createTestEnvironment(process.env, {
             FORMA_TEST_BIN: formaTestBin,
             VSCODE_TEST_OPTIONS: options,
-        },
+        }),
     );
     if (code !== 0) process.exitCode = code;
 } finally {

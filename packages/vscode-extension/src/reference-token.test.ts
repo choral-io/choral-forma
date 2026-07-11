@@ -32,4 +32,15 @@ describe("reference tokens", () => {
         const offset = text.indexOf("tiscs");
         expect(referenceTokenAt(text, offset)).toMatchObject({ target: "members/tiscs", intent: "reference" });
     });
+
+    it("treats reference token offsets as an exclusive range", () => {
+        const text = "See [[target]] next";
+        const token = scanReferenceTokens(text)[0];
+        expect(token).toBeDefined();
+        if (!token) return;
+
+        expect(referenceTokenAt(text, token.start)).toEqual(token);
+        expect(referenceTokenAt(text, token.end - 1)).toEqual(token);
+        expect(referenceTokenAt(text, token.end)).toBeUndefined();
+    });
 });
