@@ -38,7 +38,7 @@ try {
         "--list-extensions",
         "--show-versions",
     ]);
-    if (!listed.stdout.split(/\r?\n/u).includes("choral-io.forma@0.1.0-alpha.13")) {
+    if (!listed.stdout.split(/\r?\n/u).includes("choral-io.forma@0.1.0-alpha.14")) {
         throw new Error(`Installed extension identity was not found. Output: ${listed.stdout.trim()}`);
     }
     await run(code, [
@@ -50,7 +50,7 @@ try {
         `--extensionTestsPath=${extensionTestsPath}`,
         workspace,
     ]);
-    console.log("Disposable VSIX installation and activation verified: choral-io.forma@0.1.0-alpha.13");
+    console.log("Disposable VSIX installation and activation verified: choral-io.forma@0.1.0-alpha.14");
 } finally {
     await rm(scratch, { recursive: true, force: true });
 }

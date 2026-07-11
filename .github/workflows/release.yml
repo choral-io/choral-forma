@@ -203,19 +203,19 @@ jobs:
 
       - name: Package and checksum VSIX
         env:
-          VSIX_OUT: ${{ github.workspace }}/dist-release/forma-0.1.0-alpha.13.vsix
+          VSIX_OUT: ${{ github.workspace }}/dist-release/forma-0.1.0-alpha.14.vsix
         run: |
           pnpm --filter forma package:vsix
           cd dist-release
-          shasum -a 256 forma-0.1.0-alpha.13.vsix > forma-0.1.0-alpha.13.vsix.sha256
+          shasum -a 256 forma-0.1.0-alpha.14.vsix > forma-0.1.0-alpha.14.vsix.sha256
 
       - name: Upload extension release artifact
         uses: actions/upload-artifact@v7
         with:
           name: forma-vscode
           path: |
-            dist-release/forma-0.1.0-alpha.13.vsix
-            dist-release/forma-0.1.0-alpha.13.vsix.sha256
+            dist-release/forma-0.1.0-alpha.14.vsix
+            dist-release/forma-0.1.0-alpha.14.vsix.sha256
           if-no-files-found: error
 
   publish:

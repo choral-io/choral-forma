@@ -92,7 +92,7 @@ VS Code is the first editor extension target and the primary product surface for
 
 ## Relationship Notes
 
-This is the umbrella for the first installable release. The child task chain in [[planning/editor-extension-alpha-13-execution-plan]] completed with the published and verified [[releases/next-internal-release]].
+This is the umbrella for the first installable release. The child task chain in [[planning/editor-extension-alpha-13-execution-plan]] completed with the published and verified [[releases/forma-v0.1.0-alpha.13]].
 
 ## Development Entry Point
 

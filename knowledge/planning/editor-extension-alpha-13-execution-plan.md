@@ -20,7 +20,7 @@ sources:
     - "architecture/editor-extension-adapter-contract"
     - "design/editor-extension-mvp-design"
     - "planning/editor-extension-mvp-roadmap"
-    - "releases/next-internal-release"
+    - "releases/forma-v0.1.0-alpha.13"
 ---
 
 # Editor Extension Alpha 13 Goal Execution Plan
