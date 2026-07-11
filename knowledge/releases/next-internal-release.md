@@ -5,7 +5,7 @@ title: Forma v0.1.0-alpha.14
 summary: Internal corrective prerelease for the post-Alpha 13 core and VS Code extension fixes.
 scope: project
 type: release
-status: validating
+status: released
 version: v0.1.0-alpha.14
 date: 2026-07-12
 owners:
@@ -40,7 +40,7 @@ Required gates:
 
 1. `CI=true mise run check` passes locally.
 2. Forma config, content checks, and workspace health pass.
-3. The VSIX package contents and disposable installed-extension smoke pass.
+3. The VSIX package contents and Extension Host tests pass.
 4. PR and merged-main CI pass.
 5. Tag `v0.1.0-alpha.14` points to the verified merge commit.
 6. The Release workflow publishes all binary archives, the VSIX, and sibling checksum files.
@@ -53,25 +53,27 @@ Current result:
 - `CI=true mise run check` passed pnpm checks, lint, tests, production builds, Rust formatting/checks, and the full Rust test suite.
 - VSIX package contents resolve to `forma-0.1.0-alpha.14.vsix` with the expected manifest, README, changelog, license, and bundled extension entrypoint.
 - `forma check --json` and `forma workspace health --json` passed with zero diagnostics.
-- PR CI, merged-main CI, tag publication, Release workflow, and downloaded-artifact verification remain pending.
+- [PR #4](https://github.com/choral-io/choral-forma/pull/4) merged at `39d44ebaa0d869969d9303d724ac5a3f1c890ca3` after Knowledge, Web, Rust, and VS Code Extension passed in [CI run 29161560547](https://github.com/choral-io/choral-forma/actions/runs/29161560547); the thread-aware merge gate reported zero review threads on the final HEAD.
+- The same four jobs passed for the merged main commit in [CI run 29161647142](https://github.com/choral-io/choral-forma/actions/runs/29161647142).
+- Annotated tag `v0.1.0-alpha.14` points to the verified merge commit. [Release run 29161734834](https://github.com/choral-io/choral-forma/actions/runs/29161734834) passed version validation, five binary builds, VS Code Extension Host tests, VSIX packaging, checksum generation, and GitHub Release publication.
+- [GitHub prerelease v0.1.0-alpha.14](https://github.com/choral-io/choral-forma/releases/tag/v0.1.0-alpha.14) contains five platform archives, the VSIX, and a sibling checksum for every payload.
+- All six downloaded payload checksums passed. The released macOS arm64 binary reports `forma 0.1.0-alpha.14`; the VSIX SHA-256 is `4e8915439802ce6ea6911ef3da618cbc54d2006bf8b116ad499442226a1dfec4`, and its manifest reports `choral-io.forma@0.1.0-alpha.14`, `Forma for VS Code`, `https://forma.choral.io`, and VS Code `^1.110.0`.
 
 ## Rollout Plan
 
-1. Prepare and validate the release on `codex/alpha14-release`.
-2. Merge only after required PR checks pass.
-3. Confirm merged-main CI before creating tag `v0.1.0-alpha.14`.
-4. Let the tag-triggered Release workflow build and publish all artifacts.
-5. Verify downloaded artifacts before distributing the Alpha 14 VSIX internally.
+1. Prepared and validated the release on `codex/alpha14-release`.
+2. Merged PR #4 after the required checks and review-thread gate passed.
+3. Confirmed merged-main CI before creating tag `v0.1.0-alpha.14`.
+4. The tag-triggered Release workflow built and published all artifacts.
+5. Downloaded and verified the published payloads before internal distribution.
 
 ## Release Notes
-
-Draft release note:
 
 > Forma `v0.1.0-alpha.14` publishes the reviewed corrections made after Alpha 13. It tightens VS Code reference-token boundaries, enforces the canonical source-backed View mount with a migration diagnostic for the legacy marker, and strengthens released-VSIX validation across navigation and View preview commands.
 
 ## Rollback Plan
 
-Do not move or overwrite either published prerelease tag. If validation finds a release blocker, leave Alpha 14 unpublished, record the failure, and prepare a new candidate after the correction is verified.
+Do not move or overwrite either published prerelease tag. If internal testing finds a release blocker, stop distributing Alpha 14, record the failure, and publish a new version after the correction is verified.
 
 ## Post-Release Follow-Up
 
