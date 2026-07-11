@@ -18,11 +18,15 @@ sources:
     - "architecture/forma-view-query-model"
 ---
 
-# WebApp Primary GUI Roadmap
+# WebApp Primary GUI Roadmap (Historical)
+
+> This roadmap produced the current read-only WebApp baseline and is no longer the active product roadmap. Current sequencing is defined by [[decisions/editor-extension-primary-product-surface]] and [[planning/editor-extension-mvp-roadmap]].
 
 ## Goal
 
 Plan P1 around the WebApp as Choral Forma's primary GUI client. Start from user journeys in the GUI, then derive the CLI and RPC backend capabilities needed to support those journeys.
+
+This goal is retained as historical context. New WebApp work is limited to maintenance, regression repair, compatibility, and extraction of genuinely reusable contracts or renderer code.
 
 ## Product Shape
 

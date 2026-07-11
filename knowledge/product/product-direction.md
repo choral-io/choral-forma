@@ -1347,6 +1347,10 @@ The product can support multiple surfaces:
 
 P0 GUI should be a local webapp served by `forma serve`. It should browse spaces and page views, render table and kanban views, inspect entry metadata and Markdown bodies, show resolved references, and display check status. It should not create, edit, delete, move, rename, deprecate, mutate kanban cards, edit settings or schemas, run Git operations, or perform fixes in P0.
 
+After that read-only baseline, editor extensions become the primary product surface for the next phase. VS Code is the first target, with Zed following after the shared adapter contract is proven. The editor extension should discover `.forma.md`, surface workspace health, provide Forma-owned reference navigation, and preview Markdown-backed views without replacing their editable source. The WebApp remains a maintained read-only surface rather than the center of new product workflows. The accepted transition is recorded in [[decisions/editor-extension-primary-product-surface]].
+
+Editor adapters must consume shared operations rather than parsing workspace configuration, resolving references, or evaluating views independently. View previews should follow host editor theme and accessibility settings. View source must continue to open as ordinary Markdown, with generated list, table, kanban, or graph content shown as a derived preview at the configured mount.
+
 The user-facing experience should not require users to understand Git branches, merge conflicts, pull requests, or commits. Agents and skills can assist with those operations when they are needed.
 
 ## In Scope
@@ -1354,6 +1358,7 @@ The user-facing experience should not require users to understand Git branches, 
 - Thin configurable spaces, schemas, semantic types, modes, views, and templates.
 - Human-readable and Agent-friendly repository knowledge.
 - Agent-friendly CLI and skills for health checks, validation, workflow execution, and safe maintenance.
+- Editor extensions that reuse shared Forma operations for workspace discovery, navigation, diagnostics, and view preview.
 - CLI interfaces for config inspection, check, inspect, list, create, and serving a local read-only webapp.
 - Read-only local browser GUI for browsing spaces and views, rendering entries, inspecting metadata, and viewing diagnostics.
 - Structured views over files without requiring custom executable scripts.

@@ -17,13 +17,17 @@ tags:
     - views
 
 effort: M
-status: backlog
+status: cancelled
 readiness: needs-refinement
 sprint:
 
 blockedBy:
     - "tasks/implement-reference-navigation-baseline"
 relatedTo:
+    - "decisions/editor-extension-primary-product-surface"
+    - "design/editor-extension-mvp-design"
+    - "planning/editor-extension-mvp-roadmap"
+    - "tasks/implement-vscode-extension-mvp"
     - "planning/public-read-only-release-roadmap"
     - "tasks/align-view-source-query-model"
     - "tasks/implement-view-entry-render"
@@ -35,6 +39,8 @@ affectedArea: Graph views
 ---
 
 # Implement Interactive Graph View Render
+
+> Cancelled as a WebApp-hardening task. The stable graph data contract remains relevant, while editor-first Graph design and implementation now belong to [[tasks/implement-vscode-extension-mvp]].
 
 ## Goal
 
@@ -61,7 +67,7 @@ The current implementation already has the first baseline:
 - Graph nodes can navigate to indexed documents.
 - Theme-aware graph colors and hover labels have a first-pass implementation.
 
-The remaining task is public-release hardening, not proving that graph rendering is possible.
+The planned WebApp hardening is no longer the active product path. The current fixed-circle renderer is not the desired editor Graph baseline. The next implementation should reuse the `view.render` nodes and edges while validating new layout and interaction approaches inside the editor extension.
 
 ## In Scope
 
@@ -96,7 +102,7 @@ The remaining task is public-release hardening, not proving that graph rendering
 
 ## Relationship Notes
 
-This task builds on completed view query, view render, WebApp work, and the reference navigation baseline. It remains Backlog as a public-release hardening item for graph views.
+The completed graph query and render-result work remains valid. WebApp-specific visual hardening is cancelled because the WebApp is in maintenance mode. Graph renderer requirements, spike criteria, editor theme behavior, and source navigation are now recorded in [[design/editor-extension-mvp-design]] and [[planning/editor-extension-mvp-roadmap]].
 
 ## Open Questions
 

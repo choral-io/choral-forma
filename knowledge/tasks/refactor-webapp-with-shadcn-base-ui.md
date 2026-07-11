@@ -1,7 +1,7 @@
 ---
 scope: project
 type: task
-priority: P1
+priority: P2
 severity:
 value: M
 module: app
@@ -12,7 +12,7 @@ assignees: []
 reviewers: []
 tags:
     - forma
-    - p1
+    - p2
     - webapp
     - ui
     - design-system
@@ -79,6 +79,8 @@ The preferred direction is to use shadcn/ui together with Base UI rather than co
 ## Relationship Notes
 
 This task follows the P0 read-only WebApp implementation. It should remain P1 because P0 can continue with the existing custom UI while product behavior and RPC surfaces stabilize.
+
+The WebApp is now in maintenance mode under [[decisions/editor-extension-primary-product-surface]]. This backlog record is retained for historical scope and possible maintenance needs, but it is not an active product-roadmap item. Reusable contracts or renderer code should be extracted only when the editor implementation proves a real shared boundary.
 
 It may need to be split if dependency setup, component migration, and visual redesign become independently reviewable work streams.
 

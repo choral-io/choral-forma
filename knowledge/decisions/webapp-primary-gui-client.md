@@ -10,10 +10,13 @@ tags:
     - webapp
     - gui
 supersedes: []
-supersededBy: []
+supersededBy:
+    - "decisions/editor-extension-primary-product-surface"
 ---
 
 # WebApp Primary GUI Client
+
+> Superseded by [[decisions/editor-extension-primary-product-surface]]. This record remains as the decision that guided the completed WebApp V2 and public read-only baseline.
 
 ## Context
 

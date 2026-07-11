@@ -1,7 +1,7 @@
 ---
 scope: project
 type: task
-priority: P1
+priority: P2
 severity:
 value: H
 module: app
@@ -12,7 +12,7 @@ assignees: []
 reviewers: []
 tags:
     - forma
-    - p1
+    - p2
     - webapp
     - proposal
     - operations
@@ -26,6 +26,7 @@ blockedBy:
     - "tasks/implement-webapp-v2-dashboard-shell"
     - "tasks/design-reviewable-forma-write-operations"
 relatedTo:
+    - "decisions/editor-extension-primary-product-surface"
     - "tasks/design-reviewable-forma-write-operations"
     - "tasks/design-reviewable-knowledge-change-proposals"
     - "tasks/design-metadata-edit-deprecate-operations"
@@ -41,6 +42,8 @@ affectedArea: Reviewable WebApp operations
 ## Goal
 
 Design how WebApp interactions that imply repository changes become explicit operation proposals, dry-runs, previews, and approved apply actions.
+
+This WebApp-specific interaction design is deferred while editor extensions are the primary product surface. Shared reviewable write-operation semantics remain tracked separately and are not cancelled by this deferral.
 
 ## Sources
 

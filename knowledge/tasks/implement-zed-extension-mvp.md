@@ -22,11 +22,11 @@ readiness: blocked
 sprint:
 
 blockedBy:
-    - "tasks/design-editor-extension-adapter-contract"
     - "tasks/implement-vscode-extension-mvp"
 relatedTo:
-    - "decisions/webapp-primary-gui-client"
-    - "planning/webapp-primary-gui-roadmap"
+    - "decisions/editor-extension-primary-product-surface"
+    - "architecture/editor-extension-adapter-contract"
+    - "planning/editor-extension-mvp-roadmap"
 
 reportedBy:
 affectedArea: Zed extension
@@ -36,30 +36,30 @@ affectedArea: Zed extension
 
 ## Goal
 
-Implement a thin Zed adapter for Forma after the shared editor adapter contract and VS Code MVP validate the extension model.
+Implement a Zed adapter after the VS Code MVP validates which contracts and renderer boundaries are genuinely editor-independent.
 
 ## Sources
 
-- [[decisions/webapp-primary-gui-client]]
-- [[planning/webapp-primary-gui-roadmap]]
+- [[decisions/editor-extension-primary-product-surface]]
+- [[architecture/editor-extension-adapter-contract]]
+- [[planning/editor-extension-mvp-roadmap]]
 - [[tasks/design-editor-extension-adapter-contract]]
 - [[tasks/implement-vscode-extension-mvp]]
 
 ## Context
 
-Zed is an important editor target, but it should follow the primary WebApp GUI work and the first VS Code adapter. The Zed extension should reuse the same behavior model instead of becoming a separate product surface.
+Zed is an important editor target, but it should follow the first VS Code adapter. It should reuse proven Core operations and adapter-neutral contracts rather than copying VS Code lifecycle or WebView assumptions.
 
 ## In Scope
 
 - Add a Zed extension scaffold when the adapter contract and VS Code MVP provide a proven baseline.
-- Connect to the Forma local service according to the accepted adapter contract.
-- Provide commands to open the WebApp for the current workspace and current file.
-- Show minimal Forma status and diagnostics where Zed APIs allow.
+- Invoke a compatible Forma transport according to the accepted adapter contract.
+- Map workspace discovery, reference navigation, source opening, status, diagnostics, and view preview into the Zed APIs that are available at implementation time.
 - Add focused extension build/type checks.
 
 ## Out Of Scope
 
-- Recreating the WebApp interface inside Zed.
+- Copying VS Code-specific APIs or theme variables into shared modules.
 - Full Markdown editing features.
 - Direct file mutation commands.
 - VS Code extension implementation.
@@ -68,14 +68,13 @@ Zed is an important editor target, but it should follow the primary WebApp GUI w
 ## Acceptance Criteria
 
 - The Zed extension can connect a workspace to Forma according to the accepted adapter contract.
-- Users can open the primary WebApp from Zed.
-- Current file context can be passed to WebApp-backed workflows when supported.
+- Supported editor-independent behavior is mapped to Zed without moving Core semantics into the extension.
 - Extension checks pass.
 - The implementation does not duplicate core Forma semantics.
 
 ## Relationship Notes
 
-This task is blocked behind the shared adapter contract and the VS Code MVP so the second editor adapter can reuse the same product boundary.
+This task remains blocked behind the VS Code MVP so the second adapter is based on implementation evidence rather than parallel assumptions.
 
 ## Open Questions
 

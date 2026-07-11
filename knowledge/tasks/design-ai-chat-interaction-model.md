@@ -1,7 +1,7 @@
 ---
 scope: project
 type: task
-priority: P1
+priority: P2
 severity:
 value: M
 module: app
@@ -12,7 +12,7 @@ assignees: []
 reviewers: []
 tags:
     - forma
-    - p1
+    - p2
     - webapp
     - ai
     - chat
@@ -26,6 +26,7 @@ blockedBy:
     - "tasks/implement-webapp-v2-dashboard-shell"
     - "tasks/design-reviewable-operation-proposal-flow"
 relatedTo:
+    - "decisions/editor-extension-primary-product-surface"
     - "decisions/webapp-primary-gui-client"
     - "planning/webapp-primary-gui-roadmap"
     - "concepts/agent-assisted-knowledge-maintenance"
@@ -78,6 +79,8 @@ AI Chat is a natural fit for the primary WebApp GUI because it can see workspace
 ## Relationship Notes
 
 This task depends on the proposal flow because Chat should produce explainable plans or proposals before any write-capable implementation is considered.
+
+AI Chat is deferred by [[decisions/editor-extension-primary-product-surface]]. Keep this backlog item as future product context, but do not treat it as part of the editor extension MVP or active WebApp maintenance scope.
 
 ## Open Questions
 

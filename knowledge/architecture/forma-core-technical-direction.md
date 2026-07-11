@@ -48,6 +48,10 @@ Released Forma builds should serve built static assets from the Rust binary or r
 
 P0 does not implement MCP, VS Code extensions, Zed extensions, desktop clients, or mobile clients. The architecture should still keep those future adapters practical by exposing stable internal operations and stable JSON-facing command results.
 
+After the P0 WebApp baseline, VS Code becomes the first primary editor adapter. The adapter must keep this Core boundary intact: Forma Core continues to own configuration, paths, Markdown analysis, reference resolution, diagnostics, and view evaluation, while editor-specific code owns activation, lifecycle, editor API mapping, theme bridging, and preview hosting. The detailed boundary is defined in [[architecture/editor-extension-adapter-contract]].
+
+The first editor implementation may use short-lived structured CLI calls instead of requiring `forma serve`. Persistent HTTP, stdio RPC, daemon, or language-server lifecycles should be introduced only when measured latency, live unsaved-buffer analysis, or repeated-operation evidence justifies them.
+
 ## Operation And RPC Model
 
 Forma should have one shared operation model for CLI commands, the local HTTP API, future MCP tools, and future editor extension integrations. Adapters may use different transports, but they must not reimplement product semantics.

@@ -1,9 +1,9 @@
 ---
 scope: project
 type: task
-priority: P2
+priority: P1
 severity:
-value: M
+value: H
 module: app
 
 owners:
@@ -12,21 +12,27 @@ assignees: []
 reviewers: []
 tags:
     - forma
-    - p2
+    - p1
     - vscode
     - editor-extension
 
-effort: M
+effort: L
 status: backlog
 readiness: blocked
 sprint:
 
 blockedBy:
-    - "tasks/design-editor-extension-adapter-contract"
+    - "tasks/validate-and-release-forma-alpha-13"
 relatedTo:
-    - "decisions/webapp-primary-gui-client"
-    - "planning/webapp-primary-gui-roadmap"
+    - "decisions/editor-extension-primary-product-surface"
+    - "architecture/editor-extension-adapter-contract"
+    - "design/editor-extension-mvp-design"
+    - "planning/editor-extension-mvp-roadmap"
+    - "planning/editor-extension-alpha-13-execution-plan"
+    - "tasks/design-editor-extension-adapter-contract"
     - "tasks/implement-zed-extension-mvp"
+    - "tasks/scaffold-vscode-extension-package"
+    - "tasks/design-editor-graph-view-renderer"
 
 reportedBy:
 affectedArea: VS Code extension
@@ -36,48 +42,59 @@ affectedArea: VS Code extension
 
 ## Goal
 
-Implement a thin VS Code adapter for Forma after the editor extension adapter contract is accepted.
+Implement the VS Code-first Forma extension MVP for workspace discovery, reference navigation, and source-first view preview.
 
 ## Sources
 
-- [[decisions/webapp-primary-gui-client]]
-- [[planning/webapp-primary-gui-roadmap]]
+- [[decisions/editor-extension-primary-product-surface]]
+- [[architecture/editor-extension-adapter-contract]]
+- [[design/editor-extension-mvp-design]]
+- [[planning/editor-extension-mvp-roadmap]]
 - [[tasks/design-editor-extension-adapter-contract]]
 - [[architecture/forma-p0-operation-api-spec]]
 
 ## Context
 
-VS Code is the first editor extension target because the repository already has VS Code/Foam-oriented Markdown integration. The extension should not duplicate the WebApp. It should bridge the editor workspace and current file into the Forma local service and primary GUI.
+VS Code is the first editor extension target and the primary product surface for the next phase. The extension should make Forma capabilities available where users edit Markdown while preserving Core-owned semantics and ordinary source files.
 
 ## In Scope
 
-- Add a VS Code extension workspace/package scaffold when the adapter contract is ready.
-- Connect to or launch the Forma local service according to the accepted adapter contract.
-- Provide commands to open the WebApp for the current workspace and current file.
-- Show Forma status and diagnostics at a minimal level.
-- Reuse shared operation/RPC types where practical.
-- Add focused extension build/type checks.
+- Add a VS Code extension package with focused build, type-check, unit, and extension-host validation.
+- Discover `.forma.md`, select the applicable root in multi-root sessions, locate a compatible Forma binary, and expose workspace status and commands.
+- Use structured Core operations for config inspection, health, diagnostics, reference resolution, and view rendering.
+- Implement saved-file navigation for ordinary Markdown links, wikilinks, embeds, and schema-declared semantic references.
+- Keep view files editable in the normal Markdown editor and provide Preview and Preview to the Side commands.
+- Render Markdown around the view mount plus read-only list, table, and kanban projections.
+- Map VS Code theme and font variables into host-neutral Forma renderer tokens, including high contrast and reduced motion.
+- Show an intentional deferred state for graph views instead of porting the current fixed-circle WebApp component.
+- Preserve source navigation from rendered items and Graph nodes.
 
 ## Out Of Scope
 
-- Recreating the WebApp interface inside VS Code.
+- Porting the WebApp dashboard shell into VS Code.
 - Full Markdown editing features.
 - Direct file mutation commands.
+- Writable kanban or graph interactions.
+- Live semantic analysis of unsaved buffers.
+- A persistent daemon or language server without measured need.
 - Zed extension implementation.
 - Marketplace publishing.
 
 ## Acceptance Criteria
 
-- The VS Code extension can connect a workspace to Forma according to the accepted adapter contract.
-- Users can open the primary WebApp from VS Code.
-- Current file context can be passed to WebApp-backed workflows when supported.
-- Extension checks pass.
-- The implementation does not duplicate core Forma semantics.
+- Workspace discovery and invalid, missing-binary, incompatible-version, and ready states are accurate.
+- Supported saved links and semantic references navigate through Core-owned resolution.
+- View source remains ordinary editable Markdown and can open a theme-correct preview beside it.
+- List, table, and kanban previews render useful output or clear empty/error states.
+- Graph views show a clear deferred state and keep source accessible.
+- Preview entries can open their source Markdown.
+- No extension preview action silently mutates repository files.
+- Core, contract, extension, and packaging checks defined by the roadmap pass.
 
 ## Relationship Notes
 
-This task is intentionally blocked until the adapter contract exists.
+This is the umbrella for the first installable release. It remains blocked until [[tasks/validate-and-release-forma-alpha-13]] completes the child task chain in [[planning/editor-extension-alpha-13-execution-plan]].
 
-## Open Questions
+## Development Entry Point
 
--
+Start with [[tasks/scaffold-vscode-extension-package]]. Do not select a Graph renderer in this Goal; that work is tracked by [[tasks/design-editor-graph-view-renderer]].
