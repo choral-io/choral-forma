@@ -8,7 +8,7 @@ export type ReferenceToken = {
 };
 
 export function referenceTokenAt(text: string, offset: number): ReferenceToken | undefined {
-    return scanReferenceTokens(text, true).find((token) => offset >= token.start && offset <= token.end);
+    return scanReferenceTokens(text, true).find((token) => offset >= token.start && offset < token.end);
 }
 
 export function scanReferenceTokens(text: string, includeFrontmatter = false): ReferenceToken[] {

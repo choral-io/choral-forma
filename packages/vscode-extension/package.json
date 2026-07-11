@@ -128,7 +128,7 @@
     "build:dev": "node scripts/build.mjs",
     "build:watch": "node scripts/build.mjs --watch",
     "build:test": "node scripts/build-tests.mjs",
-    "test": "vitest run --root ../.. packages/vscode-extension/src",
+    "test": "vitest run --root ../.. packages/vscode-extension/src && node --test scripts/*.test.mjs",
     "test:integration": "pnpm build && pnpm build:test && vscode-test && node scripts/run-untrusted-test.mjs",
     "vscode:prepublish": "pnpm check && pnpm build",
     "package:contents": "vsce ls --tree --no-dependencies",

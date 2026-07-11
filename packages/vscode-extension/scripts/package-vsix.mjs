@@ -1,9 +1,16 @@
 import { spawn } from "node:child_process";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 
-const output = resolve(process.env.VSIX_OUT ?? `${tmpdir()}/forma-0.1.0-alpha.13.vsix`);
+import { resolveVsixOutput } from "./package-output.mjs";
+
+const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+const output = resolveVsixOutput({
+    manifest,
+    override: process.env.VSIX_OUT,
+    temporaryDirectory: tmpdir(),
+});
 await mkdir(dirname(output), { recursive: true });
 
 const command = process.platform === "win32" ? "vsce.cmd" : "vsce";
