@@ -245,7 +245,7 @@
 
     [data-reader="markdown"] [data-code-block]::before {
         content: attr(data-language);
-        @apply bg-background/95 text-muted-foreground border-border pointer-events-none absolute end-3 top-0 z-1 -translate-y-1/2 rounded-full border px-2.5 py-0.5 text-xs font-medium opacity-90 shadow-sm;
+        @apply bg-background/95 text-muted-foreground border-border pointer-events-none absolute inset-e-3 top-0 z-1 -translate-y-1/2 rounded-full border px-2.5 py-0.5 text-xs font-medium opacity-90 shadow-sm;
     }
 
     [data-reader="markdown"] [data-code-block] pre {
@@ -269,7 +269,7 @@
     }
 
     [data-reader="markdown"] pre.shiki code .line {
-        @apply min-h-[1lh];
+        @apply min-h-lh;
     }
 
     .dark [data-reader="markdown"] pre.shiki,
