@@ -17,7 +17,7 @@ reviewers: []
 tags: []
 blockedBy: []
 relatedTo:
-    - "releases/next-internal-release"
+    - "releases/forma-v0.1.0-alpha.13"
 severity: ""
 sprint: ""
 reportedBy: ""

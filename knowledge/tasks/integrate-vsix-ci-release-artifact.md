@@ -22,7 +22,7 @@ tags:
     - release
 blockedBy: []
 relatedTo:
-    - "releases/next-internal-release"
+    - "releases/forma-v0.1.0-alpha.13"
     - "tasks/implement-vscode-extension-mvp"
     - "planning/editor-extension-alpha-13-execution-plan"
 severity: ""
@@ -40,7 +40,7 @@ Make GitHub Actions the authoritative builder of the internally distributed VSIX
 ## Sources
 
 - [[planning/editor-extension-alpha-13-execution-plan]]
-- [[releases/next-internal-release]]
+- [[releases/forma-v0.1.0-alpha.13]]
 
 ## In Scope
 

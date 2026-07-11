@@ -6,9 +6,9 @@ Forma for VS Code keeps repository Markdown as the source of truth while adding 
 
 Install a compatible `forma` binary separately and make it available on the extension host `PATH`, or set the user-level `forma.path` setting to an absolute executable path. The extension never downloads or bundles Forma, and it never executes a binary path supplied by workspace content.
 
-Download `forma-0.1.0-alpha.13.vsix` from the matching GitHub prerelease, then run **Extensions: Install from VSIX…** in VS Code. The Alpha 13 VSIX is intended for internal distribution and is not published to Marketplace.
+Download `forma-0.1.0-alpha.14.vsix` from the matching GitHub prerelease, then run **Extensions: Install from VSIX…** in VS Code. The Alpha 14 VSIX is intended for internal distribution and is not published to Marketplace.
 
-## Alpha 13 features
+## Alpha 14 features
 
 - discovers `.forma.md` workspaces;
 - navigates Markdown links, wikilinks, embeds, heading fragments, and semantic references;
@@ -16,7 +16,7 @@ Download `forma-0.1.0-alpha.13.vsix` from the matching GitHub prerelease, then r
 - follows VS Code light, dark, high-contrast, font, focus, and reduced-motion settings;
 - shows an intentional deferred state for graph views.
 
-The extension runs as a workspace extension, so the Forma binary and workspace files remain colocated in local or remote extension hosts. Local workspaces are the Alpha 13 release gate; individual remote environments are not yet claimed as fully validated.
+The extension runs as a workspace extension, so the Forma binary and workspace files remain colocated in local or remote extension hosts. Local workspaces are the Alpha 14 release gate; individual remote environments are not yet claimed as fully validated.
 
 ## Trust and troubleshooting
 

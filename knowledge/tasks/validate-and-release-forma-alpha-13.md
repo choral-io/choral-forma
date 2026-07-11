@@ -22,7 +22,7 @@ tags:
     - validation
 blockedBy: []
 relatedTo:
-    - "releases/next-internal-release"
+    - "releases/forma-v0.1.0-alpha.13"
     - "tasks/implement-vscode-extension-mvp"
     - "planning/editor-extension-alpha-13-execution-plan"
 severity: ""
@@ -40,7 +40,7 @@ Prove the complete Alpha 13 cutline locally and through GitHub Actions, then pub
 ## Sources
 
 - [[planning/editor-extension-alpha-13-execution-plan]]
-- [[releases/next-internal-release]]
+- [[releases/forma-v0.1.0-alpha.13]]
 
 ## In Scope
 

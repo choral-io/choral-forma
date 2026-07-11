@@ -1,6 +1,5 @@
 {
   "recommendations": [
-    "foam.foam-vscode",
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
     "editorconfig.editorconfig",

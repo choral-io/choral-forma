@@ -22,7 +22,7 @@ tags:
     - alpha-13
 blockedBy: []
 relatedTo:
-    - "releases/next-internal-release"
+    - "releases/forma-v0.1.0-alpha.13"
     - "tasks/implement-vscode-extension-mvp"
     - "planning/editor-extension-alpha-13-execution-plan"
 severity: ""
@@ -39,7 +39,7 @@ Make all Forma release artifacts report and validate the same version instead of
 
 ## Sources
 
-- [[releases/next-internal-release]]
+- [[releases/forma-v0.1.0-alpha.13]]
 - [[planning/editor-extension-alpha-13-execution-plan]]
 
 ## In Scope
