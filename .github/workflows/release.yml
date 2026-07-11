@@ -21,8 +21,35 @@ permissions:
   contents: write
 
 jobs:
+  validate:
+    name: Validate release version
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate tag and artifact versions
+        run: node scripts/check-release-version.mjs "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+
   build:
     name: Build ${{ matrix.asset }}
+    needs: validate
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -57,6 +84,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -80,7 +109,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build WebApp assets
-        run: pnpm build
+        run: |
+          pnpm --filter @choral-forma/shared build
+          pnpm --filter @choral-forma/webapp build
 
       - name: Build forma binary
         run: cargo build --release --locked --bin forma --target ${{ matrix.target }}
@@ -122,14 +153,81 @@ jobs:
             dist-release/forma-${{ matrix.asset }}.${{ matrix.archive }}.sha256
           if-no-files-found: error
 
+  extension:
+    name: Build VS Code extension
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Setup Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check, lint, test, and build extension
+        run: |
+          pnpm --filter @choral-forma/shared build
+          pnpm --filter forma check
+          pnpm --filter forma lint
+          pnpm --filter forma test
+          pnpm --filter forma build
+
+      - name: Build development Forma binary
+        run: |
+          pnpm --filter @choral-forma/webapp build
+          cargo build --locked --bin forma
+
+      - name: Run Extension Host tests
+        run: PATH="${{ github.workspace }}/target/debug:$PATH" xvfb-run -a pnpm --filter forma test:integration
+
+      - name: Inspect package contents
+        run: pnpm --filter forma package:contents
+
+      - name: Package and checksum VSIX
+        env:
+          VSIX_OUT: ${{ github.workspace }}/dist-release/forma-0.1.0-alpha.13.vsix
+        run: |
+          pnpm --filter forma package:vsix
+          cd dist-release
+          shasum -a 256 forma-0.1.0-alpha.13.vsix > forma-0.1.0-alpha.13.vsix.sha256
+
+      - name: Upload extension release artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: forma-vscode
+          path: |
+            dist-release/forma-0.1.0-alpha.13.vsix
+            dist-release/forma-0.1.0-alpha.13.vsix.sha256
+          if-no-files-found: error
+
   publish:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, extension]
     runs-on: ubuntu-24.04
     if: github.event_name == 'push' || inputs.publish
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Resolve release tag
         shell: bash

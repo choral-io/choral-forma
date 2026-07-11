@@ -66,6 +66,66 @@ jobs:
       - name: Build web packages
         run: pnpm build
 
+  extension:
+    name: VS Code Extension
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Setup Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check aligned release versions
+        run: node scripts/check-release-version.mjs
+
+      - name: Check, lint, test, and build extension
+        run: |
+          pnpm --filter @choral-forma/shared build
+          pnpm --filter forma check
+          pnpm --filter forma lint
+          pnpm --filter forma test
+          pnpm --filter forma build
+
+      - name: Build development Forma binary
+        run: |
+          pnpm --filter @choral-forma/webapp build
+          cargo build --locked --bin forma
+
+      - name: Run Extension Host tests
+        run: PATH="${{ github.workspace }}/target/debug:$PATH" xvfb-run -a pnpm --filter forma test:integration
+
+      - name: Inspect package contents
+        run: pnpm --filter forma package:contents
+
+      - name: Package VSIX
+        env:
+          VSIX_OUT: ${{ runner.temp }}/forma-0.1.0-alpha.13.vsix
+        run: pnpm --filter forma package:vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: forma-vscode
+          path: ${{ runner.temp }}/forma-0.1.0-alpha.13.vsix
+          if-no-files-found: error
+
   rust:
     name: Rust
     runs-on: ubuntu-24.04
