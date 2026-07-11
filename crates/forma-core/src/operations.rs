@@ -327,6 +327,59 @@ pub struct FileReferencesResult {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ReferenceResolveResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub source_path: String,
+    pub raw_target: String,
+    pub intent: ReferenceIntent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<ResolvedReferenceTarget>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub candidates: Vec<ReferenceResolveCandidate>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedReferenceTarget {
+    pub path: String,
+    pub space: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment_kind: Option<crate::index::ReferenceFragmentKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment_location: Option<ReferenceFragmentLocation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceResolveCandidate {
+    pub path: String,
+    pub space: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceFragmentLocation {
+    pub line: usize,
+    pub column: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkspaceHealthResult {
     pub schema_version: u16,
     pub operation: String,
@@ -1144,6 +1197,311 @@ pub fn list_file_references(
         summary,
         diagnostics,
     })
+}
+
+pub fn resolve_reference(
+    root: impl AsRef<Path>,
+    source_path: &str,
+    raw_target: &str,
+    intent: ReferenceIntent,
+    explicit_fragment: Option<String>,
+) -> Result<ReferenceResolveResult, OperationError> {
+    let source_path = normalize_entry_path(source_path)?;
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let discovery = discover_workspace(root.as_ref())?;
+    let source_entry = discovery
+        .index
+        .entries
+        .iter()
+        .find(|entry| entry.path == source_path)
+        .ok_or(OperationError::EntryNotFound)?;
+
+    let (target_text, inline_fragment) = split_resolve_target(raw_target);
+    let fragment = explicit_fragment.or(inline_fragment);
+    let fragment_kind = fragment.as_deref().map(|value| {
+        if value.starts_with('^') {
+            crate::index::ReferenceFragmentKind::Block
+        } else {
+            crate::index::ReferenceFragmentKind::Heading
+        }
+    });
+    let fragment = fragment.map(|value| value.trim_start_matches('^').to_string());
+    let mut diagnostics = Vec::new();
+    let semantic_matches = (intent == ReferenceIntent::Reference)
+        .then(|| semantic_reference_candidates(source_entry, &target_text))
+        .unwrap_or_default();
+    let matches = if semantic_matches.is_empty() {
+        resolve_reference_candidates(&discovery.index.entries, &source_path, &target_text)
+    } else {
+        semantic_matches
+    };
+    let mut candidates = if matches.len() > 1 {
+        matches
+            .iter()
+            .filter_map(|path| {
+                discovery
+                    .index
+                    .entries
+                    .iter()
+                    .find(|entry| &entry.path == path)
+                    .map(reference_candidate)
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    candidates.sort_by(|left, right| left.path.cmp(&right.path));
+
+    let target = if matches.len() == 1 {
+        let entry = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == matches[0])
+            .expect("resolved reference candidate should exist");
+        let fragment_location = fragment.as_deref().and_then(|fragment| {
+            resolve_fragment_location(root.as_ref(), &entry.path, fragment, fragment_kind)
+        });
+        if fragment.is_some() && fragment_location.is_none() {
+            diagnostics.push(
+                Diagnostic::error(
+                    "reference.fragmentUnresolved",
+                    "Reference fragment cannot be resolved.",
+                )
+                .with_path(source_path.clone())
+                .with_actual(fragment.clone().unwrap_or_default()),
+            );
+        }
+        Some(ResolvedReferenceTarget {
+            path: entry.path.clone(),
+            space: entry.space.clone(),
+            kind: entry.kind.clone(),
+            title: entry.title.clone(),
+            fragment,
+            fragment_kind,
+            fragment_location,
+        })
+    } else {
+        let (code, message) = if matches.is_empty() {
+            ("reference.unresolved", "Reference cannot be resolved.")
+        } else {
+            (
+                "reference.ambiguous",
+                "Reference resolves to multiple entries.",
+            )
+        };
+        diagnostics.push(
+            Diagnostic::error(code, message)
+                .with_path(source_path.clone())
+                .with_actual(raw_target.to_string()),
+        );
+        None
+    };
+    diagnostics.sort_by_key(diagnostic_sort_key);
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+
+    Ok(ReferenceResolveResult {
+        schema_version: 1,
+        operation: "reference.resolve".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace.config.workspace.name,
+            logo: None,
+        },
+        source_path,
+        raw_target: raw_target.to_string(),
+        intent,
+        target,
+        candidates,
+        summary,
+        diagnostics,
+    })
+}
+
+fn split_resolve_target(raw_target: &str) -> (String, Option<String>) {
+    let mut target = raw_target.trim();
+    target = target.strip_prefix('!').unwrap_or(target);
+    if let Some(inner) = target
+        .strip_prefix("[[")
+        .and_then(|value| value.strip_suffix("]]"))
+    {
+        target = inner;
+    }
+    target = target.split('|').next().unwrap_or(target).trim();
+    let (path, fragment) = target.split_once('#').unwrap_or((target, ""));
+    (
+        path.to_string(),
+        (!fragment.trim().is_empty()).then(|| fragment.trim().to_string()),
+    )
+}
+
+fn resolve_reference_candidates(
+    entries: &[IndexEntry],
+    source_path: &str,
+    raw_target: &str,
+) -> Vec<String> {
+    if raw_target.is_empty() {
+        return vec![source_path.to_string()];
+    }
+    if raw_target.contains("://") || raw_target.starts_with("mailto:") {
+        return Vec::new();
+    }
+
+    let paths = entries
+        .iter()
+        .map(|entry| entry.path.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut direct_candidates = Vec::new();
+    if let Some(relative) = normalized_relative_target(source_path, raw_target) {
+        direct_candidates.extend(reference_path_variants(&relative));
+    }
+    direct_candidates.extend(reference_path_variants(raw_target.trim_start_matches("./")));
+    direct_candidates.dedup();
+    for candidate in direct_candidates {
+        if paths.contains(candidate.as_str()) {
+            return vec![candidate];
+        }
+    }
+
+    let normalized = raw_target.trim_start_matches("./").trim_end_matches(".md");
+    let mut matches = entries
+        .iter()
+        .filter(|entry| {
+            let without_extension = entry.path.strip_suffix(".md").unwrap_or(&entry.path);
+            if normalized.contains('/') {
+                without_extension == normalized
+                    || without_extension.ends_with(&format!("/{normalized}"))
+            } else {
+                without_extension
+                    .rsplit('/')
+                    .next()
+                    .is_some_and(|basename| basename == normalized)
+            }
+        })
+        .map(|entry| entry.path.clone())
+        .collect::<Vec<_>>();
+    matches.sort();
+    matches.dedup();
+    matches
+}
+
+fn semantic_reference_candidates(source: &IndexEntry, raw_target: &str) -> Vec<String> {
+    let normalized = raw_target.trim_start_matches("./").trim_end_matches(".md");
+    let mut matches = source
+        .refs
+        .iter()
+        .filter(|reference| {
+            reference.source == ReferenceSource::Frontmatter
+                && reference.intent == ReferenceIntent::Reference
+        })
+        .filter(|reference| {
+            let without_extension = reference
+                .target_path
+                .strip_suffix(".md")
+                .unwrap_or(&reference.target_path);
+            without_extension == normalized
+                || without_extension.ends_with(&format!("/{normalized}"))
+        })
+        .map(|reference| reference.target_path.clone())
+        .collect::<Vec<_>>();
+    matches.sort();
+    matches.dedup();
+    matches
+}
+
+fn normalized_relative_target(source_path: &str, target: &str) -> Option<String> {
+    let mut segments = source_path
+        .rsplit_once('/')
+        .map(|(parent, _)| parent.split('/').collect::<Vec<_>>())
+        .unwrap_or_default();
+    let normalized_target = target.replace('\\', "/");
+    for segment in normalized_target.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                segments.pop()?;
+            }
+            value => segments.push(value),
+        }
+    }
+    (!segments.is_empty()).then(|| segments.join("/"))
+}
+
+fn reference_path_variants(target: &str) -> Vec<String> {
+    if target.ends_with(".md") {
+        vec![target.to_string()]
+    } else {
+        vec![format!("{target}.md"), target.to_string()]
+    }
+}
+
+fn reference_candidate(entry: &IndexEntry) -> ReferenceResolveCandidate {
+    ReferenceResolveCandidate {
+        path: entry.path.clone(),
+        space: entry.space.clone(),
+        kind: entry.kind.clone(),
+        title: entry.title.clone(),
+    }
+}
+
+fn resolve_fragment_location(
+    root: &Path,
+    path: &str,
+    fragment: &str,
+    kind: Option<crate::index::ReferenceFragmentKind>,
+) -> Option<ReferenceFragmentLocation> {
+    let source = fs::read_to_string(root.join(path)).ok()?;
+    if kind == Some(crate::index::ReferenceFragmentKind::Block) {
+        return source.lines().enumerate().find_map(|(line, value)| {
+            value
+                .trim_end()
+                .ends_with(&format!(" ^{fragment}"))
+                .then_some(ReferenceFragmentLocation {
+                    line: line + 1,
+                    column: value.find('^').map_or(1, |column| column + 1),
+                })
+        });
+    }
+    source.lines().enumerate().find_map(|(line, value)| {
+        let trimmed = value.trim_start();
+        let level = trimmed
+            .chars()
+            .take_while(|character| *character == '#')
+            .count();
+        if !(1..=6).contains(&level)
+            || !trimmed
+                .as_bytes()
+                .get(level)
+                .is_some_and(u8::is_ascii_whitespace)
+        {
+            return None;
+        }
+        let text = trimmed[level..].trim().trim_end_matches('#').trim();
+        (text == fragment || heading_slug(text) == fragment).then_some(ReferenceFragmentLocation {
+            line: line + 1,
+            column: value.len() - trimmed.len() + 1,
+        })
+    })
+}
+
+fn heading_slug(value: &str) -> String {
+    value
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_alphanumeric() || character == '_' || character == '-' {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .split('-')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 pub fn workspace_health(root: impl AsRef<Path>) -> Result<WorkspaceHealthResult, OperationError> {
@@ -2288,7 +2646,8 @@ mod tests {
         OperationError, SkillSource, WorkspaceFileFeature, WorkspaceHealthCategory,
         build_workspace_health_result, create_entry, inspect_config,
         is_public_workspace_path_allowed, is_raw_workspace_path_allowed, list_file_references,
-        list_files, skills_get, skills_list, workspace_dashboard, workspace_health,
+        list_files, resolve_reference, skills_get, skills_list, workspace_dashboard,
+        workspace_health,
     };
     use crate::{Diagnostic, IndexEntry, OperationStatus, ReferenceIntent, WorkspaceFileKind};
 
@@ -3561,6 +3920,152 @@ conventions:
             Err(OperationError::EntryNotFound)
         ));
 
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reference_resolve_handles_relative_paths_and_heading_fragments() {
+        let root = fixture_root("reference-resolve");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("notes/guides")).unwrap();
+        fs::write(
+            root.join("notes/guides/target.md"),
+            "---\nkind: note\ntitle: Target\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Target\n\n## Getting Started\n",
+        )
+        .unwrap();
+
+        let result = resolve_reference(
+            &root,
+            "notes/source.md",
+            "guides/target.md#Getting Started",
+            ReferenceIntent::Link,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(result.status, OperationStatus::Passed);
+        let target = result.target.unwrap();
+        assert_eq!(target.path, "notes/guides/target.md");
+        assert_eq!(target.fragment.as_deref(), Some("Getting Started"));
+        assert!(target.fragment_location.is_some());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reference_resolve_reports_ambiguity_without_guessing() {
+        let root = fixture_root("reference-resolve-ambiguous");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
+        )
+        .unwrap();
+        for directory in ["notes/a", "notes/b"] {
+            fs::create_dir_all(root.join(directory)).unwrap();
+            fs::write(
+                root.join(directory).join("same.md"),
+                format!("---\nkind: note\ntitle: {directory}\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Same\n"),
+            )
+            .unwrap();
+        }
+
+        let result = resolve_reference(
+            &root,
+            "notes/source.md",
+            "same",
+            ReferenceIntent::Reference,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert!(result.target.is_none());
+        assert_eq!(result.candidates.len(), 2);
+        assert_eq!(result.diagnostics[0].code, "reference.ambiguous");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reference_resolve_uses_schema_informed_semantic_references() {
+        let root = fixture_root("reference-resolve-semantic");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("members/tiscs.md"),
+            "---\nname: Tiscs\ndescription: \"\"\nresponsibilities: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\nupdatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Tiscs\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/tiscs.md"),
+            "---\ntitle: Tiscs Note\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\nupdatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Tiscs Note\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("tasks/source.md"),
+            "---\ntitle: Source\nsummary: \"\"\nstatus: todo\npriority: medium\nowners: []\nassignees: [tiscs]\nreviewers: []\nblockedBy: []\ndueDate: \"\"\n---\n\n# Source\n",
+        )
+        .unwrap();
+
+        let result = resolve_reference(
+            &root,
+            "tasks/source.md",
+            "tiscs",
+            ReferenceIntent::Reference,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert_eq!(
+            result.target.map(|target| target.path),
+            Some("members/tiscs.md".to_string())
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reference_resolve_preserves_case_and_rejects_source_path_escape() {
+        let root = fixture_root("reference-resolve-path-safety");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/Target.md"),
+            "---\nkind: note\ntitle: Target\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Target\n",
+        )
+        .unwrap();
+
+        let case_mismatch = resolve_reference(
+            &root,
+            "notes/source.md",
+            "target",
+            ReferenceIntent::Link,
+            None,
+        )
+        .unwrap();
+        assert_eq!(case_mismatch.status, OperationStatus::Failed);
+        assert!(case_mismatch.target.is_none());
+        assert!(matches!(
+            resolve_reference(
+                &root,
+                "../outside.md",
+                "target",
+                ReferenceIntent::Link,
+                None,
+            ),
+            Err(OperationError::InvalidPath(_))
+        ));
         fs::remove_dir_all(root).unwrap();
     }
 

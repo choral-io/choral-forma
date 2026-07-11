@@ -617,7 +617,7 @@ The Markdown body should not contain query logic. It can include a render mount 
 <!-- forma-view -->
 ```
 
-If no mount point exists, the rendered view should appear after the Markdown body. If multiple mount points exist, health checks should report the problem.
+Exactly one mount point is required for a source-backed View preview. If no mount point or multiple mount points exist, render operations and health checks should report the problem with an actionable source location instead of guessing where generated content belongs.
 
 Views should have a surface:
 

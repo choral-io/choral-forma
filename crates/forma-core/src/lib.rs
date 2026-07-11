@@ -27,22 +27,23 @@ pub use operations::{
     ConfigInspectResult, ConfigSource, CreateInputResult, CreateInputSource, CreateResult,
     CreatedEntry, DashboardEntrySummary, DashboardSpace, DashboardViewSummary,
     FileReferencesResult, FilesListResult, InitResult, InspectEntry, InspectResult, ListEntry,
-    ListResult, ListedSpace, OperationError, ReferenceEdge, ReferenceFile, SkillDetail,
-    SkillSource, SkillSummary, SkillsGetResult, SkillsListResult, WorkspaceDashboardResult,
-    WorkspaceFile, WorkspaceFileFeature, WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary,
-    create_entry, detect_environment_timezone, init_workspace, inspect_config,
-    inspect_entry_by_path, inspect_entry_by_space, is_public_workspace_path_allowed,
-    is_raw_workspace_path_allowed, list_file_references, list_files, list_space,
-    media_type_for_workspace_path, operation_error_diagnostic, skills_get, skills_list,
-    workspace_dashboard,
+    ListResult, ListedSpace, OperationError, ReferenceEdge, ReferenceFile,
+    ReferenceFragmentLocation, ReferenceResolveCandidate, ReferenceResolveResult,
+    ResolvedReferenceTarget, SkillDetail, SkillSource, SkillSummary, SkillsGetResult,
+    SkillsListResult, WorkspaceDashboardResult, WorkspaceFile, WorkspaceFileFeature,
+    WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary, create_entry,
+    detect_environment_timezone, init_workspace, inspect_config, inspect_entry_by_path,
+    inspect_entry_by_space, is_public_workspace_path_allowed, is_raw_workspace_path_allowed,
+    list_file_references, list_files, list_space, media_type_for_workspace_path,
+    operation_error_diagnostic, resolve_reference, skills_get, skills_list, workspace_dashboard,
 };
 pub use path::{
     FORMA_CONFIG_PATH, PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,
 };
 pub use render::{
     FileRenderOutput, FileRenderResult, GraphRenderEdge, GraphRenderNode, KanbanRenderColumn,
-    RenderedFile, RenderedHeading, RenderedView, ViewRenderItem, ViewRenderOutput,
-    ViewRenderResult, render_file, render_view,
+    RenderedFile, RenderedHeading, RenderedView, ViewContentMount, ViewRenderDocument,
+    ViewRenderItem, ViewRenderOutput, ViewRenderResult, render_file, render_view,
 };
 pub use schema::{
     PlaceholderContext, RenderedTemplate, ResolvedCreateInputs, RuntimeValues, SchemaNode,
@@ -61,6 +62,6 @@ mod tests {
 
     #[test]
     fn exposes_package_version() {
-        assert_eq!(version(), "0.1.0");
+        assert_eq!(version(), "0.1.0-alpha.13");
     }
 }

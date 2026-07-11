@@ -12,11 +12,11 @@ use axum::http::header::{
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use forma_rpc::{
     CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest, InspectRequest,
-    ListRequest, OperationRequest, SkillsGetRequest, SkillsListRequest, ViewRenderRequest,
-    WorkspaceHealthRequest,
+    ListRequest, OperationRequest, ReferenceResolveRequest, SkillsGetRequest, SkillsListRequest,
+    ViewRenderRequest, WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -83,6 +83,10 @@ enum Command {
         #[command(subcommand)]
         command: ViewCommand,
     },
+    Reference {
+        #[command(subcommand)]
+        command: ReferenceCommand,
+    },
     Docs {
         #[command(subcommand)]
         command: DocsCommand,
@@ -128,6 +132,39 @@ enum ViewCommand {
         #[arg(long)]
         json: bool,
     },
+}
+
+#[derive(Debug, Subcommand)]
+enum ReferenceCommand {
+    Resolve {
+        #[arg(long)]
+        source: String,
+        #[arg(long)]
+        target: String,
+        #[arg(long, value_enum, default_value_t = ReferenceIntentArg::Reference)]
+        intent: ReferenceIntentArg,
+        #[arg(long)]
+        fragment: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum ReferenceIntentArg {
+    Reference,
+    Link,
+    Embed,
+}
+
+impl From<ReferenceIntentArg> for forma_core::ReferenceIntent {
+    fn from(value: ReferenceIntentArg) -> Self {
+        match value {
+            ReferenceIntentArg::Reference => Self::Reference,
+            ReferenceIntentArg::Link => Self::Link,
+            ReferenceIntentArg::Embed => Self::Embed,
+        }
+    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -260,6 +297,27 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                         params: Default::default(),
                     }))?;
                 print_result(&result, json, "view render");
+                exit_if_failed(&result);
+                Ok(())
+            }
+        },
+        Some(Command::Reference { command }) => match command {
+            ReferenceCommand::Resolve {
+                source,
+                target,
+                intent,
+                fragment,
+                json,
+            } => {
+                let result = dispatcher.dispatch(OperationRequest::ReferenceResolve(
+                    ReferenceResolveRequest {
+                        source_path: source,
+                        target,
+                        intent: intent.into(),
+                        fragment,
+                    },
+                ))?;
+                print_result(&result, json, "reference resolve");
                 exit_if_failed(&result);
                 Ok(())
             }

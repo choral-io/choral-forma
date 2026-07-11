@@ -188,6 +188,32 @@ export type ReferenceEdge = {
     intent: "reference" | "link" | "embed";
 };
 
+export type ReferenceResolveCandidate = {
+    path: string;
+    space: string;
+    kind?: string;
+    title?: string;
+};
+
+export type ResolvedReferenceTarget = ReferenceResolveCandidate & {
+    fragment?: string;
+    fragmentKind?: "heading" | "block";
+    fragmentLocation?: {
+        line: number;
+        column: number;
+    };
+};
+
+export type ReferenceResolveResult = BaseOperationResult & {
+    operation: "reference.resolve";
+    workspace: WorkspaceSummary;
+    sourcePath: string;
+    rawTarget: string;
+    intent: "reference" | "link" | "embed";
+    target?: ResolvedReferenceTarget;
+    candidates?: ReferenceResolveCandidate[];
+};
+
 export type RenderedView = {
     id: string;
     path: string;
@@ -262,6 +288,16 @@ export type ViewRenderOutput =
           nodes: GraphRenderNode[];
           edges: GraphRenderEdge[];
       };
+
+export type ViewRenderDocument = {
+    bodySource: string;
+    mounts: Array<{
+        kind: "content";
+        startOffset: number;
+        endOffset: number;
+        location: DiagnosticLocation;
+    }>;
+};
 
 export type CheckResult = BaseOperationResult & {
     operation: "check";
@@ -398,6 +434,7 @@ export type ViewRenderResult = BaseOperationResult & {
     workspace: WorkspaceSummary;
     view?: RenderedView;
     render?: ViewRenderOutput;
+    document?: ViewRenderDocument;
 };
 
 export type JsonRpcSuccess<T> = {
@@ -521,6 +558,20 @@ export class FormaRpcClient {
 
     listFileReferences(path: string) {
         return this.call<FileReferencesResult>("file.references", { path });
+    }
+
+    resolveReference(
+        sourcePath: string,
+        target: string,
+        intent: "reference" | "link" | "embed" = "reference",
+        fragment?: string,
+    ) {
+        return this.call<ReferenceResolveResult>("reference.resolve", {
+            sourcePath,
+            target,
+            intent,
+            ...(fragment ? { fragment } : {}),
+        });
     }
 
     workspaceHealth() {
