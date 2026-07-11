@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: infra
 effort: L
-status: doing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -83,4 +83,9 @@ If required review blocks merge, leave the PR green and ready. If credentials or
 - Extension gates: typecheck, strict lint, 19 extension unit tests, package contents, VS Code 1.110 trusted, current stable trusted, and VS Code 1.110 restricted-mode Extension Host tests passed.
 - VSIX: `forma-0.1.0-alpha.13.vsix` packaged with extension id `choral-io.forma`, installed into an isolated profile, and activated against a separately built Forma binary.
 - UI: source-first list preview was inspected in VS Code dark and light themes; list/table/kanban and Graph deferred commands are covered by Extension Host integration.
-- Pending: commits, PR CI, merged-main CI, tag, GitHub prerelease, and downloaded release artifact verification.
+- PR: [#1](https://github.com/choral-io/choral-forma/pull/1) merged as `7eb1d49eb0f621018dfbbcc7852a5ae2020764aa` after Knowledge, Web, Rust, and VS Code Extension checks passed in [PR CI run 29152153465](https://github.com/choral-io/choral-forma/actions/runs/29152153465).
+- Merged-main gate: the same four jobs passed for merge commit `7eb1d49eb0f621018dfbbcc7852a5ae2020764aa` in [main CI run 29152228755](https://github.com/choral-io/choral-forma/actions/runs/29152228755) before tagging.
+- Release: annotated tag `v0.1.0-alpha.13` points to the verified merge commit; [Release workflow run 29152308411](https://github.com/choral-io/choral-forma/actions/runs/29152308411) passed version validation, five binary builds, VSIX build and Extension Host tests, checksum generation, and GitHub prerelease publication.
+- Published artifacts: [GitHub prerelease v0.1.0-alpha.13](https://github.com/choral-io/choral-forma/releases/tag/v0.1.0-alpha.13) contains five platform archives, the VSIX, and a checksum file for each payload.
+- Downloaded verification: all six payload checksums passed; the released macOS arm64 binary reported `forma 0.1.0-alpha.13`; the released VSIX SHA-256 is `2bbc245e2f40d706afa7628d8f4e7b01baa33d2889067a1201292703ad0e8626` and its manifest reports `choral-io.forma@0.1.0-alpha.13`, `Forma for VS Code`, `https://forma.choral.io`, and VS Code `^1.110.0`.
+- Released-package smoke: the downloaded VSIX installed into an isolated extension directory as `choral-io.forma@0.1.0-alpha.13`; an isolated VS Code 1.128 profile using the downloaded released Forma binary reached `Forma: Ready`, and `Forma: Inspect Configuration` returned workspace configuration JSON.

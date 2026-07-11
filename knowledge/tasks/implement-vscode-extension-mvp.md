@@ -17,7 +17,7 @@ tags:
     - editor-extension
 
 effort: L
-status: doing
+status: done
 readiness: ready
 sprint:
 
@@ -92,7 +92,7 @@ VS Code is the first editor extension target and the primary product surface for
 
 ## Relationship Notes
 
-This is the umbrella for the first installable release. It remains blocked until [[tasks/validate-and-release-forma-alpha-13]] completes the child task chain in [[planning/editor-extension-alpha-13-execution-plan]].
+This is the umbrella for the first installable release. The child task chain in [[planning/editor-extension-alpha-13-execution-plan]] completed with the published and verified [[releases/next-internal-release]].
 
 ## Development Entry Point
 

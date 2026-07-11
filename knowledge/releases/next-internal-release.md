@@ -5,7 +5,7 @@ title: Next Internal Release
 summary: Internal prerelease gate for the first installable Forma for VS Code extension and aligned Forma release artifacts.
 scope: project
 type: release
-status: validating
+status: released
 version: v0.1.0-alpha.13
 date: 2026-07-11
 owners:
@@ -32,7 +32,7 @@ relatedMetrics:
 
 ## Purpose
 
-This is a rolling pre-release checklist for the next internal Forma version. After an internal version is tagged or published, reset this record to the next candidate instead of treating it as a permanent release note.
+This record preserves the cutline and validation evidence for the published Alpha 13 internal prerelease. Start a separate release record for the next candidate so this published evidence remains stable.
 
 ## Scope
 
@@ -57,24 +57,28 @@ Required validation is defined by [[planning/editor-extension-alpha-13-execution
 Current validation result:
 
 - Candidate version: `v0.1.0-alpha.13`.
-- Latest published tag: `v0.1.0-alpha.12`.
-- Candidate cutline: local implementation complete on `codex/vscode-extension-alpha13`; PR merge pending.
+- Published tag: `v0.1.0-alpha.13`, pointing to merge commit `7eb1d49eb0f621018dfbbcc7852a5ae2020764aa`.
+- Cutline: [PR #1](https://github.com/choral-io/choral-forma/pull/1) merged from `codex/vscode-extension-alpha13` after all required checks passed.
 - Local validation: passed `CI=true mise run check`; Extension Host tests passed on VS Code 1.110, current stable, and an isolated untrusted 1.110 workspace; `forma check` and workspace health passed.
 - VSIX validation: `/tmp/forma-0.1.0-alpha.13.vsix` packaged with SHA-256 `3e3a653c373b3fafac666a47c671f66a31a8bde892cfc0e649e5ab8d2f5bc17c`; isolated installation and activation reported `choral-io.forma@0.1.0-alpha.13`.
 - UI validation: source and list preview were inspected side by side in VS Code dark and light themes; source links remained available and no Forma webview error was observed.
-- PR and merged-main CI: pending.
-- Release workflow and artifact verification: pending.
-- Release decision: do not tag until all local gates and required CI checks pass.
+- PR CI: Knowledge, Web, Rust, and VS Code Extension passed in [run 29152153465](https://github.com/choral-io/choral-forma/actions/runs/29152153465).
+- Merged-main CI: the same four jobs passed on the tagged merge commit in [run 29152228755](https://github.com/choral-io/choral-forma/actions/runs/29152228755).
+- Release workflow: version validation, five binary targets, VSIX tests and packaging, checksum generation, and GitHub Release publication passed in [run 29152308411](https://github.com/choral-io/choral-forma/actions/runs/29152308411).
+- Release artifact verification: all six downloaded payload checksums passed; the macOS arm64 binary reported `forma 0.1.0-alpha.13`; the published VSIX SHA-256 is `2bbc245e2f40d706afa7628d8f4e7b01baa33d2889067a1201292703ad0e8626` and its manifest reports `choral-io.forma@0.1.0-alpha.13`, `Forma for VS Code`, `https://forma.choral.io`, and VS Code `^1.110.0`.
+- Released-package smoke: the downloaded VSIX installed in an isolated profile, activated with the downloaded released Forma binary, reached `Forma: Ready`, and returned configuration JSON through `Forma: Inspect Configuration`.
+- Release decision: published as [GitHub prerelease v0.1.0-alpha.13](https://github.com/choral-io/choral-forma/releases/tag/v0.1.0-alpha.13).
 
 Validation history:
 
+- `v0.1.0-alpha.13`: local full checks, VS Code 1.110/current stable/restricted Extension Host tests, dark/light UI smoke, PR CI, merged-main CI, tag-triggered Release workflow, all downloaded checksums, released binary version, and released VSIX installation and activation passed at merge commit `7eb1d49eb0f621018dfbbcc7852a5ae2020764aa`.
 - `v0.1.0-alpha.8`: repository `config inspect`, `check`, `workspace health`, full `CI=true mise run check`, starter-kit `check`, starter-kit pressure validation, and readiness metric review passed at cutline `0190809 test: align builtin skill wording expectation`; latest previous tag was `v0.1.0-alpha.7`. Vite reported non-blocking chunk-size warnings.
 
 Task-board alignment:
 
-- This release record being `planned` does not imply that every related task has been moved to `done`.
+- This release record is `released`; the Alpha 13 Goal task chain has been moved to `done` from recorded validation evidence.
 - Use `cargo run -q -p forma-cli -- view render .forma/views/task-board --json` as the source of truth for current task status.
-- Reviewing or doing tasks must still be closed through explicit task-board review before any final release publish action.
+- Other reviewing or doing tasks on the board are outside the Alpha 13 Goal and retain their independent review state.
 
 ## Rollout Plan
 
@@ -96,7 +100,7 @@ Draft release note:
 
 ## Rollback Plan
 
-No runtime rollback is required for an internal knowledge release. If validation fails, keep the release in `planned` status, record the blocker, and create or update follow-up tasks.
+If internal testing finds a release-blocking defect, stop distributing this prerelease, record the defect and affected artifact, and publish a new version after validation. Do not move or overwrite the published Alpha 13 tag.
 
 ## Post-Release Follow-Up
 

@@ -10,7 +10,7 @@ value: M
 module: app
 effort: L
 status: backlog
-readiness: blocked
+readiness: needs-refinement
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - graph
     - vscode
     - design
-blockedBy:
-    - "tasks/validate-and-release-forma-alpha-13"
+blockedBy: []
 relatedTo:
     - "design/editor-extension-mvp-design"
     - "architecture/editor-extension-adapter-contract"

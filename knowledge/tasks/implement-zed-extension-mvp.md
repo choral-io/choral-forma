@@ -18,11 +18,10 @@ tags:
 
 effort: M
 status: backlog
-readiness: blocked
+readiness: needs-refinement
 sprint:
 
-blockedBy:
-    - "tasks/implement-vscode-extension-mvp"
+blockedBy: []
 relatedTo:
     - "decisions/editor-extension-primary-product-surface"
     - "architecture/editor-extension-adapter-contract"
@@ -74,7 +73,7 @@ Zed is an important editor target, but it should follow the first VS Code adapte
 
 ## Relationship Notes
 
-This task remains blocked behind the VS Code MVP so the second adapter is based on implementation evidence rather than parallel assumptions.
+The VS Code MVP baseline is now published. This task remains in backlog pending refinement from internal extension feedback so the second adapter is based on implementation evidence rather than parallel assumptions.
 
 ## Open Questions
 
