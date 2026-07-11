@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: app
 effort: M
-status: ready
+status: reviewing
 readiness: ready
 owners:
     - "members/tiscs"
@@ -44,10 +44,10 @@ Create the VS Code extension package and development baseline without implementi
 
 ## In Scope
 
-- Create `packages/vscode-extension` as the pnpm workspace package `@choral-forma/vscode-extension`.
-- Use extension id `choral-io.choral-forma` and display name `Choral Forma`.
+- Create `packages/vscode-extension` as a pnpm workspace package with the VS Code manifest name `forma`, which is required for extension id `choral-io.forma`.
+- Use extension id `choral-io.forma`, display name `Forma for VS Code`, and website `https://forma.choral.io`.
 - Configure a Node `main` entrypoint and `extensionKind: ["workspace"]`; do not add a browser entrypoint.
-- Inventory the VS Code APIs needed by Alpha 13, choose the lowest `engines.vscode` version containing those features, and record the rationale.
+- Inventory the VS Code APIs needed by Alpha 13, set `engines.vscode` to the product support floor of 1.110, and record the rationale.
 - Declare limited untrusted-workspace behavior and no virtual-workspace support where the manifest requires it.
 - Add TypeScript type checking, esbuild development/production bundles, Vitest unit tests, and Extension Host test scaffolding.
 - Add package scripts that participate in root recursive check, build, lint, and test workflows without breaking existing packages.
@@ -67,7 +67,7 @@ Create the VS Code extension package and development baseline without implementi
 - Type check, unit test, development bundle, and production bundle commands pass.
 - The bundle externalizes `vscode` and has one valid extension-host entrypoint.
 - Extension Host smoke can activate the package in a controlled fixture.
-- The minimum VS Code version is justified by used APIs and is not simply pinned to current stable.
+- The minimum VS Code version is 1.110, compatible with the used APIs, and not simply pinned to current stable.
 - Root checks still recognize shared and WebApp packages.
 - Existing pre-Goal dependency and TS/CSS commits are not rewritten or folded into this task.
 

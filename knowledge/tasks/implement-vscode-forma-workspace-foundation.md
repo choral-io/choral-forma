@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: app
 effort: L
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - vscode
     - workspace
     - trust
-blockedBy:
-    - "tasks/implement-editor-extension-forma-command-client"
+blockedBy: []
 relatedTo:
     - "tasks/implement-vscode-extension-mvp"
     - "planning/editor-extension-alpha-13-execution-plan"

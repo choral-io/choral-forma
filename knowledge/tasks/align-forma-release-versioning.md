@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: infra
 effort: M
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - versioning
     - release
     - alpha-13
-blockedBy:
-    - "tasks/implement-vscode-view-preview"
+blockedBy: []
 relatedTo:
     - "releases/next-internal-release"
     - "tasks/implement-vscode-extension-mvp"
@@ -64,6 +63,6 @@ Make all Forma release artifacts report and validate the same version instead of
 
 - One check fails on deliberate Cargo, extension, release, or tag mismatches.
 - Cargo metadata and the built binary report `0.1.0-alpha.13`.
-- VSIX manifest reports `0.1.0-alpha.13` and `choral-io.choral-forma`.
+- VSIX manifest reports `0.1.0-alpha.13` and `choral-io.forma`.
 - Release workflow rejects a mismatched tag before building artifacts.
 - Existing installers continue to use the `v0.1.0-alpha.13` GitHub tag and normalized mise version where applicable.

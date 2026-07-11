@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: core
 effort: M
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - references
     - rpc
     - cli
-blockedBy:
-    - "tasks/implement-vscode-forma-workspace-foundation"
+blockedBy: []
 relatedTo:
     - "architecture/forma-p0-operation-api-spec"
     - "architecture/editor-extension-adapter-contract"

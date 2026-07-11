@@ -141,4 +141,38 @@ describe("FormaRpcClient", () => {
             params: {},
         });
     });
+
+    it("requests canonical reference resolution with an optional fragment", async () => {
+        const calls: Array<{ body: unknown }> = [];
+        const client = new FormaRpcClient("/rpc", (_input, requestInit) => {
+            calls.push({ body: JSON.parse(requestInit.body) });
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: () =>
+                    Promise.resolve({
+                        jsonrpc: "2.0",
+                        id: "1",
+                        result: {
+                            schemaVersion: 1,
+                            operation: "reference.resolve",
+                            status: "passed",
+                            target: { path: "notes/target.md", space: "notes" },
+                        },
+                    }),
+            });
+        });
+
+        await client.resolveReference("notes/source.md", "target", "link", "Details");
+
+        expect(calls[0]?.body).toMatchObject({
+            method: "reference.resolve",
+            params: {
+                sourcePath: "notes/source.md",
+                target: "target",
+                intent: "link",
+                fragment: "Details",
+            },
+        });
+    });
 });

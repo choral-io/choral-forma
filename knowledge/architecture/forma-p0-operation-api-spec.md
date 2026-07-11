@@ -51,6 +51,7 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 | WorkspaceDashboard | `workspace.dashboard` | No required P0 CLI command | No |
 | FileRender | `file.render` | No required P0 CLI command | No |
 | FileReferences | `file.references` | No required P0 CLI command | No |
+| ReferenceResolve | `reference.resolve` | `forma reference resolve --source <path> --target <target> [--intent <intent>] [--fragment <fragment>] [--json]` | No |
 | WorkspaceHealth | `workspace.health` | `forma workspace health [--json]` | No |
 | SkillsList | `skills.list` | `forma skills list [--json]` | No |
 | SkillsGet | `skills.get` | `forma skills get <id> [--json]` | No |
@@ -72,6 +73,10 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 `FilesList` is required for the P0 WebApp file navigation mode. It is a read-only inventory operation over display-safe workspace files, not a general filesystem API. It should classify knowledge files, views, Markdown files, configuration files, and resources using workspace-relative POSIX paths.
 
 `FileReferences` is required for the read-only bidirectional note navigation baseline. It is a read-only operation for one indexed knowledge file. It returns outgoing references from that file plus backlinks from other indexed knowledge files, using resolved reference data from the in-memory read model. It should include display-safe source and target paths, available titles, reference source, optional field and semantic type, and intent `reference | link | embed`. It should not scan raw Markdown in the WebApp, persist relationship results, or expose absolute host paths. A direct CLI command can wait until there is script demand.
+
+`ReferenceResolve` is the editor-adapter target-resolution boundary. It accepts a workspace-relative source path, raw target, intent, and optional fragment, then applies the same case-sensitive path and index semantics used by Forma checks. A resolved result includes the canonical workspace-relative target, display metadata, fragment kind, and one-based file line/column when available. Ambiguous results return candidates without guessing; unresolved, unsafe, and missing-fragment cases return structured diagnostics. The operation never rewrites source.
+
+`ViewRender` may include an optional `document` payload for source-first editor clients. It contains the Markdown body plus backend-recognized `forma:content` mount offsets and diagnostic locations. Offsets are zero-based UTF-16 code-unit offsets so editor and WebView clients can slice the serialized body without reinterpreting Rust UTF-8 byte indexes. Clients insert the structured list, table, kanban, or graph projection at that mount without reinterpreting Forma directives. Missing and multiple mounts remain backend diagnostics.
 
 `entry.render` and `references.list` are not part of the P0 API. The project is still early enough that callers should migrate directly to `file.render` and `file.references` instead of relying on compatibility aliases.
 

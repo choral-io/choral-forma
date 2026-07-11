@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
 use crate::config::{LoadMode, config_source_paths, load_workspace};
-use crate::diagnostics::{Diagnostic, DiagnosticSummary, OperationStatus};
+use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::index::{
     IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource, discover_workspace,
 };
@@ -78,8 +78,27 @@ pub struct ViewRenderResult {
     pub view: Option<RenderedView>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub render: Option<ViewRenderOutput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub document: Option<ViewRenderDocument>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewRenderDocument {
+    pub body_source: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mounts: Vec<ViewContentMount>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewContentMount {
+    pub kind: String,
+    pub start_offset: usize,
+    pub end_offset: usize,
+    pub location: DiagnosticLocation,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -489,9 +508,16 @@ pub fn render_view(
     );
 
     let view_definition = parse_view_definition(&document, &view_path, &mut diagnostics);
-    let has_mount = document.references.iter().any(|reference| {
-        reference.intent == FormaReferenceIntent::View && reference.target.is_empty()
-    }) || document.body.contains("<!-- forma:content -->");
+    let body_line_offset = source
+        .get(..source.len().saturating_sub(document.body.len()))
+        .map_or(0, |prefix| {
+            prefix.bytes().filter(|byte| *byte == b'\n').count()
+        });
+    let view_document = view_render_document(&document.body, body_line_offset);
+    let has_mount = !view_document.mounts.is_empty()
+        || document.references.iter().any(|reference| {
+            reference.intent == FormaReferenceIntent::View && reference.target.is_empty()
+        });
     if !has_mount {
         diagnostics.push(
             Diagnostic::error(
@@ -499,6 +525,16 @@ pub fn render_view(
                 "View must contain a forma-view mount point.",
             )
             .with_path(view_path.clone()),
+        );
+    }
+    if view_document.mounts.len() > 1 {
+        diagnostics.push(
+            Diagnostic::error(
+                "view.mountMultiple",
+                "View must contain exactly one forma-view mount point.",
+            )
+            .with_path(view_path.clone())
+            .with_location(view_document.mounts[1].location.clone()),
         );
     }
 
@@ -551,9 +587,40 @@ pub fn render_view(
             .as_ref()
             .map(|definition| rendered_view(index_view, view, &view_path, definition, params)),
         render,
+        document: Some(view_document),
         summary,
         diagnostics,
     })
+}
+
+fn view_render_document(body_source: &str, body_line_offset: usize) -> ViewRenderDocument {
+    const MARKER: &str = "<!-- forma:content -->";
+    let mounts = body_source
+        .match_indices(MARKER)
+        .map(|(start_byte, marker)| {
+            let prefix = &body_source[..start_byte];
+            let start_offset = prefix.encode_utf16().count();
+            let line = body_line_offset + prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
+            let column = prefix
+                .rsplit_once('\n')
+                .map_or(prefix.encode_utf16().count() + 1, |(_, tail)| {
+                    tail.encode_utf16().count() + 1
+                });
+            ViewContentMount {
+                kind: "content".to_string(),
+                start_offset,
+                end_offset: start_offset + marker.encode_utf16().count(),
+                location: DiagnosticLocation::Body {
+                    line: Some(line),
+                    column: Some(column),
+                },
+            }
+        })
+        .collect();
+    ViewRenderDocument {
+        body_source: body_source.to_string(),
+        mounts,
+    }
 }
 
 fn parse_view_definition(
@@ -2144,6 +2211,66 @@ mod tests {
                 .any(|diagnostic| diagnostic.code == "view.mountMissing")
         );
 
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn view_render_returns_body_and_content_mount_source_mapping() {
+        let root = fixture_root("view-document-mount");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/views/notes.md"),
+            "---\nkind: view\nmode: list\ntitle: Notes\nsource:\n  type: pages\n---\n\n# Notes\n\nBefore 🧭.\n\n<!-- forma:content -->\n\nAfter.\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "notes", BTreeMap::new()).unwrap();
+        let document = result.document.expect("view document should be returned");
+
+        assert!(document.body_source.contains("Before 🧭."));
+        assert!(document.body_source.contains("After."));
+        assert_eq!(document.mounts.len(), 1);
+        assert_eq!(
+            document.mounts[0].location,
+            crate::DiagnosticLocation::Body {
+                line: Some(13),
+                column: Some(1)
+            }
+        );
+        let prefix = document
+            .body_source
+            .split("<!-- forma:content -->")
+            .next()
+            .unwrap();
+        assert_eq!(
+            document.mounts[0].start_offset,
+            prefix.encode_utf16().count()
+        );
+        assert_eq!(
+            document.mounts[0].end_offset - document.mounts[0].start_offset,
+            "<!-- forma:content -->".encode_utf16().count()
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_multiple_view_mounts_with_source_location() {
+        let root = fixture_root("view-multiple-mounts");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/views/notes.md"),
+            "---\nkind: view\nmode: list\ntitle: Notes\nsource:\n  type: pages\n---\n\n# Notes\n\n<!-- forma:content -->\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "notes", BTreeMap::new()).unwrap();
+
+        assert_eq!(result.status, crate::OperationStatus::Failed);
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "view.mountMultiple" && diagnostic.location.is_some()
+        }));
         fs::remove_dir_all(root).unwrap();
     }
 

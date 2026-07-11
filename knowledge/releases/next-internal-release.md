@@ -2,10 +2,10 @@
 schemaVersion: 1
 kind: release
 title: Next Internal Release
-summary: Internal prerelease gate for the first installable Choral Forma VS Code extension and aligned Forma release artifacts.
+summary: Internal prerelease gate for the first installable Forma for VS Code extension and aligned Forma release artifacts.
 scope: project
 type: release
-status: planned
+status: validating
 version: v0.1.0-alpha.13
 date: 2026-07-11
 owners:
@@ -58,8 +58,10 @@ Current validation result:
 
 - Candidate version: `v0.1.0-alpha.13`.
 - Latest published tag: `v0.1.0-alpha.12`.
-- Candidate cutline: pending implementation and PR merge.
-- Local validation: pending.
+- Candidate cutline: local implementation complete on `codex/vscode-extension-alpha13`; PR merge pending.
+- Local validation: passed `CI=true mise run check`; Extension Host tests passed on VS Code 1.110, current stable, and an isolated untrusted 1.110 workspace; `forma check` and workspace health passed.
+- VSIX validation: `/tmp/forma-0.1.0-alpha.13.vsix` packaged with SHA-256 `3e3a653c373b3fafac666a47c671f66a31a8bde892cfc0e649e5ab8d2f5bc17c`; isolated installation and activation reported `choral-io.forma@0.1.0-alpha.13`.
+- UI validation: source and list preview were inspected side by side in VS Code dark and light themes; source links remained available and no Forma webview error was observed.
 - PR and merged-main CI: pending.
 - Release workflow and artifact verification: pending.
 - Release decision: do not tag until all local gates and required CI checks pass.
@@ -90,7 +92,7 @@ The old `knowledge-workflow` skills are not product runtime requirements. Their 
 
 Draft release note:
 
-> Forma `v0.1.0-alpha.13` adds the first internally testable Choral Forma VS Code extension. It discovers configured Markdown workspaces through a separately installed Forma binary, provides Forma-aware reference navigation, and previews source-backed list, table, and kanban views directly inside VS Code. Binary archives and the VSIX now share one release version and are produced by the GitHub Release workflow.
+> Forma `v0.1.0-alpha.13` adds the first internally testable Forma for VS Code extension (`choral-io.forma`). It discovers configured Markdown workspaces through a separately installed Forma binary, provides Forma-aware reference navigation, and previews source-backed list, table, and kanban views directly inside VS Code. Binary archives and the VSIX now share one release version and are produced by the GitHub Release workflow.
 
 ## Rollback Plan
 

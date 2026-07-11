@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: core
 effort: M
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - views
     - rendering
     - rpc
-blockedBy:
-    - "tasks/implement-vscode-reference-navigation"
+blockedBy: []
 relatedTo:
     - "architecture/forma-view-query-model"
     - "architecture/forma-p0-operation-api-spec"

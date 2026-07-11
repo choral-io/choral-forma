@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: app
 effort: L
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - vscode
     - navigation
     - wikilink
-blockedBy:
-    - "tasks/implement-forma-reference-resolve-operation"
+blockedBy: []
 relatedTo:
     - "tasks/implement-vscode-extension-mvp"
     - "planning/editor-extension-alpha-13-execution-plan"

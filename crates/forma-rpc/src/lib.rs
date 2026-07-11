@@ -36,6 +36,8 @@ pub enum Operation {
     FileRender,
     #[serde(rename = "file.references")]
     FileReferences,
+    #[serde(rename = "reference.resolve")]
+    ReferenceResolve,
     #[serde(rename = "workspace.health")]
     WorkspaceHealth,
     #[serde(rename = "skills.list")]
@@ -58,6 +60,7 @@ impl Operation {
             Self::ViewRender => "view.render",
             Self::FileRender => "file.render",
             Self::FileReferences => "file.references",
+            Self::ReferenceResolve => "reference.resolve",
             Self::WorkspaceHealth => "workspace.health",
             Self::SkillsList => "skills.list",
             Self::SkillsGet => "skills.get",
@@ -78,6 +81,7 @@ pub enum OperationRequest {
     ViewRender(ViewRenderRequest),
     FileRender(FileRenderRequest),
     FileReferences(FileReferencesRequest),
+    ReferenceResolve(ReferenceResolveRequest),
     WorkspaceHealth(WorkspaceHealthRequest),
     SkillsList(SkillsListRequest),
     SkillsGet(SkillsGetRequest),
@@ -169,6 +173,17 @@ pub struct FileRenderRequest {
 #[serde(rename_all = "camelCase")]
 pub struct FileReferencesRequest {
     pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceResolveRequest {
+    pub source_path: String,
+    pub target: String,
+    pub intent: forma_core::ReferenceIntent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fragment: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -316,6 +331,15 @@ impl Dispatcher {
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::FileReferences, error)))
             }
+            OperationRequest::ReferenceResolve(request) => forma_core::resolve_reference(
+                root,
+                &request.source_path,
+                &request.target,
+                request.intent,
+                request.fragment,
+            )
+            .map(OperationResult::from)
+            .or_else(|error| Ok(core_error_result(Operation::ReferenceResolve, error))),
             OperationRequest::WorkspaceHealth(_) => forma_core::operations::workspace_health(root)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::WorkspaceHealth, error))),
@@ -535,6 +559,15 @@ fn operation_from_method(
             }),
         "file.references" => serde_json::from_value::<FileReferencesRequest>(params)
             .map(OperationRequest::FileReferences)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "reference.resolve" => serde_json::from_value::<ReferenceResolveRequest>(params)
+            .map(OperationRequest::ReferenceResolve)
             .map_err(|_| {
                 JsonRpcFailure::without_id(
                     JsonRpcErrorCode::InvalidParams,
@@ -798,6 +831,9 @@ impl From<forma_core::ViewRenderResult> for OperationResult {
         if let Some(render) = result.render {
             data.insert("render".to_string(), json!(render));
         }
+        if let Some(document) = result.document {
+            data.insert("document".to_string(), json!(document));
+        }
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -835,6 +871,31 @@ impl From<forma_core::FileReferencesResult> for OperationResult {
         data.insert("file".to_string(), json!(result.file));
         data.insert("outgoing".to_string(), json!(result.outgoing));
         data.insert("backlinks".to_string(), json!(result.backlinks));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::ReferenceResolveResult> for OperationResult {
+    fn from(result: forma_core::ReferenceResolveResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("sourcePath".to_string(), json!(result.source_path));
+        data.insert("rawTarget".to_string(), json!(result.raw_target));
+        data.insert("intent".to_string(), json!(result.intent));
+        if let Some(target) = result.target {
+            data.insert("target".to_string(), json!(target));
+        }
+        if !result.candidates.is_empty() {
+            data.insert("candidates".to_string(), json!(result.candidates));
+        }
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1222,6 +1283,66 @@ mod tests {
     }
 
     #[test]
+    fn json_rpc_dispatches_reference_resolve() {
+        let root = fixture_root("reference-resolve-rpc");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/target.md"),
+            "---\nkind: note\ntitle: Target\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Target\n\n## Details\n",
+        )
+        .unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"reference.resolve","params":{"sourcePath":"notes/source.md","target":"target#Details","intent":"link"}}"#,
+        );
+
+        assert_eq!(response["result"]["operation"], "reference.resolve");
+        assert_eq!(response["result"]["status"], "passed");
+        assert_eq!(response["result"]["target"]["path"], "notes/target.md");
+        assert_eq!(response["result"]["target"]["fragment"], "Details");
+        assert!(response["result"]["target"]["fragmentLocation"]["line"].is_number());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_view_render_includes_editor_document_source_mapping() {
+        let root = fixture_root("view-document-rpc");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/views/editor-list.md"),
+            "---\nkind: view\nmode: list\ntitle: Editor List\nsource:\n  type: pages\n---\n\n# Editor List\n\nBefore.\n\n<!-- forma:content -->\n\nAfter.\n",
+        )
+        .unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"view.render","params":{"view":".forma/views/editor-list"}}"#,
+        );
+
+        assert_eq!(response["result"]["operation"], "view.render");
+        assert!(
+            response["result"]["document"]["bodySource"]
+                .as_str()
+                .unwrap()
+                .contains("After.")
+        );
+        assert_eq!(
+            response["result"]["document"]["mounts"][0]["kind"],
+            "content"
+        );
+        assert!(response["result"]["document"]["mounts"][0]["startOffset"].is_number());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn json_rpc_dispatches_workspace_dashboard() {
         let root = fixture_root("workspace-dashboard-rpc");
         fs::create_dir_all(&root).unwrap();
@@ -1436,6 +1557,10 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::Operation::FileReferences).unwrap(),
             "file.references"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::ReferenceResolve).unwrap(),
+            "reference.resolve"
         );
         assert_eq!(
             serde_json::to_value(super::Operation::WorkspaceHealth).unwrap(),

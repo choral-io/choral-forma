@@ -77,7 +77,10 @@ fn prints_placeholder_version() {
         .expect("forma binary should run");
 
     assert!(output.status.success());
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "forma 0.1.0\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "forma 0.1.0-alpha.13\n"
+    );
     assert!(output.stderr.is_empty());
 }
 
@@ -89,7 +92,10 @@ fn supports_standard_version_flag() {
         .expect("forma --version should run");
 
     assert!(output.status.success());
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "forma 0.1.0\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "forma 0.1.0-alpha.13\n"
+    );
     assert!(output.stderr.is_empty());
 }
 
@@ -106,8 +112,52 @@ fn help_exposes_generic_commands_without_task_specific_helpers() {
     assert!(stdout.contains("view"));
     assert!(stdout.contains("list"));
     assert!(stdout.contains("inspect"));
+    assert!(stdout.contains("reference"));
     assert!(!stdout.contains("tasks"));
     assert!(!stdout.contains("board"));
+}
+
+#[test]
+fn reference_resolve_json_prints_direct_operation_result() {
+    let root = fixture_root("reference-resolve-json");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+    std::fs::write(
+        root.join("notes/source.md"),
+        "---\nkind: note\ntitle: Source\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Source\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("notes/target.md"),
+        "---\nkind: note\ntitle: Target\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Target\n",
+    )
+    .unwrap();
+
+    let output = forma(&root)
+        .args([
+            "reference",
+            "resolve",
+            "--source",
+            "notes/source.md",
+            "--target",
+            "target",
+            "--intent",
+            "link",
+            "--json",
+        ])
+        .output()
+        .expect("forma reference resolve should run");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["operation"], "reference.resolve");
+    assert_eq!(value["target"]["path"], "notes/target.md");
+    assert!(value.get("jsonrpc").is_none());
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

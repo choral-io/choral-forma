@@ -1,0 +1,16 @@
+**/*.ts
+**/*.map
+**/*.test.*
+src/**
+scripts/**
+test-fixtures/**
+.vscode-test/**
+node_modules/**
+dist/test/**
+*.config.mjs
+tsconfig.json
+.vscode-test.mjs
+.eslintcache
+media/**
+API_COMPATIBILITY.md
+DEPENDENCIES.md

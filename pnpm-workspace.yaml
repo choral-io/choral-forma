@@ -4,5 +4,7 @@ minimumReleaseAge: 4320
 pmOnFail: warn
 savePrefix: "~"
 allowBuilds:
+  "@vscode/vsce-sign": true
   esbuild: true
+  keytar: false
   msw: false
