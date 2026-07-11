@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import { expectedReleaseVersion, validateReleaseVersions } from "./release-version.mjs";
+import { expectedReleaseVersion, resolveReleaseTag, validateReleaseVersions } from "./release-version.mjs";
 
 const cargo = await readFile(new URL("../Cargo.toml", import.meta.url), "utf8");
 const extension = JSON.parse(
@@ -10,7 +10,7 @@ const release = await readFile(new URL("../knowledge/releases/next-internal-rele
 
 const cargoVersion = /^version\s*=\s*"([^"]+)"$/mu.exec(cargo)?.[1] ?? "missing";
 const releaseVersion = /^version:\s*["']?([^\s"']+)["']?$/mu.exec(release)?.[1] ?? "missing";
-const tag = process.argv[2] ?? process.env.RELEASE_TAG ?? process.env.GITHUB_REF_NAME;
+const tag = resolveReleaseTag(process.argv[2]);
 const errors = validateReleaseVersions({
     cargoVersion,
     extensionName: extension.name,

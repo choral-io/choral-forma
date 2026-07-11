@@ -1,5 +1,9 @@
 export const expectedReleaseVersion = "0.1.0-alpha.13";
 
+export function resolveReleaseTag(argument, environment = process.env) {
+    return argument ?? environment.RELEASE_TAG;
+}
+
 export function validateReleaseVersions({
     cargoVersion,
     extensionName,

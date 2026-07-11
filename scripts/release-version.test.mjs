@@ -1,7 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { expectedReleaseVersion, validateReleaseVersions } from "./release-version.mjs";
+import { expectedReleaseVersion, resolveReleaseTag, validateReleaseVersions } from "./release-version.mjs";
+
+test("only treats an explicit release input as a tag", () => {
+    assert.equal(resolveReleaseTag(undefined, { GITHUB_REF_NAME: "1/merge" }), undefined);
+    assert.equal(
+        resolveReleaseTag(undefined, {
+            GITHUB_REF_NAME: "1/merge",
+            RELEASE_TAG: `v${expectedReleaseVersion}`,
+        }),
+        `v${expectedReleaseVersion}`,
+    );
+    assert.equal(
+        resolveReleaseTag(`v${expectedReleaseVersion}`, {
+            RELEASE_TAG: "v0.1.0-alpha.12",
+        }),
+        `v${expectedReleaseVersion}`,
+    );
+});
 
 test("accepts aligned Forma release versions", () => {
     assert.deepEqual(
