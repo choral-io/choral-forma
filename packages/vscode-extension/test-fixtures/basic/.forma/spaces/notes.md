@@ -10,10 +10,14 @@ schema:
     fields:
         title:
             type: string
-    status:
-        type: string
-    owner:
-        type: noteRef
+        status:
+            type: string
+        owner:
+            type: noteRef
+        tags:
+            type: list
+            items:
+                type: string
 conventions:
     titleField: fields.title
 ---

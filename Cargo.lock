@@ -297,7 +297,7 @@ dependencies = [
 
 [[package]]
 name = "forma-cli"
-version = "0.1.0-alpha.14"
+version = "0.1.0-alpha.15"
 dependencies = [
  "axum",
  "clap",
@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "forma-core"
-version = "0.1.0-alpha.14"
+version = "0.1.0-alpha.15"
 dependencies = [
  "camino",
  "chrono",
@@ -327,7 +327,7 @@ dependencies = [
 
 [[package]]
 name = "forma-rpc"
-version = "0.1.0-alpha.14"
+version = "0.1.0-alpha.15"
 dependencies = [
  "forma-core",
  "serde",

@@ -8,6 +8,7 @@ import type {
     InspectResult,
     ReferenceResolveResult,
     ViewRenderResult,
+    WorkspaceDashboardResult,
     WorkspaceHealthResult,
 } from "@choral-forma/shared";
 
@@ -153,6 +154,10 @@ export class FormaClient {
 
     workspaceHealth(workspace: string, signal?: AbortSignal): Promise<WorkspaceHealthResult> {
         return this.runJson("workspace.health", workspace, ["workspace", "health"], signal);
+    }
+
+    workspaceDashboard(workspace: string, signal?: AbortSignal): Promise<WorkspaceDashboardResult> {
+        return this.runJson("workspace.dashboard", workspace, ["workspace", "dashboard"], signal);
     }
 
     inspect(workspace: string, path: string, signal?: AbortSignal): Promise<InspectResult> {

@@ -124,7 +124,7 @@ export type ListedFile = WorkspaceFile;
 
 export type InspectEntry = {
     path: string;
-    space: string;
+    space?: string;
     guidelines?: string[];
     kind?: string;
     title?: string;
@@ -317,6 +317,7 @@ export type ConfigInspectResult = BaseOperationResult & {
         dashboard?: Record<string, unknown>;
         spaces?: Record<string, unknown>;
         taxonomies?: Record<string, unknown>;
+        terms?: Record<string, unknown>;
         runtime?: Record<string, unknown>;
         types?: Record<string, unknown>;
     };
@@ -347,7 +348,7 @@ export type DashboardEntrySummary = {
     path: string;
     routePath: string;
     rawPath: string;
-    space: string;
+    space?: string;
     kind?: string;
     title?: string;
     summary?: string;
@@ -355,6 +356,25 @@ export type DashboardEntrySummary = {
     status: OperationStatus;
     updatedAt?: string;
     renderable: boolean;
+};
+
+export type DashboardTaxonomyTerm = {
+    id: string;
+    title: string;
+    display?: DisplayOptions;
+    description?: string;
+    entryCount: number;
+    status: OperationStatus;
+    entries: DashboardEntrySummary[];
+};
+
+export type DashboardTaxonomy = {
+    id: string;
+    title: string;
+    mode: string;
+    display?: DisplayOptions;
+    description?: string;
+    terms: DashboardTaxonomyTerm[];
 };
 
 export type DashboardEntryVariant = {
@@ -379,6 +399,7 @@ export type DashboardViewSummary = {
 export type WorkspaceDashboardResult = BaseOperationResult & {
     operation: "workspace.dashboard";
     workspace: WorkspaceSummary;
+    taxonomies: DashboardTaxonomy[];
     spaces: DashboardSpace[];
     entries: DashboardEntrySummary[];
     views: DashboardViewSummary[];

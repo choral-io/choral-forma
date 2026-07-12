@@ -109,21 +109,33 @@ jobs:
           cargo build --locked --bin forma
 
       - name: Run Extension Host tests
+        env:
+          FORMA_TEST_BIN: ${{ github.workspace }}/target/debug/forma
         run: PATH="${{ github.workspace }}/target/debug:$PATH" xvfb-run -a pnpm --filter forma test:integration
 
       - name: Inspect package contents
         run: pnpm --filter forma package:contents
 
+      - name: Resolve VSIX output
+        shell: bash
+        run: |
+          version="$(node -p "require('./packages/vscode-extension/package.json').version")"
+          echo "VSIX_OUT=${RUNNER_TEMP}/forma-${version}.vsix" >> "$GITHUB_ENV"
+
       - name: Package VSIX
-        env:
-          VSIX_OUT: ${{ runner.temp }}/forma-0.1.0-alpha.13.vsix
         run: pnpm --filter forma package:vsix
+
+      - name: Smoke test packaged VSIX
+        env:
+          FORMA_TEST_BIN: ${{ github.workspace }}/target/debug/forma
+          VSIX_PATH: ${{ env.VSIX_OUT }}
+        run: pnpm --filter forma smoke:vsix
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v7
         with:
           name: forma-vscode
-          path: ${{ runner.temp }}/forma-0.1.0-alpha.13.vsix
+          path: ${{ env.VSIX_OUT }}
           if-no-files-found: error
 
   rust:

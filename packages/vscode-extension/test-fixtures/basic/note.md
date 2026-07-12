@@ -2,6 +2,8 @@
 title: Extension fixture
 status: doing
 owner: done
+tags:
+    - vscode-extension
 ---
 
 # Extension fixture

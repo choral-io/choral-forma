@@ -1282,6 +1282,7 @@ mod tests {
             guidelines: Vec::new(),
             dashboard: None,
             taxonomies: BTreeMap::new(),
+            terms: BTreeMap::new(),
             types: BTreeMap::from([
                 (
                     "taskStatus".to_string(),

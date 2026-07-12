@@ -6,7 +6,10 @@ const cargo = await readFile(new URL("../Cargo.toml", import.meta.url), "utf8");
 const extension = JSON.parse(
     await readFile(new URL("../packages/vscode-extension/package.json", import.meta.url), "utf8"),
 );
-const release = await readFile(new URL("../knowledge/releases/next-internal-release.md", import.meta.url), "utf8");
+const release = await readFile(
+    new URL(`../knowledge/releases/forma-v${expectedReleaseVersion}.md`, import.meta.url),
+    "utf8",
+);
 
 const cargoVersion = /^version\s*=\s*"([^"]+)"$/mu.exec(cargo)?.[1] ?? "missing";
 const releaseVersion = /^version:\s*["']?([^\s"']+)["']?$/mu.exec(release)?.[1] ?? "missing";

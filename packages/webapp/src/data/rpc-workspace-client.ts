@@ -144,7 +144,7 @@ function mapEntry(entry: WorkspaceDashboardResult["entries"][number]): Dashboard
         rawPath: entry.rawPath,
         title: entry.title ?? entry.path,
         summary: entry.summary ?? "No summary provided.",
-        space: entry.space,
+        space: entry.space ?? "",
         updatedAt: entry.updatedAt,
         updatedLabel: formatRelativeDateTime(entry.updatedAt),
         status: mapStatus(entry.status),

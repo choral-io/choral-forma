@@ -47,6 +47,14 @@ export function workspaceRelativePath(root: string, absolutePath: string): strin
     return relative(root, absolutePath).split("\\").join("/");
 }
 
+export function shouldRefreshRuntimeForDocument(
+    workspaceRootCount: number,
+    activeRoot: string | undefined,
+    documentRoot: string | undefined,
+): boolean {
+    return workspaceRootCount === 0 || !documentRoot || documentRoot !== activeRoot;
+}
+
 function isInside(parent: string, child: string): boolean {
     const value = relative(resolve(parent), resolve(child));
     return value === "" || (!value.startsWith("..") && !isAbsolute(value));

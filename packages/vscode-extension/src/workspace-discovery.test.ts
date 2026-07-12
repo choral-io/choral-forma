@@ -4,6 +4,7 @@ import {
     discoverWorkspaceRoots,
     findNearestWorkspaceRoot,
     selectWorkspaceRoot,
+    shouldRefreshRuntimeForDocument,
     workspaceRelativePath,
 } from "./workspace-discovery.ts";
 
@@ -33,5 +34,12 @@ describe("workspace discovery", () => {
     it("returns POSIX workspace-relative paths", () => {
         expect(workspaceRelativePath("/repo", "/repo/notes/a.md")).toBe("notes/a.md");
         expect(workspaceRelativePath("/repo", "/outside/a.md")).toBeUndefined();
+    });
+
+    it("reuses the active runtime within one Forma root", () => {
+        expect(shouldRefreshRuntimeForDocument(1, "/repo", "/repo")).toBe(false);
+        expect(shouldRefreshRuntimeForDocument(2, "/repo", "/other")).toBe(true);
+        expect(shouldRefreshRuntimeForDocument(0, undefined, undefined)).toBe(true);
+        expect(shouldRefreshRuntimeForDocument(1, "/repo", undefined)).toBe(true);
     });
 });

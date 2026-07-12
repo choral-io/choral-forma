@@ -53,7 +53,7 @@ An editor adapter owns:
 - cancellation, timeout, process output, and user-visible status;
 - translating Forma diagnostics, links, definitions, commands, and locations into editor APIs;
 - opening source Markdown documents;
-- hosting preview WebViews and mapping editor theme tokens into renderer tokens;
+- extending editor-native Markdown Preview and mapping host theme tokens into projection styles;
 - refreshing derived state when source files are saved or configuration changes.
 
 The adapter must not deserialize `.forma.md` into a second product model, rescan Markdown to build a reference graph, evaluate view queries, or silently write workspace files.
@@ -115,9 +115,9 @@ The first implementation may refresh saved documents only. Live navigation and d
 
 ## View Preview Contract
 
-A view remains a Markdown document. Opening a view path should use the ordinary text editor by default. The extension provides `Open View Preview` and `Open View Preview to the Side` commands plus an optional CodeLens near the view mount.
+A view remains a Markdown document. Opening a view path uses the ordinary text editor, and the editor's native Markdown Preview remains the only preview surface. Forma contributes a Markdown-it enhancement and Preview stylesheet instead of registering a second preview button or hosting a parallel WebView.
 
-The preview renders the Markdown body and inserts the structured projection at the recognized mount. For example:
+Core metadata `kind: view` determines whether a document receives a View projection. The content mount controls placement only: the projection replaces the mount when present and is appended to the document when the mount is absent. For example:
 
 ```markdown
 # Task Board
@@ -129,34 +129,23 @@ Current delivery work grouped by status.
 The board is generated from repository metadata.
 ```
 
-The current `view.render` result contains view metadata, projection output, and diagnostics but not enough body and source-mapping data to compose this document faithfully. Extend the contract with an optional document payload such as:
+The backend remains responsible for metadata, reference semantics, View evaluation, and mount validation. Because Core operations are asynchronous while Markdown-it rendering is synchronous, the adapter may pre-render and cache structured projection HTML by document URI, then refresh the native Preview. The adapter must not reinterpret Forma directives or query configuration.
 
-```ts
-type ViewRenderDocument = {
-    bodySource: string;
-    mounts: Array<{
-        kind: "content";
-        location: DiagnosticLocation;
-    }>;
-};
-```
-
-The backend remains responsible for locating and validating mounts. The preview renderer may render Markdown presentation, but it must not reinterpret Forma directives or query configuration.
+Native Preview frontmatter links and the Forma Explorer navigation model are specified in [[design/vscode-preview-links-and-navigation]].
 
 Preview refresh is save-driven in the first version. A later transient render operation can support unsaved view source after the editor contract proves the need.
 
 ## Theme Contract
 
-Preview components use semantic Forma tokens supplied by a host theme adapter:
+Projection components use VS Code theme variables already available in native Markdown Preview:
 
 ```text
-editor tokens
--> --forma-background, --forma-foreground, --forma-border,
-   --forma-focus, --forma-selection, --forma-font-*, --forma-chart-*
+VS Code Preview tokens
+-> narrowly scoped --forma-* projection tokens
 -> list, table, kanban, graph renderers
 ```
 
-The VS Code adapter should derive these values from `--vscode-*` WebView variables, including editor colors, focus and contrast borders, chart colors, and editor font settings. Renderers must support light, dark, high-contrast, and reduced-motion modes without theme-name-specific rules.
+The VS Code adapter derives these values from `--vscode-*` variables, including editor colors, focus and contrast borders, chart colors, and editor font settings. Renderers must support light, dark, high-contrast, and reduced-motion modes without theme-name-specific rules.
 
 Other editor adapters may provide the same semantic Forma tokens from their own theme APIs. Shared renderer code must not import a VS Code API or WebApp theme context.
 
@@ -182,7 +171,7 @@ User-adjusted coordinates may be stored in editor workspace state, but must not 
 - Do not execute a workspace-provided binary automatically in an untrusted editor workspace.
 - Do not expose absolute host paths in structured public results.
 - Do not export cookies, credentials, editor storage, or repository content to external services.
-- Keep WebView script and resource access constrained with a content security policy and narrow local resource roots.
+- Prefer native editor preview and navigation APIs so the adapter does not introduce another script-enabled WebView security boundary.
 - Treat preview interactions as read-only. Opening a source file is allowed; mutations require a separately accepted operation contract.
 
 ## Version Compatibility
@@ -195,5 +184,5 @@ Core operation behavior should be tested in Rust. JSON result compatibility belo
 
 ## External References
 
-- [VS Code WebView API](https://code.visualstudio.com/api/extension-guides/webview), including WebView theme classes, `--vscode-*` color variables, and editor font variables.
+- [VS Code Markdown extension contributions](https://code.visualstudio.com/api/references/contribution-points), including Markdown-it plugins and Preview styles.
 - [VS Code Theme Color Reference](https://code.visualstudio.com/api/references/theme-color), including editor, focus, contrast, selection, and chart color tokens available to themed extension surfaces.

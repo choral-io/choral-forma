@@ -9,7 +9,8 @@ pub mod render;
 pub mod schema;
 
 pub use config::{
-    ConfigError, FormaWorkspace, LoadMode, SpaceDefinition, WorkspaceConfig, load_workspace,
+    ConfigError, FormaWorkspace, LoadMode, SpaceDefinition, TaxonomyTermDefinition,
+    WorkspaceConfig, load_workspace,
 };
 pub use diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
@@ -25,10 +26,10 @@ pub use markdown::{
 };
 pub use operations::{
     ConfigInspectResult, ConfigSource, CreateInputResult, CreateInputSource, CreateResult,
-    CreatedEntry, DashboardEntrySummary, DashboardSpace, DashboardViewSummary,
-    FileReferencesResult, FilesListResult, InitResult, InspectEntry, InspectResult, ListEntry,
-    ListResult, ListedSpace, OperationError, ReferenceEdge, ReferenceFile,
-    ReferenceFragmentLocation, ReferenceResolveCandidate, ReferenceResolveResult,
+    CreatedEntry, DashboardEntrySummary, DashboardSpace, DashboardTaxonomy, DashboardTaxonomyTerm,
+    DashboardViewSummary, FileReferencesResult, FilesListResult, InitResult, InspectEntry,
+    InspectResult, ListEntry, ListResult, ListedSpace, OperationError, ReferenceEdge,
+    ReferenceFile, ReferenceFragmentLocation, ReferenceResolveCandidate, ReferenceResolveResult,
     ResolvedReferenceTarget, SkillDetail, SkillSource, SkillSummary, SkillsGetResult,
     SkillsListResult, WorkspaceDashboardResult, WorkspaceFile, WorkspaceFileFeature,
     WorkspaceFileKind, WorkspaceLogoSummary, WorkspaceSummary, create_entry,
@@ -62,6 +63,6 @@ mod tests {
 
     #[test]
     fn exposes_package_version() {
-        assert_eq!(version(), "0.1.0-alpha.14");
+        assert_eq!(version(), "0.1.0-alpha.15");
     }
 }

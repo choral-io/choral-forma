@@ -2,34 +2,24 @@ import { describe, expect, it } from "vitest";
 
 import type { ViewRenderResult } from "@choral-forma/shared";
 
-import { renderViewHtml, splitBodyAtMount } from "./preview-renderer.ts";
+import { renderViewProjectionHtml } from "./preview-renderer.ts";
 
 const workspace = { root: ".", name: "Preview fixture" };
 
-describe("view preview rendering", () => {
-    it("preserves Markdown before and after the source-mapped mount", () => {
-        expect(splitBodyAtMount("# Before\n<!-- forma:content -->\nAfter", 9, 31)).toEqual(["# Before\n", "\nAfter"]);
-        expect(splitBodyAtMount("🧭<!-- forma:content -->After", 2, 24)).toEqual(["🧭", "After"]);
-    });
-
-    it("renders themed list links and a strict CSP", () => {
+describe("view projection rendering", () => {
+    it("renders list links for the native Markdown preview", () => {
         const result = {
             schemaVersion: 1,
             operation: "view.render",
             status: "passed",
             workspace,
             view: { id: "tasks", path: ".forma/views/tasks.md", surface: "page", mode: "list" },
-            document: { bodySource: "# Tasks\n<!-- forma:content -->\nSaved source.", mounts: [] },
             render: { kind: "list", items: [{ path: "tasks/one.md", title: "One" }] },
         } satisfies ViewRenderResult;
-        const html = renderViewHtml(result, "nonce", "vscode-webview:");
-        expect(html).toContain("--vscode-editor-background");
-        expect(html).toContain("vscode-high-contrast");
-        expect(html).toContain("prefers-reduced-motion");
-        expect(html).toContain("--vscode-editor-font-family");
-        expect(html).toContain("default-src 'none'");
+        const html = renderViewProjectionHtml(result);
+        expect(html).toContain("data-forma-view");
+        expect(html).toContain('href="/tasks/one.md"');
         expect(html).toContain('data-open-source="tasks/one.md"');
-        expect(html).toContain("Saved source.");
     });
 
     it("shows a deliberate graph deferral", () => {
@@ -41,7 +31,7 @@ describe("view preview rendering", () => {
             view: { id: "graph", path: ".forma/views/graph.md", surface: "page", mode: "graph" },
             render: { kind: "graph", nodes: [], edges: [] },
         } satisfies ViewRenderResult;
-        expect(renderViewHtml(result, "nonce", "vscode-webview:")).toContain("Graph preview is deferred");
+        expect(renderViewProjectionHtml(result)).toContain("Graph preview is deferred");
     });
 
     it("distinguishes empty projections from invalid views", () => {
@@ -61,11 +51,11 @@ describe("view preview rendering", () => {
             view: { id: "list", path: ".forma/views/list.md", surface: "page", mode: "list" },
             diagnostics: [{ severity: "error", code: "view.invalid", message: "Invalid view." }],
         } satisfies ViewRenderResult;
-        expect(renderViewHtml(empty, "nonce", "vscode-webview:")).toContain("Empty view");
-        expect(renderViewHtml(invalid, "nonce", "vscode-webview:")).toContain("View needs attention");
+        expect(renderViewProjectionHtml(empty)).toContain("Empty view");
+        expect(renderViewProjectionHtml(invalid)).toContain("View needs attention");
     });
 
-    it("renders configured table and kanban projections with narrow-group overflow", () => {
+    it("renders configured table and kanban projections", () => {
         const table = {
             schemaVersion: 1,
             operation: "view.render",
@@ -97,10 +87,10 @@ describe("view preview rendering", () => {
             },
         } satisfies ViewRenderResult;
 
-        expect(renderViewHtml(table, "nonce", "vscode-webview:")).toContain("Delivery status");
-        const kanbanHtml = renderViewHtml(kanban, "nonce", "vscode-webview:");
+        expect(renderViewProjectionHtml(table)).toContain("Delivery status");
+        const kanbanHtml = renderViewProjectionHtml(kanban);
         expect(kanbanHtml).toContain("Doing");
-        expect(kanbanHtml).toContain("overflow-x: auto");
-        expect(kanbanHtml).toContain('data-open-source="tasks/one.md"');
+        expect(kanbanHtml).toContain('aria-label="Kanban board"');
+        expect(kanbanHtml).toContain('href="/tasks/one.md"');
     });
 });

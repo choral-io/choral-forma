@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { expectedReleaseVersion, resolveReleaseTag, validateReleaseVersions } from "./release-version.mjs";
+
+const workflows = await Promise.all(
+    ["ci.yml", "release.yml"].map(
+        async (name) => await readFile(new URL(`../.github/workflows/${name}`, import.meta.url), "utf8"),
+    ),
+);
 
 test("only treats an explicit release input as a tag", () => {
     assert.equal(resolveReleaseTag(undefined, { GITHUB_REF_NAME: "1/merge" }), undefined);
@@ -56,4 +63,18 @@ test("rejects an extension identity that cannot produce choral-io.forma", () => 
         tag: `v${expectedReleaseVersion}`,
     });
     assert.equal(errors.length, 2);
+});
+
+test("derives workflow VSIX names from the extension manifest", () => {
+    for (const workflow of workflows) {
+        assert.match(workflow, /packages\/vscode-extension\/package\.json/u);
+        assert.doesNotMatch(workflow, /forma-0\.1\.0-alpha\.\d+\.vsix/u);
+    }
+});
+
+test("passes the built Forma binary to Extension Host tests", () => {
+    assert.match(
+        workflows[0],
+        /Run Extension Host tests[\s\S]*FORMA_TEST_BIN: \$\{\{ github\.workspace \}\}\/target\/debug\/forma/u,
+    );
 });

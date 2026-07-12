@@ -4,8 +4,10 @@ import { relative } from "node:path";
 import type {
     CheckResult,
     ConfigInspectResult,
+    InspectResult,
     ReferenceResolveResult,
     ViewRenderResult,
+    WorkspaceDashboardResult,
     WorkspaceHealthResult,
 } from "@choral-forma/shared";
 import * as vscode from "vscode";
@@ -32,6 +34,7 @@ export class FormaRuntime implements vscode.Disposable {
     private selectedRoot: string | undefined;
     private client: FormaClient | undefined;
     private refreshController: AbortController | undefined;
+    private readonly inspectCache = new Map<string, InspectResult>();
 
     readonly onDidChangeState = this.stateEmitter.event;
 
@@ -45,8 +48,13 @@ export class FormaRuntime implements vscode.Disposable {
         return this.roots;
     }
 
+    get activeRoot(): string | undefined {
+        return "root" in this.stateValue ? this.stateValue.root : (this.selectedRoot ?? this.roots[0]);
+    }
+
     async refresh(activeDocument = vscode.window.activeTextEditor?.document): Promise<void> {
         this.refreshController?.abort();
+        this.inspectCache.clear();
         const controller = new AbortController();
         this.refreshController = controller;
 
@@ -99,7 +107,7 @@ export class FormaRuntime implements vscode.Disposable {
                 this.setState({
                     kind: "incompatible",
                     label: "Forma: Incompatible version",
-                    detail: `Found ${probe.version}; Alpha 13 supports Forma 0.1.0 prereleases.`,
+                    detail: `Found ${probe.version}; this extension supports Forma 0.1.0 prereleases.`,
                 });
                 return;
             }
@@ -161,6 +169,26 @@ export class FormaRuntime implements vscode.Disposable {
 
     async workspaceHealth(): Promise<WorkspaceHealthResult | undefined> {
         return await this.withActiveRoot((client, root, signal) => client.workspaceHealth(root, signal));
+    }
+
+    async workspaceDashboard(): Promise<WorkspaceDashboardResult | undefined> {
+        return await this.withActiveRoot((client, root, signal) => client.workspaceDashboard(root, signal));
+    }
+
+    async inspectDocument(document: vscode.TextDocument, signal?: AbortSignal): Promise<InspectResult | undefined> {
+        const source = this.sourcePath(document);
+        if (!source || !this.canExecute() || !this.client) return undefined;
+        const cacheKey = `${document.uri.toString()}@${String(document.version)}`;
+        const cached = this.inspectCache.get(cacheKey);
+        if (cached) return cached;
+        const result = await this.client.inspect(source.root, source.path, signal);
+        this.inspectCache.set(cacheKey, result);
+        while (this.inspectCache.size > 64) {
+            const oldest = this.inspectCache.keys().next().value;
+            if (!oldest) break;
+            this.inspectCache.delete(oldest);
+        }
+        return result;
     }
 
     async resolveReference(
