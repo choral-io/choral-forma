@@ -79,7 +79,7 @@ fn prints_placeholder_version() {
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "forma 0.1.0-alpha.15\n"
+        format!("forma {}\n", env!("CARGO_PKG_VERSION"))
     );
     assert!(output.stderr.is_empty());
 }
@@ -94,7 +94,7 @@ fn supports_standard_version_flag() {
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "forma 0.1.0-alpha.15\n"
+        format!("forma {}\n", env!("CARGO_PKG_VERSION"))
     );
     assert!(output.stderr.is_empty());
 }

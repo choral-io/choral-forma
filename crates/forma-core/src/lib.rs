@@ -63,6 +63,6 @@ mod tests {
 
     #[test]
     fn exposes_package_version() {
-        assert_eq!(version(), "0.1.0-alpha.15");
+        assert_eq!(version(), env!("CARGO_PKG_VERSION"));
     }
 }

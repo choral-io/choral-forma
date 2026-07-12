@@ -18,7 +18,7 @@ describe("resolveFormaCommand", () => {
 describe("FormaClient", () => {
     it("probes compatible and incompatible versions", async () => {
         await expect(
-            new FormaClient("forma", runner({ code: 0, stdout: "forma 0.1.0-alpha.15\n" })).probe(),
+            new FormaClient("forma", runner({ code: 0, stdout: "forma 0.1.0-alpha.1\n" })).probe(),
         ).resolves.toMatchObject({
             kind: "ready",
         });

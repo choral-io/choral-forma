@@ -194,11 +194,30 @@ forma --version
 
 ## CI And Release Baseline
 
-GitHub Actions runs three baseline check jobs:
+GitHub Actions runs four baseline check jobs:
 
 - workspace Markdown formatting;
 - Web package type checks and builds;
+- VS Code extension checks, Extension Host tests, and packaged VSIX smoke tests;
 - Rust formatting, checks, and tests after building embedded WebApp assets.
+
+### Preparing An Aligned Release Version
+
+The Rust workspace version in `Cargo.toml` is the canonical Forma release version. Use the version task to synchronize the VS Code extension manifest, current install examples, and `Cargo.lock`:
+
+```sh
+mise run version:set -- <next-version> --dry-run
+mise run version:set -- <next-version>
+```
+
+The task does not create release content, commits, tags, or GitHub releases. Add the matching VS Code extension Changelog entry and `knowledge/releases/forma-v<next-version>.md` release record, then run:
+
+```sh
+mise run version:check
+mise run version:check -- v<next-version>
+```
+
+The tag form is only required when validating a release tag. CI and the Release workflow call the same read-only checker.
 
 ## Working With Project Content
 
