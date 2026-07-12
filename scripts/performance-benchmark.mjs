@@ -199,7 +199,10 @@ async function peakRss(binary, workspace, args) {
         let maximumKiB = 0;
         const sample = () => {
             if (!child.pid) return;
-            const result = spawnSync("ps", ["-o", "rss=", "-p", String(child.pid)], { encoding: "utf8" });
+            const result = spawnSync("/bin/ps", ["-o", "rss=", "-p", String(child.pid)], {
+                encoding: "utf8",
+            });
+            if (result.error || typeof result.stdout !== "string") return;
             const currentKiB = Number.parseInt(result.stdout.trim(), 10);
             if (Number.isFinite(currentKiB)) maximumKiB = Math.max(maximumKiB, currentKiB);
         };
