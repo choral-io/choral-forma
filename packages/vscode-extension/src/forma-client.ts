@@ -12,6 +12,8 @@ import type {
     WorkspaceHealthResult,
 } from "@choral-forma/shared";
 
+import { RequestScheduler } from "./request-scheduler.ts";
+
 export const supportedSchemaVersion = 1;
 export const supportedFormaVersion = /^0\.1\.0(?:-|$)/u;
 
@@ -111,16 +113,25 @@ export const runProcess: ProcessRunner = async (request) =>
     });
 
 export class FormaClient {
+    private readonly scheduler: RequestScheduler<ProcessResult>;
+
     constructor(
         private readonly command: string,
         private readonly runner: ProcessRunner = runProcess,
         private readonly timeoutMs = 15_000,
         private readonly maxOutputBytes = 1_048_576,
-    ) {}
+        concurrency = 2,
+    ) {
+        this.scheduler = new RequestScheduler(concurrency);
+    }
+
+    invalidate(): void {
+        this.scheduler.invalidate();
+    }
 
     async probe(signal?: AbortSignal): Promise<FormaProbe> {
         try {
-            const result = await this.runner({
+            const result = await this.run({
                 command: this.command,
                 args: ["--version"],
                 timeoutMs: this.timeoutMs,
@@ -187,7 +198,7 @@ export class FormaClient {
         args: string[],
         signal?: AbortSignal,
     ): Promise<T> {
-        const result = await this.runner({
+        const result = await this.run({
             command: this.command,
             args: ["--workspace", workspace, ...args, "--json"],
             cwd: workspace,
@@ -219,6 +230,22 @@ export class FormaClient {
             );
         }
         return value as T;
+    }
+
+    private run(request: ProcessRequest): Promise<ProcessResult> {
+        const { signal, ...scheduled } = request;
+        const key = JSON.stringify([
+            scheduled.command,
+            scheduled.args,
+            scheduled.cwd,
+            scheduled.timeoutMs,
+            scheduled.maxOutputBytes,
+        ]);
+        return this.scheduler.schedule(
+            key,
+            async (scheduledSignal) => await this.runner({ ...scheduled, signal: scheduledSignal }),
+            signal,
+        );
     }
 }
 

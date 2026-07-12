@@ -37,6 +37,21 @@ describe("FormaClient", () => {
         await expect(client.check("/workspace")).resolves.toMatchObject({ operation: "check" });
     });
 
+    it("deduplicates identical in-flight operations", async () => {
+        const fake: ProcessRunner = vi.fn(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            return {
+                code: 0,
+                stderr: "",
+                stdout: JSON.stringify({ schemaVersion: 1, operation: "check", status: "passed" }),
+            };
+        });
+        const client = new FormaClient("forma", fake);
+
+        await Promise.all(Array.from({ length: 10 }, () => client.check("/workspace")));
+        expect(fake).toHaveBeenCalledTimes(1);
+    });
+
     it("rejects invalid JSON and unknown schemas", async () => {
         await expect(
             new FormaClient("forma", runner({ code: 0, stdout: "not-json" })).check("/workspace"),

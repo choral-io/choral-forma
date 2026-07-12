@@ -138,7 +138,6 @@ export async function activate(
         }),
         vscode.commands.registerCommand("forma.refreshWorkspace", async () => {
             await runtime.refresh();
-            await explorer.refresh();
             const document = vscode.window.activeTextEditor?.document;
             if (document && runtime.isFormaDocument(document)) await previews.refresh(document);
         }),

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 
+import { GenerationRefresh } from "./generation-refresh.ts";
 import type { FormaRuntime } from "./runtime.ts";
 import {
     type FormaTreeNode,
@@ -14,6 +15,7 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
     private readonly changed = new vscode.EventEmitter<FormaTreeNode | undefined>();
     private readonly treeView: vscode.TreeView<FormaTreeNode>;
     private readonly extensionUri: vscode.Uri;
+    private readonly refreshes = new GenerationRefresh();
 
     constructor(
         private readonly runtime: FormaRuntime,
@@ -33,14 +35,16 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
     }
 
     async refresh(): Promise<void> {
-        try {
-            this.dashboard = await this.runtime.workspaceDashboard();
-        } catch (error) {
-            this.dashboard = undefined;
-            this.runtime.logResult({ explorerError: error instanceof Error ? error.message : String(error) });
-        }
-        this.treeView.message = this.dashboard ? "" : "No active Forma workspace.";
-        this.changed.fire(undefined);
+        await this.refreshes.run(this.runtime.analysisGeneration, async () => {
+            try {
+                this.dashboard = await this.runtime.workspaceDashboard();
+            } catch (error) {
+                this.dashboard = undefined;
+                this.runtime.logResult({ explorerError: error instanceof Error ? error.message : String(error) });
+            }
+            this.treeView.message = this.dashboard ? "" : "No active Forma workspace.";
+            this.changed.fire(undefined);
+        });
     }
 
     dispose(): void {

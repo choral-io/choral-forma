@@ -44,6 +44,7 @@ export class FormaRuntime implements vscode.Disposable {
     private client: FormaClient | undefined;
     private refreshController: AbortController | undefined;
     private readonly inspectCache = new DocumentInspectCache<InspectResult>();
+    private analysisGenerationValue = 0;
     private readonly scopes = new Map<string, WorkspaceScope>();
     private configTargets: Array<{ base: vscode.Uri; pattern: string }> = [];
 
@@ -73,8 +74,14 @@ export class FormaRuntime implements vscode.Disposable {
         return this.configTargets;
     }
 
+    get analysisGeneration(): number {
+        return this.analysisGenerationValue;
+    }
+
     async refresh(activeDocument = vscode.window.activeTextEditor?.document): Promise<void> {
         this.refreshController?.abort();
+        this.client?.invalidate();
+        this.analysisGenerationValue += 1;
         this.inspectCache.clear();
         this.configTargets = [];
         const controller = new AbortController();
@@ -217,6 +224,8 @@ export class FormaRuntime implements vscode.Disposable {
     }
 
     invalidateContent(): void {
+        this.analysisGenerationValue += 1;
+        this.client?.invalidate();
         this.inspectCache.clear();
     }
 
