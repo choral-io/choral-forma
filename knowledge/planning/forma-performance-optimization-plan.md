@@ -391,3 +391,36 @@ Commit `262b5b8` introduced discovery from an already loaded `FormaWorkspace`. T
 A focused regression test changes `.forma.md` after loading and confirms that discovery continues from the loaded configuration snapshot. The complete Core suite and `mise run check` passed.
 
 The clean quick run on `262b5b82cd2a` measured project dashboard at 189.0 ms, inspect at 87.0 ms, resolve at 86.0 ms, and view render at 156.4 ms. The 1,000-entry results were 68.9 ms, 36.7 ms, 36.8 ms, and 61.4 ms respectively. Compared with the Iteration 2 clean run, the project inspect and resolve paths improved by approximately 6–7%, and all measured operations remained within the non-regression tolerance. The more important invariant is structural: these operations now perform one effective configuration load rather than two or more.
+
+### Iteration 4 — Completed 2026-07-12
+
+Commit `6ff64f0` added `workspace.explorer` and `workspace.explorerEntries` across Core, RPC, CLI, the shared TypeScript client, and the VS Code adapter. The root operation returns only taxonomy and term summaries plus Views. Expanding a term loads 100 entries by default, exposes a `Load more…` node when another page exists, and enforces a 500-entry hard page limit. The complete `workspace.dashboard` contract remains unchanged for existing consumers.
+
+Core, RPC, client, and tree-model tests cover the compact schema, pagination, command arguments, View behavior, and load-more projection. The extension deduplicates concurrent loads of the same page. `mise run check` passed with 79 TypeScript tests, 164 Core tests, 22 RPC tests, the CLI integration suite, lint, formatting, and production builds.
+
+The clean full baseline on `6ff64f09f741` measured the following Explorer behavior:
+
+| Workspace | Explorer root median / p95 | Root output | 100-entry page median / p95 | Page output |
+| --------- | -------------------------- | ----------: | --------------------------- | ----------: |
+| Project   | 187.6 / 191.0 ms           |     3,395 B | 187.6 / 191.0 ms            |    27,377 B |
+| 1,000     | 62.2 / 68.0 ms             |       433 B | 64.7 / 69.2 ms              |    26,353 B |
+| 5,000     | 304.9 / 347.9 ms           |       433 B | 319.2 / 327.7 ms            |    26,446 B |
+
+The 5,000-entry Explorer root used 33.2 MiB peak RSS, and a term page used 35.2 MiB. Initial output no longer grows with entry count and remains far below both the 256 KiB target and the extension process-output ceiling. The initial tree still analyzes configured files to calculate counts and status, but it no longer serializes or parses a full entry projection in the extension.
+
+### Milestone A — Stop Check Completed 2026-07-12
+
+The full baseline was rerun outside the filesystem/process sandbox so peak RSS sampling could observe child processes. The clean `6ff64f09f741` results meet every current 1,000-entry and 5,000-entry budget:
+
+| 5,000-entry operation |   Median |      p95 | Peak RSS | Budget result                            |
+| --------------------- | -------: | -------: | -------: | ---------------------------------------- |
+| Dashboard             | 377.1 ms | 386.8 ms | 44.7 MiB | within 750 ms and 64 MiB                 |
+| Explorer root         | 304.9 ms | 347.9 ms | 33.2 MiB | within 750 ms, 64 MiB, and output budget |
+| Explorer page         | 319.2 ms | 327.7 ms | 35.2 MiB | bounded 100-entry response               |
+| Inspect               | 175.8 ms | 182.7 ms | 28.5 MiB | within 250 ms and 64 MiB                 |
+| Reference resolve     | 175.7 ms | 176.2 ms | 28.6 MiB | within 250 ms and 64 MiB                 |
+| View render           | 307.5 ms | 346.7 ms | 40.7 MiB | within 750 ms and 64 MiB                 |
+
+The 25-link document scenario remains one shared inspect load, the refresh-burst tests remain bounded to one active refresh plus at most one necessary follow-up, maximum CLI concurrency remains two, and the extension performs no intentional idle CLI work. The complete dashboard is still approximately 2.62 MiB at 5,000 entries, but the VS Code Explorer no longer consumes it.
+
+The Milestone A stop rule therefore applies. Do not begin the operation-scoped snapshot, shared-index, resource-hygiene stress campaign, VS Code Remote transport evaluation, stdio RPC, or persisted-cache work as part of this goal. Reopen those iterations only when realistic editor traces, Remote measurements, memory-plateau tests, larger or denser workspaces, or a product requirement demonstrates a budget miss. Short-lived Forma CLI operations remain the selected architecture.
