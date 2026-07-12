@@ -375,3 +375,11 @@ A 25-subscriber concurrent inspect test performs one loader invocation instead o
 The clean quick run on `95989d45857f` measured project inspect at 92.7 ms and 1,000-entry inspect at 37.4 ms, compared with the initial full-baseline medians of 97.8 ms and 40.8 ms. Other Core operations stayed within the non-regression tolerance. These small latency differences are treated as host variance because the iteration primarily removes editor process multiplication rather than Core work.
 
 `mise run check`, focused Core and extension tests, trusted Extension Host tests, and the untrusted-workspace test passed. Downloaded `.vscode-test` runtimes were removed after validation.
+
+### Iteration 2 — Completed 2026-07-12
+
+Commit `453d2f9` added a global Forma process scheduler with default concurrency two, identical in-flight request deduplication, subscriber-aware cancellation, and generation invalidation. Explorer refresh now coalesces requests from the same analysis generation and performs at most one follow-up when content changes during an active refresh. The explicit workspace-refresh command no longer starts a second Explorer refresh after the runtime state event.
+
+Tests verified that ten identical requests execute once, eight distinct requests never exceed two active operations, cancelling one subscriber preserves shared work, invalidation aborts old work, ten same-generation Explorer refreshes execute once, and multiple newer generations coalesce into one follow-up.
+
+The clean quick run on `453d2f99d489` measured project dashboard at 195.0 ms, inspect at 92.6 ms, and resolve at 92.0 ms. The 1,000-entry results were 70.4 ms, 38.2 ms, and 38.0 ms respectively. All stayed within the non-regression tolerance. `mise run check` passed with 78 TypeScript tests plus the complete Rust workspace suite.
