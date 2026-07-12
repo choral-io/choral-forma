@@ -349,3 +349,19 @@ The first implementation goal should cover Iterations 0 through 4 only:
 - a clean full rebaseline and Milestone A stop decision.
 
 Workspace snapshots, output hygiene beyond what the first iterations require, VS Code Remote evaluation, stdio RPC, and persisted caches should remain outside that goal until Milestone A evidence justifies them.
+
+## Execution Log
+
+### Iteration 0 — Completed 2026-07-12
+
+The repeatable benchmark harness was added in commits `f5cc322` and `31fd543`. `mise run perf:quick` completes in approximately 11 seconds, and the full clean baseline completed in approximately 27 seconds on revision `31fd543e8c57`.
+
+| Workspace | Dashboard median / p95 | Inspect median / p95 | Resolve median / p95 | View median / p95 |
+| --------- | ---------------------- | -------------------- | -------------------- | ----------------- |
+| Project   | 204.5 / 207.8 ms       | 97.8 / 100.3 ms      | 99.7 / 101.5 ms      | 170.7 / 175.9 ms  |
+| 1,000     | 74.6 / 79.7 ms         | 40.8 / 44.6 ms       | 40.5 / 43.0 ms       | 66.6 / 69.8 ms    |
+| 5,000     | 410.3 / 449.2 ms       | 202.0 / 250.6 ms     | 192.7 / 198.4 ms     | 332.1 / 339.4 ms  |
+
+Measured 5,000-entry peak RSS was 44.3 MiB for dashboard, 28.3 MiB for inspect, 27.4 MiB for resolve, and 40.4 MiB for view render. Dashboard output remained the scale limit at approximately 2.62 MiB for 5,000 entries.
+
+The full `mise run check` gate passed before the harness commit. Benchmark JSON is generated under ignored `target/performance/` paths and records revision and dirty-worktree state. Very short commands can complete before the RSS sampler observes their true peak; memory results are most useful for longer workspace-analysis operations.
