@@ -1,24 +1,43 @@
 import * as vscode from "vscode";
 
+import { extendMarkdownIt, type MarkdownIt } from "./markdown-enhancer.ts";
+import { NativePreviewManager } from "./native-preview.ts";
 import { registerNavigation } from "./navigation.ts";
-import { openSource, ViewPreviewManager } from "./preview.ts";
+import { openSource } from "./preview.ts";
 import { FormaRuntime } from "./runtime.ts";
+import { statusText } from "./status-presentation.ts";
+import { shouldRefreshRuntimeForDocument } from "./workspace-discovery.ts";
+import { FormaWorkspaceExplorer } from "./workspace-tree.ts";
 
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
+export async function activate(
+    context: vscode.ExtensionContext,
+): Promise<{ extendMarkdownIt: typeof extendMarkdownIt }> {
     const output = vscode.window.createOutputChannel("Forma", { log: true });
     const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 90);
     const diagnostics = vscode.languages.createDiagnosticCollection("forma");
     const runtime = new FormaRuntime(output);
-    const previews = new ViewPreviewManager(runtime);
+    const previews = new NativePreviewManager(runtime);
+    const explorer = new FormaWorkspaceExplorer(runtime, context);
     status.command = "forma.statusMenu";
     status.name = "Forma";
     status.show();
 
     const updateStatus = (): void => {
-        status.text = `$(repo) ${runtime.state.label}`;
+        status.text = statusText(runtime.state);
         status.tooltip = stateTooltip(runtime.state);
+        status.accessibilityInformation = { label: runtime.state.label };
     };
-    context.subscriptions.push(output, status, diagnostics, runtime, previews, runtime.onDidChangeState(updateStatus));
+    context.subscriptions.push(
+        output,
+        status,
+        diagnostics,
+        runtime,
+        previews,
+        runtime.onDidChangeState(() => {
+            updateStatus();
+            if (runtime.state.kind !== "checking") void explorer.refresh();
+        }),
+    );
     updateStatus();
 
     context.subscriptions.push(
@@ -52,6 +71,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
         vscode.commands.registerCommand("forma.refreshWorkspace", async () => {
             await runtime.refresh();
+            await explorer.refresh();
+            const document = vscode.window.activeTextEditor?.document;
+            if (document?.languageId === "markdown") await previews.refresh(document);
+        }),
+        vscode.commands.registerCommand("forma.refreshExplorer", async () => {
+            await explorer.refresh();
         }),
         vscode.commands.registerCommand("forma.openOutput", () => {
             output.show(true);
@@ -59,22 +84,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         vscode.commands.registerCommand("forma.getRuntimeState", () => runtime.state),
         vscode.commands.registerCommand("forma.openViewPreview", async (uri?: vscode.Uri) => {
             const document = await targetDocument(uri);
-            if (document)
-                await previews.open(document, vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.Active);
+            if (document) await previews.open(document, false);
         }),
         vscode.commands.registerCommand("forma.openViewPreviewToSide", async (uri?: vscode.Uri) => {
             const document = await targetDocument(uri);
-            if (document) await previews.open(document, vscode.ViewColumn.Beside);
+            if (document) await previews.open(document, true);
         }),
         vscode.commands.registerCommand("forma.openSource", async (uri?: vscode.Uri) => {
             if (uri) await openSource(uri);
         }),
         vscode.workspace.onDidSaveTextDocument(async (document) => {
-            if (document.languageId === "markdown") await previews.refreshAll();
+            if (document.languageId === "markdown") await previews.refresh(document);
             if (isWorkspaceDefinition(document.uri.path)) await runtime.refresh(document);
         }),
         vscode.workspace.onDidChangeWorkspaceFolders(() => void runtime.refresh()),
-        vscode.window.onDidChangeActiveTextEditor((editor) => void runtime.refresh(editor?.document)),
+        vscode.window.onDidChangeActiveTextEditor((editor) => {
+            void (async () => {
+                const documentRoot = editor ? runtime.rootForDocument(editor.document) : undefined;
+                if (
+                    editor &&
+                    shouldRefreshRuntimeForDocument(runtime.workspaceRoots.length, runtime.activeRoot, documentRoot)
+                ) {
+                    await runtime.refresh(editor.document);
+                }
+                if (editor?.document.languageId === "markdown") await previews.refresh(editor.document);
+            })();
+        }),
         vscode.workspace.onDidGrantWorkspaceTrust(() => void runtime.refresh()),
         vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration("forma")) void runtime.refresh();
@@ -91,37 +126,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         );
     }
 
-    const selector: vscode.DocumentSelector = [
-        { language: "markdown", scheme: "file" },
-        { language: "markdown", scheme: "vscode-remote" },
-    ];
-    context.subscriptions.push(
-        vscode.languages.registerCodeLensProvider(selector, {
-            provideCodeLenses(document) {
-                const line = document
-                    .getText()
-                    .split(/\r?\n/u)
-                    .findIndex((value) => value.includes("<!-- forma:content -->"));
-                if (line < 0) return [];
-                const range = new vscode.Range(line, 0, line, document.lineAt(line).text.length);
-                return [
-                    new vscode.CodeLens(range, {
-                        title: "Open Forma Preview",
-                        command: "forma.openViewPreview",
-                        arguments: [document.uri],
-                    }),
-                    new vscode.CodeLens(range, {
-                        title: "Open Preview to the Side",
-                        command: "forma.openViewPreviewToSide",
-                        arguments: [document.uri],
-                    }),
-                ];
-            },
-        }),
-    );
     registerNavigation(context, runtime, diagnostics);
     await runtime.refresh();
+    const document = vscode.window.activeTextEditor?.document;
+    if (document?.languageId === "markdown") await previews.refresh(document);
+    return { extendMarkdownIt };
 }
+
+export { extendMarkdownIt };
+export type { MarkdownIt };
 
 async function targetDocument(uri?: vscode.Uri): Promise<vscode.TextDocument | undefined> {
     if (uri) return await vscode.workspace.openTextDocument(uri);

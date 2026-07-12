@@ -1,6 +1,6 @@
 # Extension dependency review
 
-Alpha 13 adds no third-party runtime dependency to the bundled extension. The runtime uses Node.js and VS Code APIs, while shared Forma imports are type-only and erased by esbuild.
+Alpha 15 adds no third-party JavaScript runtime dependency to the bundled extension. The runtime uses Node.js and VS Code APIs, while shared Forma imports are type-only and erased by esbuild. The package vendors only the selected Lucide SVG assets used by the Forma tree, with light and dark variants and the corresponding third-party notice.
 
 Development dependencies stay inside `packages/vscode-extension`:
 
@@ -10,4 +10,4 @@ Development dependencies stay inside `packages/vscode-extension`:
 - `@vscode/vsce`: official VSIX packaging tool, used only in local validation and CI; Marketplace publishing remains disabled.
 - `mocha`: test-only runner required by the official Extension Host test CLI.
 
-The preview renderer deliberately uses escaped, dependency-free HTML generation for Alpha 13 instead of introducing a browser framework, Markdown runtime, or graph library. A later renderer project can replace that choice when requirements justify the added runtime cost.
+The preview renderer deliberately uses escaped, dependency-free HTML generation instead of introducing a browser framework, Markdown runtime, or graph library. A later renderer project can replace that choice when requirements justify the added runtime cost.

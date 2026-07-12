@@ -61,6 +61,13 @@ suite("Forma for VS Code extension", () => {
             assert.ok(resolved?.[0]?.uri.path.endsWith("/done.md"));
         }
 
+        const tagDefinitions = await vscode.commands.executeCommand<vscode.Location[]>(
+            "vscode.executeDefinitionProvider",
+            document.uri,
+            document.positionAt(document.getText().indexOf("vscode-extension") + 1),
+        );
+        assert.equal(tagDefinitions?.length ?? 0, 0, "ordinary tags must not become Forma references");
+
         await vscode.commands.executeCommand("forma.openSource", targetUri);
         assert.equal(vscode.window.activeTextEditor?.document.uri.toString(), targetUri.toString());
 

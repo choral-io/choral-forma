@@ -45,6 +45,8 @@ pub struct WorkspaceConfig {
     pub dashboard: Option<Value>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub taxonomies: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub terms: BTreeMap<String, BTreeMap<String, TaxonomyTermDefinition>>,
     #[serde(default)]
     pub types: BTreeMap<String, SemanticType>,
     #[serde(default)]
@@ -156,6 +158,18 @@ pub struct SpaceDefinition {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub guidelines: Vec<String>,
     pub schema: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaxonomyTermDefinition {
+    pub title: String,
+    #[serde(default, skip_serializing_if = "DisplayOptions::is_empty")]
+    pub display: DisplayOptions,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub include_patterns: Vec<String>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -325,7 +339,7 @@ pub fn load_workspace(
         })?;
     reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
 
-    let (taxonomies, spaces, space_sources, node_diagnostics) =
+    let (taxonomies, terms, spaces, space_sources, node_diagnostics) =
         load_config_nodes(root, &config_file, mode, &mut types)?;
     diagnostics.extend(node_diagnostics);
 
@@ -336,6 +350,7 @@ pub fn load_workspace(
         guidelines: config_file.guidelines,
         dashboard: config_file.dashboard,
         taxonomies,
+        terms,
         types,
         spaces,
     };
@@ -367,6 +382,7 @@ fn load_config_nodes(
 ) -> Result<
     (
         BTreeMap<String, Value>,
+        BTreeMap<String, BTreeMap<String, TaxonomyTermDefinition>>,
         BTreeMap<String, SpaceDefinition>,
         BTreeMap<String, String>,
         Vec<Diagnostic>,
@@ -374,6 +390,7 @@ fn load_config_nodes(
     ConfigError,
 > {
     let mut taxonomies = BTreeMap::new();
+    let mut terms = BTreeMap::<String, BTreeMap<String, TaxonomyTermDefinition>>::new();
     let mut spaces = BTreeMap::new();
     let mut space_sources = BTreeMap::new();
     let mut diagnostics = Vec::new();
@@ -432,31 +449,46 @@ fn load_config_nodes(
             );
             continue;
         }
-        if node.kind.as_deref() != Some("term") || node.taxonomy.as_deref() != Some("spaces") {
+        if node.kind.as_deref() != Some("term") {
             continue;
         }
-        if let Some(taxonomy) = &node.taxonomy {
-            referenced_taxonomies.push((taxonomy.clone(), public_path.clone()));
-        }
-        let Some(space_id) = Path::new(&public_path)
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .map(ToOwned::to_owned)
-        else {
+        let Some(taxonomy) = node.taxonomy.clone() else {
             continue;
         };
+        referenced_taxonomies.push((taxonomy.clone(), public_path.clone()));
+        let Some(term_id) = node.id.clone().or_else(|| {
+            Path::new(&public_path)
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .map(ToOwned::to_owned)
+        }) else {
+            continue;
+        };
+        let title = node.title.clone().unwrap_or_else(|| public_path.clone());
+        terms.entry(taxonomy.clone()).or_default().insert(
+            term_id.clone(),
+            TaxonomyTermDefinition {
+                title: title.clone(),
+                display: node.display.clone(),
+                description: node.description.clone(),
+                include_patterns: node.include.clone(),
+            },
+        );
+        if taxonomy != "spaces" {
+            continue;
+        }
         let Some(include) = node.include.first().cloned() else {
             continue;
         };
         let schema = node
             .schema
             .clone()
-            .unwrap_or_else(|| starter_term_schema(&space_id));
-        add_space_source_aliases(&mut space_sources, &public_path, &space_id);
+            .unwrap_or_else(|| starter_term_schema(&term_id));
+        add_space_source_aliases(&mut space_sources, &public_path, &term_id);
         spaces.insert(
-            space_id.clone(),
+            term_id,
             SpaceDefinition {
-                title: node.title.unwrap_or_else(|| public_path.clone()),
+                title,
                 display: node.display,
                 description: node.description,
                 include,
@@ -496,7 +528,7 @@ fn load_config_nodes(
         }
     }
 
-    Ok((taxonomies, spaces, space_sources, diagnostics))
+    Ok((taxonomies, terms, spaces, space_sources, diagnostics))
 }
 
 pub fn config_source_paths(

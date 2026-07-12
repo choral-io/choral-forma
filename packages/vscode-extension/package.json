@@ -2,7 +2,7 @@
   "name": "forma",
   "displayName": "Forma for VS Code",
   "description": "Navigate and preview repository-backed Forma Markdown workspaces in VS Code.",
-  "version": "0.1.0-alpha.14",
+  "version": "0.1.0-alpha.15",
   "publisher": "choral-io",
   "private": true,
   "license": "MIT",
@@ -72,6 +72,11 @@
         "title": "Forma: Refresh Workspace"
       },
       {
+        "command": "forma.refreshExplorer",
+        "title": "Forma: Refresh Explorer",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "forma.openOutput",
         "title": "Forma: Open Output"
       },
@@ -81,7 +86,8 @@
       },
       {
         "command": "forma.openViewPreviewToSide",
-        "title": "Forma: Open View Preview to the Side"
+        "title": "Forma: Open View Preview to the Side",
+        "icon": "$(dashboard)"
       },
       {
         "command": "forma.openSource",
@@ -98,7 +104,7 @@
         "forma.path": {
           "type": "string",
           "default": "",
-          "scope": "window",
+          "scope": "machine",
           "description": "Absolute user-level path to a preinstalled Forma binary. When empty, the extension uses forma from PATH."
         },
         "forma.commandTimeout": {
@@ -111,15 +117,27 @@
         }
       }
     },
-    "menus": {
-      "editor/title": [
+    "views": {
+      "explorer": [
         {
-          "command": "forma.openViewPreviewToSide",
-          "when": "resourceLangId == markdown && isWorkspaceTrusted",
-          "group": "navigation@20"
+          "id": "forma.workspace",
+          "name": "Forma"
         }
       ]
-    }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "forma.refreshExplorer",
+          "when": "view == forma.workspace",
+          "group": "navigation"
+        }
+      ]
+    },
+    "markdown.markdownItPlugins": true,
+    "markdown.previewStyles": [
+      "./media/preview.css"
+    ]
   },
   "scripts": {
     "lint": "eslint . --cache --cache-location node_modules/.tmp/.eslintcache",

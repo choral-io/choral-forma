@@ -1,4 +1,4 @@
-export const expectedReleaseVersion = "0.1.0-alpha.14";
+export const expectedReleaseVersion = "0.1.0-alpha.15";
 
 export function resolveReleaseTag(argument, environment = process.env) {
     return argument ?? environment.RELEASE_TAG;

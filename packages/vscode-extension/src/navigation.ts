@@ -1,6 +1,7 @@
 import type { ReferenceResolveResult } from "@choral-forma/shared";
 import * as vscode from "vscode";
 
+import { frontmatterReferenceValues } from "./frontmatter-links.ts";
 import { openSource } from "./preview.ts";
 import { referenceTokenAt, scanReferenceTokens, type ReferenceToken } from "./reference-token.ts";
 import type { FormaRuntime } from "./runtime.ts";
@@ -18,7 +19,7 @@ export function registerNavigation(
     context.subscriptions.push(
         vscode.languages.registerDefinitionProvider(selector, {
             async provideDefinition(document, position, cancellationToken) {
-                const token = referenceTokenAt(document.getText(), document.offsetAt(position));
+                const token = await semanticReferenceTokenAt(runtime, document, position, cancellationToken);
                 if (!token) return undefined;
                 const result = await resolve(runtime, document, token, cancellationToken);
                 return result ? resultLocations(runtime, document, result) : undefined;
@@ -26,7 +27,7 @@ export function registerNavigation(
         }),
         vscode.languages.registerHoverProvider(selector, {
             async provideHover(document, position, cancellationToken) {
-                const token = referenceTokenAt(document.getText(), document.offsetAt(position));
+                const token = await semanticReferenceTokenAt(runtime, document, position, cancellationToken);
                 if (!token) return undefined;
                 const result = await resolve(runtime, document, token, cancellationToken);
                 if (!result) return undefined;
@@ -118,6 +119,30 @@ export function registerNavigation(
             for (const uri of event.files) diagnostics.delete(uri);
         }),
     );
+}
+
+async function semanticReferenceTokenAt(
+    runtime: FormaRuntime,
+    document: vscode.TextDocument,
+    position: vscode.Position,
+    cancellationToken: vscode.CancellationToken,
+): Promise<ReferenceToken | undefined> {
+    const text = document.getText();
+    const offset = document.offsetAt(position);
+    const bodyToken = referenceTokenAt(text, offset);
+    if (bodyToken) return bodyToken;
+    const controller = new AbortController();
+    const subscription = cancellationToken.onCancellationRequested(() => {
+        controller.abort();
+    });
+    try {
+        const inspected = await runtime.inspectDocument(document, controller.signal);
+        return referenceTokenAt(text, offset, frontmatterReferenceValues(inspected));
+    } catch {
+        return undefined;
+    } finally {
+        subscription.dispose();
+    }
 }
 
 function resolve(

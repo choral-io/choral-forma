@@ -59,6 +59,13 @@ export async function run(): Promise<void> {
         assert.ok((definitions?.[0]?.range.start.line ?? -1) >= minimumLine, label);
     }
 
+    const tagDefinitions: vscode.Location[] | undefined = await vscode.commands.executeCommand<vscode.Location[]>(
+        "vscode.executeDefinitionProvider",
+        note,
+        noteDocument.positionAt(noteText.indexOf("vscode-extension") + 1),
+    );
+    assert.equal(tagDefinitions?.length ?? 0, 0, "ordinary tags must not become Forma references");
+
     const source = (await vscode.workspace.findFiles("done.md", undefined, 1))[0];
     assert.ok(source, "source fixture should be discoverable");
     await vscode.commands.executeCommand("forma.openSource", source);

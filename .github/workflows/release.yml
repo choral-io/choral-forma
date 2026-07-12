@@ -201,21 +201,32 @@ jobs:
       - name: Inspect package contents
         run: pnpm --filter forma package:contents
 
+      - name: Resolve VSIX output
+        shell: bash
+        run: |
+          version="$(node -p "require('./packages/vscode-extension/package.json').version")"
+          echo "VSIX_NAME=forma-${version}.vsix" >> "$GITHUB_ENV"
+          echo "VSIX_OUT=${GITHUB_WORKSPACE}/dist-release/forma-${version}.vsix" >> "$GITHUB_ENV"
+
       - name: Package and checksum VSIX
-        env:
-          VSIX_OUT: ${{ github.workspace }}/dist-release/forma-0.1.0-alpha.14.vsix
         run: |
           pnpm --filter forma package:vsix
           cd dist-release
-          shasum -a 256 forma-0.1.0-alpha.14.vsix > forma-0.1.0-alpha.14.vsix.sha256
+          shasum -a 256 "$VSIX_NAME" > "$VSIX_NAME.sha256"
+
+      - name: Smoke test packaged VSIX
+        env:
+          FORMA_TEST_BIN: ${{ github.workspace }}/target/debug/forma
+          VSIX_PATH: ${{ env.VSIX_OUT }}
+        run: pnpm --filter forma smoke:vsix
 
       - name: Upload extension release artifact
         uses: actions/upload-artifact@v7
         with:
           name: forma-vscode
           path: |
-            dist-release/forma-0.1.0-alpha.14.vsix
-            dist-release/forma-0.1.0-alpha.14.vsix.sha256
+            ${{ env.VSIX_OUT }}
+            ${{ env.VSIX_OUT }}.sha256
           if-no-files-found: error
 
   publish:

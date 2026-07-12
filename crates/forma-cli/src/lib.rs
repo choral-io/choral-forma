@@ -16,7 +16,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use forma_rpc::{
     CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest, InspectRequest,
     ListRequest, OperationRequest, ReferenceResolveRequest, SkillsGetRequest, SkillsListRequest,
-    ViewRenderRequest, WorkspaceHealthRequest,
+    ViewRenderRequest, WorkspaceDashboardRequest, WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -182,6 +182,10 @@ enum DocsCommand {
 
 #[derive(Debug, Subcommand)]
 enum WorkspaceCommand {
+    Dashboard {
+        #[arg(long)]
+        json: bool,
+    },
     Health {
         #[arg(long)]
         json: bool,
@@ -344,6 +348,14 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             }
         },
         Some(Command::Workspace { command }) => match command {
+            WorkspaceCommand::Dashboard { json } => {
+                let result = dispatcher.dispatch(OperationRequest::WorkspaceDashboard(
+                    WorkspaceDashboardRequest::default(),
+                ))?;
+                print_result(&result, json, "workspace dashboard");
+                exit_if_failed(&result);
+                Ok(())
+            }
             WorkspaceCommand::Health { json } => {
                 let result = dispatcher.dispatch(OperationRequest::WorkspaceHealth(
                     WorkspaceHealthRequest::default(),

@@ -109,7 +109,7 @@ V1 previews are read-only. Kanban drag-and-drop, graph relationship editing, inl
 
 The current WebApp graph is evidence that the data contract works, not the target visual design.
 
-Graph preview is deferred from the first installable extension release. When a user opens a graph view in Alpha 13, the preview should show a deliberate unsupported/deferred state, preserve diagnostics, and provide a direct path back to the editable view source. It must not silently fall back to the current fixed-circle WebApp renderer.
+Graph preview is deferred from the first installable extension releases. When a user opens a graph view before the focused Graph project lands, the preview should show a deliberate unsupported/deferred state, preserve diagnostics, and provide a direct path back to the editable view source. It must not silently fall back to the current fixed-circle WebApp renderer.
 
 The later focused Graph project should prioritize knowledge exploration:
 
