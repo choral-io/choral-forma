@@ -9,6 +9,8 @@ import type {
     ReferenceResolveResult,
     ViewRenderResult,
     WorkspaceDashboardResult,
+    WorkspaceExplorerEntriesResult,
+    WorkspaceExplorerResult,
     WorkspaceHealthResult,
 } from "@choral-forma/shared";
 
@@ -169,6 +171,32 @@ export class FormaClient {
 
     workspaceDashboard(workspace: string, signal?: AbortSignal): Promise<WorkspaceDashboardResult> {
         return this.runJson("workspace.dashboard", workspace, ["workspace", "dashboard"], signal);
+    }
+
+    workspaceExplorer(workspace: string, signal?: AbortSignal): Promise<WorkspaceExplorerResult> {
+        return this.runJson("workspace.explorer", workspace, ["workspace", "explorer"], signal);
+    }
+
+    workspaceExplorerEntries(
+        workspace: string,
+        taxonomyId: string,
+        termId: string,
+        cursor?: string,
+        limit = 100,
+        signal?: AbortSignal,
+    ): Promise<WorkspaceExplorerEntriesResult> {
+        const args = [
+            "workspace",
+            "explorer-entries",
+            "--taxonomy",
+            taxonomyId,
+            "--term",
+            termId,
+            "--limit",
+            String(limit),
+        ];
+        if (cursor) args.push("--cursor", cursor);
+        return this.runJson("workspace.explorerEntries", workspace, args, signal);
     }
 
     inspect(workspace: string, path: string, signal?: AbortSignal): Promise<InspectResult> {

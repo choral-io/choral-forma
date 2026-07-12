@@ -22,6 +22,10 @@ pub enum Operation {
     FilesList,
     #[serde(rename = "workspace.dashboard")]
     WorkspaceDashboard,
+    #[serde(rename = "workspace.explorer")]
+    WorkspaceExplorer,
+    #[serde(rename = "workspace.explorerEntries")]
+    WorkspaceExplorerEntries,
     #[serde(rename = "inspect")]
     Inspect,
     #[serde(rename = "list")]
@@ -53,6 +57,8 @@ impl Operation {
             Self::ConfigInspect => "config.inspect",
             Self::FilesList => "files.list",
             Self::WorkspaceDashboard => "workspace.dashboard",
+            Self::WorkspaceExplorer => "workspace.explorer",
+            Self::WorkspaceExplorerEntries => "workspace.explorerEntries",
             Self::Inspect => "inspect",
             Self::List => "list",
             Self::Create => "create",
@@ -74,6 +80,8 @@ pub enum OperationRequest {
     ConfigInspect(ConfigInspectRequest),
     FilesList(FilesListRequest),
     WorkspaceDashboard(WorkspaceDashboardRequest),
+    WorkspaceExplorer(WorkspaceExplorerRequest),
+    WorkspaceExplorerEntries(WorkspaceExplorerEntriesRequest),
     Inspect(InspectRequest),
     List(ListRequest),
     Create(CreateRequest),
@@ -109,6 +117,23 @@ pub struct FilesListRequest {}
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceDashboardRequest {}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceExplorerRequest {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceExplorerEntriesRequest {
+    pub taxonomy_id: String,
+    pub term_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -284,6 +309,25 @@ impl Dispatcher {
             OperationRequest::WorkspaceDashboard(_) => forma_core::workspace_dashboard(root)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::WorkspaceDashboard, error))),
+            OperationRequest::WorkspaceExplorer(_) => forma_core::workspace_explorer(root)
+                .map(OperationResult::from)
+                .or_else(|error| Ok(core_error_result(Operation::WorkspaceExplorer, error))),
+            OperationRequest::WorkspaceExplorerEntries(request) => {
+                forma_core::workspace_explorer_entries(
+                    root,
+                    &request.taxonomy_id,
+                    &request.term_id,
+                    request.cursor.as_deref(),
+                    request.limit.unwrap_or(100),
+                )
+                .map(OperationResult::from)
+                .or_else(|error| {
+                    Ok(core_error_result(
+                        Operation::WorkspaceExplorerEntries,
+                        error,
+                    ))
+                })
+            }
             OperationRequest::Inspect(request) => {
                 match (request.path, request.space, request.entry) {
                     (Some(path), None, None) => forma_core::inspect_entry_by_path(root, &path)
@@ -639,6 +683,26 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "workspace.explorer" => serde_json::from_value::<WorkspaceExplorerRequest>(params)
+            .map(OperationRequest::WorkspaceExplorer)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "workspace.explorerEntries" => {
+            serde_json::from_value::<WorkspaceExplorerEntriesRequest>(params)
+                .map(OperationRequest::WorkspaceExplorerEntries)
+                .map_err(|_| {
+                    JsonRpcFailure::without_id(
+                        JsonRpcErrorCode::InvalidParams,
+                        "Invalid params.",
+                        "params.invalid",
+                    )
+                })
+        }
         _ => Err(JsonRpcFailure::without_id(
             JsonRpcErrorCode::MethodNotFound,
             "Method not found.",
@@ -810,6 +874,47 @@ impl From<forma_core::WorkspaceDashboardResult> for OperationResult {
         data.insert("spaces".to_string(), json!(result.spaces));
         data.insert("entries".to_string(), json!(result.entries));
         data.insert("views".to_string(), json!(result.views));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::WorkspaceExplorerResult> for OperationResult {
+    fn from(result: forma_core::WorkspaceExplorerResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("taxonomies".to_string(), json!(result.taxonomies));
+        data.insert("views".to_string(), json!(result.views));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::WorkspaceExplorerEntriesResult> for OperationResult {
+    fn from(result: forma_core::WorkspaceExplorerEntriesResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("taxonomyId".to_string(), json!(result.taxonomy_id));
+        data.insert("termId".to_string(), json!(result.term_id));
+        data.insert("entries".to_string(), json!(result.entries));
+        if let Some(next_cursor) = result.next_cursor {
+            data.insert("nextCursor".to_string(), json!(next_cursor));
+        }
+        data.insert("total".to_string(), json!(result.total));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1374,6 +1479,40 @@ mod tests {
                 .iter()
                 .any(|view| view["kind"] == "table")
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_dispatches_compact_and_paginated_workspace_explorer_operations() {
+        let root = fixture_root("workspace-explorer-rpc");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\nsummary: Explorer source\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n",
+        )
+        .unwrap();
+
+        let explorer = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"workspace.explorer","params":{}}"#,
+        );
+        assert_eq!(explorer["result"]["operation"], "workspace.explorer");
+        assert!(explorer["result"].get("entries").is_none());
+        assert!(
+            explorer["result"]["taxonomies"][0]["terms"][0]
+                .get("entries")
+                .is_none()
+        );
+
+        let entries = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"2","method":"workspace.explorerEntries","params":{"taxonomyId":"spaces","termId":"notes","limit":1}}"#,
+        );
+        assert_eq!(entries["result"]["operation"], "workspace.explorerEntries");
+        assert_eq!(entries["result"]["entries"][0]["path"], "notes/source.md");
+        assert_eq!(entries["result"]["total"], 1);
 
         fs::remove_dir_all(root).unwrap();
     }

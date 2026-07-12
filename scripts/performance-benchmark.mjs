@@ -10,6 +10,11 @@ const defaultBinary = join(scriptRoot, "target", "release", "forma");
 const realOperations = [
     { id: "config.inspect", args: ["config", "inspect", "--json"] },
     { id: "workspace.dashboard", args: ["workspace", "dashboard", "--json"] },
+    { id: "workspace.explorer", args: ["workspace", "explorer", "--json"] },
+    {
+        id: "workspace.explorerEntries",
+        args: ["workspace", "explorer-entries", "--taxonomy", "spaces", "--term", "tasks", "--limit", "100", "--json"],
+    },
     {
         id: "inspect",
         args: ["inspect", "knowledge/architecture/forma-performance-engineering.md", "--json"],
@@ -95,6 +100,21 @@ export async function main(arguments_ = process.argv.slice(2)) {
             const target = `notes/note-${String(middle - 1).padStart(5, "0")}`;
             const operations = [
                 { id: "workspace.dashboard", args: ["workspace", "dashboard", "--json"] },
+                { id: "workspace.explorer", args: ["workspace", "explorer", "--json"] },
+                {
+                    id: "workspace.explorerEntries",
+                    args: [
+                        "workspace",
+                        "explorer-entries",
+                        "--taxonomy",
+                        "spaces",
+                        "--term",
+                        "notes",
+                        "--limit",
+                        "100",
+                        "--json",
+                    ],
+                },
                 { id: "inspect", args: ["inspect", source, "--json"] },
                 {
                     id: "reference.resolve",

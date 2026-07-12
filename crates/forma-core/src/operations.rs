@@ -246,6 +246,68 @@ pub struct WorkspaceDashboardResult {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceExplorerResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub taxonomies: Vec<ExplorerTaxonomy>,
+    pub views: Vec<DashboardViewSummary>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplorerTaxonomy {
+    pub id: String,
+    pub title: String,
+    pub mode: String,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::config::DisplayOptions::is_empty"
+    )]
+    pub display: crate::config::DisplayOptions,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub terms: Vec<ExplorerTaxonomyTerm>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplorerTaxonomyTerm {
+    pub id: String,
+    pub title: String,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::config::DisplayOptions::is_empty"
+    )]
+    pub display: crate::config::DisplayOptions,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub entry_count: usize,
+    pub status: OperationStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceExplorerEntriesResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub taxonomy_id: String,
+    pub term_id: String,
+    pub entries: Vec<DashboardEntrySummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    pub total: usize,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DashboardTaxonomy {
@@ -1104,32 +1166,7 @@ pub fn workspace_dashboard(
         .index
         .entries
         .iter()
-        .map(|entry| DashboardEntrySummary {
-            id: document_id_for_path(&entry.path),
-            path: entry.path.clone(),
-            route_path: entry_route_path_for_path(&entry.path),
-            raw_path: entry_raw_path_for_path(&entry.path),
-            space: Some(entry.space.clone()),
-            kind: entry.kind.clone(),
-            title: entry.title.clone(),
-            summary: entry.summary.clone(),
-            variants: entry
-                .variants
-                .iter()
-                .map(|variant| DashboardEntryVariant {
-                    language: variant.language.clone(),
-                    path: variant.path.clone(),
-                    route_path: entry_route_path_for_path(&variant.path),
-                    raw_path: entry_raw_path_for_path(&variant.path),
-                    kind: variant.kind.clone(),
-                    title: variant.title.clone(),
-                    summary: variant.summary.clone(),
-                })
-                .collect(),
-            status: status_for_paths(&diagnostics, std::iter::once(entry.path.as_str())),
-            updated_at: file_modified_at(root.as_ref(), &entry.path),
-            renderable: true,
-        })
+        .map(|entry| dashboard_entry_summary(root.as_ref(), entry, &diagnostics))
         .collect::<Vec<_>>();
 
     let config_paths = workspace_config_paths(&workspace);
@@ -1153,19 +1190,7 @@ pub fn workspace_dashboard(
     }
     entries.sort_by(|left, right| left.path.cmp(&right.path));
 
-    let views = discovery
-        .index
-        .views
-        .iter()
-        .map(|view| DashboardViewSummary {
-            id: view.id.clone(),
-            path: view.path.clone(),
-            kind: view.mode.clone(),
-            title: view.title.clone(),
-            display: view.display.clone(),
-            space: view.space.clone().or_else(|| view_taxonomy_space(view)),
-        })
-        .collect::<Vec<_>>();
+    let views = dashboard_view_summaries(&discovery.index.views);
 
     Ok(WorkspaceDashboardResult {
         schema_version: 1,
@@ -1183,6 +1208,207 @@ pub fn workspace_dashboard(
         summary,
         diagnostics,
     })
+}
+
+pub fn workspace_explorer(
+    root: impl AsRef<Path>,
+) -> Result<WorkspaceExplorerResult, OperationError> {
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let discovery = discover_loaded_workspace(&workspace);
+    let mut all_diagnostics = read_operation_diagnostics(discovery.diagnostics);
+    all_diagnostics.sort_by_key(diagnostic_sort_key);
+    let diagnostics = all_diagnostics
+        .iter()
+        .filter(|diagnostic| is_config_health_diagnostic(diagnostic))
+        .cloned()
+        .collect::<Vec<_>>();
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+    let config_paths = workspace_config_paths(&workspace);
+    let workspace_files = collect_workspace_files(root.as_ref(), &workspace.config, &config_paths);
+    let taxonomies = explorer_taxonomies(
+        &workspace.config,
+        &workspace_files,
+        &config_paths,
+        &all_diagnostics,
+    );
+    let views = dashboard_view_summaries(&discovery.index.views);
+
+    Ok(WorkspaceExplorerResult {
+        schema_version: 1,
+        operation: "workspace.explorer".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace.config.workspace.name.clone(),
+            logo: workspace_logo_summary(root.as_ref(), &workspace.config.workspace),
+        },
+        taxonomies,
+        views,
+        summary,
+        diagnostics,
+    })
+}
+
+pub fn workspace_explorer_entries(
+    root: impl AsRef<Path>,
+    taxonomy_id: &str,
+    term_id: &str,
+    cursor: Option<&str>,
+    limit: usize,
+) -> Result<WorkspaceExplorerEntriesResult, OperationError> {
+    if limit == 0 || limit > 500 {
+        return Err(OperationError::InvalidInput("limit".to_string()));
+    }
+    let offset = cursor
+        .unwrap_or("0")
+        .parse::<usize>()
+        .map_err(|_| OperationError::InvalidInput("cursor".to_string()))?;
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let term = workspace
+        .config
+        .terms
+        .get(taxonomy_id)
+        .and_then(|terms| terms.get(term_id))
+        .ok_or_else(|| OperationError::InvalidInput("taxonomy term".to_string()))?;
+    let discovery = discover_loaded_workspace(&workspace);
+    let config_paths = workspace_config_paths(&workspace);
+    let workspace_files = collect_workspace_files(root.as_ref(), &workspace.config, &config_paths);
+    let indexed_entries = discovery
+        .index
+        .entries
+        .iter()
+        .map(|entry| (entry.path.as_str(), entry))
+        .collect::<BTreeMap<_, _>>();
+    let all_diagnostics = read_operation_diagnostics(discovery.diagnostics);
+    let mut entries = taxonomy_term_files(term, &workspace_files, &config_paths)
+        .into_iter()
+        .map(|file| {
+            indexed_entries
+                .get(file.path.as_str())
+                .map(|entry| dashboard_entry_summary(root.as_ref(), entry, &all_diagnostics))
+                .unwrap_or_else(|| {
+                    dashboard_entry_summary_from_file(
+                        root.as_ref(),
+                        taxonomy_id,
+                        term_id,
+                        file,
+                        &all_diagnostics,
+                    )
+                })
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| {
+        left.title
+            .as_deref()
+            .unwrap_or(&left.path)
+            .cmp(right.title.as_deref().unwrap_or(&right.path))
+            .then_with(|| left.path.cmp(&right.path))
+    });
+    let total = entries.len();
+    let entries = entries
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect::<Vec<_>>();
+    let next_offset = offset.saturating_add(entries.len());
+    let next_cursor = (next_offset < total).then(|| next_offset.to_string());
+    let mut diagnostics = read_operation_diagnostics_for_paths(
+        all_diagnostics,
+        entries.iter().map(|entry| entry.path.as_str()),
+    );
+    diagnostics.sort_by_key(diagnostic_sort_key);
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+
+    Ok(WorkspaceExplorerEntriesResult {
+        schema_version: 1,
+        operation: "workspace.explorerEntries".to_string(),
+        status: summary.status(),
+        workspace: WorkspaceSummary {
+            root: ".".to_string(),
+            name: workspace.config.workspace.name.clone(),
+            logo: workspace_logo_summary(root.as_ref(), &workspace.config.workspace),
+        },
+        taxonomy_id: taxonomy_id.to_string(),
+        term_id: term_id.to_string(),
+        entries,
+        next_cursor,
+        total,
+        summary,
+        diagnostics,
+    })
+}
+
+fn explorer_taxonomies(
+    config: &WorkspaceConfig,
+    files: &[WorkspaceFile],
+    config_paths: &BTreeSet<String>,
+    diagnostics: &[Diagnostic],
+) -> Vec<ExplorerTaxonomy> {
+    let mut taxonomies = config
+        .taxonomies
+        .iter()
+        .map(|(taxonomy_id, value)| {
+            let mut terms = config
+                .terms
+                .get(taxonomy_id)
+                .into_iter()
+                .flat_map(|terms| terms.iter())
+                .map(|(term_id, term)| {
+                    let paths = taxonomy_term_files(term, files, config_paths)
+                        .into_iter()
+                        .map(|file| file.path.as_str())
+                        .collect::<Vec<_>>();
+                    ExplorerTaxonomyTerm {
+                        id: term_id.clone(),
+                        title: term.title.clone(),
+                        display: term.display.clone(),
+                        description: term.description.clone(),
+                        entry_count: paths.len(),
+                        status: status_for_paths(diagnostics, paths.into_iter()),
+                    }
+                })
+                .collect::<Vec<_>>();
+            terms.sort_by_key(|term| {
+                (
+                    term.display.order.is_none(),
+                    term.display.order.unwrap_or(0),
+                    term.title.clone(),
+                    term.id.clone(),
+                )
+            });
+            ExplorerTaxonomy {
+                id: taxonomy_id.clone(),
+                title: config_value_string(value, "title").unwrap_or_else(|| taxonomy_id.clone()),
+                mode: config_value_string(value, "mode").unwrap_or_else(|| "multiple".to_string()),
+                display: config_value_display(value),
+                description: config_value_string(value, "description"),
+                terms,
+            }
+        })
+        .collect::<Vec<_>>();
+    taxonomies.sort_by_key(|taxonomy| {
+        (
+            taxonomy.display.order.is_none(),
+            taxonomy.display.order.unwrap_or(0),
+            taxonomy.title.clone(),
+            taxonomy.id.clone(),
+        )
+    });
+    taxonomies
+}
+
+fn dashboard_view_summaries(views: &[crate::index::IndexView]) -> Vec<DashboardViewSummary> {
+    views
+        .iter()
+        .map(|view| DashboardViewSummary {
+            id: view.id.clone(),
+            path: view.path.clone(),
+            kind: view.mode.clone(),
+            title: view.title.clone(),
+            display: view.display.clone(),
+            space: view.space.clone().or_else(|| view_taxonomy_space(view)),
+        })
+        .collect()
 }
 
 fn dashboard_taxonomies(
@@ -1253,6 +1479,33 @@ fn dashboard_term_entries(
     indexed_entries: &[DashboardEntrySummary],
     diagnostics: &[Diagnostic],
 ) -> Vec<DashboardEntrySummary> {
+    let mut entries = taxonomy_term_files(term, files, config_paths)
+        .into_iter()
+        .map(|file| {
+            indexed_entries
+                .iter()
+                .find(|entry| entry.path == file.path)
+                .cloned()
+                .unwrap_or_else(|| {
+                    dashboard_entry_summary_from_file(root, taxonomy_id, term_id, file, diagnostics)
+                })
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| {
+        left.title
+            .as_deref()
+            .unwrap_or(&left.path)
+            .cmp(right.title.as_deref().unwrap_or(&right.path))
+            .then_with(|| left.path.cmp(&right.path))
+    });
+    entries
+}
+
+fn taxonomy_term_files<'a>(
+    term: &TaxonomyTermDefinition,
+    files: &'a [WorkspaceFile],
+    config_paths: &BTreeSet<String>,
+) -> Vec<&'a WorkspaceFile> {
     let mut builder = GlobSetBuilder::new();
     let mut pattern_count = 0;
     for pattern in &term.include_patterns {
@@ -1267,51 +1520,79 @@ fn dashboard_term_entries(
     let Ok(matcher) = builder.build() else {
         return Vec::new();
     };
-    let mut entries = files
+    files
         .iter()
         .filter(|file| {
             file.media_type == "text/markdown"
                 && !config_paths.contains(&file.path)
                 && matcher.is_match(&file.path)
         })
-        .map(|file| {
-            indexed_entries
-                .iter()
-                .find(|entry| entry.path == file.path)
-                .cloned()
-                .unwrap_or_else(|| DashboardEntrySummary {
-                    id: document_id_for_path(&file.path),
-                    path: file.path.clone(),
-                    route_path: entry_route_path_for_path(&file.path),
-                    raw_path: entry_raw_path_for_path(&file.path),
-                    space: (taxonomy_id == "spaces").then(|| term_id.to_string()),
-                    kind: file
-                        .frontmatter
-                        .as_ref()
-                        .and_then(|value| config_value_string(value, "kind")),
-                    title: file
-                        .frontmatter
-                        .as_ref()
-                        .and_then(|value| config_value_string(value, "title")),
-                    summary: file
-                        .frontmatter
-                        .as_ref()
-                        .and_then(|value| config_value_string(value, "summary")),
-                    variants: Vec::new(),
-                    status: status_for_paths(diagnostics, std::iter::once(file.path.as_str())),
-                    updated_at: file_modified_at(root, &file.path),
-                    renderable: true,
-                })
-        })
-        .collect::<Vec<_>>();
-    entries.sort_by(|left, right| {
-        left.title
-            .as_deref()
-            .unwrap_or(&left.path)
-            .cmp(right.title.as_deref().unwrap_or(&right.path))
-            .then_with(|| left.path.cmp(&right.path))
-    });
-    entries
+        .collect()
+}
+
+fn dashboard_entry_summary(
+    root: &Path,
+    entry: &IndexEntry,
+    diagnostics: &[Diagnostic],
+) -> DashboardEntrySummary {
+    DashboardEntrySummary {
+        id: document_id_for_path(&entry.path),
+        path: entry.path.clone(),
+        route_path: entry_route_path_for_path(&entry.path),
+        raw_path: entry_raw_path_for_path(&entry.path),
+        space: Some(entry.space.clone()),
+        kind: entry.kind.clone(),
+        title: entry.title.clone(),
+        summary: entry.summary.clone(),
+        variants: entry
+            .variants
+            .iter()
+            .map(|variant| DashboardEntryVariant {
+                language: variant.language.clone(),
+                path: variant.path.clone(),
+                route_path: entry_route_path_for_path(&variant.path),
+                raw_path: entry_raw_path_for_path(&variant.path),
+                kind: variant.kind.clone(),
+                title: variant.title.clone(),
+                summary: variant.summary.clone(),
+            })
+            .collect(),
+        status: status_for_paths(diagnostics, std::iter::once(entry.path.as_str())),
+        updated_at: file_modified_at(root, &entry.path),
+        renderable: true,
+    }
+}
+
+fn dashboard_entry_summary_from_file(
+    root: &Path,
+    taxonomy_id: &str,
+    term_id: &str,
+    file: &WorkspaceFile,
+    diagnostics: &[Diagnostic],
+) -> DashboardEntrySummary {
+    DashboardEntrySummary {
+        id: document_id_for_path(&file.path),
+        path: file.path.clone(),
+        route_path: entry_route_path_for_path(&file.path),
+        raw_path: entry_raw_path_for_path(&file.path),
+        space: (taxonomy_id == "spaces").then(|| term_id.to_string()),
+        kind: file
+            .frontmatter
+            .as_ref()
+            .and_then(|value| config_value_string(value, "kind")),
+        title: file
+            .frontmatter
+            .as_ref()
+            .and_then(|value| config_value_string(value, "title")),
+        summary: file
+            .frontmatter
+            .as_ref()
+            .and_then(|value| config_value_string(value, "summary")),
+        variants: Vec::new(),
+        status: status_for_paths(diagnostics, std::iter::once(file.path.as_str())),
+        updated_at: file_modified_at(root, &file.path),
+        renderable: true,
+    }
 }
 
 fn config_value_string(value: &Value, field: &str) -> Option<String> {
@@ -2976,7 +3257,7 @@ mod tests {
         build_workspace_health_result, create_entry, inspect_config, inspect_entry_by_path,
         is_public_workspace_path_allowed, is_raw_workspace_path_allowed, list_file_references,
         list_files, resolve_reference, skills_get, skills_list, workspace_dashboard,
-        workspace_health,
+        workspace_explorer, workspace_explorer_entries, workspace_health,
     };
     use crate::{Diagnostic, IndexEntry, OperationStatus, ReferenceIntent, WorkspaceFileKind};
 
@@ -3484,6 +3765,60 @@ schema:
         assert!(ids.contains(&"notes--shared"));
         assert!(ids.contains(&"tasks--shared"));
 
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_explorer_returns_compact_term_summaries_without_entries() {
+        let root = fixture_root("workspace-explorer-compact");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/guide.md"),
+            "---\nkind: note\ntitle: Guide\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n",
+        )
+        .unwrap();
+
+        let result = workspace_explorer(&root).unwrap();
+        let value = serde_json::to_value(&result).unwrap();
+        let notes = result
+            .taxonomies
+            .iter()
+            .flat_map(|taxonomy| taxonomy.terms.iter())
+            .find(|term| term.id == "notes")
+            .unwrap();
+
+        assert_eq!(result.operation, "workspace.explorer");
+        assert_eq!(notes.entry_count, 1);
+        assert!(value["taxonomies"][0]["terms"][0].get("entries").is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_explorer_entries_paginates_term_entries() {
+        let root = fixture_root("workspace-explorer-pagination");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        for index in 0..3 {
+            fs::write(
+                root.join(format!("notes/note-{index}.md")),
+                format!(
+                    "---\nkind: note\ntitle: Note {index}\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n"
+                ),
+            )
+            .unwrap();
+        }
+
+        let first = workspace_explorer_entries(&root, "spaces", "notes", None, 2).unwrap();
+        let second =
+            workspace_explorer_entries(&root, "spaces", "notes", first.next_cursor.as_deref(), 2)
+                .unwrap();
+
+        assert_eq!(first.entries.len(), 2);
+        assert_eq!(first.next_cursor.as_deref(), Some("2"));
+        assert_eq!(first.total, 3);
+        assert_eq!(second.entries.len(), 1);
+        assert_eq!(second.next_cursor, None);
         fs::remove_dir_all(root).unwrap();
     }
 

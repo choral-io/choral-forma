@@ -16,7 +16,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use forma_rpc::{
     CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest, InspectRequest,
     ListRequest, OperationRequest, ReferenceResolveRequest, SkillsGetRequest, SkillsListRequest,
-    ViewRenderRequest, WorkspaceDashboardRequest, WorkspaceHealthRequest,
+    ViewRenderRequest, WorkspaceDashboardRequest, WorkspaceExplorerEntriesRequest,
+    WorkspaceExplorerRequest, WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
@@ -183,6 +184,22 @@ enum DocsCommand {
 #[derive(Debug, Subcommand)]
 enum WorkspaceCommand {
     Dashboard {
+        #[arg(long)]
+        json: bool,
+    },
+    Explorer {
+        #[arg(long)]
+        json: bool,
+    },
+    ExplorerEntries {
+        #[arg(long)]
+        taxonomy: String,
+        #[arg(long)]
+        term: String,
+        #[arg(long)]
+        cursor: Option<String>,
+        #[arg(long, default_value_t = 100)]
+        limit: usize,
         #[arg(long)]
         json: bool,
     },
@@ -353,6 +370,33 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                     WorkspaceDashboardRequest::default(),
                 ))?;
                 print_result(&result, json, "workspace dashboard");
+                exit_if_failed(&result);
+                Ok(())
+            }
+            WorkspaceCommand::Explorer { json } => {
+                let result = dispatcher.dispatch(OperationRequest::WorkspaceExplorer(
+                    WorkspaceExplorerRequest::default(),
+                ))?;
+                print_result(&result, json, "workspace explorer");
+                exit_if_failed(&result);
+                Ok(())
+            }
+            WorkspaceCommand::ExplorerEntries {
+                taxonomy,
+                term,
+                cursor,
+                limit,
+                json,
+            } => {
+                let result = dispatcher.dispatch(OperationRequest::WorkspaceExplorerEntries(
+                    WorkspaceExplorerEntriesRequest {
+                        taxonomy_id: taxonomy,
+                        term_id: term,
+                        cursor,
+                        limit: Some(limit),
+                    },
+                ))?;
+                print_result(&result, json, "workspace explorer entries");
                 exit_if_failed(&result);
                 Ok(())
             }

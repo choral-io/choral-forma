@@ -99,29 +99,54 @@ describe("FormaClient", () => {
         );
     });
 
-    it("exposes config, dashboard, health, inspect, view, and reference operations through one typed boundary", async () => {
+    it("exposes config, Explorer, health, inspect, view, and reference operations through one typed boundary", async () => {
         const fake: ProcessRunner = vi.fn(async (request) => {
             const command = request.args.slice(2, -1).join(" ");
             const operation = command.startsWith("config inspect")
                 ? "config.inspect"
-                : command.startsWith("workspace dashboard")
-                  ? "workspace.dashboard"
-                  : command.startsWith("workspace health")
-                    ? "workspace.health"
-                    : command.startsWith("inspect")
-                      ? "inspect"
-                      : command.startsWith("view render")
-                        ? "view.render"
-                        : "reference.resolve";
+                : command.startsWith("workspace explorer-entries")
+                  ? "workspace.explorerEntries"
+                  : command.startsWith("workspace explorer")
+                    ? "workspace.explorer"
+                    : command.startsWith("workspace dashboard")
+                      ? "workspace.dashboard"
+                      : command.startsWith("workspace health")
+                        ? "workspace.health"
+                        : command.startsWith("inspect")
+                          ? "inspect"
+                          : command.startsWith("view render")
+                            ? "view.render"
+                            : "reference.resolve";
             return { code: 0, stderr: "", stdout: JSON.stringify({ schemaVersion: 1, operation, status: "passed" }) };
         });
         const client = new FormaClient("forma", fake);
         await client.configInspect("/workspace");
         await client.workspaceDashboard("/workspace");
+        await client.workspaceExplorer("/workspace");
+        await client.workspaceExplorerEntries("/workspace", "spaces", "notes", "100", 100);
         await client.workspaceHealth("/workspace");
         await client.inspect("/workspace", "notes/a.md");
         await client.renderView("/workspace", ".forma/views/a.md");
         await client.resolveReference("/workspace", "notes/a.md", "notes/b", "link");
-        expect(fake).toHaveBeenCalledTimes(6);
+        expect(fake).toHaveBeenCalledTimes(8);
+        expect(fake).toHaveBeenCalledWith(
+            expect.objectContaining({
+                args: [
+                    "--workspace",
+                    "/workspace",
+                    "workspace",
+                    "explorer-entries",
+                    "--taxonomy",
+                    "spaces",
+                    "--term",
+                    "notes",
+                    "--limit",
+                    "100",
+                    "--cursor",
+                    "100",
+                    "--json",
+                ],
+            }),
+        );
     });
 });

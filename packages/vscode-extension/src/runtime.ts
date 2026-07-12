@@ -8,6 +8,8 @@ import type {
     ReferenceResolveResult,
     ViewRenderResult,
     WorkspaceDashboardResult,
+    WorkspaceExplorerEntriesResult,
+    WorkspaceExplorerResult,
     WorkspaceHealthResult,
 } from "@choral-forma/shared";
 import * as vscode from "vscode";
@@ -255,6 +257,21 @@ export class FormaRuntime implements vscode.Disposable {
 
     async workspaceDashboard(): Promise<WorkspaceDashboardResult | undefined> {
         return await this.withActiveRoot((client, root, signal) => client.workspaceDashboard(root, signal));
+    }
+
+    async workspaceExplorer(): Promise<WorkspaceExplorerResult | undefined> {
+        return await this.withActiveRoot((client, root, signal) => client.workspaceExplorer(root, signal));
+    }
+
+    async workspaceExplorerEntries(
+        taxonomyId: string,
+        termId: string,
+        cursor?: string,
+        limit = 100,
+    ): Promise<WorkspaceExplorerEntriesResult | undefined> {
+        return await this.withActiveRoot((client, root, signal) =>
+            client.workspaceExplorerEntries(root, taxonomyId, termId, cursor, limit, signal),
+        );
     }
 
     async inspectDocument(document: vscode.TextDocument, signal?: AbortSignal): Promise<InspectResult | undefined> {

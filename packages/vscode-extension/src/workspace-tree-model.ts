@@ -1,17 +1,18 @@
 import type {
     DashboardEntrySummary,
-    DashboardTaxonomy,
-    DashboardTaxonomyTerm,
     DashboardViewSummary,
-    WorkspaceDashboardResult,
+    ExplorerTaxonomy,
+    ExplorerTaxonomyTerm,
+    WorkspaceExplorerResult,
 } from "@choral-forma/shared";
 
-export type TaxonomyNode = { type: "taxonomy"; value: DashboardTaxonomy };
-export type TermNode = { type: "term"; taxonomyId: string; value: DashboardTaxonomyTerm };
+export type TaxonomyNode = { type: "taxonomy"; value: ExplorerTaxonomy };
+export type TermNode = { type: "term"; taxonomyId: string; value: ExplorerTaxonomyTerm };
 export type EntryNode = { type: "entry"; value: DashboardEntrySummary };
 export type ViewsNode = { type: "views" };
 export type ViewNode = { type: "view"; value: DashboardViewSummary };
-export type FormaTreeNode = TaxonomyNode | TermNode | EntryNode | ViewsNode | ViewNode;
+export type LoadMoreNode = { type: "loadMore"; taxonomyId: string; termId: string; cursor: string };
+export type FormaTreeNode = TaxonomyNode | TermNode | EntryNode | ViewsNode | ViewNode | LoadMoreNode;
 
 export function viewIconName(kind: string): string {
     switch (kind) {
@@ -34,27 +35,41 @@ export function treeNodeCommandId(node: FormaTreeNode): "forma.openViewPreview" 
     return undefined;
 }
 
-export function workspaceTreeRoots(dashboard: WorkspaceDashboardResult | undefined): FormaTreeNode[] {
-    if (!dashboard) return [];
+export function workspaceTreeRoots(explorer: WorkspaceExplorerResult | undefined): FormaTreeNode[] {
+    if (!explorer) return [];
     return [
-        ...dashboard.taxonomies.map((value): TaxonomyNode => ({ type: "taxonomy", value })),
-        ...(dashboard.views.length > 0 ? ([{ type: "views" }] satisfies ViewsNode[]) : []),
+        ...explorer.taxonomies.map((value): TaxonomyNode => ({ type: "taxonomy", value })),
+        ...(explorer.views.length > 0 ? ([{ type: "views" }] satisfies ViewsNode[]) : []),
     ];
 }
 
 export function workspaceTreeChildren(
-    dashboard: WorkspaceDashboardResult | undefined,
+    explorer: WorkspaceExplorerResult | undefined,
     node: FormaTreeNode,
+    termEntries: DashboardEntrySummary[] = [],
+    nextCursor?: string,
 ): FormaTreeNode[] {
-    if (!dashboard) return [];
+    if (!explorer) return [];
     if (node.type === "taxonomy") {
         return node.value.terms.map((value): TermNode => ({ type: "term", taxonomyId: node.value.id, value }));
     }
     if (node.type === "term") {
-        return node.value.entries.map((value): EntryNode => ({ type: "entry", value }));
+        return [
+            ...termEntries.map((value): EntryNode => ({ type: "entry", value })),
+            ...(nextCursor
+                ? ([
+                      {
+                          type: "loadMore",
+                          taxonomyId: node.taxonomyId,
+                          termId: node.value.id,
+                          cursor: nextCursor,
+                      },
+                  ] satisfies LoadMoreNode[])
+                : []),
+        ];
     }
     if (node.type === "views") {
-        return dashboard.views.map((value): ViewNode => ({ type: "view", value }));
+        return explorer.views.map((value): ViewNode => ({ type: "view", value }));
     }
     return [];
 }

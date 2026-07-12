@@ -408,6 +408,29 @@ export type WorkspaceDashboardResult = BaseOperationResult & {
     views: DashboardViewSummary[];
 };
 
+export type ExplorerTaxonomyTerm = Omit<DashboardTaxonomyTerm, "entries">;
+
+export type ExplorerTaxonomy = Omit<DashboardTaxonomy, "terms"> & {
+    terms: ExplorerTaxonomyTerm[];
+};
+
+export type WorkspaceExplorerResult = BaseOperationResult & {
+    operation: "workspace.explorer";
+    workspace: WorkspaceSummary;
+    taxonomies: ExplorerTaxonomy[];
+    views: DashboardViewSummary[];
+};
+
+export type WorkspaceExplorerEntriesResult = BaseOperationResult & {
+    operation: "workspace.explorerEntries";
+    workspace: WorkspaceSummary;
+    taxonomyId: string;
+    termId: string;
+    entries: DashboardEntrySummary[];
+    nextCursor?: string;
+    total: number;
+};
+
 export type ListResult = BaseOperationResult & {
     operation: "list";
     workspace: WorkspaceSummary;
@@ -566,6 +589,19 @@ export class FormaRpcClient {
 
     workspaceDashboard() {
         return this.call<WorkspaceDashboardResult>("workspace.dashboard");
+    }
+
+    workspaceExplorer() {
+        return this.call<WorkspaceExplorerResult>("workspace.explorer");
+    }
+
+    workspaceExplorerEntries(taxonomyId: string, termId: string, cursor?: string, limit = 100) {
+        return this.call<WorkspaceExplorerEntriesResult>("workspace.explorerEntries", {
+            taxonomyId,
+            termId,
+            cursor,
+            limit,
+        });
     }
 
     list(space: string) {
