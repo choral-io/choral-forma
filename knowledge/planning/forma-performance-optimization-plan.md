@@ -383,3 +383,11 @@ Commit `453d2f9` added a global Forma process scheduler with default concurrency
 Tests verified that ten identical requests execute once, eight distinct requests never exceed two active operations, cancelling one subscriber preserves shared work, invalidation aborts old work, ten same-generation Explorer refreshes execute once, and multiple newer generations coalesce into one follow-up.
 
 The clean quick run on `453d2f99d489` measured project dashboard at 195.0 ms, inspect at 92.6 ms, and resolve at 92.0 ms. The 1,000-entry results were 70.4 ms, 38.2 ms, and 38.0 ms respectively. All stayed within the non-regression tolerance. `mise run check` passed with 78 TypeScript tests plus the complete Rust workspace suite.
+
+### Iteration 3 — Completed 2026-07-12
+
+Commit `262b5b8` introduced discovery from an already loaded `FormaWorkspace`. The loaded workspace now carries its resolved configuration sources and import patterns, allowing dashboard, inspect, reference, list, render, health, and check operations to reuse one effective configuration load. This also removes repeated import-glob expansion within discovery while preserving public operation schemas.
+
+A focused regression test changes `.forma.md` after loading and confirms that discovery continues from the loaded configuration snapshot. The complete Core suite and `mise run check` passed.
+
+The clean quick run on `262b5b82cd2a` measured project dashboard at 189.0 ms, inspect at 87.0 ms, resolve at 86.0 ms, and view render at 156.4 ms. The 1,000-entry results were 68.9 ms, 36.7 ms, 36.8 ms, and 61.4 ms respectively. Compared with the Iteration 2 clean run, the project inspect and resolve paths improved by approximately 6–7%, and all measured operations remained within the non-regression tolerance. The more important invariant is structural: these operations now perform one effective configuration load rather than two or more.
