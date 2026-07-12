@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::config::{
     ConfigError, LoadMode, TaxonomyTermDefinition, WorkspaceConfig, WorkspaceSettings,
-    config_source_paths, load_workspace,
+    config_source_paths, config_source_patterns, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::docs::embedded_doc;
@@ -19,7 +19,7 @@ use crate::index::{
     discover_workspace,
 };
 use crate::markdown::FormaMarkdownDocument;
-use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
+use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath, glob_scan_root};
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
 };
@@ -207,6 +207,7 @@ pub struct ConfigInspectResult {
     pub workspace: WorkspaceSummary,
     pub config: Value,
     pub sources: Vec<ConfigSource>,
+    pub source_patterns: Vec<String>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -981,6 +982,7 @@ pub fn inspect_config(
         },
         config,
         sources: config_sources(root.as_ref()),
+        source_patterns: config_source_patterns(root.as_ref()).unwrap_or_default(),
         summary,
         diagnostics,
     })
@@ -998,7 +1000,12 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
         )
     });
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
-    let mut files = collect_workspace_files(root.as_ref());
+    let config_paths = config_source_paths(root.as_ref(), LoadMode::SharedOnly)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|source| source.path)
+        .collect::<BTreeSet<_>>();
+    let mut files = collect_workspace_files(root.as_ref(), &workspace.config, &config_paths);
     let template_paths = workspace
         .config
         .spaces
@@ -1124,7 +1131,7 @@ pub fn workspace_dashboard(
         .into_iter()
         .map(|source| source.path)
         .collect::<BTreeSet<_>>();
-    let workspace_files = collect_workspace_files(root.as_ref());
+    let workspace_files = collect_workspace_files(root.as_ref(), &workspace.config, &config_paths);
     let taxonomies = dashboard_taxonomies(
         root.as_ref(),
         &workspace.config,
@@ -2287,13 +2294,99 @@ fn inspect_config_value(
     })
 }
 
-fn collect_workspace_files(root: &Path) -> Vec<WorkspaceFile> {
-    let mut files = Vec::new();
-    collect_workspace_files_inner(root, root, &mut files);
-    files
+fn collect_workspace_files(
+    root: &Path,
+    config: &WorkspaceConfig,
+    config_paths: &BTreeSet<String>,
+) -> Vec<WorkspaceFile> {
+    let mut patterns = config
+        .spaces
+        .values()
+        .flat_map(|space| {
+            if space.include_patterns.is_empty() {
+                std::slice::from_ref(&space.include).iter()
+            } else {
+                space.include_patterns.iter()
+            }
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    patterns.extend(
+        config
+            .terms
+            .values()
+            .flat_map(BTreeMap::values)
+            .flat_map(|term| term.include_patterns.iter().cloned()),
+    );
+
+    let mut matcher_builder = GlobSetBuilder::new();
+    let mut scan_roots = Vec::new();
+    for pattern in &patterns {
+        if let Ok(glob) = Glob::new(pattern) {
+            matcher_builder.add(glob);
+            scan_roots.push(glob_scan_root(root, pattern));
+        }
+    }
+    let matcher = matcher_builder.build().ok();
+    scan_roots.sort();
+    scan_roots.dedup();
+    let mut minimal_roots = Vec::<PathBuf>::new();
+    for candidate in scan_roots {
+        if minimal_roots
+            .iter()
+            .any(|existing| candidate.starts_with(existing))
+        {
+            continue;
+        }
+        minimal_roots.retain(|existing| !existing.starts_with(&candidate));
+        minimal_roots.push(candidate);
+    }
+
+    let mut files = BTreeMap::<String, WorkspaceFile>::new();
+    if let Some(matcher) = matcher.as_ref() {
+        for scan_root in minimal_roots {
+            collect_workspace_files_inner(root, &scan_root, matcher, &mut files);
+        }
+    }
+
+    let mut known_paths = config_paths.clone();
+    known_paths.extend(
+        config
+            .spaces
+            .values()
+            .filter_map(|space| WorkspacePath::parse_config(&space.template).ok())
+            .map(|path| path.as_str().to_string()),
+    );
+    if let Some(logo) = &config.workspace.logo {
+        known_paths.insert(logo.path.clone());
+    }
+    for path in known_paths {
+        let candidate = root.join(&path);
+        if candidate.is_file()
+            && let Some(file) = workspace_file_from_path(root, candidate)
+        {
+            files.insert(file.path.clone(), file);
+        }
+    }
+    files.into_values().collect()
 }
 
-fn collect_workspace_files_inner(root: &Path, dir: &Path, files: &mut Vec<WorkspaceFile>) {
+fn collect_workspace_files_inner(
+    root: &Path,
+    path: &Path,
+    matcher: &globset::GlobSet,
+    files: &mut BTreeMap<String, WorkspaceFile>,
+) {
+    if path.is_file() {
+        if let Some(file) = workspace_file_from_path(root, path.to_path_buf())
+            && matcher.is_match(&file.path)
+        {
+            files.insert(file.path.clone(), file);
+        }
+        return;
+    }
+
+    let dir = path;
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -2302,15 +2395,21 @@ fn collect_workspace_files_inner(root: &Path, dir: &Path, files: &mut Vec<Worksp
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        if path.is_dir() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() {
             if should_skip_file_dir(name, &path) {
                 continue;
             }
-            collect_workspace_files_inner(root, &path, files);
+            collect_workspace_files_inner(root, &path, matcher, files);
         } else if should_skip_workspace_file(name, &path) {
             continue;
-        } else if let Some(file) = workspace_file_from_path(root, path) {
-            files.push(file);
+        } else if file_type.is_file()
+            && let Some(file) = workspace_file_from_path(root, path)
+            && matcher.is_match(&file.path)
+        {
+            files.insert(file.path.clone(), file);
         }
     }
 }
@@ -2985,6 +3084,14 @@ mod tests {
                 .any(|source| source.path == ".forma.md" && source.present)
         );
         assert!(result.sources.iter().all(|source| source.present));
+        assert_eq!(
+            result.source_patterns,
+            vec![
+                ".forma/local/*.md".to_string(),
+                ".forma/spaces/*.md".to_string(),
+                ".forma/views/*.md".to_string(),
+            ]
+        );
 
         let narrowed = inspect_config(&root, Some(".forma.md")).unwrap();
         assert_eq!(
@@ -3967,6 +4074,16 @@ conventions:
         let root = fixture_root("workspace-file-media-types");
         fs::create_dir_all(root.join("assets")).unwrap();
         copy_starter_workspace(&root);
+        let notes_config = root.join(".forma/spaces/notes.md");
+        let source = fs::read_to_string(&notes_config).unwrap();
+        fs::write(
+            &notes_config,
+            source.replace(
+                "include:\n  - \"notes/**/*.md\"",
+                "include:\n  - \"notes/**/*.md\"\n  - \"assets/**/*\"",
+            ),
+        )
+        .unwrap();
         fs::write(root.join("assets/logo.png"), b"\x89PNG\r\n\x1a\n").unwrap();
         fs::write(root.join("assets/clip.mp3"), b"ID3").unwrap();
         fs::write(root.join("assets/demo.mp4"), b"\0\0\0\x18ftypmp42").unwrap();
@@ -4069,7 +4186,7 @@ conventions:
     }
 
     #[test]
-    fn files_list_does_not_apply_project_gitignore_rules() {
+    fn files_list_ignores_files_outside_configured_includes() {
         let root = fixture_root("files-list-gitignore-not-special");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
@@ -4083,7 +4200,7 @@ conventions:
             result
                 .files
                 .iter()
-                .any(|file| file.path == "private/secret.md")
+                .all(|file| file.path != "private/secret.md")
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -4548,7 +4665,7 @@ conventions:
     }
 
     #[test]
-    fn workspace_health_preserves_unclassified_discovery_diagnostics() {
+    fn workspace_health_ignores_markdown_outside_configured_includes() {
         let root = fixture_root("workspace-health-unclassified-diagnostic");
         fs::create_dir_all(root.join("assets")).unwrap();
         copy_starter_workspace(&root);
@@ -4560,18 +4677,18 @@ conventions:
 
         let result = workspace_health(&root).unwrap();
 
-        assert_eq!(result.status, OperationStatus::Failed);
+        assert_eq!(result.status, OperationStatus::Passed);
         assert!(
             result
                 .diagnostics
                 .iter()
-                .any(|diagnostic| diagnostic.code == "resource.description.missingTarget")
+                .all(|diagnostic| diagnostic.code != "resource.description.missingTarget")
         );
         assert!(!result.findings.iter().any(|finding| {
             finding.category == WorkspaceHealthCategory::ConfigDiagnostic
                 && finding.path == "assets/missing.png.md"
         }));
-        assert_eq!(result.summary.errors, 1);
+        assert_eq!(result.summary.errors, 0);
 
         fs::remove_dir_all(root).unwrap();
     }

@@ -35,3 +35,9 @@ test("vendors only the Lucide icons used by the Forma tree", async () => {
 test("keeps the executable path in machine-level settings", () => {
     assert.equal(manifest.contributes.configuration.properties["forma.path"].scope, "machine");
 });
+
+test("keeps the main workspace configuration resource-scoped", () => {
+    const setting = manifest.contributes.configuration.properties["forma.workspaceConfig"];
+    assert.equal(setting.scope, "resource");
+    assert.equal(setting.default, ".forma.md");
+});

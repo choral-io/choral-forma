@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::markdown::FormaMarkdownDocument;
-use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
+use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath, glob_scan_root};
 use crate::schema::validate_space_schemas;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -553,6 +553,17 @@ pub fn config_source_paths(
     Ok(sources)
 }
 
+pub fn config_source_patterns(root: impl AsRef<Path>) -> Result<Vec<String>, ConfigError> {
+    let root = root.as_ref();
+    let config_file: ConfigFile =
+        read_markdown_frontmatter(&root.join(FORMA_CONFIG_PATH), FORMA_CONFIG_PATH)?;
+    reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
+    let mut patterns = config_file.imports;
+    patterns.sort();
+    patterns.dedup();
+    Ok(patterns)
+}
+
 fn view_id_from_config_path(path: &str) -> String {
     Path::new(path)
         .file_stem()
@@ -677,9 +688,11 @@ fn config_node_kind(value: &Value) -> Option<&str> {
 
 fn included_config_paths(root: &Path, include: &[String], extensions: &[&str]) -> Vec<String> {
     let mut builder = GlobSetBuilder::new();
+    let mut scan_roots = Vec::new();
     for pattern in include {
         if let Ok(glob) = Glob::new(pattern) {
             builder.add(glob);
+            scan_roots.push(glob_scan_root(root, pattern));
         }
     }
     let Ok(globs) = builder.build() else {
@@ -687,8 +700,24 @@ fn included_config_paths(root: &Path, include: &[String], extensions: &[&str]) -
     };
 
     let mut paths = Vec::new();
-    collect_included_files(root, root, &globs, extensions, &mut paths);
+    scan_roots.sort();
+    scan_roots.dedup();
+    let mut minimal_roots = Vec::<PathBuf>::new();
+    for candidate in scan_roots {
+        if minimal_roots
+            .iter()
+            .any(|existing| candidate.starts_with(existing))
+        {
+            continue;
+        }
+        minimal_roots.retain(|existing| !existing.starts_with(&candidate));
+        minimal_roots.push(candidate);
+    }
+    for scan_root in minimal_roots {
+        collect_included_files(root, &scan_root, &globs, extensions, &mut paths);
+    }
     paths.sort();
+    paths.dedup();
     paths
 }
 
@@ -699,6 +728,25 @@ fn collect_included_files(
     extensions: &[&str],
     paths: &mut Vec<String>,
 ) {
+    if dir.is_file() {
+        if dir
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| {
+                extensions
+                    .iter()
+                    .any(|allowed| extension.eq_ignore_ascii_case(allowed))
+            })
+            && let Some(relative) = dir.strip_prefix(root).ok().and_then(|path| path.to_str())
+        {
+            let relative = relative.replace('\\', "/");
+            if globs.is_match(&relative) {
+                paths.push(relative);
+            }
+        }
+        return;
+    }
+
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -707,19 +755,23 @@ fn collect_included_files(
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        if path.is_dir() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() {
             if matches!(name, ".git" | "target" | "node_modules") {
                 continue;
             }
             collect_included_files(root, &path, globs, extensions, paths);
-        } else if path
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .is_some_and(|extension| {
-                extensions
-                    .iter()
-                    .any(|allowed| extension.eq_ignore_ascii_case(allowed))
-            })
+        } else if file_type.is_file()
+            && path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| {
+                    extensions
+                        .iter()
+                        .any(|allowed| extension.eq_ignore_ascii_case(allowed))
+                })
             && let Some(relative) = path.strip_prefix(root).ok().and_then(|path| path.to_str())
         {
             let relative = relative.replace('\\', "/");

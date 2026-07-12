@@ -13,7 +13,7 @@ use crate::config::{
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
 use crate::operations::workspace_skill_diagnostics;
-use crate::path::{FORMA_CONFIG_PATH, WorkspacePath, slugify_path_segment};
+use crate::path::{FORMA_CONFIG_PATH, WorkspacePath, glob_scan_root, slugify_path_segment};
 use crate::schema::{SchemaNode, parse_space_schema, validate_schema_value};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -284,7 +284,7 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
 
     let mut views = discover_views(&root, &config, &mut diagnostics);
     views.sort_by(|left, right| view_sort_key(left).cmp(&view_sort_key(right)));
-    diagnostics.extend(resource_description_diagnostics(&root));
+    diagnostics.extend(resource_description_diagnostics(&root, &config));
     index_entries.sort_by(|left, right| left.path.cmp(&right.path));
 
     Ok(Discovery {
@@ -345,7 +345,7 @@ fn discover_entries(
     config: &WorkspaceConfig,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<CandidateEntry> {
-    let markdown_files = collect_markdown_files(root);
+    let markdown_files = collect_included_markdown_files(root, config);
     let markdown_paths = markdown_files
         .iter()
         .filter_map(|path| workspace_relative_path(root, path))
@@ -549,14 +549,68 @@ fn build_space_matchers(
     matchers
 }
 
-fn collect_markdown_files(root: &Path) -> Vec<PathBuf> {
-    let mut files = Vec::new();
-    collect_markdown_files_inner(root, root, &mut files);
-    files.sort();
+fn collect_included_markdown_files(root: &Path, config: &WorkspaceConfig) -> Vec<PathBuf> {
+    let mut scan_roots = Vec::new();
+    let mut matcher_builder = GlobSetBuilder::new();
+    let mut has_valid_pattern = false;
+    for space in config.spaces.values() {
+        let patterns = if space.include_patterns.is_empty() {
+            std::slice::from_ref(&space.include)
+        } else {
+            space.include_patterns.as_slice()
+        };
+        for pattern in patterns {
+            if let Ok(glob) = Glob::new(pattern) {
+                matcher_builder.add(glob);
+                has_valid_pattern = true;
+                scan_roots.push(glob_scan_root(root, pattern));
+            }
+        }
+    }
+    let Ok(matcher) = matcher_builder.build() else {
+        return Vec::new();
+    };
+    if !has_valid_pattern {
+        return Vec::new();
+    }
+    scan_roots.sort();
+    scan_roots.dedup();
+
+    let mut minimal_roots = Vec::<PathBuf>::new();
+    for candidate in scan_roots {
+        if minimal_roots
+            .iter()
+            .any(|existing| candidate.starts_with(existing))
+        {
+            continue;
+        }
+        minimal_roots.retain(|existing| !existing.starts_with(&candidate));
+        minimal_roots.push(candidate);
+    }
+
+    let mut files = BTreeSet::new();
+    for scan_root in minimal_roots {
+        collect_markdown_files_inner(root, &scan_root, &mut files);
+    }
     files
+        .into_iter()
+        .filter(|path| {
+            workspace_relative_path(root, path).is_some_and(|relative| matcher.is_match(relative))
+        })
+        .collect()
 }
 
-fn collect_markdown_files_inner(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) {
+fn collect_markdown_files_inner(root: &Path, path: &Path, files: &mut BTreeSet<PathBuf>) {
+    if path.is_file() {
+        if path.extension().and_then(|extension| extension.to_str()) == Some("md")
+            && path.starts_with(root)
+        {
+            files.insert(path.to_path_buf());
+        }
+        return;
+    }
+
+    let dir = path;
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -565,15 +619,19 @@ fn collect_markdown_files_inner(root: &Path, dir: &Path, files: &mut Vec<PathBuf
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        if path.is_dir() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() {
             if matches!(name, ".git" | "target" | "node_modules") {
                 continue;
             }
             collect_markdown_files_inner(root, &path, files);
-        } else if path.extension().and_then(|extension| extension.to_str()) == Some("md")
+        } else if file_type.is_file()
+            && path.extension().and_then(|extension| extension.to_str()) == Some("md")
             && path.starts_with(root)
         {
-            files.push(path);
+            files.insert(path);
         }
     }
 }
@@ -675,9 +733,9 @@ fn view_sort_key(view: &IndexView) -> (bool, i64, &str, &str, &str) {
     )
 }
 
-fn resource_description_diagnostics(root: &Path) -> Vec<Diagnostic> {
+fn resource_description_diagnostics(root: &Path, config: &WorkspaceConfig) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    for path in collect_markdown_files(root) {
+    for path in collect_included_markdown_files(root, config) {
         let Some(description_path) = workspace_relative_path(root, &path) else {
             continue;
         };
@@ -1401,6 +1459,32 @@ mod tests {
     use crate::path::FORMA_CONFIG_PATH;
 
     const FIXTURE_VIEWS_DIR: &str = ".forma/views";
+
+    #[test]
+    fn included_markdown_collection_applies_the_complete_space_glob() {
+        let root = fixture_root("included-markdown-scope");
+        write_workspace(&root);
+        write_entry(
+            &root,
+            "notes/included.md",
+            "---\nkind: note\ntitle: Included\n---\n",
+        );
+        write_entry(
+            &root,
+            "outside/ignored.md",
+            "---\nkind: note\ntitle: Ignored\n---\n",
+        );
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        let paths = collect_included_markdown_files(&root, &workspace.config)
+            .iter()
+            .filter_map(|path| workspace_relative_path(&root, path))
+            .collect::<Vec<_>>();
+
+        assert!(paths.contains(&"notes/included.md".to_string()));
+        assert!(!paths.contains(&"outside/ignored.md".to_string()));
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn builds_deterministic_summary_index_with_resolved_refs() {
@@ -2155,6 +2239,16 @@ mod tests {
     fn resource_description_documents_report_missing_targets() {
         let root = fixture_root("resource-description-health");
         write_workspace(&root);
+        let notes_config = root.join(".forma/spaces/notes.md");
+        let source = fs::read_to_string(&notes_config).unwrap();
+        fs::write(
+            &notes_config,
+            source.replace(
+                "include:\n  - notes/**/*.md",
+                "include:\n  - notes/**/*.md\n  - assets/**/*.md",
+            ),
+        )
+        .unwrap();
         fs::create_dir_all(root.join("assets")).unwrap();
         fs::write(root.join("assets/logo.png"), b"\x89PNG\r\n\x1a\n").unwrap();
         write_entry(&root, "assets/logo.png.md", "---\ntitle: Logo\n---\n");
@@ -2162,9 +2256,13 @@ mod tests {
 
         let discovery = discover_workspace(&root).unwrap();
 
-        assert!(discovery.index.entries.iter().all(|entry| {
-            entry.path != "assets/logo.png" && entry.path != "assets/logo.png.md"
-        }));
+        assert!(
+            discovery
+                .index
+                .entries
+                .iter()
+                .all(|entry| entry.path != "assets/logo.png")
+        );
         assert!(
             discovery
                 .diagnostics

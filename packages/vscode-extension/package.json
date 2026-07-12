@@ -107,6 +107,12 @@
           "scope": "machine",
           "description": "Absolute user-level path to a preinstalled Forma binary. When empty, the extension uses forma from PATH."
         },
+        "forma.workspaceConfig": {
+          "type": "string",
+          "default": ".forma.md",
+          "scope": "resource",
+          "description": "Workspace Folder-relative path to the main .forma.md file. Its parent directory becomes the Forma workspace root."
+        },
         "forma.commandTimeout": {
           "type": "number",
           "default": 15000,

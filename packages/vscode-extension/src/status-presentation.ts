@@ -11,6 +11,7 @@ export function statusText(state: FormaRuntimeState): string {
         case "restricted":
             return "$(lock) Forma";
         case "binaryMissing":
+        case "configuredWorkspaceMissing":
         case "failed":
         case "incompatible":
         case "invalidConfig":

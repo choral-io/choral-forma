@@ -325,6 +325,7 @@ export type ConfigInspectResult = BaseOperationResult & {
         path: string;
         present: boolean;
     }>;
+    sourcePatterns: string[];
 };
 
 export type FilesListResult = BaseOperationResult & {

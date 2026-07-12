@@ -6,11 +6,13 @@ Forma for VS Code keeps repository Markdown as the source of truth while adding 
 
 Install a compatible `forma` binary separately and make it available on the extension host `PATH`, or set the user-level `forma.path` setting to an absolute executable path. The extension never downloads or bundles Forma, and it never executes a binary path supplied by workspace content.
 
-Download `forma-0.1.0-alpha.15.vsix` from the matching GitHub prerelease, then run **Extensions: Install from VSIX…** in VS Code. The Alpha 15 VSIX is intended for internal distribution and is not published to Marketplace.
+By default, each VS Code Workspace Folder uses its root `.forma.md`. For a monorepo, set the resource-scoped `forma.workspaceConfig` setting to a Workspace Folder-relative main file such as `docs/.forma.md`; that file's parent directory becomes the Forma workspace root. Absolute paths, parent traversal, backslashes, and alternate filenames are rejected.
 
-## Alpha 15 features
+Download the `.vsix` asset from the matching GitHub prerelease, then run **Extensions: Install from VSIX…** in VS Code. The current internal VSIX is intended for internal distribution and is not published to Marketplace.
 
-- discovers `.forma.md` workspaces;
+## Current internal release features
+
+- discovers root or explicitly configured `.forma.md` workspaces;
 - navigates Markdown links, wikilinks, embeds, heading fragments, and semantic references;
 - enhances VS Code's native Markdown Preview with saved list, table, and kanban View projections;
 - renders Core-resolved wikilinks as navigable links in native Markdown Preview;
@@ -21,7 +23,7 @@ Download `forma-0.1.0-alpha.15.vsix` from the matching GitHub prerelease, then r
 - follows VS Code light, dark, high-contrast, font, focus, and reduced-motion settings;
 - shows an intentional deferred state for graph views.
 
-The extension runs as a workspace extension, so the Forma binary and workspace files remain colocated in local or remote extension hosts. Local workspaces are the Alpha 15 release gate; individual remote environments are not yet claimed as fully validated.
+The extension runs as a workspace extension, so the Forma binary and workspace files remain colocated in local or remote extension hosts. Local workspaces are the current internal release gate; individual remote environments are not yet claimed as fully validated.
 
 ## Trust and troubleshooting
 

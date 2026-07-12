@@ -1,5 +1,5 @@
 use std::fmt;
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -59,6 +59,23 @@ enum SeparatorPolicy {
 
 pub fn normalize_cli_path(value: &str) -> String {
     value.replace('\\', "/")
+}
+
+pub(crate) fn glob_scan_root(root: &Path, pattern: &str) -> PathBuf {
+    let mut prefix = PathBuf::new();
+    for component in pattern.split('/') {
+        if component.is_empty() || component == "." {
+            continue;
+        }
+        if component
+            .chars()
+            .any(|character| matches!(character, '*' | '?' | '[' | ']' | '{' | '}'))
+        {
+            break;
+        }
+        prefix.push(component);
+    }
+    root.join(prefix)
 }
 
 pub fn slugify_path_segment(value: &str) -> Result<String, PathError> {
@@ -164,7 +181,11 @@ fn has_windows_drive_prefix(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{PathError, WorkspacePath, normalize_cli_path, slugify_path_segment};
+    use std::path::Path;
+
+    use super::{
+        PathError, WorkspacePath, glob_scan_root, normalize_cli_path, slugify_path_segment,
+    };
 
     #[test]
     fn config_paths_are_posix_relative() {
@@ -184,6 +205,22 @@ mod tests {
             WorkspacePath::parse_config("notes\\foo.md"),
             Err(PathError::Backslash)
         );
+    }
+
+    #[test]
+    fn glob_scan_roots_stop_before_the_first_dynamic_component() {
+        let root = Path::new("/workspace");
+
+        assert_eq!(
+            glob_scan_root(root, "knowledge/tasks/**/*.md"),
+            root.join("knowledge/tasks")
+        );
+        assert_eq!(
+            glob_scan_root(root, "knowledge/workspace/*/index.md"),
+            root.join("knowledge/workspace")
+        );
+        assert_eq!(glob_scan_root(root, "**/*.md"), root);
+        assert_eq!(glob_scan_root(root, "README.md"), root.join("README.md"));
     }
 
     #[test]

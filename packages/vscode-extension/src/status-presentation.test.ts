@@ -10,6 +10,10 @@ describe("status bar presentation", () => {
         [{ kind: "warning", label: "Forma: Warnings", root: "/workspace" }, "$(warning) Forma"],
         [{ kind: "restricted", label: "Forma: Restricted" }, "$(lock) Forma"],
         [{ kind: "failed", label: "Forma: Failed", detail: "failed" }, "$(error) Forma"],
+        [
+            { kind: "configuredWorkspaceMissing", label: "Forma: Workspace not found", detail: "docs/.forma.md" },
+            "$(error) Forma",
+        ],
         [{ kind: "noWorkspace", label: "Forma: No workspace" }, "$(circle-slash) Forma"],
     ] satisfies [FormaRuntimeState, string][])(
         'renders "$kind" as a compact icon and product name',

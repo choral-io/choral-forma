@@ -18,6 +18,63 @@ export async function activate(
     const runtime = new FormaRuntime(output);
     const previews = new NativePreviewManager(runtime);
     const explorer = new FormaWorkspaceExplorer(runtime, context);
+    let workspaceWatchers: vscode.Disposable[] = [];
+    let contentRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let configRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const disposeWorkspaceWatchers = (): void => {
+        for (const disposable of workspaceWatchers) disposable.dispose();
+        workspaceWatchers = [];
+    };
+    const scheduleContentRefresh = (): void => {
+        runtime.invalidateContent();
+        if (contentRefreshTimer) clearTimeout(contentRefreshTimer);
+        contentRefreshTimer = setTimeout(() => {
+            contentRefreshTimer = undefined;
+            void explorer.refresh();
+        }, 100);
+    };
+    const scheduleConfigRefresh = (): void => {
+        if (configRefreshTimer) clearTimeout(configRefreshTimer);
+        configRefreshTimer = setTimeout(() => {
+            configRefreshTimer = undefined;
+            void runtime.refresh();
+        }, 100);
+    };
+    const resetWorkspaceWatchers = (): void => {
+        disposeWorkspaceWatchers();
+        const targets = new Map<string, { base: vscode.Uri; pattern: string; config: boolean }>();
+        for (const target of runtime.workspaceConfigTargets) {
+            const key = watcherKey(target.base, target.pattern);
+            targets.set(key, { ...target, config: true });
+        }
+        const scope = runtime.activeScope;
+        if (scope) {
+            const base = runtime.uriFor(scope.root);
+            for (const pattern of scope.configSourcePaths) {
+                targets.set(watcherKey(base, pattern), { base, pattern, config: true });
+            }
+            for (const pattern of scope.configPatterns) {
+                targets.set(watcherKey(base, pattern), { base, pattern, config: true });
+            }
+            for (const pattern of scope.includePatterns) {
+                const key = watcherKey(base, pattern);
+                if (!targets.has(key)) targets.set(key, { base, pattern, config: false });
+            }
+        }
+        for (const target of targets.values()) {
+            const watcher = vscode.workspace.createFileSystemWatcher(
+                new vscode.RelativePattern(target.base, target.pattern),
+            );
+            const onChange = target.config ? scheduleConfigRefresh : scheduleContentRefresh;
+            workspaceWatchers.push(
+                watcher,
+                watcher.onDidCreate(onChange),
+                watcher.onDidChange(onChange),
+                watcher.onDidDelete(onChange),
+            );
+        }
+    };
     status.command = "forma.statusMenu";
     status.name = "Forma";
     status.show();
@@ -33,9 +90,19 @@ export async function activate(
         diagnostics,
         runtime,
         previews,
+        {
+            dispose: () => {
+                disposeWorkspaceWatchers();
+                if (contentRefreshTimer) clearTimeout(contentRefreshTimer);
+                if (configRefreshTimer) clearTimeout(configRefreshTimer);
+            },
+        },
         runtime.onDidChangeState(() => {
             updateStatus();
-            if (runtime.state.kind !== "checking") void explorer.refresh();
+            if (runtime.state.kind !== "checking") {
+                resetWorkspaceWatchers();
+                void explorer.refresh();
+            }
         }),
     );
     updateStatus();
@@ -73,7 +140,7 @@ export async function activate(
             await runtime.refresh();
             await explorer.refresh();
             const document = vscode.window.activeTextEditor?.document;
-            if (document?.languageId === "markdown") await previews.refresh(document);
+            if (document && runtime.isFormaDocument(document)) await previews.refresh(document);
         }),
         vscode.commands.registerCommand("forma.refreshExplorer", async () => {
             await explorer.refresh();
@@ -94,8 +161,8 @@ export async function activate(
             if (uri) await openSource(uri);
         }),
         vscode.workspace.onDidSaveTextDocument(async (document) => {
-            if (document.languageId === "markdown") await previews.refresh(document);
-            if (isWorkspaceDefinition(document.uri.path)) await runtime.refresh(document);
+            if (runtime.isFormaDocument(document)) await previews.refresh(document);
+            if (runtime.isConfigDocument(document)) scheduleConfigRefresh();
         }),
         vscode.workspace.onDidChangeWorkspaceFolders(() => void runtime.refresh()),
         vscode.window.onDidChangeActiveTextEditor((editor) => {
@@ -107,7 +174,7 @@ export async function activate(
                 ) {
                     await runtime.refresh(editor.document);
                 }
-                if (editor?.document.languageId === "markdown") await previews.refresh(editor.document);
+                if (editor && runtime.isFormaDocument(editor.document)) await previews.refresh(editor.document);
             })();
         }),
         vscode.workspace.onDidGrantWorkspaceTrust(() => void runtime.refresh()),
@@ -116,20 +183,10 @@ export async function activate(
         }),
     );
 
-    for (const pattern of ["**/.forma.md", "**/.forma/**/*.md"]) {
-        const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-        context.subscriptions.push(
-            watcher,
-            watcher.onDidCreate(() => void runtime.refresh()),
-            watcher.onDidChange(() => void runtime.refresh()),
-            watcher.onDidDelete(() => void runtime.refresh()),
-        );
-    }
-
     registerNavigation(context, runtime, diagnostics);
     await runtime.refresh();
     const document = vscode.window.activeTextEditor?.document;
-    if (document?.languageId === "markdown") await previews.refresh(document);
+    if (document && runtime.isFormaDocument(document)) await previews.refresh(document);
     return { extendMarkdownIt };
 }
 
@@ -141,12 +198,22 @@ async function targetDocument(uri?: vscode.Uri): Promise<vscode.TextDocument | u
     return vscode.window.activeTextEditor?.document;
 }
 
-function isWorkspaceDefinition(path: string): boolean {
-    return path.endsWith("/.forma.md") || path.includes("/.forma/");
-}
-
 function stateTooltip(state: FormaRuntime["state"]): string {
     if ("detail" in state) return `${state.label}\n${state.detail}`;
     if ("root" in state) return `${state.label}\n${state.root}`;
     return state.label;
+}
+
+function watcherKey(base: vscode.Uri, pattern: string): string {
+    if (
+        pattern.includes("*") ||
+        pattern.includes("?") ||
+        pattern.includes("[") ||
+        pattern.includes("]") ||
+        pattern.includes("{") ||
+        pattern.includes("}")
+    ) {
+        return `${base.toString()}\0${pattern}`;
+    }
+    return vscode.Uri.joinPath(base, ...pattern.split("/")).toString();
 }

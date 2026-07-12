@@ -83,7 +83,10 @@ export function registerNavigation(
     );
 
     const validate = async (document: vscode.TextDocument): Promise<void> => {
-        if (document.languageId !== "markdown" || document.isUntitled) return;
+        if (!runtime.isFormaDocument(document)) {
+            diagnostics.delete(document.uri);
+            return;
+        }
         const tokens = scanReferenceTokens(document.getText()).slice(0, 25);
         const results = await Promise.all(
             tokens.map(async (token) => {

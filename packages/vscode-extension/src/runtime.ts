@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { relative } from "node:path";
 
 import type {
@@ -13,7 +13,14 @@ import type {
 import * as vscode from "vscode";
 
 import { FormaClient, resolveFormaCommand, runProcess } from "./forma-client.ts";
-import { discoverWorkspaceRoots, selectWorkspaceRoot, workspaceRelativePath } from "./workspace-discovery.ts";
+import {
+    configuredWorkspace,
+    discoverWorkspaceRoots,
+    selectWorkspaceRoot,
+    workspaceRelativePath,
+    workspaceScopeFromConfig,
+    type WorkspaceScope,
+} from "./workspace-discovery.ts";
 
 export type FormaRuntimeState =
     | { kind: "noWorkspace"; label: "Forma: No workspace" }
@@ -21,6 +28,7 @@ export type FormaRuntimeState =
     | { kind: "unsupported"; label: "Forma: Unsupported workspace" }
     | { kind: "checking"; label: "Forma: Checking…" }
     | { kind: "binaryMissing"; label: "Forma: CLI not found"; detail: string }
+    | { kind: "configuredWorkspaceMissing"; label: "Forma: Workspace not found"; detail: string }
     | { kind: "incompatible"; label: "Forma: Incompatible version"; detail: string }
     | { kind: "invalidConfig"; label: "Forma: Invalid configuration"; root: string }
     | { kind: "warning"; label: "Forma: Warnings"; root: string }
@@ -35,6 +43,8 @@ export class FormaRuntime implements vscode.Disposable {
     private client: FormaClient | undefined;
     private refreshController: AbortController | undefined;
     private readonly inspectCache = new Map<string, InspectResult>();
+    private readonly scopes = new Map<string, WorkspaceScope>();
+    private configTargets: Array<{ base: vscode.Uri; pattern: string }> = [];
 
     readonly onDidChangeState = this.stateEmitter.event;
 
@@ -52,9 +62,20 @@ export class FormaRuntime implements vscode.Disposable {
         return "root" in this.stateValue ? this.stateValue.root : (this.selectedRoot ?? this.roots[0]);
     }
 
+    get activeScope(): ({ root: string } & WorkspaceScope) | undefined {
+        const root = this.activeRoot;
+        const scope = root ? this.scopes.get(root) : undefined;
+        return root && scope ? { root, ...scope } : undefined;
+    }
+
+    get workspaceConfigTargets(): ReadonlyArray<{ base: vscode.Uri; pattern: string }> {
+        return this.configTargets;
+    }
+
     async refresh(activeDocument = vscode.window.activeTextEditor?.document): Promise<void> {
         this.refreshController?.abort();
         this.inspectCache.clear();
+        this.configTargets = [];
         const controller = new AbortController();
         this.refreshController = controller;
 
@@ -74,21 +95,45 @@ export class FormaRuntime implements vscode.Disposable {
 
         this.setState({ kind: "checking", label: "Forma: Checking…" });
         try {
-            this.roots = await discoverWorkspaceRoots(
-                folders.map((folder) => folder.uri.fsPath),
-                activeDocument?.uri.fsPath,
+            const configured = folders.map((folder) => ({
+                folder,
+                workspace: configuredWorkspace(
+                    folder.uri.fsPath,
+                    vscode.workspace.getConfiguration("forma", folder.uri).get<string>("workspaceConfig", ".forma.md"),
+                ),
+            }));
+            this.configTargets = configured.map(({ folder, workspace }) => ({
+                base: folder.uri,
+                pattern: workspace.configRelativePath,
+            }));
+            const discovery = await discoverWorkspaceRoots(
+                configured.map(({ workspace }) => workspace),
                 async (path) => {
                     try {
-                        await access(path);
-                        return true;
+                        return (await stat(path)).isFile();
                     } catch {
                         return false;
                     }
                 },
             );
+            this.roots = discovery.roots;
+            for (const root of this.scopes.keys()) {
+                if (!this.roots.includes(root)) this.scopes.delete(root);
+            }
             if (isAborted(controller)) return;
             if (this.roots.length === 0) {
-                this.setState({ kind: "noWorkspace", label: "Forma: No workspace" });
+                const configuredMissing = discovery.missing.find(
+                    (workspace) => workspace.configRelativePath !== ".forma.md",
+                );
+                if (configuredMissing) {
+                    this.setState({
+                        kind: "configuredWorkspaceMissing",
+                        label: "Forma: Workspace not found",
+                        detail: `Configured main file not found: ${configuredMissing.configRelativePath}`,
+                    });
+                } else {
+                    this.setState({ kind: "noWorkspace", label: "Forma: No workspace" });
+                }
                 return;
             }
 
@@ -120,6 +165,7 @@ export class FormaRuntime implements vscode.Disposable {
             }
             const inspected = await client.configInspect(activeRoot, controller.signal);
             if (isAborted(controller)) return;
+            this.scopes.set(activeRoot, workspaceScopeFromConfig(inspected));
             this.logResult(inspected);
             if (inspected.status === "failed") {
                 this.setState({ kind: "invalidConfig", label: "Forma: Invalid configuration", root: activeRoot });
@@ -141,10 +187,36 @@ export class FormaRuntime implements vscode.Disposable {
     }
 
     sourcePath(document: vscode.TextDocument): { root: string; path: string } | undefined {
-        const root = this.rootForDocument(document);
-        if (!root) return undefined;
-        const path = workspaceRelativePath(root, document.uri.fsPath);
-        return path ? { root, path } : undefined;
+        const source = this.sourceCandidate(document);
+        return source && this.isFormaDocument(document) ? source : undefined;
+    }
+
+    isFormaDocument(document: vscode.TextDocument): boolean {
+        if (document.languageId !== "markdown" || document.isUntitled) return false;
+        const source = this.sourceCandidate(document);
+        if (!source) return false;
+        const scope = this.scopes.get(source.root);
+        if (!scope) return false;
+        if (scope.configSourcePaths.includes(source.path)) return true;
+        return scope.includePatterns.some(
+            (pattern) =>
+                vscode.languages.match(
+                    {
+                        language: "markdown",
+                        pattern: new vscode.RelativePattern(this.uriFor(source.root), pattern),
+                    },
+                    document,
+                ) > 0,
+        );
+    }
+
+    isConfigDocument(document: vscode.TextDocument): boolean {
+        const source = this.sourceCandidate(document);
+        return source ? (this.scopes.get(source.root)?.configSourcePaths.includes(source.path) ?? false) : false;
+    }
+
+    invalidateContent(): void {
+        this.inspectCache.clear();
     }
 
     async selectWorkspace(): Promise<void> {
@@ -230,6 +302,13 @@ export class FormaRuntime implements vscode.Disposable {
 
     private canExecute(): boolean {
         return vscode.workspace.isTrusted && ["ready", "warning", "invalidConfig"].includes(this.state.kind);
+    }
+
+    private sourceCandidate(document: vscode.TextDocument): { root: string; path: string } | undefined {
+        const root = this.rootForDocument(document);
+        if (!root) return undefined;
+        const path = workspaceRelativePath(root, document.uri.fsPath);
+        return path ? { root, path } : undefined;
     }
 
     private async withActiveRoot<T>(
