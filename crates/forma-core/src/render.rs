@@ -10,7 +10,8 @@ use serde_yml::Value;
 use crate::config::{LoadMode, config_source_paths, load_workspace};
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::index::{
-    IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource, discover_workspace,
+    IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource,
+    discover_loaded_workspace,
 };
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax};
 use crate::operations::{
@@ -379,7 +380,7 @@ pub fn render_file(
 
     let path = normalize_markdown_path(path)?;
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let discovery = discover_workspace(root.as_ref())?;
+    let discovery = discover_loaded_workspace(&workspace);
     let index_entry = discovery
         .index
         .entries
@@ -478,7 +479,7 @@ pub fn render_view(
     params: BTreeMap<String, Value>,
 ) -> Result<ViewRenderResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let discovery = discover_workspace(root.as_ref())?;
+    let discovery = discover_loaded_workspace(&workspace);
     let index_view = discovery.index.views.iter().find(|candidate| {
         candidate.id == view
             || candidate.path == view

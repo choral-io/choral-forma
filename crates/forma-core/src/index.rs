@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
 use crate::config::{
-    ConfigError, DisplayOptions, LoadMode, SemanticType, WorkspaceConfig, config_source_paths,
-    load_workspace,
+    ConfigError, ConfigSourcePath, DisplayOptions, FormaWorkspace, LoadMode, SemanticType,
+    WorkspaceConfig, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
@@ -206,11 +206,15 @@ struct RefField {
 
 pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let root = workspace.root;
-    let config = workspace.config;
-    let mut diagnostics = workspace.diagnostics;
+    Ok(discover_loaded_workspace(&workspace))
+}
 
-    let mut entries = discover_entries(&root, &config, &mut diagnostics);
+pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
+    let root = &workspace.root;
+    let config = &workspace.config;
+    let mut diagnostics = workspace.diagnostics.clone();
+
+    let mut entries = discover_entries(root, config, &workspace.config_sources, &mut diagnostics);
     let path_index = PathIndex::from_entries(&entries);
     let mut index_entries = Vec::new();
 
@@ -286,9 +290,9 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
         .collect::<Vec<_>>();
     spaces.sort_by(|left, right| space_sort_key(left).cmp(&space_sort_key(right)));
 
-    let mut views = discover_views(&root, &config, &mut diagnostics);
+    let mut views = discover_views(root, config, &workspace.config_sources, &mut diagnostics);
     views.sort_by(|left, right| view_sort_key(left).cmp(&view_sort_key(right)));
-    diagnostics.extend(resource_description_diagnostics(&root, &config));
+    diagnostics.extend(resource_description_diagnostics(root, config));
     let resolved_titles = index_entries
         .iter()
         .filter_map(|entry| entry.title.clone().map(|title| (entry.path.clone(), title)))
@@ -300,33 +304,32 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
     }
     index_entries.sort_by(|left, right| left.path.cmp(&right.path));
 
-    Ok(Discovery {
+    Discovery {
         index: SummaryIndex {
             schema_version: 1,
             workspace: IndexWorkspace {
-                name: config.workspace.name,
-                canonical_language: config.workspace.canonical_language,
-                supported_languages: config.workspace.supported_languages,
+                name: config.workspace.name.clone(),
+                canonical_language: config.workspace.canonical_language.clone(),
+                supported_languages: config.workspace.supported_languages.clone(),
             },
             spaces,
             views,
             entries: index_entries,
         },
         diagnostics,
-    })
+    }
 }
 
 pub fn check_workspace(root: impl AsRef<Path>) -> CheckResult {
     let root = root.as_ref();
-    let mut diagnostics = match discover_workspace(root) {
-        Ok(discovery) => {
+    let mut diagnostics = match load_workspace(root, LoadMode::SharedOnly) {
+        Ok(workspace) => {
+            let discovery = discover_loaded_workspace(&workspace);
             let mut diagnostics = discovery.diagnostics;
-            if let Ok(workspace) = load_workspace(root, LoadMode::SharedOnly) {
-                diagnostics.extend(workspace_skill_diagnostics(
-                    &workspace.root,
-                    &workspace.config,
-                ));
-            }
+            diagnostics.extend(workspace_skill_diagnostics(
+                &workspace.root,
+                &workspace.config,
+            ));
             diagnostics
         }
         Err(error) => vec![config_error_diagnostic(error)],
@@ -356,6 +359,7 @@ fn check_result(operation: &str, diagnostics: Vec<Diagnostic>) -> CheckResult {
 fn discover_entries(
     root: &Path,
     config: &WorkspaceConfig,
+    config_sources: &[ConfigSourcePath],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<CandidateEntry> {
     let markdown_files = collect_included_markdown_files(root, config);
@@ -363,14 +367,10 @@ fn discover_entries(
         .iter()
         .filter_map(|path| workspace_relative_path(root, path))
         .collect::<BTreeSet<_>>();
-    let config_source_paths = config_source_paths(root, LoadMode::SharedOnly)
-        .map(|sources| {
-            sources
-                .into_iter()
-                .map(|source| source.path)
-                .collect::<BTreeSet<_>>()
-        })
-        .unwrap_or_default();
+    let config_source_paths = config_sources
+        .iter()
+        .map(|source| source.path.clone())
+        .collect::<BTreeSet<_>>();
     let supported_language_suffixes = supported_language_suffixes(config);
     let matchers = build_space_matchers(config, diagnostics);
     let mut entries = Vec::new();
@@ -652,17 +652,15 @@ fn collect_markdown_files_inner(root: &Path, path: &Path, files: &mut BTreeSet<P
 fn discover_views(
     root: &Path,
     config: &WorkspaceConfig,
+    config_sources: &[ConfigSourcePath],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<IndexView> {
     let mut views = Vec::new();
 
-    let Ok(sources) = config_source_paths(root, LoadMode::SharedOnly) else {
-        return views;
-    };
-    for relative in sources
-        .into_iter()
+    for relative in config_sources
+        .iter()
         .filter(|source| source.path.ends_with(".md") || source.path.ends_with(".mdx"))
-        .map(|source| source.path)
+        .map(|source| source.path.clone())
     {
         let Ok(source) = fs::read_to_string(root.join(&relative)) else {
             diagnostics.push(
@@ -1502,6 +1500,29 @@ mod tests {
 
         assert!(paths.contains(&"notes/included.md".to_string()));
         assert!(!paths.contains(&"outside/ignored.md".to_string()));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn loaded_workspace_discovery_reuses_the_loaded_configuration() {
+        let root = fixture_root("loaded-workspace-discovery");
+        write_workspace(&root);
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let config_path = root.join(FORMA_CONFIG_PATH);
+        let changed = fs::read_to_string(&config_path)
+            .unwrap()
+            .replace("Acme Workspace", "Changed Workspace");
+        fs::write(config_path, changed).unwrap();
+
+        let discovery = discover_loaded_workspace(&workspace);
+
+        assert_eq!(discovery.index.workspace.name, "Acme Workspace");
+        assert!(
+            workspace
+                .config_sources
+                .iter()
+                .any(|source| source.path == FORMA_CONFIG_PATH)
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

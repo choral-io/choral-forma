@@ -23,6 +23,8 @@ pub enum LoadMode {
 pub struct FormaWorkspace {
     pub root: PathBuf,
     pub config: WorkspaceConfig,
+    pub config_sources: Vec<ConfigSourcePath>,
+    pub config_source_patterns: Vec<String>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -321,14 +323,18 @@ pub fn load_workspace(
             source,
         })?;
     reject_legacy_root_include(&base_config_file, FORMA_CONFIG_PATH)?;
-    for public_path in included_markdown_config_paths(root, &base_config_file.imports) {
+    let mut config_source_patterns = base_config_file.imports.clone();
+    config_source_patterns.sort();
+    config_source_patterns.dedup();
+    let imported_config_paths = included_markdown_config_paths(root, &base_config_file.imports);
+    for public_path in &imported_config_paths {
         let mut local_value =
-            read_markdown_frontmatter_value(&root.join(&public_path), &public_path)?;
+            read_markdown_frontmatter_value(&root.join(public_path), public_path)?;
         if config_node_kind(&local_value).is_some() {
             continue;
         }
-        let local_types = take_types_from_value(&mut local_value, &public_path)?;
-        merge_type_definitions(&mut types, local_types, &public_path, &mut diagnostics);
+        let local_types = take_types_from_value(&mut local_value, public_path)?;
+        merge_type_definitions(&mut types, local_types, public_path, &mut diagnostics);
         deep_merge(&mut config_value, local_value);
     }
 
@@ -340,7 +346,7 @@ pub fn load_workspace(
     reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
 
     let (taxonomies, terms, spaces, space_sources, node_diagnostics) =
-        load_config_nodes(root, &config_file, mode, &mut types)?;
+        load_config_nodes(root, &imported_config_paths, mode, &mut types)?;
     diagnostics.extend(node_diagnostics);
 
     let mut config = WorkspaceConfig {
@@ -358,9 +364,26 @@ pub fn load_workspace(
     diagnostics.extend(validate_config_paths(root, &config));
     diagnostics.extend(validate_space_schemas(&config));
 
+    let mut config_sources = vec![ConfigSourcePath {
+        path: FORMA_CONFIG_PATH.to_string(),
+        present: config_path.is_file(),
+    }];
+    config_sources.extend(
+        imported_config_paths
+            .into_iter()
+            .map(|path| ConfigSourcePath {
+                present: root.join(&path).is_file(),
+                path,
+            }),
+    );
+    config_sources.sort_by(|left, right| left.path.cmp(&right.path));
+    config_sources.dedup_by(|left, right| left.path == right.path);
+
     Ok(FormaWorkspace {
         root: root.to_path_buf(),
         config,
+        config_sources,
+        config_source_patterns,
         diagnostics,
     })
 }
@@ -376,7 +399,7 @@ fn reject_legacy_root_include(config_file: &ConfigFile, path: &str) -> Result<()
 
 fn load_config_nodes(
     root: &Path,
-    config_file: &ConfigFile,
+    imported_config_paths: &[String],
     _mode: LoadMode,
     types: &mut BTreeMap<String, SemanticType>,
 ) -> Result<
@@ -396,9 +419,9 @@ fn load_config_nodes(
     let mut diagnostics = Vec::new();
     let mut referenced_taxonomies = Vec::new();
 
-    for public_path in included_markdown_config_paths(root, &config_file.imports) {
+    for public_path in imported_config_paths {
         let source =
-            fs::read_to_string(root.join(&public_path)).map_err(|source| ConfigError::Read {
+            fs::read_to_string(root.join(public_path)).map_err(|source| ConfigError::Read {
                 path: public_path.clone(),
                 source,
             })?;

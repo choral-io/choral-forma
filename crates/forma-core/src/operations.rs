@@ -9,14 +9,14 @@ use serde_yml::Value;
 use thiserror::Error;
 
 use crate::config::{
-    ConfigError, LoadMode, TaxonomyTermDefinition, WorkspaceConfig, WorkspaceSettings,
-    config_source_paths, config_source_patterns, load_workspace,
+    ConfigError, ConfigSourcePath, FormaWorkspace, LoadMode, TaxonomyTermDefinition,
+    WorkspaceConfig, WorkspaceSettings, config_source_paths, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::docs::embedded_doc;
 use crate::index::{
-    IndexEntry, IndexReference, ReferenceIntent, ReferenceSource, config_error_diagnostic,
-    discover_workspace,
+    Discovery, IndexEntry, IndexReference, ReferenceIntent, ReferenceSource,
+    config_error_diagnostic, discover_loaded_workspace,
 };
 use crate::markdown::FormaMarkdownDocument;
 use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath, glob_scan_root};
@@ -888,7 +888,9 @@ pub fn inspect_entry_by_path(
     path: &str,
 ) -> Result<InspectResult, OperationError> {
     let path = normalize_entry_path(path)?;
-    inspect_entry(root, &path)
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let discovery = discover_loaded_workspace(&workspace);
+    inspect_entry(&workspace, discovery, &path)
 }
 
 pub fn inspect_entry_by_space(
@@ -896,9 +898,10 @@ pub fn inspect_entry_by_space(
     space: &str,
     entry: &str,
 ) -> Result<InspectResult, OperationError> {
-    let discovery = discover_workspace(root.as_ref())?;
+    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let discovery = discover_loaded_workspace(&workspace);
     let path = resolve_space_entry_path(&discovery.index.entries, space, entry)?;
-    inspect_entry(root, &path)
+    inspect_entry(&workspace, discovery, &path)
 }
 
 pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, OperationError> {
@@ -908,7 +911,7 @@ pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, 
         .spaces
         .get(space_id)
         .ok_or_else(|| OperationError::SpaceNotFound(space_id.to_string()))?;
-    let discovery = discover_workspace(root.as_ref())?;
+    let discovery = discover_loaded_workspace(&workspace);
     let entries = discovery
         .index
         .entries
@@ -958,7 +961,7 @@ pub fn inspect_config(
 ) -> Result<ConfigInspectResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::WithLocalOverrides)?;
     let path = path
-        .map(|path| validate_config_inspect_path(root.as_ref(), path))
+        .map(|path| validate_config_inspect_path(path, &workspace.config_sources))
         .transpose()?;
     let mut diagnostics = workspace.diagnostics;
     diagnostics.sort_by_key(|diagnostic| {
@@ -977,12 +980,19 @@ pub fn inspect_config(
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
-            name: workspace.config.workspace.name,
+            name: workspace.config.workspace.name.clone(),
             logo: None,
         },
         config,
-        sources: config_sources(root.as_ref()),
-        source_patterns: config_source_patterns(root.as_ref()).unwrap_or_default(),
+        sources: workspace
+            .config_sources
+            .into_iter()
+            .map(|source| ConfigSource {
+                path: source.path,
+                present: source.present,
+            })
+            .collect(),
+        source_patterns: workspace.config_source_patterns,
         summary,
         diagnostics,
     })
@@ -990,7 +1000,7 @@ pub fn inspect_config(
 
 pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let discovery = discover_workspace(root.as_ref())?;
+    let discovery = discover_loaded_workspace(&workspace);
     let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     diagnostics.sort_by_key(|diagnostic| {
         (
@@ -1000,11 +1010,7 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
         )
     });
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
-    let config_paths = config_source_paths(root.as_ref(), LoadMode::SharedOnly)
-        .unwrap_or_default()
-        .into_iter()
-        .map(|source| source.path)
-        .collect::<BTreeSet<_>>();
+    let config_paths = workspace_config_paths(&workspace);
     let mut files = collect_workspace_files(root.as_ref(), &workspace.config, &config_paths);
     let template_paths = workspace
         .config
@@ -1060,7 +1066,7 @@ pub fn workspace_dashboard(
     root: impl AsRef<Path>,
 ) -> Result<WorkspaceDashboardResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let discovery = discover_workspace(root.as_ref())?;
+    let discovery = discover_loaded_workspace(&workspace);
     let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     diagnostics.sort_by_key(|diagnostic| {
         (
@@ -1126,11 +1132,7 @@ pub fn workspace_dashboard(
         })
         .collect::<Vec<_>>();
 
-    let config_paths = config_source_paths(root.as_ref(), LoadMode::SharedOnly)
-        .unwrap_or_default()
-        .into_iter()
-        .map(|source| source.path)
-        .collect::<BTreeSet<_>>();
+    let config_paths = workspace_config_paths(&workspace);
     let workspace_files = collect_workspace_files(root.as_ref(), &workspace.config, &config_paths);
     let taxonomies = dashboard_taxonomies(
         root.as_ref(),
@@ -1376,7 +1378,7 @@ pub fn list_file_references(
 ) -> Result<FileReferencesResult, OperationError> {
     let path = normalize_entry_path(path)?;
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let discovery = discover_workspace(root.as_ref())?;
+    let discovery = discover_loaded_workspace(&workspace);
     let index_entry = discovery
         .index
         .entries
@@ -1439,7 +1441,7 @@ pub fn resolve_reference(
 ) -> Result<ReferenceResolveResult, OperationError> {
     let source_path = normalize_entry_path(source_path)?;
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let discovery = discover_workspace(root.as_ref())?;
+    let discovery = discover_loaded_workspace(&workspace);
     let source_entry = discovery
         .index
         .entries
@@ -1745,15 +1747,7 @@ pub fn workspace_health(root: impl AsRef<Path>) -> Result<WorkspaceHealthResult,
             ));
         }
     };
-    let discovery = match discover_workspace(root.as_ref()) {
-        Ok(discovery) => discovery,
-        Err(error) => {
-            return Ok(workspace_health_failure_result(
-                &workspace.config.workspace.name,
-                config_error_diagnostic(error),
-            ));
-        }
-    };
+    let discovery = discover_loaded_workspace(&workspace);
     Ok(build_workspace_health_result(
         &workspace.config.workspace.name,
         &discovery.index.entries,
@@ -2141,9 +2135,11 @@ fn workspace_health_diagnostic_sort_key(diagnostic: &Diagnostic) -> (String, Str
     )
 }
 
-fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, OperationError> {
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let discovery = discover_workspace(root.as_ref())?;
+fn inspect_entry(
+    workspace: &FormaWorkspace,
+    discovery: Discovery,
+    path: &str,
+) -> Result<InspectResult, OperationError> {
     let (space, kind, title, entry_summary, refs) = if let Some(entry) = discovery
         .index
         .entries
@@ -2169,7 +2165,7 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
         return Err(OperationError::EntryNotFound);
     };
     let source =
-        fs::read_to_string(root.as_ref().join(path)).map_err(|source| OperationError::Io {
+        fs::read_to_string(workspace.root.join(path)).map_err(|source| OperationError::Io {
             path: path.to_string(),
             source,
         })?;
@@ -2199,7 +2195,7 @@ fn inspect_entry(root: impl AsRef<Path>, path: &str) -> Result<InspectResult, Op
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
-            name: workspace.config.workspace.name,
+            name: workspace.config.workspace.name.clone(),
             logo: None,
         },
         entry: InspectEntry {
@@ -2238,29 +2234,21 @@ fn applicable_guidelines(config: &WorkspaceConfig, space_id: &str) -> Vec<String
     guidelines
 }
 
-fn config_sources(root: &Path) -> Vec<ConfigSource> {
-    config_source_paths(root, LoadMode::WithLocalOverrides)
-        .unwrap_or_else(|_| {
-            vec![crate::config::ConfigSourcePath {
-                path: FORMA_CONFIG_PATH.to_string(),
-                present: root.join(FORMA_CONFIG_PATH).exists(),
-            }]
-        })
-        .into_iter()
-        .map(|source| ConfigSource {
-            path: source.path,
-            present: source.present,
-        })
+fn workspace_config_paths(workspace: &FormaWorkspace) -> BTreeSet<String> {
+    workspace
+        .config_sources
+        .iter()
+        .map(|source| source.path.clone())
         .collect()
 }
 
-fn validate_config_inspect_path(root: &Path, path: &str) -> Result<String, OperationError> {
+fn validate_config_inspect_path(
+    path: &str,
+    sources: &[ConfigSourcePath],
+) -> Result<String, OperationError> {
     let path = WorkspacePath::parse_cli(path)?;
     let path = path.as_str();
-    let inspectable = config_source_paths(root, LoadMode::WithLocalOverrides)
-        .unwrap_or_default()
-        .into_iter()
-        .any(|source| source.path == path);
+    let inspectable = sources.iter().any(|source| source.path == path);
     if inspectable {
         Ok(path.to_string())
     } else {
