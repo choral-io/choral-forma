@@ -31,6 +31,20 @@ run = "cargo test --workspace"
 description = "Build pnpm workspace"
 run = "pnpm build"
 
+[tasks."perf:build"]
+description = "Build the optimized Forma CLI used by performance benchmarks"
+run = "cargo build --release --locked --bin forma"
+
+[tasks."perf:quick"]
+description = "Run the quick Forma performance suite"
+depends = ["perf:build"]
+run = "node scripts/performance-benchmark.mjs --mode quick"
+
+[tasks."perf:baseline"]
+description = "Run the full Forma performance baseline suite"
+depends = ["perf:build"]
+run = "node scripts/performance-benchmark.mjs --mode baseline"
+
 [tasks."version:set"]
 description = "Set the aligned Forma release version"
 run = "node scripts/set-release-version.mjs"
