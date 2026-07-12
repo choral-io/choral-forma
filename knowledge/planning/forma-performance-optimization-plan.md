@@ -1,0 +1,351 @@
+---
+scope: project
+type: execution-plan
+title: Forma Performance Optimization Plan
+summary: Small, measurable iterations for reducing CLI fan-out, duplicate workspace analysis, Explorer response growth, and editor resource pressure.
+owners:
+    - "members/tiscs"
+reviewers: []
+tags:
+    - planning
+    - performance
+    - rust
+    - vscode
+    - optimization
+sources:
+    - "architecture/forma-performance-engineering"
+    - "discovery/forma-performance-assessment-2026-07-12"
+    - "architecture/editor-extension-adapter-contract"
+    - "planning/editor-extension-mvp-roadmap"
+---
+
+# Forma Performance Optimization Plan
+
+## Objective
+
+Improve Forma performance through small, independently measurable iterations. Each iteration should address one dominant cost source, preserve observable behavior, and produce before-and-after evidence before the next optimization begins.
+
+The optimization sequence follows the budgets and rules in [[architecture/forma-performance-engineering]] and starts from the measurements in [[discovery/forma-performance-assessment-2026-07-12]]. It deliberately postpones stdio RPC, a daemon, and persisted indexes until simpler changes have been measured.
+
+## Execution Principles
+
+- Use one focused implementation iteration per commit or pull request.
+- Record a before measurement from the same commit, fixture, build profile, and host used for the after measurement.
+- Change one primary performance dimension at a time.
+- Preserve CLI and RPC result semantics unless the iteration explicitly introduces a new operation contract.
+- Treat removal of N+1 work, an output-size failure, unbounded concurrency, or unbounded memory as a valid optimization even when wall-clock changes are within benchmark noise.
+- Stop and investigate when a non-target operation regresses by more than `max(10%, 5 ms)`.
+- Do not introduce a persistent cache or long-lived process to hide duplicate work that can be removed directly.
+
+## Per-Iteration Evaluation Loop
+
+Every iteration uses the same loop:
+
+```text
+capture before
+-> implement one optimization
+-> run focused functional tests
+-> build an optimized release binary
+-> run perf:quick
+-> compare latency, operation count, output size, and relevant resource metrics
+-> record the result
+-> continue, revise, or revert
+```
+
+The quick evaluation should complete in approximately 60 seconds and use:
+
+- the current Choral Forma project workspace;
+- a deterministic 1,000-entry synthetic workspace;
+- one unreported warm-up and five measured samples per operation;
+- median and maximum latency;
+- operation output bytes;
+- iteration-specific process count, maximum concurrency, parse count, or peak RSS.
+
+At milestone boundaries, run the full baseline with 100, 500, 1,000, and 5,000 entries, additional samples, p50, p95, peak RSS, and output-size reporting.
+
+An iteration passes when:
+
+- the intended cost is removed or the target metric improves by at least 10%;
+- non-target operations stay inside the regression tolerance;
+- functional tests pass;
+- `forma check` and workspace health remain clean;
+- resource bounds introduced by the iteration are verified.
+
+## Iteration 0: Repeatable Benchmark Harness
+
+### Scope
+
+Establish the measurement tools before changing performance behavior.
+
+### Changes
+
+- Add a deterministic temporary fixture generator without committing thousands of Markdown files.
+- Add `mise run perf:quick` for the current project workspace and a 1,000-entry fixture.
+- Add `mise run perf:baseline` for 100, 500, 1,000, and 5,000-entry fixtures.
+- Measure `config inspect`, workspace dashboard, document inspect, reference resolve, and view render.
+- Record latency and output bytes in machine-readable JSON plus a short Markdown summary.
+- Add an extension-side fake process runner that can report invocation count and maximum concurrency.
+- Run the first formal baseline from a clean committed revision.
+
+### Quick Evaluation
+
+- Run `perf:quick` twice on the same host and revision.
+- Confirm that median results normally vary by less than 10%.
+- Confirm the quick suite completes in approximately 60 seconds without network access or a new benchmark dependency.
+
+### Exit Criteria
+
+- The same command can generate comparable before-and-after evidence for every later iteration.
+- Fixture generation is deterministic and leaves no committed workspace content.
+- Benchmark output identifies revision and dirty-worktree state.
+
+## Iteration 1: Remove Per-Link Background CLI Fan-Out
+
+### Scope
+
+Replace background O(links) reference-resolution processes with one document-analysis result.
+
+### Changes
+
+- Reuse one `inspectDocument` or equivalent document-analysis result for Preview links and document diagnostics.
+- Stop invoking `reference resolve` for every link during document open and save.
+- Preserve on-demand resolve for hover, definition, explicit navigation, and ambiguous-reference selection.
+- Allow a view document to perform one document analysis plus one view render.
+- Add extension tests that assert CLI invocation counts for a 25-link document.
+
+### Quick Evaluation
+
+| Scenario                | Current upper bound | Target upper bound |
+| ----------------------- | ------------------: | -----------------: |
+| Open ordinary document  |    approximately 51 |                  1 |
+| Save ordinary document  |    approximately 51 |                  1 |
+| Open view Preview       |    approximately 52 |                  2 |
+| One hover or definition |                   1 |                  1 |
+
+Measure the wall time and CLI count for a 25-link document in addition to the normal quick suite.
+
+### Exit Criteria
+
+- Background analysis invocation count is O(1) with respect to link count.
+- Preview titles, link navigation, unresolved diagnostics, fragments, and frontmatter references remain correct.
+- No feature starts a replacement per-link loop through a different API.
+
+## Iteration 2: Bound And Deduplicate Extension Requests
+
+### Scope
+
+Coordinate work across Preview, navigation, Explorer, watchers, saves, editor changes, and manual refresh.
+
+### Changes
+
+- Introduce a workspace-level request scheduler.
+- Set the default global CLI concurrency limit to two and the hard maximum to four.
+- Deduplicate in-flight requests by workspace, operation, document version, and relevant parameters.
+- Cancel work for stale document versions and prevent stale results from updating UI or caches.
+- Coalesce watcher, save, active-editor, runtime-state, Preview, and explicit-refresh triggers.
+- Remove duplicate Explorer refresh caused by overlapping runtime-state and command paths.
+
+### Quick Evaluation
+
+- Trigger ten equivalent refresh requests and count actual dashboard or Explorer operations.
+- Save several document versions quickly and confirm that only the latest version updates Preview and diagnostics.
+- Record maximum simultaneous child-process count.
+- Confirm the extension has no child process while idle.
+
+### Exit Criteria
+
+- Equivalent refresh bursts result in one in-flight operation and at most one necessary follow-up.
+- Maximum child-process concurrency never exceeds the configured bound.
+- Cancellation releases child processes, timers, and event listeners.
+- Manual refresh remains predictable and updates all required UI.
+
+## Iteration 3: Reuse The Loaded Workspace During Discovery
+
+### Scope
+
+Remove duplicate configuration and import loading inside one Core operation without changing public result schemas.
+
+### Changes
+
+- Add a discovery entry point that accepts an already loaded workspace.
+- Update dashboard, inspect, resolve, list, view, and related operations to reuse it.
+- Preserve configuration diagnostics and effective-config behavior.
+- Add instrumentation or tests proving one effective configuration load per operation.
+
+### Quick Evaluation
+
+- Compare project, 1,000-entry, and 5,000-entry inspect, resolve, dashboard, and view results.
+- Record configuration-load count in focused tests.
+- Compare JSON output to ensure semantic compatibility.
+
+### Exit Criteria
+
+- Each operation loads effective configuration at most once.
+- Target operations improve measurably or the duplicate I/O and parsing are demonstrably removed.
+- No configuration diagnostic or local-override behavior changes unintentionally.
+
+## Iteration 4: Compact And Lazy Explorer Operations
+
+### Scope
+
+Remove the full workspace dashboard from the initial Forma Explorer load path.
+
+### Changes
+
+- Add a compact Explorer root operation that returns taxonomy and term summaries plus views.
+- Load term entries only when the user expands the term.
+- Add pagination or a cursor for large entry lists.
+- Return only fields required by the tree consumer.
+- Preserve the current full dashboard operation for consumers that need its complete projection.
+
+### Quick Evaluation
+
+| Workspace scale | Current dashboard output | Explorer initial-response target |
+| --------------- | -----------------------: | -------------------------------: |
+| 1,000 entries   |    approximately 522 KiB |              no more than 64 KiB |
+| 5,000 entries   |   approximately 2.62 MiB |             no more than 256 KiB |
+
+Measure first tree load, term expansion, output bytes, and memory for 1,000 and 5,000 entries.
+
+### Exit Criteria
+
+- A 5,000-entry workspace opens the Forma Explorer without exceeding process-output limits.
+- Initial response size does not grow approximately linearly with every entry.
+- Expansion, pagination, refresh, document opening, and view opening remain correct.
+- The implementation does not merely increase the existing 1 MiB output ceiling.
+
+## Milestone A: Rebaseline And Stop Check
+
+After Iterations 0 through 4:
+
+1. Run the full baseline from a clean committed revision.
+2. Repeat the 25-link editor scenario and refresh-burst scenario.
+3. Compare the result with the 2026-07-12 assessment.
+4. Record whether current performance budgets are met.
+5. Stop if the remaining costs are below budget and no resource limit is approaching.
+
+Do not proceed automatically to a larger architectural change merely because later iterations are listed.
+
+## Iteration 5: Operation-Scoped Workspace Snapshot
+
+### Scope
+
+Ensure each controlled file is read and parsed at most once within one analysis generation and share lookup indexes across projections.
+
+### Iteration 5A: Establish The Boundary
+
+Introduce an internal, non-persisted snapshot containing:
+
+- effective configuration;
+- parsed entries and views;
+- path, space, taxonomy, and reference indexes;
+- diagnostics;
+- source identity needed for one analysis generation.
+
+This step should be primarily structural and preserve algorithms and output.
+
+### Iteration 5B: Remove Repeated Work
+
+- Replace repeated linear entry searches with indexed lookup.
+- Share backlink and reference indexes across inspect, resolve, health, dashboard, and view evaluation.
+- Avoid repeated sorting and repeated status calculation over identical collections.
+- Count file reads and Markdown parses in focused tests.
+
+### Quick Evaluation
+
+- Run all Core operations on 1,000 and 5,000-entry fixtures.
+- Add a reference-dense fixture with multiple spaces and schemas.
+- Record file-read count, Markdown-parse count, latency, and peak RSS.
+
+### Exit Criteria
+
+- Each controlled file is parsed at most once per snapshot generation.
+- 5,000-entry inspect and resolve remain within the 250 ms p95 budget.
+- A 5,000-entry short-lived process remains within the 64 MiB peak RSS budget.
+- The snapshot is rebuildable and does not become persisted product state.
+
+## Iteration 6: Resource And Output Hygiene
+
+### Scope
+
+Prevent long-running extension sessions and large results from accumulating memory, logs, buffers, timers, or orphan processes.
+
+### Changes
+
+- Accumulate stdout and stderr as chunks with an independent byte counter.
+- Clean Markdown enhancements when documents close.
+- Define capacity, eviction, and invalidation rules for every cache and map.
+- Log operation summaries instead of complete large JSON results by default.
+- Bound diagnostic retention and provide summaries when limits are reached.
+- Verify that cancellation and timeout release processes, timers, and listeners.
+
+### Quick Evaluation
+
+- Open, edit, and close 200 documents repeatedly.
+- Track cache sizes, enhancement count, extension memory, child processes, and timers.
+- Exercise output near the configured safety limit.
+- Cancel operations repeatedly and check for orphan processes.
+
+### Exit Criteria
+
+- Repeated activity reaches a stable memory and cache plateau.
+- No child process remains after cancellation, timeout, or idle transition.
+- Large output handling avoids repeated whole-string copying.
+- Every retained resource has a documented bound and invalidation event.
+
+## Iteration 7: VS Code Remote And Transport Decision
+
+### Scope
+
+Measure the optimized short-lived CLI model in local and VS Code Remote environments, then decide whether a long-lived transport is justified.
+
+### Evaluation
+
+Measure cold and warm behavior for:
+
+- extension activation;
+- document open and save;
+- Markdown Preview;
+- hover, definition, and navigation;
+- Explorer root load and term expansion;
+- configuration and include-pattern changes.
+
+### Decision Rules
+
+- Keep short-lived CLI calls when the optimized adapter meets interaction and resource budgets.
+- Plan `forma rpc --stdio` only when process startup or repeated snapshot construction remains a material measured cost, or unsaved-buffer analysis requires a session-aware protocol.
+- Continue operation, projection, or filesystem optimization when those costs still dominate; stdio RPC must not conceal them.
+- Design a persisted local cache only after an in-memory session and scoped invalidation still fail realistic large-workspace budgets.
+
+### Exit Criteria
+
+- Local and Remote measurements are recorded separately.
+- The transport decision cites measured costs rather than anticipated convenience.
+- Any stdio or cache proposal becomes a separate reviewed architecture and execution plan.
+
+## Suggested Commit Boundaries
+
+1. `test: add repeatable performance benchmark harness`
+2. `perf: reuse document analysis for preview diagnostics`
+3. `perf: bound and deduplicate extension requests`
+4. `perf: reuse loaded workspace during discovery`
+5. `perf: add lazy explorer data operations`
+6. `refactor: introduce operation workspace snapshot`
+7. `perf: share snapshot indexes across operations`
+8. `perf: bound extension caches and process output`
+9. `docs: record remote performance transport decision`
+
+Do not combine Core indexing, extension scheduling, and Explorer operation changes in one iteration. Separate boundaries make regressions attributable and allow an optimization to be reverted without discarding unrelated improvements.
+
+## Recommended First Goal Cutline
+
+The first implementation goal should cover Iterations 0 through 4 only:
+
+- repeatable benchmark tooling;
+- removal of background per-link CLI fan-out;
+- request scheduling, deduplication, cancellation, and refresh coalescing;
+- single workspace load per Core operation;
+- compact and lazy Explorer operations;
+- a clean full rebaseline and Milestone A stop decision.
+
+Workspace snapshots, output hygiene beyond what the first iterations require, VS Code Remote evaluation, stdio RPC, and persisted caches should remain outside that goal until Milestone A evidence justifies them.
