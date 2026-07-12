@@ -138,10 +138,12 @@ export type InspectEntry = {
 export type IndexReference = {
     source: "frontmatter" | "body";
     field?: string;
+    rawTarget?: string;
     targetPath: string;
     fragment?: string;
     fragmentKind?: "heading" | "block";
     targetTitle?: string;
+    resolvedTitle?: string;
     semanticType?: string;
     intent: "reference" | "link" | "embed";
 };

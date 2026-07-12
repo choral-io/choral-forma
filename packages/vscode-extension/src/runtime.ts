@@ -12,6 +12,7 @@ import type {
 } from "@choral-forma/shared";
 import * as vscode from "vscode";
 
+import { DocumentInspectCache } from "./document-inspect-cache.ts";
 import { FormaClient, resolveFormaCommand, runProcess } from "./forma-client.ts";
 import {
     configuredWorkspace,
@@ -42,7 +43,7 @@ export class FormaRuntime implements vscode.Disposable {
     private selectedRoot: string | undefined;
     private client: FormaClient | undefined;
     private refreshController: AbortController | undefined;
-    private readonly inspectCache = new Map<string, InspectResult>();
+    private readonly inspectCache = new DocumentInspectCache<InspectResult>();
     private readonly scopes = new Map<string, WorkspaceScope>();
     private configTargets: Array<{ base: vscode.Uri; pattern: string }> = [];
 
@@ -249,18 +250,14 @@ export class FormaRuntime implements vscode.Disposable {
 
     async inspectDocument(document: vscode.TextDocument, signal?: AbortSignal): Promise<InspectResult | undefined> {
         const source = this.sourcePath(document);
-        if (!source || !this.canExecute() || !this.client) return undefined;
+        const client = this.client;
+        if (!source || !this.canExecute() || !client) return undefined;
         const cacheKey = `${document.uri.toString()}@${String(document.version)}`;
-        const cached = this.inspectCache.get(cacheKey);
-        if (cached) return cached;
-        const result = await this.client.inspect(source.root, source.path, signal);
-        this.inspectCache.set(cacheKey, result);
-        while (this.inspectCache.size > 64) {
-            const oldest = this.inspectCache.keys().next().value;
-            if (!oldest) break;
-            this.inspectCache.delete(oldest);
-        }
-        return result;
+        return await this.inspectCache.get(
+            cacheKey,
+            async () => await client.inspect(source.root, source.path),
+            signal,
+        );
     }
 
     async resolveReference(

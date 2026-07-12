@@ -112,6 +112,8 @@ pub struct IndexReference {
     pub source: ReferenceSource,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_target: Option<String>,
     pub target_path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fragment: Option<String>,
@@ -119,6 +121,8 @@ pub struct IndexReference {
     pub fragment_kind: Option<ReferenceFragmentKind>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub semantic_type: Option<String>,
     pub intent: ReferenceIntent,
@@ -285,6 +289,15 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
     let mut views = discover_views(&root, &config, &mut diagnostics);
     views.sort_by(|left, right| view_sort_key(left).cmp(&view_sort_key(right)));
     diagnostics.extend(resource_description_diagnostics(&root, &config));
+    let resolved_titles = index_entries
+        .iter()
+        .filter_map(|entry| entry.title.clone().map(|title| (entry.path.clone(), title)))
+        .collect::<BTreeMap<_, _>>();
+    for entry in &mut index_entries {
+        for reference in &mut entry.refs {
+            reference.resolved_title = resolved_titles.get(&reference.target_path).cloned();
+        }
+    }
     index_entries.sort_by(|left, right| left.path.cmp(&right.path));
 
     Ok(Discovery {
@@ -928,10 +941,12 @@ fn resolve_frontmatter_ref_value(
         ResolveResult::Resolved(target_path) => refs.push(IndexReference {
             source: ReferenceSource::Frontmatter,
             field: Some(field.field.clone()),
+            raw_target: Some(raw_target.to_string()),
             target_path,
             fragment: None,
             fragment_kind: None,
             target_title: None,
+            resolved_title: None,
             semantic_type: field.semantic_type.clone(),
             intent: ReferenceIntent::Reference,
         }),
@@ -985,10 +1000,12 @@ fn resolve_body_refs(
             refs.push(IndexReference {
                 source: ReferenceSource::Body,
                 field: None,
+                raw_target: Some(reference.target.clone()),
                 target_path: reference.target.clone(),
                 fragment: None,
                 fragment_kind: None,
                 target_title: non_empty_string(reference.label.clone()),
+                resolved_title: None,
                 semantic_type: None,
                 intent,
             });
@@ -999,10 +1016,12 @@ fn resolve_body_refs(
             ResolveResult::Resolved(target_path) => refs.push(IndexReference {
                 source: ReferenceSource::Body,
                 field: None,
+                raw_target: Some(reference.target.clone()),
                 target_path,
                 fragment: target.fragment,
                 fragment_kind: target.fragment_kind,
                 target_title: non_empty_string(reference.label.clone()),
+                resolved_title: None,
                 semantic_type: None,
                 intent,
             }),
@@ -1600,18 +1619,24 @@ mod tests {
         {
           "source": "frontmatter",
           "field": "assignees",
+          "rawTarget": "members/alex-chen.md",
           "targetPath": "members/alex-chen.md",
+          "resolvedTitle": "Alex Chen",
           "semanticType": "member",
           "intent": "reference"
         },
         {
           "source": "body",
+          "rawTarget": "notes/account-model",
           "targetPath": "notes/account-model.md",
+          "resolvedTitle": "Account model",
           "intent": "link"
         },
         {
           "source": "body",
+          "rawTarget": "members/alex-chen",
           "targetPath": "members/alex-chen.md",
+          "resolvedTitle": "Alex Chen",
           "intent": "embed"
         }
       ]

@@ -1,6 +1,7 @@
 import type { ReferenceResolveResult } from "@choral-forma/shared";
 import * as vscode from "vscode";
 
+import { documentReferenceDiagnostics } from "./document-analysis.ts";
 import { frontmatterReferenceValues } from "./frontmatter-links.ts";
 import { openSource } from "./preview.ts";
 import { referenceTokenAt, scanReferenceTokens, type ReferenceToken } from "./reference-token.ts";
@@ -87,24 +88,11 @@ export function registerNavigation(
             diagnostics.delete(document.uri);
             return;
         }
-        const tokens = scanReferenceTokens(document.getText()).slice(0, 25);
-        const results = await Promise.all(
-            tokens.map(async (token) => {
-                try {
-                    return {
-                        token,
-                        result: await runtime.resolveReference(document, token.target, token.intent, token.fragment),
-                    };
-                } catch {
-                    return { token, result: undefined };
-                }
-            }),
-        );
-        const values = results.flatMap(({ token, result }) => {
-            if (result?.status !== "failed") return [];
-            return (result.diagnostics ?? []).map((diagnostic) => {
+        try {
+            const inspected = await runtime.inspectDocument(document);
+            const values = documentReferenceDiagnostics(document.getText(), inspected).map((diagnostic) => {
                 const value = new vscode.Diagnostic(
-                    tokenRange(document, token),
+                    new vscode.Range(document.positionAt(diagnostic.start), document.positionAt(diagnostic.end)),
                     diagnostic.message,
                     vscode.DiagnosticSeverity.Warning,
                 );
@@ -112,8 +100,10 @@ export function registerNavigation(
                 value.source = "Forma";
                 return value;
             });
-        });
-        diagnostics.set(document.uri, values);
+            diagnostics.set(document.uri, values);
+        } catch {
+            diagnostics.delete(document.uri);
+        }
     };
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument((document) => void validate(document)),
