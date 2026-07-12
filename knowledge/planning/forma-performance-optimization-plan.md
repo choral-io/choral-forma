@@ -365,3 +365,13 @@ The repeatable benchmark harness was added in commits `f5cc322` and `31fd543`. `
 Measured 5,000-entry peak RSS was 44.3 MiB for dashboard, 28.3 MiB for inspect, 27.4 MiB for resolve, and 40.4 MiB for view render. Dashboard output remained the scale limit at approximately 2.62 MiB for 5,000 entries.
 
 The full `mise run check` gate passed before the harness commit. Benchmark JSON is generated under ignored `target/performance/` paths and records revision and dirty-worktree state. Very short commands can complete before the RSS sampler observes their true peak; memory results are most useful for longer workspace-analysis operations.
+
+### Iteration 1 — Completed 2026-07-12
+
+Commit `95989d4` replaced background per-link reference resolution with one shared document inspect result. Core inspect references now expose the raw target and resolved entry title needed by Preview, while unresolved and ambiguous body-reference diagnostics are projected from the same result.
+
+A 25-subscriber concurrent inspect test performs one loader invocation instead of 25. Preview and document validation no longer contain per-link `resolveReference` loops; hover, definition, and explicit navigation remain on-demand operations. The inspect cache allows an individual subscriber to cancel without cancelling shared analysis and prevents stale results from repopulating a cleared cache.
+
+The clean quick run on `95989d45857f` measured project inspect at 92.7 ms and 1,000-entry inspect at 37.4 ms, compared with the initial full-baseline medians of 97.8 ms and 40.8 ms. Other Core operations stayed within the non-regression tolerance. These small latency differences are treated as host variance because the iteration primarily removes editor process multiplication rather than Core work.
+
+`mise run check`, focused Core and extension tests, trusted Extension Host tests, and the untrusted-workspace test passed. Downloaded `.vscode-test` runtimes were removed after validation.
