@@ -923,6 +923,9 @@ fn resolve_body_refs(
             });
             continue;
         }
+        if is_non_markdown_resource_target(&reference.target) {
+            continue;
+        }
         let target = split_reference_target(&reference.target, source_path);
         match path_index.resolve_from(&target.path, source_path, None) {
             ResolveResult::Resolved(target_path) => refs.push(IndexReference {
@@ -1303,6 +1306,18 @@ fn non_empty_string(value: Option<String>) -> Option<String> {
 
 fn is_external_target(target: &str) -> bool {
     target.starts_with("http://") || target.starts_with("https://") || target.starts_with("mailto:")
+}
+
+fn is_non_markdown_resource_target(target: &str) -> bool {
+    let path = target
+        .trim()
+        .split_once('#')
+        .map(|(path, _)| path)
+        .unwrap_or(target);
+    Path::new(path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| !extension.eq_ignore_ascii_case("md"))
 }
 
 fn workspace_relative_path(root: &Path, path: &Path) -> Option<String> {

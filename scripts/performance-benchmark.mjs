@@ -241,7 +241,7 @@ async function peakRss(binary, workspace, args) {
     });
 }
 
-async function createFixture(root, size) {
+export async function createFixture(root, size) {
     const workspace = join(root, String(size));
     await mkdir(join(workspace, ".forma", "spaces"), { recursive: true });
     await mkdir(join(workspace, ".forma", "views"), { recursive: true });

@@ -566,6 +566,7 @@ pub struct WorkspaceSession {
     snapshot: WorkspaceSnapshot,
     open_documents: BTreeMap<String, OpenDocument>,
     snapshot_build_count: u64,
+    document_analysis_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1800,6 +1801,7 @@ impl WorkspaceSession {
             snapshot: WorkspaceSnapshot::load(root)?,
             open_documents: BTreeMap::new(),
             snapshot_build_count: 1,
+            document_analysis_count: 0,
         })
     }
 
@@ -1811,10 +1813,15 @@ impl WorkspaceSession {
         self.snapshot_build_count
     }
 
+    pub fn document_analysis_count(&self) -> u64 {
+        self.document_analysis_count
+    }
+
     pub fn rebuild_snapshot(&mut self) -> Result<(), OperationError> {
         let snapshot = WorkspaceSnapshot::load(self.snapshot.root())?;
         for (path, document) in &mut self.open_documents {
             document.analysis = snapshot.analyze_document(path, &document.source);
+            self.document_analysis_count += 1;
         }
         self.snapshot = snapshot;
         self.snapshot_build_count += 1;
@@ -1828,6 +1835,7 @@ impl WorkspaceSession {
     ) -> Result<DocumentAnalysis, OperationError> {
         let source_path = normalize_entry_path(source_path)?;
         let analysis = self.snapshot.analyze_document(&source_path, &source);
+        self.document_analysis_count += 1;
         self.open_documents.insert(
             source_path,
             OpenDocument {
@@ -5044,8 +5052,18 @@ conventions:
         let result = session
             .resolve_document_reference("tasks/unsaved.md", reference)
             .unwrap();
+        for _ in 0..20 {
+            assert!(
+                session
+                    .resolve_document_reference("tasks/unsaved.md", reference)
+                    .unwrap()
+                    .target
+                    .is_some()
+            );
+        }
 
         assert_eq!(session.snapshot_build_count(), 1);
+        assert_eq!(session.document_analysis_count(), 1);
         assert_eq!(reference.target, "sam-rivera");
         assert_eq!(reference.target_space.as_deref(), Some("members"));
         assert_eq!(
@@ -5055,6 +5073,7 @@ conventions:
 
         session.rebuild_snapshot().unwrap();
         assert_eq!(session.snapshot_build_count(), 2);
+        assert_eq!(session.document_analysis_count(), 2);
         assert_eq!(
             session
                 .document_analysis("tasks/unsaved.md")

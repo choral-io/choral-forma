@@ -9,15 +9,16 @@ use forma_core::{
 };
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, Response};
 use lsp_types::notification::{
-    DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Exit, Notification as _,
+    DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, DidSaveTextDocument, Exit,
+    Notification as _,
 };
 use lsp_types::request::{DocumentLinkRequest, GotoDefinition, Request as _};
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    DocumentLink, DocumentLinkOptions, DocumentLinkParams, GotoDefinitionParams,
-    GotoDefinitionResponse, LocationLink, OneOf, Position, PositionEncodingKind, Range,
-    ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
-    Uri,
+    DidSaveTextDocumentParams, DocumentLink, DocumentLinkOptions, DocumentLinkParams,
+    GotoDefinitionParams, GotoDefinitionResponse, LocationLink, OneOf, Position,
+    PositionEncodingKind, Range, SaveOptions, ServerCapabilities, TextDocumentSyncCapability,
+    TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Uri,
 };
 use serde::Serialize;
 use thiserror::Error;
@@ -106,6 +107,9 @@ fn server_capabilities() -> ServerCapabilities {
             TextDocumentSyncOptions {
                 open_close: Some(true),
                 change: Some(TextDocumentSyncKind::FULL),
+                save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
+                    include_text: Some(true),
+                })),
                 ..Default::default()
             },
         )),
@@ -173,6 +177,11 @@ impl Server {
                     serde_json::from_value::<DidCloseTextDocumentParams>(notification.params)?;
                 self.close_document(params)
             }
+            DidSaveTextDocument::METHOD => {
+                let params =
+                    serde_json::from_value::<DidSaveTextDocumentParams>(notification.params)?;
+                self.save_document(params)
+            }
             _ => Ok(()),
         }
     }
@@ -217,6 +226,20 @@ impl Server {
         Ok(())
     }
 
+    fn save_document(&mut self, params: DidSaveTextDocumentParams) -> Result<(), LspError> {
+        let uri = params.text_document.uri;
+        let path = self.workspace_path(&uri)?;
+        if let Some(source) = params.text {
+            self.session.set_document(&path, source.clone())?;
+            self.open_documents
+                .insert(uri, OpenDocument { path, source });
+        }
+        if let Err(error) = self.session.rebuild_snapshot() {
+            eprintln!("Forma LSP kept the previous workspace snapshot after a save: {error}");
+        }
+        Ok(())
+    }
+
     fn definition(
         &self,
         params: GotoDefinitionParams,
@@ -227,24 +250,30 @@ impl Server {
         let Some(reference) = offset.and_then(|offset| reference_at(&analysis, offset)) else {
             return Ok(None);
         };
+        if let Some(target_uri) = self.local_resource_uri(&path, reference) {
+            return Ok(Some(GotoDefinitionResponse::Link(vec![
+                self.location_link_to_uri(&source, reference, target_uri, Position::default()),
+            ])));
+        }
         let result = self.session.resolve_document_reference(&path, reference)?;
-        let Some(target) = result.target else {
-            return Ok(None);
+        let links = if let Some(target) = result.target {
+            let target_source = self.source_for_path(&target.path)?;
+            let target_position = target
+                .fragment_location
+                .as_ref()
+                .map(|location| fragment_position(&target_source, location))
+                .unwrap_or_default();
+            vec![self.location_link(&source, reference, &target.path, target_position)?]
+        } else {
+            result
+                .candidates
+                .iter()
+                .map(|candidate| {
+                    self.location_link(&source, reference, &candidate.path, Position::default())
+                })
+                .collect::<Result<Vec<_>, _>>()?
         };
-        let target_uri = self.path_uri(&target.path)?;
-        let target_source = self.source_for_path(&target.path)?;
-        let target_position = target
-            .fragment_location
-            .as_ref()
-            .map(|location| fragment_position(&target_source, location))
-            .unwrap_or_default();
-        let target_range = Range::new(target_position, target_position);
-        Ok(Some(GotoDefinitionResponse::Link(vec![LocationLink {
-            origin_selection_range: Some(span_range(&source, reference)),
-            target_uri,
-            target_range,
-            target_selection_range: target_range,
-        }])))
+        Ok((!links.is_empty()).then(|| GotoDefinitionResponse::Link(links)))
     }
 
     fn document_links(
@@ -259,6 +288,8 @@ impl Server {
             .filter_map(|reference| {
                 let target = if is_external_target(&reference.raw_target) {
                     Uri::from_str(&reference.raw_target).ok()
+                } else if let Some(target) = self.local_resource_uri(&path, reference) {
+                    Some(target)
                 } else {
                     self.session
                         .resolve_document_reference(&path, reference)
@@ -290,6 +321,63 @@ impl Server {
         let source = fs::read_to_string(self.root.join(&path))?;
         let analysis = self.session.document_analysis(&path)?;
         Ok((path, source, analysis))
+    }
+
+    fn location_link(
+        &self,
+        source: &str,
+        reference: &DocumentReference,
+        target_path: &str,
+        target_position: Position,
+    ) -> Result<LocationLink, LspError> {
+        Ok(self.location_link_to_uri(
+            source,
+            reference,
+            self.path_uri(target_path)?,
+            target_position,
+        ))
+    }
+
+    fn location_link_to_uri(
+        &self,
+        source: &str,
+        reference: &DocumentReference,
+        target_uri: Uri,
+        target_position: Position,
+    ) -> LocationLink {
+        let target_range = Range::new(target_position, target_position);
+        LocationLink {
+            origin_selection_range: Some(span_range(source, reference)),
+            target_uri,
+            target_range,
+            target_selection_range: target_range,
+        }
+    }
+
+    fn local_resource_uri(&self, source_path: &str, reference: &DocumentReference) -> Option<Uri> {
+        let raw_path = reference
+            .raw_target
+            .split_once('#')
+            .map(|(path, _)| path)
+            .unwrap_or(&reference.raw_target);
+        let extension = Path::new(raw_path).extension()?.to_str()?;
+        if extension.eq_ignore_ascii_case("md") {
+            return None;
+        }
+        let source_parent = Path::new(source_path)
+            .parent()
+            .unwrap_or_else(|| Path::new(""));
+        let target = self
+            .root
+            .join(source_parent)
+            .join(raw_path)
+            .canonicalize()
+            .ok()?;
+        if !target.starts_with(&self.root) || !target.is_file() {
+            return None;
+        }
+        let url = Url::from_file_path(target).ok()?;
+        Uri::from_str(url.as_str()).ok()
     }
 
     fn source_for_path(&self, path: &str) -> Result<String, LspError> {
@@ -397,7 +485,8 @@ fn is_external_target(target: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::fs;
+    use std::path::{Path, PathBuf};
     use std::thread;
     use std::time::Duration;
 
@@ -405,7 +494,7 @@ mod tests {
     use lsp_types::{DocumentLink, GotoDefinitionResponse, Position, Uri};
     use serde_json::json;
 
-    use super::{offset_at_position, position_at_offset, run_connection};
+    use super::{Server, offset_at_position, position_at_offset, run_connection};
 
     #[test]
     fn converts_utf16_positions_without_splitting_surrogate_pairs() {
@@ -442,6 +531,10 @@ mod tests {
         let capabilities = initialize.result.unwrap()["capabilities"].clone();
         assert_eq!(capabilities["positionEncoding"], "utf-16");
         assert_eq!(capabilities["textDocumentSync"]["change"], 1);
+        assert_eq!(
+            capabilities["textDocumentSync"]["save"]["includeText"],
+            true
+        );
         assert_eq!(capabilities["definitionProvider"], true);
         assert_eq!(
             capabilities["documentLinkProvider"]["resolveProvider"],
@@ -487,6 +580,14 @@ mod tests {
                 "contentChanges": [{ "text": changed }],
             }),
         );
+        send_notification(
+            &client_connection,
+            "textDocument/didSave",
+            json!({
+                "textDocument": { "uri": source_uri },
+                "text": changed,
+            }),
+        );
         send_request(
             &client_connection,
             3,
@@ -513,6 +614,11 @@ mod tests {
             9
         );
 
+        send_request(&client_connection, 8, "textDocument/definition", json!({}));
+        let malformed = receive_raw_response(&client_connection);
+        assert_eq!(malformed.id, RequestId::from(8));
+        assert!(malformed.error.is_some());
+
         send_notification(
             &client_connection,
             "textDocument/didClose",
@@ -524,8 +630,157 @@ mod tests {
         server.join().unwrap().unwrap();
     }
 
+    #[test]
+    fn returns_all_ambiguous_definition_candidates_and_rejects_outside_uris() {
+        let root = copied_fixture("ambiguous-definition");
+        for directory in ["notes/a", "notes/b"] {
+            fs::create_dir_all(root.join(directory)).unwrap();
+            fs::write(
+                root.join(directory).join("same.md"),
+                format!("---\ntitle: {directory}\nsummary: \"\"\n---\n\n# Same\n"),
+            )
+            .unwrap();
+        }
+        let root = root.canonicalize().unwrap();
+        let mut server = Server::new(root.clone()).unwrap();
+        let source_uri = file_uri(root.join("notes/unsaved.md"));
+        server
+            .open_document(
+                serde_json::from_value(json!({
+                    "textDocument": {
+                        "uri": source_uri,
+                        "languageId": "markdown",
+                        "version": 1,
+                        "text": "See [[same]].\n",
+                    }
+                }))
+                .unwrap(),
+            )
+            .unwrap();
+
+        let definition = server
+            .definition(
+                serde_json::from_value(json!({
+                    "textDocument": { "uri": source_uri },
+                    "position": { "line": 0, "character": 7 },
+                }))
+                .unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        let GotoDefinitionResponse::Link(mut locations) = definition else {
+            panic!("expected ambiguous location links");
+        };
+        locations.sort_by(|left, right| left.target_uri.cmp(&right.target_uri));
+        assert_eq!(locations.len(), 2);
+        assert!(
+            locations[0]
+                .target_uri
+                .as_str()
+                .ends_with("/notes/a/same.md")
+        );
+        assert!(
+            locations[1]
+                .target_uri
+                .as_str()
+                .ends_with("/notes/b/same.md")
+        );
+
+        let outside = file_uri(root.parent().unwrap().join("outside.md"));
+        assert!(server.workspace_path(&outside).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn validates_the_getting_started_navigation_fixture_and_local_resources() {
+        let root = fixture_root().canonicalize().unwrap();
+        let server = Server::new(root.clone()).unwrap();
+        let source_uri = file_uri(root.join("tasks/validate-editor-link-navigation.md"));
+        let (_, source, analysis) = server.document_context(&source_uri).unwrap();
+
+        assert_eq!(
+            analysis.references.len(),
+            12,
+            "references: {:?}",
+            analysis
+                .references
+                .iter()
+                .map(|reference| (&reference.field, &reference.raw_target))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            analysis
+                .references
+                .iter()
+                .filter(|reference| reference.field.as_deref() == Some("owners"))
+                .map(|reference| reference.index)
+                .collect::<Vec<_>>(),
+            vec![Some(0), Some(1)]
+        );
+        assert!(!analysis.references.iter().any(|reference| {
+            reference.field.as_deref() == Some("summary")
+                || &source[reference.span.start_byte..reference.span.end_byte]
+                    == "members/not-a-reference"
+        }));
+
+        let links = server
+            .document_links(
+                serde_json::from_value(json!({ "textDocument": { "uri": source_uri } })).unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(links.len(), 12);
+        assert!(links.iter().any(|link| {
+            link.target
+                .as_ref()
+                .is_some_and(|target| target.as_str().starts_with("https://forma.choral.io"))
+        }));
+
+        let image_document = file_uri(root.join("notes/markdown-reader.md"));
+        let image_links = server
+            .document_links(
+                serde_json::from_value(json!({ "textDocument": { "uri": image_document } }))
+                    .unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert!(image_links.iter().any(|link| {
+            link.target
+                .as_ref()
+                .is_some_and(|target| target.as_str().ends_with("/assets/markdown-hero.png"))
+        }));
+    }
+
     fn fixture_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/getting-started-workspace")
+    }
+
+    fn copied_fixture(name: &str) -> PathBuf {
+        let unique = format!(
+            "forma-lsp-{name}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let root = std::env::temp_dir().join(unique);
+        copy_dir(&fixture_root(), &root);
+        root
+    }
+
+    fn copy_dir(source: &Path, target: &Path) {
+        fs::create_dir_all(target).unwrap();
+        for entry in fs::read_dir(source).unwrap() {
+            let entry = entry.unwrap();
+            let source_path = entry.path();
+            let target_path = target.join(entry.file_name());
+            if source_path.is_dir() {
+                copy_dir(&source_path, &target_path);
+            } else {
+                fs::copy(source_path, target_path).unwrap();
+            }
+        }
     }
 
     fn file_uri(path: PathBuf) -> Uri {
@@ -559,6 +814,14 @@ mod tests {
     }
 
     fn receive_response(connection: &Connection) -> lsp_server::Response {
+        let response = receive_raw_response(connection);
+        if let Some(error) = &response.error {
+            panic!("LSP response failed: {error:?}");
+        }
+        response
+    }
+
+    fn receive_raw_response(connection: &Connection) -> lsp_server::Response {
         let message = connection
             .receiver
             .recv_timeout(Duration::from_secs(5))
@@ -566,9 +829,6 @@ mod tests {
         let Message::Response(response) = message else {
             panic!("expected response, received {message:?}");
         };
-        if let Some(error) = &response.error {
-            panic!("LSP response failed: {error:?}");
-        }
         response
     }
 }

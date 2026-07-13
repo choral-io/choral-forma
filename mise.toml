@@ -49,6 +49,16 @@ description = "Run the full Forma performance baseline suite"
 depends = ["perf:build"]
 run = "node scripts/performance-benchmark.mjs --mode baseline"
 
+[tasks."perf:lsp:quick"]
+description = "Run the quick persistent Forma LSP performance suite"
+depends = ["perf:build"]
+run = "node scripts/lsp-performance-benchmark.mjs --mode quick"
+
+[tasks."perf:lsp:baseline"]
+description = "Run the persistent Forma LSP performance baseline suite"
+depends = ["perf:build"]
+run = "node scripts/lsp-performance-benchmark.mjs --mode baseline"
+
 [tasks."version:set"]
 description = "Set the aligned Forma release version"
 run = "node scripts/set-release-version.mjs"

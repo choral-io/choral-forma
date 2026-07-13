@@ -27,11 +27,15 @@ pub struct DocumentReference {
     pub raw_target: String,
     pub target: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fragment: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fragment_kind: Option<ReferenceFragmentKind>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub index: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_space: Option<String>,
     pub span: SourceSpan,
@@ -129,9 +133,11 @@ fn body_references(
                 intent,
                 raw_target: reference.target.clone(),
                 target,
+                label: reference.label.clone(),
                 fragment,
                 fragment_kind,
                 field: None,
+                index: None,
                 target_space: None,
                 span,
             })
@@ -165,7 +171,7 @@ fn frontmatter_references(
             continue;
         };
         let mut cursor = field_range.0;
-        for raw_target in values {
+        for (index, raw_target) in values.into_iter().enumerate() {
             let Some((start, end)) = find_yaml_scalar(raw, field_range, cursor, raw_target) else {
                 continue;
             };
@@ -187,9 +193,11 @@ fn frontmatter_references(
                     intent: ReferenceIntent::Reference,
                     raw_target: raw_target.to_string(),
                     target,
+                    label: None,
                     fragment,
                     fragment_kind,
                     field: Some(field.field.clone()),
+                    index: field.many.then_some(index),
                     target_space: field.space.clone(),
                     span,
                 });
@@ -554,6 +562,9 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert!(analysis.diagnostics.is_empty());
+        assert_eq!(analysis.references[0].index, Some(0));
+        assert_eq!(analysis.references[1].index, Some(1));
+        assert_eq!(analysis.references[2].label.as_deref(), Some("Sam"));
         assert_eq!(
             targets,
             vec![
@@ -616,6 +627,29 @@ mod tests {
             "members/sam-rivera"
         );
         assert_eq!(reference.span.start_line, 4);
+    }
+
+    #[test]
+    fn maps_nested_repeated_frontmatter_values_in_crlf_documents() {
+        let mut workspace = load_workspace(fixture_root(), LoadMode::SharedOnly).unwrap();
+        workspace.config.spaces.get_mut("tasks").unwrap().schema = serde_yml::from_str(
+            "type: object\nfields:\n  fields:\n    type: object\n    fields:\n      owners:\n        type: list\n        items:\n          type: member\n",
+        )
+        .unwrap();
+        let source = "---\r\nfields:\r\n  owners: [members/sam-rivera, members/sam-rivera]\r\n---\r\nSee [Sam](../members/sam-rivera.md).\r\n";
+
+        let analysis = analyze_document_references(&workspace, "tasks/navigation-test.md", source);
+
+        assert_eq!(analysis.references.len(), 3);
+        assert_eq!(
+            analysis.references[0].field.as_deref(),
+            Some("fields.owners")
+        );
+        assert_eq!(analysis.references[0].index, Some(0));
+        assert_eq!(analysis.references[1].index, Some(1));
+        assert!(analysis.references[0].span.end_byte <= analysis.references[1].span.start_byte);
+        assert_eq!(analysis.references[0].span.start_line, 3);
+        assert_eq!(analysis.references[2].span.start_line, 5);
     }
 
     fn fixture_root() -> PathBuf {
