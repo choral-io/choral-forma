@@ -25,7 +25,7 @@ const formaTestBin = resolve(
 try {
     await cp(resolve(extensionRoot, "test-fixtures/basic"), workspace, { recursive: true });
     const executable =
-        process.env.CODE_BIN ??
+        process.env.VSCODE_EXECUTABLE_PATH ??
         (await downloadAndUnzipVSCode({
             cachePath: resolve(extensionRoot, ".vscode-test"),
             version: "1.110.0",

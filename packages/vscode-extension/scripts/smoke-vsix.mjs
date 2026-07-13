@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,23 +17,27 @@ const expectedIdentity = `${manifest.publisher}.${manifest.name}@${manifest.vers
 const formaTestBin =
     process.env.FORMA_TEST_BIN ??
     resolve(extensionRoot, "../..", "target/debug", process.platform === "win32" ? "forma.exe" : "forma");
-const [code, ...codePrefixArgs] = process.env.CODE_BIN
-    ? [process.env.CODE_BIN]
-    : resolveCliArgsFromVSCodeExecutablePath(
-          await downloadAndUnzipVSCode({
-              cachePath: resolve(extensionRoot, ".vscode-test"),
-              version: process.env.VSCODE_VERSION ?? "1.110.0",
-          }),
-      );
+const vscodeExecutablePath =
+    process.env.VSCODE_EXECUTABLE_PATH ??
+    (await downloadAndUnzipVSCode({
+        cachePath: resolve(extensionRoot, ".vscode-test"),
+        version: process.env.VSCODE_VERSION ?? "1.110.0",
+    }));
+const [cli, ...cliPrefixArgs] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath, {
+    reuseMachineInstall: true,
+});
 const scratch = await mkdtemp(join(tmpdir(), "forma-vsix-"));
 const userData = join(scratch, "user-data");
 const extensions = join(scratch, "extensions");
+const installedExtension = join(extensions, `${manifest.publisher}.${manifest.name}-${manifest.version}`);
 const extensionTestsPath = fileURLToPath(new URL("../dist/test/installed-runner.cjs", import.meta.url));
-const workspace = fileURLToPath(new URL("../test-fixtures/basic", import.meta.url));
+const fixture = fileURLToPath(new URL("../test-fixtures/basic", import.meta.url));
+const workspace = join(scratch, "workspace");
 
 try {
-    await run(code, [
-        ...codePrefixArgs,
+    await cp(fixture, workspace, { recursive: true });
+    await run(cli, [
+        ...cliPrefixArgs,
         ...(process.platform === "linux" ? ["--no-sandbox", "--disable-gpu-sandbox"] : []),
         "--user-data-dir",
         userData,
@@ -43,8 +47,8 @@ try {
         resolve(vsix),
         "--force",
     ]);
-    const listed = await run(code, [
-        ...codePrefixArgs,
+    const listed = await run(cli, [
+        ...cliPrefixArgs,
         "--user-data-dir",
         userData,
         "--extensions-dir",
@@ -55,14 +59,18 @@ try {
     if (!listed.stdout.split(/\r?\n/u).includes(expectedIdentity)) {
         throw new Error(`Installed extension identity was not found. Output: ${listed.stdout.trim()}`);
     }
-    await run(code, [
-        ...codePrefixArgs,
+    await run(vscodeExecutablePath, [
         ...(process.platform === "linux" ? ["--no-sandbox", "--disable-gpu-sandbox"] : []),
+        "--disable-updates",
+        "--skip-welcome",
+        "--skip-release-notes",
+        "--no-cached-data",
         "--user-data-dir",
         userData,
         "--extensions-dir",
         extensions,
         "--disable-workspace-trust",
+        `--extensionDevelopmentPath=${installedExtension}`,
         `--extensionTestsPath=${extensionTestsPath}`,
         workspace,
     ]);
