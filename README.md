@@ -147,6 +147,16 @@ The release workflow builds standalone `forma` archives for:
 
 Each artifact is paired with a `.sha256` checksum file.
 
+The same Release also publishes editor-managed single-binary assets and checksums:
+
+- `forma-linux-arm64`;
+- `forma-linux-x64`;
+- `forma-macos-arm64`;
+- `forma-macos-x64`;
+- `forma-windows-x64.exe`.
+
+These assets let editor extensions acquire the exact coordinated Forma version without unpacking an archive. They are installed only after user confirmation and do not replace the archive-based install scripts or mise workflow.
+
 ### Install Scripts
 
 Unix-like systems:

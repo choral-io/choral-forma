@@ -147,3 +147,21 @@ test("passes the built Forma binary to Extension Host tests", () => {
         /Run Extension Host tests[\s\S]*FORMA_TEST_BIN: \$\{\{ github\.workspace \}\}\/target\/debug\/forma/u,
     );
 });
+
+test("publishes standalone editor-managed binaries alongside release archives", () => {
+    const releaseWorkflow = workflows[1];
+    const managedBinaries = [
+        "forma-linux-arm64",
+        "forma-linux-x64",
+        "forma-macos-arm64",
+        "forma-macos-x64",
+        "forma-windows-x64.exe",
+    ];
+
+    for (const binary of managedBinaries) {
+        assert.match(releaseWorkflow, new RegExp(`managed_binary: ${binary.replace(".", "\\.")}`, "u"));
+    }
+    assert.match(releaseWorkflow, /dist-release\/\$\{\{ matrix\.managed_binary \}\}\.sha256/u);
+    assert.match(releaseWorkflow, /dist-release\/forma-\$\{\{ matrix\.asset \}\}\.\$\{\{ matrix\.archive \}\}/u);
+    assert.doesNotMatch(releaseWorkflow, /gh release (?:create|upload)[^\n]*latest/u);
+});

@@ -59,26 +59,31 @@ jobs:
             os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             binary: forma
+            managed_binary: forma-linux-arm64
             archive: tar.gz
           - asset: linux-x64
             os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             binary: forma
+            managed_binary: forma-linux-x64
             archive: tar.gz
           - asset: macos-arm64
             os: macos-26
             target: aarch64-apple-darwin
             binary: forma
+            managed_binary: forma-macos-arm64
             archive: tar.gz
           - asset: macos-x64
             os: macos-26-intel
             target: x86_64-apple-darwin
             binary: forma
+            managed_binary: forma-macos-x64
             archive: tar.gz
           - asset: windows-x64
             os: windows-2025
             target: x86_64-pc-windows-msvc
             binary: forma.exe
+            managed_binary: forma-windows-x64.exe
             archive: zip
 
     steps:
@@ -122,14 +127,19 @@ jobs:
         run: |
           set -euo pipefail
           asset="forma-${{ matrix.asset }}"
-          mkdir -p "dist-release/${asset}/bin"
-          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist-release/${asset}/bin/forma"
-          chmod +x "dist-release/${asset}/bin/forma"
-          cp README.md "dist-release/${asset}/README.md"
-          tar -C dist-release -czf "dist-release/${asset}.tar.gz" "${asset}"
+          package_root="dist-release/package/${asset}"
+          source_binary="target/${{ matrix.target }}/release/${{ matrix.binary }}"
+          mkdir -p "${package_root}/bin"
+          cp "${source_binary}" "${package_root}/bin/forma"
+          chmod +x "${package_root}/bin/forma"
+          cp README.md "${package_root}/README.md"
+          tar -C dist-release/package -czf "dist-release/${asset}.tar.gz" "${asset}"
+          cp "${source_binary}" "dist-release/${{ matrix.managed_binary }}"
+          chmod +x "dist-release/${{ matrix.managed_binary }}"
           (
             cd dist-release
             shasum -a 256 "${asset}.tar.gz" > "${asset}.tar.gz.sha256"
+            shasum -a 256 "${{ matrix.managed_binary }}" > "${{ matrix.managed_binary }}.sha256"
           )
 
       - name: Package Windows artifact
@@ -141,8 +151,11 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist-release/$asset/bin/forma.exe"
           Copy-Item "README.md" "dist-release/$asset/README.md"
           Compress-Archive -Path "dist-release/$asset" -DestinationPath "dist-release/$asset.zip" -Force
-          $hash = Get-FileHash -Algorithm SHA256 "dist-release/$asset.zip"
-          "$($hash.Hash.ToLower())  $asset.zip" | Set-Content -NoNewline "dist-release/$asset.zip.sha256"
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist-release/${{ matrix.managed_binary }}"
+          $archiveHash = Get-FileHash -Algorithm SHA256 "dist-release/$asset.zip"
+          "$($archiveHash.Hash.ToLower())  $asset.zip" | Set-Content -NoNewline "dist-release/$asset.zip.sha256"
+          $binaryHash = Get-FileHash -Algorithm SHA256 "dist-release/${{ matrix.managed_binary }}"
+          "$($binaryHash.Hash.ToLower())  ${{ matrix.managed_binary }}" | Set-Content -NoNewline "dist-release/${{ matrix.managed_binary }}.sha256"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v7
@@ -151,6 +164,8 @@ jobs:
           path: |
             dist-release/forma-${{ matrix.asset }}.${{ matrix.archive }}
             dist-release/forma-${{ matrix.asset }}.${{ matrix.archive }}.sha256
+            dist-release/${{ matrix.managed_binary }}
+            dist-release/${{ matrix.managed_binary }}.sha256
           if-no-files-found: error
 
   extension:
