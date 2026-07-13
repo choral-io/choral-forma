@@ -14,6 +14,7 @@ use crate::config::{
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::docs::embedded_doc;
+use crate::document::{DocumentAnalysis, DocumentReference, analyze_document_references};
 use crate::index::{
     Discovery, IndexEntry, IndexReference, ReferenceIntent, ReferenceSource,
     config_error_diagnostic, discover_loaded_workspace,
@@ -546,6 +547,25 @@ pub struct ReferenceEdge {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub semantic_type: Option<String>,
     pub intent: ReferenceIntent,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkspaceSnapshot {
+    workspace: FormaWorkspace,
+    discovery: Discovery,
+}
+
+#[derive(Debug, Clone)]
+struct OpenDocument {
+    source: String,
+    analysis: DocumentAnalysis,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkspaceSession {
+    snapshot: WorkspaceSnapshot,
+    open_documents: BTreeMap<String, OpenDocument>,
+    snapshot_build_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1713,6 +1733,176 @@ pub fn list_file_references(
     })
 }
 
+impl WorkspaceSnapshot {
+    pub fn load(root: impl AsRef<Path>) -> Result<Self, OperationError> {
+        let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+        let discovery = discover_loaded_workspace(&workspace);
+        Ok(Self {
+            workspace,
+            discovery,
+        })
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.workspace.root
+    }
+
+    pub fn workspace(&self) -> &FormaWorkspace {
+        &self.workspace
+    }
+
+    pub fn discovery(&self) -> &Discovery {
+        &self.discovery
+    }
+
+    pub fn analyze_document(&self, source_path: &str, source: &str) -> DocumentAnalysis {
+        analyze_document_references(&self.workspace, source_path, source)
+    }
+
+    pub fn resolve_reference(
+        &self,
+        source_path: &str,
+        raw_target: &str,
+        intent: ReferenceIntent,
+        explicit_fragment: Option<String>,
+    ) -> Result<ReferenceResolveResult, OperationError> {
+        resolve_reference_in_snapshot(
+            self,
+            source_path,
+            raw_target,
+            intent,
+            explicit_fragment,
+            None,
+            true,
+        )
+    }
+
+    pub fn resolve_document_reference(
+        &self,
+        source_path: &str,
+        reference: &DocumentReference,
+    ) -> Result<ReferenceResolveResult, OperationError> {
+        resolve_reference_in_snapshot(
+            self,
+            source_path,
+            &reference.target,
+            reference.intent,
+            reference.fragment.clone(),
+            reference.target_space.as_deref(),
+            false,
+        )
+    }
+}
+
+impl WorkspaceSession {
+    pub fn load(root: impl AsRef<Path>) -> Result<Self, OperationError> {
+        Ok(Self {
+            snapshot: WorkspaceSnapshot::load(root)?,
+            open_documents: BTreeMap::new(),
+            snapshot_build_count: 1,
+        })
+    }
+
+    pub fn snapshot(&self) -> &WorkspaceSnapshot {
+        &self.snapshot
+    }
+
+    pub fn snapshot_build_count(&self) -> u64 {
+        self.snapshot_build_count
+    }
+
+    pub fn rebuild_snapshot(&mut self) -> Result<(), OperationError> {
+        let snapshot = WorkspaceSnapshot::load(self.snapshot.root())?;
+        for (path, document) in &mut self.open_documents {
+            document.analysis = snapshot.analyze_document(path, &document.source);
+        }
+        self.snapshot = snapshot;
+        self.snapshot_build_count += 1;
+        Ok(())
+    }
+
+    pub fn set_document(
+        &mut self,
+        source_path: &str,
+        source: String,
+    ) -> Result<DocumentAnalysis, OperationError> {
+        let source_path = normalize_entry_path(source_path)?;
+        let analysis = self.snapshot.analyze_document(&source_path, &source);
+        self.open_documents.insert(
+            source_path,
+            OpenDocument {
+                source,
+                analysis: analysis.clone(),
+            },
+        );
+        Ok(analysis)
+    }
+
+    pub fn close_document(&mut self, source_path: &str) -> Result<(), OperationError> {
+        let source_path = normalize_entry_path(source_path)?;
+        self.open_documents.remove(&source_path);
+        Ok(())
+    }
+
+    pub fn document_analysis(&self, source_path: &str) -> Result<DocumentAnalysis, OperationError> {
+        let source_path = normalize_entry_path(source_path)?;
+        if let Some(document) = self.open_documents.get(&source_path) {
+            return Ok(document.analysis.clone());
+        }
+        let source =
+            fs::read_to_string(self.snapshot.root().join(&source_path)).map_err(|source| {
+                OperationError::Io {
+                    path: source_path.clone(),
+                    source,
+                }
+            })?;
+        Ok(self.snapshot.analyze_document(&source_path, &source))
+    }
+
+    pub fn resolve_document_reference(
+        &self,
+        source_path: &str,
+        reference: &DocumentReference,
+    ) -> Result<ReferenceResolveResult, OperationError> {
+        let mut result = self
+            .snapshot
+            .resolve_document_reference(source_path, reference)?;
+        let mut overlay_fragment_resolution = None;
+        if let Some(target) = &mut result.target
+            && let (Some(fragment), Some(document)) = (
+                target.fragment.as_deref(),
+                self.open_documents.get(&target.path),
+            )
+        {
+            target.fragment_location = resolve_fragment_location_in_source(
+                &document.source,
+                fragment,
+                target.fragment_kind,
+            );
+            overlay_fragment_resolution = Some((fragment.to_string(), target.fragment_location));
+        }
+        if let Some((fragment, location)) = overlay_fragment_resolution {
+            result
+                .diagnostics
+                .retain(|diagnostic| diagnostic.code != "reference.fragmentUnresolved");
+            if location.is_none() {
+                result.diagnostics.push(
+                    Diagnostic::error(
+                        "reference.fragmentUnresolved",
+                        "Reference fragment cannot be resolved.",
+                    )
+                    .with_path(result.source_path.clone())
+                    .with_actual(fragment),
+                );
+            }
+            result.diagnostics.sort_by_key(diagnostic_sort_key);
+            result.summary = DiagnosticSummary::from_diagnostics(&result.diagnostics);
+            result.status = result.summary.status();
+        }
+        Ok(result)
+    }
+}
+
 pub fn resolve_reference(
     root: impl AsRef<Path>,
     source_path: &str,
@@ -1720,15 +1910,33 @@ pub fn resolve_reference(
     intent: ReferenceIntent,
     explicit_fragment: Option<String>,
 ) -> Result<ReferenceResolveResult, OperationError> {
+    WorkspaceSnapshot::load(root)?.resolve_reference(
+        source_path,
+        raw_target,
+        intent,
+        explicit_fragment,
+    )
+}
+
+fn resolve_reference_in_snapshot(
+    snapshot: &WorkspaceSnapshot,
+    source_path: &str,
+    raw_target: &str,
+    intent: ReferenceIntent,
+    explicit_fragment: Option<String>,
+    target_space: Option<&str>,
+    require_source_entry: bool,
+) -> Result<ReferenceResolveResult, OperationError> {
     let source_path = normalize_entry_path(source_path)?;
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let discovery = discover_loaded_workspace(&workspace);
-    let source_entry = discovery
+    let source_entry = snapshot
+        .discovery
         .index
         .entries
         .iter()
-        .find(|entry| entry.path == source_path)
-        .ok_or(OperationError::EntryNotFound)?;
+        .find(|entry| entry.path == source_path);
+    if require_source_entry && source_entry.is_none() {
+        return Err(OperationError::EntryNotFound);
+    }
 
     let (target_text, inline_fragment) = split_resolve_target(raw_target);
     let fragment = explicit_fragment.or(inline_fragment);
@@ -1741,11 +1949,20 @@ pub fn resolve_reference(
     });
     let fragment = fragment.map(|value| value.trim_start_matches('^').to_string());
     let mut diagnostics = Vec::new();
-    let semantic_matches = (intent == ReferenceIntent::Reference)
-        .then(|| semantic_reference_candidates(source_entry, &target_text))
+    let semantic_matches = (intent == ReferenceIntent::Reference && target_space.is_none())
+        .then(|| {
+            source_entry
+                .map(|entry| semantic_reference_candidates(entry, &target_text))
+                .unwrap_or_default()
+        })
         .unwrap_or_default();
     let matches = if semantic_matches.is_empty() {
-        resolve_reference_candidates(&discovery.index.entries, &source_path, &target_text)
+        resolve_reference_candidates(
+            &snapshot.discovery.index.entries,
+            &source_path,
+            &target_text,
+            target_space,
+        )
     } else {
         semantic_matches
     };
@@ -1753,7 +1970,8 @@ pub fn resolve_reference(
         matches
             .iter()
             .filter_map(|path| {
-                discovery
+                snapshot
+                    .discovery
                     .index
                     .entries
                     .iter()
@@ -1767,14 +1985,15 @@ pub fn resolve_reference(
     candidates.sort_by(|left, right| left.path.cmp(&right.path));
 
     let target = if matches.len() == 1 {
-        let entry = discovery
+        let entry = snapshot
+            .discovery
             .index
             .entries
             .iter()
             .find(|entry| entry.path == matches[0])
             .expect("resolved reference candidate should exist");
         let fragment_location = fragment.as_deref().and_then(|fragment| {
-            resolve_fragment_location(root.as_ref(), &entry.path, fragment, fragment_kind)
+            resolve_fragment_location(snapshot.root(), &entry.path, fragment, fragment_kind)
         });
         if fragment.is_some() && fragment_location.is_none() {
             diagnostics.push(
@@ -1820,7 +2039,7 @@ pub fn resolve_reference(
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
-            name: workspace.config.workspace.name,
+            name: snapshot.workspace.config.workspace.name.clone(),
             logo: None,
         },
         source_path,
@@ -1854,6 +2073,7 @@ fn resolve_reference_candidates(
     entries: &[IndexEntry],
     source_path: &str,
     raw_target: &str,
+    target_space: Option<&str>,
 ) -> Vec<String> {
     if raw_target.is_empty() {
         return vec![source_path.to_string()];
@@ -1862,7 +2082,11 @@ fn resolve_reference_candidates(
         return Vec::new();
     }
 
-    let paths = entries
+    let candidate_entries = entries
+        .iter()
+        .filter(|entry| target_space.is_none_or(|space| entry.space == space))
+        .collect::<Vec<_>>();
+    let paths = candidate_entries
         .iter()
         .map(|entry| entry.path.as_str())
         .collect::<BTreeSet<_>>();
@@ -1879,8 +2103,8 @@ fn resolve_reference_candidates(
     }
 
     let normalized = raw_target.trim_start_matches("./").trim_end_matches(".md");
-    let mut matches = entries
-        .iter()
+    let mut matches = candidate_entries
+        .into_iter()
         .filter(|entry| {
             let without_extension = entry.path.strip_suffix(".md").unwrap_or(&entry.path);
             if normalized.contains('/') {
@@ -1966,6 +2190,14 @@ fn resolve_fragment_location(
     kind: Option<crate::index::ReferenceFragmentKind>,
 ) -> Option<ReferenceFragmentLocation> {
     let source = fs::read_to_string(root.join(path)).ok()?;
+    resolve_fragment_location_in_source(&source, fragment, kind)
+}
+
+fn resolve_fragment_location_in_source(
+    source: &str,
+    fragment: &str,
+    kind: Option<crate::index::ReferenceFragmentKind>,
+) -> Option<ReferenceFragmentLocation> {
     if kind == Some(crate::index::ReferenceFragmentKind::Block) {
         return source.lines().enumerate().find_map(|(line, value)| {
             value
@@ -3254,10 +3486,10 @@ mod tests {
 
     use super::{
         OperationError, SkillSource, WorkspaceFileFeature, WorkspaceHealthCategory,
-        build_workspace_health_result, create_entry, inspect_config, inspect_entry_by_path,
-        is_public_workspace_path_allowed, is_raw_workspace_path_allowed, list_file_references,
-        list_files, resolve_reference, skills_get, skills_list, workspace_dashboard,
-        workspace_explorer, workspace_explorer_entries, workspace_health,
+        WorkspaceSession, build_workspace_health_result, create_entry, inspect_config,
+        inspect_entry_by_path, is_public_workspace_path_allowed, is_raw_workspace_path_allowed,
+        list_file_references, list_files, resolve_reference, skills_get, skills_list,
+        workspace_dashboard, workspace_explorer, workspace_explorer_entries, workspace_health,
     };
     use crate::{Diagnostic, IndexEntry, OperationStatus, ReferenceIntent, WorkspaceFileKind};
 
@@ -4780,6 +5012,96 @@ conventions:
         assert_eq!(
             result.target.map(|target| target.path),
             Some("members/tiscs.md".to_string())
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_session_reuses_snapshot_and_resolves_unsaved_frontmatter_references() {
+        let root = fixture_root("workspace-session-unsaved");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("members/sam-rivera.md"),
+            "---\nname: Sam Rivera\ndescription: \"\"\n---\n\n# Sam Rivera\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/sam-rivera.md"),
+            "---\ntitle: Sam Note\nsummary: \"\"\n---\n\n# Sam Note\n",
+        )
+        .unwrap();
+
+        let mut session = WorkspaceSession::load(&root).unwrap();
+        let analysis = session
+            .set_document(
+                "tasks/unsaved.md",
+                "---\ntitle: Unsaved\nsummary: \"\"\nowners:\n  - Sam Rivera\n---\n\n# Unsaved\n"
+                    .to_string(),
+            )
+            .unwrap();
+        let reference = analysis.references.first().unwrap();
+        let result = session
+            .resolve_document_reference("tasks/unsaved.md", reference)
+            .unwrap();
+
+        assert_eq!(session.snapshot_build_count(), 1);
+        assert_eq!(reference.target, "sam-rivera");
+        assert_eq!(reference.target_space.as_deref(), Some("members"));
+        assert_eq!(
+            result.target.map(|target| target.path),
+            Some("members/sam-rivera.md".to_string())
+        );
+
+        session.rebuild_snapshot().unwrap();
+        assert_eq!(session.snapshot_build_count(), 2);
+        assert_eq!(
+            session
+                .document_analysis("tasks/unsaved.md")
+                .unwrap()
+                .references
+                .len(),
+            1
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_session_uses_unsaved_target_for_fragment_navigation() {
+        let root = fixture_root("workspace-session-fragment-overlay");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("members/sam-rivera.md"),
+            "---\nname: Sam Rivera\ndescription: \"\"\n---\n\n# Sam Rivera\n",
+        )
+        .unwrap();
+
+        let mut session = WorkspaceSession::load(&root).unwrap();
+        session
+            .set_document(
+                "members/sam-rivera.md",
+                "---\nname: Sam Rivera\n---\n\n# Sam Rivera\n\n## Unsaved Heading\n".to_string(),
+            )
+            .unwrap();
+        let analysis = session
+            .set_document(
+                "tasks/unsaved-source.md",
+                "---\ntitle: Unsaved\nsummary: \"\"\nowners: []\n---\n\nSee [[members/sam-rivera#Unsaved Heading]].\n"
+                    .to_string(),
+            )
+            .unwrap();
+        let reference = analysis.references.first().unwrap();
+        let result = session
+            .resolve_document_reference("tasks/unsaved-source.md", reference)
+            .unwrap();
+        assert_eq!(result.status, OperationStatus::Passed);
+        let target = result.target.unwrap();
+
+        assert_eq!(target.path, "members/sam-rivera.md");
+        assert_eq!(
+            target.fragment_location,
+            Some(super::ReferenceFragmentLocation { line: 7, column: 1 })
         );
         fs::remove_dir_all(root).unwrap();
     }
