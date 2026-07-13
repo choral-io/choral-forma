@@ -1,0 +1,11 @@
+id = "forma"
+name = "Forma"
+version = "0.1.0-alpha.17"
+schema_version = 1
+authors = ["Choral <hello@choral.io>"]
+description = "Forma link navigation for Markdown workspaces."
+repository = "https://github.com/choral-io/choral-forma"
+
+[language_servers.forma]
+name = "Forma"
+languages = ["Markdown"]

@@ -8,9 +8,11 @@ import {
     cargoLockPackageVersions,
     cargoWorkspaceVersion,
     documentReleaseVersions,
+    extensionManifestVersion,
     replaceCargoLockPackageVersions,
     replaceCargoWorkspaceVersion,
     replaceCurrentVersion,
+    replaceExtensionManifestVersion,
     resolveReleaseTag,
     validateReleaseVersions,
 } from "./release-version.mjs";
@@ -45,6 +47,15 @@ test("validates release version input without accepting a tag", () => {
     assert.throws(() => assertReleaseVersion("alpha.16"), /Invalid release version/u);
 });
 
+test("reads and replaces the Zed extension manifest version", () => {
+    const manifest = 'id = "forma"\nversion = "0.1.0-alpha.15"\nschema_version = 1\n';
+    assert.equal(extensionManifestVersion(manifest), "0.1.0-alpha.15");
+    assert.equal(
+        extensionManifestVersion(replaceExtensionManifestVersion(manifest, "0.1.0-alpha.16")),
+        "0.1.0-alpha.16",
+    );
+});
+
 test("updates allowlisted current-version documentation", () => {
     const source = "Install v0.1.0-alpha.15 or forma-0.1.0-alpha.15.vsix.";
     assert.equal(
@@ -58,21 +69,25 @@ test("updates allowlisted current-version documentation", () => {
 });
 
 test("extracts internal workspace versions from Cargo.lock", () => {
-    const lock = `[[package]]\nname = "forma-cli"\nversion = "0.1.0-alpha.16"\n\n[[package]]\nname = "serde"\nversion = "1.0.0"\n\n[[package]]\nname = "forma-core"\nversion = "0.1.0-alpha.16"\n\n[[package]]\nname = "forma-rpc"\nversion = "0.1.0-alpha.16"\n`;
+    const lock = `[[package]]\nname = "forma-cli"\nversion = "0.1.0-alpha.16"\n\n[[package]]\nname = "serde"\nversion = "1.0.0"\n\n[[package]]\nname = "forma-core"\nversion = "0.1.0-alpha.16"\n\n[[package]]\nname = "forma-lsp"\nversion = "0.1.0-alpha.16"\n\n[[package]]\nname = "forma-rpc"\nversion = "0.1.0-alpha.16"\n\n[[package]]\nname = "forma-zed-extension"\nversion = "0.1.0-alpha.16"\n`;
     assert.deepEqual(Object.fromEntries(cargoLockPackageVersions(lock)), {
         "forma-cli": "0.1.0-alpha.16",
         "forma-core": "0.1.0-alpha.16",
+        "forma-lsp": "0.1.0-alpha.16",
         "forma-rpc": "0.1.0-alpha.16",
+        "forma-zed-extension": "0.1.0-alpha.16",
     });
 });
 
 test("updates only internal workspace versions in Cargo.lock", () => {
-    const lock = `[[package]]\nname = "forma-cli"\nversion = "0.1.0-alpha.15"\n\n[[package]]\nname = "serde"\nversion = "1.0.0"\n\n[[package]]\nname = "forma-core"\nversion = "0.1.0-alpha.15"\n\n[[package]]\nname = "forma-rpc"\nversion = "0.1.0-alpha.15"\n`;
+    const lock = `[[package]]\nname = "forma-cli"\nversion = "0.1.0-alpha.15"\n\n[[package]]\nname = "serde"\nversion = "1.0.0"\n\n[[package]]\nname = "forma-core"\nversion = "0.1.0-alpha.15"\n\n[[package]]\nname = "forma-lsp"\nversion = "0.1.0-alpha.15"\n\n[[package]]\nname = "forma-rpc"\nversion = "0.1.0-alpha.15"\n\n[[package]]\nname = "forma-zed-extension"\nversion = "0.1.0-alpha.15"\n`;
     const updated = replaceCargoLockPackageVersions(lock, "0.1.0-alpha.16");
     assert.deepEqual(Object.fromEntries(cargoLockPackageVersions(updated)), {
         "forma-cli": "0.1.0-alpha.16",
         "forma-core": "0.1.0-alpha.16",
+        "forma-lsp": "0.1.0-alpha.16",
         "forma-rpc": "0.1.0-alpha.16",
+        "forma-zed-extension": "0.1.0-alpha.16",
     });
     assert.match(updated, /name = "serde"\nversion = "1\.0\.0"/u);
     assert.throws(
@@ -86,7 +101,9 @@ test("accepts versions derived from the Cargo workspace source", () => {
     const lockVersions = new Map([
         ["forma-cli", version],
         ["forma-core", version],
+        ["forma-lsp", version],
         ["forma-rpc", version],
+        ["forma-zed-extension", version],
     ]);
     assert.deepEqual(
         validateReleaseVersions({
@@ -100,6 +117,7 @@ test("accepts versions derived from the Cargo workspace source", () => {
             releaseVersion: `v${version}`,
             rootReadme: `Install v${version}.`,
             tag: `v${version}`,
+            zedExtensionVersion: version,
         }),
         [],
     );
@@ -118,8 +136,10 @@ test("rejects stale manifests, lock entries, release content, documentation, and
         releaseVersion: "v0.1.0-alpha.15",
         rootReadme: "Install v0.1.0-alpha.15.",
         tag: "v0.1.0-alpha.15",
+        zedExtensionVersion: "0.1.0-alpha.15",
     });
     assert.ok(errors.some((error) => error.includes("VS Code extension version")));
+    assert.ok(errors.some((error) => error.includes("Zed extension version")));
     assert.ok(errors.some((error) => error.includes("Cargo.lock forma-core")));
     assert.ok(errors.some((error) => error.includes("Release record version")));
     assert.ok(errors.some((error) => error.includes("changelog")));
@@ -146,6 +166,13 @@ test("passes the built Forma binary to Extension Host tests", () => {
     assert.match(
         workflows[0],
         /Run Extension Host tests[\s\S]*FORMA_TEST_BIN: \$\{\{ github\.workspace \}\}\/target\/debug\/forma/u,
+    );
+});
+
+test("checks the Zed extension WebAssembly target in CI", () => {
+    assert.match(
+        workflows[0],
+        /rustup target add wasm32-wasip1[\s\S]*cargo check -p forma-zed-extension --target wasm32-wasip1 --locked/u,
     );
 });
 

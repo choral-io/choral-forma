@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import {
     cargoLockPackageVersions,
     cargoWorkspaceVersion,
+    extensionManifestVersion,
     resolveReleaseTag,
     validateReleaseVersions,
 } from "./release-version.mjs";
@@ -12,6 +13,7 @@ const cargoLock = await readFile(new URL("../Cargo.lock", import.meta.url), "utf
 const extension = JSON.parse(
     await readFile(new URL("../packages/vscode-extension/package.json", import.meta.url), "utf8"),
 );
+const zedExtensionManifest = await readFile(new URL("../extensions/zed/extension.toml", import.meta.url), "utf8");
 const extensionReadme = await readFile(new URL("../packages/vscode-extension/README.md", import.meta.url), "utf8");
 const changelog = await readFile(new URL("../packages/vscode-extension/CHANGELOG.md", import.meta.url), "utf8");
 const rootReadme = await readFile(new URL("../README.md", import.meta.url), "utf8");
@@ -30,6 +32,7 @@ const errors = validateReleaseVersions({
     releaseVersion,
     rootReadme,
     tag,
+    zedExtensionVersion: extensionManifestVersion(zedExtensionManifest),
 });
 
 if (errors.length > 0) {

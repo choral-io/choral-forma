@@ -1,4 +1,4 @@
-export const internalCargoPackages = ["forma-cli", "forma-core", "forma-rpc"];
+export const internalCargoPackages = ["forma-cli", "forma-core", "forma-lsp", "forma-rpc", "forma-zed-extension"];
 
 const releaseVersionPattern =
     /^\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?(?:\+[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/u;
@@ -28,6 +28,16 @@ export function replaceCargoWorkspaceVersion(source, nextVersion) {
     const currentVersion = cargoWorkspaceVersion(source);
     if (currentVersion === "missing") throw new Error("Cargo workspace package version is missing.");
     return source.replace(/(^\[workspace\.package\]\s*$[\s\S]*?^version\s*=\s*")[^"]+("\s*$)/mu, `$1${nextVersion}$2`);
+}
+
+export function extensionManifestVersion(source) {
+    return /^version\s*=\s*"([^"]+)"\s*$/mu.exec(source)?.[1] ?? "missing";
+}
+
+export function replaceExtensionManifestVersion(source, nextVersion) {
+    const currentVersion = extensionManifestVersion(source);
+    if (currentVersion === "missing") throw new Error("Zed extension manifest version is missing.");
+    return source.replace(/(^version\s*=\s*")[^"]+("\s*$)/mu, `$1${nextVersion}$2`);
 }
 
 export function replaceCurrentVersion(source, currentVersion, nextVersion, label) {
@@ -89,6 +99,7 @@ export function validateReleaseVersions({
     releaseVersion,
     rootReadme,
     tag,
+    zedExtensionVersion,
 }) {
     const errors = [];
     if (cargoVersion === "missing") errors.push("Cargo workspace package version is missing.");
@@ -98,6 +109,9 @@ export function validateReleaseVersions({
     if (extensionName !== "forma") errors.push(`VS Code extension name is ${extensionName}; expected forma.`);
     if (extensionPublisher !== "choral-io") {
         errors.push(`VS Code extension publisher is ${extensionPublisher}; expected choral-io.`);
+    }
+    if (zedExtensionVersion !== cargoVersion) {
+        errors.push(`Zed extension version is ${zedExtensionVersion}; expected ${cargoVersion}.`);
     }
     for (const packageName of internalCargoPackages) {
         const lockVersion = lockVersions.get(packageName) ?? "missing";
