@@ -148,6 +148,12 @@ test("passes the built Forma binary to Extension Host tests", () => {
     );
 });
 
+test("runs packaged VSIX smoke tests under a virtual display", () => {
+    for (const workflow of workflows) {
+        assert.match(workflow, /Smoke test packaged VSIX[\s\S]*?run: xvfb-run -a pnpm --filter forma smoke:vsix/u);
+    }
+});
+
 test("publishes standalone editor-managed binaries alongside release archives", () => {
     const releaseWorkflow = workflows[1];
     const expectedRows = [

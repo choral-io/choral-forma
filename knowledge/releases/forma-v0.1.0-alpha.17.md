@@ -63,12 +63,13 @@ Publish the coordinated CLI lifecycle completed after [[releases/forma-v0.1.0-al
 ## Validation
 
 - The remediation review identified and closed cancelled-flight reuse, stale refresh overwrite, Windows backup cleanup, Windows `code.cmd` launch, packaged Preview false-positive, Restricted Mode command-entry, release-matrix, and test temporary-directory gaps.
-- Focused extension validation passed 114 Vitest tests, 14 Node release/script tests, TypeScript checks, and the Restricted Mode suite in an isolated profile using the installed official VS Code application.
+- Focused extension validation passed 114 Vitest tests, 15 Node release/script tests, TypeScript checks, and the Restricted Mode suite in an isolated profile using the installed official VS Code application.
 - Existing leaked `forma-managed-cli-*` and `forma-download-*` test directories were removed; the new cleanup fixture leaves zero matching directories after the focused suite.
-- `CI=true mise run check` passed locally with aligned `0.1.0-alpha.17` versions, 128 TypeScript tests, 14 release/script tests, 234 Rust tests, formatting, lint, type checks, and production builds.
+- `CI=true mise run check` passed locally with aligned `0.1.0-alpha.17` versions, 128 TypeScript tests, 15 release/script tests, 234 Rust tests, formatting, lint, type checks, and production builds.
 - Forma config inspection and workspace health passed with zero diagnostics.
 - `forma-0.1.0-alpha.17.vsix` installed and activated in an isolated profile under the installed official VS Code 1.128.0 application. The smoke suite verified navigation and editable source behavior, then observed a newly created native Markdown Preview Tab for every list, table, kanban, and Graph View.
 - The local VSIX manifest reports `choral-io.forma@0.1.0-alpha.17`, and its SHA-256 is `36d7bfec8a1a9573af87979b04476491ad5a1b7c39821ddf30db1a7f26e95553`.
+- [Main CI run 29240867866](https://github.com/choral-io/choral-forma/actions/runs/29240867866) passed Knowledge, Web, Rust, Extension Host, and VSIX packaging, then exposed that the newly strengthened packaged Preview smoke was launching VS Code without an X server. Both CI and Release workflows now run that smoke under `xvfb-run`, with a static regression assertion; the complete local gate passed again after the correction.
 - CI, published-asset, and real managed-download gates are recorded below when they complete.
 
 ## Release Notes
