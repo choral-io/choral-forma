@@ -1,6 +1,7 @@
 pub mod config;
 pub mod diagnostics;
 pub mod docs;
+pub mod document;
 pub mod index;
 pub mod markdown;
 pub mod operations;
@@ -16,6 +17,9 @@ pub use diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
 };
 pub use docs::{DocsError, EmbeddedDoc, EmbeddedSkill, embedded_doc, embedded_docs};
+pub use document::{
+    DocumentAnalysis, DocumentReference, DocumentReferenceSyntax, analyze_document_references,
+};
 pub use index::{
     CheckResult, Discovery, IndexEntry, IndexReference, IndexSpace, IndexView, IndexWorkspace,
     ReferenceIntent, ReferenceSource, SummaryIndex, check_workspace, discover_loaded_workspace,

@@ -39,6 +39,8 @@ pub struct FormaReference {
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub span: Option<SourceSpan>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_span: Option<SourceSpan>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -68,6 +70,7 @@ pub enum FormaReferenceSource {
 #[serde(rename_all = "camelCase")]
 pub enum FormaReferenceSyntax {
     MarkdownLink,
+    MarkdownImage,
     Wikilink,
     ObsidianEmbed,
     FormaCommentDirective,
@@ -120,7 +123,7 @@ pub fn parse_markdown(source: &str) -> FormaMarkdownDocument {
     let mut headings = Vec::new();
 
     match to_mdast(&body, &ParseOptions::gfm()) {
-        Ok(ast) => collect_markdown_structure(&ast, &mut references, &mut headings),
+        Ok(ast) => collect_markdown_structure(&body, &ast, &mut references, &mut headings),
         Err(error) => diagnostics.push(
             Diagnostic::error(
                 "markdown.body.parseFailed",
@@ -205,21 +208,40 @@ fn frontmatter_opening_end(source: &str) -> Option<usize> {
 }
 
 fn collect_markdown_structure(
+    body: &str,
     node: &mdast::Node,
     references: &mut Vec<FormaReference>,
     headings: &mut Vec<FormaHeading>,
 ) {
     if let mdast::Node::Link(link) = node {
+        let span = link
+            .position
+            .as_ref()
+            .map(SourceSpan::from_markdown_position);
         references.push(FormaReference {
             intent: FormaReferenceIntent::Link,
             source: FormaReferenceSource::Body,
             syntax: FormaReferenceSyntax::MarkdownLink,
             target: link.url.clone(),
             label: Some(plain_text(&link.children)),
-            span: link
-                .position
-                .as_ref()
-                .map(SourceSpan::from_markdown_position),
+            span,
+            target_span: markdown_resource_target_span(body, span, &link.url),
+        });
+    }
+
+    if let mdast::Node::Image(image) = node {
+        let span = image
+            .position
+            .as_ref()
+            .map(SourceSpan::from_markdown_position);
+        references.push(FormaReference {
+            intent: FormaReferenceIntent::Embed,
+            source: FormaReferenceSource::Body,
+            syntax: FormaReferenceSyntax::MarkdownImage,
+            target: image.url.clone(),
+            label: Some(image.alt.clone()),
+            span,
+            target_span: markdown_resource_target_span(body, span, &image.url),
         });
     }
 
@@ -241,9 +263,48 @@ fn collect_markdown_structure(
 
     if let Some(children) = node.children() {
         for child in children {
-            collect_markdown_structure(child, references, headings);
+            collect_markdown_structure(body, child, references, headings);
         }
     }
+}
+
+fn markdown_resource_target_span(
+    body: &str,
+    resource_span: Option<SourceSpan>,
+    parsed_target: &str,
+) -> Option<SourceSpan> {
+    let resource_span = resource_span?;
+    let raw = body.get(resource_span.start_byte..resource_span.end_byte)?;
+    let destination_marker = raw.rfind("](")?;
+    let mut relative_start = destination_marker + 2;
+    relative_start += raw[relative_start..]
+        .chars()
+        .take_while(|character| character.is_whitespace())
+        .map(char::len_utf8)
+        .sum::<usize>();
+
+    let remainder = raw.get(relative_start..)?;
+    let (content_start, content_end) = if let Some(angle_target) = remainder.strip_prefix('<') {
+        let end = angle_target.find('>')?;
+        (relative_start + 1, relative_start + 1 + end)
+    } else {
+        let end = remainder
+            .char_indices()
+            .find(|(_, character)| character.is_whitespace() || *character == ')')
+            .map(|(index, _)| index)
+            .unwrap_or(remainder.len());
+        (relative_start, relative_start + end)
+    };
+    if content_start == content_end {
+        return None;
+    }
+    let target_start = resource_span.start_byte + content_start;
+    let target_end = resource_span.start_byte + content_end;
+    let raw_target = body.get(target_start..target_end)?;
+    if raw_target != parsed_target && parsed_target.is_empty() {
+        return None;
+    }
+    Some(source_span(body, target_start, target_end))
 }
 
 fn plain_text(nodes: &[mdast::Node]) -> String {
@@ -304,7 +365,8 @@ fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
         }
 
         if !content.trim().is_empty() {
-            let (target, label) = split_wikilink_content(content);
+            let (target, label, target_start, target_end) =
+                split_wikilink_content(content, content_start);
             references.push(FormaReference {
                 intent: if embed {
                     FormaReferenceIntent::Embed
@@ -320,6 +382,7 @@ fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
                 target,
                 label,
                 span: Some(source_span(body, marker_start, end)),
+                target_span: Some(source_span(body, target_start, target_end)),
             });
         }
 
@@ -457,12 +520,20 @@ fn ranges_contain(ranges: &[(usize, usize)], offset: usize) -> bool {
         .any(|(start, end)| *start <= offset && offset < *end)
 }
 
-fn split_wikilink_content(content: &str) -> (String, Option<String>) {
-    if let Some((target, label)) = content.split_once('|') {
-        (target.trim().to_string(), Some(label.trim().to_string()))
+fn split_wikilink_content(
+    content: &str,
+    content_start: usize,
+) -> (String, Option<String>, usize, usize) {
+    let (raw_target, label) = if let Some((target, label)) = content.split_once('|') {
+        (target, Some(label.trim().to_string()))
     } else {
-        (content.trim().to_string(), None)
-    }
+        (content, None)
+    };
+    let leading = raw_target.len() - raw_target.trim_start().len();
+    let target = raw_target.trim();
+    let target_start = content_start + leading;
+    let target_end = target_start + target.len();
+    (target.to_string(), label, target_start, target_end)
 }
 
 fn scan_forma_view_comments(body: &str, references: &mut Vec<FormaReference>) {
@@ -483,6 +554,14 @@ fn scan_forma_view_comments(body: &str, references: &mut Vec<FormaReference>) {
 
         if let Some(rest) = content.strip_prefix(DIRECTIVE) {
             let target = rest.strip_prefix(':').unwrap_or(rest).trim().to_string();
+            let target_offset = content.find(&target).unwrap_or(content.len());
+            let target_span = (!target.is_empty()).then(|| {
+                source_span(
+                    body,
+                    content_start + target_offset,
+                    content_start + target_offset + target.len(),
+                )
+            });
             references.push(FormaReference {
                 intent: FormaReferenceIntent::View,
                 source: FormaReferenceSource::Body,
@@ -490,6 +569,7 @@ fn scan_forma_view_comments(body: &str, references: &mut Vec<FormaReference>) {
                 target,
                 label: None,
                 span: Some(source_span(body, start, end)),
+                target_span,
             });
         }
 
@@ -559,6 +639,11 @@ mod tests {
         assert_eq!(link.target, "notes/docs.md");
         assert_eq!(link.label.as_deref(), Some("docs"));
         assert_eq!(link.span.unwrap().start_line, 2);
+        let target_span = link.target_span.unwrap();
+        assert_eq!(
+            &document.body[target_span.start_byte..target_span.end_byte],
+            "notes/docs.md"
+        );
     }
 
     #[test]
@@ -620,6 +705,7 @@ mod tests {
         assert_eq!(reference.target, "notes/parser");
         assert_eq!(reference.label.as_deref(), Some("Parser note"));
         assert_eq!(reference.span.unwrap().start_column, 5);
+        assert_eq!(reference.target_span.unwrap().start_column, 7);
     }
 
     #[test]
@@ -672,6 +758,22 @@ mod tests {
         assert_eq!(reference.intent, FormaReferenceIntent::Embed);
         assert_eq!(reference.target, "notes/chart");
         assert_eq!(reference.span.unwrap().start_column, 8);
+        assert_eq!(reference.target_span.unwrap().start_column, 11);
+    }
+
+    #[test]
+    fn detects_markdown_image_as_embed_with_target_span() {
+        let document = FormaMarkdownDocument::parse("Before ![Chart](assets/chart.png) after\n");
+        let reference = document.references.first().unwrap();
+
+        assert_eq!(reference.syntax, FormaReferenceSyntax::MarkdownImage);
+        assert_eq!(reference.intent, FormaReferenceIntent::Embed);
+        assert_eq!(reference.target, "assets/chart.png");
+        let target_span = reference.target_span.unwrap();
+        assert_eq!(
+            &document.body[target_span.start_byte..target_span.end_byte],
+            "assets/chart.png"
+        );
     }
 
     #[test]

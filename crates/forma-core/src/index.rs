@@ -7,14 +7,18 @@ use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
 use crate::config::{
-    ConfigError, ConfigSourcePath, DisplayOptions, FormaWorkspace, LoadMode, SemanticType,
-    WorkspaceConfig, load_workspace,
+    ConfigError, ConfigSourcePath, DisplayOptions, FormaWorkspace, LoadMode, WorkspaceConfig,
+    load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
+use crate::document::{
+    SemanticReferenceField, apply_reference_transform, collect_semantic_reference_fields,
+    is_explicit_path_reference,
+};
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
 use crate::operations::workspace_skill_diagnostics;
-use crate::path::{FORMA_CONFIG_PATH, WorkspacePath, glob_scan_root, slugify_path_segment};
-use crate::schema::{SchemaNode, parse_space_schema, validate_schema_value};
+use crate::path::{FORMA_CONFIG_PATH, WorkspacePath, glob_scan_root};
+use crate::schema::{parse_space_schema, validate_schema_value};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -195,15 +199,6 @@ struct PathIndex {
     by_space: BTreeMap<String, BTreeSet<String>>,
 }
 
-#[derive(Debug, Clone)]
-struct RefField {
-    field: String,
-    semantic_type: Option<String>,
-    space: Option<String>,
-    transform: Option<String>,
-    many: bool,
-}
-
 pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
     Ok(discover_loaded_workspace(&workspace))
@@ -229,12 +224,12 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
                 .as_ref()
                 .unwrap_or(&Value::Null);
             diagnostics.extend(validate_schema_value(
-                &config,
+                config,
                 &schema,
                 frontmatter_value,
                 entry.path.clone(),
             ));
-            let ref_fields = collect_ref_fields(&config, &schema);
+            let ref_fields = collect_semantic_reference_fields(config, &schema);
             refs.extend(resolve_frontmatter_refs(
                 &entry.path,
                 frontmatter_value,
@@ -779,91 +774,10 @@ fn media_type_for_resource_target(path: &str) -> Option<&'static str> {
     (media_type != "text/markdown").then_some(media_type)
 }
 
-fn collect_ref_fields(config: &WorkspaceConfig, schema: &SchemaNode) -> Vec<RefField> {
-    let mut fields = Vec::new();
-    collect_ref_fields_inner(config, schema, "", false, &mut fields);
-    fields
-}
-
-fn collect_ref_fields_inner(
-    config: &WorkspaceConfig,
-    schema: &SchemaNode,
-    field_path: &str,
-    many: bool,
-    fields: &mut Vec<RefField>,
-) {
-    match schema {
-        SchemaNode::Object { fields: nodes, .. } => {
-            for (name, node) in nodes {
-                let next = if field_path.is_empty() {
-                    name.clone()
-                } else {
-                    format!("{field_path}.{name}")
-                };
-                collect_ref_fields_inner(config, node, &next, many, fields);
-            }
-        }
-        SchemaNode::List { items, .. } => {
-            collect_ref_fields_inner(config, items, field_path, true, fields)
-        }
-        SchemaNode::Named { name, .. } => {
-            if let Some(field) = ref_field_for_semantic_type(config, name, field_path, many, true) {
-                fields.push(field);
-            }
-        }
-        SchemaNode::EntryRef { target, .. } => {
-            if let Some(target) = target {
-                if let Some(field) =
-                    ref_field_for_semantic_type(config, target, field_path, many, true)
-                {
-                    fields.push(field);
-                }
-            } else {
-                fields.push(RefField {
-                    field: field_path.to_string(),
-                    semantic_type: None,
-                    space: None,
-                    transform: None,
-                    many,
-                });
-            }
-        }
-        SchemaNode::String { .. }
-        | SchemaNode::Number { .. }
-        | SchemaNode::Integer { .. }
-        | SchemaNode::Boolean { .. }
-        | SchemaNode::Date { .. }
-        | SchemaNode::DateTime { .. }
-        | SchemaNode::Const { .. }
-        | SchemaNode::Enum { .. } => {}
-    }
-}
-
-fn ref_field_for_semantic_type(
-    config: &WorkspaceConfig,
-    type_name: &str,
-    field_path: &str,
-    many: bool,
-    include_semantic_type: bool,
-) -> Option<RefField> {
-    let semantic_type = config.types.get(type_name)?;
-    let transform = match semantic_type {
-        SemanticType::EntryRef { input, .. } => input.transform.clone(),
-        SemanticType::Enum { .. } => return None,
-    };
-    Some(RefField {
-        field: field_path.to_string(),
-        semantic_type: include_semantic_type.then(|| type_name.to_string()),
-        space: semantic_type.space().map(ToOwned::to_owned),
-        transform,
-        many,
-    })
-}
-
 fn resolve_frontmatter_refs(
     source_path: &str,
     frontmatter: &Value,
-    fields: &[RefField],
+    fields: &[SemanticReferenceField],
     path_index: &PathIndex,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<IndexReference> {
@@ -904,7 +818,7 @@ fn resolve_frontmatter_refs(
 fn resolve_frontmatter_ref_value(
     source_path: &str,
     value: &Value,
-    field: &RefField,
+    field: &SemanticReferenceField,
     index: Option<usize>,
     path_index: &PathIndex,
     diagnostics: &mut Vec<Diagnostic>,
@@ -916,7 +830,7 @@ fn resolve_frontmatter_ref_value(
     let mut target = raw_target.trim().to_string();
     let should_transform = !is_explicit_path_reference(&target);
     if should_transform && let Some(transform) = field.transform.as_deref() {
-        match apply_input_transform(transform, &target) {
+        match apply_reference_transform(transform, &target) {
             Ok(transformed) => target = transformed,
             Err(message) => {
                 diagnostics.push(
@@ -1257,10 +1171,6 @@ fn normalize_posix_path(path: &str) -> Option<String> {
     Some(parts.join("/"))
 }
 
-fn is_explicit_path_reference(target: &str) -> bool {
-    target.contains('/') || target.ends_with(".md")
-}
-
 fn basename_id(path: &str) -> String {
     path.rsplit('/')
         .next()
@@ -1389,13 +1299,6 @@ fn strip_reference_markup(value: &str) -> String {
 
 fn non_empty_string(value: Option<String>) -> Option<String> {
     value.filter(|value| !value.trim().is_empty())
-}
-
-fn apply_input_transform(transform: &str, value: &str) -> Result<String, String> {
-    match transform {
-        "slugify" => slugify_path_segment(value).map_err(|error| error.to_string()),
-        other => Err(format!("unknown transform `{other}`")),
-    }
 }
 
 fn is_external_target(target: &str) -> bool {
