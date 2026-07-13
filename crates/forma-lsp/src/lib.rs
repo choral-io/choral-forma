@@ -11,7 +11,7 @@ use forma_core::{
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, Response};
 use lsp_types::notification::{
     DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument, DidOpenTextDocument,
-    DidSaveTextDocument, Exit, Notification as _,
+    DidSaveTextDocument, Exit, Initialized, Notification as _,
 };
 use lsp_types::request::{
     DocumentLinkRequest, GotoDefinition, RegisterCapability, Request as _,
@@ -96,29 +96,24 @@ fn run_connection(connection: Connection, root: PathBuf) -> Result<(), LspError>
         .and_then(|workspace| workspace.did_change_watched_files.as_ref())
         .and_then(|capabilities| capabilities.relative_pattern_support)
         .unwrap_or(false);
-    connection.initialize_finish(
-        initialize_id,
-        serde_json::json!({
+    connection
+        .sender
+        .send(Message::Response(Response::new_ok(
+            initialize_id,
+            serde_json::json!({
             "capabilities": server_capabilities(),
             "serverInfo": {
                 "name": "forma",
                 "version": forma_core::version(),
             },
-        }),
-    )?;
+            }),
+        )))
+        .map_err(|_| LspError::ChannelClosed)?;
 
     let mut server = Server::new(root)?;
     let mut registered_watchers = None;
     let mut next_request_id = 10_000;
-    if supports_dynamic_watchers {
-        sync_watcher_registration(
-            &connection,
-            &server,
-            &mut registered_watchers,
-            &mut next_request_id,
-            supports_relative_watchers,
-        )?;
-    }
+    let mut initialized = false;
     for message in &connection.receiver {
         match message {
             Message::Request(request) => {
@@ -135,8 +130,11 @@ fn run_connection(connection: Connection, root: PathBuf) -> Result<(), LspError>
                 if notification.method == Exit::METHOD {
                     break;
                 }
+                if notification.method == Initialized::METHOD {
+                    initialized = true;
+                }
                 server.handle_notification(notification)?;
-                if supports_dynamic_watchers {
+                if initialized && supports_dynamic_watchers {
                     sync_watcher_registration(
                         &connection,
                         &server,
@@ -1547,6 +1545,7 @@ mod tests {
         assert_eq!(capabilities["semanticTokensProvider"]["full"], true);
 
         send_notification(&client_connection, "initialized", json!({}));
+        assert_no_server_message(&client_connection);
         let opened = "---\ntitle: LSP test\nowners:\n  - members/sam-rivera\n---\nSee [[members/sam-rivera|Sam]].\n";
         send_notification(
             &client_connection,
@@ -1660,6 +1659,141 @@ mod tests {
     }
 
     #[test]
+    fn serves_configured_view_overlays_without_changing_saved_scope() {
+        let root = copied_fixture("configured-view-protocol");
+        let view_path = root.join(".forma/views/lsp-protocol.md");
+        let saved = "---\nschemaVersion: 1\nkind: view\nmode: list\ntitle: Saved LSP View\nsource:\n  type: pages\n---\n\n# Saved LSP View\n\nSee [[members/sam-rivera|Sam]].\n";
+        fs::write(&view_path, saved).unwrap();
+        let root = root.canonicalize().unwrap();
+        let view_uri = file_uri(view_path);
+        let root_uri = file_uri(root.clone());
+        let (server_connection, client_connection) = Connection::memory();
+        let server_root = root.clone();
+        let server = thread::spawn(move || run_connection(server_connection, server_root));
+
+        send_request(
+            &client_connection,
+            20,
+            "initialize",
+            json!({
+                "processId": null,
+                "capabilities": {},
+                "rootUri": root_uri,
+            }),
+        );
+        receive_response(&client_connection);
+        send_notification(&client_connection, "initialized", json!({}));
+        assert_no_server_message(&client_connection);
+
+        let overlay = "---\nschemaVersion: 1\nkind: view\nmode: list\ntitle: Unsaved LSP View\nsource:\n  type: pages\n---\n\n# Unsaved LSP View\n\nSee [[members/mira-chen#Mira Chen|Mira]].\n";
+        let link_line = overlay
+            .lines()
+            .position(|line| line.contains("[[members/mira-chen"))
+            .unwrap() as u32;
+        let link_source = overlay.lines().nth(link_line as usize).unwrap();
+        let alias_character = (link_source.find("|Mira").unwrap() + 2) as u32;
+        send_notification(
+            &client_connection,
+            "textDocument/didOpen",
+            json!({
+                "textDocument": {
+                    "uri": view_uri,
+                    "languageId": "markdown",
+                    "version": 1,
+                    "text": overlay,
+                }
+            }),
+        );
+
+        send_request(
+            &client_connection,
+            21,
+            "textDocument/definition",
+            json!({
+                "textDocument": { "uri": view_uri },
+                "position": { "line": link_line, "character": alias_character },
+            }),
+        );
+        let definition: Option<GotoDefinitionResponse> =
+            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let GotoDefinitionResponse::Link(locations) = definition.unwrap() else {
+            panic!("expected a location link response");
+        };
+        assert_eq!(locations.len(), 1);
+        assert!(
+            locations[0]
+                .target_uri
+                .as_str()
+                .ends_with("/members/mira-chen.md")
+        );
+        assert!(locations[0].target_range.start < locations[0].target_range.end);
+
+        send_request(
+            &client_connection,
+            22,
+            "textDocument/semanticTokens/full",
+            json!({ "textDocument": { "uri": view_uri } }),
+        );
+        let tokens: Option<SemanticTokensResult> =
+            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let SemanticTokensResult::Tokens(tokens) = tokens.unwrap() else {
+            panic!("expected full semantic tokens");
+        };
+        assert!(!tokens.data.is_empty());
+        assert!(tokens.data.iter().any(|token| token.token_type == 3));
+
+        send_request(
+            &client_connection,
+            23,
+            "textDocument/documentLink",
+            json!({ "textDocument": { "uri": view_uri } }),
+        );
+        let links: Option<Vec<DocumentLink>> =
+            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        assert!(links.unwrap().is_empty());
+
+        send_notification(
+            &client_connection,
+            "textDocument/didSave",
+            json!({
+                "textDocument": { "uri": view_uri },
+                "text": overlay,
+            }),
+        );
+        send_request(
+            &client_connection,
+            24,
+            "textDocument/definition",
+            json!({
+                "textDocument": { "uri": view_uri },
+                "position": { "line": link_line, "character": alias_character },
+            }),
+        );
+        let definition: Option<GotoDefinitionResponse> =
+            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let GotoDefinitionResponse::Link(locations) = definition.unwrap() else {
+            panic!("expected the configured View to remain managed after save");
+        };
+        assert!(
+            locations[0]
+                .target_uri
+                .as_str()
+                .ends_with("/members/mira-chen.md")
+        );
+
+        send_notification(
+            &client_connection,
+            "textDocument/didClose",
+            json!({ "textDocument": { "uri": view_uri } }),
+        );
+        send_request(&client_connection, 25, "shutdown", serde_json::Value::Null);
+        receive_response(&client_connection);
+        send_notification(&client_connection, "exit", serde_json::Value::Null);
+        server.join().unwrap().unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn registers_and_refreshes_managed_watch_patterns_for_capable_clients() {
         let root = copied_fixture("dynamic-watchers").canonicalize().unwrap();
         let config_path = root.join(".forma.md");
@@ -1687,6 +1821,7 @@ mod tests {
             }),
         );
         receive_response(&client_connection);
+        assert_no_server_message(&client_connection);
         send_notification(&client_connection, "initialized", json!({}));
 
         let initial_registration = receive_server_request(&client_connection);
@@ -1937,6 +2072,7 @@ mod tests {
             .unwrap();
     }
 
+    #[track_caller]
     fn receive_server_request(connection: &Connection) -> Request {
         match connection
             .receiver
@@ -1946,6 +2082,16 @@ mod tests {
             Message::Request(request) => request,
             message => panic!("expected server request, got {message:?}"),
         }
+    }
+
+    fn assert_no_server_message(connection: &Connection) {
+        assert!(
+            connection
+                .receiver
+                .recv_timeout(Duration::from_millis(100))
+                .is_err(),
+            "server sent a message before the protocol state allowed it"
+        );
     }
 
     fn watcher_patterns(request: &Request) -> Vec<String> {

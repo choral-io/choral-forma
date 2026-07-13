@@ -8,7 +8,7 @@ priority: P1
 value: H
 module: app
 effort: L
-status: doing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -93,3 +93,12 @@ To keep multi-taxonomy schema and convention composition out of this task, valid
 ## Execution Notes
 
 Follow the phases and stop conditions in [[planning/forma-link-navigation-and-highlighting-refinement-plan]]. Keep commits small enough to preserve a working baseline between scope gating, span changes, navigation ownership, semantic-token changes, and final evidence.
+
+## Completion Evidence
+
+- Core and LSP managed-document classification, failed-refresh preservation, post-`initialized` watcher registration, configured View overlays, request gating, reference spans, navigation ownership, and semantic roles are covered by focused tests and the full Rust workspace suite.
+- VS Code adapter checks preserve native Markdown ownership and activate both wikilink targets and labels.
+- Zed WASM checks and real-editor navigation passed for path, alias, heading, embed styling, CLI restart recovery, and Ayu Light/Ayu Dark theme previews.
+- `mise run perf:lsp:quick` showed no material regression and improved the project cold Definition sample from 123.2 ms to 106.3 ms.
+- `CI=true mise run check`, project `forma check`, and example-workspace `forma check` passed before closure.
+- Detailed evidence is recorded in [[discovery/forma-lsp-zed-navigation-validation-2026-07-13]]. No release was published.

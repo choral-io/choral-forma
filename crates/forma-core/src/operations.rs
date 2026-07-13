@@ -5311,6 +5311,73 @@ conventions:
     }
 
     #[test]
+    fn workspace_session_keeps_last_valid_snapshot_when_configuration_reload_fails() {
+        let root = fixture_root("workspace-session-invalid-configuration-refresh");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("members/sam-rivera.md"),
+            "---\nname: Sam Rivera\ndescription: \"\"\n---\n\n# Sam Rivera\n",
+        )
+        .unwrap();
+
+        let mut session = WorkspaceSession::load(&root).unwrap();
+        let analysis = session
+            .set_document(
+                "tasks/unsaved.md",
+                "---\ntitle: Unsaved\nsummary: \"\"\n---\n\nSee [[members/sam-rivera#Sam Rivera]].\n"
+                    .to_string(),
+            )
+            .unwrap();
+        let reference = analysis.references.first().unwrap().clone();
+        let initial_resolution = session
+            .resolve_document_reference("tasks/unsaved.md", &reference)
+            .unwrap();
+        let initial_target = initial_resolution.target.as_ref().unwrap();
+
+        assert_eq!(
+            session
+                .snapshot()
+                .document_kind("tasks/unsaved.md")
+                .unwrap(),
+            ManagedDocumentKind::Content
+        );
+        assert_eq!(initial_target.path, "members/sam-rivera.md");
+        assert!(initial_target.fragment_location.is_some());
+        assert_eq!(session.snapshot_build_count(), 1);
+        assert_eq!(session.document_analysis_count(), 1);
+
+        fs::write(root.join(".forma.md"), "---\nconfigSources: [\n---\n").unwrap();
+
+        assert!(session.rebuild_snapshot().is_err());
+        assert_eq!(session.snapshot_build_count(), 1);
+        assert_eq!(session.document_analysis_count(), 1);
+        assert_eq!(
+            session
+                .snapshot()
+                .document_kind("tasks/unsaved.md")
+                .unwrap(),
+            ManagedDocumentKind::Content
+        );
+        assert_eq!(
+            session.document_analysis("tasks/unsaved.md").unwrap(),
+            analysis
+        );
+
+        let resolution_after_failed_reload = session
+            .resolve_document_reference("tasks/unsaved.md", &reference)
+            .unwrap();
+        let target_after_failed_reload = resolution_after_failed_reload.target.as_ref().unwrap();
+        assert_eq!(target_after_failed_reload.path, initial_target.path);
+        assert_eq!(
+            target_after_failed_reload.fragment_location,
+            initial_target.fragment_location
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn workspace_snapshot_classifies_taxonomy_neutral_managed_documents() {
         let root = fixture_root("workspace-managed-documents");
         fs::create_dir_all(&root).unwrap();
