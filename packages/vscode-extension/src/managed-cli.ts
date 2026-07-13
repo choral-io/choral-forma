@@ -26,10 +26,21 @@ export type ManagedCliDownloadRequest = {
 
 export type ManagedCliDownloader = (request: ManagedCliDownloadRequest) => Promise<number>;
 
+export type ManagedCliChunkWriter = (file: Awaited<ReturnType<typeof open>>, chunk: Uint8Array) => Promise<void>;
+
 export type ManagedCliFetch = (
     input: string,
     init: { signal: AbortSignal },
 ) => Promise<Pick<Response, "body" | "headers" | "ok" | "status" | "statusText">>;
+
+export type ManagedCliReplacementFileOperations = {
+    rename: (source: string, destination: string) => Promise<void>;
+    remove: (path: string) => Promise<void>;
+};
+
+export type ManagedCliCleanupFileOperations = {
+    remove: (path: string) => Promise<void>;
+};
 
 export type InstallManagedCliOptions = {
     version: string;
@@ -45,6 +56,8 @@ export type InstallManagedCliOptions = {
     maxBinaryBytes?: number;
     maxChecksumBytes?: number;
     replaceExisting?: boolean;
+    replacementFileOperations?: ManagedCliReplacementFileOperations;
+    cleanupFileOperations?: ManagedCliCleanupFileOperations;
 };
 
 export type ManagedCliInstallation = {
@@ -146,6 +159,11 @@ export async function installManagedCli(options: InstallManagedCliOptions): Prom
     const path = managedCliPath(options.globalStorage, options.version, platform);
     const key = path;
     let flight = installFlights.get(key);
+    let predecessor: Promise<ManagedCliInstallation> | undefined;
+    if (flight?.controller.signal.aborted || flight?.settled) {
+        predecessor = flight.promise;
+        flight = undefined;
+    }
 
     if (!flight) {
         const controller = new AbortController();
@@ -160,7 +178,13 @@ export async function installManagedCli(options: InstallManagedCliOptions): Prom
             subscribers: 0,
             settled: false,
         };
-        created.promise = installManagedCliOnce(options, platform, target, path, controller.signal).finally(() => {
+        created.promise = (async () => {
+            if (predecessor) {
+                await predecessor.catch(() => undefined);
+            }
+            throwIfAborted(controller.signal);
+            return await installManagedCliOnce(options, platform, target, path, controller.signal);
+        })().finally(() => {
             created.settled = true;
             if (installFlights.get(key) === created) {
                 installFlights.delete(key);
@@ -173,7 +197,10 @@ export async function installManagedCli(options: InstallManagedCliOptions): Prom
     return await subscribeToFlight(flight, options.signal);
 }
 
-export function createFetchDownloader(fetchImplementation: ManagedCliFetch = globalThis.fetch): ManagedCliDownloader {
+export function createFetchDownloader(
+    fetchImplementation: ManagedCliFetch = globalThis.fetch,
+    writeChunk: ManagedCliChunkWriter = writeAll,
+): ManagedCliDownloader {
     return async ({ url, destination, signal, maxBytes }) => {
         let response: Awaited<ReturnType<ManagedCliFetch>>;
         try {
@@ -185,6 +212,7 @@ export function createFetchDownloader(fetchImplementation: ManagedCliFetch = glo
             throw new ManagedCliInstallError(`Failed to download ${url}: ${errorMessage(error)}`, "downloadFailed");
         }
         if (!response.ok) {
+            await cancelResponseBody(response.body);
             throw new ManagedCliInstallError(
                 `Failed to download ${url}: HTTP ${String(response.status)} ${response.statusText}`.trim(),
                 "downloadFailed",
@@ -192,6 +220,7 @@ export function createFetchDownloader(fetchImplementation: ManagedCliFetch = glo
         }
         const contentLength = Number(response.headers.get("content-length"));
         if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+            await cancelResponseBody(response.body);
             throw new ManagedCliInstallError(
                 `Download exceeded the ${String(maxBytes)}-byte limit: ${url}`,
                 "downloadTooLarge",
@@ -204,6 +233,7 @@ export function createFetchDownloader(fetchImplementation: ManagedCliFetch = glo
         const file = await open(destination, "wx", 0o600);
         const reader = response.body.getReader();
         let received = 0;
+        let completed = false;
         try {
             let done = false;
             while (!done) {
@@ -216,17 +246,27 @@ export function createFetchDownloader(fetchImplementation: ManagedCliFetch = glo
                 } else {
                     received += chunk.value.byteLength;
                     if (received > maxBytes) {
-                        await reader.cancel();
                         throw new ManagedCliInstallError(
                             `Download exceeded the ${String(maxBytes)}-byte limit: ${url}`,
                             "downloadTooLarge",
                         );
                     }
-                    await writeAll(file, chunk.value);
+                    await writeChunk(file, chunk.value);
                 }
             }
+            completed = true;
         } finally {
-            await file.close();
+            try {
+                if (!completed) {
+                    await reader.cancel().catch(() => undefined);
+                }
+            } finally {
+                try {
+                    reader.releaseLock();
+                } finally {
+                    await file.close();
+                }
+            }
         }
         return received;
     };
@@ -292,20 +332,26 @@ async function installManagedCliOnce(
             await chmod(binaryTemp, 0o755);
         }
         throwIfAborted(signalScope.signal);
+        const replacementFiles = options.replacementFileOperations ?? {
+            rename,
+            remove: async (path: string) => {
+                await rm(path, { force: true });
+            },
+        };
         let backup: string | undefined;
         if (options.replaceExisting && platform === "win32" && (await isFile(destination))) {
             backup = `${binaryTemp}.previous`;
-            await rename(destination, backup);
+            await replacementFiles.rename(destination, backup);
         }
         try {
-            await rename(binaryTemp, destination);
+            await replacementFiles.rename(binaryTemp, destination);
         } catch (error) {
             if (backup) {
-                await rename(backup, destination);
+                await replacementFiles.rename(backup, destination);
             }
             throw error;
         }
-        if (backup) await rm(backup, { force: true });
+        if (backup) await removeBestEffort(replacementFiles.remove, backup);
         return { path: destination, version: options.version, assetName: target.assetName, reused: false };
     } catch (error) {
         if (signalScope.didTimeout()) {
@@ -320,7 +366,34 @@ async function installManagedCliOnce(
         throw error;
     } finally {
         signalScope.dispose();
-        await Promise.all([rm(binaryTemp, { force: true }), rm(checksumTemp, { force: true })]);
+        const cleanupFiles = options.cleanupFileOperations ?? {
+            remove: async (path: string) => {
+                await rm(path, { force: true });
+            },
+        };
+        await Promise.all([
+            removeBestEffort(cleanupFiles.remove, binaryTemp),
+            removeBestEffort(cleanupFiles.remove, checksumTemp),
+        ]);
+    }
+}
+
+async function removeBestEffort(remove: (path: string) => Promise<void>, path: string): Promise<void> {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+            await remove(path);
+            return;
+        } catch {
+            // A transient Windows file lock must not turn a successful replacement into an installation failure.
+        }
+    }
+}
+
+async function cancelResponseBody(body: Response["body"]): Promise<void> {
+    try {
+        await body?.cancel();
+    } catch {
+        // The original HTTP validation error is more useful than a secondary stream cancellation failure.
     }
 }
 

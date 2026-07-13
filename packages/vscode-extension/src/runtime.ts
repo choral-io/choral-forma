@@ -22,6 +22,7 @@ import {
     resolveRuntimeFormaCommand,
 } from "./forma-command-resolution.ts";
 import type { ManagedCliStorage } from "./managed-cli.ts";
+import { currentRefreshValue, isCurrentRefresh } from "./refresh-lifecycle.ts";
 import {
     configuredWorkspace,
     discoverWorkspaceRoots,
@@ -126,15 +127,16 @@ export class FormaRuntime implements vscode.Disposable {
                 base: folder.uri,
                 pattern: workspace.configRelativePath,
             }));
-            const discovery = await discoverWorkspaceRoots(
+            const discovered = await discoverWorkspaceRoots(
                 configured.map(({ workspace }) => workspace),
                 isFile,
             );
+            const discovery = currentRefreshValue(controller, this.refreshController, discovered);
+            if (!discovery) return;
             this.roots = discovery.roots;
             for (const root of this.scopes.keys()) {
                 if (!this.roots.includes(root)) this.scopes.delete(root);
             }
-            if (isAborted(controller)) return;
             if (this.roots.length === 0) {
                 const configuredMissing = discovery.missing.find(
                     (workspace) => workspace.configRelativePath !== ".forma.md",
@@ -160,6 +162,7 @@ export class FormaRuntime implements vscode.Disposable {
                 this.expectedCliVersion,
                 isFile,
             );
+            if (!isCurrentRefresh(controller, this.refreshController)) return;
             const client = new FormaClient(resolution.command, this.expectedCliVersion, runProcess, timeoutMs);
             this.client = client;
             const probe = await client.probe(controller.signal);

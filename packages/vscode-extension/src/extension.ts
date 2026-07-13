@@ -164,10 +164,10 @@ export async function activate(
             output.show(true);
         }),
         vscode.commands.registerCommand("forma.installCli", async () => {
-            await installMatchingCli(context, runtime, expectedCliVersion, output);
+            return await installMatchingCli(context, runtime, expectedCliVersion, output);
         }),
         vscode.commands.registerCommand("forma.selectCli", async () => {
-            await selectExistingCli(runtime);
+            return await selectExistingCli(runtime);
         }),
         vscode.commands.registerCommand("forma.openCliInstructions", async () => {
             await vscode.env.openExternal(
@@ -281,10 +281,10 @@ async function installMatchingCli(
     runtime: FormaRuntime,
     version: string,
     output: vscode.OutputChannel,
-): Promise<void> {
+): Promise<"restricted" | undefined> {
     if (!vscode.workspace.isTrusted) {
-        await vscode.window.showWarningMessage("Trust this workspace before installing or executing Forma CLI.");
-        return;
+        void vscode.window.showWarningMessage("Trust this workspace before installing or executing Forma CLI.");
+        return "restricted";
     }
     const confirmed = await vscode.window.showInformationMessage(
         `Install Forma CLI ${version} in this Extension Host?`,
@@ -350,10 +350,10 @@ async function installMatchingCli(
     }
 }
 
-async function selectExistingCli(runtime: FormaRuntime): Promise<void> {
+async function selectExistingCli(runtime: FormaRuntime): Promise<"restricted" | undefined> {
     if (!vscode.workspace.isTrusted) {
-        await vscode.window.showWarningMessage("Trust this workspace before selecting or executing Forma CLI.");
-        return;
+        void vscode.window.showWarningMessage("Trust this workspace before selecting or executing Forma CLI.");
+        return "restricted";
     }
     const selected = await vscode.window.showOpenDialog({
         canSelectFiles: true,
