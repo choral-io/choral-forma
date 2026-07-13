@@ -5,7 +5,7 @@ title: Forma v0.1.0-alpha.17
 summary: Internal alpha that aligns the VS Code extension with an explicitly installed, verified Forma CLI.
 scope: project
 type: release
-status: ready
+status: released
 version: v0.1.0-alpha.17
 date: 2026-07-13
 owners:
@@ -70,7 +70,12 @@ Publish the coordinated CLI lifecycle completed after [[releases/forma-v0.1.0-al
 - `forma-0.1.0-alpha.17.vsix` installed and activated in an isolated profile under the installed official VS Code 1.128.0 application. The smoke suite verified navigation and editable source behavior, then observed a newly created native Markdown Preview Tab for every list, table, kanban, and Graph View.
 - The local VSIX manifest reports `choral-io.forma@0.1.0-alpha.17`, and its SHA-256 is `36d7bfec8a1a9573af87979b04476491ad5a1b7c39821ddf30db1a7f26e95553`.
 - [Main CI run 29240867866](https://github.com/choral-io/choral-forma/actions/runs/29240867866) passed Knowledge, Web, Rust, Extension Host, and VSIX packaging, then exposed that the newly strengthened packaged Preview smoke was launching VS Code without an X server. Both CI and Release workflows now run that smoke under `xvfb-run`, with a static regression assertion; the complete local gate passed again after the correction.
-- CI, published-asset, and real managed-download gates are recorded below when they complete.
+- [Main CI run 29241421341](https://github.com/choral-io/choral-forma/actions/runs/29241421341) passed Knowledge, Web, Rust, Extension Host, package inspection, VSIX packaging, and the strengthened packaged Preview smoke under Xvfb.
+- [Release run 29241622846](https://github.com/choral-io/choral-forma/actions/runs/29241622846) passed version validation, all five CLI target builds, Extension Host and packaged VSIX smoke tests, and GitHub Release publication.
+- [GitHub Release v0.1.0-alpha.17](https://github.com/choral-io/choral-forma/releases/tag/v0.1.0-alpha.17) is a prerelease with the expected 22 assets: five archives, five standalone managed binaries, one VSIX, and a sibling SHA-256 file for each payload.
+- The downloaded `forma-macos-arm64` checksum passed, and the executable reported `forma 0.1.0-alpha.17`. Its SHA-256 is `be8aa8417676386e14e4a74aea606d29a039849a87fbaf9b24efccacf2eadb5f`.
+- The downloaded VSIX checksum passed and its manifest reports `choral-io.forma@0.1.0-alpha.17` with VS Code `^1.110.0`. The published VSIX SHA-256 is `65e4d33d89bf05caa0e70cc9ef66128b7317d4f07c6b9e33c840565f36295fe4`.
+- The extension's production managed-install implementation downloaded the published macOS arm64 binary and checksum into versioned managed storage, verified and installed the binary, and executed it successfully as `forma 0.1.0-alpha.17`.
 
 ## Release Notes
 

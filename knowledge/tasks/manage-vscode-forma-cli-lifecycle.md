@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: app
 effort: M
-status: reviewing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -97,5 +97,6 @@ Prevent an apparently ready extension from invoking an incompatible Forma CLI, a
 - Packaged VSIX installation and activation passed against the installed official VS Code app in a disposable profile with Forma Alpha 16.
 - Restricted Mode Extension Host validation passed against the installed official VS Code app in a disposable profile without downloading or executing Forma.
 - No additional Code.app was downloaded and no normal VS Code profile was modified.
-- A real managed download cannot pass until the next GitHub Release publishes the new standalone assets. The downloader is covered through injected offline HTTP, checksum, size, cancellation, timeout, cleanup, and concurrency tests; the next release must verify one downloaded asset and checksum before this task moves to `done`.
+- Alpha 17 published the expected 22 assets after [main CI run 29241421341](https://github.com/choral-io/choral-forma/actions/runs/29241421341) and [release run 29241622846](https://github.com/choral-io/choral-forma/actions/runs/29241622846) passed. The downloaded macOS arm64 binary and VSIX both passed their published checksums, reported the aligned version and extension identity, and matched the release asset layout expected by the downloader.
+- The production managed-install implementation completed a real download from the [Alpha 17 GitHub Release](https://github.com/choral-io/choral-forma/releases/tag/v0.1.0-alpha.17), installed the checksum-verified binary into versioned managed storage, and executed it successfully as `forma 0.1.0-alpha.17`.
 - A live Remote SSH, Dev Container, or WSL host was not available. Remote placement remains supported structurally through `extensionKind: ["workspace"]` and Extension Host `globalStorageUri`, but individual remote environments remain unclaimed pending a release-backed smoke.
