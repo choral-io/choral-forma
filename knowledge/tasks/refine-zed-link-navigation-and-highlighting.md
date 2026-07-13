@@ -8,7 +8,7 @@ priority: P1
 value: H
 module: app
 effort: L
-status: ready
+status: doing
 readiness: ready
 owners:
     - "members/tiscs"
@@ -72,6 +72,7 @@ To keep multi-taxonomy schema and convention composition out of this task, valid
 ## Out Of Scope
 
 - Repository-wide replacement of the existing space compatibility projection.
+- Generic-taxonomy basename/title lookup and schema-derived reference resolution; this refinement only adds taxonomy-neutral scope gating and explicit-path wikilink/embed navigation outside the compatibility index.
 - Multi-taxonomy schema, convention, guideline, create, or template composition.
 - Zed View Preview, Explorer panels, status UI, diagnostics UI, CLI acquisition, registry publication, or release publication.
 - Completing every remaining item in [[tasks/implement-zed-extension-mvp]].
@@ -79,7 +80,7 @@ To keep multi-taxonomy schema and convention composition out of this task, valid
 
 ## Acceptance Criteria
 
-- Managed Pages under differently named taxonomies receive equivalent Forma LSP behavior without taxonomy-id branches.
+- Managed Pages under differently named taxonomies receive equivalent Forma LSP lifecycle gating, highlighting, and explicit-path wikilink/embed navigation without taxonomy-id branches.
 - Configured View sources receive the accepted link navigation and highlighting behavior.
 - Unmanaged Markdown lifecycle and requests cause no Forma analysis or snapshot rebuild.
 - Saved `.forma.md`, import, taxonomy, term, View, or include changes safely recompute scope and reclassify open documents.

@@ -38,7 +38,13 @@ pub struct DocumentReference {
     pub index: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_space: Option<String>,
-    pub span: SourceSpan,
+    pub syntax_span: SourceSpan,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_span: Option<SourceSpan>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label_span: Option<SourceSpan>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment_span: Option<SourceSpan>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,7 +98,12 @@ pub fn analyze_document_references(
         ));
     }
 
-    references.sort_by_key(|reference| (reference.span.start_byte, reference.span.end_byte));
+    references.sort_by_key(|reference| {
+        (
+            reference.syntax_span.start_byte,
+            reference.syntax_span.end_byte,
+        )
+    });
     DocumentAnalysis {
         references,
         diagnostics,
@@ -120,12 +131,10 @@ fn body_references(
                 FormaReferenceIntent::Embed => ReferenceIntent::Embed,
                 FormaReferenceIntent::View => return None,
             };
-            let body_span = reference.target_span.or(reference.span)?;
-            let span = source_span(
-                source,
-                body_offset + body_span.start_byte,
-                body_offset + body_span.end_byte,
-            )?;
+            let syntax_span = offset_span(source, body_offset, reference.syntax_span)?;
+            let target_span = offset_span(source, body_offset, reference.target_span);
+            let label_span = offset_span(source, body_offset, reference.label_span);
+            let fragment_span = offset_span(source, body_offset, reference.fragment_span);
             let (target, fragment, fragment_kind) = split_reference_target(&reference.target);
             Some(DocumentReference {
                 source: ReferenceSource::Body,
@@ -139,7 +148,10 @@ fn body_references(
                 field: None,
                 index: None,
                 target_space: None,
-                span,
+                syntax_span,
+                target_span,
+                label_span,
+                fragment_span,
             })
         })
         .collect()
@@ -184,9 +196,10 @@ fn frontmatter_references(
                 target = transformed;
             }
             let (target, fragment, fragment_kind) = split_reference_target(&target);
-            if let Some(span) =
+            if let Some(syntax_span) =
                 source_span(source, frontmatter_offset + start, frontmatter_offset + end)
             {
+                let (target_span, fragment_span) = split_source_target_span(source, syntax_span);
                 references.push(DocumentReference {
                     source: ReferenceSource::Frontmatter,
                     syntax: DocumentReferenceSyntax::Frontmatter,
@@ -199,7 +212,10 @@ fn frontmatter_references(
                     field: Some(field.field.clone()),
                     index: field.many.then_some(index),
                     target_space: field.space.clone(),
-                    span,
+                    syntax_span,
+                    target_span,
+                    label_span: None,
+                    fragment_span,
                 });
             }
         }
@@ -513,6 +529,33 @@ fn split_reference_target(
     }
 }
 
+fn offset_span(source: &str, offset: usize, span: Option<SourceSpan>) -> Option<SourceSpan> {
+    let span = span?;
+    source_span(source, offset + span.start_byte, offset + span.end_byte)
+}
+
+fn split_source_target_span(
+    source: &str,
+    syntax_span: SourceSpan,
+) -> (Option<SourceSpan>, Option<SourceSpan>) {
+    let Some(raw_target) = source.get(syntax_span.start_byte..syntax_span.end_byte) else {
+        return (None, None);
+    };
+    let Some(separator) = raw_target.find('#') else {
+        return (Some(syntax_span), None);
+    };
+    if raw_target[separator + 1..].trim().is_empty() {
+        return (Some(syntax_span), None);
+    }
+
+    let fragment_start = syntax_span.start_byte + separator;
+    let target_span = (syntax_span.start_byte < fragment_start)
+        .then(|| source_span(source, syntax_span.start_byte, fragment_start))
+        .flatten();
+    let fragment_span = source_span(source, fragment_start, syntax_span.end_byte);
+    (target_span, fragment_span)
+}
+
 fn source_span(source: &str, start: usize, end: usize) -> Option<SourceSpan> {
     source.get(start..end)?;
     let (start_line, start_column) = line_column(source, start);
@@ -556,7 +599,9 @@ mod tests {
                     reference.source,
                     reference.syntax,
                     reference.raw_target.as_str(),
-                    &source[reference.span.start_byte..reference.span.end_byte],
+                    reference
+                        .target_span
+                        .map(|span| &source[span.start_byte..span.end_byte]),
                 )
             })
             .collect::<Vec<_>>();
@@ -572,34 +617,102 @@ mod tests {
                     ReferenceSource::Frontmatter,
                     DocumentReferenceSyntax::Frontmatter,
                     "members/sam-rivera",
-                    "members/sam-rivera",
+                    Some("members/sam-rivera"),
                 ),
                 (
                     ReferenceSource::Frontmatter,
                     DocumentReferenceSyntax::Frontmatter,
                     "members/mira-chen",
-                    "members/mira-chen",
+                    Some("members/mira-chen"),
                 ),
                 (
                     ReferenceSource::Body,
                     DocumentReferenceSyntax::Wikilink,
                     "members/sam-rivera",
-                    "members/sam-rivera",
+                    Some("members/sam-rivera"),
                 ),
                 (
                     ReferenceSource::Body,
                     DocumentReferenceSyntax::MarkdownLink,
                     "../members/mira-chen.md#Profile",
-                    "../members/mira-chen.md#Profile",
+                    Some("../members/mira-chen.md"),
                 ),
                 (
                     ReferenceSource::Body,
                     DocumentReferenceSyntax::ObsidianEmbed,
                     "members/sam-rivera#Avatar",
-                    "members/sam-rivera#Avatar",
+                    Some("members/sam-rivera"),
                 ),
             ]
         );
+        let wikilink = &analysis.references[2];
+        assert_eq!(
+            &source[wikilink.syntax_span.start_byte..wikilink.syntax_span.end_byte],
+            "[[members/sam-rivera|Sam]]"
+        );
+        let label_span = wikilink.label_span.unwrap();
+        assert_eq!(&source[label_span.start_byte..label_span.end_byte], "Sam");
+        let markdown_fragment = analysis.references[3].fragment_span.unwrap();
+        assert_eq!(
+            &source[markdown_fragment.start_byte..markdown_fragment.end_byte],
+            "#Profile"
+        );
+        let embed_fragment = analysis.references[4].fragment_span.unwrap();
+        assert_eq!(
+            &source[embed_fragment.start_byte..embed_fragment.end_byte],
+            "#Avatar"
+        );
+    }
+
+    #[test]
+    fn propagates_frontmatter_and_body_role_spans_with_crlf_unicode_and_emoji() {
+        let workspace = load_workspace(fixture_root(), LoadMode::SharedOnly).unwrap();
+        let source = "---\r\ntitle: Navigation test\r\nowners:\r\n  - members/目标#Profile\r\n---\r\nSee ![[members/目标#章节|  😀 标题  ]].\r\n";
+
+        let analysis = analyze_document_references(&workspace, "tasks/navigation-test.md", source);
+
+        assert!(analysis.diagnostics.is_empty());
+        assert_eq!(analysis.references.len(), 2);
+        let frontmatter = &analysis.references[0];
+        let body = &analysis.references[1];
+        assert_eq!(frontmatter.syntax, DocumentReferenceSyntax::Frontmatter);
+        assert_eq!(
+            &source[frontmatter.syntax_span.start_byte..frontmatter.syntax_span.end_byte],
+            "members/目标#Profile"
+        );
+        let frontmatter_target = frontmatter.target_span.unwrap();
+        let frontmatter_fragment = frontmatter.fragment_span.unwrap();
+        assert_eq!(
+            &source[frontmatter_target.start_byte..frontmatter_target.end_byte],
+            "members/目标"
+        );
+        assert_eq!(
+            &source[frontmatter_fragment.start_byte..frontmatter_fragment.end_byte],
+            "#Profile"
+        );
+        assert!(frontmatter.label_span.is_none());
+
+        assert_eq!(body.syntax, DocumentReferenceSyntax::ObsidianEmbed);
+        assert_eq!(
+            &source[body.syntax_span.start_byte..body.syntax_span.end_byte],
+            "![[members/目标#章节|  😀 标题  ]]"
+        );
+        let body_target = body.target_span.unwrap();
+        let body_fragment = body.fragment_span.unwrap();
+        let body_label = body.label_span.unwrap();
+        assert_eq!(
+            &source[body_target.start_byte..body_target.end_byte],
+            "members/目标"
+        );
+        assert_eq!(
+            &source[body_fragment.start_byte..body_fragment.end_byte],
+            "#章节"
+        );
+        assert_eq!(
+            &source[body_label.start_byte..body_label.end_byte],
+            "😀 标题"
+        );
+        assert_eq!(body.syntax_span.start_line, 6);
     }
 
     #[test]
@@ -623,10 +736,10 @@ mod tests {
 
         assert_eq!(analysis.references.len(), 1);
         assert_eq!(
-            &source[reference.span.start_byte..reference.span.end_byte],
+            &source[reference.syntax_span.start_byte..reference.syntax_span.end_byte],
             "members/sam-rivera"
         );
-        assert_eq!(reference.span.start_line, 4);
+        assert_eq!(reference.syntax_span.start_line, 4);
     }
 
     #[test]
@@ -647,9 +760,12 @@ mod tests {
         );
         assert_eq!(analysis.references[0].index, Some(0));
         assert_eq!(analysis.references[1].index, Some(1));
-        assert!(analysis.references[0].span.end_byte <= analysis.references[1].span.start_byte);
-        assert_eq!(analysis.references[0].span.start_line, 3);
-        assert_eq!(analysis.references[2].span.start_line, 5);
+        assert!(
+            analysis.references[0].syntax_span.end_byte
+                <= analysis.references[1].syntax_span.start_byte
+        );
+        assert_eq!(analysis.references[0].syntax_span.start_line, 3);
+        assert_eq!(analysis.references[2].syntax_span.start_line, 5);
     }
 
     fn fixture_root() -> PathBuf {

@@ -478,6 +478,14 @@ pub struct ReferenceResolveCandidate {
 pub struct ReferenceFragmentLocation {
     pub line: usize,
     pub column: usize,
+    pub end_line: usize,
+    pub end_column: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManagedPathReferenceTarget {
+    pub path: String,
+    pub fragment_location: Option<ReferenceFragmentLocation>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -553,6 +561,11 @@ pub struct ReferenceEdge {
 pub struct WorkspaceSnapshot {
     workspace: FormaWorkspace,
     discovery: Discovery,
+    content_matcher: globset::GlobSet,
+    control_matcher: globset::GlobSet,
+    configuration_paths: BTreeSet<String>,
+    control_paths: BTreeSet<String>,
+    view_paths: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -596,6 +609,25 @@ pub enum WorkspaceFileKind {
     Markdown,
     Config,
     Resource,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ManagedDocumentKind {
+    Content,
+    View,
+    Control,
+    Unmanaged,
+}
+
+impl ManagedDocumentKind {
+    pub fn is_language_document(self) -> bool {
+        matches!(self, Self::Content | Self::View)
+    }
+
+    pub fn is_scope_relevant(self) -> bool {
+        !matches!(self, Self::Unmanaged)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1734,13 +1766,60 @@ pub fn list_file_references(
     })
 }
 
+fn build_glob_matcher<'a>(patterns: impl IntoIterator<Item = &'a str>) -> globset::GlobSet {
+    let mut builder = GlobSetBuilder::new();
+    for pattern in patterns {
+        if let Ok(glob) = Glob::new(pattern) {
+            builder.add(glob);
+        }
+    }
+    builder
+        .build()
+        .expect("valid Forma glob patterns should build a matcher")
+}
+
 impl WorkspaceSnapshot {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, OperationError> {
         let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
         let discovery = discover_loaded_workspace(&workspace);
+        let content_matcher = build_glob_matcher(
+            workspace
+                .config
+                .taxonomies
+                .keys()
+                .filter_map(|taxonomy| workspace.config.terms.get(taxonomy))
+                .flat_map(BTreeMap::values)
+                .flat_map(|term| term.include_patterns.iter().map(String::as_str)),
+        );
+        let control_matcher =
+            build_glob_matcher(workspace.config_source_patterns.iter().map(String::as_str));
+        let configuration_paths = workspace
+            .config_sources
+            .iter()
+            .map(|source| source.path.clone())
+            .collect::<BTreeSet<_>>();
+        let mut control_paths = configuration_paths.clone();
+        control_paths.extend(workspace.config.guidelines.iter().cloned());
+        for space in workspace.config.spaces.values() {
+            if !space.template.is_empty() {
+                control_paths.insert(space.template.clone());
+            }
+            control_paths.extend(space.guidelines.iter().cloned());
+        }
+        let view_paths = discovery
+            .index
+            .views
+            .iter()
+            .map(|view| view.path.clone())
+            .collect();
         Ok(Self {
             workspace,
             discovery,
+            content_matcher,
+            control_matcher,
+            configuration_paths,
+            control_paths,
+            view_paths,
         })
     }
 
@@ -1754,6 +1833,52 @@ impl WorkspaceSnapshot {
 
     pub fn discovery(&self) -> &Discovery {
         &self.discovery
+    }
+
+    pub fn document_kind(&self, source_path: &str) -> Result<ManagedDocumentKind, OperationError> {
+        let source_path = WorkspacePath::parse_cli(source_path)?.as_str().to_string();
+        if !matches!(
+            Path::new(&source_path)
+                .extension()
+                .and_then(|value| value.to_str()),
+            Some("md" | "mdx")
+        ) {
+            return Ok(ManagedDocumentKind::Unmanaged);
+        }
+        if self.view_paths.contains(&source_path) {
+            return Ok(ManagedDocumentKind::View);
+        }
+        if self.content_matcher.is_match(&source_path) {
+            return Ok(ManagedDocumentKind::Content);
+        }
+        if self.control_paths.contains(&source_path) || self.control_matcher.is_match(&source_path)
+        {
+            return Ok(ManagedDocumentKind::Control);
+        }
+        Ok(ManagedDocumentKind::Unmanaged)
+    }
+
+    pub fn affects_configuration(&self, source_path: &str) -> Result<bool, OperationError> {
+        let source_path = WorkspacePath::parse_cli(source_path)?.as_str().to_string();
+        Ok(self.view_paths.contains(&source_path)
+            || self.configuration_paths.contains(&source_path)
+            || self.control_matcher.is_match(&source_path))
+    }
+
+    pub fn watch_patterns(&self) -> Vec<String> {
+        let mut patterns = BTreeSet::from([FORMA_CONFIG_PATH.to_string()]);
+        patterns.extend(self.workspace.config_source_patterns.iter().cloned());
+        patterns.extend(
+            self.workspace
+                .config
+                .taxonomies
+                .keys()
+                .filter_map(|taxonomy| self.workspace.config.terms.get(taxonomy))
+                .flat_map(BTreeMap::values)
+                .flat_map(|term| term.include_patterns.iter().cloned()),
+        );
+        patterns.extend(self.view_paths.iter().cloned());
+        patterns.into_iter().collect()
     }
 
     pub fn analyze_document(&self, source_path: &str, source: &str) -> DocumentAnalysis {
@@ -1817,12 +1942,31 @@ impl WorkspaceSession {
         self.document_analysis_count
     }
 
+    pub fn has_document(&self, source_path: &str) -> Result<bool, OperationError> {
+        let source_path = normalize_entry_path(source_path)?;
+        Ok(self.open_documents.contains_key(&source_path))
+    }
+
     pub fn rebuild_snapshot(&mut self) -> Result<(), OperationError> {
+        self.rebuild_snapshot_inner(true)
+    }
+
+    pub fn rebuild_snapshot_preserving_document_analysis(&mut self) -> Result<(), OperationError> {
+        self.rebuild_snapshot_inner(false)
+    }
+
+    fn rebuild_snapshot_inner(&mut self, reanalyze_documents: bool) -> Result<(), OperationError> {
         let snapshot = WorkspaceSnapshot::load(self.snapshot.root())?;
-        for (path, document) in &mut self.open_documents {
-            document.analysis = snapshot.analyze_document(path, &document.source);
-            self.document_analysis_count += 1;
-        }
+        self.open_documents.retain(|path, document| {
+            let managed = snapshot
+                .document_kind(path)
+                .is_ok_and(ManagedDocumentKind::is_language_document);
+            if managed && reanalyze_documents {
+                document.analysis = snapshot.analyze_document(path, &document.source);
+                self.document_analysis_count += 1;
+            }
+            managed
+        });
         self.snapshot = snapshot;
         self.snapshot_build_count += 1;
         Ok(())
@@ -1834,6 +1978,11 @@ impl WorkspaceSession {
         source: String,
     ) -> Result<DocumentAnalysis, OperationError> {
         let source_path = normalize_entry_path(source_path)?;
+        if let Some(document) = self.open_documents.get(&source_path)
+            && document.source == source
+        {
+            return Ok(document.analysis.clone());
+        }
         let analysis = self.snapshot.analyze_document(&source_path, &source);
         self.document_analysis_count += 1;
         self.open_documents.insert(
@@ -1908,6 +2057,73 @@ impl WorkspaceSession {
             result.status = result.summary.status();
         }
         Ok(result)
+    }
+
+    pub fn resolve_managed_path_reference(
+        &self,
+        source_path: &str,
+        reference: &DocumentReference,
+    ) -> Result<Option<ManagedPathReferenceTarget>, OperationError> {
+        if !matches!(
+            reference.syntax,
+            crate::document::DocumentReferenceSyntax::Wikilink
+                | crate::document::DocumentReferenceSyntax::ObsidianEmbed
+        ) {
+            return Ok(None);
+        }
+        let source_path = normalize_entry_path(source_path)?;
+        let raw_target = reference.target.trim();
+        if !raw_target.is_empty()
+            && !raw_target.contains('/')
+            && !raw_target.ends_with(".md")
+            && !raw_target.ends_with(".mdx")
+        {
+            return Ok(None);
+        }
+
+        let mut candidates = Vec::new();
+        if raw_target.is_empty() {
+            candidates.push(source_path.clone());
+        } else {
+            if let Some(relative) = normalized_relative_target(&source_path, raw_target) {
+                candidates.extend(reference_path_variants(&relative));
+            }
+            candidates.extend(reference_path_variants(raw_target.trim_start_matches("./")));
+        }
+        candidates.dedup();
+
+        for candidate in candidates {
+            if !self
+                .snapshot
+                .document_kind(&candidate)?
+                .is_language_document()
+            {
+                continue;
+            }
+            let source = if let Some(document) = self.open_documents.get(&candidate) {
+                document.source.clone()
+            } else {
+                let path = self.snapshot.root().join(&candidate);
+                if !path.is_file() {
+                    continue;
+                }
+                fs::read_to_string(path).map_err(|source| OperationError::Io {
+                    path: candidate.clone(),
+                    source,
+                })?
+            };
+            let fragment_location = reference.fragment.as_deref().and_then(|fragment| {
+                resolve_fragment_location_in_source(&source, fragment, reference.fragment_kind)
+            });
+            if reference.fragment.is_some() && fragment_location.is_none() {
+                return Ok(None);
+            }
+            return Ok(Some(ManagedPathReferenceTarget {
+                path: candidate,
+                fragment_location,
+            }));
+        }
+        Ok(None)
     }
 }
 
@@ -2175,7 +2391,7 @@ fn normalized_relative_target(source_path: &str, target: &str) -> Option<String>
 }
 
 fn reference_path_variants(target: &str) -> Vec<String> {
-    if target.ends_with(".md") {
+    if target.ends_with(".md") || target.ends_with(".mdx") {
         vec![target.to_string()]
     } else {
         vec![format!("{target}.md"), target.to_string()]
@@ -2208,12 +2424,18 @@ fn resolve_fragment_location_in_source(
 ) -> Option<ReferenceFragmentLocation> {
     if kind == Some(crate::index::ReferenceFragmentKind::Block) {
         return source.lines().enumerate().find_map(|(line, value)| {
+            let caret = value.find('^')?;
             value
                 .trim_end()
                 .ends_with(&format!(" ^{fragment}"))
-                .then_some(ReferenceFragmentLocation {
-                    line: line + 1,
-                    column: value.find('^').map_or(1, |column| column + 1),
+                .then(|| {
+                    let column = value[..caret].chars().count() + 1;
+                    ReferenceFragmentLocation {
+                        line: line + 1,
+                        column,
+                        end_line: line + 1,
+                        end_column: column + 1 + fragment.chars().count(),
+                    }
                 })
         });
     }
@@ -2234,7 +2456,9 @@ fn resolve_fragment_location_in_source(
         let text = trimmed[level..].trim().trim_end_matches('#').trim();
         (text == fragment || heading_slug(text) == fragment).then_some(ReferenceFragmentLocation {
             line: line + 1,
-            column: value.len() - trimmed.len() + 1,
+            column: value.chars().count() - trimmed.chars().count() + 1,
+            end_line: line + 1,
+            end_column: value.chars().count() + 1,
         })
     })
 }
@@ -3493,11 +3717,12 @@ mod tests {
     use serde_yml::Value;
 
     use super::{
-        OperationError, SkillSource, WorkspaceFileFeature, WorkspaceHealthCategory,
-        WorkspaceSession, build_workspace_health_result, create_entry, inspect_config,
-        inspect_entry_by_path, is_public_workspace_path_allowed, is_raw_workspace_path_allowed,
-        list_file_references, list_files, resolve_reference, skills_get, skills_list,
-        workspace_dashboard, workspace_explorer, workspace_explorer_entries, workspace_health,
+        ManagedDocumentKind, OperationError, SkillSource, WorkspaceFileFeature,
+        WorkspaceHealthCategory, WorkspaceSession, WorkspaceSnapshot,
+        build_workspace_health_result, create_entry, inspect_config, inspect_entry_by_path,
+        is_public_workspace_path_allowed, is_raw_workspace_path_allowed, list_file_references,
+        list_files, resolve_reference, skills_get, skills_list, workspace_dashboard,
+        workspace_explorer, workspace_explorer_entries, workspace_health,
     };
     use crate::{Diagnostic, IndexEntry, OperationStatus, ReferenceIntent, WorkspaceFileKind};
 
@@ -5086,6 +5311,153 @@ conventions:
     }
 
     #[test]
+    fn workspace_snapshot_classifies_taxonomy_neutral_managed_documents() {
+        let root = fixture_root("workspace-managed-documents");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        let config_path = root.join(".forma.md");
+        let config = fs::read_to_string(&config_path).unwrap();
+        fs::write(
+            &config_path,
+            config.replace(
+                "  - \".forma/views/*.md\"\n",
+                "  - \".forma/views/*.md\"\n  - \".forma/categories/*.md\"\n",
+            ),
+        )
+        .unwrap();
+        fs::create_dir_all(root.join(".forma/categories")).unwrap();
+        fs::write(
+            root.join(".forma/categories/index.md"),
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: topics\ntitle: Topics\nmode: multiple\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/categories/guides.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Guides\ninclude:\n  - topics/**/*.md\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/categories/orphan.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: missing\ntitle: Orphan\ninclude:\n  - orphan/**/*.md\n---\n",
+        )
+        .unwrap();
+
+        let snapshot = WorkspaceSnapshot::load(&root).unwrap();
+
+        assert_eq!(
+            snapshot.document_kind("topics/guide.md").unwrap(),
+            ManagedDocumentKind::Content
+        );
+        assert_eq!(
+            snapshot.document_kind(".forma/views/tasks.md").unwrap(),
+            ManagedDocumentKind::View
+        );
+        assert_eq!(
+            snapshot
+                .document_kind(".forma/categories/guides.md")
+                .unwrap(),
+            ManagedDocumentKind::Control
+        );
+        assert_eq!(
+            snapshot
+                .document_kind(".forma/categories/future.md")
+                .unwrap(),
+            ManagedDocumentKind::Control
+        );
+        assert_eq!(
+            snapshot
+                .document_kind(".forma/spaces/templates/task.md")
+                .unwrap(),
+            ManagedDocumentKind::Control
+        );
+        assert_eq!(
+            snapshot.document_kind("orphan/page.md").unwrap(),
+            ManagedDocumentKind::Unmanaged
+        );
+        assert_eq!(
+            snapshot.document_kind("topics/logo.png").unwrap(),
+            ManagedDocumentKind::Unmanaged
+        );
+        assert_eq!(
+            snapshot.document_kind("README.md").unwrap(),
+            ManagedDocumentKind::Unmanaged
+        );
+        let watch_patterns = snapshot.watch_patterns();
+        assert!(watch_patterns.contains(&".forma.md".to_string()));
+        assert!(watch_patterns.contains(&".forma/categories/*.md".to_string()));
+        assert!(watch_patterns.contains(&"topics/**/*.md".to_string()));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_session_resolves_explicit_paths_for_generic_taxonomy_documents() {
+        let root = fixture_root("workspace-generic-taxonomy-path-reference");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        let config_path = root.join(".forma.md");
+        let config = fs::read_to_string(&config_path).unwrap();
+        fs::write(
+            &config_path,
+            config.replace(
+                "  - \".forma/views/*.md\"\n",
+                "  - \".forma/views/*.md\"\n  - \".forma/categories/*.md\"\n",
+            ),
+        )
+        .unwrap();
+        fs::create_dir_all(root.join(".forma/categories")).unwrap();
+        fs::write(
+            root.join(".forma/categories/index.md"),
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: topics\ntitle: Topics\nmode: multiple\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/categories/guides.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Guides\ninclude:\n  - topics/**/*.md\n---\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("topics")).unwrap();
+        fs::write(
+            root.join("topics/target.md"),
+            "# Target\n\n## Target heading\n",
+        )
+        .unwrap();
+
+        let session = WorkspaceSession::load(&root).unwrap();
+        let analysis = session.snapshot().analyze_document(
+            "topics/source.md",
+            "[[topics/target#Target heading]]\n[[target]]\n[[topics/target#Missing]]\n",
+        );
+
+        let resolved = session
+            .resolve_managed_path_reference("topics/source.md", &analysis.references[0])
+            .unwrap()
+            .unwrap();
+        assert_eq!(resolved.path, "topics/target.md");
+        assert_eq!(
+            resolved.fragment_location,
+            Some(super::ReferenceFragmentLocation {
+                line: 3,
+                column: 1,
+                end_line: 3,
+                end_column: 18,
+            })
+        );
+        assert!(
+            session
+                .resolve_managed_path_reference("topics/source.md", &analysis.references[1])
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            session
+                .resolve_managed_path_reference("topics/source.md", &analysis.references[2])
+                .unwrap()
+                .is_none()
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn workspace_session_uses_unsaved_target_for_fragment_navigation() {
         let root = fixture_root("workspace-session-fragment-overlay");
         fs::create_dir_all(&root).unwrap();
@@ -5120,7 +5492,12 @@ conventions:
         assert_eq!(target.path, "members/sam-rivera.md");
         assert_eq!(
             target.fragment_location,
-            Some(super::ReferenceFragmentLocation { line: 7, column: 1 })
+            Some(super::ReferenceFragmentLocation {
+                line: 7,
+                column: 1,
+                end_line: 7,
+                end_column: 19,
+            })
         );
         fs::remove_dir_all(root).unwrap();
     }

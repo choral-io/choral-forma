@@ -38,9 +38,15 @@ pub struct FormaReference {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub span: Option<SourceSpan>,
+    pub syntax_span: Option<SourceSpan>,
+    #[serde(skip)]
+    pub(crate) span: Option<SourceSpan>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_span: Option<SourceSpan>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label_span: Option<SourceSpan>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment_span: Option<SourceSpan>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -139,7 +145,7 @@ pub fn parse_markdown(source: &str) -> FormaMarkdownDocument {
 
     references.sort_by_key(|reference| {
         reference
-            .span
+            .syntax_span
             .map(|span| (span.start_byte, span.end_byte))
             .unwrap_or((usize::MAX, usize::MAX))
     });
@@ -214,34 +220,44 @@ fn collect_markdown_structure(
     headings: &mut Vec<FormaHeading>,
 ) {
     if let mdast::Node::Link(link) = node {
-        let span = link
+        let syntax_span = link
             .position
             .as_ref()
             .map(SourceSpan::from_markdown_position);
+        let resource_span = markdown_resource_span(body, syntax_span, &link.url);
+        let (target_span, fragment_span) = split_target_span(body, resource_span);
         references.push(FormaReference {
             intent: FormaReferenceIntent::Link,
             source: FormaReferenceSource::Body,
             syntax: FormaReferenceSyntax::MarkdownLink,
             target: link.url.clone(),
             label: Some(plain_text(&link.children)),
-            span,
-            target_span: markdown_resource_target_span(body, span, &link.url),
+            syntax_span,
+            span: syntax_span,
+            target_span,
+            label_span: None,
+            fragment_span,
         });
     }
 
     if let mdast::Node::Image(image) = node {
-        let span = image
+        let syntax_span = image
             .position
             .as_ref()
             .map(SourceSpan::from_markdown_position);
+        let resource_span = markdown_resource_span(body, syntax_span, &image.url);
+        let (target_span, fragment_span) = split_target_span(body, resource_span);
         references.push(FormaReference {
             intent: FormaReferenceIntent::Embed,
             source: FormaReferenceSource::Body,
             syntax: FormaReferenceSyntax::MarkdownImage,
             target: image.url.clone(),
             label: Some(image.alt.clone()),
-            span,
-            target_span: markdown_resource_target_span(body, span, &image.url),
+            syntax_span,
+            span: syntax_span,
+            target_span,
+            label_span: None,
+            fragment_span,
         });
     }
 
@@ -268,7 +284,7 @@ fn collect_markdown_structure(
     }
 }
 
-fn markdown_resource_target_span(
+fn markdown_resource_span(
     body: &str,
     resource_span: Option<SourceSpan>,
     parsed_target: &str,
@@ -305,6 +321,30 @@ fn markdown_resource_target_span(
         return None;
     }
     Some(source_span(body, target_start, target_end))
+}
+
+fn split_target_span(
+    source: &str,
+    resource_span: Option<SourceSpan>,
+) -> (Option<SourceSpan>, Option<SourceSpan>) {
+    let Some(resource_span) = resource_span else {
+        return (None, None);
+    };
+    let Some(raw_target) = source.get(resource_span.start_byte..resource_span.end_byte) else {
+        return (None, None);
+    };
+    let Some(separator) = raw_target.find('#') else {
+        return (Some(resource_span), None);
+    };
+    if raw_target[separator + 1..].trim().is_empty() {
+        return (Some(resource_span), None);
+    }
+
+    let fragment_start = resource_span.start_byte + separator;
+    let target_span = (resource_span.start_byte < fragment_start)
+        .then(|| source_span(source, resource_span.start_byte, fragment_start));
+    let fragment_span = Some(source_span(source, fragment_start, resource_span.end_byte));
+    (target_span, fragment_span)
 }
 
 fn plain_text(nodes: &[mdast::Node]) -> String {
@@ -365,8 +405,7 @@ fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
         }
 
         if !content.trim().is_empty() {
-            let (target, label, target_start, target_end) =
-                split_wikilink_content(content, content_start);
+            let parsed = split_wikilink_content(body, content, content_start);
             references.push(FormaReference {
                 intent: if embed {
                     FormaReferenceIntent::Embed
@@ -379,10 +418,13 @@ fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
                 } else {
                     FormaReferenceSyntax::Wikilink
                 },
-                target,
-                label,
+                target: parsed.target,
+                label: parsed.label,
+                syntax_span: Some(source_span(body, marker_start, end)),
                 span: Some(source_span(body, marker_start, end)),
-                target_span: Some(source_span(body, target_start, target_end)),
+                target_span: parsed.target_span,
+                label_span: parsed.label_span,
+                fragment_span: parsed.fragment_span,
             });
         }
 
@@ -520,20 +562,53 @@ fn ranges_contain(ranges: &[(usize, usize)], offset: usize) -> bool {
         .any(|(start, end)| *start <= offset && offset < *end)
 }
 
-fn split_wikilink_content(
-    content: &str,
-    content_start: usize,
-) -> (String, Option<String>, usize, usize) {
-    let (raw_target, label) = if let Some((target, label)) = content.split_once('|') {
-        (target, Some(label.trim().to_string()))
+struct WikilinkContent {
+    target: String,
+    label: Option<String>,
+    target_span: Option<SourceSpan>,
+    label_span: Option<SourceSpan>,
+    fragment_span: Option<SourceSpan>,
+}
+
+fn split_wikilink_content(source: &str, content: &str, content_start: usize) -> WikilinkContent {
+    let (raw_target, raw_label, label_start) = if let Some(separator) = content.find('|') {
+        let label = &content[separator + 1..];
+        (
+            &content[..separator],
+            Some(label),
+            content_start + separator + 1,
+        )
     } else {
-        (content, None)
+        (content, None, content_start + content.len())
     };
     let leading = raw_target.len() - raw_target.trim_start().len();
     let target = raw_target.trim();
-    let target_start = content_start + leading;
-    let target_end = target_start + target.len();
-    (target.to_string(), label, target_start, target_end)
+    let resource_start = content_start + leading;
+    let resource_end = resource_start + target.len();
+    let resource_span =
+        (resource_start < resource_end).then(|| source_span(source, resource_start, resource_end));
+    let (target_span, fragment_span) = split_target_span(source, resource_span);
+
+    let label = raw_label.map(|value| value.trim().to_string());
+    let label_span = raw_label.and_then(|value| {
+        let leading = value.len() - value.trim_start().len();
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then(|| {
+            source_span(
+                source,
+                label_start + leading,
+                label_start + leading + trimmed.len(),
+            )
+        })
+    });
+
+    WikilinkContent {
+        target: target.to_string(),
+        label,
+        target_span,
+        label_span,
+        fragment_span,
+    }
 }
 
 fn scan_forma_view_comments(body: &str, references: &mut Vec<FormaReference>) {
@@ -568,8 +643,11 @@ fn scan_forma_view_comments(body: &str, references: &mut Vec<FormaReference>) {
                 syntax: FormaReferenceSyntax::FormaCommentDirective,
                 target,
                 label: None,
+                syntax_span: Some(source_span(body, start, end)),
                 span: Some(source_span(body, start, end)),
                 target_span,
+                label_span: None,
+                fragment_span: None,
             });
         }
 
@@ -638,7 +716,7 @@ mod tests {
         assert_eq!(link.intent, FormaReferenceIntent::Link);
         assert_eq!(link.target, "notes/docs.md");
         assert_eq!(link.label.as_deref(), Some("docs"));
-        assert_eq!(link.span.unwrap().start_line, 2);
+        assert_eq!(link.syntax_span.unwrap().start_line, 2);
         let target_span = link.target_span.unwrap();
         assert_eq!(
             &document.body[target_span.start_byte..target_span.end_byte],
@@ -704,8 +782,98 @@ mod tests {
         assert_eq!(reference.intent, FormaReferenceIntent::Link);
         assert_eq!(reference.target, "notes/parser");
         assert_eq!(reference.label.as_deref(), Some("Parser note"));
-        assert_eq!(reference.span.unwrap().start_column, 5);
+        assert_eq!(reference.syntax_span.unwrap().start_column, 5);
         assert_eq!(reference.target_span.unwrap().start_column, 7);
+        let label_span = reference.label_span.unwrap();
+        assert_eq!(
+            &document.body[label_span.start_byte..label_span.end_byte],
+            "Parser note"
+        );
+    }
+
+    #[test]
+    fn preserves_wikilink_source_role_spans_with_crlf_unicode_and_emoji() {
+        let document = FormaMarkdownDocument::parse("See ![[ notes/目标#章节 |  😀 标题  ]].\r\n");
+        let reference = document.references.first().unwrap();
+
+        assert_eq!(reference.syntax, FormaReferenceSyntax::ObsidianEmbed);
+        assert_eq!(reference.target, "notes/目标#章节");
+        assert_eq!(reference.label.as_deref(), Some("😀 标题"));
+        let syntax_span = reference.syntax_span.unwrap();
+        let target_span = reference.target_span.unwrap();
+        let fragment_span = reference.fragment_span.unwrap();
+        let label_span = reference.label_span.unwrap();
+        assert_eq!(
+            &document.body[syntax_span.start_byte..syntax_span.end_byte],
+            "![[ notes/目标#章节 |  😀 标题  ]]"
+        );
+        assert_eq!(
+            &document.body[target_span.start_byte..target_span.end_byte],
+            "notes/目标"
+        );
+        assert_eq!(
+            &document.body[fragment_span.start_byte..fragment_span.end_byte],
+            "#章节"
+        );
+        assert_eq!(
+            &document.body[label_span.start_byte..label_span.end_byte],
+            "😀 标题"
+        );
+        assert_eq!(syntax_span.start_line, 1);
+        assert_eq!(syntax_span.end_line, 1);
+    }
+
+    #[test]
+    fn preserves_pathless_wikilink_fragment_and_label_spans() {
+        let document = FormaMarkdownDocument::parse("See [[#Local|Here]].\n");
+        let reference = document.references.first().unwrap();
+
+        assert_eq!(reference.target, "#Local");
+        assert!(reference.target_span.is_none());
+        let fragment_span = reference.fragment_span.unwrap();
+        let label_span = reference.label_span.unwrap();
+        assert_eq!(
+            &document.body[fragment_span.start_byte..fragment_span.end_byte],
+            "#Local"
+        );
+        assert_eq!(
+            &document.body[label_span.start_byte..label_span.end_byte],
+            "Here"
+        );
+    }
+
+    #[test]
+    fn preserves_markdown_resource_target_and_fragment_spans() {
+        let document = FormaMarkdownDocument::parse(
+            "[Guide](notes/目标.md#章节) ![Map](assets/map.png#tile)\n",
+        );
+
+        let link = document
+            .references
+            .iter()
+            .find(|reference| reference.syntax == FormaReferenceSyntax::MarkdownLink)
+            .unwrap();
+        let image = document
+            .references
+            .iter()
+            .find(|reference| reference.syntax == FormaReferenceSyntax::MarkdownImage)
+            .unwrap();
+        for (reference, expected_target, expected_fragment) in [
+            (link, "notes/目标.md", "#章节"),
+            (image, "assets/map.png", "#tile"),
+        ] {
+            let target_span = reference.target_span.unwrap();
+            let fragment_span = reference.fragment_span.unwrap();
+            assert_eq!(
+                &document.body[target_span.start_byte..target_span.end_byte],
+                expected_target
+            );
+            assert_eq!(
+                &document.body[fragment_span.start_byte..fragment_span.end_byte],
+                expected_fragment
+            );
+            assert!(reference.label_span.is_none());
+        }
     }
 
     #[test]
@@ -757,7 +925,7 @@ mod tests {
         assert_eq!(reference.syntax, FormaReferenceSyntax::ObsidianEmbed);
         assert_eq!(reference.intent, FormaReferenceIntent::Embed);
         assert_eq!(reference.target, "notes/chart");
-        assert_eq!(reference.span.unwrap().start_column, 8);
+        assert_eq!(reference.syntax_span.unwrap().start_column, 8);
         assert_eq!(reference.target_span.unwrap().start_column, 11);
     }
 
@@ -789,7 +957,7 @@ mod tests {
         );
         assert_eq!(reference.intent, FormaReferenceIntent::View);
         assert_eq!(reference.target, "tasks assignee=\"Alex Chen\"");
-        assert_eq!(reference.span.unwrap().start_line, 2);
+        assert_eq!(reference.syntax_span.unwrap().start_line, 2);
         assert_eq!(reference.source, super::FormaReferenceSource::Body);
     }
 
