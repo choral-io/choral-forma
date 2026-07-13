@@ -50,6 +50,7 @@ An editor adapter owns:
 - finding candidate `.forma.md` entrypoints inside opened workspace folders or current-file ancestors;
 - selecting the applicable workspace in multi-root sessions;
 - locating and invoking a compatible Forma binary;
+- optionally acquiring and managing the release-aligned Forma binary inside editor extension storage after explicit user confirmation;
 - cancellation, timeout, process output, and user-visible status;
 - translating Forma diagnostics, links, definitions, commands, and locations into editor APIs;
 - opening source Markdown documents;
@@ -169,6 +170,10 @@ User-adjusted coordinates may be stored in editor workspace state, but must not 
 ## Security And Trust
 
 - Do not execute a workspace-provided binary automatically in an untrusted editor workspace.
+- Do not download or execute a managed binary in Restricted Mode.
+- A managed binary must come from the exact release tag aligned with the extension version, use a platform-specific release asset, and pass its published checksum before becoming executable.
+- Managed installation must stay inside editor extension storage. It must not modify `PATH`, overwrite a user-managed executable, or derive an executable path from workspace content.
+- An explicit machine-level binary path remains authoritative. A release-aligned managed binary may be preferred over extension-host `PATH` discovery when no explicit path is configured.
 - Do not expose absolute host paths in structured public results.
 - Do not export cookies, credentials, editor storage, or repository content to external services.
 - Prefer native editor preview and navigation APIs so the adapter does not introduce another script-enabled WebView security boundary.
@@ -177,6 +182,14 @@ User-adjusted coordinates may be stored in editor workspace state, but must not 
 ## Version Compatibility
 
 The extension should declare the operation schema versions it supports. On activation, it should detect incompatible Forma output and present an actionable upgrade or downgrade message rather than attempting best-effort interpretation of unknown result shapes.
+
+During the coordinated Alpha release line, the VS Code extension and Forma CLI must report the same release version. Broad acceptance of every `0.1.0` prerelease is unsafe because CLI operations may be added without changing the operation schema version. The extension manifest version is the expected CLI version and must not be duplicated as a separately maintained constant.
+
+When the configured or discovered CLI is missing or has a different version, the extension may offer a user-initiated installation of the matching release. Downloads use the exact `v<extension-version>` tag rather than `latest`, install into a versioned directory under extension global storage, and preserve external `forma.path` and `PATH` installations. In a remote workspace, acquisition and execution occur in the remote workspace Extension Host; environments without outbound release access retain the explicit-path and manual-install fallbacks.
+
+Longer term, a structured capability operation may replace exact version equality after the compatibility contract can describe supported operations and schema revisions directly.
+
+The initial managed lifecycle implementation and release validation are tracked in [[tasks/manage-vscode-forma-cli-lifecycle]].
 
 ## Validation Boundary
 
