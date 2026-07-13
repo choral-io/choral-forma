@@ -426,3 +426,24 @@ The 25-link document scenario remains one shared inspect load, the refresh-burst
 The Milestone A stop rule therefore applies. Do not begin the operation-scoped snapshot, shared-index, resource-hygiene stress campaign, VS Code Remote transport evaluation, stdio RPC, or persisted-cache work as part of this goal. Reopen those iterations only when realistic editor traces, Remote measurements, memory-plateau tests, larger or denser workspaces, or a product requirement demonstrates a budget miss. Short-lived Forma CLI operations remain the selected architecture.
 
 The completed cutline is packaged for internal distribution in [[releases/forma-v0.1.0-alpha.16]].
+
+### Alpha 16 Post-Release Rebaseline — Completed 2026-07-13
+
+Two clean full baselines were captured from the exact `v0.1.0-alpha.16` release commit `77182527c5cf`. Both used the same host, release profile, fixture sizes, ten measured samples, and peak-RSS sampling as the final Milestone A run. The generated reports are `baseline-77182527c5cf-2026-07-13T07-50-15-369Z.json` and `baseline-77182527c5cf-2026-07-13T07-52-58-092Z.json` under the ignored `target/performance/` directory.
+
+| 5,000-entry operation | Median range | p95 range | Peak RSS range | Budget result |
+| --- | --: | --: | --: | --- |
+| Dashboard | 394.8–431.1 ms | 426.9–453.0 ms | 44.9 MiB | within 750 ms and 64 MiB |
+| Explorer root | 318.7–349.9 ms | 341.6–355.8 ms | 33.5–33.7 MiB | within 750 ms, 64 MiB, and output budget |
+| Explorer page | 365.2–371.8 ms | 384.9–455.7 ms | 34.9–35.3 MiB | bounded 100-entry response within 750 ms and 64 MiB |
+| Inspect | 193.7–196.4 ms | 200.1–232.0 ms | 29.6–30.3 MiB | within 250 ms and 64 MiB |
+| Reference resolve | 191.5–198.9 ms | 199.7–203.4 ms | 28.9–29.6 MiB | within 250 ms and 64 MiB |
+| View render | 334.0–337.4 ms | 346.6–347.0 ms | 42.8–43.4 MiB | within 750 ms and 64 MiB |
+
+Every current budget still passes, Explorer root output remains 433 bytes at 5,000 entries, and the 100-entry page remains approximately 26.4 KiB. Peak RSS changed by less than 7% for every listed operation compared with the final `6ff64f09f741` Milestone A baseline.
+
+The latency comparison is not uniformly neutral. Against that final baseline, the two Alpha 16 medians ranged from approximately 5–14% slower for dashboard, 5–15% for Explorer root, 14–17% for Explorer page, 10–12% for inspect, 9–13% for resolve, and 9–10% for View render. Explorer page, inspect, and resolve therefore cross the plan's 10% investigation threshold in at least one run.
+
+No Core operation algorithm changed between `6ff64f09f741` and the release commit; the intervening changes are release records and versions, dependency refreshes, CI setup restoration, and VS Code extension diagnostic retry behavior. The only non-project Rust dependency version change visible in the lockfile is `zmij` from `1.0.21` to `1.0.22`. That evidence is not enough to attribute the latency increase either to the dependency or to host conditions.
+
+The Milestone A architecture decision remains unchanged because all interaction and RSS budgets pass and the extension fix does not affect CLI benchmark execution. Before beginning another optimization, run paired old and Alpha 16 binaries on the same quiescent host and current fixture generator. Treat a reproduced operation-specific increase as a focused regression investigation; do not use these measurements alone to justify Iteration 5, stdio RPC, or persisted state.
