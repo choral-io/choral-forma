@@ -79,7 +79,19 @@ The initial extension should prefer short-lived `forma ... --json` subprocess ca
 
 An operation needed by editor integrations should still be defined in the shared Rust operation and RPC model first. A CLI command may then expose it for the first extension. The adapter must not treat CLI output text intended for humans as an API; only structured JSON results are valid inputs.
 
-Long-lived HTTP RPC, a future stdio RPC adapter, or a language server can be introduced after repeated invocation, unsaved-buffer analysis, or latency evidence justifies the lifecycle cost.
+Long-lived HTTP RPC, a future stdio RPC adapter, or a language server can be introduced after repeated invocation, unsaved-buffer analysis, latency evidence, or an editor API requirement justifies the lifecycle cost.
+
+Zed provides editor-native Definition and DocumentLink behavior through LSP rather than a general extension API. A narrowly scoped `forma lsp` process is therefore accepted as the editor-neutral language-intelligence transport for Zed navigation. This exception does not replace structured CLI and RPC operations for workspace health, Explorer projections, view rendering, or other saved-workspace interactions.
+
+The implementation boundary is:
+
+```text
+Forma Core transient document analysis and workspace snapshot
+-> forma-lsp protocol adapter
+-> editor LSP client
+```
+
+`forma-lsp` must be a separate Rust crate. It may depend on `forma-core`, while `forma-core` must not depend on LSP protocol types, URI rules, UTF-16 positions, or editor lifecycle concepts. The single published `forma` binary exposes the server through `forma lsp`; Forma does not publish a separate LSP executable.
 
 ## Operation Requirements
 
@@ -112,7 +124,9 @@ Suggested input:
 
 The result should contain the canonical target path when resolved, an optional fragment location, display metadata, ambiguity candidates, and diagnostics. Resolution must use the same workspace index, path rules, schema types, and case behavior as normal Forma checks.
 
-The first implementation may refresh saved documents only. Live navigation and diagnostics for unsaved buffers should later use a read-only `document.analyze`-style operation that accepts transient source text without persisting it. The extension must not introduce a second Markdown parser as an unsaved-buffer shortcut.
+The first VS Code implementation may refresh saved documents only. Cross-editor LSP navigation uses a Core-owned transient document-analysis boundary that accepts source text without persisting it. The result must provide exact reference ranges and schema-aware frontmatter interpretation without introducing an editor-side Markdown or YAML semantic parser.
+
+Core reference ranges remain editor-neutral byte or source locations. `forma-lsp` owns conversion to LSP UTF-16 positions and must test non-ASCII source text, CRLF input, quoted YAML scalars, and repeated frontmatter values.
 
 ## View Preview Contract
 
@@ -193,7 +207,7 @@ The initial managed lifecycle implementation and release validation are tracked 
 
 ## Validation Boundary
 
-Core operation behavior should be tested in Rust. JSON result compatibility belongs in `forma-rpc` and `packages/shared`. Adapter tests should cover workspace selection, subprocess cancellation and errors, result-to-editor mapping, theme token mapping, preview refresh, and navigation commands without duplicating Core semantic fixtures.
+Core operation behavior should be tested in Rust. JSON result compatibility belongs in `forma-rpc` and `packages/shared`. LSP protocol mapping, transient buffer overlays, UTF-16 conversion, cancellation, and path boundaries belong in `forma-lsp`. Adapter tests should cover workspace selection, subprocess cancellation and errors, result-to-editor mapping, theme token mapping, preview refresh, and navigation commands without duplicating Core semantic fixtures.
 
 ## External References
 

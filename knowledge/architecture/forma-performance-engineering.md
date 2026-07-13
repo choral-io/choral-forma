@@ -45,6 +45,10 @@ The largest near-term risks are outside raw Rust execution speed:
 
 Short-lived structured CLI calls remain acceptable while the adapter can meet the budgets below. A persistent stdio RPC process, daemon, language server, or persisted local index requires fresh measurement evidence after batching and duplicate-work removal.
 
+Zed navigation provides separate functional evidence for a narrowly scoped language server: the public Zed extension surface exposes editor-native Definition and DocumentLink behavior through LSP. `forma lsp` may therefore be introduced for language intelligence without first proving that the optimized short-lived CLI misses its latency budget. This is not permission to move Explorer, health, view rendering, or general RPC traffic into the language server.
+
+The LSP must still preserve the performance rules in this document. A connected server should reuse an in-memory, rebuildable workspace snapshot, keep unsaved document overlays by version, perform no intentional idle work, and avoid rebuilding the workspace for every warm navigation request. Configuration, imports, taxonomy definitions, and include-pattern changes invalidate the controlled-file scope and require a safe snapshot rebuild.
+
 ## Performance Model
 
 Forma performance has four separate cost layers:
@@ -179,12 +183,14 @@ Initially publish these measurements as a non-blocking CI artifact. Promote stab
 
 ## Architecture Escalation Criteria
 
-Escalate from short-lived CLI calls to stdio RPC only when measurements show one or more of:
+Escalate from short-lived CLI calls to general stdio RPC when measurements show one or more of:
 
 - repeated snapshot construction remains a material part of editor p95 after batching;
 - process startup dominates small-workspace interaction latency;
 - unsaved-buffer analysis requires a session-aware protocol;
 - VS Code Remote process or filesystem round trips exceed editor budgets;
 - bounded concurrency still produces unacceptable transient resource pressure.
+
+A host editor that requires LSP for native language intelligence may use the separately accepted `forma lsp` boundary. Before treating that implementation as release-ready, record initialization, cold and warm navigation, snapshot rebuild count, idle CPU, connected RSS, document-version analysis count, and recovery after process exit.
 
 Escalate from in-memory snapshots to a persisted local cache only when 5,000-entry and larger realistic workspaces remain outside budget after scoped discovery, one-pass parsing, indexed lookup, batching, and incremental invalidation.

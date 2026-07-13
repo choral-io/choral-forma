@@ -26,6 +26,9 @@ relatedTo:
     - "decisions/editor-extension-primary-product-surface"
     - "architecture/editor-extension-adapter-contract"
     - "planning/editor-extension-mvp-roadmap"
+    - "planning/forma-lsp-zed-navigation-execution-plan"
+    - "tasks/implement-forma-lsp-foundation"
+    - "tasks/validate-zed-link-navigation"
 
 reportedBy:
 affectedArea: Zed extension
@@ -73,8 +76,10 @@ Zed is an important editor target, but it should follow the first VS Code adapte
 
 ## Relationship Notes
 
-The VS Code MVP baseline is now published. This task remains in backlog pending refinement from internal extension feedback so the second adapter is based on implementation evidence rather than parallel assumptions.
+The VS Code MVP baseline is now published. The first Zed work is split into [[tasks/implement-forma-lsp-foundation]] and [[tasks/validate-zed-link-navigation]]. This umbrella task remains in backlog until that focused navigation validation establishes which additional Zed capabilities are feasible and valuable.
 
 ## Open Questions
 
--
+- Which workspace status and diagnostic experiences remain useful after native navigation is available?
+- Does Zed expose a stable Preview or project UI extension point that can represent Forma Views without creating a parallel renderer?
+- When should Zed CLI acquisition and release-aligned version management follow the preinstalled-CLI validation?
