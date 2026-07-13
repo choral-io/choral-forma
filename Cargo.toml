@@ -2,6 +2,7 @@
 members = [
   "crates/forma-cli",
   "crates/forma-core",
+  "crates/forma-lsp",
   "crates/forma-rpc",
 ]
 resolver = "3"

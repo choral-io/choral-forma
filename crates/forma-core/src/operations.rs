@@ -1949,13 +1949,13 @@ fn resolve_reference_in_snapshot(
     });
     let fragment = fragment.map(|value| value.trim_start_matches('^').to_string());
     let mut diagnostics = Vec::new();
-    let semantic_matches = (intent == ReferenceIntent::Reference && target_space.is_none())
-        .then(|| {
-            source_entry
-                .map(|entry| semantic_reference_candidates(entry, &target_text))
-                .unwrap_or_default()
-        })
-        .unwrap_or_default();
+    let semantic_matches = if intent == ReferenceIntent::Reference && target_space.is_none() {
+        source_entry
+            .map(|entry| semantic_reference_candidates(entry, &target_text))
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
     let matches = if semantic_matches.is_empty() {
         resolve_reference_candidates(
             &snapshot.discovery.index.entries,

@@ -104,6 +104,8 @@ enum Command {
         #[command(subcommand)]
         command: SkillsCommand,
     },
+    /// Run the Forma language server over stdio.
+    Lsp,
     Serve {
         #[arg(long, default_value = "127.0.0.1:0")]
         bind: SocketAddr,
@@ -425,6 +427,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 Ok(())
             }
         },
+        Some(Command::Lsp) => Ok(forma_lsp::run(workspace)?),
         Some(Command::Serve {
             bind,
             root_path,
