@@ -2,9 +2,13 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.17
+
 - Require the VS Code extension and Forma CLI to use the same coordinated Alpha release version.
 - Add an explicit, checksum-verified managed CLI installation path for local and remote Extension Hosts without modifying user `PATH`.
 - Report CLI command and Explorer loading failures without presenting them as a missing Forma workspace.
+- Harden managed installation against cancellation races, stale runtime refreshes, interrupted downloads, and Windows executable replacement locks.
+- Strengthen Restricted Mode, packaged Preview, Windows launcher, release-matrix, and temporary-file regression coverage.
 
 ## 0.1.0-alpha.16
 

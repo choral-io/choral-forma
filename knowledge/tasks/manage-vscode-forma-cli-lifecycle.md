@@ -26,6 +26,7 @@ relatedTo:
     - "tasks/implement-editor-extension-forma-command-client"
     - "tasks/align-forma-release-versioning"
     - "tasks/integrate-vsix-ci-release-artifact"
+    - "releases/forma-v0.1.0-alpha.17"
 sources:
     - "architecture/editor-extension-adapter-contract"
 severity: ""

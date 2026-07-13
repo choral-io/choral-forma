@@ -2,7 +2,7 @@
   "name": "forma",
   "displayName": "Forma for VS Code",
   "description": "Navigate and preview repository-backed Forma Markdown workspaces in VS Code.",
-  "version": "0.1.0-alpha.16",
+  "version": "0.1.0-alpha.17",
   "publisher": "choral-io",
   "private": true,
   "license": "MIT",
