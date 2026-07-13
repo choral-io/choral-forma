@@ -203,6 +203,8 @@ export type ResolvedReferenceTarget = ReferenceResolveCandidate & {
     fragmentLocation?: {
         line: number;
         column: number;
+        endLine: number;
+        endColumn: number;
     };
 };
 

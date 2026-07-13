@@ -110,4 +110,16 @@ describe("reference tokens", () => {
         expect(referenceTokenAt(text, token.end - 1)).toEqual(token);
         expect(referenceTokenAt(text, token.end)).toBeUndefined();
     });
+
+    it("keeps both the wikilink target and explicit title inside the activation range", () => {
+        const text = "See [[members/tiscs#Profile|Tiscs Profile]] next";
+        const targetOffset = text.indexOf("members/tiscs") + 1;
+        const titleOffset = text.indexOf("Tiscs Profile") + 1;
+        const separatorOffset = text.indexOf("|");
+
+        expect(referenceTokenAt(text, targetOffset)).toMatchObject({ target: "members/tiscs", fragment: "Profile" });
+        expect(referenceTokenAt(text, titleOffset)).toMatchObject({ target: "members/tiscs", fragment: "Profile" });
+        expect(referenceTokenAt(text, separatorOffset)).toBeUndefined();
+        expect(referenceTokenAt(text, text.indexOf("[[") + 1)).toBeUndefined();
+    });
 });

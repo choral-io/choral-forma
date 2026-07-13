@@ -52,14 +52,20 @@ export function registerNavigation(
             provideDocumentLinks(document) {
                 return scanReferenceTokens(document.getText())
                     .filter((token) => token.syntax === "wikilink")
-                    .map((token) => {
+                    .flatMap((token) => {
                         const args = encodeURIComponent(JSON.stringify([document.uri.toString(), token]));
-                        const link = new vscode.DocumentLink(
-                            tokenRange(document, token),
-                            vscode.Uri.parse(`command:forma.openReference?${args}`),
-                        );
-                        link.tooltip = "Open Forma reference";
-                        return link;
+                        const ranges = [token];
+                        if (token.labelStart !== undefined && token.labelEnd !== undefined) {
+                            ranges.push({ ...token, start: token.labelStart, end: token.labelEnd });
+                        }
+                        return ranges.map((rangeToken) => {
+                            const link = new vscode.DocumentLink(
+                                tokenRange(document, rangeToken),
+                                vscode.Uri.parse(`command:forma.openReference?${args}`),
+                            );
+                            link.tooltip = "Open Forma reference";
+                            return link;
+                        });
                     });
             },
         }),
@@ -132,7 +138,8 @@ async function semanticReferenceTokenAt(
     const text = document.getText();
     const offset = document.offsetAt(position);
     const bodyToken = referenceTokenAt(text, offset);
-    if (bodyToken) return bodyToken;
+    if (bodyToken?.syntax === "wikilink") return bodyToken;
+    if (bodyToken?.syntax === "markdown") return undefined;
     const controller = new AbortController();
     const subscription = cancellationToken.onCancellationRequested(() => {
         controller.abort();
@@ -175,8 +182,16 @@ function resultLocations(
         if (result.target.fragment && !result.target.fragmentLocation) return [];
         const line = Math.max(0, (result.target.fragmentLocation?.line ?? 1) - 1);
         const column = Math.max(0, (result.target.fragmentLocation?.column ?? 1) - 1);
-        const position = new vscode.Position(line, column);
-        return [new vscode.Location(runtime.uriFor(source.root, result.target.path), position)];
+        const start = new vscode.Position(line, column);
+        const endLine = Math.max(line, (result.target.fragmentLocation?.endLine ?? line + 1) - 1);
+        const endColumn = Math.max(
+            endLine === line ? column : 0,
+            (result.target.fragmentLocation?.endColumn ?? column + 1) - 1,
+        );
+        const range = result.target.fragmentLocation
+            ? new vscode.Range(start, new vscode.Position(endLine, endColumn))
+            : new vscode.Range(start, start);
+        return [new vscode.Location(runtime.uriFor(source.root, result.target.path), range)];
     }
     return (result.candidates ?? []).map(
         (candidate) => new vscode.Location(runtime.uriFor(source.root, candidate.path), new vscode.Position(0, 0)),

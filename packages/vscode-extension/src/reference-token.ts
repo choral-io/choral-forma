@@ -8,6 +8,8 @@ export type ReferenceToken = {
     raw?: string;
     label?: string;
     explicitLabel?: boolean;
+    labelStart?: number;
+    labelEnd?: number;
 };
 
 export type FrontmatterReferenceValue = {
@@ -20,9 +22,21 @@ export function referenceTokenAt(
     offset: number,
     frontmatterReferences: readonly FrontmatterReferenceValue[] = [],
 ): ReferenceToken | undefined {
-    return [...scanReferenceTokens(text), ...scanFrontmatterReferenceTokens(text, frontmatterReferences)].find(
-        (token) => offset >= token.start && offset < token.end,
-    );
+    for (const token of [
+        ...scanReferenceTokens(text),
+        ...scanFrontmatterReferenceTokens(text, frontmatterReferences),
+    ]) {
+        if (offset >= token.start && offset < token.end) return token;
+        if (
+            token.labelStart !== undefined &&
+            token.labelEnd !== undefined &&
+            offset >= token.labelStart &&
+            offset < token.labelEnd
+        ) {
+            return { ...token, start: token.labelStart, end: token.labelEnd };
+        }
+    }
+    return undefined;
 }
 
 export function scanReferenceTokens(text: string): ReferenceToken[] {
@@ -37,8 +51,12 @@ export function scanReferenceTokens(text: string): ReferenceToken[] {
         const contentStart = match.index + (match[1] ? 3 : 2);
         const rawTarget = content.split("|", 1)[0]?.trim() ?? "";
         const explicitLabel = content.includes("|");
-        const label = explicitLabel ? (content.split("|", 2)[1]?.trim() ?? rawTarget) : rawTarget;
+        const rawLabel = explicitLabel ? (content.split("|", 2)[1] ?? "") : undefined;
+        const label = explicitLabel ? (rawLabel?.trim() ?? rawTarget) : rawTarget;
         const rawOffset = content.indexOf(rawTarget);
+        const labelLeading = rawLabel === undefined ? 0 : rawLabel.length - rawLabel.trimStart().length;
+        const labelStart = explicitLabel ? contentStart + content.indexOf("|") + 1 + labelLeading : undefined;
+        const labelEnd = labelStart === undefined ? undefined : labelStart + label.length;
         const { target, fragment } = splitFragment(rawTarget);
         const token = withOptionalFragment(
             {
@@ -50,6 +68,9 @@ export function scanReferenceTokens(text: string): ReferenceToken[] {
                 raw: match[0],
                 label,
                 ...(explicitLabel ? { explicitLabel: true } : {}),
+                ...(labelStart !== undefined && labelEnd !== undefined && labelStart < labelEnd
+                    ? { labelStart, labelEnd }
+                    : {}),
             },
             fragment,
         );
