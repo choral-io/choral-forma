@@ -1,6 +1,7 @@
 import type { ReferenceResolveResult } from "@choral-forma/shared";
 import * as vscode from "vscode";
 
+import { retryCancelledCommandAfterGenerationStabilizes } from "./cancelled-command-retry.ts";
 import { documentReferenceDiagnostics } from "./document-analysis.ts";
 import { frontmatterReferenceValues } from "./frontmatter-links.ts";
 import { openSource } from "./preview.ts";
@@ -89,7 +90,15 @@ export function registerNavigation(
             return;
         }
         try {
-            const inspected = await runtime.inspectDocument(document);
+            const inspected = await retryCancelledCommandAfterGenerationStabilizes(
+                async () => await runtime.inspectDocument(document),
+                () => runtime.analysisGeneration,
+                () => !document.isClosed && runtime.isFormaDocument(document),
+            );
+            if (document.isClosed || !runtime.isFormaDocument(document)) {
+                diagnostics.delete(document.uri);
+                return;
+            }
             const values = documentReferenceDiagnostics(document.getText(), inspected).map((diagnostic) => {
                 const value = new vscode.Diagnostic(
                     new vscode.Range(document.positionAt(diagnostic.start), document.positionAt(diagnostic.end)),
