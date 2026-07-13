@@ -7,7 +7,7 @@ priority: P2
 value: M
 module: app
 effort: S
-status: backlog
+status: doing
 readiness: ready
 owners:
     - "members/tiscs"
@@ -19,8 +19,7 @@ tags:
     - lsp
     - editor-extension
     - navigation
-blockedBy:
-    - "tasks/implement-forma-lsp-foundation"
+blockedBy: []
 relatedTo:
     - "architecture/editor-extension-adapter-contract"
     - "planning/forma-lsp-zed-navigation-execution-plan"
@@ -62,3 +61,9 @@ Prove that a locally installed Zed extension can start a preinstalled matching `
 - Configuration and controlled-scope changes refresh safely, and Zed recovers after the server exits.
 - Zed protocol logs contain no material errors and the measured navigation budgets pass.
 - No Preview, CLI management, registry publication, or duplicated Core semantics are introduced.
+
+## Current Validation State
+
+Automated protocol, semantic, fixture, WASM build, invalidation, restart, and performance checks pass. The Dev Extension remains intentionally unpublished and requires a matching preinstalled `forma` from the worktree environment.
+
+The only remaining acceptance gate is installation of the local Dev Extension in Zed and direct source-mode interaction verification. This task must remain `doing` until that editor evidence is recorded in [[discovery/forma-lsp-zed-navigation-validation-2026-07-13]].

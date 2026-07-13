@@ -7,7 +7,7 @@ priority: P2
 value: H
 module: app
 effort: M
-status: ready
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -65,3 +65,12 @@ Provide one reusable language-intelligence process that keeps Forma semantics in
 - Workspace-relative path safety, UTF-16 conversion, CRLF, Chinese text, emoji, and repeated YAML values are tested.
 - Warm Definition reuses the workspace snapshot and remains within the current navigation budget.
 - Existing CLI and RPC behavior remains compatible and `mise run check` passes.
+
+## Completion Evidence
+
+- Core transient analysis owns exact reference ranges, semantic frontmatter classification, labels, list indexes, fragments, ambiguity candidates, and diagnostics.
+- `WorkspaceSnapshot` and `WorkspaceSession` reuse one in-memory discovery generation and one document analysis per open-document version.
+- `forma lsp` implements the agreed stdio lifecycle, full-text overlays, Definition, DocumentLink, save invalidation, workspace-boundary rejection, UTF-16 conversion, and malformed-request recovery.
+- Focused Core and LSP tests pass, including the real getting-started fixture and unsaved overlays.
+- `CI=true mise run check` passes; `CI=true` only provides pnpm's required non-interactive behavior in the Agent environment.
+- The 2026-07-13 baseline remains within the navigation gates through 5,000 generated entries. See [[discovery/forma-lsp-zed-navigation-validation-2026-07-13]].
