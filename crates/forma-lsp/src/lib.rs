@@ -4,21 +4,25 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use forma_core::{
-    DocumentAnalysis, DocumentReference, OperationStatus, ReferenceFragmentLocation,
-    WorkspaceSession,
+    DocumentAnalysis, DocumentReference, DocumentReferenceSyntax, OperationStatus,
+    ReferenceFragmentLocation, WorkspaceSession,
 };
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, Response};
 use lsp_types::notification::{
     DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, DidSaveTextDocument, Exit,
     Notification as _,
 };
-use lsp_types::request::{DocumentLinkRequest, GotoDefinition, Request as _};
+use lsp_types::request::{
+    DocumentLinkRequest, GotoDefinition, Request as _, SemanticTokensFullRequest,
+};
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     DidSaveTextDocumentParams, DocumentLink, DocumentLinkOptions, DocumentLinkParams,
     GotoDefinitionParams, GotoDefinitionResponse, LocationLink, OneOf, Position,
-    PositionEncodingKind, Range, SaveOptions, ServerCapabilities, TextDocumentSyncCapability,
-    TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Uri,
+    PositionEncodingKind, Range, SaveOptions, SemanticToken, SemanticTokenType, SemanticTokens,
+    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, SemanticTokensParams,
+    SemanticTokensResult, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
+    TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Uri,
 };
 use serde::Serialize;
 use thiserror::Error;
@@ -118,6 +122,18 @@ fn server_capabilities() -> ServerCapabilities {
             resolve_provider: Some(false),
             work_done_progress_options: Default::default(),
         }),
+        semantic_tokens_provider: Some(
+            SemanticTokensOptions {
+                work_done_progress_options: Default::default(),
+                legend: SemanticTokensLegend {
+                    token_types: vec![SemanticTokenType::STRING],
+                    token_modifiers: Vec::new(),
+                },
+                range: Some(false),
+                full: Some(SemanticTokensFullOptions::Bool(true)),
+            }
+            .into(),
+        ),
         ..Default::default()
     }
 }
@@ -144,6 +160,12 @@ impl Server {
                 serde_json::from_value::<DocumentLinkParams>(request.params)
                     .map_err(LspError::from)
                     .and_then(|params| self.document_links(params))
+                    .and_then(json_value)
+            }
+            SemanticTokensFullRequest::METHOD => {
+                serde_json::from_value::<SemanticTokensParams>(request.params)
+                    .map_err(LspError::from)
+                    .and_then(|params| self.semantic_tokens(params))
                     .and_then(json_value)
             }
             method => {
@@ -309,6 +331,54 @@ impl Server {
         Ok(Some(links))
     }
 
+    fn semantic_tokens(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>, LspError> {
+        let (_, source, analysis) = self.document_context(&params.text_document.uri)?;
+        let mut positions = analysis
+            .references
+            .iter()
+            .filter(|reference| {
+                matches!(
+                    reference.syntax,
+                    DocumentReferenceSyntax::Wikilink | DocumentReferenceSyntax::ObsidianEmbed
+                )
+            })
+            .flat_map(|reference| semantic_token_positions(&source, reference))
+            .collect::<Vec<_>>();
+        positions.sort_unstable_by_key(|(position, _)| (position.line, position.character));
+
+        let mut previous = Position::default();
+        let data = positions
+            .into_iter()
+            .map(|(position, length)| {
+                let delta_line = position.line - previous.line;
+                let delta_start = if delta_line == 0 {
+                    position.character - previous.character
+                } else {
+                    position.character
+                };
+                previous = position;
+                SemanticToken {
+                    delta_line,
+                    delta_start,
+                    length,
+                    token_type: 0,
+                    token_modifiers_bitset: 0,
+                }
+            })
+            .collect();
+
+        Ok(Some(
+            SemanticTokens {
+                result_id: None,
+                data,
+            }
+            .into(),
+        ))
+    }
+
     fn document_context(&self, uri: &Uri) -> Result<(String, String, DocumentAnalysis), LspError> {
         if let Some(document) = self.open_documents.get(uri) {
             return Ok((
@@ -432,6 +502,44 @@ fn span_range(source: &str, reference: &DocumentReference) -> Range {
     )
 }
 
+fn semantic_token_positions(source: &str, reference: &DocumentReference) -> Vec<(Position, u32)> {
+    let start = reference.span.start_byte.min(source.len());
+    let end = reference.span.end_byte.min(source.len());
+    if start >= end {
+        return Vec::new();
+    }
+
+    let mut positions = Vec::new();
+    let mut segment_start = start;
+    for (relative, character) in source[start..end].char_indices() {
+        if character != '\n' {
+            continue;
+        }
+        let segment_end = start + relative;
+        push_semantic_token_position(source, segment_start, segment_end, &mut positions);
+        segment_start = segment_end + character.len_utf8();
+    }
+    push_semantic_token_position(source, segment_start, end, &mut positions);
+    positions
+}
+
+fn push_semantic_token_position(
+    source: &str,
+    start: usize,
+    mut end: usize,
+    positions: &mut Vec<(Position, u32)>,
+) {
+    if source[start..end].ends_with('\r') {
+        end -= 1;
+    }
+    if start < end {
+        positions.push((
+            position_at_offset(source, start),
+            source[start..end].encode_utf16().count() as u32,
+        ));
+    }
+}
+
 fn offset_at_position(source: &str, position: Position) -> Option<usize> {
     let mut line_start = 0;
     for _ in 0..position.line {
@@ -491,7 +599,7 @@ mod tests {
     use std::time::Duration;
 
     use lsp_server::{Connection, Message, Notification, Request, RequestId};
-    use lsp_types::{DocumentLink, GotoDefinitionResponse, Position, Uri};
+    use lsp_types::{DocumentLink, GotoDefinitionResponse, Position, SemanticTokensResult, Uri};
     use serde_json::json;
 
     use super::{Server, offset_at_position, position_at_offset, run_connection};
@@ -540,6 +648,11 @@ mod tests {
             capabilities["documentLinkProvider"]["resolveProvider"],
             false
         );
+        assert_eq!(
+            capabilities["semanticTokensProvider"]["legend"]["tokenTypes"],
+            json!(["string"])
+        );
+        assert_eq!(capabilities["semanticTokensProvider"]["full"], true);
 
         send_notification(&client_connection, "initialized", json!({}));
         let opened = "---\ntitle: LSP test\nowners:\n  - members/sam-rivera\n---\nSee [[members/sam-rivera|Sam]].\n";
@@ -613,6 +726,23 @@ mod tests {
             locations[0].origin_selection_range.unwrap().start.character,
             9
         );
+
+        send_request(
+            &client_connection,
+            5,
+            "textDocument/semanticTokens/full",
+            json!({ "textDocument": { "uri": source_uri } }),
+        );
+        let tokens: Option<SemanticTokensResult> =
+            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
+        let SemanticTokensResult::Tokens(tokens) = tokens.unwrap() else {
+            panic!("expected full semantic tokens");
+        };
+        assert_eq!(tokens.data.len(), 1);
+        assert_eq!(tokens.data[0].delta_line, 4);
+        assert_eq!(tokens.data[0].delta_start, 9);
+        assert_eq!(tokens.data[0].length, 17);
+        assert_eq!(tokens.data[0].token_type, 0);
 
         send_request(&client_connection, 8, "textDocument/definition", json!({}));
         let malformed = receive_raw_response(&client_connection);
@@ -735,6 +865,17 @@ mod tests {
                 .as_ref()
                 .is_some_and(|target| target.as_str().starts_with("https://forma.choral.io"))
         }));
+
+        let tokens = server
+            .semantic_tokens(
+                serde_json::from_value(json!({ "textDocument": { "uri": source_uri } })).unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        let SemanticTokensResult::Tokens(tokens) = tokens else {
+            panic!("expected full semantic tokens");
+        };
+        assert_eq!(tokens.data.len(), 4);
 
         let image_document = file_uri(root.join("notes/markdown-reader.md"));
         let image_links = server
