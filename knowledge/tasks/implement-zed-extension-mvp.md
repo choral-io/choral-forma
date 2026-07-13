@@ -29,6 +29,7 @@ relatedTo:
     - "planning/forma-lsp-zed-navigation-execution-plan"
     - "tasks/implement-forma-lsp-foundation"
     - "tasks/validate-zed-link-navigation"
+    - "tasks/refine-zed-link-navigation-and-highlighting"
 
 reportedBy:
 affectedArea: Zed extension
