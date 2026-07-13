@@ -2,7 +2,7 @@
 scope: project
 type: technical-assessment
 title: Forma LSP And Zed Navigation Validation — 2026-07-13
-summary: Records automated correctness, performance, resource, and packaging evidence for the first Forma LSP and Zed navigation slice, with real Zed interaction still pending.
+summary: Records automated and real-editor correctness, performance, resource, packaging, navigation, and wikilink highlighting evidence for the first Forma LSP and Zed slice.
 owners:
     - "members/tiscs"
 tags:
@@ -27,7 +27,7 @@ The editor-neutral LSP foundation is complete and passes the automated delivery 
 
 The measured implementation stays inside the accepted interaction budgets through the 5,000-entry fixture. Warm Definition p95 remains below 0.2 ms, connected RSS remains below 33 MiB, and the server performs no intentional idle CPU work on the measured host.
 
-Real Zed interaction is not yet recorded. The local Dev Extension must still be installed and exercised in source mode before [[tasks/validate-zed-link-navigation]] can move to `done`.
+The local Zed Dev Extension was built, installed, cold-started, restarted, and exercised in `examples/getting-started-workspace/`. Navigation, unsaved overlays, ambiguity handling, restart recovery, and theme-aligned wikilink target highlighting all passed. [[tasks/validate-zed-link-navigation]] is complete.
 
 ## Validated Behavior
 
@@ -39,10 +39,29 @@ Automated Core and protocol tests cover:
 - unresolved targets, multiple ambiguity candidates, external links, and local non-Markdown resources;
 - UTF-16 positions with Chinese text and surrogate-pair emoji;
 - full-text `didOpen`, `didChange`, `didSave`, and `didClose` overlays;
+- full-document semantic tokens for wikilink and embed targets, with UTF-16 ranges;
 - workspace-boundary rejection, malformed-request recovery, shutdown, exit, and process restart;
 - one document analysis per overlay version and snapshot reuse across warm requests.
 
 The persistent validation fixture is `examples/getting-started-workspace/tasks/validate-editor-link-navigation.md`. The example workspace passes `forma check --json` with no diagnostics.
+
+## Real Zed Evidence
+
+The Dev Extension compiled to WASM and installed locally in Zed. After a full editor restart, Zed resolved the preinstalled matching `0.1.0-alpha.17` CLI from the global mise installation, started it with the example workspace root, and reported no Forma LSP errors. Unrelated edit-prediction requests continued to report HTTP 403 and are not caused by Forma.
+
+Direct source-mode checks passed for:
+
+- both values in the multi-owner frontmatter list;
+- relative Markdown links and heading fragments;
+- ordinary, aliased, and heading-fragment wikilinks;
+- Obsidian-style embeds;
+- ordinary frontmatter strings and fenced examples remaining inert;
+- an unsaved wikilink resolving immediately through the document overlay;
+- an unresolved unsaved reference remaining in place;
+- an ambiguous basename opening Zed's Definitions multibuffer with both candidates;
+- navigation continuing after `editor: restart language server` and after a full Zed restart.
+
+Zed's native Markdown Tree-sitter query classifies wikilink targets as `text.literal.markup`, which the active theme renders like emphasized link text. Forma now returns standard LSP `string` semantic tokens only for the target portion of wikilinks and embeds. With Markdown semantic tokens in `combined` mode, the target adopts the active theme's link-target/string style while aliases retain the Markdown link-text style. The example workspace records this setting in `.zed/settings.json`; the extension README documents it for other workspaces.
 
 ## Performance Evidence
 
@@ -74,14 +93,8 @@ Generated JSON evidence remains under `target/performance/` and is intentionally
 
 The aggregate check includes Rust formatting, compilation and workspace tests; TypeScript checks, lint, builds and tests; release-version normalization tests; and the Zed WASM check. `CI=true` supplies pnpm's required non-interactive purge behavior in the Agent environment and does not relax the project checks.
 
-## Remaining Editor Gate
+## Residual Zed Constraints
 
-Install `extensions/zed/` as a local Zed Dev Extension while a worktree-matching `forma` binary is available through the Zed worktree environment. Then verify:
-
-1. Markdown, wikilink, alias, fragment, embed, and multi-owner frontmatter navigation.
-2. Ordinary string and unresolved values do not open an arbitrary target.
-3. Ambiguous Definition offers all candidates.
-4. Unsaved source changes participate immediately.
-5. Save-triggered scope rebuild and server restart recover without material protocol errors.
-
-No Zed registry publication, CLI acquisition, VS Code migration, Preview, or Forma release belongs to this validation slice.
+- Zed keeps semantic tokens off by default. Workspaces must enable `combined` mode for Markdown to receive Forma's theme-aligned wikilink target styling.
+- The current Zed extension manifest registers Forma for the built-in Markdown language. It cannot express an activation condition based on the presence of `.forma.md`, so Zed may ask the adapter to start in non-Forma Markdown worktrees. Workspace-aware activation or a graceful no-workspace path remains an MVP design concern.
+- The Dev Extension requires a matching preinstalled CLI. CLI acquisition, registry publication, Preview, and additional project UI remain outside this validation slice.

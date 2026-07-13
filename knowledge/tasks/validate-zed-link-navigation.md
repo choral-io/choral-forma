@@ -2,12 +2,12 @@
 scope: project
 type: task
 title: Validate Zed link navigation
-summary: Attach the reusable Forma language server to built-in Markdown in a Zed Dev Extension and validate real source-mode navigation with a preinstalled matching CLI.
+summary: Validate source navigation and theme-aligned wikilink target highlighting through a reusable Forma language server and Zed Dev Extension.
 priority: P2
 value: M
 module: app
 effort: S
-status: doing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -42,6 +42,7 @@ Prove that a locally installed Zed extension can start a preinstalled matching `
 - Register `forma lsp` for built-in Markdown.
 - Find `forma` through the Zed worktree environment.
 - Validate Definition and DocumentLink in `examples/getting-started-workspace/`.
+- Correct wikilink and embed target styling through theme-derived semantic tokens.
 - Record protocol, latency, idle-resource, invalidation, and restart behavior.
 
 ## Out Of Scope
@@ -60,10 +61,11 @@ Prove that a locally installed Zed extension can start a preinstalled matching `
 - Unsaved source changes participate in navigation.
 - Configuration and controlled-scope changes refresh safely, and Zed recovers after the server exits.
 - Zed protocol logs contain no material errors and the measured navigation budgets pass.
+- Wikilink and embed targets no longer inherit Markdown emphasis styling when semantic tokens are enabled, while alias text remains theme-native.
 - No Preview, CLI management, registry publication, or duplicated Core semantics are introduced.
 
 ## Current Validation State
 
-Automated protocol, semantic, fixture, WASM build, invalidation, restart, and performance checks pass. The Dev Extension remains intentionally unpublished and requires a matching preinstalled `forma` from the worktree environment.
+Automated protocol, semantic-token, fixture, WASM build, invalidation, restart, and performance checks pass. The Dev Extension remains intentionally unpublished and requires a matching preinstalled `forma` from the worktree environment.
 
-The only remaining acceptance gate is installation of the local Dev Extension in Zed and direct source-mode interaction verification. This task must remain `doing` until that editor evidence is recorded in [[discovery/forma-lsp-zed-navigation-validation-2026-07-13]].
+Real Zed interaction also passes: Markdown links, fragments, wikilinks, aliases, embeds, multi-owner frontmatter, inert values, unsaved overlays, unresolved references, ambiguity candidates, language-server restart, and full editor restart were exercised against the getting-started workspace. Markdown `combined` semantic tokens produce theme-aligned target styling without replacing Zed's native Markdown grammar. Evidence and residual Zed constraints are recorded in [[discovery/forma-lsp-zed-navigation-validation-2026-07-13]].

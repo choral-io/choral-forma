@@ -76,10 +76,14 @@ Zed is an important editor target, but it should follow the first VS Code adapte
 
 ## Relationship Notes
 
-The VS Code MVP baseline is now published. The first Zed work is split into [[tasks/implement-forma-lsp-foundation]] and [[tasks/validate-zed-link-navigation]]. This umbrella task remains in backlog until that focused navigation validation establishes which additional Zed capabilities are feasible and valuable.
+The VS Code MVP baseline is now published. [[tasks/implement-forma-lsp-foundation]] and [[tasks/validate-zed-link-navigation]] establish that Zed can reuse Core-owned navigation, unsaved overlays, ambiguity candidates, and semantic-token-based wikilink target styling through a thin adapter.
+
+The validation also exposes two MVP constraints: the language-server manifest registers against all built-in Markdown worktrees rather than only roots containing `.forma.md`, and Zed keeps semantic tokens disabled unless the user enables them for Markdown. The umbrella task remains in backlog until its remaining workspace lifecycle, diagnostics, CLI management, and View scope is refined around the Zed APIs that actually exist.
 
 ## Open Questions
 
 - Which workspace status and diagnostic experiences remain useful after native navigation is available?
 - Does Zed expose a stable Preview or project UI extension point that can represent Forma Views without creating a parallel renderer?
 - When should Zed CLI acquisition and release-aligned version management follow the preinstalled-CLI validation?
+- How should the extension avoid noisy startup attempts in non-Forma Markdown worktrees when the manifest cannot express a `.forma.md` activation condition?
+- Can a future Zed API let an LSP extension enable its own semantic-token defaults without requiring a workspace or user setting?
