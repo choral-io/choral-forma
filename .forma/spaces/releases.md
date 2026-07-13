@@ -49,6 +49,8 @@ schema:
 display:
     order: 95
 description: Release scope, validation, rollout, and follow-up records.
+guidelines:
+    - knowledge/guidelines/release-execution-and-verification.md
 include:
     - "knowledge/releases/**/*.md"
 create:

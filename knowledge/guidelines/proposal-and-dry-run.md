@@ -153,6 +153,7 @@ A proposal should include source evidence, the proposed canonical target, review
 #### Release Evidence Or Cutline Change
 
 - Inspect the release record and related task or validation evidence first.
+- For release candidate gates, tag publication, published-asset verification, and closure evidence, follow [[guidelines/release-execution-and-verification]].
 - State whether the user asked for evaluation, release recommendation, record update, tag/push action, or all of them.
 - Treat release readiness, cutline, tag movement, rollout status, and validation history changes as high risk.
 - Require confirmation before writing release records unless the user explicitly requested that exact update.

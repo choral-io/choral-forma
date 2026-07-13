@@ -66,6 +66,7 @@ This repository uses Forma-managed workspace runtime in the repository Markdown 
     - `cargo run -q -p forma-cli -- config inspect --json`
     - `cargo run -q -p forma-cli -- workspace health --json`
 - Before task, review, proposal, or shared project content write operations, read configured guideline files declared in `.forma.md`.
+- Before release version, tag, GitHub Release, published-asset verification, or post-release evidence operations, inspect the target release and follow the configured Releases space guideline. Verify the exact candidate commit through its required local and main CI gates; never create or move a tag to bypass a failed gate.
 - Use the project-local `forma-cli` skill for:
     - workspace health checks;
     - task list/inspect and board review;

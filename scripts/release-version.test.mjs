@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { expectedReleaseAssetNames } from "./release-verification.mjs";
 import {
     assertReleaseVersion,
     cargoLockPackageVersions,
@@ -227,6 +228,11 @@ test("publishes standalone editor-managed binaries alongside release archives", 
     });
     assert.equal(publishedFiles.length, 20);
     assertUnique(publishedFiles, "standalone release files");
+    assert.deepEqual(
+        [...publishedFiles, "forma-1.2.3.vsix", "forma-1.2.3.vsix.sha256"].sort(),
+        expectedReleaseAssetNames("1.2.3"),
+        "release workflow assets and post-release verification inventory must stay aligned",
+    );
     assert.match(releaseWorkflow, /dist-release\/\$\{\{ matrix\.managed_binary \}\}\.sha256/u);
     assert.match(releaseWorkflow, /dist-release\/forma-\$\{\{ matrix\.asset \}\}\.\$\{\{ matrix\.archive \}\}/u);
     assert.match(
