@@ -4,7 +4,9 @@ Forma for VS Code keeps repository Markdown as the source of truth while adding 
 
 ## Requirements
 
-Install a compatible `forma` binary separately and make it available on the extension host `PATH`, or set the user-level `forma.path` setting to an absolute executable path. The extension never downloads or bundles Forma, and it never executes a binary path supplied by workspace content.
+Forma for VS Code requires a CLI with the same coordinated release version as the extension. It first honors the machine-level `forma.path` setting, then a matching binary managed inside extension storage, and finally `forma` on the Extension Host `PATH`.
+
+When no matching CLI is available, the extension can download the exact release-aligned binary after explicit user confirmation. The download is checksum-verified, stored in a versioned extension directory, and does not modify `PATH` or overwrite an externally managed binary. The extension never executes a binary path supplied by workspace content.
 
 By default, each VS Code Workspace Folder uses its root `.forma.md`. For a monorepo, set the resource-scoped `forma.workspaceConfig` setting to a Workspace Folder-relative main file such as `docs/.forma.md`; that file's parent directory becomes the Forma workspace root. Absolute paths, parent traversal, backslashes, and alternate filenames are rejected.
 
@@ -23,10 +25,10 @@ Download the `.vsix` asset from the matching GitHub prerelease, then run **Exten
 - follows VS Code light, dark, high-contrast, font, focus, and reduced-motion settings;
 - shows an intentional deferred state for graph views.
 
-The extension runs as a workspace extension, so the Forma binary and workspace files remain colocated in local or remote extension hosts. Local workspaces are the current internal release gate; individual remote environments are not yet claimed as fully validated.
+The extension runs as a workspace extension, so the Forma binary, managed storage, and workspace files remain colocated in local or remote extension hosts. A Remote host must either reach the matching GitHub Release or provide Forma through `forma.path` or its own `PATH`. Local workspaces are the current internal release gate; individual remote environments are not yet claimed as fully validated.
 
 ## Trust and troubleshooting
 
-In Restricted Mode the extension does not execute Forma. Trust the workspace to enable discovery, checks, navigation, and previews. Use **Forma: Open Output** for bounded command diagnostics. A missing binary is reported as `Forma: CLI not found` without preventing extension activation.
+In Restricted Mode the extension neither downloads nor executes Forma. Trust the workspace to enable CLI installation, discovery, checks, navigation, and previews. Use **Forma: Open Output** for bounded command diagnostics. Missing and incompatible binaries are reported without preventing extension activation.
 
 View source always opens in the normal Markdown editor. Forma uses VS Code's native Markdown Preview, which remains read-only and refreshes after saved changes.

@@ -15,7 +15,13 @@ import type {
 import * as vscode from "vscode";
 
 import { DocumentInspectCache } from "./document-inspect-cache.ts";
-import { FormaClient, resolveFormaCommand, runProcess } from "./forma-client.ts";
+import { FormaClient, formatFormaError, runProcess } from "./forma-client.ts";
+import {
+    formaCommandSourceLabel,
+    formatFormaCommandProbe,
+    resolveRuntimeFormaCommand,
+} from "./forma-command-resolution.ts";
+import type { ManagedCliStorage } from "./managed-cli.ts";
 import {
     configuredWorkspace,
     discoverWorkspaceRoots,
@@ -52,7 +58,11 @@ export class FormaRuntime implements vscode.Disposable {
 
     readonly onDidChangeState = this.stateEmitter.event;
 
-    constructor(private readonly output: vscode.OutputChannel) {}
+    constructor(
+        private readonly output: vscode.OutputChannel,
+        private readonly expectedCliVersion: string,
+        private readonly managedCliStorage: ManagedCliStorage,
+    ) {}
 
     get state(): FormaRuntimeState {
         return this.stateValue;
@@ -118,13 +128,7 @@ export class FormaRuntime implements vscode.Disposable {
             }));
             const discovery = await discoverWorkspaceRoots(
                 configured.map(({ workspace }) => workspace),
-                async (path) => {
-                    try {
-                        return (await stat(path)).isFile();
-                    } catch {
-                        return false;
-                    }
-                },
+                isFile,
             );
             this.roots = discovery.roots;
             for (const root of this.scopes.keys()) {
@@ -150,19 +154,38 @@ export class FormaRuntime implements vscode.Disposable {
             const configuration = vscode.workspace.getConfiguration("forma");
             const explicitPath = configuration.inspect<string>("path")?.globalValue;
             const timeoutMs = configuration.get<number>("commandTimeout", 15_000);
-            const client = new FormaClient(resolveFormaCommand(explicitPath), runProcess, timeoutMs);
+            const resolution = await resolveRuntimeFormaCommand(
+                explicitPath,
+                this.managedCliStorage,
+                this.expectedCliVersion,
+                isFile,
+            );
+            const client = new FormaClient(resolution.command, this.expectedCliVersion, runProcess, timeoutMs);
             this.client = client;
             const probe = await client.probe(controller.signal);
             if (isAborted(controller)) return;
+            this.output.appendLine(
+                formatFormaCommandProbe(
+                    resolution,
+                    this.expectedCliVersion,
+                    probe.kind === "missing" ? "missing" : probe.version,
+                    probe.kind === "missing" ? probe.message : undefined,
+                ),
+            );
+            const source = formaCommandSourceLabel(resolution.source);
             if (probe.kind === "missing") {
-                this.setState({ kind: "binaryMissing", label: "Forma: CLI not found", detail: probe.message });
+                this.setState({
+                    kind: "binaryMissing",
+                    label: "Forma: CLI not found",
+                    detail: `${probe.message} Checked ${source}; Forma for VS Code requires ${this.expectedCliVersion}.`,
+                });
                 return;
             }
             if (probe.kind === "incompatible") {
                 this.setState({
                     kind: "incompatible",
                     label: "Forma: Incompatible version",
-                    detail: `Found ${probe.version}; this extension supports Forma 0.1.0 prereleases.`,
+                    detail: `Found Forma CLI ${probe.version} from ${source}; Forma for VS Code requires ${this.expectedCliVersion}.`,
                 });
                 return;
             }
@@ -364,6 +387,14 @@ function isAborted(controller: AbortController): boolean {
     return controller.signal.aborted;
 }
 
+async function isFile(path: string): Promise<boolean> {
+    try {
+        return (await stat(path)).isFile();
+    } catch {
+        return false;
+    }
+}
+
 function safeError(error: unknown): string {
-    return (error instanceof Error ? error.message : String(error)).replaceAll(/\s+/gu, " ").slice(0, 2_000);
+    return formatFormaError(error);
 }

@@ -18,6 +18,9 @@ suite("Forma for VS Code extension", () => {
     test("registers commands, resolves a wikilink, and keeps view source editable", async () => {
         const commands = await vscode.commands.getCommands(true);
         assert.ok(commands.includes("forma.refreshWorkspace"));
+        assert.ok(commands.includes("forma.installCli"));
+        assert.ok(commands.includes("forma.selectCli"));
+        assert.ok(commands.includes("forma.openCliInstructions"));
         assert.ok(commands.includes("forma.openViewPreviewToSide"));
         assert.ok(commands.includes("forma.openReference"));
 

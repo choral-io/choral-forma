@@ -17,7 +17,6 @@ import type {
 import { RequestScheduler } from "./request-scheduler.ts";
 
 export const supportedSchemaVersion = 1;
-export const supportedFormaVersion = /^0\.1\.0(?:-|$)/u;
 
 export type ProcessRequest = {
     command: string;
@@ -99,15 +98,21 @@ export const runProcess: ProcessRunner = async (request) =>
             clearTimeout(timeout);
             request.signal?.removeEventListener("abort", cancel);
             if (request.signal?.aborted) {
-                reject(new FormaCommandError("Forma command was cancelled.", "cancelled"));
+                reject(new FormaCommandError("Forma command was cancelled.", "cancelled", boundedMessage(stderr)));
                 return;
             }
             if (timedOut) {
-                reject(new FormaCommandError("Forma command timed out.", "timeout"));
+                reject(new FormaCommandError("Forma command timed out.", "timeout", boundedMessage(stderr)));
                 return;
             }
             if (outputExceeded) {
-                reject(new FormaCommandError("Forma command output exceeded the safe limit.", "failed"));
+                reject(
+                    new FormaCommandError(
+                        "Forma command output exceeded the safe limit.",
+                        "failed",
+                        boundedMessage(stderr),
+                    ),
+                );
                 return;
             }
             resolve({ code, stdout, stderr });
@@ -119,6 +124,7 @@ export class FormaClient {
 
     constructor(
         private readonly command: string,
+        private readonly expectedVersion: string,
         private readonly runner: ProcessRunner = runProcess,
         private readonly timeoutMs = 15_000,
         private readonly maxOutputBytes = 1_048_576,
@@ -144,7 +150,7 @@ export class FormaClient {
                 return { kind: "missing", command: this.command, message: boundedMessage(result.stderr) };
             }
             const match = /^forma\s+([^\s]+)$/u.exec(result.stdout.trim());
-            if (!match?.[1] || !supportedFormaVersion.test(match[1])) {
+            if (!match?.[1] || match[1] !== this.expectedVersion) {
                 return { kind: "incompatible", command: this.command, version: match?.[1] ?? "unknown" };
             }
             return { kind: "ready", command: this.command, version: match[1] };
@@ -245,7 +251,11 @@ export class FormaClient {
         try {
             value = JSON.parse(result.stdout);
         } catch {
-            throw new FormaCommandError(`Forma ${operation} returned invalid JSON.`, "invalidJson");
+            throw new FormaCommandError(
+                `Forma ${operation} returned invalid JSON.`,
+                "invalidJson",
+                boundedMessage(result.stderr),
+            );
         }
         if (
             !isOperationResult(value) ||
@@ -255,6 +265,7 @@ export class FormaClient {
             throw new FormaCommandError(
                 `Forma ${operation} returned an incompatible operation schema.`,
                 "incompatibleSchema",
+                boundedMessage(result.stderr),
             );
         }
         return value as T;
@@ -284,6 +295,13 @@ export function resolveFormaCommand(explicitUserPath: string | undefined): strin
         throw new Error("The user-level forma.path setting must be an absolute path.");
     }
     return configured;
+}
+
+export function formatFormaError(error: unknown): string {
+    if (error instanceof FormaCommandError && error.stderr) {
+        return `${error.message} CLI stderr: ${error.stderr}`.replaceAll(/\s+/gu, " ").slice(0, 2_000);
+    }
+    return (error instanceof Error ? error.message : String(error)).replaceAll(/\s+/gu, " ").slice(0, 2_000);
 }
 
 function isOperationResult(value: unknown): value is { schemaVersion: number; operation: string } {

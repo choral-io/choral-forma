@@ -36,6 +36,14 @@ test("keeps the executable path in machine-level settings", () => {
     assert.equal(manifest.contributes.configuration.properties["forma.path"].scope, "machine");
 });
 
+test("contributes explicit managed CLI recovery commands", () => {
+    const commands = manifest.contributes.commands.map(({ command }) => command);
+    assert.ok(commands.includes("forma.installCli"));
+    assert.ok(commands.includes("forma.selectCli"));
+    assert.ok(commands.includes("forma.openCliInstructions"));
+    assert.match(manifest.capabilities.untrustedWorkspaces.description, /does not download or execute/u);
+});
+
 test("keeps the main workspace configuration resource-scoped", () => {
     const setting = manifest.contributes.configuration.properties["forma.workspaceConfig"];
     assert.equal(setting.scope, "resource");

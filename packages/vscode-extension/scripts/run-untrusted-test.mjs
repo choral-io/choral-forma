@@ -24,10 +24,12 @@ const formaTestBin = resolve(
 
 try {
     await cp(resolve(extensionRoot, "test-fixtures/basic"), workspace, { recursive: true });
-    const executable = await downloadAndUnzipVSCode({
-        cachePath: resolve(extensionRoot, ".vscode-test"),
-        version: "1.110.0",
-    });
+    const executable =
+        process.env.CODE_BIN ??
+        (await downloadAndUnzipVSCode({
+            cachePath: resolve(extensionRoot, ".vscode-test"),
+            version: "1.110.0",
+        }));
     const options = JSON.stringify({
         colorDefault: true,
         files: [testFile],

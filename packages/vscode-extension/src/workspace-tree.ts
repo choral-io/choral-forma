@@ -1,8 +1,10 @@
 import type { DashboardEntrySummary } from "@choral-forma/shared";
 import * as vscode from "vscode";
 
+import { formatFormaError } from "./forma-client.ts";
 import { GenerationRefresh } from "./generation-refresh.ts";
 import type { FormaRuntime } from "./runtime.ts";
+import { workspaceExplorerMessage } from "./workspace-tree-message.ts";
 import {
     type FormaTreeNode,
     treeNodeCommandId,
@@ -46,15 +48,21 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
 
     async refresh(): Promise<void> {
         await this.refreshes.run(this.runtime.analysisGeneration, async () => {
+            let loadFailed = false;
             try {
                 this.explorer = await this.runtime.workspaceExplorer();
                 this.termPages.clear();
             } catch (error) {
+                loadFailed = true;
                 this.explorer = undefined;
                 this.termPages.clear();
-                this.runtime.logResult({ explorerError: error instanceof Error ? error.message : String(error) });
+                this.runtime.logResult({ explorerError: formatFormaError(error) });
             }
-            this.treeView.message = this.explorer ? "" : "No active Forma workspace.";
+            this.treeView.message = workspaceExplorerMessage(
+                Boolean(this.explorer),
+                loadFailed,
+                this.runtime.state.kind,
+            );
             this.changed.fire(undefined);
         });
     }
@@ -158,7 +166,7 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
                 ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
             });
         } catch (error) {
-            this.runtime.logResult({ explorerEntriesError: error instanceof Error ? error.message : String(error) });
+            this.runtime.logResult({ explorerEntriesError: formatFormaError(error) });
         }
     }
 

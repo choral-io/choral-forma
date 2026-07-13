@@ -1,10 +1,10 @@
 # VS Code API compatibility
 
-Alpha 15 declares `engines.vscode: ^1.110.0`.
+The extension declares `engines.vscode: ^1.110.0`.
 
-The extension uses stable APIs available by VS Code 1.110: workspace folders and filesystem watchers, Workspace Trust (`workspace.isTrusted` and `onDidGrantWorkspaceTrust`), status bars, output channels, Markdown definition/hover/document-link providers, diagnostics, an Explorer-contributed Tree View, native Markdown Preview contributions, theme tokens, and `extensionKind: ["workspace"]` manifest placement.
+The extension uses stable APIs available by VS Code 1.110: workspace folders and filesystem watchers, Workspace Trust (`workspace.isTrusted` and `onDidGrantWorkspaceTrust`), status bars, output channels, progress and file dialogs, extension global storage, Markdown definition/hover/document-link providers, diagnostics, an Explorer-contributed Tree View, native Markdown Preview contributions, theme tokens, and `extensionKind: ["workspace"]` manifest placement.
 
-No API introduced after 1.110 is required. The runtime bundle remains restricted to Node 18-compatible syntax, a conservative subset of the declared extension-host floor. Version 1.110 is an intentional product support baseline: Alpha 15 does not carry compatibility work for earlier VS Code releases. The release validates both 1.110 and current stable when the environment permits.
+No API introduced after 1.110 is required. The runtime bundle remains restricted to Node 18-compatible syntax, a conservative subset of the declared extension-host floor. Version 1.110 is an intentional product support baseline; the extension does not carry compatibility work for earlier VS Code releases. The release validates both 1.110 and current stable when the environment permits.
 
 References:
 

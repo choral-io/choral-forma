@@ -43,7 +43,7 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "Source files remain editable, but Forma for VS Code does not execute the Forma binary until the workspace is trusted.",
+      "description": "Source files remain editable, but Forma for VS Code does not download or execute the Forma binary until the workspace is trusted.",
       "restrictedConfigurations": [
         "forma.path"
       ]
@@ -81,6 +81,18 @@
         "title": "Forma: Open Output"
       },
       {
+        "command": "forma.installCli",
+        "title": "Forma: Install Matching CLI"
+      },
+      {
+        "command": "forma.selectCli",
+        "title": "Forma: Choose Existing CLI"
+      },
+      {
+        "command": "forma.openCliInstructions",
+        "title": "Forma: Open CLI Installation Instructions"
+      },
+      {
         "command": "forma.openViewPreview",
         "title": "Forma: Open View Preview"
       },
@@ -105,7 +117,7 @@
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "Absolute user-level path to a preinstalled Forma binary. When empty, the extension uses forma from PATH."
+          "description": "Absolute machine-level path to an externally managed Forma binary. When empty, the extension prefers its matching managed binary before using forma from PATH."
         },
         "forma.workspaceConfig": {
           "type": "string",

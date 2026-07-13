@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { FormaClient, FormaCommandError, resolveFormaCommand, type ProcessRunner } from "./forma-client.ts";
+import {
+    FormaClient,
+    FormaCommandError,
+    formatFormaError,
+    resolveFormaCommand,
+    type ProcessRunner,
+} from "./forma-client.ts";
 
 function runner(result: { code: number; stdout: string; stderr?: string }): ProcessRunner {
     return vi.fn(async () => ({ code: result.code, stdout: result.stdout, stderr: result.stderr ?? "" }));
@@ -16,22 +22,27 @@ describe("resolveFormaCommand", () => {
 });
 
 describe("FormaClient", () => {
-    it("probes compatible and incompatible versions", async () => {
+    it("requires the CLI version to exactly match the extension version", async () => {
         await expect(
-            new FormaClient("forma", runner({ code: 0, stdout: "forma 0.1.0-alpha.1\n" })).probe(),
+            new FormaClient("forma", "0.1.0-alpha.16", runner({ code: 0, stdout: "forma 0.1.0-alpha.16\n" })).probe(),
         ).resolves.toMatchObject({
             kind: "ready",
         });
-        await expect(new FormaClient("forma", runner({ code: 0, stdout: "forma 0.2.0\n" })).probe()).resolves.toEqual({
-            kind: "incompatible",
-            command: "forma",
-            version: "0.2.0",
-        });
+        for (const version of ["0.1.0-alpha.15", "0.1.0-alpha.17", "0.2.0"]) {
+            await expect(
+                new FormaClient("forma", "0.1.0-alpha.16", runner({ code: 0, stdout: `forma ${version}\n` })).probe(),
+            ).resolves.toEqual({
+                kind: "incompatible",
+                command: "forma",
+                version,
+            });
+        }
     });
 
     it("validates JSON operation identity", async () => {
         const client = new FormaClient(
             "forma",
+            "0.1.0-alpha.16",
             runner({ code: 0, stdout: JSON.stringify({ schemaVersion: 1, operation: "check", status: "passed" }) }),
         );
         await expect(client.check("/workspace")).resolves.toMatchObject({ operation: "check" });
@@ -46,7 +57,7 @@ describe("FormaClient", () => {
                 stdout: JSON.stringify({ schemaVersion: 1, operation: "check", status: "passed" }),
             };
         });
-        const client = new FormaClient("forma", fake);
+        const client = new FormaClient("forma", "0.1.0-alpha.16", fake);
 
         await Promise.all(Array.from({ length: 10 }, () => client.check("/workspace")));
         expect(fake).toHaveBeenCalledTimes(1);
@@ -54,13 +65,14 @@ describe("FormaClient", () => {
 
     it("rejects invalid JSON and unknown schemas", async () => {
         await expect(
-            new FormaClient("forma", runner({ code: 0, stdout: "not-json" })).check("/workspace"),
+            new FormaClient("forma", "0.1.0-alpha.16", runner({ code: 0, stdout: "not-json" })).check("/workspace"),
         ).rejects.toMatchObject({
             kind: "invalidJson",
         });
         await expect(
             new FormaClient(
                 "forma",
+                "0.1.0-alpha.16",
                 runner({ code: 0, stdout: JSON.stringify({ schemaVersion: 2, operation: "check", status: "passed" }) }),
             ).check("/workspace"),
         ).rejects.toBeInstanceOf(FormaCommandError);
@@ -70,18 +82,40 @@ describe("FormaClient", () => {
         const missing: ProcessRunner = vi.fn(async () => {
             throw new Error("spawn ENOENT");
         });
-        await expect(new FormaClient("forma", missing).probe()).resolves.toMatchObject({ kind: "missing" });
+        await expect(new FormaClient("forma", "0.1.0-alpha.16", missing).probe()).resolves.toMatchObject({
+            kind: "missing",
+        });
 
         await expect(
-            new FormaClient("forma", runner({ code: 2, stdout: "", stderr: "bounded failure" })).check("/workspace"),
+            new FormaClient(
+                "forma",
+                "0.1.0-alpha.16",
+                runner({ code: 2, stdout: "", stderr: "bounded failure" }),
+            ).check("/workspace"),
         ).rejects.toMatchObject({ kind: "failed", stderr: "bounded failure" });
 
         for (const kind of ["timeout", "cancelled"] as const) {
             const failing: ProcessRunner = vi.fn(async () => {
                 throw new FormaCommandError(kind, kind);
             });
-            await expect(new FormaClient("forma", failing).check("/workspace")).rejects.toMatchObject({ kind });
+            await expect(new FormaClient("forma", "0.1.0-alpha.16", failing).check("/workspace")).rejects.toMatchObject(
+                { kind },
+            );
         }
+    });
+
+    it("formats bounded CLI stderr for command diagnostics", () => {
+        const error = new FormaCommandError(
+            "Forma workspace.explorer failed with exit code 2.",
+            "failed",
+            `unknown command\n${"x".repeat(2_500)}`,
+        );
+
+        const diagnostic = formatFormaError(error);
+        expect(diagnostic).toContain("Forma workspace.explorer failed with exit code 2.");
+        expect(diagnostic).toContain("CLI stderr: unknown command");
+        expect(diagnostic).not.toContain("\n");
+        expect(diagnostic.length).toBeLessThanOrEqual(2_000);
     });
 
     it("passes workspace and structured JSON arguments without logging the environment", async () => {
@@ -89,7 +123,7 @@ describe("FormaClient", () => {
             code: 0,
             stdout: JSON.stringify({ schemaVersion: 1, operation: "check", status: "passed" }),
         });
-        await new FormaClient("/bin/forma", fake).check("/workspace");
+        await new FormaClient("/bin/forma", "0.1.0-alpha.16", fake).check("/workspace");
         expect(fake).toHaveBeenCalledWith(
             expect.objectContaining({
                 command: "/bin/forma",
@@ -119,7 +153,7 @@ describe("FormaClient", () => {
                             : "reference.resolve";
             return { code: 0, stderr: "", stdout: JSON.stringify({ schemaVersion: 1, operation, status: "passed" }) };
         });
-        const client = new FormaClient("forma", fake);
+        const client = new FormaClient("forma", "0.1.0-alpha.16", fake);
         await client.configInspect("/workspace");
         await client.workspaceDashboard("/workspace");
         await client.workspaceExplorer("/workspace");
