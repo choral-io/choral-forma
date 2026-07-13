@@ -150,18 +150,109 @@ test("passes the built Forma binary to Extension Host tests", () => {
 
 test("publishes standalone editor-managed binaries alongside release archives", () => {
     const releaseWorkflow = workflows[1];
-    const managedBinaries = [
-        "forma-linux-arm64",
-        "forma-linux-x64",
-        "forma-macos-arm64",
-        "forma-macos-x64",
-        "forma-windows-x64.exe",
+    const expectedRows = [
+        {
+            archive: "tar.gz",
+            asset: "linux-arm64",
+            binary: "forma",
+            managed_binary: "forma-linux-arm64",
+            os: "ubuntu-24.04-arm",
+            target: "aarch64-unknown-linux-gnu",
+        },
+        {
+            archive: "tar.gz",
+            asset: "linux-x64",
+            binary: "forma",
+            managed_binary: "forma-linux-x64",
+            os: "ubuntu-24.04",
+            target: "x86_64-unknown-linux-gnu",
+        },
+        {
+            archive: "tar.gz",
+            asset: "macos-arm64",
+            binary: "forma",
+            managed_binary: "forma-macos-arm64",
+            os: "macos-26",
+            target: "aarch64-apple-darwin",
+        },
+        {
+            archive: "tar.gz",
+            asset: "macos-x64",
+            binary: "forma",
+            managed_binary: "forma-macos-x64",
+            os: "macos-26-intel",
+            target: "x86_64-apple-darwin",
+        },
+        {
+            archive: "zip",
+            asset: "windows-x64",
+            binary: "forma.exe",
+            managed_binary: "forma-windows-x64.exe",
+            os: "windows-2025",
+            target: "x86_64-pc-windows-msvc",
+        },
     ];
+    const rows = releaseBuildMatrix(releaseWorkflow).map(({ archive, asset, binary, managed_binary, os, target }) => ({
+        archive,
+        asset,
+        binary,
+        managed_binary,
+        os,
+        target,
+    }));
 
-    for (const binary of managedBinaries) {
-        assert.match(releaseWorkflow, new RegExp(`managed_binary: ${binary.replace(".", "\\.")}`, "u"));
-    }
+    assert.deepEqual(rows, expectedRows, "every supported platform must map to its exact Rust target and assets");
+    assertUnique(
+        rows.map(({ asset }) => asset),
+        "release matrix assets",
+    );
+    assertUnique(
+        rows.map(({ target }) => target),
+        "release matrix Rust targets",
+    );
+    assertUnique(
+        rows.map(({ managed_binary }) => managed_binary),
+        "managed CLI assets",
+    );
+
+    const publishedFiles = rows.flatMap(({ archive, asset, managed_binary }) => {
+        const archiveName = `forma-${asset}.${archive}`;
+        return [archiveName, `${archiveName}.sha256`, managed_binary, `${managed_binary}.sha256`];
+    });
+    assert.equal(publishedFiles.length, 20);
+    assertUnique(publishedFiles, "standalone release files");
     assert.match(releaseWorkflow, /dist-release\/\$\{\{ matrix\.managed_binary \}\}\.sha256/u);
     assert.match(releaseWorkflow, /dist-release\/forma-\$\{\{ matrix\.asset \}\}\.\$\{\{ matrix\.archive \}\}/u);
+    assert.match(
+        releaseWorkflow,
+        /name: forma-\$\{\{ matrix\.asset \}\}[\s\S]*?path: \|\n\s+dist-release\/forma-\$\{\{ matrix\.asset \}\}\.\$\{\{ matrix\.archive \}\}\n\s+dist-release\/forma-\$\{\{ matrix\.asset \}\}\.\$\{\{ matrix\.archive \}\}\.sha256\n\s+dist-release\/\$\{\{ matrix\.managed_binary \}\}\n\s+dist-release\/\$\{\{ matrix\.managed_binary \}\}\.sha256/u,
+    );
+    assert.match(
+        releaseWorkflow,
+        /name: forma-vscode[\s\S]*?path: \|\n\s+\$\{\{ env\.VSIX_OUT \}\}\n\s+\$\{\{ env\.VSIX_OUT \}\}\.sha256/u,
+    );
     assert.doesNotMatch(releaseWorkflow, /gh release (?:create|upload)[^\n]*latest/u);
 });
+
+function releaseBuildMatrix(workflow) {
+    const matrix = workflow.match(/\n {6}matrix:\n {8}include:\n(?<body>[\s\S]*?)\n {4}steps:/u)?.groups?.body;
+    assert.ok(matrix, "release workflow should contain a build matrix");
+    const rows = [];
+    for (const line of matrix.split("\n")) {
+        const first = line.match(/^ {10}- ([a-z_]+): (.+)$/u);
+        if (first) {
+            rows.push({ [first[1]]: first[2] });
+            continue;
+        }
+        const field = line.match(/^ {12}([a-z_]+): (.+)$/u);
+        if (field) {
+            assert.ok(rows.length > 0, `matrix field ${field[1]} must belong to a row`);
+            rows.at(-1)[field[1]] = field[2];
+        }
+    }
+    return rows;
+}
+
+function assertUnique(values, label) {
+    assert.equal(new Set(values).size, values.length, `${label} must be unique`);
+}

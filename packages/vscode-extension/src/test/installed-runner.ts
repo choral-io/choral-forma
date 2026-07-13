@@ -81,8 +81,36 @@ export async function run(): Promise<void> {
         assert.ok(uri, `${path} should be discoverable`);
         const document = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(document);
+        assert.ok(
+            !(vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputWebview),
+            `${path} source should be active before opening its preview`,
+        );
+        const existingTabs = new Set(vscode.window.tabGroups.all.flatMap((group) => group.tabs));
         await vscode.commands.executeCommand("forma.openViewPreviewToSide", uri);
+        let preview: vscode.Tab | undefined;
+        const previewOpened = await waitFor(() => {
+            preview = vscode.window.tabGroups.all
+                .flatMap((group) => group.tabs)
+                .find((tab) => !existingTabs.has(tab) && isNativeMarkdownPreview(tab));
+            return preview !== undefined;
+        });
+        assert.equal(previewOpened, true, `${path} should open the native Markdown Preview tab`);
+        assert.ok(preview, `${path} native Markdown Preview tab should be available for cleanup`);
         assert.equal(document.isDirty, false, path);
         assert.ok(document.getText().includes("<!-- forma:content -->"), path);
+        assert.equal(await vscode.window.tabGroups.close(preview), true, `${path} preview should close cleanly`);
     }
+}
+
+function isNativeMarkdownPreview(tab: vscode.Tab): boolean {
+    const input = tab.input;
+    return input instanceof vscode.TabInputWebview && /(?:^|-)markdown\.preview$/u.test(input.viewType);
+}
+
+async function waitFor(predicate: () => boolean): Promise<boolean> {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+        if (predicate()) return true;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return false;
 }

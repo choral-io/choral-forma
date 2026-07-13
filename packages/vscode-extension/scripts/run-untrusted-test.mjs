@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { cp, mkdtemp, rm } from "node:fs/promises";
+import { chmod, cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +15,9 @@ const userData = join(scratch, "user-data");
 const extensions = join(scratch, "extensions");
 const runner = fileURLToPath(new URL("./runner.cjs", import.meta.resolve("@vscode/test-cli")));
 const testFile = resolve(extensionRoot, "dist/test/untrusted.test.cjs");
+const invocationMarker = join(scratch, "forma-was-executed");
+const sentinel = join(scratch, process.platform === "win32" ? "forma-sentinel.cmd" : "forma-sentinel");
+const managedCliRoot = join(userData, "User", "globalStorage", "choral-io.forma", "cli");
 const formaTestBin = resolve(
     extensionRoot,
     "../..",
@@ -24,6 +27,12 @@ const formaTestBin = resolve(
 
 try {
     await cp(resolve(extensionRoot, "test-fixtures/basic"), workspace, { recursive: true });
+    if (process.platform === "win32") {
+        await writeFile(sentinel, `@echo off\r\n> "${invocationMarker}" echo invoked\r\n`);
+    } else {
+        await writeFile(sentinel, `#!/bin/sh\nprintf invoked > '${invocationMarker.replaceAll("'", "'\\''")}'\n`);
+        await chmod(sentinel, 0o755);
+    }
     const executable =
         process.env.VSCODE_EXECUTABLE_PATH ??
         (await downloadAndUnzipVSCode({
@@ -54,6 +63,9 @@ try {
         ],
         createTestEnvironment(process.env, {
             FORMA_TEST_BIN: formaTestBin,
+            FORMA_TEST_INVOCATION_MARKER: invocationMarker,
+            FORMA_TEST_MANAGED_CLI_ROOT: managedCliRoot,
+            FORMA_TEST_SENTINEL: sentinel,
             VSCODE_TEST_OPTIONS: options,
         }),
     );
