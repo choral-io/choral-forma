@@ -424,3 +424,5 @@ The full baseline was rerun outside the filesystem/process sandbox so peak RSS s
 The 25-link document scenario remains one shared inspect load, the refresh-burst tests remain bounded to one active refresh plus at most one necessary follow-up, maximum CLI concurrency remains two, and the extension performs no intentional idle CLI work. The complete dashboard is still approximately 2.62 MiB at 5,000 entries, but the VS Code Explorer no longer consumes it.
 
 The Milestone A stop rule therefore applies. Do not begin the operation-scoped snapshot, shared-index, resource-hygiene stress campaign, VS Code Remote transport evaluation, stdio RPC, or persisted-cache work as part of this goal. Reopen those iterations only when realistic editor traces, Remote measurements, memory-plateau tests, larger or denser workspaces, or a product requirement demonstrates a budget miss. Short-lived Forma CLI operations remain the selected architecture.
+
+The completed cutline is packaged for internal distribution in [[releases/forma-v0.1.0-alpha.16]].

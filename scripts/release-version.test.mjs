@@ -7,6 +7,7 @@ import {
     cargoLockPackageVersions,
     cargoWorkspaceVersion,
     documentReleaseVersions,
+    replaceCargoLockPackageVersions,
     replaceCargoWorkspaceVersion,
     replaceCurrentVersion,
     resolveReleaseTag,
@@ -62,6 +63,21 @@ test("extracts internal workspace versions from Cargo.lock", () => {
         "forma-core": "0.1.0-alpha.16",
         "forma-rpc": "0.1.0-alpha.16",
     });
+});
+
+test("updates only internal workspace versions in Cargo.lock", () => {
+    const lock = `[[package]]\nname = "forma-cli"\nversion = "0.1.0-alpha.15"\n\n[[package]]\nname = "serde"\nversion = "1.0.0"\n\n[[package]]\nname = "forma-core"\nversion = "0.1.0-alpha.15"\n\n[[package]]\nname = "forma-rpc"\nversion = "0.1.0-alpha.15"\n`;
+    const updated = replaceCargoLockPackageVersions(lock, "0.1.0-alpha.16");
+    assert.deepEqual(Object.fromEntries(cargoLockPackageVersions(updated)), {
+        "forma-cli": "0.1.0-alpha.16",
+        "forma-core": "0.1.0-alpha.16",
+        "forma-rpc": "0.1.0-alpha.16",
+    });
+    assert.match(updated, /name = "serde"\nversion = "1\.0\.0"/u);
+    assert.throws(
+        () => replaceCargoLockPackageVersions('[[package]]\nname = "forma-cli"\nversion = "old"\n', "new"),
+        /packages are missing/u,
+    );
 });
 
 test("accepts versions derived from the Cargo workspace source", () => {

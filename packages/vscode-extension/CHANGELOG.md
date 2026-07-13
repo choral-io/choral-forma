@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.16
+
+- Scoped Forma workspace discovery and file watching to the selected `.forma.md`, its imports, and configured content includes, with explicit workspace configuration support.
+- Removed per-link background CLI fan-out by reusing one document analysis result for Preview links and diagnostics.
+- Added bounded, deduplicated extension request scheduling with cancellation, stale-generation protection, and coalesced Explorer refreshes.
+- Reused one loaded workspace configuration per Core operation to reduce repeated import and configuration parsing.
+- Replaced the VS Code Explorer's full dashboard payload with compact taxonomy and View summaries plus paginated, lazy term entries.
+- Added repeatable quick and full performance benchmarks, aligned version automation, and dependency updates.
+
 ## 0.1.0-alpha.15
 
 - Enhanced VS Code's native Markdown Preview with list, table, and kanban View projections while keeping View source editable.

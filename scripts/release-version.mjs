@@ -50,6 +50,24 @@ export function cargoLockPackageVersions(source, packageNames = internalCargoPac
     return versions;
 }
 
+export function replaceCargoLockPackageVersions(source, nextVersion, packageNames = internalCargoPackages) {
+    const wanted = new Set(packageNames);
+    const found = new Set();
+    const blocks = source.split("[[package]]");
+    for (let index = 1; index < blocks.length; index += 1) {
+        const name = /^\s*name\s*=\s*"([^"]+)"\s*$/mu.exec(blocks[index])?.[1];
+        if (!name || !wanted.has(name)) continue;
+        if (!/^\s*version\s*=\s*"[^"]+"\s*$/mu.test(blocks[index])) {
+            throw new Error(`Cargo.lock ${name} package version is missing.`);
+        }
+        blocks[index] = blocks[index].replace(/(^\s*version\s*=\s*")[^"]+("\s*$)/mu, `$1${nextVersion}$2`);
+        found.add(name);
+    }
+    const missing = [...wanted].filter((name) => !found.has(name));
+    if (missing.length > 0) throw new Error(`Cargo.lock packages are missing: ${missing.join(", ")}.`);
+    return blocks.join("[[package]]");
+}
+
 export function documentReleaseVersions(source) {
     const patterns = [
         new RegExp(`\\bv(${releaseVersionSource})\\b`, "gu"),
