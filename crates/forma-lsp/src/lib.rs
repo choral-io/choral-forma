@@ -27,7 +27,7 @@ use lsp_types::{
     TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
     TextDocumentSyncSaveOptions, Unregistration, UnregistrationParams, Uri,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use url::Url;
 
@@ -47,6 +47,8 @@ pub enum LspError {
     InvalidFileUri(String),
     #[error("document is outside the Forma workspace: {0}")]
     OutsideWorkspace(PathBuf),
+    #[error("invalid Forma LSP initialization options: {0}")]
+    InvalidInitializationOptions(String),
 }
 
 #[derive(Debug, Clone)]
@@ -59,7 +61,7 @@ struct OpenDocument {
 struct Server {
     root: PathBuf,
     session: WorkspaceSession,
-    document_link_target_style: DocumentLinkTargetStyle,
+    client_profile: ClientBehaviorProfile,
     open_documents: BTreeMap<Uri, OpenDocument>,
     recently_refreshed_saves: BTreeMap<String, Instant>,
 }
@@ -70,20 +72,69 @@ struct WatchRegistration {
     patterns: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DocumentLinkTargetStyle {
-    StandardFileUri,
-    ZedFileUrl,
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum ClientBehaviorProfile {
+    Generic,
+    Zed,
+    Vscode,
 }
 
-impl DocumentLinkTargetStyle {
+impl ClientBehaviorProfile {
     fn from_client_name(name: Option<&str>) -> Self {
-        if name.is_some_and(|name| name.trim().to_ascii_lowercase().starts_with("zed")) {
-            Self::ZedFileUrl
-        } else {
-            Self::StandardFileUri
+        let name = name.map(str::trim).map(str::to_ascii_lowercase);
+        match name.as_deref() {
+            Some(name) if name.starts_with("zed") => Self::Zed,
+            Some("visual studio code" | "vscode") => Self::Vscode,
+            _ => Self::Generic,
         }
     }
+
+    fn from_initialize_params(params: &InitializeParams) -> Result<Self, LspError> {
+        let inferred = Self::from_client_name(
+            params
+                .client_info
+                .as_ref()
+                .map(|client| client.name.as_str()),
+        );
+        let Some(options) = params
+            .initialization_options
+            .as_ref()
+            .filter(|options| !options.is_null())
+        else {
+            return Ok(inferred);
+        };
+        let options = serde_json::from_value::<FormaInitializationOptions>(options.clone())
+            .map_err(|error| LspError::InvalidInitializationOptions(error.to_string()))?;
+        let Some(requested) = options.client_profile else {
+            return Ok(inferred);
+        };
+        if requested != inferred {
+            return Err(LspError::InvalidInitializationOptions(format!(
+                "client profile `{requested:?}` does not match client `{inferred:?}`"
+            )));
+        }
+        Ok(requested)
+    }
+
+    fn uses_zed_file_urls(self) -> bool {
+        self == Self::Zed
+    }
+
+    fn provides_markdown_fragment_fallback(self) -> bool {
+        self == Self::Zed
+    }
+
+    fn projects_code_example_links(self) -> bool {
+        self == Self::Zed
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FormaInitializationOptions {
+    #[serde(default)]
+    client_profile: Option<ClientBehaviorProfile>,
 }
 
 pub fn run(root: impl AsRef<Path>) -> Result<(), LspError> {
@@ -111,12 +162,20 @@ fn run_connection(connection: Connection, root: PathBuf) -> Result<(), LspError>
         .and_then(|workspace| workspace.did_change_watched_files.as_ref())
         .and_then(|capabilities| capabilities.relative_pattern_support)
         .unwrap_or(false);
-    let document_link_target_style = DocumentLinkTargetStyle::from_client_name(
-        initialize_params
-            .client_info
-            .as_ref()
-            .map(|client| client.name.as_str()),
-    );
+    let client_profile = match ClientBehaviorProfile::from_initialize_params(&initialize_params) {
+        Ok(profile) => profile,
+        Err(error) => {
+            connection
+                .sender
+                .send(Message::Response(Response::new_err(
+                    initialize_id,
+                    ErrorCode::InvalidParams as i32,
+                    error.to_string(),
+                )))
+                .map_err(|_| LspError::ChannelClosed)?;
+            return Ok(());
+        }
+    };
     connection
         .sender
         .send(Message::Response(Response::new_ok(
@@ -131,7 +190,7 @@ fn run_connection(connection: Connection, root: PathBuf) -> Result<(), LspError>
         )))
         .map_err(|_| LspError::ChannelClosed)?;
 
-    let mut server = Server::new_with_document_link_target_style(root, document_link_target_style)?;
+    let mut server = Server::new_with_client_profile(root, client_profile)?;
     let mut registered_watchers = None;
     let mut next_request_id = 10_000;
     let mut initialized = false;
@@ -283,17 +342,17 @@ fn server_capabilities() -> ServerCapabilities {
 impl Server {
     #[cfg(test)]
     fn new(root: PathBuf) -> Result<Self, LspError> {
-        Self::new_with_document_link_target_style(root, DocumentLinkTargetStyle::StandardFileUri)
+        Self::new_with_client_profile(root, ClientBehaviorProfile::Generic)
     }
 
-    fn new_with_document_link_target_style(
+    fn new_with_client_profile(
         root: PathBuf,
-        document_link_target_style: DocumentLinkTargetStyle,
+        client_profile: ClientBehaviorProfile,
     ) -> Result<Self, LspError> {
         Ok(Self {
             session: WorkspaceSession::load(&root)?,
             root,
-            document_link_target_style,
+            client_profile,
             open_documents: BTreeMap::new(),
             recently_refreshed_saves: BTreeMap::new(),
         })
@@ -522,8 +581,8 @@ impl Server {
             return Ok(None);
         };
         let offset = offset_at_position(&source, params.text_document_position_params.position);
-        let Some((reference, origin_span)) =
-            offset.and_then(|offset| definition_reference_at(&analysis, offset))
+        let Some((reference, origin_span)) = offset
+            .and_then(|offset| definition_reference_at(self.client_profile, &analysis, offset))
         else {
             return Ok(None);
         };
@@ -612,28 +671,30 @@ impl Server {
             ));
         }
 
-        for reference in project_inline_code_references(&source) {
-            let Some(target) = self.editor_reference_uri(&path, &reference)? else {
-                continue;
-            };
-            links.extend(document_links_for_reference(
-                &source,
-                &reference,
-                target,
-                "Open inline Markdown example link",
-            ));
-        }
+        if self.client_profile.projects_code_example_links() {
+            for reference in project_inline_code_references(&source) {
+                let Some(target) = self.editor_reference_uri(&path, &reference)? else {
+                    continue;
+                };
+                links.extend(document_links_for_reference(
+                    &source,
+                    &reference,
+                    target,
+                    "Open inline Markdown example link",
+                ));
+            }
 
-        for reference in project_markdown_fenced_references(&source) {
-            let Some(target) = self.editor_reference_uri(&path, &reference)? else {
-                continue;
-            };
-            links.extend(document_links_for_reference(
-                &source,
-                &reference,
-                target,
-                "Open Markdown example link",
-            ));
+            for reference in project_markdown_fenced_references(&source) {
+                let Some(target) = self.editor_reference_uri(&path, &reference)? else {
+                    continue;
+                };
+                links.extend(document_links_for_reference(
+                    &source,
+                    &reference,
+                    target,
+                    "Open Markdown example link",
+                ));
+            }
         }
         Ok(Some(links))
     }
@@ -751,7 +812,7 @@ impl Server {
         };
         if let Some(location) = target.fragment_location {
             url.set_fragment(Some(&format!("L{}:{}", location.line, location.column)));
-        } else if self.document_link_target_style == DocumentLinkTargetStyle::ZedFileUrl {
+        } else if self.client_profile.uses_zed_file_urls() {
             return Ok(Uri::from_str(&format!("zed://file{}", url.path())).ok());
         }
         Ok(Uri::from_str(url.as_str()).ok())
@@ -805,11 +866,17 @@ enum DefinitionOwnership {
     MarkdownFragmentFallback,
 }
 
-fn definition_ownership(reference: &DocumentReference) -> DefinitionOwnership {
+fn definition_ownership(
+    client_profile: ClientBehaviorProfile,
+    reference: &DocumentReference,
+) -> DefinitionOwnership {
     match reference.syntax {
         // Keep ordinary Markdown navigation editor-owned. Forma only fills the narrow gap where
         // Zed resolves the document but does not reliably navigate to an in-document heading.
-        DocumentReferenceSyntax::MarkdownLink if reference.fragment.is_some() => {
+        DocumentReferenceSyntax::MarkdownLink
+            if reference.fragment.is_some()
+                && client_profile.provides_markdown_fragment_fallback() =>
+        {
             DefinitionOwnership::MarkdownFragmentFallback
         }
         DocumentReferenceSyntax::MarkdownLink | DocumentReferenceSyntax::MarkdownImage => {
@@ -830,11 +897,12 @@ fn is_positionless_wikilink(reference: &DocumentReference) -> bool {
 }
 
 fn definition_reference_at(
+    client_profile: ClientBehaviorProfile,
     analysis: &DocumentAnalysis,
     offset: usize,
 ) -> Option<(&DocumentReference, SourceSpan)> {
     analysis.references.iter().find_map(|reference| {
-        let ownership = definition_ownership(reference);
+        let ownership = definition_ownership(client_profile, reference);
         if ownership == DefinitionOwnership::NativeMarkdown {
             return None;
         }
@@ -977,33 +1045,95 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    use lsp_server::{Connection, Message, Notification, Request, RequestId};
-    use lsp_types::{DocumentLink, GotoDefinitionResponse, LocationLink, Position, Uri};
+    use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId};
+    use lsp_types::{
+        DocumentLink, GotoDefinitionResponse, InitializeParams, LocationLink, Position, Uri,
+    };
     use serde_json::json;
 
     use super::{
-        DefinitionOwnership, DocumentLinkTargetStyle, ManagedDocumentKind, Server,
+        ClientBehaviorProfile, DefinitionOwnership, ManagedDocumentKind, Server,
         definition_ownership, offset_at_position, position_at_offset, run_connection,
     };
 
     #[test]
-    fn selects_zed_file_urls_only_for_zed_clients() {
+    fn selects_explicit_client_behavior_profiles() {
         assert_eq!(
-            DocumentLinkTargetStyle::from_client_name(Some("Zed")),
-            DocumentLinkTargetStyle::ZedFileUrl
+            ClientBehaviorProfile::from_client_name(Some("Zed")),
+            ClientBehaviorProfile::Zed
         );
         assert_eq!(
-            DocumentLinkTargetStyle::from_client_name(Some("Zed Preview")),
-            DocumentLinkTargetStyle::ZedFileUrl
+            ClientBehaviorProfile::from_client_name(Some("Zed Preview")),
+            ClientBehaviorProfile::Zed
         );
         assert_eq!(
-            DocumentLinkTargetStyle::from_client_name(Some("Visual Studio Code")),
-            DocumentLinkTargetStyle::StandardFileUri
+            ClientBehaviorProfile::from_client_name(Some("Visual Studio Code")),
+            ClientBehaviorProfile::Vscode
         );
         assert_eq!(
-            DocumentLinkTargetStyle::from_client_name(None),
-            DocumentLinkTargetStyle::StandardFileUri
+            ClientBehaviorProfile::from_client_name(Some("Other Editor")),
+            ClientBehaviorProfile::Generic
         );
+        assert_eq!(
+            ClientBehaviorProfile::from_client_name(None),
+            ClientBehaviorProfile::Generic
+        );
+    }
+
+    #[test]
+    fn validates_explicit_initialization_profile_against_client_identity() {
+        let matching: InitializeParams = serde_json::from_value(json!({
+            "clientInfo": { "name": "Visual Studio Code", "version": "test" },
+            "capabilities": {},
+            "initializationOptions": { "clientProfile": "vscode" },
+        }))
+        .unwrap();
+        assert_eq!(
+            ClientBehaviorProfile::from_initialize_params(&matching).unwrap(),
+            ClientBehaviorProfile::Vscode
+        );
+
+        let mismatched: InitializeParams = serde_json::from_value(json!({
+            "clientInfo": { "name": "Visual Studio Code", "version": "test" },
+            "capabilities": {},
+            "initializationOptions": { "clientProfile": "zed" },
+        }))
+        .unwrap();
+        assert!(ClientBehaviorProfile::from_initialize_params(&mismatched).is_err());
+
+        let unknown: InitializeParams = serde_json::from_value(json!({
+            "clientInfo": { "name": "Visual Studio Code", "version": "test" },
+            "capabilities": {},
+            "initializationOptions": { "clientProfile": "vscode", "extra": true },
+        }))
+        .unwrap();
+        assert!(ClientBehaviorProfile::from_initialize_params(&unknown).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_client_profile_with_an_initialize_error() {
+        let root = fixture_root().canonicalize().unwrap();
+        let (server_connection, client_connection) = Connection::memory();
+        let server = thread::spawn(move || run_connection(server_connection, root));
+
+        send_request(
+            &client_connection,
+            1,
+            "initialize",
+            json!({
+                "processId": null,
+                "clientInfo": { "name": "Visual Studio Code", "version": "test" },
+                "capabilities": {},
+                "initializationOptions": { "clientProfile": "zed" },
+            }),
+        );
+        let response = receive_raw_response(&client_connection);
+        assert_eq!(response.id, RequestId::from(1));
+        assert_eq!(
+            response.error.unwrap().code,
+            ErrorCode::InvalidParams as i32
+        );
+        server.join().unwrap().unwrap();
     }
 
     #[test]
@@ -1278,9 +1408,10 @@ mod tests {
     }
 
     #[test]
-    fn uses_definition_fallback_for_markdown_fragment_links() {
+    fn uses_zed_definition_fallback_for_markdown_fragment_links() {
         let root = fixture_root().canonicalize().unwrap();
-        let mut server = Server::new(root.clone()).unwrap();
+        let mut server =
+            Server::new_with_client_profile(root.clone(), ClientBehaviorProfile::Zed).unwrap();
         let source_uri = file_uri(root.join("tasks/lsp-navigation-ownership.md"));
         let source = "[Native](../members/sam-rivera.md#sam-rivera)\n";
         open_markdown_source(&mut server, source_uri.clone(), source);
@@ -1291,7 +1422,7 @@ mod tests {
             .unwrap()
             .references[0];
         assert_eq!(
-            definition_ownership(reference),
+            definition_ownership(ClientBehaviorProfile::Zed, reference),
             DefinitionOwnership::MarkdownFragmentFallback
         );
 
@@ -1335,7 +1466,7 @@ mod tests {
             .unwrap()
             .references[0];
         assert_eq!(
-            definition_ownership(reference),
+            definition_ownership(ClientBehaviorProfile::Generic, reference),
             DefinitionOwnership::NativeMarkdown
         );
         assert!(definition_links_at(&server, source_uri.clone(), source, "Plain", 2).is_empty());
@@ -1343,6 +1474,30 @@ mod tests {
             definition_links_at(&server, source_uri, source, "../members/sam-rivera.md", 2)
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn leaves_markdown_fragment_links_to_native_navigation_for_conservative_clients() {
+        let root = fixture_root().canonicalize().unwrap();
+        let source = "[Native](../members/sam-rivera.md#sam-rivera)\n";
+        for profile in [
+            ClientBehaviorProfile::Generic,
+            ClientBehaviorProfile::Vscode,
+        ] {
+            let mut server = Server::new_with_client_profile(root.clone(), profile).unwrap();
+            let source_uri = file_uri(root.join("tasks/lsp-navigation-ownership.md"));
+            open_markdown_source(&mut server, source_uri.clone(), source);
+            let reference = &server
+                .session
+                .document_analysis("tasks/lsp-navigation-ownership.md")
+                .unwrap()
+                .references[0];
+            assert_eq!(
+                definition_ownership(profile, reference),
+                DefinitionOwnership::NativeMarkdown
+            );
+            assert!(definition_links_at(&server, source_uri, source, "#sam-rivera", 2).is_empty());
+        }
     }
 
     #[test]
@@ -1381,11 +1536,8 @@ mod tests {
     #[test]
     fn opens_positionless_zed_wikilinks_without_forcing_a_target_selection() {
         let root = fixture_root().canonicalize().unwrap();
-        let mut server = Server::new_with_document_link_target_style(
-            root.clone(),
-            DocumentLinkTargetStyle::ZedFileUrl,
-        )
-        .unwrap();
+        let mut server =
+            Server::new_with_client_profile(root.clone(), ClientBehaviorProfile::Zed).unwrap();
         let source_uri = file_uri(root.join("tasks/lsp-positionless-navigation.md"));
         let source = "[[members/sam-rivera|Sam]]\n[[members/sam-rivera#Sam Rivera|Heading]]\n";
         open_markdown_source(&mut server, source_uri.clone(), source);
@@ -1431,11 +1583,8 @@ mod tests {
     #[test]
     fn projects_links_from_inline_and_markdown_fenced_code() {
         let root = fixture_root().canonicalize().unwrap();
-        let mut server = Server::new_with_document_link_target_style(
-            root.clone(),
-            DocumentLinkTargetStyle::ZedFileUrl,
-        )
-        .unwrap();
+        let mut server =
+            Server::new_with_client_profile(root.clone(), ClientBehaviorProfile::Zed).unwrap();
         let source_uri = file_uri(root.join("tasks/lsp-code-inert.md"));
         let source = "Inline `[Sam](../members/sam-rivera.md#sam-rivera)`, `[[members/sam-rivera]]`, and `![[members/sam-rivera]]`.\n\n```rust\nlet literal = \"[[members/sam-rivera]]\";\n```\n\n```md\n[Sam](../members/sam-rivera.md#sam-rivera)\n[[members/sam-rivera#Sam Rivera|Sam]]\n```\n\n```markdown\n[Mira](../members/mira-chen.md)\n[[members/mira-chen|Mira]]\n```\n";
         open_markdown_source(&mut server, source_uri.clone(), source);
@@ -1519,6 +1668,34 @@ mod tests {
         assert!(mira_target.starts_with("zed://file/"));
         assert!(mira_target.ends_with("/members/mira-chen.md"));
         assert_eq!(links[9].target.as_ref().unwrap().as_str(), mira_target);
+    }
+
+    #[test]
+    fn keeps_code_example_navigation_zed_only() {
+        let root = fixture_root().canonicalize().unwrap();
+        let source = "[[members/sam-rivera]] `[[members/sam-rivera]]`\n\n```md\n[[members/sam-rivera]]\n```\n";
+        for profile in [
+            ClientBehaviorProfile::Generic,
+            ClientBehaviorProfile::Vscode,
+        ] {
+            let mut server = Server::new_with_client_profile(root.clone(), profile).unwrap();
+            let source_uri = file_uri(root.join("tasks/lsp-code-inert.md"));
+            open_markdown_source(&mut server, source_uri.clone(), source);
+            let links = server
+                .document_links(
+                    serde_json::from_value(json!({ "textDocument": { "uri": source_uri } }))
+                        .unwrap(),
+                )
+                .unwrap()
+                .unwrap();
+            assert_eq!(links.len(), 1);
+            assert!(
+                links[0]
+                    .target
+                    .as_ref()
+                    .is_some_and(|target| target.as_str().starts_with("file://"))
+            );
+        }
     }
 
     #[test]
@@ -2016,7 +2193,8 @@ mod tests {
     #[test]
     fn validates_the_getting_started_navigation_fixture_and_local_resources() {
         let root = fixture_root().canonicalize().unwrap();
-        let server = Server::new(root.clone()).unwrap();
+        let server =
+            Server::new_with_client_profile(root.clone(), ClientBehaviorProfile::Zed).unwrap();
         let source_uri = file_uri(root.join("tasks/validate-editor-link-navigation.md"));
         let (_, source, analysis) = server.document_context(&source_uri).unwrap().unwrap();
 
