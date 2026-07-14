@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 
 import * as vscode from "vscode";
 
+import { assertNativeMarkdownLink } from "../link-assertions.ts";
+
 suite("Forma for VS Code extension", () => {
     test("activates in a Forma workspace", async () => {
         const formaTestBin = process.env.FORMA_TEST_BIN;
@@ -50,9 +52,10 @@ suite("Forma for VS Code extension", () => {
         const targetUri = definitions?.[0]?.uri;
         assert.ok(targetUri);
 
+        await assertNativeMarkdownLink(document, "done.md", "/done.md");
+
         for (const { label, offset } of [
             { label: "frontmatter entryRef", offset: document.getText().indexOf("owner: done") + "owner: ".length },
-            { label: "Markdown link", offset: document.getText().indexOf("done.md") + 1 },
             { label: "wikilink embed", offset: document.getText().lastIndexOf("[[done]]") + 3 },
         ]) {
             const resolved = await vscode.commands.executeCommand<vscode.Location[]>(

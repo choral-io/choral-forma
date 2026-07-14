@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 
 import * as vscode from "vscode";
 
+import { assertNativeMarkdownLink } from "./link-assertions.ts";
+
 export async function run(): Promise<void> {
     const formaTestBin = process.env.FORMA_TEST_BIN;
     assert.ok(formaTestBin, "FORMA_TEST_BIN should identify the locally built Forma binary");
@@ -23,17 +25,7 @@ export async function run(): Promise<void> {
     const noteDocument = await vscode.workspace.openTextDocument(note);
     await vscode.window.showTextDocument(noteDocument);
     const noteText = noteDocument.getText();
-    const markdownExtension = vscode.extensions.getExtension("vscode.markdown-language-features");
-    assert.ok(markdownExtension, "built-in Markdown extension should be discoverable");
-    await markdownExtension?.activate();
-    const links = await vscode.commands.executeCommand<vscode.DocumentLink[]>("vscode.executeLinkProvider", note, 100);
-    const ordinaryLinkPosition = noteDocument.positionAt(noteText.indexOf("done.md") + 1);
-    const ordinaryLink = links?.find((link) => link.range.contains(ordinaryLinkPosition));
-    assert.ok(ordinaryLink, "ordinary Markdown link should remain owned by the built-in Markdown extension");
-    assert.ok(
-        ordinaryLink.target?.path.endsWith("/done.md"),
-        `ordinary Markdown link should target done.md, got ${String(ordinaryLink.target)}`,
-    );
+    await assertNativeMarkdownLink(noteDocument, "done.md", "/done.md");
     for (const { label, offset, target, minimumLine } of [
         {
             label: "wikilink fragment",
