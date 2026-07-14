@@ -59,7 +59,7 @@ try {
     if (!listed.stdout.split(/\r?\n/u).includes(expectedIdentity)) {
         throw new Error(`Installed extension identity was not found. Output: ${listed.stdout.trim()}`);
     }
-    await run(vscodeExecutablePath, [
+    const validation = await run(vscodeExecutablePath, [
         ...(process.platform === "linux" ? ["--no-sandbox", "--disable-gpu-sandbox"] : []),
         "--disable-updates",
         "--skip-welcome",
@@ -74,6 +74,11 @@ try {
         `--extensionTestsPath=${extensionTestsPath}`,
         workspace,
     ]);
+    const metricsLine = validation.stdout
+        .split(/\r?\n/u)
+        .find((line) => line.includes('"kind":"forma-vscode-lsp-metrics"'));
+    if (metricsLine) console.log(JSON.stringify(JSON.parse(metricsLine), null, 2));
+    else if (validation.stdout.trim()) console.log(validation.stdout.trim());
     console.log(`Disposable VSIX installation and activation verified: ${expectedIdentity}`);
 } finally {
     await rm(scratch, { recursive: true, force: true });

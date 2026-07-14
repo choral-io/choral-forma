@@ -1,3 +1,5 @@
+import { performance } from "node:perf_hooks";
+
 import * as vscode from "vscode";
 
 import { createFormaLspLifecycle } from "./lsp-client.ts";
@@ -11,9 +13,13 @@ import { statusText } from "./status-presentation.ts";
 import { shouldRefreshRuntimeForDocument } from "./workspace-discovery.ts";
 import { FormaWorkspaceExplorer } from "./workspace-tree.ts";
 
-export async function activate(
-    context: vscode.ExtensionContext,
-): Promise<{ extendMarkdownIt: typeof extendMarkdownIt }> {
+export type FormaExtensionApi = {
+    extendMarkdownIt: typeof extendMarkdownIt;
+    activationMs: number;
+};
+
+export async function activate(context: vscode.ExtensionContext): Promise<FormaExtensionApi> {
+    const activationStarted = performance.now();
     const output = vscode.window.createOutputChannel("Forma", { log: true });
     const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 90);
     const diagnostics = vscode.languages.createDiagnosticCollection("forma");
@@ -251,7 +257,9 @@ export async function activate(
     await refreshRuntime();
     const document = vscode.window.activeTextEditor?.document;
     if (document && runtime.isFormaDocument(document)) await previews.refresh(document);
-    return { extendMarkdownIt };
+    const activationMs = performance.now() - activationStarted;
+    output.info(`[activation] completed in ${activationMs.toFixed(1)} ms.`);
+    return { extendMarkdownIt, activationMs };
 }
 
 export { extendMarkdownIt };

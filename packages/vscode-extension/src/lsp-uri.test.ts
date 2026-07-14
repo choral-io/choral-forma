@@ -20,6 +20,16 @@ describe("Forma LSP URI conversion", () => {
         expect(editorUriToProtocol("file:///home/tiscs/my%20repo", root)).toBe("file:///home/tiscs/my%20repo");
     });
 
+    it("uses the same root-bounded conversion for SSH, Dev Container, and WSL authorities", () => {
+        for (const authority of ["ssh-remote%2Bexample", "dev-container%2Bworkspace", "wsl%2BUbuntu"]) {
+            const root = `vscode-remote://${authority}/workspaces/forma`;
+            const editor = `${root}/notes/page.md`;
+            const protocol = editorUriToProtocol(editor, root);
+            expect(protocol).toBe("file:///workspaces/forma/notes/page.md");
+            expect(protocolUriToEditor(protocol, root)).toBe(editor);
+        }
+    });
+
     it("rejects cross-authority and out-of-root paths", () => {
         const root = "vscode-remote://ssh-remote%2Bexample/home/tiscs/repo";
         expect(() => editorUriToProtocol("vscode-remote://ssh-remote%2Bother/home/tiscs/repo/a.md", root)).toThrow(
@@ -29,5 +39,6 @@ describe("Forma LSP URI conversion", () => {
         expect(() =>
             editorUriToProtocol("vscode-remote://ssh-remote%2Bexample/home/tiscs/repository/a.md", root),
         ).toThrow(/outside/u);
+        expect(() => editorUriToProtocol("vscode-vfs://github/repo/a.md", root)).toThrow(/outside/u);
     });
 });

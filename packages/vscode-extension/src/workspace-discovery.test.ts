@@ -25,6 +25,18 @@ describe("workspace discovery", () => {
         expect(selectWorkspaceRoot(result.roots, "/repo/nested/note.md")).toBe("/repo");
     });
 
+    it("discovers one, two, and five explicit workspace roots without nested scanning", async () => {
+        const folders = Array.from({ length: 5 }, (_, index) =>
+            configuredWorkspace(`/repo-${String(index + 1)}`, undefined),
+        );
+        const present = folders.map((folder) => folder.configPath);
+        for (const count of [1, 2, 5]) {
+            const result = await discoverWorkspaceRoots(folders.slice(0, count), existing(...present));
+            expect(result.roots).toEqual(folders.slice(0, count).map((folder) => folder.root));
+            expect(result.missing).toEqual([]);
+        }
+    });
+
     it("does not promote a nested configuration into a Forma workspace", async () => {
         expect(
             await discoverWorkspaceRoots([configuredWorkspace("/repo", undefined)], existing("/repo/nested/.forma.md")),

@@ -5,6 +5,7 @@ taxonomy: spaces
 title: Notes
 include:
     - "*.md"
+    - "notes/**/*.md"
 schema:
     type: object
     fields:

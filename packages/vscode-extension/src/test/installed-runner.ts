@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { performance } from "node:perf_hooks";
 
 import * as vscode from "vscode";
 
@@ -8,9 +9,9 @@ export async function run(): Promise<void> {
     const formaTestBin = process.env.FORMA_TEST_BIN;
     assert.ok(formaTestBin, "FORMA_TEST_BIN should identify the locally built Forma binary");
     await vscode.workspace.getConfiguration("forma").update("path", formaTestBin, vscode.ConfigurationTarget.Global);
-    const extension = vscode.extensions.getExtension("choral-io.forma");
+    const extension = vscode.extensions.getExtension<{ activationMs: number }>("choral-io.forma");
     assert.ok(extension, "installed Forma for VS Code extension should be discoverable");
-    await extension.activate();
+    const extensionApi = await extension.activate();
     assert.equal(extension.isActive, true);
     await vscode.commands.executeCommand("forma.refreshWorkspace");
     const state = await vscode.commands.executeCommand<{ kind: string; root?: string; lspState: string }>(
@@ -21,6 +22,8 @@ export async function run(): Promise<void> {
         `expected a ready Forma workspace, got ${state?.kind}`,
     );
     assert.ok(state.root?.endsWith("/workspace"), `expected discovered fixture workspace, got ${String(state.root)}`);
+    const workspaceRoot = state.root;
+    assert.ok(workspaceRoot);
     assert.equal(state.lspState, "running", `expected a running Forma LSP, got ${state.lspState}`);
 
     const note = (await vscode.workspace.findFiles("note.md", undefined, 1))[0];
@@ -28,8 +31,39 @@ export async function run(): Promise<void> {
     const noteDocument = await vscode.workspace.openTextDocument(note);
     await vscode.window.showTextDocument(noteDocument);
     const noteText = noteDocument.getText();
-    await assertNativeMarkdownLink(noteDocument, "done.md", "/done.md");
-    const documentLinks = await waitForDocumentLinks(note);
+    const fragmentPosition = noteDocument.positionAt(noteText.indexOf("target#Details") + 1);
+    const coldDefinition = await timed(() => waitForDefinitions(note, fragmentPosition));
+    assert.equal(coldDefinition.result.length, 1, "cold wikilink fragment Definition");
+    const warmDefinition = await sampleDurations(50, async () => {
+        const definitions = await vscode.commands.executeCommand<DefinitionResult[]>(
+            "vscode.executeDefinitionProvider",
+            note,
+            fragmentPosition,
+        );
+        assert.equal(definitions?.length, 1, "warm wikilink fragment Definition");
+    });
+    const coldDocumentLink = await timed(() => waitForDocumentLinks(note));
+    const documentLinks = coldDocumentLink.result;
+    const warmDocumentLink = await sampleDurations(50, async () => {
+        const links = await vscode.commands.executeCommand<vscode.DocumentLink[]>(
+            "vscode.executeLinkProvider",
+            note,
+            100,
+        );
+        assert.ok((links?.length ?? 0) > 1, "warm Forma DocumentLink request");
+    });
+    const metrics = {
+        activationMs: round(extensionApi.activationMs),
+        coldDefinitionMs: round(coldDefinition.durationMs),
+        warmDefinition: statistics(warmDefinition),
+        coldDocumentLinkMs: round(coldDocumentLink.durationMs),
+        warmDocumentLink: statistics(warmDocumentLink),
+    };
+    assert.ok(metrics.coldDefinitionMs <= 250, JSON.stringify(metrics));
+    assert.ok(metrics.warmDefinition.p95Ms <= 100, JSON.stringify(metrics));
+    assert.ok(metrics.coldDocumentLinkMs <= 250, JSON.stringify(metrics));
+    assert.ok(metrics.warmDocumentLink.p95Ms <= 100, JSON.stringify(metrics));
+    console.log(JSON.stringify({ kind: "forma-vscode-lsp-metrics", ...metrics }));
     for (const { label, offset } of [
         { label: "target", offset: noteText.indexOf("[[target|Target page]]") + 3 },
         { label: "Target page", offset: noteText.indexOf("Target page") + 1 },
@@ -78,12 +112,49 @@ export async function run(): Promise<void> {
         assert.ok(definitionRange(definition).start.line >= minimumLine, label);
     }
 
+    const ambiguousDefinitions = await waitForDefinitions(
+        note,
+        noteDocument.positionAt(noteText.indexOf("[[same]]") + 3),
+    );
+    assert.deepEqual(
+        ambiguousDefinitions.map((definition) => definitionUri(definition).path).sort(),
+        ["/notes/a/same.md", "/notes/b/same.md"].map((suffix) => `${workspaceRoot}${suffix}`).sort(),
+        "ambiguous wikilinks should return every candidate",
+    );
+    const unresolvedDefinitions = await vscode.commands.executeCommand<DefinitionResult[]>(
+        "vscode.executeDefinitionProvider",
+        note,
+        noteDocument.positionAt(noteText.indexOf("[[missing]]") + 3),
+    );
+    assert.equal(unresolvedDefinitions?.length ?? 0, 0, "unresolved wikilinks must not navigate");
+
+    const unsavedSource = "\nUnsaved overlay: [[done]].\n";
+    const unsavedOffset = noteDocument.getText().length + unsavedSource.indexOf("done") + 1;
+    const append = new vscode.WorkspaceEdit();
+    append.insert(note, noteDocument.positionAt(noteDocument.getText().length), unsavedSource);
+    assert.equal(await vscode.workspace.applyEdit(append), true, "unsaved overlay edit should apply");
+    assert.equal(noteDocument.isDirty, true, "overlay should remain unsaved while LSP navigation runs");
+    const unsavedDefinitions = await waitForDefinitions(note, noteDocument.positionAt(unsavedOffset));
+    assert.equal(unsavedDefinitions.length, 1, "unsaved wikilink overlay should resolve");
+    const unsavedDefinition = unsavedDefinitions[0];
+    assert.ok(unsavedDefinition);
+    assert.ok(definitionUri(unsavedDefinition).path.endsWith("/done.md"));
+    const restore = new vscode.WorkspaceEdit();
+    restore.replace(note, fullDocumentRange(noteDocument), noteText);
+    assert.equal(
+        await vscode.workspace.applyEdit(restore),
+        true,
+        "fixture source should restore after overlay validation",
+    );
+    assert.equal(await noteDocument.save(), true, "restored fixture should save cleanly");
+
     const tagDefinitions: vscode.Location[] | undefined = await vscode.commands.executeCommand<vscode.Location[]>(
         "vscode.executeDefinitionProvider",
         note,
         noteDocument.positionAt(noteText.indexOf("vscode-extension") + 1),
     );
     assert.equal(tagDefinitions?.length ?? 0, 0, "ordinary tags must not become Forma references");
+    await assertNativeMarkdownLink(noteDocument, "done.md", "/done.md");
 
     const source = (await vscode.workspace.findFiles("done.md", undefined, 1))[0];
     assert.ok(source, "source fixture should be discoverable");
@@ -177,4 +248,43 @@ function describeDocumentLinks(document: vscode.TextDocument, links: vscode.Docu
             target: link.target?.toString(),
         })),
     );
+}
+
+async function timed<T>(operation: () => Promise<T>): Promise<{ durationMs: number; result: T }> {
+    const started = performance.now();
+    const result = await operation();
+    return { durationMs: performance.now() - started, result };
+}
+
+async function sampleDurations(samples: number, operation: () => Promise<void>): Promise<number[]> {
+    const durations: number[] = [];
+    for (let index = 0; index < samples; index += 1) {
+        durations.push((await timed(operation)).durationMs);
+    }
+    return durations;
+}
+
+function statistics(values: number[]): { minimumMs: number; medianMs: number; p95Ms: number; maximumMs: number } {
+    const sorted = [...values].sort((left, right) => left - right);
+    const minimum = sorted[0];
+    if (minimum === undefined) throw new Error("Performance statistics require at least one sample.");
+    const percentile = (fraction: number): number => {
+        const value = sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
+        if (value === undefined) throw new Error("Performance percentile could not be calculated.");
+        return value;
+    };
+    return {
+        minimumMs: round(minimum),
+        medianMs: round(percentile(0.5)),
+        p95Ms: round(percentile(0.95)),
+        maximumMs: round(sorted.at(-1) ?? 0),
+    };
+}
+
+function round(value: number): number {
+    return Number(value.toFixed(3));
+}
+
+function fullDocumentRange(document: vscode.TextDocument): vscode.Range {
+    return new vscode.Range(new vscode.Position(0, 0), document.positionAt(document.getText().length));
 }

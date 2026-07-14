@@ -14,8 +14,9 @@ suite("Forma for VS Code restricted mode", () => {
         await extension.activate();
         assert.equal(await vscode.commands.executeCommand("forma.installCli"), "restricted");
         assert.equal(await vscode.commands.executeCommand("forma.selectCli"), "restricted");
-        const state = await vscode.commands.executeCommand<{ kind: string }>("forma.getRuntimeState");
+        const state = await vscode.commands.executeCommand<{ kind: string; lspState: string }>("forma.getRuntimeState");
         assert.equal(state?.kind, "restricted");
+        assert.equal(state?.lspState, "stopped");
         assert.equal(await exists(invocationMarker), false, "Restricted Mode must not execute forma.path");
         assert.equal(await exists(managedCliRoot), false, "Restricted Mode must not download a managed CLI");
     });

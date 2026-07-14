@@ -9,3 +9,5 @@ tags:
 # Extension fixture
 
 This fixture verifies that the extension can activate in a Forma workspace and navigate to [[target#Details|Target details]], [[target|Target page]], [ordinary links](done.md), and ![[done]] embeds.
+
+Ambiguous and unresolved behavior: [[same]] and [[missing]].
