@@ -22,6 +22,11 @@ const workflows = await Promise.all(
         async (name) => await readFile(new URL(`../.github/workflows/${name}`, import.meta.url), "utf8"),
     ),
 );
+const pnpmWorkspace = await readFile(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
+
+test("keeps parallel pnpm gates from mutating the dependency installation", () => {
+    assert.match(pnpmWorkspace, /^verifyDepsBeforeRun:\s+false$/mu);
+});
 
 test("only treats an explicit release input as a tag", () => {
     assert.equal(resolveReleaseTag(undefined, { GITHUB_REF_NAME: "1/merge" }), undefined);

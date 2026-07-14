@@ -23,18 +23,23 @@ export async function run(): Promise<void> {
     const noteDocument = await vscode.workspace.openTextDocument(note);
     await vscode.window.showTextDocument(noteDocument);
     const noteText = noteDocument.getText();
+    const markdownExtension = vscode.extensions.getExtension("vscode.markdown-language-features");
+    assert.ok(markdownExtension, "built-in Markdown extension should be discoverable");
+    await markdownExtension?.activate();
+    const links = await vscode.commands.executeCommand<vscode.DocumentLink[]>("vscode.executeLinkProvider", note, 100);
+    const ordinaryLinkPosition = noteDocument.positionAt(noteText.indexOf("done.md") + 1);
+    const ordinaryLink = links?.find((link) => link.range.contains(ordinaryLinkPosition));
+    assert.ok(ordinaryLink, "ordinary Markdown link should remain owned by the built-in Markdown extension");
+    assert.ok(
+        ordinaryLink.target?.path.endsWith("/done.md"),
+        `ordinary Markdown link should target done.md, got ${String(ordinaryLink.target)}`,
+    );
     for (const { label, offset, target, minimumLine } of [
         {
             label: "wikilink fragment",
             offset: noteText.indexOf("target#Details") + 1,
             target: "/target.md",
             minimumLine: 1,
-        },
-        {
-            label: "ordinary Markdown link",
-            offset: noteText.indexOf("done.md") + 1,
-            target: "/done.md",
-            minimumLine: 0,
         },
         {
             label: "wikilink embed",

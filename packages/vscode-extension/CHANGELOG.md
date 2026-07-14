@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.18
+
+- Add the editor-neutral `forma lsp` transport with Core-owned transient document analysis, reusable workspace snapshots, and managed-document scope gating.
+- Add a Zed Dev Extension for native Markdown navigation across wikilinks, embeds, aliases, heading fragments, and schema-declared references.
+- Keep ordinary Markdown behavior host-owned while adding bounded compatibility projections for Zed heading links and explicit Markdown examples in code regions.
+- Align wikilink highlighting with editor themes, preserve cursor position for unfragmented Zed document navigation, and refresh managed scope when Forma configuration changes.
+- Require the Zed adapter-controlled CLI found on the worktree `PATH` to match the extension version exactly, while documenting Zed's native binary override as a user-owned escape hatch.
+- Add repeatable Forma LSP latency and resource benchmarks and strengthen release-version and published-asset verification.
+
 ## 0.1.0-alpha.17
 
 - Require the VS Code extension and Forma CLI to use the same coordinated Alpha release version.

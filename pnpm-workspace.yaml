@@ -3,6 +3,7 @@ packages:
 minimumReleaseAge: 4320
 pmOnFail: warn
 savePrefix: "~"
+verifyDepsBeforeRun: false
 allowBuilds:
   "@vscode/vsce-sign": true
   esbuild: true
