@@ -15,8 +15,7 @@ use lsp_types::notification::{
     DidSaveTextDocument, Exit, Initialized, Notification as _,
 };
 use lsp_types::request::{
-    DocumentLinkRequest, GotoDefinition, RegisterCapability, Request as _,
-    SemanticTokensFullRequest, UnregisterCapability,
+    DocumentLinkRequest, GotoDefinition, RegisterCapability, Request as _, UnregisterCapability,
 };
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams,
@@ -24,9 +23,7 @@ use lsp_types::{
     DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentLink, DocumentLinkOptions,
     DocumentLinkParams, FileChangeType, FileSystemWatcher, GlobPattern, GotoDefinitionParams,
     GotoDefinitionResponse, InitializeParams, LocationLink, OneOf, Position, PositionEncodingKind,
-    Range, Registration, RegistrationParams, RelativePattern, SaveOptions, SemanticToken,
-    SemanticTokenType, SemanticTokens, SemanticTokensFullOptions, SemanticTokensLegend,
-    SemanticTokensOptions, SemanticTokensParams, SemanticTokensResult, ServerCapabilities,
+    Range, Registration, RegistrationParams, RelativePattern, SaveOptions, ServerCapabilities,
     TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
     TextDocumentSyncSaveOptions, Unregistration, UnregistrationParams, Uri,
 };
@@ -279,30 +276,8 @@ fn server_capabilities() -> ServerCapabilities {
             resolve_provider: Some(false),
             work_done_progress_options: Default::default(),
         }),
-        semantic_tokens_provider: Some(
-            SemanticTokensOptions {
-                work_done_progress_options: Default::default(),
-                legend: SemanticTokensLegend {
-                    token_types: semantic_token_legend(),
-                    token_modifiers: Vec::new(),
-                },
-                range: Some(false),
-                full: Some(SemanticTokensFullOptions::Bool(true)),
-            }
-            .into(),
-        ),
         ..Default::default()
     }
-}
-
-fn semantic_token_legend() -> Vec<SemanticTokenType> {
-    [
-        ProtocolSemanticToken::Operator,
-        ProtocolSemanticToken::String,
-    ]
-    .into_iter()
-    .map(ProtocolSemanticToken::token_type)
-    .collect()
 }
 
 impl Server {
@@ -337,12 +312,6 @@ impl Server {
                 serde_json::from_value::<DocumentLinkParams>(request.params)
                     .map_err(LspError::from)
                     .and_then(|params| self.document_links(params))
-                    .and_then(json_value)
-            }
-            SemanticTokensFullRequest::METHOD => {
-                serde_json::from_value::<SemanticTokensParams>(request.params)
-                    .map_err(LspError::from)
-                    .and_then(|params| self.semantic_tokens(params))
                     .and_then(json_value)
             }
             method => {
@@ -669,75 +638,6 @@ impl Server {
         Ok(Some(links))
     }
 
-    fn semantic_tokens(
-        &self,
-        params: SemanticTokensParams,
-    ) -> Result<Option<SemanticTokensResult>, LspError> {
-        let Some((_, source, analysis)) = self.document_context(&params.text_document.uri)? else {
-            return Ok(Some(
-                SemanticTokens {
-                    result_id: None,
-                    data: Vec::new(),
-                }
-                .into(),
-            ));
-        };
-        let mut positions = analysis
-            .references
-            .iter()
-            .filter(|reference| {
-                matches!(
-                    reference.syntax,
-                    DocumentReferenceSyntax::Wikilink | DocumentReferenceSyntax::ObsidianEmbed
-                )
-            })
-            .flat_map(|reference| semantic_token_positions(&source, reference))
-            .collect::<Vec<_>>();
-        positions.extend(
-            project_markdown_fenced_references(&source)
-                .iter()
-                .filter(|reference| {
-                    matches!(
-                        reference.syntax,
-                        DocumentReferenceSyntax::Wikilink | DocumentReferenceSyntax::ObsidianEmbed
-                    )
-                })
-                .flat_map(|reference| semantic_token_positions(&source, reference)),
-        );
-        positions.sort_unstable_by_key(|token| (token.position.line, token.position.character));
-
-        let mut previous = Position::default();
-        let data = positions
-            .into_iter()
-            .filter_map(|token| {
-                let token_type = token.role.protocol_token_type()?.legend_index();
-                let position = token.position;
-                let delta_line = position.line - previous.line;
-                let delta_start = if delta_line == 0 {
-                    position.character - previous.character
-                } else {
-                    position.character
-                };
-                previous = position;
-                Some(SemanticToken {
-                    delta_line,
-                    delta_start,
-                    length: token.length,
-                    token_type,
-                    token_modifiers_bitset: 0,
-                })
-            })
-            .collect();
-
-        Ok(Some(
-            SemanticTokens {
-                result_id: None,
-                data,
-            }
-            .into(),
-        ))
-    }
-
     fn document_context(
         &self,
         uri: &Uri,
@@ -1012,192 +912,6 @@ fn covering_source_span(
     })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum WikilinkSemanticRole {
-    Delimiter,
-    Target,
-    Fragment,
-    Label,
-    EmbedMarker,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ProtocolSemanticToken {
-    Operator,
-    String,
-}
-
-impl ProtocolSemanticToken {
-    fn token_type(self) -> SemanticTokenType {
-        match self {
-            Self::Operator => SemanticTokenType::OPERATOR,
-            Self::String => SemanticTokenType::STRING,
-        }
-    }
-
-    fn legend_index(self) -> u32 {
-        match self {
-            Self::Operator => 0,
-            Self::String => 1,
-        }
-    }
-}
-
-impl WikilinkSemanticRole {
-    fn protocol_token_type(self) -> Option<ProtocolSemanticToken> {
-        match self {
-            Self::Delimiter | Self::EmbedMarker => Some(ProtocolSemanticToken::Operator),
-            Self::Target | Self::Fragment => Some(ProtocolSemanticToken::String),
-            // In Zed's required combined mode, native Markdown supplies the link-text role.
-            // Omitting the overlay preserves that theme styling without shipping fixed colors.
-            Self::Label => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct SemanticSourceSpan {
-    start: usize,
-    end: usize,
-    role: WikilinkSemanticRole,
-}
-
-impl SemanticSourceSpan {
-    fn from_span(span: SourceSpan, role: WikilinkSemanticRole) -> Self {
-        Self {
-            start: span.start_byte,
-            end: span.end_byte,
-            role,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct SemanticTokenPosition {
-    position: Position,
-    length: u32,
-    role: WikilinkSemanticRole,
-}
-
-fn wikilink_semantic_spans(source: &str, reference: &DocumentReference) -> Vec<SemanticSourceSpan> {
-    const DELIMITER_LENGTH: usize = 2;
-    const EMBED_MARKER_LENGTH: usize = 1;
-
-    let syntax_start = reference.syntax_span.start_byte;
-    let syntax_end = reference.syntax_span.end_byte;
-    let marker_length = usize::from(reference.syntax == DocumentReferenceSyntax::ObsidianEmbed)
-        * EMBED_MARKER_LENGTH;
-    let mut spans = Vec::new();
-    if marker_length == EMBED_MARKER_LENGTH {
-        spans.push(SemanticSourceSpan {
-            start: syntax_start,
-            end: syntax_start + EMBED_MARKER_LENGTH,
-            role: WikilinkSemanticRole::EmbedMarker,
-        });
-    }
-    spans.push(SemanticSourceSpan {
-        start: syntax_start + marker_length,
-        end: syntax_start + marker_length + DELIMITER_LENGTH,
-        role: WikilinkSemanticRole::Delimiter,
-    });
-    if let Some(span) = reference.target_span {
-        spans.push(SemanticSourceSpan::from_span(
-            span,
-            WikilinkSemanticRole::Target,
-        ));
-    }
-    if let Some(span) = reference.fragment_span {
-        spans.push(SemanticSourceSpan::from_span(
-            span,
-            WikilinkSemanticRole::Fragment,
-        ));
-    }
-    if let Some(label_span) = reference.label_span {
-        let search_start = reference
-            .fragment_span
-            .or(reference.target_span)
-            .map_or(syntax_start + marker_length + DELIMITER_LENGTH, |span| {
-                span.end_byte
-            });
-        if search_start <= label_span.start_byte
-            && let Some(separator) = source[search_start..label_span.start_byte].rfind('|')
-        {
-            let separator = search_start + separator;
-            spans.push(SemanticSourceSpan {
-                start: separator,
-                end: separator + 1,
-                role: WikilinkSemanticRole::Delimiter,
-            });
-        }
-        spans.push(SemanticSourceSpan::from_span(
-            label_span,
-            WikilinkSemanticRole::Label,
-        ));
-    }
-    if syntax_end >= DELIMITER_LENGTH {
-        spans.push(SemanticSourceSpan {
-            start: syntax_end - DELIMITER_LENGTH,
-            end: syntax_end,
-            role: WikilinkSemanticRole::Delimiter,
-        });
-    }
-    spans
-}
-
-fn semantic_token_positions(
-    source: &str,
-    reference: &DocumentReference,
-) -> Vec<SemanticTokenPosition> {
-    let mut positions = Vec::new();
-    for span in wikilink_semantic_spans(source, reference) {
-        push_semantic_token_range(source, span, &mut positions);
-    }
-    positions
-}
-
-fn push_semantic_token_range(
-    source: &str,
-    span: SemanticSourceSpan,
-    positions: &mut Vec<SemanticTokenPosition>,
-) {
-    let SemanticSourceSpan { start, end, role } = span;
-    let start = start.min(source.len());
-    let end = end.min(source.len());
-    if start >= end {
-        return;
-    }
-
-    let mut segment_start = start;
-    for (relative, character) in source[start..end].char_indices() {
-        if character != '\n' {
-            continue;
-        }
-        let segment_end = start + relative;
-        push_semantic_token_position(source, segment_start, segment_end, role, positions);
-        segment_start = segment_end + character.len_utf8();
-    }
-    push_semantic_token_position(source, segment_start, end, role, positions);
-}
-
-fn push_semantic_token_position(
-    source: &str,
-    start: usize,
-    mut end: usize,
-    role: WikilinkSemanticRole,
-    positions: &mut Vec<SemanticTokenPosition>,
-) {
-    if source[start..end].ends_with('\r') {
-        end -= 1;
-    }
-    if start < end {
-        positions.push(SemanticTokenPosition {
-            position: position_at_offset(source, start),
-            length: source[start..end].encode_utf16().count() as u32,
-            role,
-        });
-    }
-}
-
 fn offset_at_position(source: &str, position: Position) -> Option<usize> {
     let mut line_start = 0;
     for _ in 0..position.line {
@@ -1264,16 +978,12 @@ mod tests {
     use std::time::Duration;
 
     use lsp_server::{Connection, Message, Notification, Request, RequestId};
-    use lsp_types::{
-        DocumentLink, GotoDefinitionResponse, LocationLink, Position, SemanticTokens,
-        SemanticTokensResult, Uri,
-    };
+    use lsp_types::{DocumentLink, GotoDefinitionResponse, LocationLink, Position, Uri};
     use serde_json::json;
 
     use super::{
         DefinitionOwnership, DocumentLinkTargetStyle, ManagedDocumentKind, Server,
-        WikilinkSemanticRole, definition_ownership, offset_at_position, position_at_offset,
-        run_connection, wikilink_semantic_spans,
+        definition_ownership, offset_at_position, position_at_offset, run_connection,
     };
 
     #[test]
@@ -1360,17 +1070,6 @@ mod tests {
                 .unwrap(),
             Some(Vec::new())
         );
-        let tokens = server
-            .semantic_tokens(
-                serde_json::from_value(json!({ "textDocument": { "uri": source_uri } })).unwrap(),
-            )
-            .unwrap()
-            .unwrap();
-        let SemanticTokensResult::Tokens(tokens) = tokens else {
-            panic!("expected empty full semantic tokens");
-        };
-        assert!(tokens.data.is_empty());
-
         server
             .save_document(
                 serde_json::from_value(json!({
@@ -1820,29 +1519,6 @@ mod tests {
         assert!(mira_target.starts_with("zed://file/"));
         assert!(mira_target.ends_with("/members/mira-chen.md"));
         assert_eq!(links[9].target.as_ref().unwrap().as_str(), mira_target);
-        let SemanticTokensResult::Tokens(tokens) = server
-            .semantic_tokens(
-                serde_json::from_value(json!({ "textDocument": { "uri": source_uri } })).unwrap(),
-            )
-            .unwrap()
-            .unwrap()
-        else {
-            panic!("expected full semantic tokens");
-        };
-        assert_eq!(
-            semantic_token_slices(source, &tokens),
-            vec![
-                ("[[", 0),
-                ("members/sam-rivera", 1),
-                ("#Sam Rivera", 1),
-                ("|", 0),
-                ("]]", 0),
-                ("[[", 0),
-                ("members/mira-chen", 1),
-                ("|", 0),
-                ("]]", 0),
-            ]
-        );
     }
 
     #[test]
@@ -1954,71 +1630,6 @@ mod tests {
     }
 
     #[test]
-    fn emits_theme_roles_for_wikilinks_and_embeds() {
-        let root = fixture_root().canonicalize().unwrap();
-        let mut server = Server::new(root.clone()).unwrap();
-        let source_uri = file_uri(root.join("tasks/lsp-semantic-roles.md"));
-        let source =
-            "[[members/sam-rivera#Sam Rivera|Sam]] ![[members/sam-rivera#Sam Rivera|Sam]]\n";
-        open_markdown_source(&mut server, source_uri.clone(), source);
-
-        let analysis = server
-            .session
-            .document_analysis("tasks/lsp-semantic-roles.md")
-            .unwrap();
-        let roles = analysis
-            .references
-            .iter()
-            .flat_map(|reference| wikilink_semantic_spans(source, reference))
-            .map(|span| (span.role, &source[span.start..span.end]))
-            .collect::<Vec<_>>();
-        assert_eq!(
-            roles,
-            vec![
-                (WikilinkSemanticRole::Delimiter, "[["),
-                (WikilinkSemanticRole::Target, "members/sam-rivera"),
-                (WikilinkSemanticRole::Fragment, "#Sam Rivera"),
-                (WikilinkSemanticRole::Delimiter, "|"),
-                (WikilinkSemanticRole::Label, "Sam"),
-                (WikilinkSemanticRole::Delimiter, "]]"),
-                (WikilinkSemanticRole::EmbedMarker, "!"),
-                (WikilinkSemanticRole::Delimiter, "[["),
-                (WikilinkSemanticRole::Target, "members/sam-rivera"),
-                (WikilinkSemanticRole::Fragment, "#Sam Rivera"),
-                (WikilinkSemanticRole::Delimiter, "|"),
-                (WikilinkSemanticRole::Label, "Sam"),
-                (WikilinkSemanticRole::Delimiter, "]]"),
-            ]
-        );
-
-        let SemanticTokensResult::Tokens(tokens) = server
-            .semantic_tokens(
-                serde_json::from_value(json!({ "textDocument": { "uri": source_uri } })).unwrap(),
-            )
-            .unwrap()
-            .unwrap()
-        else {
-            panic!("expected full semantic tokens");
-        };
-        assert_eq!(
-            semantic_token_slices(source, &tokens),
-            vec![
-                ("[[", 0),
-                ("members/sam-rivera", 1),
-                ("#Sam Rivera", 1),
-                ("|", 0),
-                ("]]", 0),
-                ("!", 0),
-                ("[[", 0),
-                ("members/sam-rivera", 1),
-                ("#Sam Rivera", 1),
-                ("|", 0),
-                ("]]", 0),
-            ]
-        );
-    }
-
-    #[test]
     fn serves_initialize_full_text_overlays_definition_and_document_links() {
         let root = fixture_root().canonicalize().unwrap();
         let source_uri = file_uri(root.join("tasks/lsp-unsaved.md"));
@@ -2051,11 +1662,7 @@ mod tests {
             capabilities["documentLinkProvider"]["resolveProvider"],
             false
         );
-        assert_eq!(
-            capabilities["semanticTokensProvider"]["legend"]["tokenTypes"],
-            json!(["operator", "string"])
-        );
-        assert_eq!(capabilities["semanticTokensProvider"]["full"], true);
+        assert!(capabilities.get("semanticTokensProvider").is_none());
 
         send_notification(&client_connection, "initialized", json!({}));
         assert_no_server_message(&client_connection);
@@ -2130,24 +1737,6 @@ mod tests {
                 .as_str()
                 .ends_with("/members/mira-chen.md")
         }));
-
-        send_request(
-            &client_connection,
-            5,
-            "textDocument/semanticTokens/full",
-            json!({ "textDocument": { "uri": source_uri } }),
-        );
-        let tokens: Option<SemanticTokensResult> =
-            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
-        let SemanticTokensResult::Tokens(tokens) = tokens.unwrap() else {
-            panic!("expected full semantic tokens");
-        };
-        assert_eq!(tokens.data[0].delta_line, 4);
-        assert_eq!(tokens.data[0].delta_start, 7);
-        assert_eq!(
-            semantic_token_slices(changed, &tokens),
-            vec![("[[", 0), ("members/mira-chen", 1), ("|", 0), ("]]", 0)]
-        );
 
         send_request(&client_connection, 8, "textDocument/definition", json!({}));
         let malformed = receive_raw_response(&client_connection);
@@ -2234,21 +1823,6 @@ mod tests {
                 .ends_with("/members/mira-chen.md")
         );
         assert!(locations[0].target_range.start < locations[0].target_range.end);
-
-        send_request(
-            &client_connection,
-            22,
-            "textDocument/semanticTokens/full",
-            json!({ "textDocument": { "uri": view_uri } }),
-        );
-        let tokens: Option<SemanticTokensResult> =
-            serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
-        let SemanticTokensResult::Tokens(tokens) = tokens.unwrap() else {
-            panic!("expected full semantic tokens");
-        };
-        assert!(!tokens.data.is_empty());
-        assert!(tokens.data.iter().any(|token| token.token_type == 0));
-        assert!(tokens.data.iter().any(|token| token.token_type == 1));
 
         send_request(
             &client_connection,
@@ -2525,56 +2099,6 @@ mod tests {
             ]
         );
 
-        let tokens = server
-            .semantic_tokens(
-                serde_json::from_value(json!({ "textDocument": { "uri": source_uri } })).unwrap(),
-            )
-            .unwrap()
-            .unwrap();
-        let SemanticTokensResult::Tokens(tokens) = tokens else {
-            panic!("expected full semantic tokens");
-        };
-        assert_eq!(
-            semantic_token_slices(&source, &tokens),
-            vec![
-                ("[[", 0),
-                ("members/sam-rivera", 1),
-                ("]]", 0),
-                ("[[", 0),
-                ("members/mira-chen", 1),
-                ("|", 0),
-                ("]]", 0),
-                ("[[", 0),
-                ("members/sam-rivera", 1),
-                ("#Sam Rivera", 1),
-                ("|", 0),
-                ("]]", 0),
-                ("!", 0),
-                ("[[", 0),
-                ("members/sam-rivera", 1),
-                ("]]", 0),
-                ("[[", 0),
-                ("members/sam-rivera", 1),
-                ("]]", 0),
-                ("[[", 0),
-                ("members/sam-rivera", 1),
-                ("#Sam Rivera", 1),
-                ("|", 0),
-                ("]]", 0),
-                ("!", 0),
-                ("[[", 0),
-                ("members/sam-rivera", 1),
-                ("]]", 0),
-                ("[[", 0),
-                ("members/not-a-reference", 1),
-                ("]]", 0),
-                ("!", 0),
-                ("[[", 0),
-                ("members/not-a-reference", 1),
-                ("]]", 0),
-            ]
-        );
-
         let image_document = file_uri(root.join("notes/markdown-reader.md"));
         let image_links = server
             .document_links(
@@ -2686,27 +2210,6 @@ mod tests {
             .unwrap_or_else(|| panic!("expected source to contain {needle:?}"));
         let position = position_at_offset(source, needle_start + inner_byte_offset);
         definition_links(server, uri, position.line, position.character)
-    }
-
-    fn semantic_token_slices<'a>(source: &'a str, tokens: &SemanticTokens) -> Vec<(&'a str, u32)> {
-        let mut line = 0;
-        let mut character = 0;
-        tokens
-            .data
-            .iter()
-            .map(|token| {
-                line += token.delta_line;
-                character = if token.delta_line == 0 {
-                    character + token.delta_start
-                } else {
-                    token.delta_start
-                };
-                let start = offset_at_position(source, Position::new(line, character)).unwrap();
-                let end = offset_at_position(source, Position::new(line, character + token.length))
-                    .unwrap();
-                (&source[start..end], token.token_type)
-            })
-            .collect()
     }
 
     fn send_request(connection: &Connection, id: i32, method: &str, params: serde_json::Value) {

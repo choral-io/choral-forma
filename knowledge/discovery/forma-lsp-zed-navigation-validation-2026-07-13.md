@@ -23,6 +23,8 @@ sources:
 
 # Forma LSP And Zed Navigation Validation — 2026-07-13
 
+> Historical validation record: semantic-token results below describe the Alpha 17/18 implementation that was tested on 2026-07-13 and 2026-07-14. The accepted follow-up direction removes source styling from Forma LSP and leaves Markdown highlighting entirely to Zed while retaining the validated navigation behavior.
+
 ## Outcome
 
 The editor-neutral LSP foundation is complete and passes the automated delivery gates. Core owns transient reference semantics, the long-lived session reuses a rebuildable in-memory snapshot, and the Zed extension remains a thin WASM adapter that invokes `forma lsp` from the worktree environment.
@@ -63,7 +65,7 @@ Direct source-mode checks passed for:
 - an ambiguous basename opening Zed's Definitions multibuffer with both candidates;
 - navigation continuing after `editor: restart language server` and after a full Zed restart.
 
-Zed's native Markdown Tree-sitter query classifies wikilink targets as `text.literal.markup`, which the active theme renders like emphasized link text. Forma retains five explicit internal roles for wikilink and embed syntax: delimiter, target, fragment, label, and embed marker. Because the extension attaches to Zed's built-in Markdown language, the current protocol transport uses standard semantic tokens: delimiters and the marker map to `operator`, while targets and fragments map to `string`. Alias text is left to native Markdown highlighting in `combined` mode. The example workspace therefore needs only `semantic_tokens: combined`; no fixed colors or custom token-to-theme map are shipped.
+Zed's native Markdown Tree-sitter query classifies wikilink targets as `text.literal.markup`, which the active theme renders like emphasized link text. Forma retains five explicit internal roles for wikilink and embed syntax: delimiter, target, fragment, label, and embed marker. Because the extension attaches to Zed's built-in Markdown language, the historical protocol transport used standard semantic tokens: delimiters and the marker mapped to `operator`, while targets and fragments mapped to `string`. Alias text remained under native Markdown highlighting, and the example workspace enabled Zed's combined semantic-highlighting mode. No fixed colors or custom token-to-theme map were shipped.
 
 ## Link And Managed-Scope Refinement — 2026-07-14
 
@@ -158,7 +160,7 @@ The aggregate check includes Rust formatting, compilation and workspace tests; T
 
 ## Residual Zed Constraints
 
-- Zed keeps semantic tokens off by default. Workspaces must enable `combined` mode for Markdown to receive Forma's theme-aligned wikilink syntax styling.
+- The semantic-token configuration used by this historical validation is no longer a current Forma requirement; the adapter now leaves source highlighting entirely to Zed.
 - The current Zed extension manifest registers Forma for the built-in Markdown language. It cannot express an activation condition based on the presence of `.forma.md`, so Zed may still ask the adapter to start in non-Forma Markdown worktrees. Core and LSP managed-scope gating prevents document work when no managed Page or View exists, but avoiding process startup itself remains an editor-adapter concern.
 - Dynamic watcher registration and replacement are protocol-tested. The real-editor pass exercised navigation, highlighting, CLI restart, and full Zed restart rather than instrumenting Zed's file-watch traffic.
 - The Dev Extension requires a matching preinstalled CLI. CLI acquisition, registry publication, Preview, and additional project UI remain outside this validation slice.

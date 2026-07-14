@@ -29,6 +29,8 @@ sources:
 
 # Forma Link Navigation And Highlighting Refinement Plan
 
+> Historical execution plan: the semantic-token phases below describe the completed Alpha 18 experiment. The accepted follow-up direction removes source styling from Forma LSP, keeps only parsing and native navigation integration, and leaves Markdown highlighting entirely to the host editor.
+
 ## Objective
 
 Make Forma-specific references behave like a native extension of Markdown while keeping ordinary Markdown behavior editor-owned. The refinement must make wikilink labels clickable, send heading links directly to their resolved heading, align wikilink and embed highlighting with the active theme, and keep the two wikilink delimiters visually consistent.

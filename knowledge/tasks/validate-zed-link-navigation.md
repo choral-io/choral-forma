@@ -66,6 +66,8 @@ Prove that a locally installed Zed extension can start a preinstalled matching `
 
 ## Current Validation State
 
+This completed task records the Alpha 17/18 validation boundary. Its semantic-token styling evidence is historical: the accepted post-validation direction removes Forma styling from the LSP and leaves Markdown source highlighting entirely to Zed while retaining navigation behavior.
+
 Automated protocol, semantic-token, fixture, WASM build, invalidation, restart, and performance checks pass. The Dev Extension remains intentionally unpublished and requires a matching preinstalled `forma` from the worktree environment.
 
 Real Zed interaction also passes: Markdown links, fragments, wikilinks, aliases, embeds, multi-owner frontmatter, inert values, unsaved overlays, unresolved references, ambiguity candidates, language-server restart, and full editor restart were exercised against the getting-started workspace. Markdown `combined` semantic tokens produce theme-aligned target styling without replacing Zed's native Markdown grammar. Evidence and residual Zed constraints are recorded in [[discovery/forma-lsp-zed-navigation-validation-2026-07-13]].

@@ -77,9 +77,9 @@ Zed is an important editor target, but it should follow the first VS Code adapte
 
 ## Relationship Notes
 
-The VS Code MVP baseline is now published. [[tasks/implement-forma-lsp-foundation]] and [[tasks/validate-zed-link-navigation]] establish that Zed can reuse Core-owned navigation, unsaved overlays, ambiguity candidates, and semantic-token-based wikilink target styling through a thin adapter.
+The VS Code MVP baseline is now published. [[tasks/implement-forma-lsp-foundation]] and [[tasks/validate-zed-link-navigation]] establish that Zed can reuse Core-owned navigation, unsaved overlays, and ambiguity candidates through a thin adapter. Forma deliberately leaves Markdown source highlighting entirely to Zed.
 
-The validation also exposes two MVP constraints: the language-server manifest registers against all built-in Markdown worktrees rather than only roots containing `.forma.md`, and Zed keeps semantic tokens disabled unless the user enables them for Markdown. The umbrella task remains in backlog until its remaining workspace lifecycle, diagnostics, CLI management, and View scope is refined around the Zed APIs that actually exist.
+The validation also exposes one MVP constraint: the language-server manifest registers against all built-in Markdown worktrees rather than only roots containing `.forma.md`. The umbrella task remains in backlog until its remaining workspace lifecycle, diagnostics, CLI management, and View scope is refined around the Zed APIs that actually exist.
 
 The Alpha 18 developer-preview boundary keeps CLI acquisition manual but removes version ambiguity for the adapter-controlled path. The adapter resolves `forma` from the worktree `PATH`, requires it to match the extension version exactly, and reports missing or incompatible binaries before starting the server. Zed's native `lsp.forma.binary` setting remains a host-level, user-owned escape hatch because the host applies it before invoking the extension command callback; it is not part of Forma's checked or managed lifecycle. Automatic acquisition is staged after Alpha 18 so its first end-to-end test can use a published CLI that already contains `forma lsp`. That follow-up must define exact-tag asset selection, checksum verification, atomic caching, failure recovery, workspace-trust behavior, native-override precedence, and local-versus-remote installation semantics before it can become a release requirement.
 
@@ -88,4 +88,3 @@ The Alpha 18 developer-preview boundary keeps CLI acquisition manual but removes
 - Which workspace status and diagnostic experiences remain useful after native navigation is available?
 - Does Zed expose a stable Preview or project UI extension point that can represent Forma Views without creating a parallel renderer?
 - How should the extension avoid noisy startup attempts in non-Forma Markdown worktrees when the manifest cannot express a `.forma.md` activation condition?
-- Can a future Zed API let an LSP extension enable its own semantic-token defaults without requiring a workspace or user setting?

@@ -40,6 +40,8 @@ affectedArea: Forma Core reference spans, Forma LSP managed-document lifecycle, 
 
 # Refine Zed Link Navigation And Highlighting
 
+> Historical completion record: this task validated semantic-token styling during the Alpha 18 refinement. The accepted follow-up direction removes that styling transport from Forma LSP and leaves Markdown source highlighting entirely to Zed. Navigation, managed-scope, and performance evidence remain applicable.
+
 ## Goal
 
 Execute [[planning/forma-link-navigation-and-highlighting-refinement-plan]] as a bounded Zed and editor-neutral LSP refinement. Make Forma-specific links navigate consistently, keep ordinary Markdown editor-owned, align wikilink syntax with active themes, and eliminate Forma language work for unmanaged Markdown documents.
