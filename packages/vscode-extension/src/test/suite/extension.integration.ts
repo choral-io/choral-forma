@@ -24,33 +24,50 @@ suite("Forma for VS Code extension", () => {
         assert.ok(commands.includes("forma.selectCli"));
         assert.ok(commands.includes("forma.openCliInstructions"));
         assert.ok(commands.includes("forma.openViewPreviewToSide"));
-        assert.ok(commands.includes("forma.openReference"));
+        assert.ok(!commands.includes("forma.openReference"));
 
         const note = (await vscode.workspace.findFiles("note.md", undefined, 1))[0];
         assert.ok(note);
         const document = await vscode.workspace.openTextDocument(note);
         await vscode.window.showTextDocument(document);
         await vscode.commands.executeCommand("forma.refreshWorkspace");
-        const state = await vscode.commands.executeCommand<{ kind: string }>("forma.getRuntimeState");
+        const state = await vscode.commands.executeCommand<{ kind: string; lspState: string }>("forma.getRuntimeState");
         assert.ok(state && ["ready", "warning"].includes(state.kind));
+        assert.equal(state.lspState, "running");
 
         const linkPosition = document.positionAt(document.getText().indexOf("target") + 1);
-        const definitions = await vscode.commands.executeCommand<vscode.Location[]>(
-            "vscode.executeDefinitionProvider",
-            document.uri,
-            linkPosition,
-        );
+        const definitions = await waitForDefinitions(document.uri, linkPosition);
         assert.equal(definitions?.length, 1);
-        assert.ok(definitions?.[0]?.uri.path.endsWith("/target.md"));
-        assert.ok((definitions?.[0]?.range.start.line ?? 0) > 0);
+        const definition = definitions[0];
+        assert.ok(definition);
+        assert.ok(definitionUri(definition).path.endsWith("/target.md"));
+        assert.ok(definitionRange(definition).start.line > 0);
+        const documentLinks = await vscode.commands.executeCommand<vscode.DocumentLink[]>(
+            "vscode.executeLinkProvider",
+            document.uri,
+            100,
+        );
+        for (const { label, offset } of [
+            { label: "target", offset: document.getText().indexOf("[[target|Target page]]") + 3 },
+            { label: "Target page", offset: document.getText().indexOf("Target page") + 1 },
+        ]) {
+            const position = document.positionAt(offset);
+            const link = documentLinks?.find((candidate) => candidate.range.contains(position));
+            assert.ok(link, `Forma LSP should expose a DocumentLink for ${label}`);
+            assert.ok(link.target?.path.endsWith("/target.md"));
+            assert.equal(link.target?.fragment, "");
+        }
+        const embedPosition = document.positionAt(document.getText().lastIndexOf("[[done]]") + 3);
+        const embedLink = documentLinks?.find((candidate) => candidate.range.contains(embedPosition));
+        assert.ok(embedLink, "Forma LSP should expose a DocumentLink for wikilink embeds");
+        assert.ok(embedLink.target?.path.endsWith("/done.md"));
         const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
             "vscode.executeHoverProvider",
             document.uri,
             linkPosition,
         );
         assert.ok((hovers?.length ?? 0) > 0);
-        const targetUri = definitions?.[0]?.uri;
-        assert.ok(targetUri);
+        const targetUri = definitionUri(definition);
 
         await assertNativeMarkdownLink(document, "done.md", "/done.md");
 
@@ -58,13 +75,15 @@ suite("Forma for VS Code extension", () => {
             { label: "frontmatter entryRef", offset: document.getText().indexOf("owner: done") + "owner: ".length },
             { label: "wikilink embed", offset: document.getText().lastIndexOf("[[done]]") + 3 },
         ]) {
-            const resolved = await vscode.commands.executeCommand<vscode.Location[]>(
+            const resolved = await vscode.commands.executeCommand<DefinitionResult[]>(
                 "vscode.executeDefinitionProvider",
                 document.uri,
                 document.positionAt(offset),
             );
             assert.equal(resolved?.length, 1, label);
-            assert.ok(resolved?.[0]?.uri.path.endsWith("/done.md"));
+            const target = resolved?.[0];
+            assert.ok(target, label);
+            assert.ok(definitionUri(target).path.endsWith("/done.md"));
         }
 
         const tagDefinitions = await vscode.commands.executeCommand<vscode.Location[]>(
@@ -116,4 +135,27 @@ async function waitFor(predicate: () => boolean): Promise<boolean> {
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
     return false;
+}
+
+type DefinitionResult = vscode.Location | vscode.LocationLink;
+
+function definitionUri(definition: DefinitionResult): vscode.Uri {
+    return "targetUri" in definition ? definition.targetUri : definition.uri;
+}
+
+function definitionRange(definition: DefinitionResult): vscode.Range {
+    return "targetUri" in definition ? (definition.targetSelectionRange ?? definition.targetRange) : definition.range;
+}
+
+async function waitForDefinitions(uri: vscode.Uri, position: vscode.Position): Promise<DefinitionResult[]> {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+        const definitions = await vscode.commands.executeCommand<DefinitionResult[]>(
+            "vscode.executeDefinitionProvider",
+            uri,
+            position,
+        );
+        if ((definitions?.length ?? 0) > 0) return definitions;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return [];
 }

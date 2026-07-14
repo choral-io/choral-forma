@@ -60,6 +60,7 @@ struct OpenDocument {
 
 struct Server {
     root: PathBuf,
+    editor_root: PathBuf,
     session: WorkspaceSession,
     client_profile: ClientBehaviorProfile,
     open_documents: BTreeMap<Uri, OpenDocument>,
@@ -128,6 +129,10 @@ impl ClientBehaviorProfile {
     fn projects_code_example_links(self) -> bool {
         self == Self::Zed
     }
+
+    fn provides_positionless_wikilink_definitions(self) -> bool {
+        self == Self::Vscode
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,14 +143,24 @@ struct FormaInitializationOptions {
 }
 
 pub fn run(root: impl AsRef<Path>) -> Result<(), LspError> {
-    let root = fs::canonicalize(root)?;
+    let editor_root = absolute_path(root.as_ref())?;
+    let root = fs::canonicalize(&editor_root)?;
     let (connection, io_threads) = Connection::stdio();
-    run_connection(connection, root)?;
+    run_connection_with_editor_root(connection, root, editor_root)?;
     io_threads.join()?;
     Ok(())
 }
 
+#[cfg(test)]
 fn run_connection(connection: Connection, root: PathBuf) -> Result<(), LspError> {
+    run_connection_with_editor_root(connection, root.clone(), root)
+}
+
+fn run_connection_with_editor_root(
+    connection: Connection,
+    root: PathBuf,
+    editor_root: PathBuf,
+) -> Result<(), LspError> {
     let (initialize_id, initialize_params) = connection.initialize_start()?;
     let initialize_params = serde_json::from_value::<InitializeParams>(initialize_params)?;
     let supports_dynamic_watchers = initialize_params
@@ -190,7 +205,8 @@ fn run_connection(connection: Connection, root: PathBuf) -> Result<(), LspError>
         )))
         .map_err(|_| LspError::ChannelClosed)?;
 
-    let mut server = Server::new_with_client_profile(root, client_profile)?;
+    let mut server =
+        Server::new_with_client_profile_and_editor_root(root, editor_root, client_profile)?;
     let mut registered_watchers = None;
     let mut next_request_id = 10_000;
     let mut initialized = false;
@@ -345,13 +361,23 @@ impl Server {
         Self::new_with_client_profile(root, ClientBehaviorProfile::Generic)
     }
 
+    #[cfg(test)]
     fn new_with_client_profile(
         root: PathBuf,
+        client_profile: ClientBehaviorProfile,
+    ) -> Result<Self, LspError> {
+        Self::new_with_client_profile_and_editor_root(root.clone(), root, client_profile)
+    }
+
+    fn new_with_client_profile_and_editor_root(
+        root: PathBuf,
+        editor_root: PathBuf,
         client_profile: ClientBehaviorProfile,
     ) -> Result<Self, LspError> {
         Ok(Self {
             session: WorkspaceSession::load(&root)?,
             root,
+            editor_root,
             client_profile,
             open_documents: BTreeMap::new(),
             recently_refreshed_saves: BTreeMap::new(),
@@ -591,7 +617,10 @@ impl Server {
         {
             return Ok(None);
         }
-        if is_positionless_wikilink(reference)
+        if !self
+            .client_profile
+            .provides_positionless_wikilink_definitions()
+            && is_positionless_wikilink(reference)
             && self.editor_reference_uri(&path, reference)?.is_some()
         {
             return Ok(None);
@@ -784,7 +813,8 @@ impl Server {
         if !target.starts_with(&self.root) || !target.is_file() {
             return None;
         }
-        let url = Url::from_file_path(target).ok()?;
+        let relative = target.strip_prefix(&self.root).ok()?;
+        let url = Url::from_file_path(self.editor_root.join(relative)).ok()?;
         Uri::from_str(url.as_str()).ok()
     }
 
@@ -807,7 +837,7 @@ impl Server {
         else {
             return Ok(None);
         };
-        let Ok(mut url) = Url::from_file_path(self.root.join(&target.path)) else {
+        let Ok(mut url) = Url::from_file_path(self.editor_root.join(&target.path)) else {
             return Ok(None);
         };
         if let Some(location) = target.fragment_location {
@@ -837,7 +867,10 @@ impl Server {
             .to_file_path()
             .map_err(|_| LspError::InvalidFileUri(uri.as_str().to_string()))?;
         let relative = path
-            .strip_prefix(&self.root)
+            .strip_prefix(&self.editor_root)
+            .or_else(|_| path.strip_prefix(&self.root))
+            .map_err(|_| LspError::OutsideWorkspace(path.clone()))?;
+        validate_workspace_relative_path(&self.root, relative)
             .map_err(|_| LspError::OutsideWorkspace(path.clone()))?;
         Ok(relative
             .components()
@@ -847,11 +880,40 @@ impl Server {
     }
 
     fn path_uri(&self, path: &str) -> Result<Uri, LspError> {
-        let path = self.root.join(path);
+        let path = self.editor_root.join(path);
         let url = Url::from_file_path(&path)
             .map_err(|_| LspError::InvalidFileUri(path.display().to_string()))?;
         Uri::from_str(url.as_str())
             .map_err(|_| LspError::InvalidFileUri(path.display().to_string()))
+    }
+}
+
+fn absolute_path(path: &Path) -> Result<PathBuf, std::io::Error> {
+    if path.is_absolute() {
+        Ok(path.to_path_buf())
+    } else {
+        Ok(std::env::current_dir()?.join(path))
+    }
+}
+
+fn validate_workspace_relative_path(root: &Path, relative: &Path) -> Result<(), std::io::Error> {
+    let candidate = root.join(relative);
+    let boundary_target = if candidate.exists() {
+        candidate.canonicalize()?
+    } else if let Some(parent) = candidate.parent() {
+        parent
+            .canonicalize()?
+            .join(candidate.file_name().unwrap_or_default())
+    } else {
+        candidate
+    };
+    if boundary_target.starts_with(root) {
+        Ok(())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "path escapes the Forma workspace",
+        ))
     }
 }
 
@@ -1581,6 +1643,59 @@ mod tests {
     }
 
     #[test]
+    fn provides_positionless_wikilink_definitions_for_vscode() {
+        let root = fixture_root().canonicalize().unwrap();
+        let mut server =
+            Server::new_with_client_profile(root.clone(), ClientBehaviorProfile::Vscode).unwrap();
+        let source_uri = file_uri(root.join("tasks/lsp-positionless-navigation.md"));
+        let source = "[[members/sam-rivera|Sam]]\n";
+        open_markdown_source(&mut server, source_uri.clone(), source);
+
+        let target =
+            definition_links_at(&server, source_uri.clone(), source, "members/sam-rivera", 2);
+        let alias = definition_links_at(&server, source_uri, source, "|Sam", 2);
+        assert_eq!(target.len(), 1);
+        assert_eq!(alias.len(), 1);
+        assert_eq!(target[0].target_uri, alias[0].target_uri);
+        assert!(
+            target[0]
+                .target_uri
+                .as_str()
+                .ends_with("/members/sam-rivera.md")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preserves_editor_visible_uris_for_symlinked_workspace_roots() {
+        use std::os::unix::fs::symlink;
+
+        let root = fixture_root().canonicalize().unwrap();
+        let alias_parent = temporary_path("uri-alias");
+        fs::create_dir_all(&alias_parent).unwrap();
+        let editor_root = alias_parent.join("workspace");
+        symlink(&root, &editor_root).unwrap();
+        let mut server = Server::new_with_client_profile_and_editor_root(
+            root,
+            editor_root.clone(),
+            ClientBehaviorProfile::Vscode,
+        )
+        .unwrap();
+        let source_path = editor_root.join("tasks/lsp-positionless-navigation.md");
+        let source_uri = raw_file_uri(source_path);
+        let source = "[[members/sam-rivera|Sam]]\n";
+        open_markdown_source(&mut server, source_uri.clone(), source);
+
+        let target = definition_links_at(&server, source_uri, source, "members/sam-rivera", 2);
+        assert_eq!(target.len(), 1);
+        assert!(target[0].target_uri.as_str().contains(&format!(
+            "/{}/workspace/members/sam-rivera.md",
+            alias_parent.file_name().unwrap().to_string_lossy()
+        )));
+        fs::remove_dir_all(alias_parent).unwrap();
+    }
+
+    #[test]
     fn projects_links_from_inline_and_markdown_fenced_code() {
         let root = fixture_root().canonicalize().unwrap();
         let mut server =
@@ -2306,6 +2421,12 @@ mod tests {
     }
 
     fn copied_fixture(name: &str) -> PathBuf {
+        let root = temporary_path(name);
+        copy_dir(&fixture_root(), &root);
+        root
+    }
+
+    fn temporary_path(name: &str) -> PathBuf {
         let unique = format!(
             "forma-lsp-{name}-{}-{}",
             std::process::id(),
@@ -2314,9 +2435,7 @@ mod tests {
                 .unwrap()
                 .as_nanos()
         );
-        let root = std::env::temp_dir().join(unique);
-        copy_dir(&fixture_root(), &root);
-        root
+        std::env::temp_dir().join(unique)
     }
 
     fn copy_dir(source: &Path, target: &Path) {
@@ -2336,6 +2455,14 @@ mod tests {
     fn file_uri(path: PathBuf) -> Uri {
         let absolute = path.canonicalize().unwrap_or(path);
         url::Url::from_file_path(absolute)
+            .unwrap()
+            .as_str()
+            .parse()
+            .unwrap()
+    }
+
+    fn raw_file_uri(path: PathBuf) -> Uri {
+        url::Url::from_file_path(path)
             .unwrap()
             .as_str()
             .parse()

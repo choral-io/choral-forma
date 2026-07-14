@@ -6,6 +6,7 @@ import {
     formaLspCommand,
     formaLspDocumentPatterns,
     formaLspDocumentSelector,
+    formaLspExecutable,
     formaLspInitializationOptions,
     type FormaLspClient,
     type FormaLspRuntimeContext,
@@ -41,6 +42,12 @@ describe("Forma LSP lifecycle", () => {
             args: ["--workspace", "/repo", "lsp"],
             cwd: "/repo",
         });
+        expect(formaLspExecutable(context("/repo"))).toEqual({
+            command: "/opt/forma/bin/forma",
+            args: ["--workspace", "/repo", "lsp"],
+            options: { cwd: "/repo", shell: false, detached: false },
+        });
+        expect(formaLspExecutable(context("/repo"))).not.toHaveProperty("transport");
         expect(formaLspDocumentPatterns(context("/repo"))).toEqual([
             ".forma.md",
             ".forma/views/*.md",

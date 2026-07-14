@@ -4,8 +4,7 @@ import * as vscode from "vscode";
 import { retryCancelledCommandAfterGenerationStabilizes } from "./cancelled-command-retry.ts";
 import { documentReferenceDiagnostics } from "./document-analysis.ts";
 import { frontmatterReferenceValues } from "./frontmatter-links.ts";
-import { openSource } from "./preview.ts";
-import { referenceTokenAt, scanReferenceTokens, type ReferenceToken } from "./reference-token.ts";
+import { referenceTokenAt, type ReferenceToken } from "./reference-token.ts";
 import type { FormaRuntime } from "./runtime.ts";
 
 export function registerNavigation(
@@ -19,14 +18,6 @@ export function registerNavigation(
     ];
 
     context.subscriptions.push(
-        vscode.languages.registerDefinitionProvider(selector, {
-            async provideDefinition(document, position, cancellationToken) {
-                const token = await semanticReferenceTokenAt(runtime, document, position, cancellationToken);
-                if (!token) return undefined;
-                const result = await resolve(runtime, document, token, cancellationToken);
-                return result ? resultLocations(runtime, document, result) : undefined;
-            },
-        }),
         vscode.languages.registerHoverProvider(selector, {
             async provideHover(document, position, cancellationToken) {
                 const token = await semanticReferenceTokenAt(runtime, document, position, cancellationToken);
@@ -47,46 +38,6 @@ export function registerNavigation(
                 }
                 return new vscode.Hover(markdown, tokenRange(document, token));
             },
-        }),
-        vscode.languages.registerDocumentLinkProvider(selector, {
-            provideDocumentLinks(document) {
-                return scanReferenceTokens(document.getText())
-                    .filter((token) => token.syntax === "wikilink")
-                    .flatMap((token) => {
-                        const args = encodeURIComponent(JSON.stringify([document.uri.toString(), token]));
-                        const ranges = [token];
-                        if (token.labelStart !== undefined && token.labelEnd !== undefined) {
-                            ranges.push({ ...token, start: token.labelStart, end: token.labelEnd });
-                        }
-                        return ranges.map((rangeToken) => {
-                            const link = new vscode.DocumentLink(
-                                tokenRange(document, rangeToken),
-                                vscode.Uri.parse(`command:forma.openReference?${args}`),
-                            );
-                            link.tooltip = "Open Forma reference";
-                            return link;
-                        });
-                    });
-            },
-        }),
-        vscode.commands.registerCommand("forma.openReference", async (documentUri: string, token: ReferenceToken) => {
-            const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(documentUri));
-            const result = await runtime.resolveReference(document, token.target, token.intent, token.fragment);
-            if (!result) return;
-            const locations = resultLocations(runtime, document, result);
-            if (locations.length === 1) {
-                const location = locations[0];
-                if (location)
-                    await openSource(location.uri, location.range.start.line + 1, location.range.start.character + 1);
-            } else if (locations.length > 1) {
-                const chosen = await vscode.window.showQuickPick(
-                    locations.map((location) => ({ label: vscode.workspace.asRelativePath(location.uri), location })),
-                    { placeHolder: "Select a Forma reference target" },
-                );
-                if (chosen) await openSource(chosen.location.uri);
-            } else {
-                void vscode.window.showWarningMessage("Forma could not resolve this reference.");
-            }
         }),
     );
 
@@ -169,33 +120,6 @@ function resolve(
         .finally(() => {
             subscription.dispose();
         });
-}
-
-function resultLocations(
-    runtime: FormaRuntime,
-    document: vscode.TextDocument,
-    result: ReferenceResolveResult,
-): vscode.Location[] {
-    const source = runtime.sourcePath(document);
-    if (!source) return [];
-    if (result.target) {
-        if (result.target.fragment && !result.target.fragmentLocation) return [];
-        const line = Math.max(0, (result.target.fragmentLocation?.line ?? 1) - 1);
-        const column = Math.max(0, (result.target.fragmentLocation?.column ?? 1) - 1);
-        const start = new vscode.Position(line, column);
-        const endLine = Math.max(line, (result.target.fragmentLocation?.endLine ?? line + 1) - 1);
-        const endColumn = Math.max(
-            endLine === line ? column : 0,
-            (result.target.fragmentLocation?.endColumn ?? column + 1) - 1,
-        );
-        const range = result.target.fragmentLocation
-            ? new vscode.Range(start, new vscode.Position(endLine, endColumn))
-            : new vscode.Range(start, start);
-        return [new vscode.Location(runtime.uriFor(source.root, result.target.path), range)];
-    }
-    return (result.candidates ?? []).map(
-        (candidate) => new vscode.Location(runtime.uriFor(source.root, candidate.path), new vscode.Position(0, 0)),
-    );
 }
 
 function tokenRange(document: vscode.TextDocument, token: ReferenceToken): vscode.Range {

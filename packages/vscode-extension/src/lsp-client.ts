@@ -5,7 +5,6 @@ import {
     LanguageClient,
     RevealOutputChannelOn,
     State,
-    TransportKind,
     type DocumentSelector,
     type ErrorHandler,
     type LanguageClientOptions,
@@ -15,8 +14,8 @@ import {
 import {
     FormaLspLifecycle,
     RestartBudget,
-    formaLspCommand,
     formaLspDocumentSelector,
+    formaLspExecutable,
     formaLspInitializationOptions,
     type FormaLspClient,
     type FormaLspRuntimeContext,
@@ -32,7 +31,7 @@ export function createFormaLspLifecycle(output: vscode.LogOutputChannel): FormaL
 }
 
 function createFormaLanguageClient(context: FormaLspRuntimeContext, output: vscode.LogOutputChannel): FormaLspClient {
-    const command = formaLspCommand(context);
+    const executable = formaLspExecutable(context);
     const rootUri = vscode.Uri.parse(context.rootUri);
     const containingFolder = vscode.workspace.getWorkspaceFolder(rootUri);
     const workspaceFolder: vscode.WorkspaceFolder = {
@@ -62,10 +61,9 @@ function createFormaLanguageClient(context: FormaLspRuntimeContext, output: vsco
         },
     };
     const serverOptions: ServerOptions = {
-        command: command.command,
-        args: command.args,
-        transport: TransportKind.stdio,
-        options: { cwd: command.cwd, shell: false, detached: false },
+        ...executable,
+        // Executables use stdio by default. Declaring TransportKind.stdio makes
+        // vscode-languageclient append a CLI-specific `--stdio` argument.
     };
     const clientOptions: LanguageClientOptions = {
         documentSelector,
@@ -92,7 +90,7 @@ class LanguageClientAdapter implements FormaLspClient {
 
     constructor(
         private readonly client: LanguageClient,
-        output: vscode.LogOutputChannel,
+        private readonly output: vscode.LogOutputChannel,
     ) {
         this.stateSubscription = client.onDidChangeState(({ oldState, newState }) => {
             output.debug(`[lsp] state=${stateName(oldState)}->${stateName(newState)}`);
@@ -114,14 +112,24 @@ class LanguageClientAdapter implements FormaLspClient {
     }
 
     async stop(): Promise<void> {
-        if (this.client.state !== State.Stopped) await this.client.stop();
+        if (!this.client.needsStop()) return;
+        try {
+            await this.client.stop();
+        } catch (error) {
+            if (this.client.needsStop()) throw error;
+            this.output.debug(`[lsp] ignored stop race after the client settled: ${boundedError(error)}`);
+        }
     }
 
     async dispose(): Promise<void> {
         if (this.disposed) return;
         this.disposed = true;
         this.stateSubscription.dispose();
-        await this.client.dispose();
+        try {
+            await this.client.dispose();
+        } catch (error) {
+            this.output.debug(`[lsp] client disposal completed after a failed start: ${boundedError(error)}`);
+        }
     }
 }
 

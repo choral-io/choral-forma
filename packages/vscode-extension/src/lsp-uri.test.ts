@@ -17,6 +17,7 @@ describe("Forma LSP URI conversion", () => {
         const protocol = editorUriToProtocol(editor, root);
         expect(protocol).toBe("file:///home/tiscs/my%20repo/notes/%E4%B8%AD%E6%96%87.md");
         expect(protocolUriToEditor(`${protocol}#L4:2`, root)).toBe(`${editor}#L4:2`);
+        expect(editorUriToProtocol("file:///home/tiscs/my%20repo", root)).toBe("file:///home/tiscs/my%20repo");
     });
 
     it("rejects cross-authority and out-of-root paths", () => {

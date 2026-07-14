@@ -104,10 +104,6 @@
       {
         "command": "forma.openSource",
         "title": "Forma: Open Source"
-      },
-      {
-        "command": "forma.openReference",
-        "title": "Forma: Open Reference"
       }
     ],
     "configuration": {

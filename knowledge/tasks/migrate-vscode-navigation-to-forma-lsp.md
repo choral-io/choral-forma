@@ -8,7 +8,7 @@ priority: P1
 value: H
 module: app
 effort: M
-status: backlog
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -78,3 +78,26 @@ Enable the prepared Language Client for the active Forma workspace and cut Defin
 - Exactly one Forma navigation provider owns each accepted syntax after cutover.
 - Hover, Diagnostics, Preview, Explorer, and managed CLI recovery continue to work.
 - Focused tests, installed-extension validation, and `mise run check` pass.
+
+## Implementation Evidence
+
+Implemented on 2026-07-14 as the VS Code navigation cutover to the shared Forma language server.
+
+Delivered behavior:
+
+- The trusted ready or warning runtime now synchronizes exactly one `forma --workspace <active-root> lsp` client. Transient runtime rechecks retain an unchanged client; root changes, trust loss, invalid configuration, and disposal stop it through the serialized lifecycle.
+- Forma LSP owns Definition for wikilink targets, explicit labels, heading fragments, embeds, and schema-declared frontmatter references. VS Code receives a positionless-wikilink Definition in addition to the non-competing DocumentLink needed for link interaction.
+- Forma LSP owns DocumentLink for positionless wikilink targets and explicit labels. Ordinary Markdown links remain owned by VS Code's built-in Markdown extension, including heading navigation.
+- The adapter Definition provider, adapter DocumentLink provider, `forma.openReference` command, manifest contribution, and navigation-only result conversion were removed. Hover and saved-document Diagnostics remain CLI-backed; Preview, Explorer, View rendering, and managed CLI recovery remain extension-owned.
+- LSP initialization uses the pure `forma --workspace <root> lsp` command. The executable intentionally omits an explicit `TransportKind.stdio`, because `vscode-languageclient` otherwise appends the unsupported `--stdio` CLI argument; a unit test guards this contract.
+- The LSP now separates its canonical filesystem root from the editor-visible root. This preserves workspace-boundary checks while supporting macOS `/var` to `/private/var` canonicalization and symlink-visible editor URIs without returning unusable target paths.
+- Internal runtime diagnostics expose `lspState` and `lspRoot`, allowing installed-extension tests to prove that navigation runs through the active language client.
+
+Verification:
+
+- `cargo test -p forma-lsp`: 23 tests passed, including VS Code positionless definitions, Zed behavior preservation, managed-document gating, unsaved overlays, and symlink-visible URI preservation.
+- VS Code extension unit tests: 123 passed.
+- The installed VSIX smoke suite passed against the existing official VS Code 1.128.0 executable without downloading another Code.app. It verifies LSP state, LocationLink Definition results, fragment/alias/embed/frontmatter navigation, positionless target/label DocumentLinks, native Markdown ownership, View previews, source opening, and diagnostics.
+- Manual validation in the user's existing `software-product-rd-workspace` window passed for simple wikilinks, aliases, heading fragments, `owners` frontmatter references, native Markdown heading links, and Task Board View rendering. The active workspace had one idle Forma LSP process at approximately 13.6 MiB RSS and 0% CPU during the check.
+- Packaged internal artifact: 21 files, 128.73 KiB VSIX; no release was published.
+- `mise run check`: passed.

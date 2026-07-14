@@ -27,6 +27,25 @@ export async function activate(
     let configRefreshTimer: ReturnType<typeof setTimeout> | undefined;
     let offeredCliRecovery = false;
 
+    const synchronizeLsp = async (): Promise<void> => {
+        await lsp.sync(runtime.lspContext);
+    };
+    const refreshRuntime = async (document?: vscode.TextDocument): Promise<void> => {
+        await runtime.refresh(document);
+        await synchronizeLsp();
+    };
+    const scheduleRuntimeRefresh = (document?: vscode.TextDocument): void => {
+        void refreshRuntime(document).catch((error: unknown) => {
+            output.error(`[lsp] refresh failed: ${boundedError(error)}`);
+        });
+    };
+    const stopLspAfterRuntimeLoss = (): void => {
+        if (runtime.state.kind === "checking" || runtime.lspContext) return;
+        void lsp.stop().catch((error: unknown) => {
+            output.error(`[lsp] stop failed: ${boundedError(error)}`);
+        });
+    };
+
     const disposeWorkspaceWatchers = (): void => {
         for (const disposable of workspaceWatchers) disposable.dispose();
         workspaceWatchers = [];
@@ -43,7 +62,7 @@ export async function activate(
         if (configRefreshTimer) clearTimeout(configRefreshTimer);
         configRefreshTimer = setTimeout(() => {
             configRefreshTimer = undefined;
-            void runtime.refresh();
+            scheduleRuntimeRefresh();
         }, 100);
     };
     const resetWorkspaceWatchers = (): void => {
@@ -105,6 +124,7 @@ export async function activate(
         },
         runtime.onDidChangeState(() => {
             updateStatus();
+            stopLspAfterRuntimeLoss();
             if (runtime.state.kind !== "checking") {
                 resetWorkspaceWatchers();
                 void explorer.refresh();
@@ -142,6 +162,7 @@ export async function activate(
         }),
         vscode.commands.registerCommand("forma.selectWorkspace", async () => {
             await runtime.selectWorkspace();
+            await synchronizeLsp();
         }),
         vscode.commands.registerCommand("forma.inspectConfiguration", async () => {
             const result = await runtime.inspectConfiguration();
@@ -156,7 +177,7 @@ export async function activate(
             }
         }),
         vscode.commands.registerCommand("forma.refreshWorkspace", async () => {
-            await runtime.refresh();
+            await refreshRuntime();
             const document = vscode.window.activeTextEditor?.document;
             if (document && runtime.isFormaDocument(document)) await previews.refresh(document);
         }),
@@ -167,17 +188,25 @@ export async function activate(
             output.show(true);
         }),
         vscode.commands.registerCommand("forma.installCli", async () => {
-            return await installMatchingCli(context, runtime, expectedCliVersion, output);
+            const result = await installMatchingCli(context, runtime, expectedCliVersion, output);
+            await synchronizeLsp();
+            return result;
         }),
         vscode.commands.registerCommand("forma.selectCli", async () => {
-            return await selectExistingCli(runtime);
+            const result = await selectExistingCli(runtime);
+            await synchronizeLsp();
+            return result;
         }),
         vscode.commands.registerCommand("forma.openCliInstructions", async () => {
             await vscode.env.openExternal(
                 vscode.Uri.parse("https://github.com/choral-io/choral-forma#installing-forma"),
             );
         }),
-        vscode.commands.registerCommand("forma.getRuntimeState", () => runtime.state),
+        vscode.commands.registerCommand("forma.getRuntimeState", () => ({
+            ...runtime.state,
+            lspState: lsp.state,
+            lspRoot: lsp.activeRoot,
+        })),
         vscode.commands.registerCommand("forma.openViewPreview", async (uri?: vscode.Uri) => {
             const document = await targetDocument(uri);
             if (document) await previews.open(document, false);
@@ -193,7 +222,9 @@ export async function activate(
             if (runtime.isFormaDocument(document)) await previews.refresh(document);
             if (runtime.isConfigDocument(document)) scheduleConfigRefresh();
         }),
-        vscode.workspace.onDidChangeWorkspaceFolders(() => void runtime.refresh()),
+        vscode.workspace.onDidChangeWorkspaceFolders(() => {
+            scheduleRuntimeRefresh();
+        }),
         vscode.window.onDidChangeActiveTextEditor((editor) => {
             void (async () => {
                 const documentRoot = editor ? runtime.rootForDocument(editor.document) : undefined;
@@ -201,19 +232,23 @@ export async function activate(
                     editor &&
                     shouldRefreshRuntimeForDocument(runtime.workspaceRoots.length, runtime.activeRoot, documentRoot)
                 ) {
-                    await runtime.refresh(editor.document);
+                    await refreshRuntime(editor.document);
                 }
                 if (editor && runtime.isFormaDocument(editor.document)) await previews.refresh(editor.document);
-            })();
+            })().catch((error: unknown) => {
+                output.error(`[lsp] active-editor refresh failed: ${boundedError(error)}`);
+            });
         }),
-        vscode.workspace.onDidGrantWorkspaceTrust(() => void runtime.refresh()),
+        vscode.workspace.onDidGrantWorkspaceTrust(() => {
+            scheduleRuntimeRefresh();
+        }),
         vscode.workspace.onDidChangeConfiguration((event) => {
-            if (event.affectsConfiguration("forma")) void runtime.refresh();
+            if (event.affectsConfiguration("forma")) scheduleRuntimeRefresh();
         }),
     );
 
     registerNavigation(context, runtime, diagnostics);
-    await runtime.refresh();
+    await refreshRuntime();
     const document = vscode.window.activeTextEditor?.document;
     if (document && runtime.isFormaDocument(document)) await previews.refresh(document);
     return { extendMarkdownIt };
@@ -257,6 +292,10 @@ function extensionVersion(packageJSON: unknown): string {
         throw new Error("Forma extension manifest does not declare a valid version.");
     }
     return packageJSON.version;
+}
+
+function boundedError(error: unknown): string {
+    return (error instanceof Error ? error.message : String(error)).replaceAll(/\s+/gu, " ").slice(0, 2_000);
 }
 
 async function offerCliRecovery(

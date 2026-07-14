@@ -3,6 +3,12 @@ import { posix } from "node:path";
 export function editorUriToProtocol(uri: string, rootUri: string): string {
     const editor = new URL(uri);
     const root = new URL(rootUri);
+    if (editor.protocol === "file:" && root.protocol === "vscode-remote:") {
+        if (!isWithin(root.pathname, editor.pathname)) {
+            throw new Error("Forma LSP document URI is outside the active workspace root.");
+        }
+        return editor.toString();
+    }
     if (editor.protocol !== root.protocol || editor.host !== root.host || !isWithin(root.pathname, editor.pathname)) {
         throw new Error("Forma LSP document URI is outside the active workspace root.");
     }

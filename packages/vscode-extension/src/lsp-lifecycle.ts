@@ -152,6 +152,19 @@ export function formaLspCommand(context: FormaLspRuntimeContext): {
     };
 }
 
+export function formaLspExecutable(context: FormaLspRuntimeContext): {
+    command: string;
+    args: string[];
+    options: { cwd: string; shell: false; detached: false };
+} {
+    const command = formaLspCommand(context);
+    return {
+        command: command.command,
+        args: command.args,
+        options: { cwd: command.cwd, shell: false, detached: false },
+    };
+}
+
 export function formaLspDocumentPatterns(context: FormaLspRuntimeContext): string[] {
     return [
         ...new Set(
