@@ -5,7 +5,7 @@ title: Forma v0.1.0-alpha.18
 summary: Internal alpha for editor-neutral Forma language intelligence and native Zed link navigation.
 scope: project
 type: release
-status: planned
+status: released
 version: v0.1.0-alpha.18
 date: 2026-07-14
 owners:
@@ -80,7 +80,14 @@ Local candidate validation passed on 2026-07-14:
 - Main CI run `29321296588` then exposed the same stale assertion in the source Extension Host suite on both VS Code 1.110.0 and current stable. The native Markdown-link assertion is now shared by the source and installed-VSIX suites; the local 1.110.0 source integration test and final packaged-VSIX smoke test pass. A local current-stable download stalled without a test failure, so the replacement candidate's official dual-version CI remains the authoritative current-stable gate.
 - The release-preparation gate also reproduced pnpm 11.11.0's automatic dependency verification racing across parallel `check`, `test`, and `build` tasks after version metadata changed. `verifyDepsBeforeRun: false` keeps installs explicit, and a regression assertion now protects that setting.
 
-Exact candidate commit, main CI, Release workflow, published assets, checksums, current-host CLI, VSIX identity, and managed-install evidence remain pending and will be recorded before this release moves to `released`.
+Published release evidence:
+
+- Annotated tag `v0.1.0-alpha.18` points to exact candidate commit `f9dfa6c1f67d5c1d47fe4102779bed1b6130d193`.
+- [Main CI run 29322568231](https://github.com/choral-io/choral-forma/actions/runs/29322568231) completed successfully for that exact commit, including Rust, Web, Knowledge, Zed `wasm32-wasip1`, VS Code 1.110.0 and current-stable Extension Host tests, packaging, and VSIX smoke validation.
+- [Release workflow run 29322781812](https://github.com/choral-io/choral-forma/actions/runs/29322781812) completed successfully for the same commit across all CLI platform targets, the VS Code extension, and final publication.
+- [GitHub Release `v0.1.0-alpha.18`](https://github.com/choral-io/choral-forma/releases/tag/v0.1.0-alpha.18) was published as a prerelease on 2026-07-14 with 22 expected assets.
+- `mise run release:verify -- v0.1.0-alpha.18` passed. The current-host CLI identified as `forma 0.1.0-alpha.18` with SHA-256 `a91480a364c9f33cb328c7fc0da747cea9ab513fb3bd1dec4749f449cd3bf494`; the VSIX identified as `choral-io.forma@0.1.0-alpha.18`, declared engine `^1.110.0`, and matched SHA-256 `c97def03a99729ed8caf37d7d78564afba2e91dca892b9b88f04c75afb7f27ee`.
+- The verification gate also installed the published `forma-macos-arm64` asset through the production VS Code managed-install path and confirmed `forma 0.1.0-alpha.18`.
 
 ## Rollout Plan
 

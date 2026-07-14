@@ -31,6 +31,7 @@ relatedTo:
     - "tasks/validate-zed-link-navigation"
     - "tasks/implement-zed-extension-mvp"
     - "tasks/generalize-taxonomy-neutral-page-model"
+    - "releases/forma-v0.1.0-alpha.18"
 severity:
 sprint:
 reportedBy:
@@ -107,4 +108,4 @@ Follow the phases and stop conditions in [[planning/forma-link-navigation-and-hi
 - The post-cleanup quick run remained within budget at 128.8 ms project cold Definition, 0.2 ms project warm p95, 37.7 ms 1,000-entry cold Definition, and 0.1 ms 1,000-entry warm p95.
 - The positionless-navigation follow-up updated the benchmark to probe Definition and DocumentLink separately; the rerun remained within budget at 108.1 ms project cold Definition, 0.2 ms project warm p95, 36.3 ms 1,000-entry cold Definition, and 0.1 ms 1,000-entry warm p95.
 - `CI=true mise run check`, project `forma check`, and example-workspace `forma check` passed before closure.
-- Detailed evidence is recorded in [[discovery/forma-lsp-zed-navigation-validation-2026-07-13]]. No release was published.
+- Detailed implementation evidence is recorded in [[discovery/forma-lsp-zed-navigation-validation-2026-07-13]], and the completed slice was published and verified in [[releases/forma-v0.1.0-alpha.18]].
