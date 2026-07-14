@@ -21,6 +21,7 @@ import {
     formatFormaCommandProbe,
     resolveRuntimeFormaCommand,
 } from "./forma-command-resolution.ts";
+import type { FormaLspRuntimeContext } from "./lsp-lifecycle.ts";
 import type { ManagedCliStorage } from "./managed-cli.ts";
 import { currentRefreshValue, isCurrentRefresh } from "./refresh-lifecycle.ts";
 import {
@@ -56,6 +57,7 @@ export class FormaRuntime implements vscode.Disposable {
     private analysisGenerationValue = 0;
     private readonly scopes = new Map<string, WorkspaceScope>();
     private configTargets: Array<{ base: vscode.Uri; pattern: string }> = [];
+    private lspContextValue: FormaLspRuntimeContext | undefined;
 
     readonly onDidChangeState = this.stateEmitter.event;
 
@@ -87,6 +89,10 @@ export class FormaRuntime implements vscode.Disposable {
         return this.configTargets;
     }
 
+    get lspContext(): FormaLspRuntimeContext | undefined {
+        return this.lspContextValue;
+    }
+
     get analysisGeneration(): number {
         return this.analysisGenerationValue;
     }
@@ -97,6 +103,7 @@ export class FormaRuntime implements vscode.Disposable {
         this.analysisGenerationValue += 1;
         this.inspectCache.clear();
         this.configTargets = [];
+        this.lspContextValue = undefined;
         const controller = new AbortController();
         this.refreshController = controller;
 
@@ -134,6 +141,7 @@ export class FormaRuntime implements vscode.Disposable {
             const discovery = currentRefreshValue(controller, this.refreshController, discovered);
             if (!discovery) return;
             this.roots = discovery.roots;
+            if (this.selectedRoot && !this.roots.includes(this.selectedRoot)) this.selectedRoot = undefined;
             for (const root of this.scopes.keys()) {
                 if (!this.roots.includes(root)) this.scopes.delete(root);
             }
@@ -201,13 +209,26 @@ export class FormaRuntime implements vscode.Disposable {
             }
             const inspected = await client.configInspect(activeRoot, controller.signal);
             if (isAborted(controller)) return;
-            this.scopes.set(activeRoot, workspaceScopeFromConfig(inspected));
+            const scope = workspaceScopeFromConfig(inspected);
+            this.scopes.set(activeRoot, scope);
             this.logResult(inspected);
             if (inspected.status === "failed") {
                 this.setState({ kind: "invalidConfig", label: "Forma: Invalid configuration", root: activeRoot });
             } else if (inspected.status === "warning") {
+                this.lspContextValue = {
+                    command: resolution.command,
+                    root: activeRoot,
+                    rootUri: this.uriFor(activeRoot).toString(),
+                    ...scope,
+                };
                 this.setState({ kind: "warning", label: "Forma: Warnings", root: activeRoot });
             } else {
+                this.lspContextValue = {
+                    command: resolution.command,
+                    root: activeRoot,
+                    rootUri: this.uriFor(activeRoot).toString(),
+                    ...scope,
+                };
                 this.setState({ kind: "ready", label: "Forma: Ready", root: activeRoot });
             }
         } catch (error) {

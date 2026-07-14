@@ -8,7 +8,7 @@ priority: P1
 value: H
 module: app
 effort: M
-status: backlog
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -79,3 +79,31 @@ Prepare a safe VS Code Language Client lifecycle without changing user-facing na
 - The dormant manager does not add a second Definition or DocumentLink provider or otherwise change current navigation.
 - Bundle and VSIX size changes are recorded and reviewed if material.
 - Focused VS Code tests and `mise run check` pass.
+
+## Implementation Evidence
+
+Implemented on 2026-07-14 as a dormant production lifecycle. The extension creates the manager during activation but does not synchronize a runtime context until the navigation cutover task enables it, so this iteration starts no LSP process and leaves the existing providers unchanged.
+
+Delivered behavior:
+
+- The runtime exposes one release-aligned LSP context only after Workspace Trust, exact CLI version probing, root selection, and successful or warning-level `config.inspect`.
+- The manager serializes lifecycle work, cancels in-flight startup, stops and disposes the previous client before a root switch, supports explicit restart and stop, and disposes asynchronously without retaining a client.
+- The official Microsoft `vscode-languageclient` 10.1.x owns stdio transport. The command is `forma --workspace <active-root> lsp`, with `cwd` set to the same active root and `clientProfile: vscode` initialization data.
+- Document selectors are derived from effective include patterns and controlled configuration sources. Local and `vscode-remote` URI conversion round-trips only paths inside the active root; external non-file targets pass through, while cross-authority and out-of-root file targets are rejected.
+- Unexpected close recovery permits at most three restarts in 60 seconds and then stops with an output-channel error.
+
+Dependency and package cost:
+
+| Artifact                  | Alpha 18 baseline | Dormant lifecycle |          Delta |
+| ------------------------- | ----------------: | ----------------: | -------------: |
+| Minified extension bundle |      53,227 bytes |     503,295 bytes | +450,068 bytes |
+| VSIX                      |      31,616 bytes |     132,088 bytes | +100,472 bytes |
+
+The material uncompressed bundle increase is accepted because the dependency replaces a custom LSP protocol client; compressed internal-distribution cost remains approximately 129 KiB. Dependency rationale and Microsoft MIT notices are recorded in the extension package.
+
+Verification:
+
+- VS Code extension unit tests: 123 passed, including lifecycle, command, selector, restart-budget, URI boundary, and disposal cases.
+- Complete pnpm suite: 24 files and 137 tests passed.
+- VSIX content inspection and local packaging passed with 21 packaged files.
+- `mise run check`: passed.

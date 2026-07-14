@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 
+import { createFormaLspLifecycle } from "./lsp-client.ts";
 import { installManagedCli } from "./managed-cli.ts";
 import { extendMarkdownIt, type MarkdownIt } from "./markdown-enhancer.ts";
 import { NativePreviewManager } from "./native-preview.ts";
@@ -18,6 +19,7 @@ export async function activate(
     const diagnostics = vscode.languages.createDiagnosticCollection("forma");
     const expectedCliVersion = extensionVersion(context.extension.packageJSON as unknown);
     const runtime = new FormaRuntime(output, expectedCliVersion, context.globalStorageUri);
+    const lsp = createFormaLspLifecycle(output);
     const previews = new NativePreviewManager(runtime);
     const explorer = new FormaWorkspaceExplorer(runtime, context);
     let workspaceWatchers: vscode.Disposable[] = [];
@@ -92,6 +94,7 @@ export async function activate(
         status,
         diagnostics,
         runtime,
+        lsp,
         previews,
         {
             dispose: () => {

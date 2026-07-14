@@ -1,6 +1,10 @@
 # Extension dependency review
 
-Alpha 15 adds no third-party JavaScript runtime dependency to the bundled extension. The runtime uses Node.js and VS Code APIs, while shared Forma imports are type-only and erased by esbuild. The package vendors only the selected Lucide SVG assets used by the Forma tree, with light and dark variants and the corresponding third-party notice.
+The bundled extension has one direct third-party JavaScript runtime dependency:
+
+- `vscode-languageclient`: Microsoft's official VS Code Language Server Protocol client. It owns stdio protocol transport, document synchronization, provider registration, cancellation, and bounded restart integration for the shared `forma lsp` process. It stays inside the VS Code adapter and does not enter Forma Core, the CLI, or other editor extensions. Replacing or removing VS Code's LSP integration removes this dependency together with the adapter lifecycle.
+
+The dependency bundles the Microsoft `vscode-jsonrpc`, `vscode-languageserver-protocol`, `vscode-languageserver-types`, and `vscode-languageserver-textdocument` packages under the same MIT license family. The remaining runtime uses Node.js and VS Code APIs, while shared Forma imports are type-only and erased by esbuild. The package also vendors only the selected Lucide SVG assets used by the Forma tree, with light and dark variants and the corresponding third-party notice.
 
 Development dependencies stay inside `packages/vscode-extension`:
 
