@@ -93,6 +93,67 @@ describe("Forma LSP lifecycle", () => {
         expect(lifecycle.state).toBe("stopped");
     });
 
+    it("keeps at most one active client while selecting among one, two, and five roots", async () => {
+        let activeClients = 0;
+        let maximumActiveClients = 0;
+        const startedRoots: string[] = [];
+        const lifecycle = new FormaLspLifecycle((runtime) => ({
+            start: async () => {
+                activeClients += 1;
+                maximumActiveClients = Math.max(maximumActiveClients, activeClients);
+                startedRoots.push(runtime.root);
+            },
+            stop: async () => {
+                activeClients -= 1;
+            },
+            dispose: async () => undefined,
+        }));
+
+        for (const root of ["/one", "/two", "/three", "/four", "/five"]) {
+            await lifecycle.sync(context(root));
+            expect(lifecycle.activeRoot).toBe(root);
+            expect(activeClients).toBe(1);
+        }
+        expect(startedRoots).toEqual(["/one", "/two", "/three", "/four", "/five"]);
+        expect(maximumActiveClients).toBe(1);
+
+        await lifecycle.stop();
+        expect(activeClients).toBe(0);
+        expect(lifecycle.state).toBe("stopped");
+    });
+
+    it("restarts when the managed scope changes and stops when the workspace root is removed", async () => {
+        const calls: string[] = [];
+        const lifecycle = new FormaLspLifecycle((runtime) => ({
+            start: async () => {
+                calls.push(`start:${runtime.includePatterns.join(",")}`);
+            },
+            stop: async () => {
+                calls.push("stop");
+            },
+            dispose: async () => {
+                calls.push("dispose");
+            },
+        }));
+        const initial = context("/repo");
+        const changed = { ...initial, includePatterns: ["tasks/**/*.md"] };
+
+        await lifecycle.sync(initial);
+        await lifecycle.sync(changed);
+        await lifecycle.sync(undefined);
+
+        expect(calls).toEqual([
+            "start:notes/**/*.md,notes/**/*.md",
+            "stop",
+            "dispose",
+            "start:tasks/**/*.md",
+            "stop",
+            "dispose",
+        ]);
+        expect(lifecycle.activeRoot).toBeUndefined();
+        expect(lifecycle.state).toBe("stopped");
+    });
+
     it("cancels an in-flight start when a newer root wins", async () => {
         let releaseStart: (() => void) | undefined;
         const first = fakeClient();
@@ -139,6 +200,27 @@ describe("Forma LSP lifecycle", () => {
         expect(lifecycle.state).toBe("failed");
         await lifecycle.sync(context("/repo"));
         expect(recovered.start).toHaveBeenCalledOnce();
+        await lifecycle.disposeAsync();
+    });
+
+    it("replaces a same-root client after its bounded transport recovery stops", async () => {
+        let firstRunning = true;
+        const first = fakeClient();
+        first.isRunning = () => firstRunning;
+        const recovered = fakeClient();
+        recovered.isRunning = () => true;
+        let attempt = 0;
+        const lifecycle = new FormaLspLifecycle(() => (attempt++ === 0 ? first : recovered));
+
+        await lifecycle.sync(context("/repo"));
+        firstRunning = false;
+        expect(lifecycle.state).toBe("failed");
+        await lifecycle.sync(context("/repo"));
+
+        expect(first.stop).toHaveBeenCalledOnce();
+        expect(first.dispose).toHaveBeenCalledOnce();
+        expect(recovered.start).toHaveBeenCalledOnce();
+        expect(lifecycle.state).toBe("running");
         await lifecycle.disposeAsync();
     });
 

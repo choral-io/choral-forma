@@ -111,6 +111,10 @@ class LanguageClientAdapter implements FormaLspClient {
         }
     }
 
+    isRunning(): boolean {
+        return this.client.isRunning();
+    }
+
     async stop(): Promise<void> {
         if (!this.client.needsStop()) return;
         try {

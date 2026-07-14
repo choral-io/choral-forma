@@ -11,6 +11,7 @@ export type FormaLspClient = {
     start(signal: AbortSignal): Promise<void>;
     stop(): Promise<void>;
     dispose(): Promise<void>;
+    isRunning?(): boolean;
 };
 
 export type FormaLspClientFactory = (context: FormaLspRuntimeContext) => FormaLspClient;
@@ -36,6 +37,7 @@ export class FormaLspLifecycle {
     ) {}
 
     get state(): FormaLspLifecycleState {
+        if (this.stateValue === "running" && this.client?.isRunning?.() === false) return "failed";
         return this.stateValue;
     }
 
@@ -48,7 +50,14 @@ export class FormaLspLifecycle {
         this.startController?.abort();
         return this.enqueue(async () => {
             if (!this.isCurrent(generation)) return;
-            if (context && this.context && contextKey(context) === contextKey(this.context) && this.client) return;
+            if (
+                context &&
+                this.context &&
+                contextKey(context) === contextKey(this.context) &&
+                this.client &&
+                (this.client.isRunning?.() ?? true)
+            )
+                return;
             await this.stopCurrent();
             if (!context || !this.isCurrent(generation)) return;
 
