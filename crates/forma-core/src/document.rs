@@ -6,7 +6,8 @@ use crate::config::{FormaWorkspace, SemanticType, SpaceDefinition, WorkspaceConf
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::index::{ReferenceFragmentKind, ReferenceIntent, ReferenceSource};
 use crate::markdown::{
-    FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax, SourceSpan,
+    FormaMarkdownDocument, FormaReference, FormaReferenceIntent, FormaReferenceSyntax, SourceSpan,
+    markdown_fenced_references, markdown_inline_code_references,
 };
 use crate::path::slugify_path_segment;
 use crate::schema::{SchemaNode, parse_space_schema};
@@ -110,6 +111,28 @@ pub fn analyze_document_references(
     }
 }
 
+/// Returns link syntax projected from `md` and `markdown` fenced blocks.
+///
+/// This projection supports editor-native presentation and navigation only;
+/// it is deliberately separate from [`analyze_document_references`].
+pub fn project_markdown_fenced_references(source: &str) -> Vec<DocumentReference> {
+    markdown_fenced_references(source)
+        .iter()
+        .filter_map(|reference| document_reference(source, 0, reference))
+        .collect()
+}
+
+/// Returns link syntax projected from inline code.
+///
+/// This editor-only projection does not make code examples part of Forma's
+/// semantic document model.
+pub fn project_inline_code_references(source: &str) -> Vec<DocumentReference> {
+    markdown_inline_code_references(source)
+        .iter()
+        .filter_map(|reference| document_reference(source, 0, reference))
+        .collect()
+}
+
 fn body_references(
     source: &str,
     body_offset: usize,
@@ -118,43 +141,49 @@ fn body_references(
     document
         .references
         .iter()
-        .filter_map(|reference| {
-            let syntax = match reference.syntax {
-                FormaReferenceSyntax::MarkdownLink => DocumentReferenceSyntax::MarkdownLink,
-                FormaReferenceSyntax::MarkdownImage => DocumentReferenceSyntax::MarkdownImage,
-                FormaReferenceSyntax::Wikilink => DocumentReferenceSyntax::Wikilink,
-                FormaReferenceSyntax::ObsidianEmbed => DocumentReferenceSyntax::ObsidianEmbed,
-                FormaReferenceSyntax::FormaCommentDirective => return None,
-            };
-            let intent = match reference.intent {
-                FormaReferenceIntent::Link => ReferenceIntent::Link,
-                FormaReferenceIntent::Embed => ReferenceIntent::Embed,
-                FormaReferenceIntent::View => return None,
-            };
-            let syntax_span = offset_span(source, body_offset, reference.syntax_span)?;
-            let target_span = offset_span(source, body_offset, reference.target_span);
-            let label_span = offset_span(source, body_offset, reference.label_span);
-            let fragment_span = offset_span(source, body_offset, reference.fragment_span);
-            let (target, fragment, fragment_kind) = split_reference_target(&reference.target);
-            Some(DocumentReference {
-                source: ReferenceSource::Body,
-                syntax,
-                intent,
-                raw_target: reference.target.clone(),
-                target,
-                label: reference.label.clone(),
-                fragment,
-                fragment_kind,
-                field: None,
-                index: None,
-                target_space: None,
-                syntax_span,
-                target_span,
-                label_span,
-                fragment_span,
-            })
-        })
+        .filter_map(|reference| document_reference(source, body_offset, reference))
         .collect()
+}
+
+fn document_reference(
+    source: &str,
+    offset: usize,
+    reference: &FormaReference,
+) -> Option<DocumentReference> {
+    let syntax = match reference.syntax {
+        FormaReferenceSyntax::MarkdownLink => DocumentReferenceSyntax::MarkdownLink,
+        FormaReferenceSyntax::MarkdownImage => DocumentReferenceSyntax::MarkdownImage,
+        FormaReferenceSyntax::Wikilink => DocumentReferenceSyntax::Wikilink,
+        FormaReferenceSyntax::ObsidianEmbed => DocumentReferenceSyntax::ObsidianEmbed,
+        FormaReferenceSyntax::FormaCommentDirective => return None,
+    };
+    let intent = match reference.intent {
+        FormaReferenceIntent::Link => ReferenceIntent::Link,
+        FormaReferenceIntent::Embed => ReferenceIntent::Embed,
+        FormaReferenceIntent::View => return None,
+    };
+    let syntax_span = offset_span(source, offset, reference.syntax_span)?;
+    let target_span = offset_span(source, offset, reference.target_span);
+    let label_span = offset_span(source, offset, reference.label_span);
+    let fragment_span = offset_span(source, offset, reference.fragment_span);
+    let (target, fragment, fragment_kind) = split_reference_target(&reference.target);
+    Some(DocumentReference {
+        source: ReferenceSource::Body,
+        syntax,
+        intent,
+        raw_target: reference.target.clone(),
+        target,
+        label: reference.label.clone(),
+        fragment,
+        fragment_kind,
+        field: None,
+        index: None,
+        target_space: None,
+        syntax_span,
+        target_span,
+        label_span,
+        fragment_span,
+    })
 }
 
 fn frontmatter_references(

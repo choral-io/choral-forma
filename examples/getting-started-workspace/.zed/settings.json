@@ -3,29 +3,5 @@
     "Markdown": {
       "semantic_tokens": "combined"
     }
-  },
-  "global_lsp_settings": {
-    "semantic_token_rules": [
-      {
-        "token_type": "formaWikilinkDelimiter",
-        "style": ["punctuation.bracket", "punctuation"]
-      },
-      {
-        "token_type": "formaLinkTarget",
-        "style": ["link_uri", "string"]
-      },
-      {
-        "token_type": "formaLinkFragment",
-        "style": ["link_uri", "string"]
-      },
-      {
-        "token_type": "formaLinkLabel",
-        "style": ["link_text", "string"]
-      },
-      {
-        "token_type": "formaEmbedMarker",
-        "style": ["punctuation.special", "operator"]
-      }
-    ]
   }
 }

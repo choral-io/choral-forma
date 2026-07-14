@@ -58,7 +58,7 @@ Execute [[planning/forma-link-navigation-and-highlighting-refinement-plan]] as a
 - Apply the confirmed save-only configuration invalidation boundary and reclassify open documents after effective configuration changes.
 - Gate LSP overlays, analysis, requests, and snapshot rebuilds by managed scope.
 - Preserve complete syntax, target, label, and fragment source spans in Core.
-- Keep standard Markdown links native while making Forma wikilink paths and labels navigate to the same resolved destination.
+- Keep plain Markdown links native, add only the bounded managed heading-fragment fallback needed by Zed, and make Forma wikilink paths and labels navigate to the same resolved destination.
 - Remove competing internal DocumentLink results where Definition owns navigation.
 - Align wikilink, embed, delimiter, target, fragment, label, and marker semantic roles with Zed themes without fixed colors.
 - Validate Zed and VS Code navigation compatibility and record quick performance evidence after each material optimization stage.
@@ -85,8 +85,8 @@ To keep multi-taxonomy schema and convention composition out of this task, valid
 - Unmanaged Markdown lifecycle and requests cause no Forma analysis or snapshot rebuild.
 - Saved `.forma.md`, import, taxonomy, term, View, or include changes safely recompute scope and reclassify open documents.
 - Wikilink target and displayed title both open the same resolved target and heading.
-- Standard Markdown links remain editor-owned and do not receive competing Forma results.
-- Wikilink opening and closing delimiters share one theme-derived style; wikilinks and embeds share target styling, with only the embed marker differing.
+- Plain Markdown links remain editor-owned and do not receive competing Forma results; managed Markdown heading fragments use a bounded fallback that opens the resolved heading.
+- Wikilink opening and closing delimiters share one theme-derived style; wikilinks and embeds share target styling; the embed marker remains a distinct internal role even when the current standard-token fallback renders it like an operator.
 - Focused Core/LSP tests, Zed WASM checks, cross-editor verification, repository checks, and performance gates pass.
 - Validation evidence is recorded, and no release is published without separate approval.
 
@@ -99,6 +99,12 @@ Follow the phases and stop conditions in [[planning/forma-link-navigation-and-hi
 - Core and LSP managed-document classification, failed-refresh preservation, post-`initialized` watcher registration, configured View overlays, request gating, reference spans, navigation ownership, and semantic roles are covered by focused tests and the full Rust workspace suite.
 - VS Code adapter checks preserve native Markdown ownership and activate both wikilink targets and labels.
 - Zed WASM checks and real-editor navigation passed for path, alias, heading, embed styling, CLI restart recovery, and Ayu Light/Ayu Dark theme previews.
+- Navigation ownership and highlighting are represented explicitly: plain Markdown stays native, managed heading fragments use one bounded fallback, five internal wikilink roles map to standard Zed token transport without fixed colors, and semantic tests assert source slices rather than raw protocol-vector positions.
+- Markdown-labelled fenced examples use a separate lexical projection: standard links and wikilinks receive consistent DocumentLink navigation, wikilink delimiters receive the same theme-derived semantic roles as document content, and Core relationship analysis remains inert.
+- Inline code uses a navigation-only lexical projection for explicit Markdown links, wikilinks, and embeds so Zed's partial path fallback cannot make only one syntax clickable; inline styling and Core relationship analysis remain native/inert.
+- Unique wikilinks and embeds without fragments use client-native positionless DocumentLink targets and no competing Definition. Zed clients receive `zed://file`, avoiding Zed's forced `(0,0)` conversion for standard file DocumentLinks; fragment-bearing and ambiguous references retain positioned Definition navigation. Zed remote mapping remains unclaimed pending separate validation.
 - `mise run perf:lsp:quick` showed no material regression and improved the project cold Definition sample from 123.2 ms to 106.3 ms.
+- The post-cleanup quick run remained within budget at 128.8 ms project cold Definition, 0.2 ms project warm p95, 37.7 ms 1,000-entry cold Definition, and 0.1 ms 1,000-entry warm p95.
+- The positionless-navigation follow-up updated the benchmark to probe Definition and DocumentLink separately; the rerun remained within budget at 108.1 ms project cold Definition, 0.2 ms project warm p95, 36.3 ms 1,000-entry cold Definition, and 0.1 ms 1,000-entry warm p95.
 - `CI=true mise run check`, project `forma check`, and example-workspace `forma check` passed before closure.
 - Detailed evidence is recorded in [[discovery/forma-lsp-zed-navigation-validation-2026-07-13]]. No release was published.

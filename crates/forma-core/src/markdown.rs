@@ -99,6 +99,23 @@ pub struct FrontmatterSplit {
     pub body: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FencedCodeBlock {
+    start: usize,
+    content_start: usize,
+    content_end: usize,
+    end: usize,
+    language: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct InlineCodeSpan {
+    start: usize,
+    content_start: usize,
+    content_end: usize,
+    end: usize,
+}
+
 pub fn parse_markdown(source: &str) -> FormaMarkdownDocument {
     let split = split_frontmatter(source);
     let mut diagnostics = Vec::new();
@@ -160,6 +177,88 @@ pub fn parse_markdown(source: &str) -> FormaMarkdownDocument {
         headings,
         diagnostics,
     }
+}
+
+/// Projects link syntax from fenced blocks that Zed injects as Markdown.
+///
+/// These references are editor presentation data only. The main document
+/// analysis intentionally continues to ignore all inline and fenced code.
+pub(crate) fn markdown_fenced_references(source: &str) -> Vec<FormaReference> {
+    let split = split_frontmatter(source);
+    let body_offset = source.len().saturating_sub(split.body.len());
+    fenced_code_blocks(&split.body)
+        .into_iter()
+        .filter(|block| {
+            block
+                .language
+                .as_deref()
+                .is_some_and(|language| matches!(language, "md" | "markdown"))
+        })
+        .flat_map(|block| {
+            let content = &split.body[block.content_start..block.content_end];
+            projected_markdown_references(source, content, body_offset + block.content_start)
+        })
+        .collect()
+}
+
+/// Projects link syntax from inline code for editor navigation only.
+///
+/// Inline code remains excluded from semantic document analysis and semantic
+/// highlighting. This projection only makes explicit Markdown link examples
+/// behave consistently with path-like text that the editor already detects.
+pub(crate) fn markdown_inline_code_references(source: &str) -> Vec<FormaReference> {
+    let split = split_frontmatter(source);
+    let body_offset = source.len().saturating_sub(split.body.len());
+    let fenced_ranges = fenced_code_block_ranges(&split.body);
+    inline_code_spans(&split.body, &fenced_ranges)
+        .into_iter()
+        .flat_map(|span| {
+            let content = &split.body[span.content_start..span.content_end];
+            projected_markdown_references(source, content, body_offset + span.content_start)
+        })
+        .collect()
+}
+
+fn projected_markdown_references(
+    source: &str,
+    content: &str,
+    content_offset: usize,
+) -> Vec<FormaReference> {
+    let document = parse_markdown(content);
+    let content_body_offset = content.len().saturating_sub(document.body.len());
+    let reference_offset = content_offset + content_body_offset;
+    document
+        .references
+        .into_iter()
+        .filter_map(|reference| {
+            matches!(
+                reference.syntax,
+                FormaReferenceSyntax::MarkdownLink
+                    | FormaReferenceSyntax::Wikilink
+                    | FormaReferenceSyntax::ObsidianEmbed
+            )
+            .then(|| rebase_reference(source, reference_offset, reference))
+        })
+        .collect()
+}
+
+fn rebase_reference(source: &str, offset: usize, mut reference: FormaReference) -> FormaReference {
+    reference.syntax_span = rebase_span(source, offset, reference.syntax_span);
+    reference.span = rebase_span(source, offset, reference.span);
+    reference.target_span = rebase_span(source, offset, reference.target_span);
+    reference.label_span = rebase_span(source, offset, reference.label_span);
+    reference.fragment_span = rebase_span(source, offset, reference.fragment_span);
+    reference
+}
+
+fn rebase_span(source: &str, offset: usize, span: Option<SourceSpan>) -> Option<SourceSpan> {
+    span.map(|span| {
+        source_span(
+            source,
+            offset.saturating_add(span.start_byte),
+            offset.saturating_add(span.end_byte),
+        )
+    })
 }
 
 pub fn split_frontmatter(source: &str) -> FrontmatterSplit {
@@ -235,7 +334,7 @@ fn collect_markdown_structure(
             syntax_span,
             span: syntax_span,
             target_span,
-            label_span: None,
+            label_span: markdown_children_span(&link.children),
             fragment_span,
         });
     }
@@ -364,15 +463,28 @@ fn plain_text(nodes: &[mdast::Node]) -> String {
     output
 }
 
+fn markdown_children_span(nodes: &[mdast::Node]) -> Option<SourceSpan> {
+    let first = nodes.iter().find_map(mdast::Node::position)?;
+    let last = nodes.iter().rev().find_map(mdast::Node::position)?;
+    Some(SourceSpan::from_markdown_bounds(first, last))
+}
+
 impl SourceSpan {
     fn from_markdown_position(position: &markdown::unist::Position) -> Self {
+        Self::from_markdown_bounds(position, position)
+    }
+
+    fn from_markdown_bounds(
+        first: &markdown::unist::Position,
+        last: &markdown::unist::Position,
+    ) -> Self {
         Self {
-            start_byte: position.start.offset,
-            end_byte: position.end.offset,
-            start_line: position.start.line,
-            start_column: position.start.column,
-            end_line: position.end.line,
-            end_column: position.end.column,
+            start_byte: first.start.offset,
+            end_byte: last.end.offset,
+            start_line: first.start.line,
+            start_column: first.start.column,
+            end_line: last.end.line,
+            end_column: last.end.column,
         }
     }
 }
@@ -434,14 +546,25 @@ fn scan_wikilinks_and_embeds(body: &str, references: &mut Vec<FormaReference>) {
 
 fn ignored_code_ranges(body: &str) -> Vec<(usize, usize)> {
     let mut ranges = fenced_code_block_ranges(body);
-    ranges.extend(inline_code_ranges(body, &ranges));
+    ranges.extend(
+        inline_code_spans(body, &ranges)
+            .into_iter()
+            .map(|span| (span.start, span.end)),
+    );
     ranges.sort_unstable();
     ranges
 }
 
 fn fenced_code_block_ranges(body: &str) -> Vec<(usize, usize)> {
-    let mut ranges = Vec::new();
-    let mut in_fence: Option<(String, usize)> = None;
+    fenced_code_blocks(body)
+        .into_iter()
+        .map(|block| (block.start, block.end))
+        .collect()
+}
+
+fn fenced_code_blocks(body: &str) -> Vec<FencedCodeBlock> {
+    let mut blocks = Vec::new();
+    let mut in_fence: Option<(String, usize, usize, Option<String>)> = None;
     let mut offset = 0;
 
     while offset <= body.len() {
@@ -452,18 +575,33 @@ fn fenced_code_block_ranges(body: &str) -> Vec<(usize, usize)> {
         let line = body[offset..line_end].trim_end_matches('\r');
         let trimmed = line.trim_start();
 
-        if let Some((marker, start)) = &in_fence {
+        if let Some((marker, start, content_start, language)) = &in_fence {
             if closes_fence(trimmed, marker) {
                 let end = if line_end < body.len() {
                     line_end + 1
                 } else {
                     line_end
                 };
-                ranges.push((*start, end));
+                blocks.push(FencedCodeBlock {
+                    start: *start,
+                    content_start: *content_start,
+                    content_end: offset,
+                    end,
+                    language: language.clone(),
+                });
                 in_fence = None;
             }
         } else if let Some(marker) = opens_fence(trimmed) {
-            in_fence = Some((marker, offset));
+            let content_start = if line_end < body.len() {
+                line_end + 1
+            } else {
+                line_end
+            };
+            let language = trimmed[marker.len()..]
+                .split_whitespace()
+                .next()
+                .map(str::to_ascii_lowercase);
+            in_fence = Some((marker, offset, content_start, language));
         }
 
         if line_end == body.len() {
@@ -472,14 +610,20 @@ fn fenced_code_block_ranges(body: &str) -> Vec<(usize, usize)> {
         offset = line_end + 1;
     }
 
-    if let Some((_, start)) = in_fence {
-        ranges.push((start, body.len()));
+    if let Some((_, start, content_start, language)) = in_fence {
+        blocks.push(FencedCodeBlock {
+            start,
+            content_start,
+            content_end: body.len(),
+            end: body.len(),
+            language,
+        });
     }
 
-    ranges
+    blocks
 }
 
-fn inline_code_ranges(body: &str, fenced_ranges: &[(usize, usize)]) -> Vec<(usize, usize)> {
+fn inline_code_spans(body: &str, fenced_ranges: &[(usize, usize)]) -> Vec<InlineCodeSpan> {
     let mut ranges = Vec::new();
     let bytes = body.as_bytes();
     let mut offset = 0;
@@ -504,7 +648,12 @@ fn inline_code_ranges(body: &str, fenced_ranges: &[(usize, usize)]) -> Vec<(usiz
             offset = content_start;
             continue;
         };
-        ranges.push((offset, end + count));
+        ranges.push(InlineCodeSpan {
+            start: offset,
+            content_start,
+            content_end: end,
+            end: end + count,
+        });
         offset = end + count;
     }
 
@@ -688,7 +837,8 @@ fn line_column(source: &str, offset: usize) -> (usize, usize) {
 #[cfg(test)]
 mod tests {
     use super::{
-        FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax, split_frontmatter,
+        FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax,
+        markdown_fenced_references, markdown_inline_code_references, split_frontmatter,
     };
 
     #[test]
@@ -845,7 +995,7 @@ mod tests {
     #[test]
     fn preserves_markdown_resource_target_and_fragment_spans() {
         let document = FormaMarkdownDocument::parse(
-            "[Guide](notes/目标.md#章节) ![Map](assets/map.png#tile)\n",
+            "[😀 **Guide**](notes/目标.md#章节) ![Map](assets/map.png#tile)\r\n",
         );
 
         let link = document
@@ -858,6 +1008,13 @@ mod tests {
             .iter()
             .find(|reference| reference.syntax == FormaReferenceSyntax::MarkdownImage)
             .unwrap();
+        let label_span = link.label_span.unwrap();
+        assert_eq!(
+            &document.body[label_span.start_byte..label_span.end_byte],
+            "😀 **Guide**"
+        );
+        assert!(image.label_span.is_none());
+
         for (reference, expected_target, expected_fragment) in [
             (link, "notes/目标.md", "#章节"),
             (image, "assets/map.png", "#tile"),
@@ -872,7 +1029,6 @@ mod tests {
                 &document.body[fragment_span.start_byte..fragment_span.end_byte],
                 expected_fragment
             );
-            assert!(reference.label_span.is_none());
         }
     }
 
@@ -900,6 +1056,66 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(targets, vec!["notes/real", "notes/also-real"]);
+    }
+
+    #[test]
+    fn projects_links_from_markdown_fences_without_promoting_them_to_document_references() {
+        let source = "---\ntitle: Example\n---\nInline `[[notes/inline]]`.\n\n```rust\nlet value = \"[[notes/rust]]\";\n```\n\n```md\n[Guide](notes/guide.md#intro)\n[[notes/wiki#Heading|Wiki]]\n```\n\n~~~MARKDOWN\n![[notes/embed]]\n~~~\n";
+        let document = FormaMarkdownDocument::parse(source);
+        assert!(document.references.is_empty());
+
+        let references = markdown_fenced_references(source);
+        assert_eq!(references.len(), 3);
+        assert_eq!(
+            references
+                .iter()
+                .map(|reference| (
+                    reference.syntax,
+                    &source[reference.syntax_span.unwrap().start_byte
+                        ..reference.syntax_span.unwrap().end_byte]
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (
+                    FormaReferenceSyntax::MarkdownLink,
+                    "[Guide](notes/guide.md#intro)"
+                ),
+                (
+                    FormaReferenceSyntax::Wikilink,
+                    "[[notes/wiki#Heading|Wiki]]"
+                ),
+                (FormaReferenceSyntax::ObsidianEmbed, "![[notes/embed]]"),
+            ]
+        );
+    }
+
+    #[test]
+    fn projects_explicit_links_from_inline_code_without_promoting_them_to_document_references() {
+        let source =
+            "Inline `[Guide](notes/guide.md)`, `[[notes/wiki|Wiki]]`, and `![[notes/embed]]`.\n";
+        let document = FormaMarkdownDocument::parse(source);
+        assert!(document.references.is_empty());
+
+        let references = markdown_inline_code_references(source);
+        assert_eq!(references.len(), 3);
+        assert_eq!(
+            references
+                .iter()
+                .map(|reference| (
+                    reference.syntax,
+                    &source[reference.syntax_span.unwrap().start_byte
+                        ..reference.syntax_span.unwrap().end_byte]
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (
+                    FormaReferenceSyntax::MarkdownLink,
+                    "[Guide](notes/guide.md)"
+                ),
+                (FormaReferenceSyntax::Wikilink, "[[notes/wiki|Wiki]]"),
+                (FormaReferenceSyntax::ObsidianEmbed, "![[notes/embed]]"),
+            ]
+        );
     }
 
     #[test]

@@ -52,12 +52,12 @@ The LSP must also avoid analyzing every Markdown file in an attached editor work
 | Syntax | Example | Primary owner | Expected source navigation |
 | --- | --- | --- | --- |
 | Schema reference | `owners: [members/sam-rivera]` | Forma | Reference scalar is clickable |
-| Markdown link | `[Title](path.md#heading)` | Editor native Markdown | Title opens the native target directly |
+| Markdown link | `[Title](path.md#heading)` | Editor native Markdown, with a bounded Forma heading-fragment fallback | Title opens the resolved heading directly |
 | Markdown image | `![Alt](assets/image.png)` | Editor native Markdown | Native image or resource behavior is preserved |
 | Wikilink | `[[path#heading\|Title]]` | Forma | Path and title open the same resolved heading |
 | Obsidian embed | `![[path#heading\|Title]]` | Forma | Uses the same navigation target as the equivalent wikilink |
 
-Ordinary Markdown links and images must not receive duplicate internal navigation results from Forma when the editor already owns those forms. Multiple LocationLinks are reserved for genuinely ambiguous Forma reference resolution.
+Ordinary Markdown links and images remain editor-owned and must not receive duplicate internal navigation results from Forma. The current Zed integration has bounded exceptions: Forma may return Definition for a managed Markdown link with a heading fragment when native navigation does not reliably reach the heading; unique wikilinks and embeds without a fragment use Zed's positionless `zed://file` DocumentLink target so opening an existing target does not force a cursor position; and explicit links in inline code or `md`/`markdown` fenced examples may receive DocumentLink projection. Code projections are presentation-only and remain excluded from analysis, diagnostics, Definition, and the reference graph. Only Markdown-labelled fences receive Forma semantic-token projection. Multiple LocationLinks are reserved for genuinely ambiguous Forma reference resolution. Non-Zed clients retain standard `file://` targets, and Zed remote behavior remains a separate validation item.
 
 ### Highlight Roles
 
@@ -71,7 +71,7 @@ Ordinary Markdown links and images must not receive duplicate internal navigatio
 | Alias or title             | Link text          |
 | Leading `!`                | Embed marker       |
 
-The opening and closing delimiters must use exactly the same semantic token type and theme mapping. The target path in a wikilink and an embed must also use the same token type. The leading `!` is the only necessary visual difference between the two forms. Forma must not ship fixed syntax colors.
+The opening and closing delimiters must use exactly the same semantic token type and theme mapping. The target path in a wikilink and an embed must also use the same token type. The leading `!` remains a distinct internal semantic role even when the current Zed fallback maps it to the same standard `operator` token as the delimiters. Forma must preserve all five product roles internally, map them separately to the editor protocol, and must not ship fixed syntax colors.
 
 ## Managed-Document Boundary
 
@@ -161,10 +161,12 @@ Exit criterion: Core can distinguish where a reference resolves, where its visib
 ### Phase 4: Separate Definition And DocumentLink Responsibilities
 
 - Leave ordinary Markdown links and images to native editor navigation.
-- Use Definition for internal frontmatter references, wikilinks, and embeds.
-- Make both the path and alias portions of a Forma wikilink activate the same Definition target.
+- Add only a bounded Definition fallback for a managed Markdown link with a heading fragment when the editor's native navigation cannot reach the heading; do not add the fallback to plain Markdown links or images.
+- Use Definition for internal frontmatter references, fragment-bearing wikilinks and embeds, and ambiguous resolution.
+- Use a client-native positionless DocumentLink target for a uniquely resolved wikilink or embed without a fragment, and suppress Definition for the same activation ranges so the editor can preserve an existing target cursor position. In Zed this is a client-detected `zed://file` target; other clients retain `file://`.
+- Make both the path and alias portions of a Forma wikilink activate the same navigation target.
 - Return the resolved heading source range rather than a zero-width placeholder.
-- Do not return an internal DocumentLink that competes with an internal Definition.
+- Do not return an internal DocumentLink that competes with an internal Definition for the same source range.
 - Retain DocumentLink only where an external URL or non-document local resource requires it and no conflicting Definition is provided.
 - Preserve multiple Definition results only for genuinely ambiguous reference resolution.
 
@@ -179,6 +181,7 @@ Exit criterion: a resolved heading reference opens its document and heading dire
 - Map `!` independently as an embed marker without restyling the target.
 - Validate custom semantic-token mapping through the Zed extension before choosing a standard-token fallback.
 - If Zed cannot map a custom delimiter role to theme punctuation, use one shared standard fallback for both delimiters rather than relying on two different Tree-sitter captures.
+- For the current built-in Markdown attachment, retain delimiter, target, fragment, label, and embed-marker roles internally, then transport delimiters and markers as `operator`, targets and fragments as `string`, and leave alias text to native Markdown in `combined` mode.
 - Keep semantic-token ranges independent from Definition activation ranges.
 
 Exit criterion: the two brackets match each other under every tested theme, wikilink and embed targets match each other, and no fixed Forma palette overrides the user's theme.
@@ -213,7 +216,7 @@ Exit criterion: functional checks pass and the refinement does not introduce a m
 - Markdown links, Markdown images, wikilinks, aliased wikilinks, heading wikilinks, and embeds.
 - Cursor positions in target, fragment, alias, delimiters, and surrounding text.
 - Resolved, unresolved, ambiguous, external, and local-resource targets.
-- Inline code and fenced code remaining inert.
+- Inline code and fenced code remaining semantically inert while approved lexical link projections stay navigation-only.
 - UTF-16 positions with Chinese text and surrogate-pair emoji.
 - LF, CRLF, and unsaved managed-document overlays.
 - Matching opening and closing delimiter semantic-token types.
@@ -261,9 +264,10 @@ Stop and reassess rather than broadening the change when:
 - The Zed WASM extension build passes.
 - `[[path|Title]]` navigates from both path and title.
 - Heading references open the resolved heading directly rather than an unnecessary Definitions multibuffer.
+- Unique wikilinks without fragments reopen an existing target without forcing the cursor to the first line.
 - `[[` and `]]` use the same theme-derived style.
-- `[[path]]` and `![[path]]` use the same target style, with only `!` carrying the embed distinction.
-- Ordinary Markdown behavior remains native in unmanaged and managed documents.
+- `[[path]]` and `![[path]]` use the same target style, while only `!` carries the distinct internal embed-marker role.
+- Plain Markdown links and images remain native in unmanaged and managed documents; the managed heading-fragment fallback opens the resolved heading without competing results.
 - Non-Forma Markdown files produce no Forma LSP analysis, navigation, diagnostics, or semantic tokens.
 - Effective imports and include-pattern changes correctly reclassify the managed document set.
 - Quick and full validation gates pass, and performance evidence remains within budget.

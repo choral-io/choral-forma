@@ -6,7 +6,8 @@ use std::time::{Duration, Instant};
 
 use forma_core::{
     DocumentAnalysis, DocumentReference, DocumentReferenceSyntax, ManagedDocumentKind,
-    ReferenceFragmentLocation, SourceSpan, WorkspaceSession,
+    ReferenceFragmentLocation, SourceSpan, WorkspaceSession, project_inline_code_references,
+    project_markdown_fenced_references,
 };
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, Response};
 use lsp_types::notification::{
@@ -61,6 +62,7 @@ struct OpenDocument {
 struct Server {
     root: PathBuf,
     session: WorkspaceSession,
+    document_link_target_style: DocumentLinkTargetStyle,
     open_documents: BTreeMap<Uri, OpenDocument>,
     recently_refreshed_saves: BTreeMap<String, Instant>,
 }
@@ -69,6 +71,22 @@ struct Server {
 struct WatchRegistration {
     id: String,
     patterns: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DocumentLinkTargetStyle {
+    StandardFileUri,
+    ZedFileUrl,
+}
+
+impl DocumentLinkTargetStyle {
+    fn from_client_name(name: Option<&str>) -> Self {
+        if name.is_some_and(|name| name.trim().to_ascii_lowercase().starts_with("zed")) {
+            Self::ZedFileUrl
+        } else {
+            Self::StandardFileUri
+        }
+    }
 }
 
 pub fn run(root: impl AsRef<Path>) -> Result<(), LspError> {
@@ -96,6 +114,12 @@ fn run_connection(connection: Connection, root: PathBuf) -> Result<(), LspError>
         .and_then(|workspace| workspace.did_change_watched_files.as_ref())
         .and_then(|capabilities| capabilities.relative_pattern_support)
         .unwrap_or(false);
+    let document_link_target_style = DocumentLinkTargetStyle::from_client_name(
+        initialize_params
+            .client_info
+            .as_ref()
+            .map(|client| client.name.as_str()),
+    );
     connection
         .sender
         .send(Message::Response(Response::new_ok(
@@ -110,7 +134,7 @@ fn run_connection(connection: Connection, root: PathBuf) -> Result<(), LspError>
         )))
         .map_err(|_| LspError::ChannelClosed)?;
 
-    let mut server = Server::new(root)?;
+    let mut server = Server::new_with_document_link_target_style(root, document_link_target_style)?;
     let mut registered_watchers = None;
     let mut next_request_id = 10_000;
     let mut initialized = false;
@@ -259,13 +283,7 @@ fn server_capabilities() -> ServerCapabilities {
             SemanticTokensOptions {
                 work_done_progress_options: Default::default(),
                 legend: SemanticTokensLegend {
-                    token_types: vec![
-                        SemanticTokenType::new("formaWikilinkDelimiter"),
-                        SemanticTokenType::new("formaLinkTarget"),
-                        SemanticTokenType::new("formaLinkFragment"),
-                        SemanticTokenType::new("formaLinkLabel"),
-                        SemanticTokenType::new("formaEmbedMarker"),
-                    ],
+                    token_types: semantic_token_legend(),
                     token_modifiers: Vec::new(),
                 },
                 range: Some(false),
@@ -277,11 +295,30 @@ fn server_capabilities() -> ServerCapabilities {
     }
 }
 
+fn semantic_token_legend() -> Vec<SemanticTokenType> {
+    [
+        ProtocolSemanticToken::Operator,
+        ProtocolSemanticToken::String,
+    ]
+    .into_iter()
+    .map(ProtocolSemanticToken::token_type)
+    .collect()
+}
+
 impl Server {
+    #[cfg(test)]
     fn new(root: PathBuf) -> Result<Self, LspError> {
+        Self::new_with_document_link_target_style(root, DocumentLinkTargetStyle::StandardFileUri)
+    }
+
+    fn new_with_document_link_target_style(
+        root: PathBuf,
+        document_link_target_style: DocumentLinkTargetStyle,
+    ) -> Result<Self, LspError> {
         Ok(Self {
             session: WorkspaceSession::load(&root)?,
             root,
+            document_link_target_style,
             open_documents: BTreeMap::new(),
             recently_refreshed_saves: BTreeMap::new(),
         })
@@ -526,6 +563,11 @@ impl Server {
         {
             return Ok(None);
         }
+        if is_positionless_wikilink(reference)
+            && self.editor_reference_uri(&path, reference)?.is_some()
+        {
+            return Ok(None);
+        }
         if let Some(target) = self
             .session
             .resolve_managed_path_reference(&path, reference)?
@@ -574,35 +616,56 @@ impl Server {
         let Some((path, source, analysis)) = self.document_context(uri)? else {
             return Ok(Some(Vec::new()));
         };
-        let links = analysis
-            .references
-            .iter()
-            .filter(|reference| {
-                matches!(
-                    reference.syntax,
-                    DocumentReferenceSyntax::Wikilink | DocumentReferenceSyntax::ObsidianEmbed
-                )
-            })
-            .flat_map(|reference| {
-                let target = if is_external_target(&reference.raw_target) {
-                    Uri::from_str(&reference.raw_target).ok()
-                } else {
-                    self.local_resource_uri(&path, reference)
-                };
-                let Some(target) = target else {
-                    return Vec::new();
-                };
-                document_link_spans(reference)
-                    .into_iter()
-                    .map(|span| DocumentLink {
-                        range: source_span_range(&source, span),
-                        target: Some(target.clone()),
-                        tooltip: Some("Open Forma link".to_string()),
-                        data: None,
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+        let mut links = Vec::new();
+        for reference in analysis.references.iter().filter(|reference| {
+            matches!(
+                reference.syntax,
+                DocumentReferenceSyntax::Wikilink | DocumentReferenceSyntax::ObsidianEmbed
+            )
+        }) {
+            let target = if is_external_target(&reference.raw_target) {
+                Uri::from_str(&reference.raw_target).ok()
+            } else if let Some(target) = self.local_resource_uri(&path, reference) {
+                Some(target)
+            } else if is_positionless_wikilink(reference) {
+                self.editor_reference_uri(&path, reference)?
+            } else {
+                None
+            };
+            let Some(target) = target else {
+                continue;
+            };
+            links.extend(document_links_for_reference(
+                &source,
+                reference,
+                target,
+                "Open Forma link",
+            ));
+        }
+
+        for reference in project_inline_code_references(&source) {
+            let Some(target) = self.editor_reference_uri(&path, &reference)? else {
+                continue;
+            };
+            links.extend(document_links_for_reference(
+                &source,
+                &reference,
+                target,
+                "Open inline Markdown example link",
+            ));
+        }
+
+        for reference in project_markdown_fenced_references(&source) {
+            let Some(target) = self.editor_reference_uri(&path, &reference)? else {
+                continue;
+            };
+            links.extend(document_links_for_reference(
+                &source,
+                &reference,
+                target,
+                "Open Markdown example link",
+            ));
+        }
         Ok(Some(links))
     }
 
@@ -630,12 +693,25 @@ impl Server {
             })
             .flat_map(|reference| semantic_token_positions(&source, reference))
             .collect::<Vec<_>>();
-        positions.sort_unstable_by_key(|(position, _, _)| (position.line, position.character));
+        positions.extend(
+            project_markdown_fenced_references(&source)
+                .iter()
+                .filter(|reference| {
+                    matches!(
+                        reference.syntax,
+                        DocumentReferenceSyntax::Wikilink | DocumentReferenceSyntax::ObsidianEmbed
+                    )
+                })
+                .flat_map(|reference| semantic_token_positions(&source, reference)),
+        );
+        positions.sort_unstable_by_key(|token| (token.position.line, token.position.character));
 
         let mut previous = Position::default();
         let data = positions
             .into_iter()
-            .map(|(position, length, token_type)| {
+            .filter_map(|token| {
+                let token_type = token.role.protocol_token_type()?.legend_index();
+                let position = token.position;
                 let delta_line = position.line - previous.line;
                 let delta_start = if delta_line == 0 {
                     position.character - previous.character
@@ -643,13 +719,13 @@ impl Server {
                     position.character
                 };
                 previous = position;
-                SemanticToken {
+                Some(SemanticToken {
                     delta_line,
                     delta_start,
-                    length,
+                    length: token.length,
                     token_type,
                     token_modifiers_bitset: 0,
-                }
+                })
             })
             .collect();
 
@@ -751,6 +827,36 @@ impl Server {
         Uri::from_str(url.as_str()).ok()
     }
 
+    fn editor_reference_uri(
+        &self,
+        source_path: &str,
+        reference: &DocumentReference,
+    ) -> Result<Option<Uri>, LspError> {
+        if is_external_target(&reference.raw_target) {
+            return Ok(Uri::from_str(&reference.raw_target).ok());
+        }
+        if let Some(target) = self.local_resource_uri(source_path, reference) {
+            return Ok(Some(target));
+        }
+
+        let Some(target) = self
+            .session
+            .resolve_document_reference(source_path, reference)?
+            .target
+        else {
+            return Ok(None);
+        };
+        let Ok(mut url) = Url::from_file_path(self.root.join(&target.path)) else {
+            return Ok(None);
+        };
+        if let Some(location) = target.fragment_location {
+            url.set_fragment(Some(&format!("L{}:{}", location.line, location.column)));
+        } else if self.document_link_target_style == DocumentLinkTargetStyle::ZedFileUrl {
+            return Ok(Uri::from_str(&format!("zed://file{}", url.path())).ok());
+        }
+        Ok(Uri::from_str(url.as_str()).ok())
+    }
+
     fn source_for_path(&self, path: &str) -> Result<String, LspError> {
         self.open_documents
             .values()
@@ -792,23 +898,58 @@ fn json_value(value: impl Serialize) -> Result<serde_json::Value, LspError> {
     Ok(serde_json::to_value(value)?)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DefinitionOwnership {
+    Forma,
+    NativeMarkdown,
+    MarkdownFragmentFallback,
+}
+
+fn definition_ownership(reference: &DocumentReference) -> DefinitionOwnership {
+    match reference.syntax {
+        // Keep ordinary Markdown navigation editor-owned. Forma only fills the narrow gap where
+        // Zed resolves the document but does not reliably navigate to an in-document heading.
+        DocumentReferenceSyntax::MarkdownLink if reference.fragment.is_some() => {
+            DefinitionOwnership::MarkdownFragmentFallback
+        }
+        DocumentReferenceSyntax::MarkdownLink | DocumentReferenceSyntax::MarkdownImage => {
+            DefinitionOwnership::NativeMarkdown
+        }
+        DocumentReferenceSyntax::Frontmatter
+        | DocumentReferenceSyntax::Wikilink
+        | DocumentReferenceSyntax::ObsidianEmbed => DefinitionOwnership::Forma,
+    }
+}
+
+fn is_positionless_wikilink(reference: &DocumentReference) -> bool {
+    reference.fragment.is_none()
+        && matches!(
+            reference.syntax,
+            DocumentReferenceSyntax::Wikilink | DocumentReferenceSyntax::ObsidianEmbed
+        )
+}
+
 fn definition_reference_at(
     analysis: &DocumentAnalysis,
     offset: usize,
 ) -> Option<(&DocumentReference, SourceSpan)> {
     analysis.references.iter().find_map(|reference| {
+        let ownership = definition_ownership(reference);
+        if ownership == DefinitionOwnership::NativeMarkdown {
+            return None;
+        }
         let spans = match reference.syntax {
-            DocumentReferenceSyntax::MarkdownLink | DocumentReferenceSyntax::MarkdownImage => {
-                return None;
-            }
             DocumentReferenceSyntax::Frontmatter => {
                 [reference.target_span, reference.fragment_span, None]
             }
-            DocumentReferenceSyntax::Wikilink | DocumentReferenceSyntax::ObsidianEmbed => [
+            DocumentReferenceSyntax::MarkdownLink
+            | DocumentReferenceSyntax::Wikilink
+            | DocumentReferenceSyntax::ObsidianEmbed => [
                 reference.target_span,
                 reference.fragment_span,
                 reference.label_span,
             ],
+            DocumentReferenceSyntax::MarkdownImage => return None,
         };
         spans
             .into_iter()
@@ -838,6 +979,23 @@ fn document_link_spans(reference: &DocumentReference) -> Vec<SourceSpan> {
     spans
 }
 
+fn document_links_for_reference(
+    source: &str,
+    reference: &DocumentReference,
+    target: Uri,
+    tooltip: &str,
+) -> Vec<DocumentLink> {
+    document_link_spans(reference)
+        .into_iter()
+        .map(|span| DocumentLink {
+            range: source_span_range(source, span),
+            target: Some(target.clone()),
+            tooltip: Some(tooltip.to_string()),
+            data: None,
+        })
+        .collect()
+}
+
 fn covering_source_span(
     first: Option<SourceSpan>,
     second: Option<SourceSpan>,
@@ -854,92 +1012,155 @@ fn covering_source_span(
     })
 }
 
-fn semantic_token_positions(
-    source: &str,
-    reference: &DocumentReference,
-) -> Vec<(Position, u32, u32)> {
-    const DELIMITER: u32 = 0;
-    const TARGET: u32 = 1;
-    const FRAGMENT: u32 = 2;
-    const LABEL: u32 = 3;
-    const EMBED_MARKER: u32 = 4;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WikilinkSemanticRole {
+    Delimiter,
+    Target,
+    Fragment,
+    Label,
+    EmbedMarker,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProtocolSemanticToken {
+    Operator,
+    String,
+}
+
+impl ProtocolSemanticToken {
+    fn token_type(self) -> SemanticTokenType {
+        match self {
+            Self::Operator => SemanticTokenType::OPERATOR,
+            Self::String => SemanticTokenType::STRING,
+        }
+    }
+
+    fn legend_index(self) -> u32 {
+        match self {
+            Self::Operator => 0,
+            Self::String => 1,
+        }
+    }
+}
+
+impl WikilinkSemanticRole {
+    fn protocol_token_type(self) -> Option<ProtocolSemanticToken> {
+        match self {
+            Self::Delimiter | Self::EmbedMarker => Some(ProtocolSemanticToken::Operator),
+            Self::Target | Self::Fragment => Some(ProtocolSemanticToken::String),
+            // In Zed's required combined mode, native Markdown supplies the link-text role.
+            // Omitting the overlay preserves that theme styling without shipping fixed colors.
+            Self::Label => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SemanticSourceSpan {
+    start: usize,
+    end: usize,
+    role: WikilinkSemanticRole,
+}
+
+impl SemanticSourceSpan {
+    fn from_span(span: SourceSpan, role: WikilinkSemanticRole) -> Self {
+        Self {
+            start: span.start_byte,
+            end: span.end_byte,
+            role,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SemanticTokenPosition {
+    position: Position,
+    length: u32,
+    role: WikilinkSemanticRole,
+}
+
+fn wikilink_semantic_spans(source: &str, reference: &DocumentReference) -> Vec<SemanticSourceSpan> {
+    const DELIMITER_LENGTH: usize = 2;
+    const EMBED_MARKER_LENGTH: usize = 1;
 
     let syntax_start = reference.syntax_span.start_byte;
     let syntax_end = reference.syntax_span.end_byte;
-    let marker_length = usize::from(reference.syntax == DocumentReferenceSyntax::ObsidianEmbed);
-    let mut positions = Vec::new();
-    if marker_length == 1 {
-        push_semantic_token_range(
-            source,
-            syntax_start,
-            syntax_start + 1,
-            EMBED_MARKER,
-            &mut positions,
-        );
+    let marker_length = usize::from(reference.syntax == DocumentReferenceSyntax::ObsidianEmbed)
+        * EMBED_MARKER_LENGTH;
+    let mut spans = Vec::new();
+    if marker_length == EMBED_MARKER_LENGTH {
+        spans.push(SemanticSourceSpan {
+            start: syntax_start,
+            end: syntax_start + EMBED_MARKER_LENGTH,
+            role: WikilinkSemanticRole::EmbedMarker,
+        });
     }
-    push_semantic_token_range(
-        source,
-        syntax_start + marker_length,
-        syntax_start + marker_length + 2,
-        DELIMITER,
-        &mut positions,
-    );
+    spans.push(SemanticSourceSpan {
+        start: syntax_start + marker_length,
+        end: syntax_start + marker_length + DELIMITER_LENGTH,
+        role: WikilinkSemanticRole::Delimiter,
+    });
     if let Some(span) = reference.target_span {
-        push_semantic_token_range(
-            source,
-            span.start_byte,
-            span.end_byte,
-            TARGET,
-            &mut positions,
-        );
+        spans.push(SemanticSourceSpan::from_span(
+            span,
+            WikilinkSemanticRole::Target,
+        ));
     }
     if let Some(span) = reference.fragment_span {
-        push_semantic_token_range(
-            source,
-            span.start_byte,
-            span.end_byte,
-            FRAGMENT,
-            &mut positions,
-        );
+        spans.push(SemanticSourceSpan::from_span(
+            span,
+            WikilinkSemanticRole::Fragment,
+        ));
     }
     if let Some(label_span) = reference.label_span {
         let search_start = reference
             .fragment_span
             .or(reference.target_span)
-            .map_or(syntax_start + marker_length + 2, |span| span.end_byte);
+            .map_or(syntax_start + marker_length + DELIMITER_LENGTH, |span| {
+                span.end_byte
+            });
         if search_start <= label_span.start_byte
             && let Some(separator) = source[search_start..label_span.start_byte].rfind('|')
         {
             let separator = search_start + separator;
-            push_semantic_token_range(source, separator, separator + 1, DELIMITER, &mut positions);
+            spans.push(SemanticSourceSpan {
+                start: separator,
+                end: separator + 1,
+                role: WikilinkSemanticRole::Delimiter,
+            });
         }
-        push_semantic_token_range(
-            source,
-            label_span.start_byte,
-            label_span.end_byte,
-            LABEL,
-            &mut positions,
-        );
+        spans.push(SemanticSourceSpan::from_span(
+            label_span,
+            WikilinkSemanticRole::Label,
+        ));
     }
-    if syntax_end >= 2 {
-        push_semantic_token_range(
-            source,
-            syntax_end - 2,
-            syntax_end,
-            DELIMITER,
-            &mut positions,
-        );
+    if syntax_end >= DELIMITER_LENGTH {
+        spans.push(SemanticSourceSpan {
+            start: syntax_end - DELIMITER_LENGTH,
+            end: syntax_end,
+            role: WikilinkSemanticRole::Delimiter,
+        });
+    }
+    spans
+}
+
+fn semantic_token_positions(
+    source: &str,
+    reference: &DocumentReference,
+) -> Vec<SemanticTokenPosition> {
+    let mut positions = Vec::new();
+    for span in wikilink_semantic_spans(source, reference) {
+        push_semantic_token_range(source, span, &mut positions);
     }
     positions
 }
 
 fn push_semantic_token_range(
     source: &str,
-    start: usize,
-    end: usize,
-    token_type: u32,
-    positions: &mut Vec<(Position, u32, u32)>,
+    span: SemanticSourceSpan,
+    positions: &mut Vec<SemanticTokenPosition>,
 ) {
+    let SemanticSourceSpan { start, end, role } = span;
     let start = start.min(source.len());
     let end = end.min(source.len());
     if start >= end {
@@ -952,28 +1173,28 @@ fn push_semantic_token_range(
             continue;
         }
         let segment_end = start + relative;
-        push_semantic_token_position(source, segment_start, segment_end, token_type, positions);
+        push_semantic_token_position(source, segment_start, segment_end, role, positions);
         segment_start = segment_end + character.len_utf8();
     }
-    push_semantic_token_position(source, segment_start, end, token_type, positions);
+    push_semantic_token_position(source, segment_start, end, role, positions);
 }
 
 fn push_semantic_token_position(
     source: &str,
     start: usize,
     mut end: usize,
-    token_type: u32,
-    positions: &mut Vec<(Position, u32, u32)>,
+    role: WikilinkSemanticRole,
+    positions: &mut Vec<SemanticTokenPosition>,
 ) {
     if source[start..end].ends_with('\r') {
         end -= 1;
     }
     if start < end {
-        positions.push((
-            position_at_offset(source, start),
-            source[start..end].encode_utf16().count() as u32,
-            token_type,
-        ));
+        positions.push(SemanticTokenPosition {
+            position: position_at_offset(source, start),
+            length: source[start..end].encode_utf16().count() as u32,
+            role,
+        });
     }
 }
 
@@ -1044,13 +1265,36 @@ mod tests {
 
     use lsp_server::{Connection, Message, Notification, Request, RequestId};
     use lsp_types::{
-        DocumentLink, GotoDefinitionResponse, LocationLink, Position, SemanticTokensResult, Uri,
+        DocumentLink, GotoDefinitionResponse, LocationLink, Position, SemanticTokens,
+        SemanticTokensResult, Uri,
     };
     use serde_json::json;
 
     use super::{
-        ManagedDocumentKind, Server, offset_at_position, position_at_offset, run_connection,
+        DefinitionOwnership, DocumentLinkTargetStyle, ManagedDocumentKind, Server,
+        WikilinkSemanticRole, definition_ownership, offset_at_position, position_at_offset,
+        run_connection, wikilink_semantic_spans,
     };
+
+    #[test]
+    fn selects_zed_file_urls_only_for_zed_clients() {
+        assert_eq!(
+            DocumentLinkTargetStyle::from_client_name(Some("Zed")),
+            DocumentLinkTargetStyle::ZedFileUrl
+        );
+        assert_eq!(
+            DocumentLinkTargetStyle::from_client_name(Some("Zed Preview")),
+            DocumentLinkTargetStyle::ZedFileUrl
+        );
+        assert_eq!(
+            DocumentLinkTargetStyle::from_client_name(Some("Visual Studio Code")),
+            DocumentLinkTargetStyle::StandardFileUri
+        );
+        assert_eq!(
+            DocumentLinkTargetStyle::from_client_name(None),
+            DocumentLinkTargetStyle::StandardFileUri
+        );
+    }
 
     #[test]
     fn converts_utf16_positions_without_splitting_surrogate_pairs() {
@@ -1294,7 +1538,22 @@ mod tests {
                     .unwrap(),
                 )
                 .unwrap()
-                .is_some()
+                .is_none()
+        );
+        let links = server
+            .document_links(
+                serde_json::from_value(json!({ "textDocument": { "uri": page_uri } })).unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(links.len(), 1);
+        assert!(
+            links[0]
+                .target
+                .as_ref()
+                .unwrap()
+                .as_str()
+                .ends_with("/members/sam-rivera.md")
         );
 
         fs::write(&config_path, &original_config).unwrap();
@@ -1320,42 +1579,270 @@ mod tests {
     }
 
     #[test]
-    fn navigates_wikilink_target_fragment_and_alias_without_owning_markdown() {
+    fn uses_definition_fallback_for_markdown_fragment_links() {
         let root = fixture_root().canonicalize().unwrap();
         let mut server = Server::new(root.clone()).unwrap();
         let source_uri = file_uri(root.join("tasks/lsp-navigation-ownership.md"));
-        let source = "[Native](../members/sam-rivera.md#Sam-Rivera)\n[[members/sam-rivera#Sam Rivera|Sam]]\n[[members/sam-rivera#Missing|Missing]]\n";
-        server
-            .open_document(
-                serde_json::from_value(json!({
-                    "textDocument": {
-                        "uri": source_uri,
-                        "languageId": "markdown",
-                        "version": 1,
-                        "text": source,
-                    }
-                }))
-                .unwrap(),
-            )
-            .unwrap();
+        let source = "[Native](../members/sam-rivera.md#sam-rivera)\n";
+        open_markdown_source(&mut server, source_uri.clone(), source);
 
-        assert!(definition_links(&server, source_uri.clone(), 0, 3).is_empty());
-        assert!(definition_links(&server, source_uri.clone(), 0, 20).is_empty());
-        assert!(definition_links(&server, source_uri.clone(), 1, 1).is_empty());
-        assert!(definition_links(&server, source_uri.clone(), 1, 31).is_empty());
+        let reference = &server
+            .session
+            .document_analysis("tasks/lsp-navigation-ownership.md")
+            .unwrap()
+            .references[0];
+        assert_eq!(
+            definition_ownership(reference),
+            DefinitionOwnership::MarkdownFragmentFallback
+        );
 
-        let target = definition_links(&server, source_uri.clone(), 1, 5);
-        let fragment = definition_links(&server, source_uri.clone(), 1, 23);
-        let alias = definition_links(&server, source_uri.clone(), 1, 33);
+        let markdown_label = definition_links_at(&server, source_uri.clone(), source, "Native", 2);
+        let markdown_target = definition_links_at(
+            &server,
+            source_uri.clone(),
+            source,
+            "../members/sam-rivera.md",
+            2,
+        );
+        let markdown_fragment = definition_links_at(&server, source_uri, source, "#sam-rivera", 2);
+        assert_eq!(markdown_label.len(), 1);
+        assert_eq!(markdown_target.len(), 1);
+        assert_eq!(markdown_fragment.len(), 1);
+        assert_eq!(markdown_label[0].target_uri, markdown_target[0].target_uri);
+        assert_eq!(
+            markdown_label[0].target_uri,
+            markdown_fragment[0].target_uri
+        );
+        assert!(
+            markdown_label[0]
+                .target_uri
+                .as_str()
+                .ends_with("/members/sam-rivera.md")
+        );
+        assert!(markdown_label[0].target_range.start < markdown_label[0].target_range.end);
+    }
+
+    #[test]
+    fn leaves_plain_markdown_links_to_native_navigation() {
+        let root = fixture_root().canonicalize().unwrap();
+        let mut server = Server::new(root.clone()).unwrap();
+        let source_uri = file_uri(root.join("tasks/lsp-navigation-ownership.md"));
+        let source = "[Plain](../members/sam-rivera.md)\n";
+        open_markdown_source(&mut server, source_uri.clone(), source);
+
+        let reference = &server
+            .session
+            .document_analysis("tasks/lsp-navigation-ownership.md")
+            .unwrap()
+            .references[0];
+        assert_eq!(
+            definition_ownership(reference),
+            DefinitionOwnership::NativeMarkdown
+        );
+        assert!(definition_links_at(&server, source_uri.clone(), source, "Plain", 2).is_empty());
+        assert!(
+            definition_links_at(&server, source_uri, source, "../members/sam-rivera.md", 2)
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn navigates_wikilink_target_fragment_and_alias() {
+        let root = fixture_root().canonicalize().unwrap();
+        let mut server = Server::new(root.clone()).unwrap();
+        let source_uri = file_uri(root.join("tasks/lsp-navigation-ownership.md"));
+        let source =
+            "[[members/sam-rivera#Sam Rivera|Sam]]\n[[members/sam-rivera#Missing|Missing]]\n";
+        open_markdown_source(&mut server, source_uri.clone(), source);
+
+        assert!(definition_links_at(&server, source_uri.clone(), source, "[[", 0).is_empty());
+        assert!(definition_links_at(&server, source_uri.clone(), source, "]]", 1).is_empty());
+
+        let target =
+            definition_links_at(&server, source_uri.clone(), source, "members/sam-rivera", 2);
+        let fragment = definition_links_at(&server, source_uri.clone(), source, "#Sam Rivera", 2);
+        let alias = definition_links_at(&server, source_uri.clone(), source, "|Sam", 2);
         assert_eq!(target.len(), 1);
         assert_eq!(target[0].target_uri, fragment[0].target_uri);
         assert_eq!(target[0].target_uri, alias[0].target_uri);
         assert_eq!(target[0].target_range, fragment[0].target_range);
         assert_eq!(target[0].target_range, alias[0].target_range);
         assert!(target[0].target_range.start < target[0].target_range.end);
-        assert_eq!(target[0].origin_selection_range.unwrap().start.character, 2);
-        assert_eq!(alias[0].origin_selection_range.unwrap().start.character, 32);
-        assert!(definition_links(&server, source_uri, 2, 32).is_empty());
+        assert_eq!(
+            target[0].origin_selection_range.unwrap().start,
+            position_at_offset(source, source.find("members/sam-rivera").unwrap())
+        );
+        assert_eq!(
+            alias[0].origin_selection_range.unwrap().start,
+            position_at_offset(source, source.find("|Sam").unwrap() + 1)
+        );
+        assert!(definition_links_at(&server, source_uri, source, "|Missing", 2).is_empty());
+    }
+
+    #[test]
+    fn opens_positionless_zed_wikilinks_without_forcing_a_target_selection() {
+        let root = fixture_root().canonicalize().unwrap();
+        let mut server = Server::new_with_document_link_target_style(
+            root.clone(),
+            DocumentLinkTargetStyle::ZedFileUrl,
+        )
+        .unwrap();
+        let source_uri = file_uri(root.join("tasks/lsp-positionless-navigation.md"));
+        let source = "[[members/sam-rivera|Sam]]\n[[members/sam-rivera#Sam Rivera|Heading]]\n";
+        open_markdown_source(&mut server, source_uri.clone(), source);
+
+        let links = server
+            .document_links(
+                serde_json::from_value(json!({ "textDocument": { "uri": source_uri.clone() } }))
+                    .unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(links.len(), 2);
+        assert_eq!(
+            links
+                .iter()
+                .map(
+                    |link| &source[offset_at_position(source, link.range.start).unwrap()
+                        ..offset_at_position(source, link.range.end).unwrap()]
+                )
+                .collect::<Vec<_>>(),
+            vec!["members/sam-rivera", "Sam"]
+        );
+        assert!(links.iter().all(|link| {
+            let target = link.target.as_ref().unwrap().as_str();
+            target.starts_with("zed://file/") && target.ends_with("/members/sam-rivera.md")
+        }));
+
+        assert!(
+            definition_links_at(&server, source_uri.clone(), source, "members/sam-rivera", 2,)
+                .is_empty()
+        );
+        assert!(definition_links_at(&server, source_uri.clone(), source, "|Sam", 2).is_empty());
+        assert_eq!(
+            definition_links_at(&server, source_uri.clone(), source, "#Sam Rivera", 2).len(),
+            1
+        );
+        assert_eq!(
+            definition_links_at(&server, source_uri, source, "|Heading", 2).len(),
+            1
+        );
+    }
+
+    #[test]
+    fn projects_links_from_inline_and_markdown_fenced_code() {
+        let root = fixture_root().canonicalize().unwrap();
+        let mut server = Server::new_with_document_link_target_style(
+            root.clone(),
+            DocumentLinkTargetStyle::ZedFileUrl,
+        )
+        .unwrap();
+        let source_uri = file_uri(root.join("tasks/lsp-code-inert.md"));
+        let source = "Inline `[Sam](../members/sam-rivera.md#sam-rivera)`, `[[members/sam-rivera]]`, and `![[members/sam-rivera]]`.\n\n```rust\nlet literal = \"[[members/sam-rivera]]\";\n```\n\n```md\n[Sam](../members/sam-rivera.md#sam-rivera)\n[[members/sam-rivera#Sam Rivera|Sam]]\n```\n\n```markdown\n[Mira](../members/mira-chen.md)\n[[members/mira-chen|Mira]]\n```\n";
+        open_markdown_source(&mut server, source_uri.clone(), source);
+
+        let target_offsets = source
+            .match_indices("members/sam-rivera")
+            .map(|(offset, _)| offset)
+            .collect::<Vec<_>>();
+        assert_eq!(target_offsets.len(), 6);
+        for offset in target_offsets {
+            let position = position_at_offset(source, offset);
+            assert!(
+                definition_links(
+                    &server,
+                    source_uri.clone(),
+                    position.line,
+                    position.character,
+                )
+                .is_empty()
+            );
+        }
+
+        let analysis = server
+            .session
+            .document_analysis("tasks/lsp-code-inert.md")
+            .unwrap();
+        assert!(analysis.references.is_empty());
+        let links = server
+            .document_links(
+                serde_json::from_value(json!({ "textDocument": { "uri": source_uri.clone() } }))
+                    .unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(links.len(), 12);
+        assert_eq!(
+            links
+                .iter()
+                .map(
+                    |link| &source[offset_at_position(source, link.range.start).unwrap()
+                        ..offset_at_position(source, link.range.end).unwrap()]
+                )
+                .collect::<Vec<_>>(),
+            vec![
+                "../members/sam-rivera.md#sam-rivera",
+                "Sam",
+                "members/sam-rivera",
+                "members/sam-rivera",
+                "../members/sam-rivera.md#sam-rivera",
+                "Sam",
+                "members/sam-rivera#Sam Rivera",
+                "Sam",
+                "../members/mira-chen.md",
+                "Mira",
+                "members/mira-chen",
+                "Mira",
+            ]
+        );
+        let sam_target = links[0].target.as_ref().unwrap().as_str();
+        assert!(sam_target.starts_with("file://"));
+        assert!(sam_target.contains("/members/sam-rivera.md#L"));
+        assert_eq!(links[1].target.as_ref().unwrap().as_str(), sam_target);
+        assert!(
+            links[2]
+                .target
+                .as_ref()
+                .unwrap()
+                .as_str()
+                .starts_with("zed://file/")
+        );
+        assert!(
+            links[2]
+                .target
+                .as_ref()
+                .unwrap()
+                .as_str()
+                .ends_with("/members/sam-rivera.md")
+        );
+        assert_eq!(links[3].target, links[2].target);
+        let mira_target = links[8].target.as_ref().unwrap().as_str();
+        assert!(mira_target.starts_with("zed://file/"));
+        assert!(mira_target.ends_with("/members/mira-chen.md"));
+        assert_eq!(links[9].target.as_ref().unwrap().as_str(), mira_target);
+        let SemanticTokensResult::Tokens(tokens) = server
+            .semantic_tokens(
+                serde_json::from_value(json!({ "textDocument": { "uri": source_uri } })).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+        else {
+            panic!("expected full semantic tokens");
+        };
+        assert_eq!(
+            semantic_token_slices(source, &tokens),
+            vec![
+                ("[[", 0),
+                ("members/sam-rivera", 1),
+                ("#Sam Rivera", 1),
+                ("|", 0),
+                ("]]", 0),
+                ("[[", 0),
+                ("members/mira-chen", 1),
+                ("|", 0),
+                ("]]", 0),
+            ]
+        );
     }
 
     #[test]
@@ -1418,7 +1905,7 @@ mod tests {
     }
 
     #[test]
-    fn emits_document_links_only_for_external_or_local_resource_wikilinks() {
+    fn emits_document_links_for_positionless_external_and_local_wikilinks() {
         let root = fixture_root().canonicalize().unwrap();
         let mut server = Server::new(root.clone()).unwrap();
         let source_uri = file_uri(root.join("tasks/lsp-document-links.md"));
@@ -1443,7 +1930,7 @@ mod tests {
             )
             .unwrap()
             .unwrap();
-        assert_eq!(links.len(), 4);
+        assert_eq!(links.len(), 6);
         assert_eq!(links[0].range.start.character, 2);
         assert_eq!(links[1].range.start.character, 30);
         assert!(
@@ -1458,6 +1945,12 @@ mod tests {
                 .as_ref()
                 .is_some_and(|target| target.as_str() == "https://example.com")
         );
+        assert!(
+            links[4]
+                .target
+                .as_ref()
+                .is_some_and(|target| target.as_str().ends_with("/members/sam-rivera.md"))
+        );
     }
 
     #[test]
@@ -1467,19 +1960,36 @@ mod tests {
         let source_uri = file_uri(root.join("tasks/lsp-semantic-roles.md"));
         let source =
             "[[members/sam-rivera#Sam Rivera|Sam]] ![[members/sam-rivera#Sam Rivera|Sam]]\n";
-        server
-            .open_document(
-                serde_json::from_value(json!({
-                    "textDocument": {
-                        "uri": source_uri,
-                        "languageId": "markdown",
-                        "version": 1,
-                        "text": source,
-                    }
-                }))
-                .unwrap(),
-            )
+        open_markdown_source(&mut server, source_uri.clone(), source);
+
+        let analysis = server
+            .session
+            .document_analysis("tasks/lsp-semantic-roles.md")
             .unwrap();
+        let roles = analysis
+            .references
+            .iter()
+            .flat_map(|reference| wikilink_semantic_spans(source, reference))
+            .map(|span| (span.role, &source[span.start..span.end]))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            roles,
+            vec![
+                (WikilinkSemanticRole::Delimiter, "[["),
+                (WikilinkSemanticRole::Target, "members/sam-rivera"),
+                (WikilinkSemanticRole::Fragment, "#Sam Rivera"),
+                (WikilinkSemanticRole::Delimiter, "|"),
+                (WikilinkSemanticRole::Label, "Sam"),
+                (WikilinkSemanticRole::Delimiter, "]]"),
+                (WikilinkSemanticRole::EmbedMarker, "!"),
+                (WikilinkSemanticRole::Delimiter, "[["),
+                (WikilinkSemanticRole::Target, "members/sam-rivera"),
+                (WikilinkSemanticRole::Fragment, "#Sam Rivera"),
+                (WikilinkSemanticRole::Delimiter, "|"),
+                (WikilinkSemanticRole::Label, "Sam"),
+                (WikilinkSemanticRole::Delimiter, "]]"),
+            ]
+        );
 
         let SemanticTokensResult::Tokens(tokens) = server
             .semantic_tokens(
@@ -1491,12 +2001,20 @@ mod tests {
             panic!("expected full semantic tokens");
         };
         assert_eq!(
-            tokens
-                .data
-                .iter()
-                .map(|token| token.token_type)
-                .collect::<Vec<_>>(),
-            vec![0, 1, 2, 0, 3, 0, 4, 0, 1, 2, 0, 3, 0]
+            semantic_token_slices(source, &tokens),
+            vec![
+                ("[[", 0),
+                ("members/sam-rivera", 1),
+                ("#Sam Rivera", 1),
+                ("|", 0),
+                ("]]", 0),
+                ("!", 0),
+                ("[[", 0),
+                ("members/sam-rivera", 1),
+                ("#Sam Rivera", 1),
+                ("|", 0),
+                ("]]", 0),
+            ]
         );
     }
 
@@ -1514,6 +2032,7 @@ mod tests {
             "initialize",
             json!({
                 "processId": null,
+                "clientInfo": { "name": "Zed", "version": "test" },
                 "capabilities": {},
                 "rootUri": root_uri,
             }),
@@ -1534,13 +2053,7 @@ mod tests {
         );
         assert_eq!(
             capabilities["semanticTokensProvider"]["legend"]["tokenTypes"],
-            json!([
-                "formaWikilinkDelimiter",
-                "formaLinkTarget",
-                "formaLinkFragment",
-                "formaLinkLabel",
-                "formaEmbedMarker",
-            ])
+            json!(["operator", "string"])
         );
         assert_eq!(capabilities["semanticTokensProvider"]["full"], true);
 
@@ -1568,7 +2081,20 @@ mod tests {
         let links: Option<Vec<DocumentLink>> =
             serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
         let links = links.unwrap();
-        assert!(links.is_empty());
+        assert_eq!(links.len(), 2);
+        assert!(links.iter().all(|link| {
+            link.target
+                .as_ref()
+                .unwrap()
+                .as_str()
+                .starts_with("zed://file/")
+                && link
+                    .target
+                    .as_ref()
+                    .unwrap()
+                    .as_str()
+                    .ends_with("/members/sam-rivera.md")
+        }));
 
         let changed = "---\ntitle: LSP test\nowners: []\n---\nSee 😀 [[members/mira-chen|Mira]].\n";
         send_notification(
@@ -1590,28 +2116,20 @@ mod tests {
         send_request(
             &client_connection,
             3,
-            "textDocument/definition",
-            json!({
-                "textDocument": { "uri": source_uri },
-                "position": { "line": 4, "character": 11 },
-            }),
+            "textDocument/documentLink",
+            json!({ "textDocument": { "uri": source_uri } }),
         );
-        let definition: Option<GotoDefinitionResponse> =
+        let links: Option<Vec<DocumentLink>> =
             serde_json::from_value(receive_response(&client_connection).result.unwrap()).unwrap();
-        let GotoDefinitionResponse::Link(locations) = definition.unwrap() else {
-            panic!("expected a location link response");
-        };
-        assert_eq!(locations.len(), 1);
-        assert!(
-            locations[0]
-                .target_uri
+        let links = links.unwrap();
+        assert_eq!(links.len(), 2);
+        assert!(links.iter().all(|link| {
+            link.target
+                .as_ref()
+                .unwrap()
                 .as_str()
                 .ends_with("/members/mira-chen.md")
-        );
-        assert_eq!(
-            locations[0].origin_selection_range.unwrap().start.character,
-            9
-        );
+        }));
 
         send_request(
             &client_connection,
@@ -1624,23 +2142,12 @@ mod tests {
         let SemanticTokensResult::Tokens(tokens) = tokens.unwrap() else {
             panic!("expected full semantic tokens");
         };
-        assert_eq!(tokens.data.len(), 5);
         assert_eq!(tokens.data[0].delta_line, 4);
         assert_eq!(tokens.data[0].delta_start, 7);
-        assert_eq!(tokens.data[0].length, 2);
-        assert_eq!(tokens.data[0].token_type, 0);
-        assert_eq!(tokens.data[1].delta_start, 2);
-        assert_eq!(tokens.data[1].length, 17);
-        assert_eq!(tokens.data[1].token_type, 1);
-        assert_eq!(tokens.data[2].delta_start, 17);
-        assert_eq!(tokens.data[2].length, 1);
-        assert_eq!(tokens.data[2].token_type, 0);
-        assert_eq!(tokens.data[3].delta_start, 1);
-        assert_eq!(tokens.data[3].length, 4);
-        assert_eq!(tokens.data[3].token_type, 3);
-        assert_eq!(tokens.data[4].delta_start, 4);
-        assert_eq!(tokens.data[4].length, 2);
-        assert_eq!(tokens.data[4].token_type, 0);
+        assert_eq!(
+            semantic_token_slices(changed, &tokens),
+            vec![("[[", 0), ("members/mira-chen", 1), ("|", 0), ("]]", 0)]
+        );
 
         send_request(&client_connection, 8, "textDocument/definition", json!({}));
         let malformed = receive_raw_response(&client_connection);
@@ -1740,7 +2247,8 @@ mod tests {
             panic!("expected full semantic tokens");
         };
         assert!(!tokens.data.is_empty());
-        assert!(tokens.data.iter().any(|token| token.token_type == 3));
+        assert!(tokens.data.iter().any(|token| token.token_type == 0));
+        assert!(tokens.data.iter().any(|token| token.token_type == 1));
 
         send_request(
             &client_connection,
@@ -1962,6 +2470,23 @@ mod tests {
                 || &source[reference.syntax_span.start_byte..reference.syntax_span.end_byte]
                     == "members/not-a-reference"
         }));
+        let inert_section_start = source
+            .find("## Code Examples Stay Semantically Inert")
+            .unwrap();
+        assert!(
+            analysis
+                .references
+                .iter()
+                .all(|reference| reference.syntax_span.end_byte <= inert_section_start),
+            "references inside inert code: {:?}",
+            analysis
+                .references
+                .iter()
+                .filter(|reference| reference.syntax_span.end_byte > inert_section_start)
+                .map(|reference| &source
+                    [reference.syntax_span.start_byte..reference.syntax_span.end_byte])
+                .collect::<Vec<_>>()
+        );
 
         let links = server
             .document_links(
@@ -1969,7 +2494,36 @@ mod tests {
             )
             .unwrap()
             .unwrap();
-        assert!(links.is_empty());
+        assert_eq!(links.len(), 18);
+        assert_eq!(
+            links
+                .iter()
+                .map(
+                    |link| &source[offset_at_position(&source, link.range.start).unwrap()
+                        ..offset_at_position(&source, link.range.end).unwrap()]
+                )
+                .collect::<Vec<_>>(),
+            vec![
+                "members/sam-rivera",
+                "members/mira-chen",
+                "Mira Chen",
+                "members/sam-rivera",
+                "../members/sam-rivera.md#sam-rivera",
+                "Sam Rivera",
+                "members/sam-rivera",
+                "members/sam-rivera",
+                "../members/sam-rivera.md",
+                "Sam Rivera",
+                "../members/sam-rivera.md#sam-rivera",
+                "Sam Rivera",
+                "https://forma.choral.io",
+                "Choral Forma website",
+                "members/sam-rivera",
+                "members/sam-rivera#Sam Rivera",
+                "Sam Rivera heading",
+                "members/sam-rivera",
+            ]
+        );
 
         let tokens = server
             .semantic_tokens(
@@ -1980,7 +2534,46 @@ mod tests {
         let SemanticTokensResult::Tokens(tokens) = tokens else {
             panic!("expected full semantic tokens");
         };
-        assert_eq!(tokens.data.len(), 18);
+        assert_eq!(
+            semantic_token_slices(&source, &tokens),
+            vec![
+                ("[[", 0),
+                ("members/sam-rivera", 1),
+                ("]]", 0),
+                ("[[", 0),
+                ("members/mira-chen", 1),
+                ("|", 0),
+                ("]]", 0),
+                ("[[", 0),
+                ("members/sam-rivera", 1),
+                ("#Sam Rivera", 1),
+                ("|", 0),
+                ("]]", 0),
+                ("!", 0),
+                ("[[", 0),
+                ("members/sam-rivera", 1),
+                ("]]", 0),
+                ("[[", 0),
+                ("members/sam-rivera", 1),
+                ("]]", 0),
+                ("[[", 0),
+                ("members/sam-rivera", 1),
+                ("#Sam Rivera", 1),
+                ("|", 0),
+                ("]]", 0),
+                ("!", 0),
+                ("[[", 0),
+                ("members/sam-rivera", 1),
+                ("]]", 0),
+                ("[[", 0),
+                ("members/not-a-reference", 1),
+                ("]]", 0),
+                ("!", 0),
+                ("[[", 0),
+                ("members/not-a-reference", 1),
+                ("]]", 0),
+            ]
+        );
 
         let image_document = file_uri(root.join("notes/markdown-reader.md"));
         let image_links = server
@@ -1990,7 +2583,20 @@ mod tests {
             )
             .unwrap()
             .unwrap();
-        assert!(image_links.is_empty());
+        assert_eq!(image_links.len(), 6);
+        assert!(image_links.iter().all(|link| {
+            link.target
+                .as_ref()
+                .is_some_and(|target| target.as_str().ends_with(".md"))
+        }));
+        assert!(image_links.iter().all(|link| {
+            !link
+                .target
+                .as_ref()
+                .unwrap()
+                .as_str()
+                .contains("markdown-hero.png")
+        }));
     }
 
     fn fixture_root() -> PathBuf {
@@ -2049,6 +2655,58 @@ mod tests {
             Some(_) => panic!("expected location links"),
             None => Vec::new(),
         }
+    }
+
+    fn open_markdown_source(server: &mut Server, uri: Uri, source: &str) {
+        server
+            .open_document(
+                serde_json::from_value(json!({
+                    "textDocument": {
+                        "uri": uri,
+                        "languageId": "markdown",
+                        "version": 1,
+                        "text": source,
+                    }
+                }))
+                .unwrap(),
+            )
+            .unwrap();
+    }
+
+    fn definition_links_at(
+        server: &Server,
+        uri: Uri,
+        source: &str,
+        needle: &str,
+        inner_byte_offset: usize,
+    ) -> Vec<LocationLink> {
+        assert!(inner_byte_offset < needle.len());
+        let needle_start = source
+            .find(needle)
+            .unwrap_or_else(|| panic!("expected source to contain {needle:?}"));
+        let position = position_at_offset(source, needle_start + inner_byte_offset);
+        definition_links(server, uri, position.line, position.character)
+    }
+
+    fn semantic_token_slices<'a>(source: &'a str, tokens: &SemanticTokens) -> Vec<(&'a str, u32)> {
+        let mut line = 0;
+        let mut character = 0;
+        tokens
+            .data
+            .iter()
+            .map(|token| {
+                line += token.delta_line;
+                character = if token.delta_line == 0 {
+                    character + token.delta_start
+                } else {
+                    token.delta_start
+                };
+                let start = offset_at_position(source, Position::new(line, character)).unwrap();
+                let end = offset_at_position(source, Position::new(line, character + token.length))
+                    .unwrap();
+                (&source[start..end], token.token_type)
+            })
+            .collect()
     }
 
     fn send_request(connection: &Connection, id: i32, method: &str, params: serde_json::Value) {

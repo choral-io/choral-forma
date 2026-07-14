@@ -59,6 +59,35 @@ An editor adapter owns:
 
 The adapter must not deserialize `.forma.md` into a second product model, rescan Markdown to build a reference graph, evaluate view queries, or silently write workspace files.
 
+## Host-Native Enhancement Contract
+
+Forma editor integrations enhance the host editor's Markdown experience. They do not attempt to replace the editor's Markdown language, source editor, preview pipeline, navigation model, theme, or accessibility behavior.
+
+The default ownership model is:
+
+| Area | Primary owner | Allowed Forma enhancement | Boundary |
+| --- | --- | --- | --- |
+| Standard Markdown links, images, headings, and code regions | Host editor | A narrow compatibility fallback when a documented host gap prevents required navigation | Do not duplicate or suppress working native behavior. |
+| Wikilinks, embeds, and schema-declared references | Forma Core | Map Core resolution into native Definition, DocumentLink, diagnostics, and semantic-token APIs | Do not reimplement reference semantics in the adapter. |
+| Inline code and fenced code blocks | Host editor, with bounded lexical projections | Forma returns no indexed references, diagnostics, or Definition results for link-like literals. An adapter may project explicit link syntax from inline code into DocumentLink when the host already exposes partial path navigation, and from explicitly `md`/`markdown` fenced blocks into DocumentLink and semantic-token APIs when injected Markdown behavior is incomplete or inconsistent. | The projection is lexical editor data only: it must not enter the reference graph, restyle inline code, apply to other fence languages, replace the grammar, or intercept native commands. |
+| Markdown Preview | Host editor | Extend the native pipeline with Forma projections and resolved-reference behavior | Do not add a competing preview surface when the host provides an extensible native preview. |
+| Theme and accessibility | Host editor | Map semantic Forma roles onto host theme tokens and accessibility settings | Do not ship fixed colors, theme-name branches, or inaccessible custom interaction conventions. |
+| Workspace language intelligence | Forma-managed document predicate | Provide Forma features only to configured Pages and Views | Do not analyze every Markdown document merely because the extension is attached to the host's Markdown language. |
+
+Adapters should follow these engineering rules:
+
+1. Prefer native editor APIs, commands, previews, themes, and Markdown parsing behavior before adding a parallel Forma surface.
+2. Add only the semantics the host does not already provide, or the minimum compatibility fallback needed to make an accepted Forma feature work.
+3. Keep every fallback narrow, named, documented, tested, and removable. A host-specific workaround must not silently become a product-wide semantic rule.
+4. Preserve benign host differences across editors. Cross-editor consistency applies to Forma-owned resolution and operation results, not to every native gesture or visual detail.
+5. Degrade gracefully when an editor lacks a non-invasive extension point. Missing enhancement is preferable to replacing a grammar, intercepting native commands, or forking a preview pipeline without a separately accepted decision.
+6. Treat a required grammar replacement, native-provider suppression, editor command interception, or parallel preview as an architecture escalation. Record the user value, compatibility cost, maintenance burden, and rejected native alternatives before implementation.
+7. Test ownership at three layers: Core semantic behavior, adapter or protocol mapping, and real-editor behavior. A real-editor result must not be attributed to Forma until the responsible provider has been identified.
+
+The current Zed boundary follows this contract. Core semantic analysis ignores valid link syntax inside every inline and fenced code region. Separately, Core can project ordinary Markdown links, wikilinks, and embeds from inline code and `md`/`markdown` fences with full-source spans. The LSP maps both projections to DocumentLink and maps only the fenced projection to wikilink semantic tokens. Zed can therefore navigate explicit examples consistently without turning them into workspace relationships or restyling inline code. Forma does not replace Zed's Markdown grammar or intercept Command-click.
+
+Positionless document opening is a host adapter concern. Zed currently converts an unfragmented `file://` DocumentLink into an LSP location at `(0,0)`, while its `zed://file` open path skips position navigation when no row is present. Forma LSP therefore selects `zed://file` only for a Zed client and only for resolved document targets without a fragment. Standard clients retain `file://`, and fragment-bearing links retain positioned LSP navigation. This client-specific transport must remain outside Core and must be revalidated before claiming Zed remote-workspace compatibility.
+
 ## Workspace Discovery
 
 The presence of `.forma.md` is the explicit discovery signal. `.forma/` alone is not sufficient.
@@ -187,7 +216,7 @@ User-adjusted coordinates may be stored in editor workspace state, but must not 
 - Do not download or execute a managed binary in Restricted Mode.
 - A managed binary must come from the exact release tag aligned with the extension version, use a platform-specific release asset, and pass its published checksum before becoming executable.
 - Managed installation must stay inside editor extension storage. It must not modify `PATH`, overwrite a user-managed executable, or derive an executable path from workspace content.
-- An explicit machine-level binary path remains authoritative. A release-aligned managed binary may be preferred over extension-host `PATH` discovery when no explicit path is configured.
+- An explicit host-level LSP binary override remains authoritative, but it bypasses the editor adapter's command construction, compatibility checks, and managed lifecycle. Treat it as a user-owned escape hatch rather than a managed Forma installation. Without that override, a release-aligned managed binary may be preferred over extension-host `PATH` discovery.
 - Do not expose absolute host paths in structured public results.
 - Do not export cookies, credentials, editor storage, or repository content to external services.
 - Prefer native editor preview and navigation APIs so the adapter does not introduce another script-enabled WebView security boundary.
@@ -198,6 +227,8 @@ User-adjusted coordinates may be stored in editor workspace state, but must not 
 The extension should declare the operation schema versions it supports. On activation, it should detect incompatible Forma output and present an actionable upgrade or downgrade message rather than attempting best-effort interpretation of unknown result shapes.
 
 During the coordinated Alpha release line, the VS Code extension and Forma CLI must report the same release version. Broad acceptance of every `0.1.0` prerelease is unsafe because CLI operations may be added without changing the operation schema version. The extension manifest version is the expected CLI version and must not be duplicated as a separately maintained constant.
+
+The Zed Dev Extension follows the same exact-match rule for the CLI it resolves from the worktree `PATH`. It validates `forma --version` before starting `forma --workspace <root> lsp`, and its expected version comes from the aligned Cargo package version rather than a second hand-maintained constant. Missing or incompatible PATH binaries fail with an actionable language-server installation status. Zed's native `lsp.forma.binary` setting is evaluated by the host before the extension command callback; it therefore bypasses these checks and must be documented only as an explicit user-owned escape hatch. This boundary does not download, replace, or update a binary.
 
 When the configured or discovered CLI is missing or has a different version, the extension may offer a user-initiated installation of the matching release. Downloads use the exact `v<extension-version>` tag rather than `latest`, install into a versioned directory under extension global storage, and preserve external `forma.path` and `PATH` installations. In a remote workspace, acquisition and execution occur in the remote workspace Extension Host; environments without outbound release access retain the explicit-path and manual-install fallbacks.
 

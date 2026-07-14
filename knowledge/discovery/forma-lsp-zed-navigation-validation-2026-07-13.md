@@ -63,7 +63,7 @@ Direct source-mode checks passed for:
 - an ambiguous basename opening Zed's Definitions multibuffer with both candidates;
 - navigation continuing after `editor: restart language server` and after a full Zed restart.
 
-Zed's native Markdown Tree-sitter query classifies wikilink targets as `text.literal.markup`, which the active theme renders like emphasized link text. Forma now returns five explicit semantic roles for wikilink and embed syntax: delimiter, target, fragment, label, and embed marker. The example workspace maps those roles to theme scopes instead of fixed colors through `.zed/settings.json`; the extension README documents the required workspace setting. Opening and closing brackets therefore share one punctuation style, wikilinks and embeds share target and label styles, and only the leading `!` receives the marker style. With Markdown semantic tokens in `combined` mode, the syntax follows the active theme.
+Zed's native Markdown Tree-sitter query classifies wikilink targets as `text.literal.markup`, which the active theme renders like emphasized link text. Forma retains five explicit internal roles for wikilink and embed syntax: delimiter, target, fragment, label, and embed marker. Because the extension attaches to Zed's built-in Markdown language, the current protocol transport uses standard semantic tokens: delimiters and the marker map to `operator`, while targets and fragments map to `string`. Alias text is left to native Markdown highlighting in `combined` mode. The example workspace therefore needs only `semantic_tokens: combined`; no fixed colors or custom token-to-theme map are shipped.
 
 ## Link And Managed-Scope Refinement — 2026-07-14
 
@@ -80,16 +80,39 @@ The long-lived session and LSP apply that classification consistently:
 
 Reference parsing now preserves separate full-syntax, target, fragment, and label spans, including UTF-16-safe positions for CRLF and non-ASCII content. Navigation ownership is explicit:
 
-- native Markdown links and images remain editor-owned and receive no competing Forma Definition result;
+- plain Markdown links and images remain editor-owned and receive no competing Forma Definition result;
+- managed Markdown links with a heading fragment receive a bounded Forma Definition fallback because Zed's native path does not reliably reach the heading;
 - wikilink and embed targets, fragments, and labels resolve through the same Core destination;
 - opening/closing brackets, alias separators, and the embed marker are not clickable;
-- internal Forma references are owned by Definition, while DocumentLink remains available only for external or local-resource targets;
+- unique wikilinks and embeds without a fragment use a client-native positionless DocumentLink target so reopening a document preserves the editor's existing cursor position; fragment-bearing and ambiguous references remain Definition-owned;
 - resolved heading links select a non-empty heading range, and unresolved headings do not silently fall back to the start of the file;
 - explicit-path wikilinks work for managed Pages under any taxonomy, while generic basename/title lookup remains intentionally deferred.
 
 Focused Core and protocol tests cover unmanaged request gating, configured View overlays and save behavior, failed-refresh snapshot preservation, reclassification after configuration changes, post-`initialized` watcher registration and replacement, save deduplication, Definition versus DocumentLink ownership, alias and fragment activation, delimiter exclusion, and semantic-token roles. VS Code adapter tests confirm that native Markdown links remain native while wikilink targets and aliases share the resolved target.
 
-Real Zed checks used the current locally built CLI through the installed `0.1.0-alpha.17` mise path. Clicking an aliased wikilink opened the same member document as its path, and a heading alias selected the non-empty `Sam Rivera` heading range. Forma returned no Definition for a standard Markdown link, leaving it to Zed's native Markdown command-click path. Source highlighting was visually checked by previewing Ayu Light and then restoring Ayu Dark without persisting a theme change; all five roles remained theme-derived in both themes.
+Real Zed checks used the current locally built CLI through the installed `0.1.0-alpha.17` mise path. Clicking an aliased wikilink opened the same member document as its path, and a heading alias selected the non-empty `Sam Rivera` heading range. Plain Markdown links remained on Zed's native path, while `[Title](path#heading)` used the bounded Definition fallback and selected the resolved heading. Source highlighting was visually checked by previewing Ayu Light and then restoring Ayu Dark without persisting a theme change; standard `operator` and `string` tokens remained theme-derived, opening and closing delimiters matched, and native Markdown continued to style alias text.
+
+### Markdown-Fence Lexical Projection — 2026-07-14
+
+Zed's Command-click path first consumes LSP DocumentLink, then falls back to generic URL/file-path detection and Definition. Inside an injected Markdown fence, that generic fallback could resolve a bare wikilink path but not activate the title of a standard Markdown link or strip a Markdown heading fragment. At the same time, Core correctly excluded the fenced examples from reference analysis, leaving their wikilinks to Zed's native grammar and producing different delimiter styling from wikilinks outside the fence.
+
+Core now keeps semantic document references separate from editor-only lexical projections. Semantic analysis still excludes every code region. One projection extracts explicit ordinary links, wikilinks, and embeds from inline code and maps them only to DocumentLink, preserving native code styling. A second projection extracts the same syntax from fences labelled `md` or `markdown` and maps it to DocumentLink plus wikilink semantic tokens. Resolved heading targets are encoded as file locations, so Command-click opens the target heading directly. Other fence languages remain excluded, and neither projection affects diagnostics, Definition, indexing, or the workspace reference graph.
+
+### Positionless Wikilink Navigation — 2026-07-14
+
+A unique wikilink or embed without a fragment previously returned a Definition with a zero-width target range at `(0,0)`. Zed therefore moved the cursor to the start of an already-open target, unlike its native Markdown file-link behavior. A standard unfragmented `file://` DocumentLink does not solve this in Zed because the editor also converts it to an LSP location at `(0,0)`. Forma LSP now detects Zed through `InitializeParams.clientInfo.name`, returns a positionless `zed://file` target for that case, and suppresses the competing Definition. References with headings still use positioned Definition/file targets for precise selection, and ambiguous references still use multiple Definition results. Protocol regressions cover Zed client selection, target and alias activation, heading targets, and code-example projections. Zed remote-workspace mapping is not yet claimed by this local compatibility branch.
+
+The navigation split required the quick benchmark to use separate probes: a heading reference for Definition and a positionless reference for DocumentLink. After updating that invariant, the 2026-07-14 run measured 1,562.4 ms project initialization, 108.1 ms project cold Definition, 0.2 ms project warm Definition p95, 4.1 ms initialization for 1,000 entries, 36.3 ms synthetic cold Definition, and 0.1 ms synthetic warm p95. The request paths remain within the accepted cold and warm interaction gates.
+
+The post-projection quick performance run measured the project at 894.8 ms initialize, 133.6 ms cold Definition, and 0.2 ms warm Definition p95. The 1,000-entry fixture measured 4.4 ms initialize, 37.7 ms cold Definition, and 0.1 ms warm Definition p95. The narrow lexical projection therefore remains inside the accepted interaction budget and shows no material change from the preceding 128.8 ms project cold sample.
+
+The locally built CLI was installed into Zed's active Forma path and the language server restarted. A real-window visual check confirmed matching opening and closing wikilink delimiters inside the Markdown fence. Automated modifier-click input was unavailable in the desktop validation tool, so navigation is verified by the protocol regression that asserts every standard-link and wikilink title/target DocumentLink plus the resolved heading location; a final human Command-click remains the only uncompleted real-window gesture.
+
+### Zed CLI Override Boundary — 2026-07-14
+
+An Alpha 18 negative host check temporarily set `lsp.forma.binary.path` to the installed `0.1.0-alpha.16` executable while the Dev Extension expected `0.1.0-alpha.17`. Zed started that executable directly with an empty argument list; the extension's version check and `--workspace <root> lsp` command construction did not run, and the process reset the LSP connection. This matches Zed's documented native binary override and official extension-adapter control flow: the host-level override is authoritative and precedes the extension command callback.
+
+The Alpha 18 adapter boundary therefore validates only the CLI it resolves from the worktree `PATH`. A missing or mismatched PATH binary fails before `forma lsp` starts. Native `lsp.forma.binary` remains a user-owned escape hatch that bypasses Forma's compatibility and managed-lifecycle guarantees. The example workspace setting was restored after the negative test; the normal matching `0.1.0-alpha.17` PATH binary remains the real-host positive baseline.
 
 ## Performance Evidence
 
@@ -118,6 +141,8 @@ The refinement quick benchmark remained within the same performance envelope and
 | 1,000 | 4.0 ms | 4.1 ms | 39.3 ms | 39.0 ms | 0.1 ms | 0.1 ms |
 
 The quick sample is a regression signal rather than a statistically controlled benchmark. It shows no material warm-path or 1,000-entry regression, while managed-scope gating removes analysis and rebuild work for unrelated Markdown.
+
+The post-cleanup quick run on 2026-07-14 measured the project at 873.5 ms initialize, 128.8 ms cold Definition, and 0.2 ms warm Definition p95; the 1,000-entry fixture measured 4.0 ms, 37.7 ms, and 0.1 ms respectively. These values remain inside the accepted gates and show no material regression from separating internal semantic roles, protocol-token mapping, and navigation ownership.
 
 ## Verification Commands
 

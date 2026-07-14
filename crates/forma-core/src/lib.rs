@@ -19,6 +19,7 @@ pub use diagnostics::{
 pub use docs::{DocsError, EmbeddedDoc, EmbeddedSkill, embedded_doc, embedded_docs};
 pub use document::{
     DocumentAnalysis, DocumentReference, DocumentReferenceSyntax, analyze_document_references,
+    project_inline_code_references, project_markdown_fenced_references,
 };
 pub use index::{
     CheckResult, Discovery, IndexEntry, IndexReference, IndexSpace, IndexView, IndexWorkspace,

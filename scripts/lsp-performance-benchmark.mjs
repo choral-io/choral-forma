@@ -24,7 +24,8 @@ export async function main(arguments_ = process.argv.slice(2)) {
             "status: doing",
             "owners: []",
             "---",
-            "See [[knowledge/product/product-direction]].",
+            "Definition: [[knowledge/product/product-direction#Product Direction]].",
+            "Positionless: [[knowledge/product/product-direction]].",
             "",
         ].join("\n");
         const project = await measureWorkspace({
@@ -32,7 +33,7 @@ export async function main(arguments_ = process.argv.slice(2)) {
             workspace: scriptRoot,
             sourcePath: "knowledge/tasks/lsp-performance-benchmark.md",
             source: projectSource,
-            position: { line: 5, character: 12 },
+            position: { line: 5, character: 20 },
             repetitions,
         });
         const synthetic = [];
@@ -41,7 +42,8 @@ export async function main(arguments_ = process.argv.slice(2)) {
             const middle = Math.floor(size / 2);
             const target = `notes/note-${String(middle - 1).padStart(5, "0")}`;
             const sourcePath = `notes/note-${String(middle).padStart(5, "0")}.md`;
-            const source = `---\ntitle: LSP ${size}\nkind: note\n---\n\n# LSP ${size}\n\nPrevious: [[${target}]].\n`;
+            const targetHeading = `Note ${middle - 1}`;
+            const source = `---\ntitle: LSP ${size}\nkind: note\n---\n\n# LSP ${size}\n\nDefinition: [[${target}#${targetHeading}]].\nPositionless: [[${target}]].\n`;
             synthetic.push({
                 entries: size,
                 ...(await measureWorkspace({
@@ -49,7 +51,7 @@ export async function main(arguments_ = process.argv.slice(2)) {
                     workspace,
                     sourcePath,
                     source,
-                    position: { line: 7, character: 15 },
+                    position: { line: 7, character: 20 },
                     repetitions,
                 })),
             });
@@ -115,6 +117,9 @@ async function measureWorkspace({ binary, workspace, sourcePath, source, positio
         }
         const documentLink = { textDocument: { uri } };
         const coldDocumentLink = await timedRequest(process, "textDocument/documentLink", documentLink);
+        if (!Array.isArray(coldDocumentLink.result) || coldDocumentLink.result.length === 0) {
+            throw new Error(`DocumentLink did not resolve in ${workspace}.`);
+        }
         const warmDocumentLink = [];
         for (let index = 0; index < repetitions; index += 1) {
             warmDocumentLink.push((await timedRequest(process, "textDocument/documentLink", documentLink)).durationMs);
