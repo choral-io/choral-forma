@@ -8,7 +8,7 @@ priority: P1
 value: H
 module: app
 effort: M
-status: backlog
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -27,6 +27,7 @@ relatedTo:
     - "planning/vscode-lsp-navigation-migration-plan"
     - "architecture/forma-performance-engineering"
     - "discovery/forma-lsp-zed-navigation-validation-2026-07-13"
+    - "discovery/vscode-lsp-navigation-validation-2026-07-14"
     - "tasks/manage-vscode-forma-cli-lifecycle"
 severity:
 sprint:
@@ -67,6 +68,20 @@ Prove that the completed navigation cutover is correct, bounded, recoverable, pa
 - LSP Hover, Diagnostics, Completion, References, Rename, or write operations.
 - Multiple concurrently running Forma roots.
 - Persisted indexes, daemonization, or general RPC migration.
+
+## Completion Evidence
+
+- Exact code-and-test candidate: `b8f028dc07125d8f054fa22c08737bd6b07ef094`.
+- Durable correctness, lifecycle, remote-boundary, performance, resource, package, skipped-host, and residual-risk evidence is recorded in [[discovery/vscode-lsp-navigation-validation-2026-07-14]].
+- The installed-VSIX smoke passed on the existing official VS Code `1.128.0` without downloading another Code.app. It covers managed link forms, native Markdown ownership, unsaved buffers, ambiguity, unresolved targets, source opening, and all current View preview types.
+- Restricted Mode kept the LSP stopped and neither executed nor downloaded a CLI.
+- One-, two-, and five-root discovery and lifecycle tests keep at most one active client; root removal, managed-scope configuration changes, cancellation, disposal, and stopped-client replacement are covered.
+- A real process exit restarted once with navigation available. Rapid repeated exits stopped inside the bounded policy and produced an actionable Forma Output diagnostic without a restart storm. The same-root explicit-refresh gap found during validation is fixed by `afca7ed` and covered by regression tests.
+- SSH-, Dev Container-, and WSL-shaped `vscode-remote` URI round trips and escape rejection pass. No live remote host was available, so Remote SSH, Dev Container, WSL, Codespaces, and virtual-workspace behavior remain explicitly unclaimed where stated in the validation record.
+- Five independent installed-VSIX launches measured 93.208 ms activation p95, 86.388 ms cold Definition p95, 17.637 ms as the highest per-run warm Definition p95, 1.727 ms cold DocumentLink p95, and 3.420 ms as the highest per-run warm DocumentLink p95.
+- The release LSP baseline passed for the project, 1,000 entries, and 5,000 entries. The 5,000-entry cold Definition was 175.419 ms, warm Definition p95 was 0.102 ms, connected RSS was 35.98 MiB, and idle CPU was 0%.
+- The package contains 21 files, a 502,879-byte production bundle, and a 131,969-byte VSIX. `mise run check`, focused extension tests, Restricted Mode, installed-VSIX smoke, package inspection, and the full LSP baseline passed.
+- No release, tag, GitHub Release, or Marketplace publication was performed.
 
 ## Acceptance Criteria
 
