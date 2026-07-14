@@ -320,6 +320,7 @@ describe("managed CLI installation", () => {
         const storage = await makeTempDirectory("forma-managed-cli-");
         const downloader: ManagedCliDownloader = async ({ destination, signal }) => {
             await writeFile(destination, "partial download");
+            if (signal.aborted) throw new DOMException("timeout", "AbortError");
             return await new Promise<number>((_resolve, reject) => {
                 signal.addEventListener(
                     "abort",
