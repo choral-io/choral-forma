@@ -116,7 +116,7 @@ The later focused Graph project should prioritize knowledge exploration:
 - a layout that reflects relationships rather than a fixed circle;
 - stable node positions across refreshes;
 - search and focus by title or path;
-- filters for space, kind, and relationship type;
+- filters for configured taxonomy/term membership, document kind, and relationship type;
 - persistent selection and highlighted one-hop neighbors;
 - labels that adapt to zoom and density;
 - edge labels on focus instead of always-on clutter;

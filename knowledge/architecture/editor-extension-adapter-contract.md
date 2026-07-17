@@ -203,7 +203,7 @@ Before selecting a graph library or sharing an existing component, the VS Code w
 - meaningful force-directed or hierarchical layout;
 - deterministic initial placement and stable refresh behavior;
 - persistent node selection and one-hop focus;
-- node search and filters for space, kind, and edge type;
+- node search and filters for configured taxonomy/term membership, document kind, and edge type;
 - source navigation from nodes;
 - readable light, dark, and high-contrast themes;
 - reduced-motion behavior;

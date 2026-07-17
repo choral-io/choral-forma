@@ -24,6 +24,8 @@ blockedBy: []
 relatedTo:
     - "design/editor-extension-mvp-design"
     - "architecture/editor-extension-adapter-contract"
+    - "discovery/editor-graph-view-technical-research-2026-07-17"
+    - "tasks/generalize-taxonomy-neutral-page-model"
     - "tasks/implement-vscode-extension-mvp"
 severity: ""
 sprint: ""
@@ -42,6 +44,8 @@ Treat Graph as a focused product and technical project after the first extension
 - [[design/editor-extension-mvp-design]]
 - [[architecture/editor-extension-adapter-contract]]
 - [[decisions/editor-extension-primary-product-surface]]
+- [[discovery/editor-graph-view-technical-research-2026-07-17]]
+- [[tasks/generalize-taxonomy-neutral-page-model]]
 
 ## In Scope
 
@@ -64,3 +68,9 @@ Treat Graph as a focused product and technical project after the first extension
 - At least two renderer approaches are compared with shared fixtures.
 - A renderer and layout direction are accepted with evidence or the task records why no option is ready.
 - Follow-up tasks have explicit accessibility, theme, performance, and source-navigation acceptance criteria.
+
+## Research Direction
+
+The 2026-07-17 technical assessment selects Sigma.js plus Graphology ForceAtlas2 and Foam's `force-graph` approach as the two required comparison prototypes. Sigma plus a worker layout is the provisional production direction because Forma already uses Sigma and the fixed-circle layout, rather than the renderer, is the main current limitation.
+
+The spike can continue with renderer-neutral fixtures and interfaces. Production integration must consume the taxonomy-neutral Page model and must not extend the current `GraphRenderNode.space` compatibility field or introduce special behavior for any taxonomy id.
