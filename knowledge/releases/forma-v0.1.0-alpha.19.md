@@ -5,7 +5,7 @@ title: Forma v0.1.0-alpha.19
 summary: Internal alpha for persistent VS Code language intelligence and resilient native View Preview.
 scope: project
 type: release
-status: planned
+status: released
 version: v0.1.0-alpha.19
 date: 2026-07-17
 owners:
@@ -73,7 +73,14 @@ Local candidate validation passed on 2026-07-17:
 - `mise run perf:lsp:quick` passed: the repository project measured 922.1 ms initialization, 135.4 ms cold navigation, and 0.2 ms warm p95; the generated 1,000-entry workspace measured 4.3 ms initialization, 39.3 ms cold navigation, and 0.1 ms warm p95.
 - `forma-0.1.0-alpha.19.vsix` packaged 31 files and installed as `choral-io.forma@0.1.0-alpha.19` in an isolated profile of the production VS Code 1.129.0 installation. The packaged smoke test verified activation, navigation, native Markdown Preview, and persistent-LSP behavior; measured activation was 48.4 ms, cold Definition 27.5 ms, warm Definition p95 14.8 ms, cold Document Link 2.0 ms, and warm Document Link p95 1.4 ms.
 
-Published release evidence is pending the exact-candidate main CI gate, tag-triggered Release workflow, and `release:verify` check.
+Published release evidence:
+
+- Annotated tag `v0.1.0-alpha.19` points to exact candidate commit `5915a881cbfd16be6b7636075bda094aab120e7e`.
+- [Main CI run 29583911194](https://github.com/choral-io/choral-forma/actions/runs/29583911194) completed successfully for that exact commit, including Knowledge, Web, Rust, Zed `wasm32-wasip1`, VS Code Extension Host, packaging, and VSIX smoke validation.
+- [Release workflow run 29584127908](https://github.com/choral-io/choral-forma/actions/runs/29584127908) completed successfully for the same commit across all CLI platform targets, the VS Code extension, and final publication.
+- [GitHub Release `v0.1.0-alpha.19`](https://github.com/choral-io/choral-forma/releases/tag/v0.1.0-alpha.19) was published as a prerelease on 2026-07-17 with 22 expected assets.
+- `mise run release:verify -- v0.1.0-alpha.19` passed. The current-host CLI identified as `forma 0.1.0-alpha.19` with SHA-256 `6fe9b3bf5f9168741868cdbcce1dd46bdbe8f4cc9abeed331a8342a452a9621a`; the VSIX identified as `choral-io.forma@0.1.0-alpha.19`, declared engine `^1.110.0`, and matched SHA-256 `494c1d78cb38124e8051ed471689f7bfc4e3af34b9e21c59807ec6052e836a95`.
+- The verification gate installed the published `forma-macos-arm64` asset through the production VS Code managed-install path and confirmed `forma 0.1.0-alpha.19`.
 
 ## Rollout Plan
 
