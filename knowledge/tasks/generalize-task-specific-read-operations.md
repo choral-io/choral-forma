@@ -9,7 +9,7 @@ priority: P2
 value: M
 module: core
 effort: M
-status: doing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -69,3 +69,11 @@ Forma previously exposed task-specialized surfaces such as `tasks.list`, `tasks.
 - Updated Agent-facing guidance to use `list --space`, `inspect`, and `view render` for read workflows.
 - Removed the public `forma tasks ...` and `forma board show` CLI helpers so the CLI no longer presents task-like content as a built-in product concept.
 - Removed legacy RPC/core `tasks.list`, `tasks.inspect`, and `board.show` operations. Generic `list`, `inspect`, and `view.render` now cover configured task-like workflows.
+
+## Completion Evidence
+
+- Current CLI help exposes generic `list`, `inspect`, and `view` commands and no task- or board-specific command group.
+- `forma list --space tasks --json`, `forma inspect --space tasks generalize-task-specific-read-operations --json`, and `forma view render .forma/views/task-board --json` pass against this repository.
+- Product code, docs, examples, skills, and workflows contain no active `tasks.list`, `tasks.inspect`, `board.show`, `forma tasks`, or `forma board` surface; the remaining RPC strings are a rejection regression test.
+- The focused RPC rejection test passed and confirms all three removed legacy methods return `Method not found`.
+- `mise run check` passed on 2026-07-17 across pnpm, Rust, and the Zed WASM target.

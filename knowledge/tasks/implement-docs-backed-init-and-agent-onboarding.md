@@ -9,7 +9,7 @@ priority: P0
 value: H
 module: cli
 effort: L
-status: reviewing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -420,6 +420,13 @@ GREEN validation evidence:
 - `CI=true mise run check`: passed.
 - [[test-cases/forma-cli-docs-bootstrap]] records the docs-backed Agent bootstrap pressure suite.
 - Manual pressure run against `/private/tmp/forma-pressure.JO0ol7`: wrong top-level `template` config failed as expected; guided `kind: term` + `taxonomy: spaces` config passed `config inspect`, `check`, `create`, `list`, and `inspect`; isolated-page health warnings cleared after adding explicit links.
+
+## Completion Evidence
+
+- Focused `forma init` tests passed for minimal generated files, post-init `config inspect` and `check`, built-in skill discovery, non-overwrite behavior, and legacy entrypoint isolation.
+- The docs-backed CLI test passed for embedded `docs list` and `docs get` behavior.
+- The existing RED/GREEN pressure evidence remains recorded in [[test-cases/forma-cli-docs-bootstrap]].
+- `mise run check` passed on 2026-07-17 across pnpm, Rust, and the Zed WASM target.
 
 ## Open Questions
 

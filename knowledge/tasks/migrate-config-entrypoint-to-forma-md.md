@@ -9,7 +9,7 @@ priority: P0
 value: H
 module: core
 effort: M
-status: reviewing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -70,3 +70,11 @@ Make `.forma.md` the only Forma workspace entrypoint and remove runtime, docs, s
 - The starter kit passes `forma check` and `workspace health`.
 - Rust CLI/core/RPC tests pass.
 - Product docs and Agent guidance describe `.forma.md` only.
+
+## Completion Evidence
+
+- Current product code, docs, examples, skills, and workflow guidance contain no active `.forma.yml` entrypoint references; the remaining occurrences are regression tests that prove `forma init` ignores and preserves a legacy file.
+- `forma config inspect --json` and `forma check --json` pass for both this repository and `examples/getting-started-workspace` with zero errors.
+- `forma workspace health --json` completes for both workspaces with zero errors; only existing no-backlink warnings remain.
+- Focused `forma init` coverage passed all three init tests, including minimal bootstrap, non-overwrite behavior, and legacy `.forma.yml` isolation.
+- `mise run check` passed on 2026-07-17 across pnpm, Rust, and the Zed WASM target.
