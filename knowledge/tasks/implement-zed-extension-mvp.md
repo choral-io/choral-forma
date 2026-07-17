@@ -21,7 +21,8 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blockedBy: []
+blockedBy:
+    - "tasks/generalize-taxonomy-neutral-page-model"
 relatedTo:
     - "decisions/editor-extension-primary-product-surface"
     - "architecture/editor-extension-adapter-contract"
@@ -30,6 +31,7 @@ relatedTo:
     - "tasks/implement-forma-lsp-foundation"
     - "tasks/validate-zed-link-navigation"
     - "tasks/refine-zed-link-navigation-and-highlighting"
+    - "tasks/generalize-taxonomy-neutral-page-model"
 
 reportedBy:
 affectedArea: Zed extension
@@ -82,6 +84,8 @@ The VS Code MVP baseline is now published. [[tasks/implement-forma-lsp-foundatio
 The validation also exposes one MVP constraint: the language-server manifest registers against all built-in Markdown worktrees rather than only roots containing `.forma.md`. The umbrella task remains in backlog until its remaining workspace lifecycle, diagnostics, CLI management, and View scope is refined around the Zed APIs that actually exist.
 
 The Alpha 18 developer-preview boundary keeps CLI acquisition manual but removes version ambiguity for the adapter-controlled path. The adapter resolves `forma` from the worktree `PATH`, requires it to match the extension version exactly, and reports missing or incompatible binaries before starting the server. Zed's native `lsp.forma.binary` setting remains a host-level, user-owned escape hatch because the host applies it before invoking the extension command callback; it is not part of Forma's checked or managed lifecycle. Automatic acquisition is staged after Alpha 18 so its first end-to-end test can use a published CLI that already contains `forma lsp`. That follow-up must define exact-tag asset selection, checksum verification, atomic caching, failure recovery, workspace-trust behavior, native-override precedence, and local-versus-remote installation semantics before it can become a release requirement.
+
+The complete Zed MVP now follows [[tasks/generalize-taxonomy-neutral-page-model]]. Workspace lifecycle, managed-document scope, diagnostics, Explorer data, and View projections should consume the taxonomy-neutral Page contract instead of adding Zed-side knowledge of the current `spaces` compatibility projection. The existing navigation-only adapter remains valid while that contract is refined.
 
 ## Open Questions
 

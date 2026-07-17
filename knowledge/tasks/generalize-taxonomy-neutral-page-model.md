@@ -31,6 +31,7 @@ relatedTo:
     - "architecture/editor-extension-adapter-contract"
     - "planning/forma-link-navigation-and-highlighting-refinement-plan"
     - "tasks/generalize-task-specific-read-operations"
+    - "tasks/refine-zed-link-navigation-and-highlighting"
 severity:
 sprint:
 reportedBy:
@@ -97,7 +98,15 @@ The Zed link-navigation and highlighting refinement must remain bounded. It may 
 
 ## Sequencing
 
-Keep this task in `backlog` with `readiness: needs-refinement` until the Zed link-navigation and highlighting refinement is complete. Use the resulting LSP scope evidence to refine the generic Page-membership contract, then split implementation into small cross-contract migrations with an explicit compatibility cut line.
+The Zed link-navigation and highlighting refinement and the task-specific read-operation cleanup are complete. Their evidence confirms that shared managed-document membership, schema-aware references, and generic projections belong below editor adapters.
+
+Prioritize this task before the full Zed MVP. Keep it in `backlog` with `readiness: needs-refinement` until the open composition, create identity, and migration-cut questions are resolved. The next action is a focused design slice that defines the generic Page-membership contract and splits implementation into small cross-contract migrations; do not start with a repository-wide rename or preserve `spaces` as hidden precedence.
+
+## Priority Decision
+
+As of 2026-07-17, the taxonomy-neutral Page model is the next architecture priority ahead of [[tasks/implement-zed-extension-mvp]]. Zed navigation can remain on the proven thin LSP adapter, but expanding Zed workspace lifecycle, diagnostics, Explorer, or View behavior before this contract stabilizes would duplicate the current compatibility projection and create avoidable migration work.
+
+This ordering does not make any taxonomy primary. It exists specifically to remove taxonomy-id-specific behavior before more clients consume the affected contracts.
 
 ## Open Questions
 
