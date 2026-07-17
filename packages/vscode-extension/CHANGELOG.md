@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.19
+
+- Migrate VS Code navigation, diagnostics, and Preview link analysis to the persistent Forma LSP while retaining the coordinated managed-CLI lifecycle.
+- Recover stopped language clients and validate the LSP lifecycle across local and representative remote Extension Host profiles.
+- Restore already-open Forma native Markdown Previews after extension activation, window reload, and Preview tab restoration.
+- Improve config-driven Kanban cards with a single-row responsive layout, dynamic columns, friendly date and time values, and contained horizontal scrolling.
+- Add collapsible Frontmatter for Forma-managed documents with a resource-scoped default-state setting while leaving ordinary Markdown Preview unchanged.
+- Unify the Forma Explorer tree on a small, bundled set of theme-aware Lucide icons.
+
 ## 0.1.0-alpha.18
 
 - Add the editor-neutral `forma lsp` transport with Core-owned transient document analysis, reusable workspace snapshots, and managed-document scope gating.
