@@ -2,7 +2,7 @@
 scope: project
 type: technical-assessment
 title: Editor Graph View Technical Research — 2026-07-17
-summary: Compares Foam, Obsidian, Sigma, and alternative renderer approaches and proposes an extensible, configurable, editor-native Graph View direction for Forma.
+summary: Assesses 2D and 3D graph references and defines an extensible, configurable, editor-native Graph View direction for Forma.
 owners:
     - "members/tiscs"
 tags:
@@ -24,16 +24,26 @@ sources:
 
 ## Outcome
 
-Forma should keep Graph as a normal configured View and implement it as an enhancement of the editor's native Markdown Preview. The first renderer spike should compare these two approaches over identical data, interaction, theme, and accessibility fixtures:
+Forma should keep Graph as a normal configured View and implement it as an enhancement of the editor's native Markdown Preview. Sigma.js plus Graphology is the accepted 2D production direction. The implementation spike should now concentrate on interaction, relationship-driven layout, styling, refresh stability, theme integration, accessibility, and performance instead of building a second full renderer prototype by default.
 
-1. Sigma.js with Graphology and a ForceAtlas2 Web Worker;
-2. the `force-graph` approach used by Foam.
+Forma already carries Sigma and Graphology in the WebApp, Sigma provides a WebGL path for larger graphs, and Graphology supplies worker-based ForceAtlas2. The present WebApp's fixed-circle layout is the primary visual limitation; it is not evidence that Sigma itself is unsuitable. Foam's `force-graph` approach remains a reference and fallback only if the Sigma spike fails an accepted requirement.
 
-The provisional production direction is Sigma.js plus Graphology if the spike confirms that a relationship-driven layout fixes the current experience. Forma already carries these libraries in the WebApp, Sigma provides a WebGL path for larger graphs, and Graphology supplies worker-based ForceAtlas2. The present WebApp's fixed-circle layout is the primary visual limitation; it is not evidence that Sigma itself is unsuitable.
+The first production Graph remains 2D. A 3D Graph is technically feasible and may later become an opt-in, lazily loaded renderer over the same projection and interaction state, but it should not block or inflate the first useful editor Graph.
 
 Do not share the current React route component. Extract a host-neutral graph component only after the spike establishes its boundary. That component should consume a renderer-independent projection, semantic `--forma-*` theme tokens, and callbacks for selection and navigation. It must not import VS Code, React Router, or the WebApp theme context.
 
 Production integration is sequenced behind the taxonomy-neutral Page contract. The current `GraphRenderNode.space` field and space-color hash contradict the accepted rule that every configured taxonomy is equal. A spike may translate the current fixture at its boundary, but it must not add another production dependency on `space` or reserve any taxonomy id.
+
+## Accepted Product Decisions — 2026-07-17
+
+- Single click selects a node; it does not immediately navigate away.
+- Selection persists and emphasizes the selected node, its directly connected nodes, and their connecting edges. Unrelated elements are de-emphasized without disappearing.
+- The Graph follows the active managed document by selecting and centering its node when that node belongs to the View projection.
+- If there is no applicable active managed document, the initial fallback is no selection plus automatic fit-to-graph. This assumption should be changed if product validation identifies a better automatic anchor.
+- Source opening remains a separate activation, such as double click, Enter, or the details surface.
+- Directed edges use arrows. A single reference shows one direction; reciprocal references must visibly show both directions, using two curved edges or an equally unambiguous bidirectional treatment.
+- Node appearance must support meaningful variation in size, fill color, outline, icon or shape, and label density. These are semantic, renderer-neutral style channels, not hard-coded taxonomies.
+- Groups and filters will be defined by the Graph View's frontmatter and reuse Forma's query model. They are important but may follow the selection, active-document, direction, and styling baseline.
 
 ## Current Forma Baseline
 
@@ -108,9 +118,10 @@ Node navigation should reuse native Markdown Preview link behavior through compa
 
 | Approach | Strengths | Risks | Spike decision |
 | --- | --- | --- | --- |
-| Sigma.js + Graphology + ForceAtlas2 worker | Existing Forma dependency and experience; WebGL renderer; Graphology algorithms and metrics; worker layout; good headroom for thousands of elements | custom rendering is harder; canvas/WebGL needs a parallel accessible surface; layout and state must be designed explicitly | Primary candidate |
-| `force-graph` + D3 force | Proven by Foam; fast route to an organic graph; force and interaction controls are straightforward; framework-neutral | live simulation can move excessively; stable refresh needs coordinate reuse and bounded settling; canvas still needs accessible companions | Required comparison candidate |
+| Sigma.js + Graphology + ForceAtlas2 worker | Existing Forma dependency and experience; WebGL renderer; Graphology algorithms and metrics; worker layout; good headroom for thousands of elements | custom rendering is harder; canvas/WebGL needs a parallel accessible surface; layout and state must be designed explicitly | Accepted 2D direction |
+| `force-graph` + D3 force | Proven by Foam; fast route to an organic graph; force and interaction controls are straightforward; framework-neutral | live simulation can move excessively; stable refresh needs coordinate reuse and bounded settling; canvas still needs accessible companions | Reference and fallback; do not build a full comparison unless Sigma misses a requirement |
 | Cytoscape.js plus layout extensions | Rich renderer-independent layout ecosystem, including force and hierarchical layouts; strong selector and interaction model | larger conceptual and dependency surface; layout extensions add maintenance; no current Forma reuse | Reserve candidate if the first two cannot meet hierarchical or interaction requirements |
+| `3d-force-graph` plus Three.js | Established WebGL 3D implementation; directional arrows and particles; focus, highlighting, custom node geometry, and dynamic data examples | separate dependency and camera model; label occlusion; higher GPU, memory, accessibility, testing, and bundle costs | Later opt-in 3D experiment, never the first-release default |
 | Custom D3 SVG or Canvas | Maximum visual control; SVG can expose more DOM semantics for small graphs | highest implementation and maintenance cost; SVG density ceiling; repeats interaction, spatial index, and rendering work | Reject for first production implementation |
 
 The renderer is not the layout. The spike must keep layout, graph state, and host integration behind interfaces so a renderer change does not alter the View or RPC contract.
@@ -136,6 +147,8 @@ Host adapters remain responsible for:
 - workspace trust, diagnostics, and lifecycle.
 
 The first package should not expose the underlying Sigma, Graphology, or `force-graph` object as its public API. Renderer-specific escape hatches would make later replacement and cross-editor reuse harder.
+
+The renderer boundary should accept the same selection, visible-subgraph, styling, direction, camera, and navigation state whether the implementation is Sigma 2D or a later 3D renderer. This preserves the option to add 3D without turning it into a second Graph product.
 
 ## Layout And Refresh Model
 
@@ -173,8 +186,10 @@ graph:
     presentation:
         layout: force
         labels: adaptive
-        arrows: focused
-        sizeBy: degree
+        arrows: directed
+        nodes:
+            sizeBy: degree
+            colorBy: group
         groups:
             - id: active-work
               label: Active work
@@ -183,9 +198,18 @@ graph:
                   op: in
                   value: [ready, active]
               color: accent
+        filters:
+            - id: active-only
+              label: Active only
+              query:
+                  field: fields.status
+                  op: in
+                  value: [ready, active]
 ```
 
-Group queries must reuse Forma's query model and may target any configured taxonomy or Page field. No default may assume a taxonomy named `spaces`, and one taxonomy must not receive a privileged color or filter path.
+This shape is illustrative rather than a committed schema. Group and filter queries must reuse Forma's query model and may target any configured taxonomy or Page field. Their shared definitions belong in the Graph View frontmatter; temporary enablement remains exploration state. No default may assume a taxonomy named `spaces`, and one taxonomy must not receive a privileged color or filter path.
+
+Node size and color mappings should be configurable independently. The baseline can provide neutral automatic choices such as degree-based size and a theme accent for selection, while explicit View mappings can later target query-defined groups, configured taxonomy memberships, or numeric Page fields. Shape, icon, outline, and text labels must remain available as non-color signals.
 
 Force sliders are initially exploratory UI state. Promote a force parameter to the View schema only after evidence shows that authors need a shared default rather than a personal tuning control.
 
@@ -207,15 +231,42 @@ The first usable Graph should include:
 
 - pan, zoom, fit, and reset;
 - title/path search with a result list;
-- persistent single selection and one-hop emphasis;
-- open source from node activation and from the details surface;
-- temporary filter and group controls based on generic Page facets;
+- persistent single-click selection and one-hop node and edge emphasis;
+- active managed-document following, with no-selection fit-to-graph fallback;
+- separate source activation from double click, Enter, and the details surface;
+- visible directed and reciprocal relationship encoding;
+- configurable renderer-neutral node size and color channels;
 - local depth from the current selection;
 - adaptive labels and focused edge labels;
 - empty, invalid, and unresolved-target states;
 - a reset action for temporary graph state.
 
-Multi-selection, time-lapse animation, user-defined force presets, arbitrary context actions, and editable relationships can follow later evidence. They should not block the first useful release.
+Frontmatter-defined group and filter controls, multi-selection, time-lapse animation, user-defined force presets, arbitrary context actions, and editable relationships can follow later evidence. They should not block the first useful release. The first projection and renderer boundary must nevertheless preserve generic Page facets so adding groups and filters does not require another data-contract rewrite.
+
+## 3D Graph Assessment
+
+3D graph products and implementation libraries are mature enough to make a later Forma experiment credible:
+
+| Reference | Relevant evidence for Forma |
+| --- | --- |
+| GraphXR | Uses one project workspace for 2D and 3D, with a direct toggle; supports property/category legends, filters, neighbor and directed parent/child selection, property-driven node size, and relationship styling. This is the strongest reference for keeping dimensions, selection, styling, and filtering in one product model. |
+| Graphia | Supports interactive layout in 2D or 3D, attribute search and filtering, graph metrics, clustering, and large datasets. It demonstrates that 3D can coexist with analysis rather than being only a visual effect. |
+| myReach | Offers a 3D Visualiser as a knowledge-base View for discovering hubs and connected context. It is a close product analogy, although its presentation is more exploratory than editor-navigation focused. |
+| `3d-force-graph` | Provides a Three.js/WebGL renderer with directional arrows, node focus, highlighting, custom appearance, dynamic data, fit, and large-graph examples. It establishes implementation feasibility but would be a separate renderer and dependency stack from Sigma. |
+
+The product case is mixed. Research on immersive network visualization found better structural interpretation for larger networks, but 2D performed better for spatial-memory tasks. That supports 3D as an optional exploration mode rather than the default for precise, repetitive document navigation.
+
+If Forma pursues 3D, use these constraints:
+
+- preserve one `GraphProjection`, selection model, group/filter model, style channels, and source-navigation behavior across 2D and 3D;
+- lazy-load the 3D renderer and Three.js dependency only after the user selects 3D;
+- keep 2D as the default and guaranteed fallback, including for reduced motion, unsupported WebGL, remote environments, and accessibility needs;
+- map active-document following and one-hop emphasis identically in both dimensions;
+- require an accessible synchronized DOM details/list surface because the 3D canvas itself is not an interaction tree;
+- benchmark bundle delta, GPU and CPU use, retained memory, camera usability, label occlusion, and disposal on the same 500- and 5,000-node fixtures;
+- do not commit a shared frontmatter setting for 3D until the experiment shows that View authors need a shared default. Begin with an editor-local experimental toggle.
+
+3D should therefore be recorded as a later optional renderer spike after the 2D Sigma baseline is useful and stable. It is not part of the first production Graph acceptance criteria.
 
 ## Theme And Accessibility
 
@@ -233,7 +284,7 @@ Reduced-motion mode renders settled coordinates without an animated simulation. 
 
 ## Performance And Validation
 
-The spike uses identical deterministic fixtures for both candidates:
+The spike uses deterministic fixtures across layout, styling, selection, and refresh variants:
 
 - empty and invalid;
 - small: approximately 25 nodes and 50 edges;
@@ -253,25 +304,24 @@ Visual and behavioral review should compare:
 
 ## Proposed Small-Step Execution
 
-1. Finalize user journeys and configuration boundaries with the maintainer's Graph ideas.
-2. Resolve the taxonomy-neutral node-facet dependency; do not expand `GraphRenderNode.space`.
-3. Add deterministic shared fixtures and a host-neutral spike interface.
-4. Prototype Sigma plus ForceAtlas2 worker with stable seeding and refresh reuse.
-5. Prototype `force-graph` with the same controls, state, fixtures, and navigation surface.
-6. Compare evidence and record the accepted renderer and rejected alternative.
-7. Implement the native Markdown Preview script lifecycle and accessible companion surface.
-8. Add package, Extension Host, theme, reload, performance, and real-editor validation.
+1. Resolve the taxonomy-neutral node-facet dependency; do not expand `GraphRenderNode.space`.
+2. Add deterministic shared fixtures and a host-neutral renderer and state interface.
+3. Build the Sigma vertical slice with single selection, one-hop emphasis, active-document following, directed edges, source activation, and richer semantic node styling.
+4. Compare ForceAtlas2 worker and the simpler Graphology force layout on small and medium fixtures; add stable seeding and refresh coordinate reuse.
+5. Implement the native Markdown Preview script lifecycle and accessible companion surface.
+6. Add package, Extension Host, theme, reload, performance, and real-editor validation.
+7. Add frontmatter-defined groups and filters as a follow-up over the same generic facet and query model.
+8. Run a separate lazy-loaded 3D proof of concept only after the 2D baseline is accepted.
 
-## Questions For Product Refinement
+## Remaining Product Refinement
 
-The technical direction can proceed without answering every visual preference, but these choices materially shape the first interaction model:
+The technical direction can proceed, but these choices still need visual prototyping:
 
-- Should selecting a node open its source immediately, or should single click select and double click or Enter open it?
-- Should Graph follow the active editor by default, or only after the user enables a local-focus mode?
-- Which default visual grouping is most useful: none, a configured taxonomy, document kind, or an explicit View group list?
-- Should directed arrows be always visible, visible only for selected relationships, or disabled by default?
-- Which controls deserve the always-visible toolbar, and which belong in a collapsible settings panel?
-- What specific qualities of the existing WebApp graph feel wrong beyond the fixed circle: density, color, labels, motion, node appearance, interaction, or lack of meaning?
+- which exact size scale and minimum/maximum radius remain legible across the fixture sizes;
+- which theme-derived palettes and non-color indicators best distinguish explicit groups;
+- whether reciprocal references read better as two curved arrows or one bidirectional edge at common densities;
+- which controls deserve the always-visible toolbar, and which belong in a collapsible settings panel;
+- whether the no-active-document fallback should remain fit-to-graph or choose another automatic anchor after real-editor testing.
 
 ## External Sources
 
@@ -284,3 +334,8 @@ The technical direction can proceed without answering every visual preference, b
 - [Graphology ForceAtlas2](https://graphology.github.io/standard-library/layout-forceatlas2.html)
 - [Graphology force layout](https://graphology.github.io/standard-library/layout-force.html)
 - [Cytoscape.js layout guidance](https://blog.js.cytoscape.org/2020/05/11/layouts/)
+- [GraphXR project workspace](https://helpcenter.kineviz.com/user-guides/v3/g-user/graphxr-start/project-ui.html)
+- [Graphia](https://graphia.app/)
+- [myReach 3D Visualiser](https://handbook.rea.ch/knowledge-base/views/3d-visualiser/)
+- [`3d-force-graph`](https://github.com/vasturiano/3d-force-graph)
+- [A Study of Mental Maps in Immersive Network Visualization](https://arxiv.org/abs/2001.06462)
