@@ -38,7 +38,7 @@ mise run build:pnpm
 mise run check
 ```
 
-Tool versions are declared in the idiomatic project files: Node.js and pnpm in root `package.json`, and Rust in `rust-toolchain.toml` plus `Cargo.toml` `rust-version`. `mise.toml` enables mise to read those files and provides project tasks. Prettier is a project-local dev dependency in root `package.json`, installed through pnpm.
+Tool versions are declared in the idiomatic project files: the exact Node.js version in `.node-version`, the supported Node.js range and exact pnpm version in root `package.json`, and Rust in `rust-toolchain.toml` plus `Cargo.toml` `rust-version`. CI and mise use `.node-version` so local and hosted builds run the same Node.js release; `package.json#engines.node` remains the compatibility contract. `mise.toml` enables mise to read those files and provides project tasks. Prettier is a project-local dev dependency in root `package.json`, installed through pnpm.
 
 ## Coding And Product Work
 

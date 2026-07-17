@@ -38,7 +38,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version-file: package.json
+          node-version-file: .node-version
           cache: pnpm
 
       - name: Install dependencies
@@ -100,7 +100,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version-file: package.json
+          node-version-file: .node-version
           cache: pnpm
 
       - name: Setup Rust target
@@ -186,7 +186,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version-file: package.json
+          node-version-file: .node-version
           cache: pnpm
 
       - name: Setup Rust

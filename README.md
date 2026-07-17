@@ -52,7 +52,7 @@ Install the configured tools with mise:
 mise install
 ```
 
-Mise is a convenience path, not a hard requirement. The project version sources are `package.json` for Node.js and pnpm, and `rust-toolchain.toml` plus `Cargo.toml` for Rust.
+Mise is a convenience path, not a hard requirement. The project version sources are `.node-version` for the exact Node.js release, `package.json` for the supported Node.js range and exact pnpm release, and `rust-toolchain.toml` plus `Cargo.toml` for Rust.
 
 Check non-Rust files:
 
