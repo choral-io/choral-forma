@@ -20,6 +20,7 @@ Download the `.vsix` asset from the matching GitHub prerelease, then run **Exten
 - renders Core-resolved wikilinks as navigable links in native Markdown Preview;
 - displays explicit aliases first, resolved document titles second, and source paths as the final wikilink fallback;
 - turns Core-resolved frontmatter references into Preview links;
+- collapses Frontmatter metadata by default in Forma-managed documents; set `forma.preview.frontmatterDefaultState` to `expanded` to change the initial Preview state;
 - adds one Forma panel under Explorer for configured Taxonomies, Terms, entries, and Views;
 - opens Views directly in native Preview with mode-specific, theme-aware Lucide icons while bundling only the used SVG assets;
 - follows VS Code light, dark, high-contrast, font, focus, and reduced-motion settings;

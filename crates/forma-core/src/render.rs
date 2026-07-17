@@ -130,12 +130,23 @@ pub enum ViewRenderOutput {
         items: Vec<ViewRenderItem>,
     },
     Kanban {
+        card: KanbanRenderCard,
         columns: Vec<KanbanRenderColumn>,
     },
     Graph {
         nodes: Vec<GraphRenderNode>,
         edges: Vec<GraphRenderEdge>,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KanbanRenderCard {
+    pub title_field: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subtitle_fields: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub badge_fields: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -286,7 +297,44 @@ enum SortDirection {
 #[serde(rename_all = "camelCase")]
 struct KanbanDefinition {
     #[serde(default)]
+    card: KanbanCardDefinition,
+    #[serde(default)]
     columns: Vec<KanbanColumnDefinition>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KanbanCardDefinition {
+    #[serde(default = "default_kanban_title_field")]
+    title_field: String,
+    #[serde(default)]
+    subtitle_fields: Vec<String>,
+    #[serde(default)]
+    badge_fields: Vec<String>,
+}
+
+impl Default for KanbanCardDefinition {
+    fn default() -> Self {
+        Self {
+            title_field: default_kanban_title_field(),
+            subtitle_fields: Vec::new(),
+            badge_fields: Vec::new(),
+        }
+    }
+}
+
+impl KanbanCardDefinition {
+    fn into_render_card(self) -> KanbanRenderCard {
+        KanbanRenderCard {
+            title_field: self.title_field,
+            subtitle_fields: self.subtitle_fields,
+            badge_fields: self.badge_fields,
+        }
+    }
+}
+
+fn default_kanban_title_field() -> String {
+    "fields.title".to_string()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -846,6 +894,7 @@ fn render_view_definition(
         "kanban" => {
             let kanban = definition.kanban.as_ref()?;
             Some(ViewRenderOutput::Kanban {
+                card: kanban.card.clone().into_render_card(),
                 columns: kanban
                     .columns
                     .iter()
@@ -1894,9 +1943,15 @@ mod tests {
         .unwrap();
 
         let result = render_view(&root, "tasks", BTreeMap::new()).unwrap();
-        let Some(ViewRenderOutput::Kanban { columns }) = result.render else {
+        let Some(ViewRenderOutput::Kanban { card, columns }) = result.render else {
             panic!("expected kanban render");
         };
+        assert_eq!(card.title_field, "fields.title");
+        assert_eq!(
+            card.subtitle_fields,
+            ["fields.summary", "fields.owners", "fields.assignees"]
+        );
+        assert_eq!(card.badge_fields, ["fields.priority", "fields.dueDate"]);
         let doing = columns
             .iter()
             .find(|column| column.id == "doing")

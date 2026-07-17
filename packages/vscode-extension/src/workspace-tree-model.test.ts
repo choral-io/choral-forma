@@ -1,7 +1,13 @@
 import type { DashboardEntrySummary, WorkspaceExplorerResult } from "@choral-forma/shared";
 import { describe, expect, it } from "vitest";
 
-import { treeNodeCommandId, viewIconName, workspaceTreeChildren, workspaceTreeRoots } from "./workspace-tree-model.ts";
+import {
+    treeNodeCommandId,
+    treeNodeIconName,
+    viewIconName,
+    workspaceTreeChildren,
+    workspaceTreeRoots,
+} from "./workspace-tree-model.ts";
 
 const explorer: WorkspaceExplorerResult = {
     schemaVersion: 1,
@@ -76,6 +82,26 @@ describe("Forma workspace tree model", () => {
             "network",
             "eye",
         ]);
+    });
+
+    it("uses one Lucide icon family across every tree level", () => {
+        const [taxonomy, views] = workspaceTreeRoots(explorer);
+        if (!taxonomy || !views) return;
+        const term = workspaceTreeChildren(explorer, taxonomy)[0];
+        const view = workspaceTreeChildren(explorer, views)[0];
+        if (term?.type !== "term" || !view) return;
+        const entry = workspaceTreeChildren(explorer, term, entries)[0];
+        if (!entry) return;
+
+        expect([
+            treeNodeIconName(taxonomy),
+            treeNodeIconName(term),
+            treeNodeIconName(entry),
+            treeNodeIconName(views),
+            treeNodeIconName(view),
+            treeNodeIconName({ type: "loadMore", taxonomyId: "topics", termId: "guides", cursor: "100" }),
+        ]).toEqual(["tags", "folder", "file-text", "panels-top-left", "kanban", "ellipsis"]);
+        expect(treeNodeIconName({ ...term, value: { ...term.value, status: "failed" } })).toBe("triangle-alert");
     });
 
     it("opens View nodes in Preview while entries keep opening source", () => {

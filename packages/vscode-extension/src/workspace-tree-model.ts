@@ -29,6 +29,23 @@ export function viewIconName(kind: string): string {
     }
 }
 
+export function treeNodeIconName(node: FormaTreeNode): string {
+    switch (node.type) {
+        case "loadMore":
+            return "ellipsis";
+        case "taxonomy":
+            return "tags";
+        case "term":
+            return node.value.status === "passed" ? "folder" : "triangle-alert";
+        case "views":
+            return "panels-top-left";
+        case "view":
+            return viewIconName(node.value.kind);
+        case "entry":
+            return "file-text";
+    }
+}
+
 export function treeNodeCommandId(node: FormaTreeNode): "forma.openViewPreview" | "vscode.open" | undefined {
     if (node.type === "view") return "forma.openViewPreview";
     if (node.type === "entry") return "vscode.open";

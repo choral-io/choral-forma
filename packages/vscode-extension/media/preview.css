@@ -4,36 +4,80 @@
     --forma-card: var(--vscode-editorWidget-background, var(--vscode-editor-background));
     --forma-radius-surface: 4px;
     --forma-radius-pill: 999px;
+    --forma-kanban-column-min: min(16rem, 85vw);
+    --forma-kanban-column-max: min(20rem, 85vw);
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     margin-block: 1rem;
+}
+.forma-view *,
+.forma-view *::before,
+.forma-view *::after {
+    box-sizing: border-box;
 }
 .forma-view .source-link {
     color: var(--vscode-textLink-foreground);
+    overflow-wrap: anywhere;
 }
 .frontmatter .forma-frontmatter-link {
     color: var(--vscode-textLink-foreground);
+}
+.forma-frontmatter {
+    margin-bottom: 1rem;
+}
+.forma-frontmatter > summary {
+    cursor: pointer;
+    color: var(--vscode-descriptionForeground);
+}
+.forma-frontmatter[open] > summary {
+    margin-bottom: 0.5rem;
+}
+.forma-frontmatter table.frontmatter {
+    width: 100%;
+    max-width: 100%;
+    table-layout: fixed;
+}
+.forma-frontmatter table.frontmatter th,
+.forma-frontmatter table.frontmatter td {
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 .forma-wikilink {
     color: var(--vscode-textLink-foreground);
 }
 .forma-view .table-wrap {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
     border: 1px solid var(--forma-border);
 }
 .forma-view table {
     width: 100%;
-    min-width: 36rem;
+}
+.forma-view th,
+.forma-view td {
+    overflow-wrap: anywhere;
 }
 .forma-view .kanban {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(16rem, 22rem);
+    position: relative;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
     gap: 0.75rem;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
-    padding: 0.25rem 0 1rem;
+    overscroll-behavior-inline: contain;
+    padding-block: 0.25rem 1rem;
 }
 .forma-view .kanban-column {
+    flex: 1 0 var(--forma-kanban-column-min);
+    min-width: var(--forma-kanban-column-min);
+    max-width: var(--forma-kanban-column-max);
     border: 1px solid var(--forma-border);
     border-radius: var(--forma-radius-surface);
     background: var(--forma-card);
@@ -53,6 +97,15 @@
     border: 1px solid var(--forma-border);
     border-left: 3px solid var(--vscode-charts-blue);
     background: var(--vscode-editor-background);
+    overflow-wrap: anywhere;
+}
+.forma-view .card-subtitles {
+    display: grid;
+    gap: 0.2rem;
+    margin-top: 0.4rem;
+}
+.forma-view .card-subtitle {
+    color: var(--forma-muted);
 }
 .forma-view .badges {
     display: flex;

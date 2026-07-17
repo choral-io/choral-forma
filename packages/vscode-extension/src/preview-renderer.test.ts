@@ -76,21 +76,49 @@ describe("view projection rendering", () => {
             view: { id: "board", path: ".forma/views/board.md", surface: "page", mode: "kanban" },
             render: {
                 kind: "kanban",
+                card: {
+                    titleField: "fields.title",
+                    subtitleFields: ["fields.summary"],
+                    badgeFields: ["fields.priority", "fields.dueDate", "fields.updatedAt"],
+                },
                 columns: [
                     {
                         id: "doing",
                         label: "Doing",
                         icon: "●",
-                        items: [{ path: "tasks/one.md", title: "One", fields: { status: "doing" } }],
+                        items: [
+                            {
+                                path: "tasks/one.md",
+                                title: "Fallback title",
+                                fields: {
+                                    title: "One",
+                                    summary: "A concise task summary.",
+                                    priority: "P1",
+                                    dueDate: "2026-07-19",
+                                    updatedAt: "2026-07-19T13:30:00Z",
+                                    createdAt: "2026-01-01T00:00:00Z",
+                                },
+                            },
+                        ],
                     },
+                    { id: "review", label: "Review", items: [] },
+                    { id: "done", label: "Done", items: [] },
                 ],
             },
         } satisfies ViewRenderResult;
 
         expect(renderViewProjectionHtml(table)).toContain("Delivery status");
-        const kanbanHtml = renderViewProjectionHtml(kanban);
+        const kanbanHtml = renderViewProjectionHtml(kanban, { locale: "en-US", timeZone: "UTC" });
         expect(kanbanHtml).toContain("Doing");
+        expect(kanbanHtml.match(/class="kanban-column"/g)).toHaveLength(3);
         expect(kanbanHtml).toContain('aria-label="Kanban board"');
         expect(kanbanHtml).toContain('href="/tasks/one.md"');
+        expect(kanbanHtml).toContain("A concise task summary.");
+        expect(kanbanHtml).toContain("P1");
+        expect(kanbanHtml).toContain('<time datetime="2026-07-19"');
+        expect(kanbanHtml).toContain(">Jul 19, 2026</time>");
+        expect(kanbanHtml).toContain('<time datetime="2026-07-19T13:30:00Z"');
+        expect(kanbanHtml).toContain(">Jul 19, 2026, 1:30 PM</time>");
+        expect(kanbanHtml).not.toContain("2026-01-01T00:00:00Z");
     });
 });

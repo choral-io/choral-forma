@@ -51,9 +51,10 @@ pub use path::{
     FORMA_CONFIG_PATH, PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,
 };
 pub use render::{
-    FileRenderOutput, FileRenderResult, GraphRenderEdge, GraphRenderNode, KanbanRenderColumn,
-    RenderedFile, RenderedHeading, RenderedView, ViewContentMount, ViewRenderDocument,
-    ViewRenderItem, ViewRenderOutput, ViewRenderResult, render_file, render_view,
+    FileRenderOutput, FileRenderResult, GraphRenderEdge, GraphRenderNode, KanbanRenderCard,
+    KanbanRenderColumn, RenderedFile, RenderedHeading, RenderedView, ViewContentMount,
+    ViewRenderDocument, ViewRenderItem, ViewRenderOutput, ViewRenderResult, render_file,
+    render_view,
 };
 pub use schema::{
     PlaceholderContext, RenderedTemplate, ResolvedCreateInputs, RuntimeValues, SchemaNode,

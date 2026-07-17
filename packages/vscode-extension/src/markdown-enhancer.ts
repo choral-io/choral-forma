@@ -8,8 +8,10 @@ export type MarkdownIt = { renderer: MarkdownRenderer };
 
 export type FrontmatterLink = { field: string; value: string; targetPath: string };
 export type PreviewBodyLink = { raw: string; label: string; targetPath: string; fragment?: string };
+export type FrontmatterDefaultState = "collapsed" | "expanded";
 export type MarkdownEnhancement = {
     projection?: string;
+    frontmatterDefaultState?: FrontmatterDefaultState;
     frontmatterLinks?: FrontmatterLink[];
     bodyLinks?: PreviewBodyLink[];
 };
@@ -38,6 +40,7 @@ export function setMarkdownEnhancement(documentUri: string, enhancement: Markdow
     if (
         enhancement &&
         (enhancement.projection ||
+            enhancement.frontmatterDefaultState !== undefined ||
             (enhancement.frontmatterLinks?.length ?? 0) > 0 ||
             (enhancement.bodyLinks?.length ?? 0) > 0)
     ) {
@@ -53,13 +56,24 @@ export function clearMarkdownProjections(): void {
 
 export function enhanceMarkdownPreview(html: string, enhancement: MarkdownEnhancement | undefined): string {
     const frontmatterHtml = enhanceFrontmatterLinks(html, enhancement?.frontmatterLinks ?? []);
-    const linkedHtml = enhanceBodyLinks(frontmatterHtml, enhancement?.bodyLinks ?? []);
+    const frontmatterState = enhancement?.frontmatterDefaultState;
+    const wrappedHtml = frontmatterState ? wrapNativeFrontmatter(frontmatterHtml, frontmatterState) : frontmatterHtml;
+    const linkedHtml = enhanceBodyLinks(wrappedHtml, enhancement?.bodyLinks ?? []);
     const projection = enhancement?.projection;
     if (!projection) return linkedHtml;
     const markerIndex = linkedHtml.indexOf(VIEW_MOUNT_MARKER);
     return markerIndex < 0
         ? `${linkedHtml}${projection}`
         : `${linkedHtml.slice(0, markerIndex)}${projection}${linkedHtml.slice(markerIndex + VIEW_MOUNT_MARKER.length)}`;
+}
+
+function wrapNativeFrontmatter(html: string, defaultState: FrontmatterDefaultState): string {
+    const frontmatterTable = /<table\b[^>]*class="[^"]*frontmatter[^"]*"[^>]*>[\s\S]*?<\/table>/iu;
+    return html.replace(
+        frontmatterTable,
+        (table) =>
+            `<details class="forma-frontmatter"${defaultState === "expanded" ? " open" : ""}><summary>Metadata</summary>${table}</details>`,
+    );
 }
 
 export function enhanceBodyLinks(html: string, links: PreviewBodyLink[]): string {

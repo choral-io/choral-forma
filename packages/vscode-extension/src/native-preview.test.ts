@@ -26,6 +26,37 @@ describe("native Markdown preview enhancement", () => {
         expect(enhanceMarkdownPreview("<h1>Note</h1>", undefined)).toBe("<h1>Note</h1>");
     });
 
+    it("keeps the native Frontmatter table available but collapsed for Forma-managed documents", () => {
+        const frontmatter = '<table class="frontmatter"><tbody><tr><th>kind</th><td>view</td></tr></tbody></table>';
+        expect(enhanceMarkdownPreview(frontmatter, { frontmatterDefaultState: "collapsed" })).toBe(
+            `<details class="forma-frontmatter"><summary>Metadata</summary>${frontmatter}</details>`,
+        );
+        expect(enhanceMarkdownPreview(frontmatter, undefined)).toBe(frontmatter);
+    });
+
+    it("keeps Forma-managed Frontmatter collapsible when it is expanded by default", () => {
+        const frontmatter = '<table class="frontmatter"><tbody><tr><th>kind</th><td>entry</td></tr></tbody></table>';
+        expect(enhanceMarkdownPreview(frontmatter, { frontmatterDefaultState: "expanded" })).toBe(
+            `<details class="forma-frontmatter" open><summary>Metadata</summary>${frontmatter}</details>`,
+        );
+    });
+
+    it("retains a managed-document Frontmatter enhancement without requiring a View projection", () => {
+        const uri = "file:///workspace/notes/managed.md";
+        const frontmatter = '<table class="frontmatter"><tbody><tr><th>kind</th><td>note</td></tr></tbody></table>';
+        setMarkdownEnhancement(uri, { frontmatterDefaultState: "collapsed" });
+        const markdownIt = extendMarkdownIt({ renderer: { render: () => frontmatter } });
+
+        expect(
+            markdownIt.renderer.render(
+                [],
+                {},
+                { currentDocument: { path: "/workspace/notes/managed.md", toString: () => uri } },
+            ),
+        ).toContain('<details class="forma-frontmatter">');
+        clearMarkdownProjections();
+    });
+
     it("links resolved scalar and list values in the native frontmatter table", () => {
         const html =
             '<table class="frontmatter"><tbody><tr><th>owners</th><td><ul><li>members/noah-kim</li><li>members/ava-patel</li></ul></td></tr><tr><th>status</th><td>ready</td></tr></tbody></table>';

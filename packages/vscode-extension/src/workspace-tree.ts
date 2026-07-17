@@ -8,7 +8,7 @@ import { workspaceExplorerMessage } from "./workspace-tree-message.ts";
 import {
     type FormaTreeNode,
     treeNodeCommandId,
-    viewIconName,
+    treeNodeIconName,
     workspaceTreeChildren,
     workspaceTreeRoots,
 } from "./workspace-tree-model.ts";
@@ -75,7 +75,7 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
         if (node.type === "loadMore") {
             const item = new vscode.TreeItem("Load more…", vscode.TreeItemCollapsibleState.None);
             item.id = `load-more:${node.taxonomyId}:${node.termId}:${node.cursor}`;
-            item.iconPath = new vscode.ThemeIcon("ellipsis");
+            item.iconPath = this.lucideIcon(treeNodeIconName(node));
             item.command = {
                 command: "forma.loadMoreExplorerEntries",
                 title: "Load more entries",
@@ -88,7 +88,7 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
             item.id = `taxonomy:${node.value.id}`;
             item.description = String(node.value.terms.length);
             item.tooltip = node.value.description ?? `${node.value.title} taxonomy`;
-            item.iconPath = new vscode.ThemeIcon("symbol-enum");
+            item.iconPath = this.lucideIcon(treeNodeIconName(node));
             return item;
         }
         if (node.type === "term") {
@@ -96,14 +96,14 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
             item.id = `term:${node.taxonomyId}:${node.value.id}`;
             item.description = String(node.value.entryCount);
             item.tooltip = node.value.description ?? `${node.value.title} — ${String(node.value.entryCount)} entries`;
-            item.iconPath = new vscode.ThemeIcon(node.value.status === "passed" ? "folder-library" : "warning");
+            item.iconPath = this.lucideIcon(treeNodeIconName(node));
             return item;
         }
         if (node.type === "views") {
             const item = new vscode.TreeItem("Views", vscode.TreeItemCollapsibleState.Collapsed);
             item.id = "views";
             item.description = String(this.explorer?.views.length ?? 0);
-            item.iconPath = this.lucideIcon("panels-top-left");
+            item.iconPath = this.lucideIcon(treeNodeIconName(node));
             return item;
         }
         const root = this.runtime.activeRoot;
@@ -115,8 +115,7 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
         item.id = `${node.type}:${path}`;
         if (node.value.kind) item.description = node.value.kind;
         item.tooltip = path;
-        item.iconPath =
-            node.type === "view" ? this.lucideIcon(viewIconName(node.value.kind)) : new vscode.ThemeIcon("markdown");
+        item.iconPath = this.lucideIcon(treeNodeIconName(node));
         if (root) {
             const uri = this.runtime.uriFor(root, path);
             const command = treeNodeCommandId(node);

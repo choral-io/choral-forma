@@ -280,6 +280,11 @@ export type ViewRenderOutput =
       }
     | {
           kind: "kanban";
+          card: {
+              titleField: string;
+              subtitleFields?: string[];
+              badgeFields?: string[];
+          };
           columns: Array<{
               id: string;
               label: string;

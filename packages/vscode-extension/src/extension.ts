@@ -33,6 +33,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
     let configRefreshTimer: ReturnType<typeof setTimeout> | undefined;
     let offeredCliRecovery = false;
 
+    const currentTabs = (): vscode.Tab[] => vscode.window.tabGroups.all.flatMap((group) => [...group.tabs]);
+    const logPreviewRestoration = (result: { documents: number; projections: number }): void => {
+        if (result.documents === 0) return;
+        output.info(
+            `[preview] restored ${String(result.projections)} view projection(s) across ${String(result.documents)} open Forma document(s).`,
+        );
+    };
+
     const synchronizeLsp = async (): Promise<void> => {
         await lsp.sync(runtime.lspContext);
     };
@@ -184,8 +192,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
         }),
         vscode.commands.registerCommand("forma.refreshWorkspace", async () => {
             await refreshRuntime();
-            const document = vscode.window.activeTextEditor?.document;
-            if (document && runtime.isFormaDocument(document)) await previews.refresh(document);
+            logPreviewRestoration(await previews.restoreOpenState(vscode.workspace.textDocuments, currentTabs()));
         }),
         vscode.commands.registerCommand("forma.refreshExplorer", async () => {
             await explorer.refresh();
@@ -228,6 +235,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
             if (runtime.isFormaDocument(document)) await previews.refresh(document);
             if (runtime.isConfigDocument(document)) scheduleConfigRefresh();
         }),
+        vscode.window.tabGroups.onDidChangeTabs((event) => {
+            if (event.opened.length === 0) return;
+            void previews
+                .restorePreviewTabs(event.opened)
+                .then(logPreviewRestoration)
+                .catch((error: unknown) => {
+                    output.error(`[preview] tab restoration failed: ${boundedError(error)}`);
+                });
+        }),
         vscode.workspace.onDidChangeWorkspaceFolders(() => {
             scheduleRuntimeRefresh();
         }),
@@ -249,14 +265,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
             scheduleRuntimeRefresh();
         }),
         vscode.workspace.onDidChangeConfiguration((event) => {
-            if (event.affectsConfiguration("forma")) scheduleRuntimeRefresh();
+            if (event.affectsConfiguration("forma.preview.frontmatterDefaultState")) {
+                void previews
+                    .restoreOpenState(vscode.workspace.textDocuments, currentTabs())
+                    .then(logPreviewRestoration)
+                    .catch((error: unknown) => {
+                        output.error(`[preview] settings refresh failed: ${boundedError(error)}`);
+                    });
+            }
+            if (
+                event.affectsConfiguration("forma.path") ||
+                event.affectsConfiguration("forma.workspaceConfig") ||
+                event.affectsConfiguration("forma.commandTimeout")
+            ) {
+                scheduleRuntimeRefresh();
+            }
         }),
     );
 
     registerNavigation(context, runtime, diagnostics);
     await refreshRuntime();
-    const document = vscode.window.activeTextEditor?.document;
-    if (document && runtime.isFormaDocument(document)) await previews.refresh(document);
+    const restoredPreviews = await previews.restoreOpenState(vscode.workspace.textDocuments, currentTabs());
+    logPreviewRestoration(restoredPreviews);
     const activationMs = performance.now() - activationStarted;
     output.info(`[activation] completed in ${activationMs.toFixed(1)} ms.`);
     return { extendMarkdownIt, activationMs };

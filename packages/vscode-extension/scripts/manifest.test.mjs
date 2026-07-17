@@ -18,12 +18,17 @@ test("contributes one Forma tree inside the built-in Explorer", () => {
 
 test("vendors only the Lucide icons used by the Forma tree", async () => {
     const iconFiles = [
+        "ellipsis.svg",
         "eye.svg",
+        "file-text.svg",
+        "folder.svg",
         "kanban.svg",
         "list.svg",
         "network.svg",
         "panels-top-left.svg",
         "table-properties.svg",
+        "tags.svg",
+        "triangle-alert.svg",
     ];
     for (const theme of ["light", "dark"]) {
         const files = await readdir(new URL(`../media/icons/lucide/${theme}/`, import.meta.url));
@@ -48,4 +53,11 @@ test("keeps the main workspace configuration resource-scoped", () => {
     const setting = manifest.contributes.configuration.properties["forma.workspaceConfig"];
     assert.equal(setting.scope, "resource");
     assert.equal(setting.default, ".forma.md");
+});
+
+test("contributes a resource-scoped Frontmatter default state", () => {
+    const setting = manifest.contributes.configuration.properties["forma.preview.frontmatterDefaultState"];
+    assert.equal(setting.scope, "resource");
+    assert.equal(setting.default, "collapsed");
+    assert.deepEqual(setting.enum, ["collapsed", "expanded"]);
 });
