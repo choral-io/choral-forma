@@ -80,6 +80,8 @@ These are engineering budgets, not compatibility promises. Measure them on optim
 
 Budgets for remote workspaces should be measured separately. The remote extension host should execute Forma near the workspace files, and adapters should minimize filesystem and process round trips.
 
+Percentile budgets require a statistically meaningful sample. Do not turn a cold p95 budget into a hard assertion over one editor launch or one request on a shared CI runner. Packaged smoke tests may record a single cold sample as diagnostic evidence and must still verify its functional result, while cold-latency release gates use repeated independent launches or a controlled benchmark. Multi-sample warm p95 measurements may remain hard CI gates when their sample count and measurement boundary are explicit.
+
 ## Optimization Sequence
 
 ### Phase 0: Remove Multiplication And Scale Limits
