@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 import { formatFormaError } from "./forma-client.ts";
 import { GenerationRefresh } from "./generation-refresh.ts";
 import type { FormaRuntime } from "./runtime.ts";
-import { WorkspaceIconCache } from "./workspace-icon-cache.ts";
+import { WorkspaceIconResolver } from "./workspace-icon-resolver.ts";
 import { workspaceExplorerMessage } from "./workspace-tree-message.ts";
 import {
     type FormaTreeNode,
@@ -20,16 +20,14 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
     private readonly termLoads = new Map<string, Promise<void>>();
     private readonly changed = new vscode.EventEmitter<FormaTreeNode | undefined>();
     private readonly treeView: vscode.TreeView<FormaTreeNode>;
-    private readonly iconCache: WorkspaceIconCache;
+    private readonly iconResolver: WorkspaceIconResolver;
     private readonly refreshes = new GenerationRefresh();
 
     constructor(
         private readonly runtime: FormaRuntime,
         context: vscode.ExtensionContext,
     ) {
-        this.iconCache = new WorkspaceIconCache(context.extensionUri, () => {
-            this.changed.fire(undefined);
-        });
+        this.iconResolver = new WorkspaceIconResolver(context.extensionUri);
         this.treeView = vscode.window.createTreeView("forma.workspace", {
             treeDataProvider: {
                 onDidChangeTreeData: this.changed.event,
@@ -41,7 +39,6 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
         context.subscriptions.push(
             this,
             this.treeView,
-            this.iconCache,
             vscode.commands.registerCommand("forma.loadMoreExplorerEntries", async (node: FormaTreeNode) => {
                 if (node.type !== "loadMore") return;
                 await this.loadTermPage(node.taxonomyId, node.termId, node.cursor);
@@ -75,11 +72,11 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
         this.changed.dispose();
     }
 
-    private async treeItem(node: FormaTreeNode): Promise<vscode.TreeItem> {
+    private treeItem(node: FormaTreeNode): vscode.TreeItem {
         if (node.type === "loadMore") {
             const item = new vscode.TreeItem("Load more…", vscode.TreeItemCollapsibleState.None);
             item.id = `load-more:${node.taxonomyId}:${node.termId}:${node.cursor}`;
-            item.iconPath = await this.iconCache.resolve(treeNodePresentation(node));
+            item.iconPath = this.iconResolver.resolve(treeNodePresentation(node));
             item.command = {
                 command: "forma.loadMoreExplorerEntries",
                 title: "Load more entries",
@@ -92,7 +89,7 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
             item.id = `taxonomy:${node.value.id}`;
             item.description = String(node.value.terms.length);
             item.tooltip = node.value.description ?? `${node.value.title} taxonomy`;
-            item.iconPath = await this.iconCache.resolve(treeNodePresentation(node));
+            item.iconPath = this.iconResolver.resolve(treeNodePresentation(node));
             return item;
         }
         if (node.type === "term") {
@@ -100,14 +97,14 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
             item.id = `term:${node.taxonomyId}:${node.value.id}`;
             item.description = String(node.value.entryCount);
             item.tooltip = node.value.description ?? `${node.value.title} — ${String(node.value.entryCount)} entries`;
-            item.iconPath = await this.iconCache.resolve(treeNodePresentation(node));
+            item.iconPath = this.iconResolver.resolve(treeNodePresentation(node));
             return item;
         }
         if (node.type === "views") {
             const item = new vscode.TreeItem("Views", vscode.TreeItemCollapsibleState.Collapsed);
             item.id = "views";
             item.description = String(this.explorer?.views.length ?? 0);
-            item.iconPath = await this.iconCache.resolve(treeNodePresentation(node));
+            item.iconPath = this.iconResolver.resolve(treeNodePresentation(node));
             return item;
         }
         const root = this.runtime.activeRoot;
@@ -119,7 +116,7 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
         item.id = `${node.type}:${path}`;
         if (node.value.kind) item.description = node.value.kind;
         item.tooltip = path;
-        item.iconPath = await this.iconCache.resolve(treeNodePresentation(node));
+        item.iconPath = this.iconResolver.resolve(treeNodePresentation(node));
         if (root) {
             const uri = this.runtime.uriFor(root, path);
             const command = treeNodeCommandId(node);

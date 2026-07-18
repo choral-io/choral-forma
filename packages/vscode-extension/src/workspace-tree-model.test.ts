@@ -98,8 +98,8 @@ describe("Forma workspace tree model", () => {
             treeNodePresentation(view),
             treeNodePresentation({ type: "loadMore", taxonomyId: "topics", termId: "guides", cursor: "100" }),
         ]).toEqual([
-            { icon: "shapes", color: "#64748b" },
-            { icon: "book-open", color: "#4f7cac" },
+            { icon: "shapes" },
+            { icon: "book-open" },
             { icon: "file-text" },
             { icon: "panels-top-left" },
             { icon: "kanban" },

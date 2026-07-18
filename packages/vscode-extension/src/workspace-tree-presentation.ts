@@ -1,10 +1,9 @@
-import { isSupportedDisplayIcon, normalizeDisplayColor } from "@choral-forma/shared";
+import { isSupportedDisplayIcon } from "@choral-forma/shared";
 
 import type { FormaTreeNode } from "./workspace-tree-model.ts";
 
 export type TreeNodePresentation = {
     icon: string;
-    color?: string;
 };
 
 export function viewIconName(kind: string): string {
@@ -41,11 +40,7 @@ export function treeNodePresentation(node: FormaTreeNode): TreeNodePresentation 
     }
 }
 
-function configuredPresentation(
-    display: { icon?: string; color?: string } | undefined,
-    fallbackIcon: string,
-): TreeNodePresentation {
+function configuredPresentation(display: { icon?: string } | undefined, fallbackIcon: string): TreeNodePresentation {
     const icon = display?.icon && isSupportedDisplayIcon(display.icon) ? display.icon : fallbackIcon;
-    const color = normalizeDisplayColor(display?.color);
-    return color ? { icon, color } : { icon };
+    return { icon };
 }
