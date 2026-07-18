@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: app
 effort: M
-status: ready
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -75,3 +75,18 @@ Create `packages/graph-view` as the single framework- and Host-neutral implement
 - The runtime ignores the compatibility `GraphRenderNode.space` field and introduces no special behavior for any taxonomy id.
 - Renderer, Worker, observer, timer, and listener resources are released by `destroy` and covered by focused tests.
 - Package checks, deterministic fixture tests, and bundle-cost evidence pass locally.
+
+## Result
+
+Implemented `packages/graph-view` as the Host-neutral owner of Graphology construction, deterministic layout seeding, bounded settling, Sigma programs, selection state, presentation reducers, active-document following, navigation callbacks, and disposal.
+
+The public API exposes Forma projection, theme, presentation, update, snapshot, navigation, fit, and destroy contracts without exposing Sigma or Graphology instances. Single-click selection, one-hop emphasis, separate double-click or Enter activation, reciprocal edge aggregation, adaptive labels, bounded logarithmic node sizing, stage reset, coordinate reuse, reduced-motion behavior, and taxonomy-neutral node handling are covered by focused tests.
+
+Layout behavior uses the simple Graphology force layout for up to 64 nodes. Larger graphs use ForceAtlas2; graphs above 2,000 nodes skip synchronous ForceAtlas2 work and move directly from deterministic placement to the bounded Worker session. The Worker, renderer, resize observer, animation frame, timer, and keyboard listener all have explicit idempotent disposal paths.
+
+Local validation on 2026-07-18:
+
+- `mise run check:pnpm`, `mise run test:pnpm`, and `mise run build:pnpm` pass; the workspace test run reports 172 passing tests.
+- `pnpm --filter @choral-forma/graph-view test` reports 19 passing focused tests.
+- Deterministic layout benchmark medians are approximately 0.41 ms for 25 nodes and 50 edges, 14.81 ms for the 500-node and 1,500-edge synchronous ForceAtlas2 seed, and 20.21 ms for constructing the deterministic 5,000-node and 15,000-edge Worker seed without a synchronous large-graph simulation.
+- The package-owned ESM output is 21.11 kB, or 5.80 kB gzip, with runtime dependencies left to Host bundlers.
