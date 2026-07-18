@@ -18,7 +18,7 @@ THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ---
 
-## Lucide Icons 1.23.0
+## Lucide Icons 1.24.0
 
 The Forma VS Code extension includes selected SVG paths from Lucide Icons. Only the icons used by the extension are distributed.
 

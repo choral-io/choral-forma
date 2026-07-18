@@ -17,19 +17,10 @@ test("contributes one Forma tree inside the built-in Explorer", () => {
 });
 
 test("vendors only the Lucide icons used by the Forma tree", async () => {
-    const iconFiles = [
-        "ellipsis.svg",
-        "eye.svg",
-        "file-text.svg",
-        "folder.svg",
-        "kanban.svg",
-        "list.svg",
-        "network.svg",
-        "panels-top-left.svg",
-        "table-properties.svg",
-        "tags.svg",
-        "triangle-alert.svg",
-    ];
+    const iconIds = JSON.parse(
+        await readFile(new URL("../../../crates/forma-core/src/display-icon-registry.json", import.meta.url), "utf8"),
+    );
+    const iconFiles = iconIds.map((icon) => `${icon}.svg`).sort();
     for (const theme of ["light", "dark"]) {
         const files = await readdir(new URL(`../media/icons/lucide/${theme}/`, import.meta.url));
         assert.deepEqual(files.sort(), iconFiles);

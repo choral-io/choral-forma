@@ -14,38 +14,6 @@ export type ViewNode = { type: "view"; value: DashboardViewSummary };
 export type LoadMoreNode = { type: "loadMore"; taxonomyId: string; termId: string; cursor: string };
 export type FormaTreeNode = TaxonomyNode | TermNode | EntryNode | ViewsNode | ViewNode | LoadMoreNode;
 
-export function viewIconName(kind: string): string {
-    switch (kind) {
-        case "list":
-            return "list";
-        case "table":
-            return "table-properties";
-        case "kanban":
-            return "kanban";
-        case "graph":
-            return "network";
-        default:
-            return "eye";
-    }
-}
-
-export function treeNodeIconName(node: FormaTreeNode): string {
-    switch (node.type) {
-        case "loadMore":
-            return "ellipsis";
-        case "taxonomy":
-            return "tags";
-        case "term":
-            return node.value.status === "passed" ? "folder" : "triangle-alert";
-        case "views":
-            return "panels-top-left";
-        case "view":
-            return viewIconName(node.value.kind);
-        case "entry":
-            return "file-text";
-    }
-}
-
 export function treeNodeCommandId(node: FormaTreeNode): "forma.openViewPreview" | "vscode.open" | undefined {
     if (node.type === "view") return "forma.openViewPreview";
     if (node.type === "entry") return "vscode.open";

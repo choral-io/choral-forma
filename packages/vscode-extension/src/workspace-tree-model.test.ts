@@ -1,13 +1,8 @@
 import type { DashboardEntrySummary, WorkspaceExplorerResult } from "@choral-forma/shared";
 import { describe, expect, it } from "vitest";
 
-import {
-    treeNodeCommandId,
-    treeNodeIconName,
-    viewIconName,
-    workspaceTreeChildren,
-    workspaceTreeRoots,
-} from "./workspace-tree-model.ts";
+import { treeNodeCommandId, workspaceTreeChildren, workspaceTreeRoots } from "./workspace-tree-model.ts";
+import { treeNodePresentation, viewIconName } from "./workspace-tree-presentation.ts";
 
 const explorer: WorkspaceExplorerResult = {
     schemaVersion: 1,
@@ -21,10 +16,12 @@ const explorer: WorkspaceExplorerResult = {
             id: "topics",
             title: "Topics",
             mode: "multiple",
+            display: { icon: "shapes", color: "#64748b" },
             terms: [
                 {
                     id: "guides",
                     title: "Guides",
+                    display: { icon: "book-open", color: "#4f7cac" },
                     entryCount: 1,
                     status: "passed",
                 },
@@ -94,14 +91,42 @@ describe("Forma workspace tree model", () => {
         if (!entry) return;
 
         expect([
-            treeNodeIconName(taxonomy),
-            treeNodeIconName(term),
-            treeNodeIconName(entry),
-            treeNodeIconName(views),
-            treeNodeIconName(view),
-            treeNodeIconName({ type: "loadMore", taxonomyId: "topics", termId: "guides", cursor: "100" }),
-        ]).toEqual(["tags", "folder", "file-text", "panels-top-left", "kanban", "ellipsis"]);
-        expect(treeNodeIconName({ ...term, value: { ...term.value, status: "failed" } })).toBe("triangle-alert");
+            treeNodePresentation(taxonomy),
+            treeNodePresentation(term),
+            treeNodePresentation(entry),
+            treeNodePresentation(views),
+            treeNodePresentation(view),
+            treeNodePresentation({ type: "loadMore", taxonomyId: "topics", termId: "guides", cursor: "100" }),
+        ]).toEqual([
+            { icon: "shapes", color: "#64748b" },
+            { icon: "book-open", color: "#4f7cac" },
+            { icon: "file-text" },
+            { icon: "panels-top-left" },
+            { icon: "kanban" },
+            { icon: "ellipsis" },
+        ]);
+        expect(treeNodePresentation({ ...term, value: { ...term.value, status: "failed" } })).toEqual({
+            icon: "triangle-alert",
+        });
+        expect(treeNodePresentation({ ...term, value: { ...term.value, status: "warning" } })).toEqual({
+            icon: "triangle-alert",
+        });
+    });
+
+    it("falls back safely when presentation metadata has not been sanitized", () => {
+        const sourceTaxonomy = explorer.taxonomies[0];
+        expect(sourceTaxonomy).toBeDefined();
+        if (!sourceTaxonomy) return;
+        const taxonomy = workspaceTreeRoots({
+            ...explorer,
+            taxonomies: [
+                {
+                    ...sourceTaxonomy,
+                    display: { icon: "not-a-forma-icon", color: "red" },
+                },
+            ],
+        })[0];
+        expect(taxonomy && treeNodePresentation(taxonomy)).toEqual({ icon: "tags" });
     });
 
     it("opens View nodes in Preview while entries keep opening source", () => {

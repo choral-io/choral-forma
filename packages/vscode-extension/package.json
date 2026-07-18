@@ -169,10 +169,12 @@
   },
   "scripts": {
     "lint": "eslint . --cache --cache-location node_modules/.tmp/.eslintcache",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && pnpm icons:check",
     "build": "node scripts/build.mjs --production",
     "build:dev": "node scripts/build.mjs",
     "build:watch": "node scripts/build.mjs --watch",
+    "icons:sync": "node scripts/sync-lucide-icons.mjs",
+    "icons:check": "node scripts/sync-lucide-icons.mjs --check",
     "build:test": "node scripts/build-tests.mjs",
     "test": "vitest run --root ../.. packages/vscode-extension/src && node --test scripts/*.test.mjs",
     "test:integration": "pnpm build && pnpm build:test && vscode-test && node scripts/run-untrusted-test.mjs",
@@ -190,6 +192,7 @@
     "@vscode/test-electron": "~3.0.0",
     "@vscode/vsce": "~3.9.2",
     "esbuild": "~0.28.1",
+    "lucide-react": "~1.24.0",
     "mocha": "~11.7.6"
   },
   "dependencies": {
