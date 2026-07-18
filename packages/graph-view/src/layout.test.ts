@@ -118,6 +118,23 @@ describe("GraphLayoutSession", () => {
         expect(createSupervisor).not.toHaveBeenCalled();
     });
 
+    it("supports hosts whose content security policy disables workers", () => {
+        const graph = buildGraphologyGraph(new GraphViewModel(graphFixture(500, 1_500)).snapshot());
+        const createSupervisor = vi.fn();
+
+        new GraphLayoutSession(
+            graph,
+            { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2", useWorker: false },
+            {
+                createSupervisor,
+                schedule: setTimeout,
+                cancel: clearTimeout,
+            },
+        ).destroy();
+
+        expect(createSupervisor).not.toHaveBeenCalled();
+    });
+
     it("reports bounded Worker settling without firing after explicit disposal", () => {
         const graph = buildGraphologyGraph(new GraphViewModel(graphFixture(4, 4)).snapshot());
         const supervisor = { start: vi.fn(), stop: vi.fn(), kill: vi.fn() };

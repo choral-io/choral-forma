@@ -236,13 +236,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
             if (runtime.isConfigDocument(document)) scheduleConfigRefresh();
         }),
         vscode.window.tabGroups.onDidChangeTabs((event) => {
-            if (event.opened.length === 0) return;
-            void previews
-                .restorePreviewTabs(event.opened)
-                .then(logPreviewRestoration)
-                .catch((error: unknown) => {
-                    output.error(`[preview] tab restoration failed: ${boundedError(error)}`);
+            if (event.opened.length > 0) {
+                void previews
+                    .restorePreviewTabs(event.opened)
+                    .then(logPreviewRestoration)
+                    .catch((error: unknown) => {
+                        output.error(`[preview] tab restoration failed: ${boundedError(error)}`);
+                    });
+            }
+            if (event.closed.length > 0) {
+                void previews.closePreviewTabs(event.closed).catch((error: unknown) => {
+                    output.error(`[preview] tab cleanup failed: ${boundedError(error)}`);
                 });
+            }
         }),
         vscode.workspace.onDidChangeWorkspaceFolders(() => {
             scheduleRuntimeRefresh();
@@ -256,7 +262,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
                 ) {
                     await refreshRuntime(editor.document);
                 }
-                if (editor && runtime.isFormaDocument(editor.document)) await previews.refresh(editor.document);
+                if (editor && runtime.isFormaDocument(editor.document)) await previews.refresh(editor.document, false);
+                previews.activeDocumentChanged(editor?.document);
             })().catch((error: unknown) => {
                 output.error(`[lsp] active-editor refresh failed: ${boundedError(error)}`);
             });

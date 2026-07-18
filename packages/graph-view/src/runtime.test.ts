@@ -19,12 +19,19 @@ const sigmaMocks = vi.hoisted(() => {
         readonly settings: Record<string, unknown>;
         readonly flowArc = vi.fn();
         readonly flowClearRect = vi.fn();
+        readonly flowLineTo = vi.fn();
+        readonly flowMoveTo = vi.fn();
+        readonly flowStroke = vi.fn();
         readonly flowContext = {
             arc: this.flowArc,
             beginPath: vi.fn(),
+            closePath: vi.fn(),
             clearRect: this.flowClearRect,
             fill: vi.fn(),
+            lineTo: this.flowLineTo,
+            moveTo: this.flowMoveTo,
             setTransform: vi.fn(),
+            stroke: this.flowStroke,
         } as unknown as CanvasRenderingContext2D;
         readonly flowCanvas = {
             getContext: vi.fn(() => this.flowContext),
@@ -55,7 +62,7 @@ const sigmaMocks = vi.hoisted(() => {
         }
 
         getNodeDisplayData(nodeId: string) {
-            return nodeId === "a.md" ? { x: 0, y: 0 } : { x: 100, y: 0 };
+            return nodeId === "a.md" ? { size: 4, x: 0, y: 0 } : { size: 4, x: 100, y: 0 };
         }
 
         on(event: string, handler: (payload: never) => void): void {
@@ -64,6 +71,10 @@ const sigmaMocks = vi.hoisted(() => {
 
         resize(): this {
             return this;
+        }
+
+        scaleSize(size = 1): number {
+            return size;
         }
     }
 
@@ -234,9 +245,14 @@ describe("SigmaGraphRuntime lifecycle", () => {
         expect(nodeReducer("a.md", {}).color).toBe("#ff00ff");
         expect(nodeReducer("b.md", {}).color).toBe("#00aaff");
         expect(nodeReducer("c.md", {}).color).toBe("#333333");
+        expect(nodeReducer("a.md", {}).zIndex).toBe(10);
+        expect(nodeReducer("b.md", {}).zIndex).toBe(5);
+        expect(nodeReducer("c.md", {}).zIndex).toBe(0);
         const edge = runtime.snapshot().edges[0];
         if (!edge) throw new Error("Expected display edge.");
         expect(edgeReducer(edge.id, {}).color).toBe("#ff00ff");
+        expect(edgeReducer(edge.id, {}).zIndex).toBe(10);
+        expect(renderer.flowStroke).toHaveBeenCalled();
         runtime.destroy();
     });
 
@@ -316,6 +332,11 @@ describe("SigmaGraphRuntime lifecycle", () => {
         expect(sigmaMocks.doubleArrowProgramOptions).toEqual([
             { lengthToThicknessRatio: 5, widenessToThicknessRatio: 4 },
         ]);
+        const renderer = sigmaMocks.instances[0];
+        expect(renderer?.createCanvas).toHaveBeenCalledWith("forma-edge-flow", {
+            afterLayer: "nodes",
+            style: { pointerEvents: "none" },
+        });
         runtime.destroy();
     });
 
@@ -337,7 +358,7 @@ describe("SigmaGraphRuntime lifecycle", () => {
         firstFrame(0);
 
         expect(renderer.flowArc).toHaveBeenCalledTimes(1);
-        expect(renderer.flowArc).toHaveBeenNthCalledWith(1, 12, 0, 1.8, 0, Math.PI * 2);
+        expect(renderer.flowArc).toHaveBeenNthCalledWith(1, 16.56, 0, 1.8, 0, Math.PI * 2);
         expect(renderer.flowCanvas).toMatchObject({
             height: 480,
             style: { height: "480px", width: "720px" },
@@ -348,9 +369,10 @@ describe("SigmaGraphRuntime lifecycle", () => {
         if (!easedFrame) throw new Error("Expected eased edge flow frame.");
         easedFrame(900);
         expect(renderer.flowArc).toHaveBeenCalledTimes(4);
-        expect(renderer.flowArc).toHaveBeenNthCalledWith(2, 71.96875, 0, 1.8, 0, Math.PI * 2);
+        expect(renderer.flowArc.mock.calls[1]?.[0]).toBeCloseTo(69.3325);
+        expect(renderer.flowArc.mock.calls[1]?.slice(1)).toEqual([0, 1.8, 0, Math.PI * 2]);
         expect(renderer.flowArc).toHaveBeenNthCalledWith(3, 50, 0, 1.8, 0, Math.PI * 2);
-        expect(renderer.flowArc.mock.calls[3]?.[0]).toBeCloseTo(28.03125);
+        expect(renderer.flowArc.mock.calls[3]?.[0]).toBeCloseTo(30.6675);
         expect(renderer.flowArc.mock.calls[3]?.slice(1)).toEqual([0, 1.8, 0, Math.PI * 2]);
         expect(requestAnimationFrame).toHaveBeenCalledTimes(3);
         const finalFrame = animationFrames.shift();
@@ -409,8 +431,8 @@ describe("SigmaGraphRuntime lifecycle", () => {
         drawFrame(0);
 
         expect(renderer.flowArc).toHaveBeenCalledTimes(2);
-        expect(renderer.flowArc).toHaveBeenNthCalledWith(1, 12, 0, 1.8, 0, Math.PI * 2);
-        expect(renderer.flowArc).toHaveBeenNthCalledWith(2, 88, 0, 1.8, 0, Math.PI * 2);
+        expect(renderer.flowArc).toHaveBeenNthCalledWith(1, 16.56, 0, 1.8, 0, Math.PI * 2);
+        expect(renderer.flowArc).toHaveBeenNthCalledWith(2, 83.44, 0, 1.8, 0, Math.PI * 2);
         runtime.destroy();
     });
 

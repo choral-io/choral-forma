@@ -7,6 +7,7 @@ const manifest = JSON.parse(await readFile(new URL("../package.json", import.met
 test("enhances the native Markdown preview without adding a second editor title action", () => {
     assert.equal(manifest.contributes["markdown.markdownItPlugins"], true);
     assert.deepEqual(manifest.contributes["markdown.previewStyles"], ["./media/preview.css"]);
+    assert.deepEqual(manifest.contributes["markdown.previewScripts"], ["./dist/markdown-preview.js"]);
     assert.equal(manifest.contributes.menus?.["editor/title"], undefined);
 });
 

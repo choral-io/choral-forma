@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: app
 effort: M
-status: backlog
-readiness: blocked
+status: doing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -21,8 +21,7 @@ tags:
     - vscode
     - markdown-preview
     - shared-renderer
-blockedBy:
-    - "tasks/implement-shared-graph-view-runtime"
+blockedBy: []
 relatedTo:
     - "discovery/editor-graph-view-technical-research-2026-07-17"
     - "tasks/design-editor-graph-view-renderer"
@@ -74,3 +73,16 @@ Render configured Graph Views through the shared runtime inside VS Code's native
 - Light, dark, high-contrast, reduced-motion, reload, reopened-preview, and extension-restart cases recover correctly.
 - Packaged local and Remote Extension Host tests prove browser and Worker assets resolve from the installed extension.
 - Preview reload and disposal tests show no retained renderer, Worker, observer, timer, or listener lifecycle leaks.
+
+## Result
+
+- Added a browser-targeted `markdown.previewScripts` bundle that hydrates only inert Graph projections embedded in Forma View output. Non-Graph previews remain unchanged, and the browser code does not evaluate workspace-provided code.
+- Kept graph construction, layout, taxonomy coloring, selection, one-hop emphasis, directional edges, active-layer rendering, and Sigma lifecycle in `packages/graph-view`. The VS Code adapter is limited to native Preview hydration, theme and typography token mapping, active-document updates, source navigation, and Preview lifecycle handling.
+- Added a CSP-safe no-Worker layout mode for native Markdown Preview. Graph data and selection are updated incrementally from the cached View projection, without rerunning `forma view render` solely because the active editor changed.
+- Raised the selected node, its direct neighbors, and emphasized edges above muted graph content. Emphasized edges use a dedicated post-node focus layer so inactive nodes and edges cannot obscure their direction indicators; the layer is redrawn after layout, camera, resize, and theme updates.
+- Preserved selection across Preview content reloads and theme changes, restored Graph rendering after Reload Window, delegated node activation to native Markdown Preview links, and released runtime, observers, animation frames, and listeners on disposal.
+- Corrected the Core View mount contract: a View without `<!-- forma:content -->` now appends its projection at the document end, while multiple mounts and the legacy marker remain invalid.
+- Verified the shared Graph runtime (34 tests), VS Code extension (148 Vitest tests and 11 script tests), production browser bundle, packaged VSIX installation, native Preview reload, light/dark theme switching with an active selection, persistent focus edges after animation, and native source navigation. The packaged development VSIX was 200.51 KB; `markdown-preview.js` was 208,954 bytes (54,198 bytes gzip).
+- Verified the same active-node and active-edge presentation in the WebApp against the running example workspace. The project workspace currently renders 163 nodes and 1,274 edges; its visible density is primarily caused by 187 incoming references to `knowledge/members/tiscs.md`, including 162 `owners`, 21 `assignees`, and 3 `reviewers` relationships.
+
+Residual validation remains for a real Remote Extension Host, live high-contrast and reduced-motion sessions, long-running memory and idle-CPU profiling, and the planned 25/500/5,000-node cross-host performance gates. The project Graph's default relationship filters also need a separate product decision; assignment metadata has not been silently excluded from the configured View.

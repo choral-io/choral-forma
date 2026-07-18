@@ -131,6 +131,139 @@
 .forma-view .state.deferred {
     border-left-color: var(--vscode-editorWarning-foreground);
 }
+.forma-view .graph-shell {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--forma-border);
+    border-radius: var(--forma-radius-surface);
+    background: var(--vscode-editor-background);
+}
+.forma-view .graph-stage {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: clamp(22rem, 62vh, 40rem);
+    overflow: hidden;
+}
+.forma-view .graph-summary {
+    position: absolute;
+    inset-block-end: 0.75rem;
+    inset-inline-start: 0.75rem;
+    display: grid;
+    gap: 0.2rem;
+    width: min(20rem, calc(100% - 1.5rem));
+    padding: 0.65rem;
+    border: 1px solid var(--forma-border);
+    border-radius: var(--forma-radius-surface);
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    color: var(--vscode-editorWidget-foreground, var(--vscode-editor-foreground));
+    box-shadow: 0 4px 16px var(--vscode-widget-shadow, rgb(0 0 0 / 24%));
+    pointer-events: none;
+}
+.forma-view .graph-summary[hidden] {
+    display: none;
+}
+.forma-view .graph-summary span {
+    overflow: hidden;
+    color: var(--forma-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.forma-view .graph-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.9rem;
+    margin-block: 0.75rem;
+    font-size: 0.85em;
+}
+.forma-view .graph-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.forma-view .graph-legend-swatch {
+    width: 0.7rem;
+    height: 0.7rem;
+    border: 1px solid var(--forma-border);
+    border-radius: 50%;
+    background: var(--vscode-descriptionForeground);
+}
+.forma-view .graph-companion {
+    display: grid;
+    gap: 0.55rem;
+    margin-block: 1rem;
+}
+.forma-view .graph-companion > label {
+    font-weight: 600;
+}
+.forma-view .graph-companion > input {
+    width: min(100%, 24rem);
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--vscode-input-border, var(--forma-border));
+    border-radius: var(--forma-radius-surface);
+    outline: none;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font: inherit;
+}
+.forma-view .graph-companion > input:focus-visible {
+    border-color: var(--vscode-focusBorder);
+    box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+}
+.forma-view .graph-node-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+    gap: 0.55rem;
+    width: 100%;
+    min-width: 0;
+}
+.forma-view .graph-node-link {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+    padding: 0.55rem;
+    overflow: hidden;
+    border: 1px solid var(--forma-border);
+    border-radius: var(--forma-radius-surface);
+    background: var(--forma-card);
+    color: var(--vscode-editor-foreground);
+    text-decoration: none;
+}
+.forma-view .graph-node-link:hover {
+    background: var(--vscode-list-hoverBackground, var(--forma-card));
+}
+.forma-view .graph-node-link:focus-visible {
+    border-color: var(--vscode-focusBorder);
+    outline: 1px solid var(--vscode-focusBorder);
+}
+.forma-view .graph-node-link.is-selected {
+    border-color: var(--vscode-focusBorder);
+    background: var(--vscode-list-activeSelectionBackground, var(--forma-card));
+    color: var(--vscode-list-activeSelectionForeground, var(--vscode-editor-foreground));
+}
+.forma-view .graph-node-title,
+.forma-view .graph-node-path,
+.forma-view .graph-node-classification {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.forma-view .graph-node-title {
+    font-weight: 600;
+}
+.forma-view .graph-node-path,
+.forma-view .graph-node-classification {
+    color: var(--forma-muted);
+    font-size: 0.85em;
+}
+.forma-view .graph-source-action {
+    margin-block: 0.75rem 0;
+}
 .forma-view .sr-only {
     position: absolute;
     width: 1px;

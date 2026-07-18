@@ -127,7 +127,14 @@ export class GraphLayoutSession {
         this.#dependencies = dependencies;
         this.#onSettled = options.onSettled;
         const engine = settleInitialLayout(graph, options.engine);
-        if (options.reducedMotion || engine !== "forceAtlas2" || graph.order < 2 || graph.size === 0) return;
+        if (
+            options.reducedMotion ||
+            !options.useWorker ||
+            engine !== "forceAtlas2" ||
+            graph.order < 2 ||
+            graph.size === 0
+        )
+            return;
 
         this.#supervisor = dependencies.createSupervisor(graph, forceAtlas2Settings(graph.order));
         this.#supervisor.start();

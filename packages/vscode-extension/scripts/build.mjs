@@ -1,6 +1,6 @@
 import { build, context } from "esbuild";
 
-const options = {
+const extensionOptions = {
     bundle: true,
     entryPoints: ["src/extension.ts"],
     external: ["vscode"],
@@ -12,9 +12,20 @@ const options = {
     target: "node18",
 };
 
+const previewOptions = {
+    bundle: true,
+    entryPoints: ["src/graph-preview.ts"],
+    format: "iife",
+    minify: process.argv.includes("--production"),
+    outfile: "dist/markdown-preview.js",
+    platform: "browser",
+    sourcemap: false,
+    target: "es2022",
+};
+
 if (process.argv.includes("--watch")) {
-    const buildContext = await context(options);
-    await buildContext.watch();
+    const contexts = await Promise.all([context(extensionOptions), context(previewOptions)]);
+    await Promise.all(contexts.map(async (buildContext) => await buildContext.watch()));
 } else {
-    await build(options);
+    await Promise.all([build(extensionOptions), build(previewOptions)]);
 }

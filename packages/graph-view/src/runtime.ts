@@ -71,7 +71,7 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#layout = this.#createLayoutSession(this.#graph);
         this.#renderer = this.#createRenderer(this.#graph);
         this.#edgeFlowCanvas = this.#renderer.createCanvas("forma-edge-flow", {
-            beforeLayer: "nodes",
+            afterLayer: "nodes",
             style: { pointerEvents: "none" },
         });
         this.#edgeFlowContext = this.#edgeFlowCanvas.getContext("2d");
@@ -162,9 +162,11 @@ class SigmaGraphRuntime implements GraphRuntime {
             enableEdgeEvents: false,
             labelColor: { color: this.#theme.label },
             labelDensity: this.#presentation.labelDensity,
+            labelFont: this.#presentation.labelFont,
             labelGridCellSize: this.#presentation.labelGridCellSize,
             labelRenderedSizeThreshold: this.#presentation.labelSizeThreshold,
             labelSize: this.#presentation.labelSize,
+            labelWeight: this.#presentation.labelWeight,
             nodeReducer: (node, data) => this.#reduceNode(node, data),
             renderEdgeLabels: false,
             stagePadding: this.#presentation.stagePadding,
@@ -191,6 +193,9 @@ class SigmaGraphRuntime implements GraphRuntime {
         });
         this.#renderer.on("leaveNode", () => {
             this.#container.style.removeProperty("cursor");
+        });
+        this.#renderer.on("afterRender", () => {
+            this.#drawEdgeFocus();
         });
     }
 
@@ -219,6 +224,7 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#edgeStates = new Map(snapshot.edges.map((edge) => [edge.id, edge]));
         this.#edgeFlowEdges = snapshot.edges.filter((edge) => edge.emphasized);
         this.#renderer.refresh();
+        this.#drawEdgeFocus();
         this.#syncEdgeFlow();
         this.#onSelectionChange?.(snapshot);
     }
@@ -234,6 +240,7 @@ class SigmaGraphRuntime implements GraphRuntime {
             return;
         }
         this.#edgeFlowStartedAt = null;
+        this.#drawEdgeFocus();
         if (!this.#edgeFlowFrame) this.#edgeFlowFrame = requestAnimationFrame(this.#drawEdgeFlow);
     }
 
@@ -241,7 +248,7 @@ class SigmaGraphRuntime implements GraphRuntime {
         cancelAnimationFrame(this.#edgeFlowFrame);
         this.#edgeFlowFrame = 0;
         this.#edgeFlowStartedAt = null;
-        this.#clearEdgeFlow();
+        this.#drawEdgeFocus();
     }
 
     #clearEdgeFlow(): void {
@@ -264,7 +271,7 @@ class SigmaGraphRuntime implements GraphRuntime {
             this.#stopEdgeFlow();
             return;
         }
-        drawGraphEdgeFlow(
+        drawGraphEdgeFocus(
             this.#edgeFlowCanvas,
             this.#edgeFlowContext,
             this.#renderer,
@@ -274,6 +281,17 @@ class SigmaGraphRuntime implements GraphRuntime {
         );
         this.#edgeFlowFrame = requestAnimationFrame(this.#drawEdgeFlow);
     };
+
+    #drawEdgeFocus(): void {
+        if (!this.#edgeFlowContext) return;
+        drawGraphEdgeFocus(
+            this.#edgeFlowCanvas,
+            this.#edgeFlowContext,
+            this.#renderer,
+            this.#edgeFlowEdges,
+            this.#theme,
+        );
+    }
 
     #reduceNode(nodeId: string, data: GraphologyNodeAttributes) {
         const node = this.#nodeStates.get(nodeId);
@@ -296,7 +314,7 @@ class SigmaGraphRuntime implements GraphRuntime {
             highlighted: node.role === "selected",
             label: node.labelVisible ? node.displayLabel : null,
             size: node.size,
-            zIndex: node.role === "selected" ? 2 : node.role === "neighbor" ? 1 : 0,
+            zIndex: node.role === "selected" ? 10 : node.role === "neighbor" ? 5 : 0,
         };
     }
 
@@ -307,7 +325,7 @@ class SigmaGraphRuntime implements GraphRuntime {
             ...data,
             color: edge.emphasized ? this.#theme.edgeSelected : edge.muted ? this.#theme.edgeMuted : this.#theme.edge,
             size: edge.emphasized ? 2 : edge.muted ? 0.65 : 1,
-            zIndex: edge.emphasized ? 1 : 0,
+            zIndex: edge.emphasized ? 10 : 0,
         };
     }
 
@@ -341,15 +359,18 @@ class SigmaGraphRuntime implements GraphRuntime {
     };
 }
 
-type EdgeFlowRenderer = Pick<GraphRenderer, "framedGraphToViewport" | "getDimensions" | "getNodeDisplayData">;
+type EdgeFlowRenderer = Pick<
+    GraphRenderer,
+    "framedGraphToViewport" | "getDimensions" | "getNodeDisplayData" | "scaleSize"
+>;
 
-function drawGraphEdgeFlow(
+function drawGraphEdgeFocus(
     canvas: HTMLCanvasElement,
     context: CanvasRenderingContext2D,
     renderer: EdgeFlowRenderer,
     edges: readonly GraphDisplayEdgeState[],
     theme: GraphTheme,
-    phase: number,
+    phase?: number,
 ): void {
     const dimensions = renderer.getDimensions();
     const pixelRatio = Math.max(1, globalThis.devicePixelRatio || 1);
@@ -361,18 +382,77 @@ function drawGraphEdgeFlow(
     canvas.style.height = `${String(dimensions.height)}px`;
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     context.clearRect(0, 0, dimensions.width, dimensions.height);
+    context.strokeStyle = theme.edgeSelected;
     context.fillStyle = theme.edgeSelected;
-    context.globalAlpha = 0.9;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.lineWidth = 2;
+    context.globalAlpha = 0.92;
     for (const edge of edges) {
         const sourceData = renderer.getNodeDisplayData(edge.source);
         const targetData = renderer.getNodeDisplayData(edge.target);
         if (!sourceData || !targetData) continue;
         const source = renderer.framedGraphToViewport(sourceData);
         const target = renderer.framedGraphToViewport(targetData);
-        drawEdgeFlowDirection(context, source, target, phase);
-        if (edge.direction === "reciprocal") drawEdgeFlowDirection(context, target, source, phase);
+        const segment = trimEdgeSegment(
+            source,
+            target,
+            renderer.scaleSize(sourceData.size) + EDGE_FOCUS_NODE_GAP,
+            renderer.scaleSize(targetData.size) + EDGE_FOCUS_NODE_GAP,
+        );
+        if (!segment) continue;
+        context.beginPath();
+        context.moveTo(segment.source.x, segment.source.y);
+        context.lineTo(segment.target.x, segment.target.y);
+        context.stroke();
+        drawEdgeFocusArrow(context, segment.source, segment.target);
+        if (edge.direction === "reciprocal") drawEdgeFocusArrow(context, segment.target, segment.source);
+        if (phase !== undefined) {
+            drawEdgeFlowDirection(context, segment.source, segment.target, phase);
+            if (edge.direction === "reciprocal") {
+                drawEdgeFlowDirection(context, segment.target, segment.source, phase);
+            }
+        }
     }
     context.globalAlpha = 1;
+}
+
+function trimEdgeSegment(
+    source: { x: number; y: number },
+    target: { x: number; y: number },
+    sourceOffset: number,
+    targetOffset: number,
+): { source: { x: number; y: number }; target: { x: number; y: number } } | undefined {
+    const deltaX = target.x - source.x;
+    const deltaY = target.y - source.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance <= sourceOffset + targetOffset || distance === 0) return;
+    const unitX = deltaX / distance;
+    const unitY = deltaY / distance;
+    return {
+        source: { x: source.x + unitX * sourceOffset, y: source.y + unitY * sourceOffset },
+        target: { x: target.x - unitX * targetOffset, y: target.y - unitY * targetOffset },
+    };
+}
+
+function drawEdgeFocusArrow(
+    context: CanvasRenderingContext2D,
+    source: { x: number; y: number },
+    target: { x: number; y: number },
+): void {
+    const angle = Math.atan2(target.y - source.y, target.x - source.x);
+    context.beginPath();
+    context.moveTo(target.x, target.y);
+    context.lineTo(
+        target.x - Math.cos(angle - EDGE_FOCUS_ARROW_ANGLE) * EDGE_FOCUS_ARROW_LENGTH,
+        target.y - Math.sin(angle - EDGE_FOCUS_ARROW_ANGLE) * EDGE_FOCUS_ARROW_LENGTH,
+    );
+    context.lineTo(
+        target.x - Math.cos(angle + EDGE_FOCUS_ARROW_ANGLE) * EDGE_FOCUS_ARROW_LENGTH,
+        target.y - Math.sin(angle + EDGE_FOCUS_ARROW_ANGLE) * EDGE_FOCUS_ARROW_LENGTH,
+    );
+    context.closePath();
+    context.fill();
 }
 
 const EDGE_ARROW_HEAD_OPTIONS = {
@@ -383,6 +463,9 @@ const EDGE_FLOW_DURATION_MS = 1_800;
 const MAX_ANIMATED_EDGE_COUNT = 64;
 const EDGE_FLOW_PARTICLE_DELAYS = [0, 0.1, 0.2] as const;
 const EDGE_FLOW_PARTICLE_TRAVEL_PHASE = 0.8;
+const EDGE_FOCUS_ARROW_ANGLE = Math.PI / 6;
+const EDGE_FOCUS_ARROW_LENGTH = 7;
+const EDGE_FOCUS_NODE_GAP = 2;
 
 function drawEdgeFlowDirection(
     context: CanvasRenderingContext2D,

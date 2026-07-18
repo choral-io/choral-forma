@@ -1,33 +1,27 @@
 import type { Diagnostic, ViewRenderItem, ViewRenderOutput, ViewRenderResult } from "@choral-forma/shared";
 
 export type ViewRenderOptions = {
+    activePath?: string;
     locale?: string;
     timeZone?: string;
 };
 
 type TableRenderOutput = Extract<ViewRenderOutput, { kind: "table" }>;
 type KanbanRenderOutput = Extract<ViewRenderOutput, { kind: "kanban" }>;
+type GraphRenderOutput = Extract<ViewRenderOutput, { kind: "graph" }>;
 
 export function renderViewProjectionHtml(result: ViewRenderResult, options: ViewRenderOptions = {}): string {
     const sourcePath = result.view?.path ?? "";
-    const projection = renderProjection(
-        result.view?.mode,
-        result.render,
-        result.diagnostics ?? [],
-        sourcePath,
-        options,
-    );
+    const projection = renderProjection(result.render, result.diagnostics ?? [], sourcePath, options);
     return `<section class="forma-view" data-forma-view>${projection}</section>`;
 }
 
 function renderProjection(
-    mode: string | undefined,
     render: ViewRenderOutput | undefined,
     diagnostics: Diagnostic[],
     sourcePath: string,
     options: ViewRenderOptions,
 ): string {
-    if (mode === "graph") return renderDeferredGraph(sourcePath, diagnostics);
     if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
         return `<section class="state error" role="alert"><h2>View needs attention</h2>${renderDiagnostics(diagnostics, sourcePath)}${sourceButton(sourcePath)}</section>`;
     }
@@ -45,7 +39,7 @@ function renderProjection(
         case "kanban":
             return renderKanban(render, options);
         case "graph":
-            return renderDeferredGraph(sourcePath, diagnostics);
+            return renderGraph(render, sourcePath, options.activePath);
     }
 }
 
@@ -106,8 +100,52 @@ function renderCardFields(
         .join("");
 }
 
-function renderDeferredGraph(sourcePath: string, diagnostics: Diagnostic[]): string {
-    return `<section class="state deferred"><h2>Graph preview is deferred</h2><p>This release keeps the graph view editable while a focused renderer design is completed.</p>${sourceButton(sourcePath)}${renderDiagnostics(diagnostics, sourcePath)}</section>`;
+function renderGraph(render: GraphRenderOutput, sourcePath: string, activePath: string | undefined): string {
+    if (render.nodes.length === 0) return emptyState("No entries match this graph.");
+    const graphId = `forma-graph-${stableHash(sourcePath)}`;
+    const searchId = `${graphId}-search`;
+    const activeNodeId = render.nodes.find((node) => node.path === activePath)?.id ?? null;
+    const data = safeJson({
+        schemaVersion: 1,
+        activeNodeId,
+        projection: render,
+    });
+    const legend = (render.legend ?? [])
+        .map(
+            (item) =>
+                `<span class="graph-legend-item"><span aria-hidden="true" class="graph-legend-swatch"${item.color ? ` style="background:${escapeAttribute(item.color)}"` : ""}></span>${escapeHtml(item.label)}</span>`,
+        )
+        .join("");
+    const nodes = render.nodes.slice(0, MAX_GRAPH_COMPANION_NODES).map(renderGraphNodeLink).join("");
+    return `<div class="graph-shell"><div class="graph-stage" id="${graphId}" data-forma-graph-host></div><aside class="graph-summary" data-forma-graph-summary hidden aria-live="polite"></aside></div>${legend ? `<section class="graph-legend" aria-label="Graph node colors"><span class="muted">Node colors</span>${legend}</section>` : ""}<section class="graph-companion" aria-label="Graph nodes"><label for="${searchId}">Search graph nodes</label><input id="${searchId}" data-forma-graph-search type="search" placeholder="Title or path"><p class="muted" data-forma-graph-count aria-live="polite">Showing ${String(Math.min(render.nodes.length, MAX_GRAPH_COMPANION_NODES))} of ${String(render.nodes.length)} nodes.</p><div class="graph-node-list" data-forma-graph-node-list>${nodes}</div></section><script type="application/json" data-forma-graph-data>${data}</script><p class="graph-source-action">${sourceButton(sourcePath)}</p>`;
+}
+
+const MAX_GRAPH_COMPANION_NODES = 100;
+
+function renderGraphNodeLink(node: GraphRenderOutput["nodes"][number]): string {
+    const title = node.title ?? node.path;
+    const classification = node.classification?.label
+        ? `<span class="graph-node-classification">${escapeHtml(node.classification.label)}</span>`
+        : "";
+    return `<a class="graph-node-link" href="/${escapeAttribute(node.path)}" data-forma-graph-node-id="${escapeAttribute(node.id)}"><span class="graph-node-title">${escapeHtml(title)}</span><span class="graph-node-path">${escapeHtml(node.path)}</span>${classification}</a>`;
+}
+
+function safeJson(value: unknown): string {
+    return JSON.stringify(value)
+        .replaceAll("<", "\\u003c")
+        .replaceAll(">", "\\u003e")
+        .replaceAll("&", "\\u0026")
+        .replaceAll("\u2028", "\\u2028")
+        .replaceAll("\u2029", "\\u2029");
+}
+
+function stableHash(value: string): string {
+    let hash = 2_166_136_261;
+    for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16_777_619);
+    }
+    return (hash >>> 0).toString(36);
 }
 
 function renderItemLink(item: ViewRenderItem): string {

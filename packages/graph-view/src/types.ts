@@ -62,6 +62,8 @@ export type GraphPresentation = {
     neighborNodeScale: number;
     labelDensity: number;
     labelGridCellSize: number;
+    labelFont: string;
+    labelWeight: string;
     labelSize: number;
     labelSizeThreshold: number;
     stagePadding: number;
@@ -73,12 +75,14 @@ export type GraphLayoutOptions = {
     engine: GraphLayoutEngine;
     reducedMotion: boolean;
     settleDurationMs: number;
+    useWorker: boolean;
 };
 
 export const DEFAULT_GRAPH_LAYOUT_OPTIONS: Readonly<GraphLayoutOptions> = Object.freeze({
     engine: "auto",
     reducedMotion: false,
     settleDurationMs: 1_200,
+    useWorker: true,
 });
 
 export const DEFAULT_GRAPH_PRESENTATION: Readonly<GraphPresentation> = Object.freeze({
@@ -92,6 +96,8 @@ export const DEFAULT_GRAPH_PRESENTATION: Readonly<GraphPresentation> = Object.fr
     neighborNodeScale: 1.12,
     labelDensity: 0.35,
     labelGridCellSize: 120,
+    labelFont: "sans-serif",
+    labelWeight: "normal",
     labelSize: 11,
     labelSizeThreshold: 8.5,
     stagePadding: 72,

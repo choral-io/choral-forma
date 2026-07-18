@@ -70,6 +70,9 @@ importers:
         specifier: ~10.1.0
         version: 10.1.0
     devDependencies:
+      '@choral-forma/graph-view':
+        specifier: workspace:*
+        version: link:../graph-view
       '@choral-forma/shared':
         specifier: workspace:*
         version: link:../shared

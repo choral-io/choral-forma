@@ -22,16 +22,47 @@ describe("view projection rendering", () => {
         expect(html).toContain('data-open-source="tasks/one.md"');
     });
 
-    it("shows a deliberate graph deferral", () => {
+    it("renders an inert Graph mount and accessible source fallback", () => {
         const result = {
             schemaVersion: 1,
             operation: "view.render",
             status: "passed",
             workspace,
             view: { id: "graph", path: ".forma/views/graph.md", surface: "page", mode: "graph" },
-            render: { kind: "graph", nodes: [], edges: [] },
+            render: {
+                kind: "graph",
+                nodes: [
+                    {
+                        id: "members/sam-rivera.md",
+                        path: "members/sam-rivera.md",
+                        title: "Sam Rivera </script>",
+                        space: "members",
+                        classification: {
+                            key: "areas:people",
+                            taxonomy: "areas",
+                            label: "People",
+                        },
+                    },
+                ],
+                edges: [],
+                legend: [
+                    {
+                        key: "areas:people",
+                        taxonomy: "areas",
+                        label: "People",
+                        color: "#4F7CAC",
+                    },
+                ],
+            },
         } satisfies ViewRenderResult;
-        expect(renderViewProjectionHtml(result)).toContain("Graph preview is deferred");
+        const html = renderViewProjectionHtml(result, { activePath: "members/sam-rivera.md" });
+        expect(html).toContain("data-forma-graph-host");
+        expect(html).toContain('type="application/json" data-forma-graph-data');
+        expect(html).toContain('href="/members/sam-rivera.md"');
+        expect(html).toContain('"activeNodeId":"members/sam-rivera.md"');
+        expect(html).toContain("Sam Rivera &lt;/script&gt;");
+        expect(html).toContain("\\u003c/script\\u003e");
+        expect(html).not.toContain("Graph preview is deferred");
     });
 
     it("distinguishes empty projections from invalid views", () => {

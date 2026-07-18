@@ -165,6 +165,9 @@
     "markdown.markdownItPlugins": true,
     "markdown.previewStyles": [
       "./media/preview.css"
+    ],
+    "markdown.previewScripts": [
+      "./dist/markdown-preview.js"
     ]
   },
   "scripts": {
@@ -184,6 +187,7 @@
     "smoke:vsix": "pnpm build:test && node scripts/smoke-vsix.mjs"
   },
   "devDependencies": {
+    "@choral-forma/graph-view": "workspace:*",
     "@choral-forma/shared": "workspace:*",
     "@types/mocha": "~10.0.10",
     "@types/node": "~24.10.15",

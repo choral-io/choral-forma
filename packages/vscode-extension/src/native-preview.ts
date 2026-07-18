@@ -7,6 +7,7 @@ import {
     clearMarkdownProjections,
     setMarkdownEnhancement,
     type FrontmatterDefaultState,
+    type MarkdownEnhancement,
     type PreviewBodyLink,
 } from "./markdown-enhancer.ts";
 import { renderViewProjectionHtml } from "./preview-renderer.ts";
@@ -20,11 +21,16 @@ import type { FormaRuntime } from "./runtime.ts";
 import { isFormaViewDocument } from "./view-document.ts";
 
 export class NativePreviewManager implements vscode.Disposable {
-    private generation = 0;
-    private refreshController: AbortController | undefined;
+    private activePath: string | undefined;
+    private readonly graphPreviews = new Map<
+        string,
+        { result: ViewRenderResult; enhancement: Omit<MarkdownEnhancement, "projection"> }
+    >();
+    private readonly refreshes = new Map<string, { controller: AbortController; generation: number }>();
     private readonly restoration: PreviewRestorationCoordinator<vscode.TextDocument>;
 
     constructor(private readonly runtime: FormaRuntime) {
+        this.activePath = this.managedPath(vscode.window.activeTextEditor?.document);
         this.restoration = new PreviewRestorationCoordinator({
             isFormaDocument: (document) => this.runtime.isFormaDocument(document),
             refreshDocument: async (document, refreshPreview) => await this.refresh(document, refreshPreview),
@@ -40,10 +46,12 @@ export class NativePreviewManager implements vscode.Disposable {
     }
 
     async refresh(document: vscode.TextDocument, refreshPreview = true): Promise<boolean> {
-        this.refreshController?.abort();
+        const key = document.uri.toString();
+        const previous = this.refreshes.get(key);
+        previous?.controller.abort();
         const controller = new AbortController();
-        this.refreshController = controller;
-        const generation = ++this.generation;
+        const generation = (previous?.generation ?? 0) + 1;
+        this.refreshes.set(key, { controller, generation });
         let result: ViewRenderResult | undefined;
         let inspected: InspectEntry | undefined;
         let bodyLinks: PreviewBodyLink[] = [];
@@ -59,18 +67,49 @@ export class NativePreviewManager implements vscode.Disposable {
                 this.runtime.logResult({ nativePreviewError: error instanceof Error ? error.message : String(error) });
             }
         }
-        if (generation !== this.generation) return false;
-        const key = document.uri.toString();
-        setMarkdownEnhancement(key, {
-            ...(result ? { projection: renderViewProjectionHtml(result, { locale: vscode.env.language }) } : {}),
+        if (this.refreshes.get(key)?.generation !== generation) return false;
+        const enhancement = {
             ...(this.runtime.isFormaDocument(document)
                 ? { frontmatterDefaultState: this.frontmatterDefaultState(document) }
                 : {}),
             frontmatterLinks: frontmatterLinks(inspected),
             bodyLinks,
+        } satisfies Omit<MarkdownEnhancement, "projection">;
+        setMarkdownEnhancement(key, {
+            ...enhancement,
+            ...(result
+                ? {
+                      projection: renderViewProjectionHtml(result, {
+                          ...(this.activePath ? { activePath: this.activePath } : {}),
+                          locale: vscode.env.language,
+                      }),
+                  }
+                : {}),
         });
+        if (result?.render?.kind === "graph") this.graphPreviews.set(key, { result, enhancement });
+        else this.graphPreviews.delete(key);
+        this.refreshes.delete(key);
         if (refreshPreview) void vscode.commands.executeCommand("markdown.preview.refresh");
         return result !== undefined;
+    }
+
+    activeDocumentChanged(document: vscode.TextDocument | undefined, refreshPreview = true): boolean {
+        const activePath = this.managedPath(document);
+        if (activePath === this.activePath) return false;
+        this.activePath = activePath;
+        for (const [key, state] of this.graphPreviews) {
+            setMarkdownEnhancement(key, {
+                ...state.enhancement,
+                projection: renderViewProjectionHtml(state.result, {
+                    ...(activePath ? { activePath } : {}),
+                    locale: vscode.env.language,
+                }),
+            });
+        }
+        if (refreshPreview && this.graphPreviews.size > 0) {
+            void vscode.commands.executeCommand("markdown.preview.refresh");
+        }
+        return this.graphPreviews.size > 0;
     }
 
     async open(document: vscode.TextDocument, sideBySide: boolean): Promise<void> {
@@ -96,9 +135,19 @@ export class NativePreviewManager implements vscode.Disposable {
         return await this.restoreOpenState([], tabs);
     }
 
+    async closePreviewTabs(tabs: readonly vscode.Tab[]): Promise<number> {
+        let removed = 0;
+        for (const document of await this.previewDocuments(tabs)) {
+            if (this.graphPreviews.delete(document.uri.toString())) removed += 1;
+        }
+        return removed;
+    }
+
     dispose(): void {
         this.restoration.dispose();
-        this.refreshController?.abort();
+        for (const refresh of this.refreshes.values()) refresh.controller.abort();
+        this.refreshes.clear();
+        this.graphPreviews.clear();
         clearMarkdownProjections();
     }
 
@@ -107,6 +156,11 @@ export class NativePreviewManager implements vscode.Disposable {
             .getConfiguration("forma", document.uri)
             .get<FrontmatterDefaultState>("preview.frontmatterDefaultState", "collapsed");
         return state === "expanded" ? "expanded" : "collapsed";
+    }
+
+    private managedPath(document: vscode.TextDocument | undefined): string | undefined {
+        if (!document || !this.runtime.isFormaDocument(document)) return undefined;
+        return this.runtime.sourcePath(document)?.path;
     }
 
     private async previewDocuments(tabs: readonly vscode.Tab[]): Promise<vscode.TextDocument[]> {
