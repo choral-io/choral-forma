@@ -5,7 +5,7 @@ export {
     invalidGraphFixture,
     type GraphFixtureProfile,
 } from "./fixtures.ts";
-export { GraphViewModel, aggregateDisplayEdges, nodeSize } from "./model.ts";
+export { GraphViewModel, aggregateDisplayEdges, graphLabel, nodeSize } from "./model.ts";
 export { createGraphRuntime } from "./runtime.ts";
 export {
     DEFAULT_GRAPH_LAYOUT_OPTIONS,

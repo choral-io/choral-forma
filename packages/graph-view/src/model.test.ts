@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { graphFixture, graphFixtureProfile, invalidGraphFixture } from "./fixtures.ts";
-import { aggregateDisplayEdges, GraphViewModel, nodeSize } from "./model.ts";
+import { aggregateDisplayEdges, graphLabel, GraphViewModel, nodeSize } from "./model.ts";
 import { DEFAULT_GRAPH_PRESENTATION, type GraphEdgeInput, type GraphProjection } from "./types.ts";
 
 describe("GraphViewModel", () => {
@@ -125,9 +125,14 @@ describe("graph fixtures and presentation", () => {
     });
 
     it("uses a bounded logarithmic degree scale", () => {
-        expect(nodeSize(0, DEFAULT_GRAPH_PRESENTATION)).toBe(6);
-        expect(nodeSize(3, DEFAULT_GRAPH_PRESENTATION)).toBe(10.5);
-        expect(nodeSize(10_000, DEFAULT_GRAPH_PRESENTATION)).toBe(18);
+        expect(nodeSize(0, DEFAULT_GRAPH_PRESENTATION)).toBe(4);
+        expect(nodeSize(3, DEFAULT_GRAPH_PRESENTATION)).toBe(6.8);
+        expect(nodeSize(10_000, DEFAULT_GRAPH_PRESENTATION)).toBe(12);
+    });
+
+    it("uses a bounded shared label instead of Host-specific truncation", () => {
+        expect(graphLabel("A concise title", 42)).toBe("A concise title");
+        expect(graphLabel("A title that is too long", 12)).toBe("A title tha…");
     });
 });
 

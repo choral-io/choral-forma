@@ -86,7 +86,7 @@ Layout behavior uses the simple Graphology force layout for up to 64 nodes. Larg
 
 Local validation on 2026-07-18:
 
-- `mise run check:pnpm`, `mise run test:pnpm`, and `mise run build:pnpm` pass; the workspace test run reports 172 passing tests.
-- `pnpm --filter @choral-forma/graph-view test` reports 19 passing focused tests.
-- Deterministic layout benchmark medians are approximately 0.41 ms for 25 nodes and 50 edges, 14.81 ms for the 500-node and 1,500-edge synchronous ForceAtlas2 seed, and 20.21 ms for constructing the deterministic 5,000-node and 15,000-edge Worker seed without a synchronous large-graph simulation.
-- The package-owned ESM output is 21.11 kB, or 5.80 kB gzip, with runtime dependencies left to Host bundlers.
+- `mise run check:pnpm`, `mise run test:pnpm`, and `mise run build:pnpm` pass; the workspace test run reports 176 passing tests.
+- `pnpm --filter @choral-forma/graph-view test` reports 21 passing focused tests.
+- Deterministic layout benchmark means are approximately 0.41 ms for 25 nodes and 50 edges, 15.67 ms for the 500-node and 1,500-edge synchronous ForceAtlas2 seed, and 21.54 ms for constructing the deterministic 5,000-node and 15,000-edge Worker seed without a synchronous large-graph simulation.
+- The package-owned ESM output is 22.24 kB, or 6.05 kB gzip, with runtime dependencies left to Host bundlers.

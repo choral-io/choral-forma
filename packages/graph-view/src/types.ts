@@ -46,9 +46,13 @@ export type GraphPresentation = {
     degreeSizeScale: number;
     minNodeSize: number;
     maxNodeSize: number;
+    maxLabelLength: number;
     unrelatedOpacity: number;
     selectedNodeScale: number;
     neighborNodeScale: number;
+    labelDensity: number;
+    labelGridCellSize: number;
+    labelSize: number;
     labelSizeThreshold: number;
     stagePadding: number;
 };
@@ -68,14 +72,18 @@ export const DEFAULT_GRAPH_LAYOUT_OPTIONS: Readonly<GraphLayoutOptions> = Object
 });
 
 export const DEFAULT_GRAPH_PRESENTATION: Readonly<GraphPresentation> = Object.freeze({
-    baseNodeSize: 6,
-    degreeSizeScale: 2.25,
-    minNodeSize: 6,
-    maxNodeSize: 18,
+    baseNodeSize: 4,
+    degreeSizeScale: 1.4,
+    minNodeSize: 4,
+    maxNodeSize: 12,
+    maxLabelLength: 42,
     unrelatedOpacity: 0.22,
-    selectedNodeScale: 1.3,
-    neighborNodeScale: 1.08,
-    labelSizeThreshold: 10,
+    selectedNodeScale: 1.45,
+    neighborNodeScale: 1.12,
+    labelDensity: 0.35,
+    labelGridCellSize: 120,
+    labelSize: 11,
+    labelSizeThreshold: 8.5,
     stagePadding: 72,
 });
 
@@ -92,6 +100,7 @@ export type GraphDisplayEdge = {
 export type GraphNodeVisualRole = "default" | "selected" | "neighbor" | "muted";
 
 export type GraphNodeState = GraphNodeInput & {
+    displayLabel: string;
     degree: number;
     size: number;
     role: GraphNodeVisualRole;

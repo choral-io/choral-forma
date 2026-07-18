@@ -43,6 +43,10 @@ type LayoutSessionDependencies = {
     cancel: (timer: ReturnType<typeof setTimeout>) => void;
 };
 
+type GraphLayoutSessionOptions = GraphLayoutOptions & {
+    onSettled?: () => void;
+};
+
 const DEFAULT_DEPENDENCIES: LayoutSessionDependencies = {
     createSupervisor: (graph, settings) => new ForceAtlas2LayoutSupervisor(graph, { settings }),
     schedule: (callback, delayMs) => setTimeout(callback, delayMs),
@@ -111,22 +115,24 @@ export function graphPositions(graph: GraphologyViewGraph): ReadonlyMap<string, 
 
 export class GraphLayoutSession {
     readonly #dependencies: LayoutSessionDependencies;
+    readonly #onSettled: (() => void) | undefined;
     #supervisor: LayoutSupervisor | null = null;
     #timer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(
         graph: GraphologyViewGraph,
-        options: GraphLayoutOptions,
+        options: GraphLayoutSessionOptions,
         dependencies: LayoutSessionDependencies = DEFAULT_DEPENDENCIES,
     ) {
         this.#dependencies = dependencies;
+        this.#onSettled = options.onSettled;
         const engine = settleInitialLayout(graph, options.engine);
         if (options.reducedMotion || engine !== "forceAtlas2" || graph.order < 2 || graph.size === 0) return;
 
         this.#supervisor = dependencies.createSupervisor(graph, forceAtlas2Settings(graph.order));
         this.#supervisor.start();
         this.#timer = dependencies.schedule(() => {
-            this.stop();
+            this.#finish();
         }, options.settleDurationMs);
     }
 
@@ -145,6 +151,11 @@ export class GraphLayoutSession {
     destroy(): void {
         this.stop();
     }
+
+    #finish(): void {
+        this.stop();
+        this.#onSettled?.();
+    }
 }
 
 function forceAtlas2Settings(nodeCount: number): ForceAtlas2Settings {
@@ -152,8 +163,8 @@ function forceAtlas2Settings(nodeCount: number): ForceAtlas2Settings {
         adjustSizes: true,
         barnesHutOptimize: nodeCount >= 250,
         edgeWeightInfluence: 0,
-        gravity: 1,
-        scalingRatio: nodeCount >= 500 ? 8 : 4,
+        gravity: 0.5,
+        scalingRatio: nodeCount >= 500 ? 20 : nodeCount >= 100 ? 12 : 6,
         slowDown: nodeCount >= 500 ? 12 : 5,
         strongGravityMode: false,
     };

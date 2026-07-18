@@ -117,6 +117,33 @@ describe("GraphLayoutSession", () => {
 
         expect(createSupervisor).not.toHaveBeenCalled();
     });
+
+    it("reports bounded Worker settling without firing after explicit disposal", () => {
+        const graph = buildGraphologyGraph(new GraphViewModel(graphFixture(4, 4)).snapshot());
+        const supervisor = { start: vi.fn(), stop: vi.fn(), kill: vi.fn() };
+        const onSettled = vi.fn();
+        let settle: (() => void) | undefined;
+        const timer = setTimeout(() => undefined, 60_000);
+        const session = new GraphLayoutSession(
+            graph,
+            { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2", onSettled },
+            {
+                createSupervisor: () => supervisor,
+                schedule: (callback) => {
+                    settle = callback;
+                    return timer;
+                },
+                cancel: clearTimeout,
+            },
+        );
+
+        settle?.();
+        session.destroy();
+
+        expect(onSettled).toHaveBeenCalledOnce();
+        expect(supervisor.stop).toHaveBeenCalledOnce();
+        expect(supervisor.kill).toHaveBeenCalledOnce();
+    });
 });
 
 function isFinitePosition(position: GraphPosition): boolean {

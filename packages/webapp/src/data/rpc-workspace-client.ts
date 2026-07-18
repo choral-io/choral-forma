@@ -344,6 +344,8 @@ function mapViewProjection(render: ViewRenderOutput, entries: DashboardEntry[]):
                 intent: edge.intent,
                 referenceSource: edge.referenceSource,
                 label: edge.label,
+                fragment: edge.fragment,
+                fragmentKind: edge.fragmentKind,
                 field: edge.field,
                 semanticType: edge.semanticType,
                 source: edge.source,

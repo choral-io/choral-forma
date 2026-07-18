@@ -10,6 +10,7 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": fileURLToPath(new URL("./src", import.meta.url)),
+            "@choral-forma/graph-view": fileURLToPath(new URL("../graph-view/src/index.ts", import.meta.url)),
             "@choral-forma/shared": fileURLToPath(new URL("../shared/src/index.ts", import.meta.url)),
         },
     },

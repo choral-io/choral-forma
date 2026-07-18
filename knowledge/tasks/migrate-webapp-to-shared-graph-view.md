@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: app
 effort: S
-status: backlog
-readiness: blocked
+status: done
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -20,8 +20,7 @@ tags:
     - graph
     - webapp
     - shared-renderer
-blockedBy:
-    - "tasks/implement-shared-graph-view-runtime"
+blockedBy: []
 relatedTo:
     - "discovery/editor-graph-view-technical-research-2026-07-17"
     - "tasks/design-editor-graph-view-renderer"
@@ -70,3 +69,16 @@ Remove the independent WebApp Graph behavior and consume `packages/graph-view` t
 - Live light and dark theme changes update semantic colors without recreating product-specific renderer behavior.
 - Graph route code is lazy-loaded and does not regress non-Graph route bundle behavior.
 - Existing WebApp navigation, empty, invalid, and disposal tests pass locally.
+
+## Result
+
+The WebApp Graph route now uses a thin React adapter over `@choral-forma/graph-view`. The adapter maps the RPC projection into taxonomy-neutral shared nodes and semantic edges, passes the active route as `activeNodeId`, delegates source activation to React Router, translates live WebApp theme roles, and owns only mount, update, and destroy lifecycle calls.
+
+The Graph projection is lazy-loaded from `DashboardHome`; WebApp no longer directly depends on or constructs Graphology or Sigma objects. The resulting Graph route chunk is 198,412 bytes, or 49,046 bytes gzip, while non-Graph routes do not load it.
+
+Local validation on 2026-07-18:
+
+- `mise run check:pnpm`, `mise run test:pnpm`, and `mise run build:pnpm` pass; the workspace test run reports 176 passing tests.
+- Focused shared Graph tests report 21 passing tests, including bounded Worker settling and disposal.
+- Browser validation against the real 162-node Workspace Graph confirms responsive light and dark rendering, single-click selection with one-hop emphasis, fit behavior, and accessible search filtering from 162 nodes to 3 matching nodes.
+- Forma workspace health reports no errors and only the three pre-existing release backlink warnings.

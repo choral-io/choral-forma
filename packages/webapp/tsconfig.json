@@ -15,6 +15,7 @@
     "types": ["vite/client"],
     "paths": {
       "@/*": ["./src/*"],
+      "@choral-forma/graph-view": ["../graph-view/src/index.ts"],
       "@choral-forma/shared": ["../shared/src/index.ts"]
     },
 

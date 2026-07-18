@@ -128,6 +128,13 @@ export function nodeSize(degree: number, presentation: GraphPresentation): numbe
     return Math.min(presentation.maxNodeSize, Math.max(presentation.minNodeSize, scaled));
 }
 
+export function graphLabel(label: string, maximumLength: number): string {
+    const normalized = label.trim();
+    if (normalized.length <= maximumLength) return normalized;
+    if (maximumLength <= 1) return "…".slice(0, maximumLength);
+    return `${normalized.slice(0, maximumLength - 1).trimEnd()}…`;
+}
+
 function uniqueNodes(nodes: readonly GraphNodeInput[]): Map<string, GraphNodeInput> {
     const result = new Map<string, GraphNodeInput>();
     for (const node of nodes) {
@@ -154,9 +161,11 @@ function nodeState(
     presentation: GraphPresentation,
 ): GraphNodeState {
     const baseSize = nodeSize(degree, presentation);
+    const displayLabel = graphLabel(node.title ?? node.path, presentation.maxLabelLength);
     if (!selectedNodeId) {
         return {
             ...node,
+            displayLabel,
             degree,
             size: baseSize,
             role: "default",
@@ -167,6 +176,7 @@ function nodeState(
     if (node.id === selectedNodeId) {
         return {
             ...node,
+            displayLabel,
             degree,
             size: Math.min(presentation.maxNodeSize, baseSize * presentation.selectedNodeScale),
             role: "selected",
@@ -177,6 +187,7 @@ function nodeState(
     if (adjacentNodeIds.has(node.id)) {
         return {
             ...node,
+            displayLabel,
             degree,
             size: Math.min(presentation.maxNodeSize, baseSize * presentation.neighborNodeScale),
             role: "neighbor",
@@ -186,6 +197,7 @@ function nodeState(
     }
     return {
         ...node,
+        displayLabel,
         degree,
         size: baseSize,
         role: "muted",

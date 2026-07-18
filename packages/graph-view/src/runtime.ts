@@ -62,7 +62,7 @@ class SigmaGraphRuntime implements GraphRuntime {
         if (options.activeNodeId !== undefined) this.#snapshot = this.#model.setActiveNode(options.activeNodeId);
 
         this.#graph = buildGraphologyGraph(this.#snapshot);
-        this.#layout = new GraphLayoutSession(this.#graph, this.#layoutOptions);
+        this.#layout = this.#createLayoutSession(this.#graph);
         this.#renderer = this.#createRenderer(this.#graph);
         this.#container.setAttribute("role", "application");
         this.#container.setAttribute("aria-label", options.ariaLabel ?? "Interactive knowledge graph");
@@ -142,8 +142,10 @@ class SigmaGraphRuntime implements GraphRuntime {
             edgeReducer: (edge, data) => this.#reduceEdge(edge, data),
             enableEdgeEvents: false,
             labelColor: { color: this.#theme.label },
+            labelDensity: this.#presentation.labelDensity,
+            labelGridCellSize: this.#presentation.labelGridCellSize,
             labelRenderedSizeThreshold: this.#presentation.labelSizeThreshold,
-            labelSize: 12,
+            labelSize: this.#presentation.labelSize,
             nodeReducer: (node, data) => this.#reduceNode(node, data),
             renderEdgeLabels: false,
             stagePadding: this.#presentation.stagePadding,
@@ -176,8 +178,20 @@ class SigmaGraphRuntime implements GraphRuntime {
     #replaceGraph(graph: GraphologyViewGraph): void {
         this.#layout.destroy();
         this.#graph = graph;
-        this.#layout = new GraphLayoutSession(graph, this.#layoutOptions);
+        this.#layout = this.#createLayoutSession(graph);
         this.#renderer.setGraph(graph);
+    }
+
+    #createLayoutSession(graph: GraphologyViewGraph): GraphLayoutSession {
+        return new GraphLayoutSession(graph, {
+            ...this.#layoutOptions,
+            onSettled: () => {
+                if (this.#destroyed) return;
+                this.#renderer.refresh();
+                if (this.#snapshot.selectedNodeId) this.#centerNode(this.#snapshot.selectedNodeId);
+                else this.fit();
+            },
+        });
     }
 
     #applySnapshot(snapshot: GraphViewSnapshot): void {
@@ -204,7 +218,7 @@ class SigmaGraphRuntime implements GraphRuntime {
             color,
             forceLabel: node.role === "selected" || node.role === "neighbor",
             highlighted: node.role === "selected",
-            label: node.labelVisible ? (node.title ?? node.path) : null,
+            label: node.labelVisible ? node.displayLabel : null,
             size: node.size,
             zIndex: node.role === "selected" ? 2 : node.role === "neighbor" ? 1 : 0,
         };

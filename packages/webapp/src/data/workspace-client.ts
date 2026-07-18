@@ -169,6 +169,8 @@ export interface DashboardGraphEdge {
     intent: "reference" | "link" | "embed";
     referenceSource: "frontmatter" | "body";
     label: string;
+    fragment?: string;
+    fragmentKind?: "heading" | "block";
     field?: string;
     semanticType?: string;
     source: string;

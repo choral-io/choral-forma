@@ -9,7 +9,7 @@ import {
     SlidersHorizontal,
     Workflow,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +54,11 @@ import { cn } from "@/lib/utils";
 
 import { formatEntrySupportedLanguages } from "./entry-languages";
 import { MarkdownReader } from "./MarkdownReader";
-import { ViewGraphProjection } from "./ViewGraphProjection";
+
+const ViewGraphProjection = lazy(async () => {
+    const module = await import("./ViewGraphProjection");
+    return { default: module.ViewGraphProjection };
+});
 
 export function DashboardRoute() {
     const dashboard = useWorkspaceDashboard();
@@ -1533,7 +1537,11 @@ function ViewProjectionRenderer({ projection }: { projection?: DashboardViewProj
     }
 
     if (projection.kind === "graph") {
-        return <ViewGraphProjection projection={projection} />;
+        return (
+            <Suspense fallback={<ProjectionLoadingState />}>
+                <ViewGraphProjection projection={projection} />
+            </Suspense>
+        );
     }
 
     if (projection.kind === "list") {
