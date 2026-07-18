@@ -57,11 +57,15 @@ describe("view projection rendering", () => {
         } satisfies ViewRenderResult;
         const html = renderViewProjectionHtml(result, { activePath: "members/sam-rivera.md" });
         expect(html).toContain("data-forma-graph-host");
+        expect(html).toContain("data-forma-graph-expand");
+        expect(html).toContain('aria-label="Expand graph"');
         expect(html).toContain('type="application/json" data-forma-graph-data');
         expect(html).toContain('href="/members/sam-rivera.md"');
         expect(html).toContain('"activeNodeId":"members/sam-rivera.md"');
         expect(html).toContain("Sam Rivera &lt;/script&gt;");
         expect(html).toContain("\\u003c/script\\u003e");
+        expect(html).toContain('aria-label="Graph node colors"');
+        expect(html).not.toContain(">Node colors<");
         expect(html).not.toContain("Graph preview is deferred");
     });
 

@@ -141,6 +141,20 @@
     border-radius: var(--forma-radius-surface);
     background: var(--vscode-editor-background);
 }
+body.forma-graph-expanded {
+    overflow: hidden;
+}
+.forma-view .graph-shell.is-expanded {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+}
 .forma-view .graph-stage {
     display: block;
     width: 100%;
@@ -148,6 +162,36 @@
     min-width: 0;
     height: clamp(22rem, 62vh, 40rem);
     overflow: hidden;
+}
+.forma-view .graph-shell.is-expanded .graph-stage {
+    height: 100%;
+}
+.forma-view .graph-expand-button {
+    position: absolute;
+    inset-block-start: 0.75rem;
+    inset-inline-end: 0.75rem;
+    z-index: 2;
+    display: inline-grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--vscode-button-border, var(--forma-border));
+    border-radius: var(--forma-radius-surface);
+    background: var(--vscode-button-secondaryBackground, var(--vscode-editorWidget-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-editorWidget-foreground));
+    box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgb(0 0 0 / 24%));
+    cursor: pointer;
+}
+.forma-view .graph-expand-button[hidden] {
+    display: none;
+}
+.forma-view .graph-expand-button:hover {
+    background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+.forma-view .graph-expand-button:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: 1px;
 }
 .forma-view .graph-summary {
     position: absolute;

@@ -11,7 +11,11 @@ import {
     type GraphRenderOutput,
     type PreviewGraphData,
 } from "./graph-preview-data.ts";
-import { graphSummaryPresentation, shouldScheduleGraphReconcile } from "./graph-preview-lifecycle.ts";
+import {
+    graphExpandPresentation,
+    graphSummaryPresentation,
+    shouldScheduleGraphReconcile,
+} from "./graph-preview-lifecycle.ts";
 
 type GraphController = {
     host: HTMLElement;
@@ -129,6 +133,8 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
     let renderedCount: HTMLElement | undefined;
     let renderedProjectionFingerprint = "";
     let renderedSearch = "";
+    let expanded = false;
+    let boundExpandButton: HTMLButtonElement | undefined;
     const runtime = createGraphRuntime({
         container,
         projection,
@@ -186,8 +192,39 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
         renderedSearch = search;
     };
 
+    const syncExpandButton = (): void => {
+        const shell = host.closest<HTMLElement>(".graph-shell");
+        const button = shell?.querySelector<HTMLButtonElement>("[data-forma-graph-expand]");
+        if (!shell || !button) return;
+        if (button !== boundExpandButton) {
+            boundExpandButton = button;
+            button.addEventListener("click", () => {
+                setExpanded(!expanded);
+            });
+        }
+        const presentation = graphExpandPresentation(expanded);
+        button.hidden = false;
+        button.setAttribute("aria-label", presentation.ariaLabel);
+        button.title = presentation.title;
+        button.setAttribute("aria-pressed", String(expanded));
+        renderExpandIcon(button, expanded);
+    };
+
+    const setExpanded = (nextExpanded: boolean): void => {
+        expanded = nextExpanded;
+        host.closest<HTMLElement>(".graph-shell")?.classList.toggle("is-expanded", expanded);
+        syncExpandedBodyState();
+        syncExpandButton();
+    };
+
+    const exitExpandedView = (event: KeyboardEvent): void => {
+        if (event.key === "Escape" && expanded) setExpanded(false);
+    };
+
     renderCompanion();
+    syncExpandButton();
     updateSelectionSurface(host, data.projection, runtime.snapshot());
+    document.addEventListener("keydown", exitExpandedView);
 
     return {
         host,
@@ -208,6 +245,7 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
                 });
             }
             renderCompanion();
+            syncExpandButton();
             updateSelectionSurface(host, data.projection, runtime.snapshot());
         },
         updateTheme() {
@@ -219,10 +257,41 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
             runtime.update({ theme });
         },
         destroy() {
+            document.removeEventListener("keydown", exitExpandedView);
+            host.closest<HTMLElement>(".graph-shell")?.classList.remove("is-expanded");
+            syncExpandedBodyState();
             runtime.destroy();
             shadow.replaceChildren();
         },
     };
+}
+
+function syncExpandedBodyState(): void {
+    document.body.classList.toggle("forma-graph-expanded", Boolean(document.querySelector(".graph-shell.is-expanded")));
+}
+
+function renderExpandIcon(button: HTMLButtonElement, expanded: boolean): void {
+    if (button.dataset.formaGraphExpandIcon === String(expanded)) return;
+    button.dataset.formaGraphExpandIcon = String(expanded);
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("height", "16");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "16");
+    const paths = expanded
+        ? ["M4 14h6v6", "M20 10h-6V4", "m14 10 7-7", "m3 21 7-7"]
+        : ["M15 3h6v6", "M9 21H3v-6", "M21 3l-7 7", "M3 21l7-7"];
+    for (const definition of paths) {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", definition);
+        svg.append(path);
+    }
+    button.replaceChildren(svg);
 }
 
 function readPreservedSelection(graphKey: string, fallback: string | null): string | null {

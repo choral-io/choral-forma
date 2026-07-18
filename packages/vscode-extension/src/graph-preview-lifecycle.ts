@@ -1,4 +1,5 @@
-const GRAPH_OWNED_MUTATION_SELECTOR = "[data-forma-graph-summary], [data-forma-graph-node-list]";
+const GRAPH_OWNED_MUTATION_SELECTOR =
+    "[data-forma-graph-summary], [data-forma-graph-node-list], [data-forma-graph-expand]";
 
 type MutationRecordLike = { target: unknown };
 type ClosestTarget = { closest(selector: string): unknown };
@@ -22,6 +23,16 @@ export type GraphSummaryPresentation = {
     path: string;
     links: string;
 };
+
+export type GraphExpandPresentation = {
+    ariaLabel: string;
+    title: string;
+};
+
+export function graphExpandPresentation(expanded: boolean): GraphExpandPresentation {
+    const label = expanded ? "Exit expanded graph" : "Expand graph";
+    return { ariaLabel: label, title: label };
+}
 
 export function graphSummaryPresentation(
     selected: { title?: string; path: string } | undefined,

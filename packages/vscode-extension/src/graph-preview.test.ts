@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { mapPreviewGraphProjection, parsePreviewGraphData } from "./graph-preview-data.ts";
-import { graphSummaryPresentation, shouldScheduleGraphReconcile } from "./graph-preview-lifecycle.ts";
+import {
+    graphExpandPresentation,
+    graphSummaryPresentation,
+    shouldScheduleGraphReconcile,
+} from "./graph-preview-lifecycle.ts";
 
 describe("VS Code Graph Preview adapter", () => {
     it("maps taxonomy presentation without reading the compatibility space field", () => {
@@ -47,6 +51,14 @@ describe("VS Code Graph Preview adapter", () => {
 
         expect(shouldScheduleGraphReconcile([{ target: ownedTarget }])).toBe(false);
         expect(shouldScheduleGraphReconcile([{ target: nativePreviewTarget }])).toBe(true);
+    });
+
+    it("uses explicit page-local expansion labels", () => {
+        expect(graphExpandPresentation(false)).toEqual({ ariaLabel: "Expand graph", title: "Expand graph" });
+        expect(graphExpandPresentation(true)).toEqual({
+            ariaLabel: "Exit expanded graph",
+            title: "Exit expanded graph",
+        });
     });
 
     it("produces a stable summary fingerprint until selection content changes", () => {

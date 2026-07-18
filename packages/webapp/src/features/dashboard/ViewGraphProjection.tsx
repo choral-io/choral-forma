@@ -20,14 +20,13 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     const location = useLocation();
     const navigate = useNavigate();
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const graphShellRef = useRef<HTMLDivElement | null>(null);
     const navigateRef = useRef(navigate);
     const runtimeRef = useRef<GraphRuntime | null>(null);
     const routesRef = useRef(new Map<string, string>());
     const [graphTheme, setGraphTheme] = useState<GraphTheme>(() => readGraphThemeTokens(resolvedMode));
     const [search, setSearch] = useState("");
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
     const runtimeProjection = useMemo(() => mapDashboardGraphProjection(projection), [projection]);
     const activeNodeId = useMemo(
         () => activeGraphNodeId(projection, location.pathname),
@@ -61,14 +60,18 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     }, [navigate]);
 
     useEffect(() => {
-        const updateFullscreenState = () => {
-            setIsFullscreen(document.fullscreenElement === graphShellRef.current);
+        if (!isExpanded) return;
+        const previousOverflow = document.body.style.overflow;
+        const exitExpandedView = (event: KeyboardEvent) => {
+            if (event.key === "Escape") setIsExpanded(false);
         };
-        document.addEventListener("fullscreenchange", updateFullscreenState);
+        document.body.style.overflow = "hidden";
+        document.addEventListener("keydown", exitExpandedView);
         return () => {
-            document.removeEventListener("fullscreenchange", updateFullscreenState);
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener("keydown", exitExpandedView);
         };
-    }, []);
+    }, [isExpanded]);
 
     useEffect(() => {
         const frame = requestAnimationFrame(() => {
@@ -124,43 +127,33 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         });
     }, [activeNodeId, graphTheme, runtimeProjection]);
 
-    const toggleFullscreen = async () => {
-        const shell = graphShellRef.current;
-        if (!shell) return;
-        try {
-            if (document.fullscreenElement === shell) await document.exitFullscreen();
-            else await shell.requestFullscreen();
-        } catch {
-            // Fullscreen can be denied by browser or embedding policy; keep the graph usable inline.
-        }
-    };
-
     return (
         <div className="flex flex-col gap-4">
             <div
                 className={cn(
                     "border-border bg-muted/20 relative overflow-hidden rounded-lg border",
-                    isFullscreen && "bg-background h-screen w-screen rounded-none border-0",
+                    isExpanded && "bg-background fixed inset-0 z-50 h-dvh w-dvw rounded-none border-0",
                 )}
-                ref={graphShellRef}
             >
                 <div
                     className={cn(
                         "focus-visible:ring-ring/50 relative w-full outline-none focus-visible:ring-3 focus-visible:ring-inset",
-                        isFullscreen ? "h-full" : "h-128",
+                        isExpanded ? "h-full" : "h-128",
                     )}
                     ref={containerRef}
                 />
                 <Button
-                    aria-label={isFullscreen ? "Exit graph fullscreen" : "View graph fullscreen"}
+                    aria-label={isExpanded ? "Exit expanded graph" : "Expand graph"}
                     className="bg-background/80 absolute top-3 right-3 z-20 shadow-sm backdrop-blur-sm"
-                    onClick={() => void toggleFullscreen()}
+                    onClick={() => {
+                        setIsExpanded((expanded) => !expanded);
+                    }}
                     size="icon"
-                    title={isFullscreen ? "Exit fullscreen" : "View fullscreen"}
+                    title={isExpanded ? "Exit expanded graph" : "Expand graph"}
                     type="button"
                     variant="outline"
                 >
-                    {isFullscreen ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
+                    {isExpanded ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
                 </Button>
                 {selectedNode ? (
                     <GraphNodeSummary linkedCount={adjacentNodes.get(selectedNode.id)?.size ?? 0} node={selectedNode} />
