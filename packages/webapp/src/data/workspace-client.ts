@@ -144,6 +144,8 @@ export interface DashboardView {
 
 export interface DisplayOptions {
     order?: number;
+    icon?: string;
+    color?: string;
 }
 
 export interface DashboardViewProjectionItem {

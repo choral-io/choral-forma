@@ -691,6 +691,7 @@ fn discover_views(
         let display = DisplayOptions {
             order: optional_i64(&value, "view.display.order")
                 .or_else(|| optional_i64(&value, "display.order")),
+            ..DisplayOptions::default()
         };
         let valid_space = space
             .as_ref()

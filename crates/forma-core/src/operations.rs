@@ -1656,8 +1656,9 @@ fn config_value_display(value: &Value) -> crate::config::DisplayOptions {
     value
         .get("display")
         .cloned()
-        .and_then(|value| serde_yml::from_value(value).ok())
+        .and_then(|value| serde_yml::from_value::<crate::config::DisplayOptions>(value).ok())
         .unwrap_or_default()
+        .sanitized()
 }
 
 fn taxonomy_sort_key(taxonomy: &DashboardTaxonomy) -> (bool, i64, String, String) {
@@ -4306,12 +4307,12 @@ imports:
         );
         fs::write(
             root.join(".forma/classification/topics.md"),
-            "---\nschemaVersion: 1\nkind: taxonomy\nid: topics\ntitle: Topics\nmode: multiple\ndisplay:\n  order: 5\n---\n",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: topics\ntitle: Topics\nmode: multiple\ndisplay:\n  order: 5\n  icon: shapes\n  color: \"#64748B\"\n---\n",
         )
         .unwrap();
         fs::write(
             root.join(".forma/classification/guides.md"),
-            "---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Guides\ninclude:\n  - docs/**/*.md\n---\n",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Guides\ndisplay:\n  icon: book-open\n  color: \"#4f7cac\"\ninclude:\n  - docs/**/*.md\n---\n",
         )
         .unwrap();
         fs::write(
@@ -4321,13 +4322,27 @@ imports:
         .unwrap();
 
         let result = workspace_dashboard(&root).unwrap();
+        let explorer = workspace_explorer(&root).unwrap();
 
         assert!(result.spaces.is_empty());
         assert_eq!(result.taxonomies.len(), 1);
         assert_eq!(result.taxonomies[0].id, "topics");
         assert_eq!(result.taxonomies[0].title, "Topics");
+        assert_eq!(result.taxonomies[0].display.icon.as_deref(), Some("shapes"));
+        assert_eq!(
+            result.taxonomies[0].display.color.as_deref(),
+            Some("#64748B")
+        );
         assert_eq!(result.taxonomies[0].terms[0].id, "guides");
         assert_eq!(result.taxonomies[0].terms[0].title, "Guides");
+        assert_eq!(
+            result.taxonomies[0].terms[0].display.icon.as_deref(),
+            Some("book-open")
+        );
+        assert_eq!(
+            result.taxonomies[0].terms[0].display.color.as_deref(),
+            Some("#4f7cac")
+        );
         assert_eq!(result.taxonomies[0].terms[0].entry_count, 1);
         assert_eq!(
             result.taxonomies[0].terms[0].entries[0].path,
@@ -4335,6 +4350,11 @@ imports:
         );
         assert_eq!(result.entries.len(), 1);
         assert_eq!(result.entries[0].space, None);
+        assert_eq!(explorer.taxonomies[0].display, result.taxonomies[0].display);
+        assert_eq!(
+            explorer.taxonomies[0].terms[0].display,
+            result.taxonomies[0].terms[0].display
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

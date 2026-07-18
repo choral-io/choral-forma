@@ -1518,6 +1518,63 @@ mod tests {
     }
 
     #[test]
+    fn json_rpc_workspace_explorer_preserves_generic_taxonomy_presentation() {
+        let root = fixture_root("workspace-explorer-presentation-rpc");
+        fs::create_dir_all(root.join(".forma/classification")).unwrap();
+        fs::create_dir_all(root.join("docs")).unwrap();
+        write_config(
+            &root,
+            r#"schemaVersion: 1
+workspace:
+  name: Explorer Presentation
+  canonicalLanguage: en
+  supportedLanguages: [en]
+  timezone: UTC
+imports:
+  - .forma/classification/*.md
+"#,
+        );
+        fs::write(
+            root.join(".forma/classification/areas.md"),
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: areas\ntitle: Areas\nmode: multiple\ndisplay:\n  order: 5\n  icon: shapes\n  color: \"#64748B\"\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/classification/research.md"),
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: areas\ntitle: Research\ndisplay:\n  icon: flask-conical\n  color: \"#4F7CAC\"\ninclude:\n  - docs/**/*.md\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("docs/experiment.md"),
+            "---\ntitle: Experiment\n---\n\n# Experiment\n",
+        )
+        .unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"workspace.explorer","params":{}}"#,
+        );
+
+        assert_eq!(response["result"]["operation"], "workspace.explorer");
+        assert_eq!(response["result"]["taxonomies"][0]["id"], "areas");
+        assert_eq!(
+            response["result"]["taxonomies"][0]["display"],
+            json!({"order": 5, "icon": "shapes", "color": "#64748B"})
+        );
+        assert_eq!(
+            response["result"]["taxonomies"][0]["terms"][0]["display"],
+            json!({"icon": "flask-conical", "color": "#4F7CAC"})
+        );
+        assert_eq!(
+            response["result"]["taxonomies"][0]["terms"][0]["entryCount"],
+            1
+        );
+        assert!(response["result"].get("spaces").is_none());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn json_rpc_dispatches_workspace_health() {
         let root = fixture_root("workspace-health-rpc");
         fs::create_dir_all(&root).unwrap();

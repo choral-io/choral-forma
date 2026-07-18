@@ -6,6 +6,8 @@ title: Spaces
 mode: primary
 display:
   order: 10
+  icon: shapes
+  color: "#64748B"
 description: Primary content groups for the software product R&D workspace.
 ---
 

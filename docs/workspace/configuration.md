@@ -183,6 +183,44 @@ schema:
 
 `taxonomy: spaces` must match a declared taxonomy `id`. It also projects this config node into the effective `spaces` map reported by `forma config inspect --json`. `space`, `note`, `task`, and similar names are not built-in domain objects; they are configured patterns derived from explicit config.
 
+### Display Metadata
+
+Taxonomy and term config nodes may declare optional presentation hints under `display`. These hints do not change indexing or membership semantics, and every configured taxonomy uses the same contract.
+
+```yaml
+---
+schemaVersion: 1
+kind: taxonomy
+id: areas
+title: Areas
+mode: multiple
+display:
+    order: 20
+    icon: shapes
+    color: "#64748B"
+---
+```
+
+```yaml
+---
+schemaVersion: 1
+kind: term
+taxonomy: areas
+title: Research
+display:
+    icon: flask-conical
+    color: "#4F7CAC"
+include:
+    - "research/**/*.md"
+---
+```
+
+- `order` is an integer sorting hint.
+- `icon` is a provider-neutral Forma icon id. The supported registry is: `book-open`, `boxes`, `calendar`, `circle-check`, `ellipsis`, `eye`, `file-text`, `flask-conical`, `folder`, `folder-tree`, `kanban`, `lightbulb`, `list`, `list-checks`, `network`, `package`, `panels-top-left`, `rocket`, `shapes`, `table-properties`, `tags`, `triangle-alert`, and `users`.
+- `color` must use the exact `#RRGGBB` shape. Hex digits are case-insensitive.
+
+Clients map icon ids to their own bundled assets and adapt configured colors to the active theme. An unsupported icon produces `config.displayIconInvalid`; an invalid color produces `config.displayColorInvalid`. Invalid presentation values are omitted from the effective display metadata so clients can use their normal fallback icon and theme color. Forma does not download icons, accept icon URLs, or interpret arbitrary SVG from workspace config.
+
 ## Agent Guidance
 
 Do not infer configuration from `.gitignore` or path names. Add config nodes through explicit `imports` patterns. Before adding term nodes, make sure the referenced taxonomy has a `kind: taxonomy` config node with a matching `id`. Then verify the effective model with `forma config inspect --json` and `forma check --json`.

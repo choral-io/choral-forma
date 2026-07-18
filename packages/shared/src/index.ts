@@ -1,3 +1,5 @@
+import displayIconIds from "../../../crates/forma-core/src/display-icon-registry.json" with { type: "json" };
+
 export const schemaVersion = 1 as const;
 
 export type OperationStatus = "passed" | "warning" | "failed";
@@ -83,8 +85,22 @@ export type IndexView = {
     display?: DisplayOptions;
 };
 
+export const DISPLAY_ICON_IDS: readonly string[] = displayIconIds;
+
+const displayIconIdSet = new Set(DISPLAY_ICON_IDS);
+
+export function isSupportedDisplayIcon(value: string): boolean {
+    return displayIconIdSet.has(value);
+}
+
+export function normalizeDisplayColor(value: string | undefined): string | undefined {
+    return value && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : undefined;
+}
+
 export type DisplayOptions = {
     order?: number;
+    icon?: string;
+    color?: string;
 };
 
 export type ListedEntry = {

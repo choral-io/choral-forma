@@ -161,6 +161,67 @@ fn reference_resolve_json_prints_direct_operation_result() {
 }
 
 #[test]
+fn workspace_explorer_json_preserves_generic_taxonomy_presentation() {
+    let root = fixture_root("workspace-explorer-presentation");
+    std::fs::create_dir_all(root.join(".forma/classification")).unwrap();
+    std::fs::create_dir_all(root.join("docs")).unwrap();
+    write_config(
+        &root,
+        r#"schemaVersion: 1
+workspace:
+  name: Explorer Presentation
+  canonicalLanguage: en
+  supportedLanguages: [en]
+  timezone: UTC
+imports:
+  - .forma/classification/*.md
+"#,
+    );
+    std::fs::write(
+        root.join(".forma/classification/areas.md"),
+        "---\nschemaVersion: 1\nkind: taxonomy\nid: areas\ntitle: Areas\nmode: multiple\ndisplay:\n  icon: shapes\n  color: \"#64748B\"\n---\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join(".forma/classification/research.md"),
+        "---\nschemaVersion: 1\nkind: term\ntaxonomy: areas\ntitle: Research\ndisplay:\n  icon: flask-conical\n  color: \"#4F7CAC\"\ninclude:\n  - docs/**/*.md\n---\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("docs/experiment.md"),
+        "---\ntitle: Experiment\n---\n\n# Experiment\n",
+    )
+    .unwrap();
+
+    let output = forma(&root)
+        .args(["workspace", "explorer", "--json"])
+        .output()
+        .expect("forma workspace explorer should run");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["operation"], "workspace.explorer");
+    assert_eq!(value["taxonomies"][0]["id"], "areas");
+    assert_eq!(
+        value["taxonomies"][0]["display"],
+        serde_json::json!({"icon": "shapes", "color": "#64748B"})
+    );
+    assert_eq!(
+        value["taxonomies"][0]["terms"][0]["display"],
+        serde_json::json!({"icon": "flask-conical", "color": "#4F7CAC"})
+    );
+    assert_eq!(value["taxonomies"][0]["terms"][0]["entryCount"], 1);
+    assert!(value.get("spaces").is_none());
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn check_json_prints_direct_operation_result() {
     let output = Command::new(env!("CARGO_BIN_EXE_forma"))
         .args(["check", "--json"])

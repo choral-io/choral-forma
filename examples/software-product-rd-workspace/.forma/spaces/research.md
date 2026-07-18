@@ -5,6 +5,8 @@ taxonomy: spaces
 title: Research
 display:
   order: 15
+  icon: flask-conical
+  color: "#A855F7"
 description: User feedback, interviews, market notes, and product insights that inform product direction.
 schema:
   type: object

@@ -1,7 +1,8 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use globset::{Glob, GlobSetBuilder};
 use serde::{Deserialize, Serialize};
@@ -179,12 +180,53 @@ pub struct TaxonomyTermDefinition {
 pub struct DisplayOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 impl DisplayOptions {
     pub fn is_empty(&self) -> bool {
-        self.order.is_none()
+        self.order.is_none() && self.icon.is_none() && self.color.is_none()
     }
+
+    pub fn sanitized(mut self) -> Self {
+        if self
+            .icon
+            .as_deref()
+            .is_some_and(|icon| !is_supported_display_icon(icon))
+        {
+            self.icon = None;
+        }
+        if self
+            .color
+            .as_deref()
+            .is_some_and(|color| !is_valid_display_color(color))
+        {
+            self.color = None;
+        }
+        self
+    }
+}
+
+static DISPLAY_ICON_IDS: LazyLock<BTreeSet<&'static str>> = LazyLock::new(|| {
+    serde_json::from_str::<Vec<&'static str>>(include_str!("display-icon-registry.json"))
+        .expect("the checked-in display icon registry is valid JSON")
+        .into_iter()
+        .collect()
+});
+
+pub fn is_supported_display_icon(icon: &str) -> bool {
+    DISPLAY_ICON_IDS.contains(icon)
+}
+
+pub fn is_valid_display_color(color: &str) -> bool {
+    color.len() == 7
+        && color.starts_with('#')
+        && color.as_bytes()[1..]
+            .iter()
+            .all(|character| character.is_ascii_hexdigit())
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -426,7 +468,7 @@ fn load_config_nodes(
                 source,
             })?;
         let document = crate::markdown::FormaMarkdownDocument::parse(&source);
-        let Some(frontmatter) = document.frontmatter.value else {
+        let Some(mut frontmatter) = document.frontmatter.value else {
             continue;
         };
         let node: ConfigNode =
@@ -445,6 +487,8 @@ fn load_config_nodes(
             }
         }
         if node.kind.as_deref() == Some("taxonomy") {
+            validate_display_options(&public_path, &node.display, &mut diagnostics);
+            set_config_value_display(&mut frontmatter, &node.display.clone().sanitized());
             let taxonomy_id = node
                 .id
                 .clone()
@@ -475,6 +519,8 @@ fn load_config_nodes(
         if node.kind.as_deref() != Some("term") {
             continue;
         }
+        validate_display_options(&public_path, &node.display, &mut diagnostics);
+        let display = node.display.clone().sanitized();
         let Some(taxonomy) = node.taxonomy.clone() else {
             continue;
         };
@@ -492,7 +538,7 @@ fn load_config_nodes(
             term_id.clone(),
             TaxonomyTermDefinition {
                 title: title.clone(),
-                display: node.display.clone(),
+                display: display.clone(),
                 description: node.description.clone(),
                 include_patterns: node.include.clone(),
             },
@@ -512,7 +558,7 @@ fn load_config_nodes(
             term_id,
             SpaceDefinition {
                 title,
-                display: node.display,
+                display,
                 description: node.description,
                 include,
                 include_patterns: node.include,
@@ -552,6 +598,62 @@ fn load_config_nodes(
     }
 
     Ok((taxonomies, terms, spaces, space_sources, diagnostics))
+}
+
+fn validate_display_options(
+    public_path: &str,
+    display: &DisplayOptions,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(icon) = display.icon.as_deref()
+        && !is_supported_display_icon(icon)
+    {
+        diagnostics.push(
+            Diagnostic::warning(
+                "config.displayIconInvalid",
+                format!("Display icon `{icon}` is not in the Forma icon registry."),
+            )
+            .with_path(public_path)
+            .with_location(DiagnosticLocation::Frontmatter {
+                field: "display.icon".to_string(),
+                index: None,
+            })
+            .with_actual(icon)
+            .with_expected("a supported Forma icon id"),
+        );
+    }
+    if let Some(color) = display.color.as_deref()
+        && !is_valid_display_color(color)
+    {
+        diagnostics.push(
+            Diagnostic::warning(
+                "config.displayColorInvalid",
+                format!("Display color `{color}` must use the #RRGGBB format."),
+            )
+            .with_path(public_path)
+            .with_location(DiagnosticLocation::Frontmatter {
+                field: "display.color".to_string(),
+                index: None,
+            })
+            .with_actual(color)
+            .with_expected("#RRGGBB"),
+        );
+    }
+}
+
+fn set_config_value_display(value: &mut Value, display: &DisplayOptions) {
+    let Value::Mapping(mapping) = value else {
+        return;
+    };
+    let key = Value::String("display".to_string());
+    if display.is_empty() {
+        mapping.remove(&key);
+    } else {
+        mapping.insert(
+            key,
+            serde_yml::to_value(display).expect("display options should serialize"),
+        );
+    }
 }
 
 pub fn config_source_paths(
@@ -1258,6 +1360,100 @@ mod tests {
         assert_eq!(workspace.config.types["note"].space(), Some("notes"));
         assert_eq!(workspace.config.spaces["notes"].include, "notes/**/*.md");
         assert!(workspace.diagnostics.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn loads_taxonomy_neutral_display_presentation() {
+        let root = fixture_root("taxonomy-display-presentation");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/taxonomies/*.md\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/taxonomies/areas.md",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: areas\ntitle: Areas\nmode: primary\ndisplay:\n  order: 10\n  icon: panels-top-left\n  color: \"#64748B\"\n---\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/taxonomies/tasks.md",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: areas\ntitle: Tasks\ndisplay:\n  order: 20\n  icon: list-checks\n  color: \"#4f7cac\"\ninclude:\n  - tasks/**/*.md\n---\n",
+        );
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert!(workspace.diagnostics.is_empty());
+        assert_eq!(
+            workspace.config.taxonomies["areas"]["display"]["icon"],
+            Value::String("panels-top-left".to_string())
+        );
+        assert_eq!(
+            workspace.config.terms["areas"]["tasks"]
+                .display
+                .icon
+                .as_deref(),
+            Some("list-checks")
+        );
+        assert_eq!(
+            workspace.config.terms["areas"]["tasks"]
+                .display
+                .color
+                .as_deref(),
+            Some("#4f7cac")
+        );
+        assert!(workspace.config.spaces.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn warns_and_falls_back_for_invalid_display_presentation() {
+        let root = fixture_root("invalid-display-presentation");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/taxonomies/*.md\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/taxonomies/topics.md",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: topics\ntitle: Topics\nmode: multiple\ndisplay:\n  icon: ../unsafe.svg\n  color: red\n---\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/taxonomies/guides.md",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Guides\ndisplay:\n  icon: unknown-icon\n  color: \"#fff\"\ninclude:\n  - guides/**/*.md\n---\n",
+        );
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+
+        assert_eq!(
+            workspace
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "config.displayIconInvalid")
+                .count(),
+            2
+        );
+        assert_eq!(
+            workspace
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "config.displayColorInvalid")
+                .count(),
+            2
+        );
+        assert!(
+            workspace.config.terms["topics"]["guides"]
+                .display
+                .is_empty()
+        );
+        assert!(
+            workspace.config.taxonomies["topics"]
+                .get("display")
+                .is_none()
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

@@ -1,6 +1,31 @@
 import { describe, expect, it } from "vitest";
 
-import { FormaRpcClient, FormaRpcError } from "./index";
+import {
+    DISPLAY_ICON_IDS,
+    FormaRpcClient,
+    FormaRpcError,
+    isSupportedDisplayIcon,
+    normalizeDisplayColor,
+} from "./index";
+
+describe("Forma presentation contracts", () => {
+    it("keeps the provider-neutral display icon registry stable and unique", () => {
+        const sortedIconIds = [...DISPLAY_ICON_IDS];
+        sortedIconIds.sort();
+        expect(DISPLAY_ICON_IDS).toEqual(sortedIconIds);
+        expect(new Set(DISPLAY_ICON_IDS).size).toBe(DISPLAY_ICON_IDS.length);
+        expect(isSupportedDisplayIcon("list-checks")).toBe(true);
+        expect(isSupportedDisplayIcon("../workspace-icon")).toBe(false);
+    });
+
+    it("accepts only portable #RRGGBB colors and normalizes their case", () => {
+        expect(normalizeDisplayColor("#4F7CAC")).toBe("#4f7cac");
+        expect(normalizeDisplayColor("#4f7cac")).toBe("#4f7cac");
+        expect(normalizeDisplayColor("red")).toBeUndefined();
+        expect(normalizeDisplayColor("#fff")).toBeUndefined();
+        expect(normalizeDisplayColor("var(--color)")).toBeUndefined();
+    });
+});
 
 describe("FormaRpcClient", () => {
     it("sends JSON-RPC requests with incrementing string ids", async () => {

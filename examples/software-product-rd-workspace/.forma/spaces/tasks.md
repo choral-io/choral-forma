@@ -5,6 +5,8 @@ taxonomy: spaces
 title: Tasks
 display:
   order: 70
+  icon: list-checks
+  color: "#4F7CAC"
 description: Delivery tasks tracked as Markdown with status, readiness, ownership, and dependencies.
 schema:
   type: object

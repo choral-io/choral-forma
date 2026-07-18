@@ -5,6 +5,8 @@ taxonomy: spaces
 title: Members
 display:
   order: 90
+  icon: users
+  color: "#0EA5E9"
 description: Team members referenced by product, review, and delivery records.
 schema:
   type: object
