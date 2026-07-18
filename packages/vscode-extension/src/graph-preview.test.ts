@@ -43,7 +43,7 @@ describe("VS Code Graph Preview adapter", () => {
         expect(parsePreviewGraphData('{"schemaVersion":1,"projection":{"kind":"table"}}')).toBeUndefined();
     });
 
-    it("does not reconcile again for its own summary or companion-list DOM writes", () => {
+    it("does not reconcile again for its own summary DOM writes", () => {
         const ownedTarget = {
             closest: (selector: string) => (selector.includes("data-forma-graph-summary") ? ownedTarget : undefined),
         };

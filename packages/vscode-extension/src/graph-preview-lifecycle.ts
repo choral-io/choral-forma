@@ -1,5 +1,4 @@
-const GRAPH_OWNED_MUTATION_SELECTOR =
-    "[data-forma-graph-summary], [data-forma-graph-node-list], [data-forma-graph-expand]";
+const GRAPH_OWNED_MUTATION_SELECTOR = "[data-forma-graph-summary], [data-forma-graph-expand]";
 
 type MutationRecordLike = { target: unknown };
 type ClosestTarget = { closest(selector: string): unknown };

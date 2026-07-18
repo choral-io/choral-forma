@@ -24,7 +24,6 @@ type GraphController = {
     destroy(): void;
 };
 
-const MAX_COMPANION_NODES = 100;
 const controllers = new Map<HTMLElement, GraphController>();
 const preservedSelections = new Map<string, string | null>();
 let reconcileFrame = 0;
@@ -99,7 +98,7 @@ function reconcile(): void {
 function markGraphUnavailable(host: HTMLElement): void {
     host.dataset.formaGraphError = "true";
     host.setAttribute("aria-disabled", "true");
-    host.setAttribute("aria-label", "Interactive graph preview unavailable. Use the graph node list below.");
+    host.setAttribute("aria-label", "Interactive graph preview unavailable. Open the editable source for this view.");
 }
 
 function graphDataForHost(host: HTMLElement): PreviewGraphData | undefined {
@@ -128,11 +127,6 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
     let themeFingerprint = JSON.stringify(theme);
     let activeNodeId = data.activeNodeId;
     let selectedNodeId: string | null = readPreservedSelection(graphKey, data.activeNodeId);
-    let search = "";
-    let renderedList: HTMLElement | undefined;
-    let renderedCount: HTMLElement | undefined;
-    let renderedProjectionFingerprint = "";
-    let renderedSearch = "";
     let expanded = false;
     let boundExpandButton: HTMLButtonElement | undefined;
     const runtime = createGraphRuntime({
@@ -155,42 +149,6 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
             updateSelectionSurface(host, data.projection, snapshot);
         },
     });
-
-    const renderCompanion = (): void => {
-        const section = host.closest<HTMLElement>("[data-forma-view]");
-        const input = section?.querySelector<HTMLInputElement>("[data-forma-graph-search]");
-        if (input && input.dataset.formaGraphBound !== "true") {
-            input.dataset.formaGraphBound = "true";
-            input.value = search;
-            input.addEventListener("input", () => {
-                search = input.value;
-                renderCompanion();
-            });
-        }
-        const list = section?.querySelector<HTMLElement>("[data-forma-graph-node-list]");
-        const count = section?.querySelector<HTMLElement>("[data-forma-graph-count]");
-        if (!list || !count) return;
-        if (
-            list === renderedList &&
-            count === renderedCount &&
-            projectionFingerprint === renderedProjectionFingerprint &&
-            search === renderedSearch
-        ) {
-            return;
-        }
-        const normalizedSearch = search.trim().toLocaleLowerCase();
-        const matching = data.projection.nodes.filter((node) => {
-            if (!normalizedSearch) return true;
-            return `${node.title ?? ""}\n${node.path}`.toLocaleLowerCase().includes(normalizedSearch);
-        });
-        const visible = matching.slice(0, MAX_COMPANION_NODES);
-        list.replaceChildren(...visible.map((node) => graphNodeLink(node, selectedNodeId)));
-        count.textContent = `Showing ${String(visible.length)} of ${String(matching.length)} matching nodes.`;
-        renderedList = list;
-        renderedCount = count;
-        renderedProjectionFingerprint = projectionFingerprint;
-        renderedSearch = search;
-    };
 
     const syncExpandButton = (): void => {
         const shell = host.closest<HTMLElement>(".graph-shell");
@@ -221,7 +179,6 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
         if (event.key === "Escape" && expanded) setExpanded(false);
     };
 
-    renderCompanion();
     syncExpandButton();
     updateSelectionSurface(host, data.projection, runtime.snapshot());
     document.addEventListener("keydown", exitExpandedView);
@@ -244,7 +201,6 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
                     ...(activeNodeChanged ? { activeNodeId } : {}),
                 });
             }
-            renderCompanion();
             syncExpandButton();
             updateSelectionSurface(host, data.projection, runtime.snapshot());
         },
@@ -347,13 +303,6 @@ function readGraphTypography(): { labelFont: string; labelWeight: string } {
 
 function openNodeSource(host: HTMLElement, node: GraphNodeInput): void {
     const section = host.closest<HTMLElement>("[data-forma-view]");
-    const existing = [...(section?.querySelectorAll<HTMLAnchorElement>("[data-forma-graph-node-id]") ?? [])].find(
-        (anchor) => anchor.dataset.formaGraphNodeId === node.id,
-    );
-    if (existing) {
-        existing.click();
-        return;
-    }
     const anchor = document.createElement("a");
     anchor.href = `/${node.path}`;
     anchor.hidden = true;
@@ -384,37 +333,6 @@ function updateSelectionSurface(host: HTMLElement, projection: GraphRenderOutput
             summary.append(title, path, links);
         }
     }
-    for (const anchor of section?.querySelectorAll<HTMLAnchorElement>("[data-forma-graph-node-id]") ?? []) {
-        const active = anchor.dataset.formaGraphNodeId === snapshot.selectedNodeId;
-        anchor.classList.toggle("is-selected", active);
-        if (active) anchor.setAttribute("aria-current", "true");
-        else anchor.removeAttribute("aria-current");
-    }
-}
-
-function graphNodeLink(node: GraphRenderOutput["nodes"][number], selectedNodeId: string | null): HTMLAnchorElement {
-    const anchor = document.createElement("a");
-    anchor.className = "graph-node-link";
-    anchor.href = `/${node.path}`;
-    anchor.dataset.formaGraphNodeId = node.id;
-    if (node.id === selectedNodeId) {
-        anchor.classList.add("is-selected");
-        anchor.setAttribute("aria-current", "true");
-    }
-    const title = document.createElement("span");
-    title.className = "graph-node-title";
-    title.textContent = node.title ?? node.path;
-    const path = document.createElement("span");
-    path.className = "graph-node-path";
-    path.textContent = node.path;
-    anchor.append(title, path);
-    if (node.classification?.label) {
-        const classification = document.createElement("span");
-        classification.className = "graph-node-classification";
-        classification.textContent = node.classification.label;
-        anchor.append(classification);
-    }
-    return anchor;
 }
 
 if (typeof document !== "undefined" && typeof MutationObserver !== "undefined") {

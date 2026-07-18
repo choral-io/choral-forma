@@ -103,7 +103,6 @@ function renderCardFields(
 function renderGraph(render: GraphRenderOutput, sourcePath: string, activePath: string | undefined): string {
     if (render.nodes.length === 0) return emptyState("No entries match this graph.");
     const graphId = `forma-graph-${stableHash(sourcePath)}`;
-    const searchId = `${graphId}-search`;
     const activeNodeId = render.nodes.find((node) => node.path === activePath)?.id ?? null;
     const data = safeJson({
         schemaVersion: 1,
@@ -116,18 +115,7 @@ function renderGraph(render: GraphRenderOutput, sourcePath: string, activePath: 
                 `<span class="graph-legend-item"><span aria-hidden="true" class="graph-legend-swatch"${item.color ? ` style="background:${escapeAttribute(item.color)}"` : ""}></span>${escapeHtml(item.label)}</span>`,
         )
         .join("");
-    const nodes = render.nodes.slice(0, MAX_GRAPH_COMPANION_NODES).map(renderGraphNodeLink).join("");
-    return `<div class="graph-shell"><div class="graph-stage" id="${graphId}" data-forma-graph-host></div><button class="graph-expand-button" data-forma-graph-expand type="button" aria-label="Expand graph" title="Expand graph" hidden><span aria-hidden="true">⛶</span></button><aside class="graph-summary" data-forma-graph-summary hidden aria-live="polite"></aside></div>${legend ? `<section class="graph-legend" aria-label="Graph node colors">${legend}</section>` : ""}<section class="graph-companion" aria-label="Graph nodes"><label for="${searchId}">Search graph nodes</label><input id="${searchId}" data-forma-graph-search type="search" placeholder="Title or path"><p class="muted" data-forma-graph-count aria-live="polite">Showing ${String(Math.min(render.nodes.length, MAX_GRAPH_COMPANION_NODES))} of ${String(render.nodes.length)} nodes.</p><div class="graph-node-list" data-forma-graph-node-list>${nodes}</div></section><script type="application/json" data-forma-graph-data>${data}</script><p class="graph-source-action">${sourceButton(sourcePath)}</p>`;
-}
-
-const MAX_GRAPH_COMPANION_NODES = 100;
-
-function renderGraphNodeLink(node: GraphRenderOutput["nodes"][number]): string {
-    const title = node.title ?? node.path;
-    const classification = node.classification?.label
-        ? `<span class="graph-node-classification">${escapeHtml(node.classification.label)}</span>`
-        : "";
-    return `<a class="graph-node-link" href="/${escapeAttribute(node.path)}" data-forma-graph-node-id="${escapeAttribute(node.id)}"><span class="graph-node-title">${escapeHtml(title)}</span><span class="graph-node-path">${escapeHtml(node.path)}</span>${classification}</a>`;
+    return `<div class="graph-shell"><div class="graph-stage" id="${graphId}" data-forma-graph-host></div><button class="graph-expand-button" data-forma-graph-expand type="button" aria-label="Expand graph" title="Expand graph" hidden><span aria-hidden="true">⛶</span></button><aside class="graph-summary" data-forma-graph-summary hidden aria-live="polite"></aside></div>${legend ? `<section class="graph-legend" aria-label="Graph node colors">${legend}</section>` : ""}<script type="application/json" data-forma-graph-data>${data}</script><p class="graph-source-action">${sourceButton(sourcePath)}</p>`;
 }
 
 function safeJson(value: unknown): string {

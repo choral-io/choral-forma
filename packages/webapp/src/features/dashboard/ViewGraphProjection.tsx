@@ -6,7 +6,7 @@ import {
 } from "@choral-forma/graph-view";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import { useTheme } from "@/app/theme-context";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,6 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     const runtimeRef = useRef<GraphRuntime | null>(null);
     const routesRef = useRef(new Map<string, string>());
     const [graphTheme, setGraphTheme] = useState<GraphTheme>(() => readGraphThemeTokens(resolvedMode));
-    const [search, setSearch] = useState("");
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const runtimeProjection = useMemo(() => mapDashboardGraphProjection(projection), [projection]);
@@ -35,17 +34,6 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     const runtimeInputRef = useRef({ activeNodeId, graphTheme, projection: runtimeProjection });
     const adjacentNodes = useMemo(() => graphAdjacentNodes(projection), [projection]);
     const selectedNode = selectedNodeId ? projection.nodes.find((node) => node.id === selectedNodeId) : undefined;
-    const normalizedSearch = search.trim().toLocaleLowerCase();
-    const matchingNodes = useMemo(
-        () =>
-            projection.nodes.filter((node) => {
-                if (!normalizedSearch) return true;
-                return `${node.title}\n${node.path}`.toLocaleLowerCase().includes(normalizedSearch);
-            }),
-        [normalizedSearch, projection.nodes],
-    );
-    const visibleNodes = matchingNodes.slice(0, MAX_COMPANION_NODES);
-
     const routes = useMemo(
         () => new Map(projection.nodes.flatMap((node) => (node.routePath ? [[node.id, node.routePath] as const] : []))),
         [projection.nodes],
@@ -162,42 +150,14 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
 
             {projection.legend.length > 0 ? <GraphLegend items={projection.legend} /> : null}
 
-            {projection.nodes.length > 0 ? (
-                <section aria-label="Graph nodes" className="flex flex-col gap-3">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <label className="text-sm font-medium" htmlFor="forma-graph-search">
-                            Search graph nodes
-                        </label>
-                        <input
-                            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-3 sm:max-w-sm"
-                            id="forma-graph-search"
-                            onChange={(event) => {
-                                setSearch(event.target.value);
-                            }}
-                            placeholder="Title or path"
-                            type="search"
-                            value={search}
-                        />
-                    </div>
-                    <p aria-live="polite" className="text-muted-foreground text-xs">
-                        Showing {String(visibleNodes.length)} of {String(matchingNodes.length)} matching nodes.
-                    </p>
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        {visibleNodes.map((node) => (
-                            <GraphNodeLink active={node.id === selectedNodeId} key={node.id} node={node} />
-                        ))}
-                    </div>
-                </section>
-            ) : (
+            {projection.nodes.length === 0 ? (
                 <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
                     No nodes match this graph view.
                 </p>
-            )}
+            ) : null}
         </div>
     );
 }
-
-const MAX_COMPANION_NODES = 100;
 
 function GraphNodeSummary({
     linkedCount,
@@ -227,45 +187,6 @@ function GraphNodeSummary({
                 </Badge>
             </div>
         </div>
-    );
-}
-
-function GraphNodeLink({ active, node }: { active: boolean; node: DashboardGraphProjection["nodes"][number] }) {
-    const content = (
-        <>
-            <span className="block truncate text-sm font-medium" title={node.title}>
-                {node.title}
-            </span>
-            <span className="text-muted-foreground mt-1 block truncate text-xs" title={node.path}>
-                {node.path}
-            </span>
-            {node.classification ? (
-                <span className="text-muted-foreground mt-1 block truncate text-xs" title={node.classification.label}>
-                    {node.classification.label}
-                </span>
-            ) : null}
-        </>
-    );
-
-    if (!node.routePath) {
-        return (
-            <div className={cn("bg-card rounded-md border p-3 shadow-sm", active && "border-primary/50 bg-accent/40")}>
-                {content}
-            </div>
-        );
-    }
-
-    return (
-        <Link
-            aria-current={active ? "true" : undefined}
-            className={cn(
-                "bg-card hover:bg-accent/50 focus-visible:ring-ring/50 rounded-md border p-3 shadow-sm transition-colors outline-none focus-visible:ring-3",
-                active && "border-primary/50 bg-accent/40",
-            )}
-            to={node.routePath}
-        >
-            {content}
-        </Link>
     );
 }
 
