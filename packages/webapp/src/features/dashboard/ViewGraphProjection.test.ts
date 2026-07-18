@@ -5,11 +5,22 @@ import type { DashboardViewProjection } from "@/data/workspace-client";
 import { activeGraphNodeId, mapDashboardGraphProjection } from "./graph-adapter";
 
 describe("WebApp graph adapter", () => {
-    it("maps only taxonomy-neutral node fields and preserves semantic edge details", () => {
+    it("maps taxonomy-neutral classification and preserves semantic edge details", () => {
         const mapped = mapDashboardGraphProjection(projection());
 
-        expect(mapped.nodes[0]).toEqual({ id: "a.md", kind: "page", path: "a.md", title: "A" });
+        expect(mapped.nodes[0]).toEqual({
+            id: "a.md",
+            kind: "page",
+            path: "a.md",
+            title: "A",
+            classification: {
+                key: "areas:term:research",
+                label: "Research",
+                color: "#a855f7",
+            },
+        });
         expect(mapped.nodes[0]).not.toHaveProperty("space");
+        expect(mapped.legend).toEqual([{ key: "areas:term:research", label: "Research", color: "#a855f7" }]);
         expect(mapped.edges[0]).toEqual(
             expect.objectContaining({
                 fragment: "heading",
@@ -29,6 +40,15 @@ describe("WebApp graph adapter", () => {
 function projection(): Extract<DashboardViewProjection, { kind: "graph" }> {
     return {
         kind: "graph",
+        legend: [
+            {
+                key: "areas:term:research",
+                taxonomy: "areas",
+                terms: ["research"],
+                label: "Research",
+                color: "#a855f7",
+            },
+        ],
         nodes: [
             {
                 id: "a.md",
@@ -37,6 +57,12 @@ function projection(): Extract<DashboardViewProjection, { kind: "graph" }> {
                 kind: "page",
                 space: "not-a-built-in-classification",
                 routePath: "/pages/a",
+                classification: {
+                    key: "areas:term:research",
+                    taxonomy: "areas",
+                    terms: ["research"],
+                    label: "Research",
+                },
             },
             { id: "b.md", path: "b.md", title: "B", space: "another-configured-taxonomy" },
         ],

@@ -141,7 +141,7 @@ Rules:
 - Omitting `colorBy` preserves neutral node colors.
 - A missing taxonomy is a View configuration diagnostic, not an implicit fallback.
 - A Page with one matching term uses that term's configured main color.
-- A term without a configured color receives a deterministic Host palette color based on configured display order and stable term id.
+- A term without a configured color uses its taxonomy's configured main color, then falls back to the Host-neutral node color. Forma does not synthesize a rainbow palette.
 - A Page without a matching term uses a neutral `Unclassified` role represented in the legend.
 - For `mode: multiple`, the first cut uses a neutral multi-membership role unless the View defines explicit ordered groups. It never chooses the first term silently.
 - Explicit future View groups override Term presentation because View-local analytical meaning is narrower than workspace-wide Term identity.
@@ -302,8 +302,12 @@ Do not combine the Page-model migration, Panel presentation, Graph behavior, and
 - The VS Code icon implementation packages only the finite registry, caches generated color variants through Remote-safe storage URIs, bounds both memory and disk caches, and preserves diagnostic and high-contrast precedence.
 - The shared Graph runtime now derives theme roles from Host tokens, preserves the renderer, camera, and selection across theme changes, and uses themed hover and selected-node surfaces.
 - Selected-edge direction uses one finite 1.8-second eased Canvas pulse with staggered particles, skips selections above 64 emphasized edges, respects reduced motion, and runs no continuous idle loop. Static arrowheads use enlarged native Sigma proportions for persistent direction readability. The animation Canvas is explicitly synchronized with Sigma's CSS and DPR dimensions; this was verified at 2x DPR against the real WebApp.
-- Iteration 3 is intentionally stopped at its declared stop condition. [[tasks/generalize-taxonomy-neutral-page-model]] remains `needs-refinement`, so no Graph node is colored from the compatibility `space` field and no taxonomy id is treated as primary.
-- Consequently, taxonomy-driven Graph coloring, legends, and Iteration 5 cross-Host scale validation remain follow-up work after the generic Page facet contract is resolved.
+- Iteration 3 remains intentionally bounded because [[tasks/generalize-taxonomy-neutral-page-model]] is still `needs-refinement`. Graph nodes are not colored from the compatibility `space` field, and no taxonomy id is treated as primary.
+- A focused generic membership facet is now computed once for every currently indexed Page from all configured taxonomy term include patterns. View taxonomy filters and Graph coloring consume this facet without inspecting a taxonomy id. Full taxonomy-neutral Page discovery, schema composition, create identity, and compatibility-field removal remain in [[tasks/generalize-taxonomy-neutral-page-model]].
+- Taxonomy-driven Graph coloring now uses explicit `graph.presentation.nodes.colorBy.taxonomy`, carries a projection legend, preserves configured fill during selection, and falls back from Term color to Taxonomy color to Host neutral. Unclassified and multi-term Pages remain neutral.
+- Shared node sizing now uses incoming and outgoing semantic reference count rather than only unique adjacency, with a stronger bounded logarithmic scale. One-hop focus continues to use unique adjacent Pages.
+- The 2026-07-18 quick performance gate reports a 1,000-entry `view.render` median of 71.8 ms and p95 of 72.6 ms after generic membership was added. The WebApp Graph chunk is 204.42 kB / 51.31 kB gzip, a bounded increase of 1.89 kB / 0.49 kB gzip from the previous Graph milestone.
+- Iteration 5 cross-Host scale validation remains follow-up work; VS Code Graph Preview is still deferred in the current extension surface.
 
 ## Complete Local Validation Gate
 

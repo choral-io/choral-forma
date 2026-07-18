@@ -122,6 +122,8 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                 ) : null}
             </div>
 
+            {projection.legend.length > 0 ? <GraphLegend items={projection.legend} /> : null}
+
             {projection.nodes.length > 0 ? (
                 <section aria-label="Graph nodes" className="flex flex-col gap-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -176,6 +178,11 @@ function GraphNodeSummary({
                     <p className="text-muted-foreground mt-1 truncate text-xs" title={node.path}>
                         {node.path}
                     </p>
+                    {node.classification ? (
+                        <p className="text-muted-foreground mt-1 truncate text-xs" title={node.classification.label}>
+                            {node.classification.label}
+                        </p>
+                    ) : null}
                 </div>
                 <Badge className="shrink-0" variant="outline">
                     {String(linkedCount)} linked
@@ -194,6 +201,11 @@ function GraphNodeLink({ active, node }: { active: boolean; node: DashboardGraph
             <span className="text-muted-foreground mt-1 block truncate text-xs" title={node.path}>
                 {node.path}
             </span>
+            {node.classification ? (
+                <span className="text-muted-foreground mt-1 block truncate text-xs" title={node.classification.label}>
+                    {node.classification.label}
+                </span>
+            ) : null}
         </>
     );
 
@@ -216,6 +228,27 @@ function GraphNodeLink({ active, node }: { active: boolean; node: DashboardGraph
         >
             {content}
         </Link>
+    );
+}
+
+function GraphLegend({ items }: { items: DashboardGraphProjection["legend"] }) {
+    return (
+        <section aria-label="Graph node colors" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+            <span className="text-muted-foreground font-medium">Node colors</span>
+            {items.map((item) => (
+                <span className="inline-flex items-center gap-1.5" key={item.key}>
+                    <span
+                        aria-hidden="true"
+                        className={cn(
+                            "border-border size-2.5 rounded-full border",
+                            !item.color && "bg-muted-foreground",
+                        )}
+                        style={item.color ? { backgroundColor: item.color } : undefined}
+                    />
+                    <span>{item.label}</span>
+                </span>
+            ))}
+        </section>
     );
 }
 

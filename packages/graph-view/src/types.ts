@@ -3,7 +3,16 @@ export type GraphNodeInput = {
     path: string;
     title?: string;
     kind?: string;
+    classification?: GraphNodeClassification;
 };
+
+export type GraphNodeClassification = {
+    key: string;
+    label: string;
+    color?: string;
+};
+
+export type GraphLegendItem = GraphNodeClassification;
 
 export type GraphEdgeInput = {
     id: string;
@@ -23,6 +32,7 @@ export type GraphEdgeInput = {
 export type GraphProjection = {
     nodes: readonly GraphNodeInput[];
     edges: readonly GraphEdgeInput[];
+    legend?: readonly GraphLegendItem[];
 };
 
 export type GraphTheme = {
@@ -73,9 +83,9 @@ export const DEFAULT_GRAPH_LAYOUT_OPTIONS: Readonly<GraphLayoutOptions> = Object
 
 export const DEFAULT_GRAPH_PRESENTATION: Readonly<GraphPresentation> = Object.freeze({
     baseNodeSize: 4,
-    degreeSizeScale: 1.4,
+    degreeSizeScale: 2.4,
     minNodeSize: 4,
-    maxNodeSize: 12,
+    maxNodeSize: 16,
     maxLabelLength: 42,
     unrelatedOpacity: 0.22,
     selectedNodeScale: 1.45,
@@ -102,6 +112,7 @@ export type GraphNodeVisualRole = "default" | "selected" | "neighbor" | "muted";
 export type GraphNodeState = GraphNodeInput & {
     displayLabel: string;
     degree: number;
+    referenceCount: number;
     size: number;
     role: GraphNodeVisualRole;
     opacity: number;

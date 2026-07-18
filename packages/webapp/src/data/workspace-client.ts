@@ -164,6 +164,18 @@ export interface DashboardGraphNode {
     kind?: string;
     path: string;
     title: string;
+    classification?: DashboardGraphClassification;
+}
+
+export interface DashboardGraphClassification {
+    key: string;
+    taxonomy: string;
+    terms?: string[];
+    label: string;
+}
+
+export interface DashboardGraphLegendItem extends DashboardGraphClassification {
+    color?: string;
 }
 
 export interface DashboardGraphEdge {
@@ -208,6 +220,7 @@ export type DashboardViewProjection =
           kind: "graph";
           edges: DashboardGraphEdge[];
           nodes: DashboardGraphNode[];
+          legend: DashboardGraphLegendItem[];
       };
 
 export interface WorkspaceDashboard {

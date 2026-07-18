@@ -7,7 +7,9 @@ use markdown::{Options, to_html_with_options};
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
-use crate::config::{LoadMode, config_source_paths, load_workspace};
+use crate::config::{
+    DisplayOptions, LoadMode, WorkspaceConfig, config_source_paths, load_workspace,
+};
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::index::{
     IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource,
@@ -136,6 +138,8 @@ pub enum ViewRenderOutput {
     Graph {
         nodes: Vec<GraphRenderNode>,
         edges: Vec<GraphRenderEdge>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        legend: Vec<GraphRenderLegendItem>,
     },
 }
 
@@ -186,6 +190,30 @@ pub struct GraphRenderNode {
     pub space: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub classification: Option<GraphRenderNodeClassification>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphRenderNodeClassification {
+    pub key: String,
+    pub taxonomy: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub terms: Vec<String>,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphRenderLegendItem {
+    pub key: String,
+    pub taxonomy: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub terms: Vec<String>,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -340,8 +368,27 @@ fn default_kanban_title_field() -> String {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GraphDefinition {
+    presentation: Option<GraphPresentationDefinition>,
     #[serde(default)]
     edges: Vec<GraphEdgeDefinition>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphPresentationDefinition {
+    nodes: GraphNodePresentationDefinition,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphNodePresentationDefinition {
+    color_by: Option<GraphNodeColorByDefinition>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphNodeColorByDefinition {
+    taxonomy: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -409,6 +456,7 @@ enum QueryOperator {
 struct RenderCandidate {
     path: String,
     space: String,
+    taxonomies: BTreeMap<String, Vec<String>>,
     kind: Option<String>,
     title: Option<String>,
     metadata: Value,
@@ -587,12 +635,7 @@ pub fn render_view(
     }
 
     let definition_is_valid = view_definition.as_ref().is_some_and(|definition| {
-        view_definition_is_valid(
-            definition,
-            &workspace.config.spaces,
-            &view_path,
-            &mut diagnostics,
-        )
+        view_definition_is_valid(definition, &workspace.config, &view_path, &mut diagnostics)
     });
     if view_definition.is_some() && !definition_is_valid {
         diagnostics.push(
@@ -602,7 +645,12 @@ pub fn render_view(
     }
     let render = view_definition.as_ref().and_then(|definition| {
         if definition_is_valid {
-            render_view_definition(root.as_ref(), definition, &discovery.index.entries)
+            render_view_definition(
+                root.as_ref(),
+                definition,
+                &workspace.config,
+                &discovery.index.entries,
+            )
         } else {
             None
         }
@@ -692,7 +740,7 @@ fn parse_view_definition(
 
 fn view_definition_is_valid(
     definition: &ViewDefinition,
-    spaces: &BTreeMap<String, crate::config::SpaceDefinition>,
+    config: &WorkspaceConfig,
     path: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
@@ -701,7 +749,7 @@ fn view_definition_is_valid(
         valid = false;
     }
     if let Some(space) = &definition.space
-        && !spaces.contains_key(space)
+        && !config.spaces.contains_key(space)
     {
         valid = false;
     }
@@ -722,6 +770,29 @@ fn view_definition_is_valid(
                 valid &= query_is_valid(query, path, diagnostics);
             }
         }
+    }
+    if let Some(taxonomy) = definition
+        .graph
+        .as_ref()
+        .and_then(|graph| graph.presentation.as_ref())
+        .and_then(|presentation| presentation.nodes.color_by.as_ref())
+        .map(|color_by| color_by.taxonomy.as_str())
+        && !config.taxonomies.contains_key(taxonomy)
+    {
+        diagnostics.push(
+            Diagnostic::error(
+                "view.graphTaxonomyMissing",
+                "Graph node color taxonomy is not configured.",
+            )
+            .with_path(path)
+            .with_location(DiagnosticLocation::Frontmatter {
+                field: "graph.presentation.nodes.colorBy.taxonomy".to_string(),
+                index: None,
+            })
+            .with_actual(taxonomy.to_string())
+            .with_expected("configured taxonomy id".to_string()),
+        );
+        valid = false;
     }
     valid
 }
@@ -853,6 +924,7 @@ fn workspace_source() -> ViewSource {
 fn render_view_definition(
     root: &Path,
     definition: &ViewDefinition,
+    config: &WorkspaceConfig,
     entries: &[IndexEntry],
 ) -> Option<ViewRenderOutput> {
     if definition.surface != "page" {
@@ -915,6 +987,7 @@ fn render_view_definition(
             &items,
             entries,
             definition.graph.as_ref(),
+            config,
         )),
         _ => None,
     }
@@ -924,6 +997,7 @@ fn render_graph_view(
     items: &[RenderCandidate],
     entries: &[IndexEntry],
     graph: Option<&GraphDefinition>,
+    config: &WorkspaceConfig,
 ) -> ViewRenderOutput {
     let included_paths = items
         .iter()
@@ -934,6 +1008,10 @@ fn render_graph_view(
         .map(|entry| (entry.path.as_str(), entry))
         .collect::<BTreeMap<_, _>>();
 
+    let color_taxonomy = graph
+        .and_then(|graph| graph.presentation.as_ref())
+        .and_then(|presentation| presentation.nodes.color_by.as_ref())
+        .map(|color_by| color_by.taxonomy.as_str());
     let nodes = items
         .iter()
         .map(|item| GraphRenderNode {
@@ -942,11 +1020,16 @@ fn render_graph_view(
             title: item.title.clone(),
             space: item.space.clone(),
             kind: item.kind.clone(),
+            classification: color_taxonomy
+                .map(|taxonomy| graph_node_classification(item, config, taxonomy)),
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let legend = color_taxonomy
+        .map(|taxonomy| graph_legend(&nodes, config, taxonomy))
+        .unwrap_or_default();
 
     let default_rules;
-    let rules = if let Some(graph) = graph {
+    let rules = if let Some(graph) = graph.filter(|graph| !graph.edges.is_empty()) {
         graph.edges.as_slice()
     } else {
         default_rules = default_graph_edges();
@@ -1001,7 +1084,141 @@ fn render_graph_view(
         }
     }
 
-    ViewRenderOutput::Graph { nodes, edges }
+    ViewRenderOutput::Graph {
+        nodes,
+        edges,
+        legend,
+    }
+}
+
+fn graph_node_classification(
+    item: &RenderCandidate,
+    config: &WorkspaceConfig,
+    taxonomy: &str,
+) -> GraphRenderNodeClassification {
+    let terms = item.taxonomies.get(taxonomy).cloned().unwrap_or_default();
+    let (key, label) = match terms.as_slice() {
+        [] => (
+            format!("{taxonomy}:unclassified"),
+            "Unclassified".to_string(),
+        ),
+        [term] => (
+            format!("{taxonomy}:term:{term}"),
+            config
+                .terms
+                .get(taxonomy)
+                .and_then(|definitions| definitions.get(term))
+                .map(|definition| definition.title.clone())
+                .unwrap_or_else(|| term.clone()),
+        ),
+        _ => {
+            let labels = terms
+                .iter()
+                .map(|term| {
+                    config
+                        .terms
+                        .get(taxonomy)
+                        .and_then(|definitions| definitions.get(term))
+                        .map(|definition| definition.title.clone())
+                        .unwrap_or_else(|| term.clone())
+                })
+                .collect::<Vec<_>>();
+            (format!("{taxonomy}:multiple"), labels.join(", "))
+        }
+    };
+    GraphRenderNodeClassification {
+        key,
+        taxonomy: taxonomy.to_string(),
+        terms,
+        label,
+    }
+}
+
+fn graph_legend(
+    nodes: &[GraphRenderNode],
+    config: &WorkspaceConfig,
+    taxonomy: &str,
+) -> Vec<GraphRenderLegendItem> {
+    let used_keys = nodes
+        .iter()
+        .filter_map(|node| {
+            node.classification
+                .as_ref()
+                .map(|classification| classification.key.as_str())
+        })
+        .collect::<BTreeSet<_>>();
+    let taxonomy_color = taxonomy_display(config, taxonomy).color;
+    let mut terms = config
+        .terms
+        .get(taxonomy)
+        .into_iter()
+        .flat_map(|terms| terms.iter())
+        .filter_map(|(term_id, term)| {
+            let key = format!("{taxonomy}:term:{term_id}");
+            used_keys.contains(key.as_str()).then(|| {
+                (
+                    term.display.order,
+                    term.title.clone(),
+                    term_id.clone(),
+                    GraphRenderLegendItem {
+                        key,
+                        taxonomy: taxonomy.to_string(),
+                        terms: vec![term_id.clone()],
+                        label: term.title.clone(),
+                        color: term
+                            .display
+                            .color
+                            .clone()
+                            .or_else(|| taxonomy_color.clone()),
+                    },
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    terms.sort_by(|left, right| {
+        (left.0.is_none(), left.0.unwrap_or(0), &left.1, &left.2).cmp(&(
+            right.0.is_none(),
+            right.0.unwrap_or(0),
+            &right.1,
+            &right.2,
+        ))
+    });
+    let mut legend = terms
+        .into_iter()
+        .map(|(_, _, _, item)| item)
+        .collect::<Vec<_>>();
+    let multiple_key = format!("{taxonomy}:multiple");
+    if used_keys.contains(multiple_key.as_str()) {
+        legend.push(GraphRenderLegendItem {
+            key: multiple_key,
+            taxonomy: taxonomy.to_string(),
+            terms: Vec::new(),
+            label: "Multiple terms".to_string(),
+            color: None,
+        });
+    }
+    let unclassified_key = format!("{taxonomy}:unclassified");
+    if used_keys.contains(unclassified_key.as_str()) {
+        legend.push(GraphRenderLegendItem {
+            key: unclassified_key,
+            taxonomy: taxonomy.to_string(),
+            terms: Vec::new(),
+            label: "Unclassified".to_string(),
+            color: None,
+        });
+    }
+    legend
+}
+
+fn taxonomy_display(config: &WorkspaceConfig, taxonomy: &str) -> DisplayOptions {
+    config
+        .taxonomies
+        .get(taxonomy)
+        .and_then(|value| value.get("display"))
+        .cloned()
+        .and_then(|value| serde_yml::from_value::<DisplayOptions>(value).ok())
+        .unwrap_or_default()
+        .sanitized()
 }
 
 fn default_graph_edges() -> Vec<GraphEdgeDefinition> {
@@ -1084,6 +1301,7 @@ impl RenderCandidate {
         Some(Self {
             path: entry.path.clone(),
             space: entry.space.clone(),
+            taxonomies: entry.taxonomies.clone(),
             kind: entry.kind.clone(),
             title: entry.title.clone(),
             metadata,
@@ -1202,11 +1420,10 @@ fn source_matches(item: &RenderCandidate, source: Option<&ViewSource>) -> bool {
 
 fn source_taxonomy_matches(item: &RenderCandidate, source: &ViewSource) -> bool {
     source.taxonomy.iter().all(|(taxonomy, terms)| {
-        if taxonomy == "spaces" {
-            terms.is_empty() || terms.iter().any(|term| term == &item.space)
-        } else {
-            true
-        }
+        let memberships = item.taxonomies.get(taxonomy);
+        terms.is_empty()
+            || memberships
+                .is_some_and(|memberships| terms.iter().any(|term| memberships.contains(term)))
     })
 }
 
@@ -2026,7 +2243,7 @@ mod tests {
         .unwrap();
 
         let result = render_view(&root, "workspace-graph", BTreeMap::new()).unwrap();
-        let Some(ViewRenderOutput::Graph { nodes, edges }) = result.render else {
+        let Some(ViewRenderOutput::Graph { nodes, edges, .. }) = result.render else {
             panic!("expected graph render");
         };
 
@@ -2039,6 +2256,165 @@ mod tests {
         assert_eq!(edges[0].intent, ReferenceIntent::Link);
         assert_eq!(edges[0].reference_source, ReferenceSource::Body);
         assert_eq!(edges[0].label, "links to");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renders_graph_classification_from_an_explicit_taxonomy() {
+        let root = fixture_root("graph-view-taxonomy-color");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\n---\n\n# Source\n\n[Target](target).\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/target.md"),
+            "---\nkind: note\ntitle: Target\n---\n\n# Target\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/unclassified.md"),
+            "---\nkind: note\ntitle: Unclassified\n---\n\n# Unclassified\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/shared.md"),
+            "---\nkind: note\ntitle: Shared\n---\n\n# Shared\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/areas.md"),
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: areas\ntitle: Areas\nmode: multiple\ndisplay:\n  color: \"#64748B\"\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/area-sources.md"),
+            "---\nschemaVersion: 1\nkind: term\nid: sources\ntaxonomy: areas\ntitle: Sources\ndisplay:\n  order: 20\n  color: \"#4F7CAC\"\ninclude:\n  - notes/source.md\n  - notes/shared.md\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/area-targets.md"),
+            "---\nschemaVersion: 1\nkind: term\nid: targets\ntaxonomy: areas\ntitle: Targets\ndisplay:\n  order: 10\ninclude:\n  - notes/target.md\n  - notes/shared.md\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/workspace-graph.md"),
+            "---\nkind: view\nmode: graph\ntitle: Workspace Graph\nsource:\n  type: pages\n  include:\n    - \"notes/**/*.md\"\ngraph:\n  presentation:\n    nodes:\n      colorBy:\n        taxonomy: areas\n---\n\n# Workspace Graph\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "workspace-graph", BTreeMap::new()).unwrap();
+        let Some(ViewRenderOutput::Graph {
+            nodes,
+            edges,
+            legend,
+        }) = result.render
+        else {
+            panic!("expected graph render");
+        };
+
+        assert_eq!(edges.len(), 1);
+        assert_eq!(legend.len(), 4);
+        assert_eq!(legend[0].label, "Targets");
+        assert_eq!(legend[0].color.as_deref(), Some("#64748B"));
+        assert_eq!(legend[1].label, "Sources");
+        assert_eq!(legend[1].color.as_deref(), Some("#4F7CAC"));
+        assert_eq!(legend[2].label, "Multiple terms");
+        assert_eq!(legend[2].color, None);
+        assert_eq!(legend[3].label, "Unclassified");
+        assert_eq!(legend[3].color, None);
+        let source = nodes
+            .iter()
+            .find(|node| node.path == "notes/source.md")
+            .expect("source node");
+        assert_eq!(
+            source
+                .classification
+                .as_ref()
+                .map(|value| value.key.as_str()),
+            Some("areas:term:sources")
+        );
+        let shared = nodes
+            .iter()
+            .find(|node| node.path == "notes/shared.md")
+            .expect("shared node");
+        assert_eq!(
+            shared
+                .classification
+                .as_ref()
+                .map(|value| (value.key.as_str(), value.label.as_str())),
+            Some(("areas:multiple", "Sources, Targets"))
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_an_unknown_graph_color_taxonomy() {
+        let root = fixture_root("graph-view-missing-taxonomy");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/views/workspace-graph.md"),
+            "---\nkind: view\nmode: graph\ntitle: Workspace Graph\nsource:\n  type: pages\ngraph:\n  presentation:\n    nodes:\n      colorBy:\n        taxonomy: missing\n---\n\n# Workspace Graph\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "workspace-graph", BTreeMap::new()).unwrap();
+
+        assert!(result.render.is_none());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "view.graphTaxonomyMissing")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn keeps_invalid_taxonomy_colors_out_of_graph_projection() {
+        let root = fixture_root("graph-view-invalid-taxonomy-color");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/source.md"),
+            "---\nkind: note\ntitle: Source\n---\n\n# Source\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/areas.md"),
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: areas\ntitle: Areas\nmode: primary\ndisplay:\n  color: red\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/spaces/area-sources.md"),
+            "---\nschemaVersion: 1\nkind: term\nid: sources\ntaxonomy: areas\ntitle: Sources\ninclude:\n  - notes/source.md\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/workspace-graph.md"),
+            "---\nkind: view\nmode: graph\nsource:\n  type: pages\ngraph:\n  presentation:\n    nodes:\n      colorBy:\n        taxonomy: areas\n---\n\n# Workspace Graph\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "workspace-graph", BTreeMap::new()).unwrap();
+        let Some(ViewRenderOutput::Graph { legend, .. }) = result.render else {
+            panic!("expected graph render");
+        };
+
+        assert_eq!(legend.len(), 1);
+        assert_eq!(legend[0].color, None);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "config.displayColorInvalid")
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -2065,7 +2441,7 @@ mod tests {
         .unwrap();
 
         let result = render_view(&root, "members-graph", BTreeMap::new()).unwrap();
-        let Some(ViewRenderOutput::Graph { nodes, edges }) = result.render else {
+        let Some(ViewRenderOutput::Graph { nodes, edges, .. }) = result.render else {
             panic!("expected graph render");
         };
 
@@ -2126,7 +2502,7 @@ mod tests {
         .unwrap();
 
         let result = render_view(&root, "project-graph", BTreeMap::new()).unwrap();
-        let Some(ViewRenderOutput::Graph { nodes, edges }) = result.render else {
+        let Some(ViewRenderOutput::Graph { nodes, edges, .. }) = result.render else {
             panic!("expected graph render");
         };
 

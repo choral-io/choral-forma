@@ -85,6 +85,8 @@ pub struct IndexViewSource {
 pub struct IndexEntry {
     pub path: String,
     pub space: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub taxonomies: BTreeMap<String, Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -174,6 +176,7 @@ pub struct Discovery {
 struct CandidateEntry {
     path: String,
     space: String,
+    taxonomies: BTreeMap<String, Vec<String>>,
     document: FormaMarkdownDocument,
     variants: Vec<CandidateVariant>,
 }
@@ -263,6 +266,7 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
         index_entries.push(IndexEntry {
             path: entry.path.clone(),
             space: entry.space.clone(),
+            taxonomies: entry.taxonomies.clone(),
             kind: scalar_field(frontmatter_value, "kind"),
             title: title_for_entry(frontmatter_value, space),
             summary: summary_for_entry(frontmatter_value, space),
@@ -367,7 +371,8 @@ fn discover_entries(
         .map(|source| source.path.clone())
         .collect::<BTreeSet<_>>();
     let supported_language_suffixes = supported_language_suffixes(config);
-    let matchers = build_space_matchers(config, diagnostics);
+    let matchers = build_space_matchers(config);
+    let taxonomy_matchers = build_taxonomy_matchers(config, diagnostics);
     let mut entries = Vec::new();
     let mut variants_by_canonical = BTreeMap::<String, Vec<CandidateVariant>>::new();
 
@@ -383,17 +388,25 @@ fn discover_entries(
             .filter(|(_, matcher)| matcher.is_match(relative.as_str()))
             .map(|(id, _)| id.clone())
             .collect::<Vec<_>>();
+        let taxonomies = taxonomy_memberships(&relative, config, &taxonomy_matchers, diagnostics);
         if matched.is_empty() {
             continue;
         }
         if matched.len() > 1 {
-            diagnostics.push(
-                Diagnostic::error(
-                    "space.membership.ambiguous",
-                    "Entry matches multiple spaces.",
-                )
-                .with_path(relative),
-            );
+            if !diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "taxonomy.membership.ambiguous"
+                    && diagnostic.path.as_deref() == Some(relative.as_str())
+            }) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "page.schemaMembership.ambiguous",
+                        "Page matches multiple schema-bearing terms and cannot be indexed.",
+                    )
+                    .with_path(relative.clone())
+                    .with_actual(matched.join(", "))
+                    .with_expected("one schema-bearing term".to_string()),
+                );
+            }
             continue;
         }
         if let Some((language, canonical_path)) =
@@ -452,6 +465,7 @@ fn discover_entries(
                 entries.push(CandidateEntry {
                     path: relative,
                     space: matched[0].clone(),
+                    taxonomies,
                     document,
                     variants: Vec::new(),
                 });
@@ -475,6 +489,95 @@ fn discover_entries(
     }
     entries.sort_by(|left, right| left.path.cmp(&right.path));
     entries
+}
+
+fn build_taxonomy_matchers(
+    config: &WorkspaceConfig,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> BTreeMap<String, Vec<(String, GlobSet)>> {
+    config
+        .terms
+        .iter()
+        .map(|(taxonomy_id, terms)| {
+            let matchers = terms
+                .iter()
+                .filter_map(|(term_id, term)| {
+                    let mut builder = GlobSetBuilder::new();
+                    let mut has_valid_pattern = false;
+                    for pattern in &term.include_patterns {
+                        match Glob::new(pattern) {
+                            Ok(glob) => {
+                                builder.add(glob);
+                                has_valid_pattern = true;
+                            }
+                            Err(error) => diagnostics.push(
+                                Diagnostic::error(
+                                    "config.globInvalid",
+                                    "Taxonomy term include glob is invalid.",
+                                )
+                                .with_path(FORMA_CONFIG_PATH)
+                                .with_location(DiagnosticLocation::Config {
+                                    field: format!(
+                                        "taxonomies.{taxonomy_id}.terms.{term_id}.include"
+                                    ),
+                                })
+                                .with_actual(error.to_string()),
+                            ),
+                        }
+                    }
+                    if !has_valid_pattern {
+                        return None;
+                    }
+                    builder
+                        .build()
+                        .ok()
+                        .map(|matcher| (term_id.clone(), matcher))
+                })
+                .collect();
+            (taxonomy_id.clone(), matchers)
+        })
+        .collect()
+}
+
+fn taxonomy_memberships(
+    path: &str,
+    config: &WorkspaceConfig,
+    matchers: &BTreeMap<String, Vec<(String, GlobSet)>>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> BTreeMap<String, Vec<String>> {
+    let mut memberships = BTreeMap::new();
+    for (taxonomy_id, term_matchers) in matchers {
+        let matched = term_matchers
+            .iter()
+            .filter(|(_, matcher)| matcher.is_match(path))
+            .map(|(term_id, _)| term_id.clone())
+            .collect::<Vec<_>>();
+        if matched.is_empty() {
+            continue;
+        }
+        if taxonomy_mode(config, taxonomy_id) == "primary" && matched.len() > 1 {
+            diagnostics.push(
+                Diagnostic::error(
+                    "taxonomy.membership.ambiguous",
+                    "Page matches multiple terms in a primary taxonomy.",
+                )
+                .with_path(path)
+                .with_actual(matched.join(", "))
+                .with_expected(format!("one term in taxonomy `{taxonomy_id}`")),
+            );
+        }
+        memberships.insert(taxonomy_id.clone(), matched);
+    }
+    memberships
+}
+
+fn taxonomy_mode<'a>(config: &'a WorkspaceConfig, taxonomy_id: &str) -> &'a str {
+    config
+        .taxonomies
+        .get(taxonomy_id)
+        .and_then(|value| value.get("mode"))
+        .and_then(Value::as_str)
+        .unwrap_or("multiple")
 }
 
 fn supported_language_suffixes(config: &WorkspaceConfig) -> Vec<LanguageSuffix> {
@@ -521,10 +624,7 @@ fn language_variant_canonical_path(
     None
 }
 
-fn build_space_matchers(
-    config: &WorkspaceConfig,
-    diagnostics: &mut Vec<Diagnostic>,
-) -> Vec<(String, GlobSet)> {
+fn build_space_matchers(config: &WorkspaceConfig) -> Vec<(String, GlobSet)> {
     let mut matchers = Vec::new();
     for (space_id, space) in &config.spaces {
         let mut builder = GlobSetBuilder::new();
@@ -540,14 +640,7 @@ fn build_space_matchers(
                     builder.add(glob);
                     has_valid_pattern = true;
                 }
-                Err(error) => diagnostics.push(
-                    Diagnostic::error("config.globInvalid", "Space include glob is invalid.")
-                        .with_path(FORMA_CONFIG_PATH)
-                        .with_location(DiagnosticLocation::Config {
-                            field: format!("spaces.{space_id}.include"),
-                        })
-                        .with_actual(error.to_string()),
-                ),
+                Err(_) => continue,
             }
         }
         if has_valid_pattern && let Ok(set) = builder.build() {
@@ -1446,6 +1539,36 @@ mod tests {
     }
 
     #[test]
+    fn reports_schema_membership_ambiguity_when_multiple_mode_matches_schema_terms() {
+        let root = fixture_root("multiple-schema-membership");
+        write_workspace(&root);
+        let taxonomy_path = root.join(".forma/spaces/index.md");
+        let taxonomy = fs::read_to_string(&taxonomy_path)
+            .unwrap()
+            .replace("mode: primary", "mode: multiple");
+        fs::write(taxonomy_path, taxonomy).unwrap();
+        let tasks_path = root.join(".forma/spaces/tasks.md");
+        let tasks = fs::read_to_string(&tasks_path)
+            .unwrap()
+            .replace("  - tasks/**/*.md", "  - tasks/**/*.md\n  - notes/**/*.md");
+        fs::write(tasks_path, tasks).unwrap();
+        write_entry(
+            &root,
+            "notes/overlap.md",
+            "---\nkind: note\ntitle: Overlap\n---\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+
+        assert!(discovery.index.entries.is_empty());
+        assert!(discovery.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "page.schemaMembership.ambiguous"
+                && diagnostic.path.as_deref() == Some("notes/overlap.md")
+        }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn builds_deterministic_summary_index_with_resolved_refs() {
         let root = fixture_root("valid");
         write_workspace(&root);
@@ -1540,18 +1663,33 @@ mod tests {
     {
       "path": "members/alex-chen.md",
       "space": "members",
+      "taxonomies": {
+        "spaces": [
+          "members"
+        ]
+      },
       "kind": "member",
       "title": "Alex Chen"
     },
     {
       "path": "notes/account-model.md",
       "space": "notes",
+      "taxonomies": {
+        "spaces": [
+          "notes"
+        ]
+      },
       "kind": "note",
       "title": "Account model"
     },
     {
       "path": "tasks/member-registration.md",
       "space": "tasks",
+      "taxonomies": {
+        "spaces": [
+          "tasks"
+        ]
+      },
       "kind": "task",
       "title": "User registration",
       "summary": "Register members",

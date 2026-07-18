@@ -19,6 +19,7 @@ kanban:
       - fields.readiness
     badgeFields:
       - fields.priority
+      - fields.createdAt
   columns:
     - id: backlog
       label: Backlog

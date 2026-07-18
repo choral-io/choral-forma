@@ -74,6 +74,18 @@ describe("GraphViewModel", () => {
         expect(snapshot.nodes).toHaveLength(4);
         expect(snapshot.edges).toHaveLength(3);
     });
+
+    it("sizes nodes by semantic reference count while keeping one-hop degree unique", () => {
+        const model = new GraphViewModel({
+            nodes: ["a.md", "b.md"].map((id) => ({ id, path: id })),
+            edges: [edge("body", "a.md", "b.md"), edge("field", "a.md", "b.md")],
+        });
+
+        const [node] = model.snapshot().nodes;
+
+        expect(node).toMatchObject({ degree: 1, referenceCount: 2 });
+        expect(node?.size).toBe(nodeSize(2, DEFAULT_GRAPH_PRESENTATION));
+    });
 });
 
 describe("aggregateDisplayEdges", () => {
@@ -124,10 +136,10 @@ describe("graph fixtures and presentation", () => {
         expect(new GraphViewModel(invalidGraphFixture()).snapshot().nodes).toHaveLength(2);
     });
 
-    it("uses a bounded logarithmic degree scale", () => {
+    it("uses a more pronounced bounded logarithmic reference-count scale", () => {
         expect(nodeSize(0, DEFAULT_GRAPH_PRESENTATION)).toBe(4);
-        expect(nodeSize(3, DEFAULT_GRAPH_PRESENTATION)).toBe(6.8);
-        expect(nodeSize(10_000, DEFAULT_GRAPH_PRESENTATION)).toBe(12);
+        expect(nodeSize(3, DEFAULT_GRAPH_PRESENTATION)).toBe(8.8);
+        expect(nodeSize(10_000, DEFAULT_GRAPH_PRESENTATION)).toBe(16);
     });
 
     it("uses a bounded shared label instead of Host-specific truncation", () => {

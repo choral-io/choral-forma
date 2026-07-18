@@ -100,6 +100,7 @@ vi.mock("sigma/rendering", () => ({
 }));
 
 import { createGraphRuntime } from "./runtime.ts";
+import { mixGraphColors } from "./theme.ts";
 import type { GraphProjection, GraphTheme } from "./types.ts";
 
 describe("SigmaGraphRuntime lifecycle", () => {
@@ -236,6 +237,40 @@ describe("SigmaGraphRuntime lifecycle", () => {
         const edge = runtime.snapshot().edges[0];
         if (!edge) throw new Error("Expected display edge.");
         expect(edgeReducer(edge.id, {}).color).toBe("#ff00ff");
+        runtime.destroy();
+    });
+
+    it("preserves configured classification fill across default, selected, and neighbor states", () => {
+        const base = projection();
+        const classified = {
+            ...base,
+            nodes: base.nodes.map((node, index) => ({
+                ...node,
+                classification: {
+                    key: `areas:${String(index)}`,
+                    label: `Area ${String(index)}`,
+                    color: index === 0 ? "#a855f7" : "#4f7cac",
+                },
+            })),
+        };
+        const runtime = createGraphRuntime({
+            container: fakeContainer(),
+            projection: classified,
+            theme: theme(),
+            layout: { engine: "force", reducedMotion: true },
+        });
+        const renderer = sigmaMocks.instances[0];
+        if (!renderer) throw new Error("Expected Sigma renderer.");
+        const nodeReducer = renderer.settings.nodeReducer as (
+            node: string,
+            data: Record<string, unknown>,
+        ) => Record<string, unknown>;
+
+        expect(nodeReducer("a.md", {}).color).toBe("#a855f7");
+        renderer.emit("clickNode", { node: "a.md" });
+        expect(nodeReducer("a.md", {}).color).toBe("#a855f7");
+        expect(nodeReducer("b.md", {}).color).toBe("#4f7cac");
+        expect(nodeReducer("c.md", {}).color).toBe(mixGraphColors(theme().background, "#4f7cac", 0.22));
         runtime.destroy();
     });
 

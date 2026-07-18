@@ -168,6 +168,10 @@ source:
     type: pages
 
 graph:
+    presentation:
+        nodes:
+            colorBy:
+                taxonomy: areas
     edges:
         - source: body
           intent: link
@@ -181,11 +185,15 @@ graph:
 ---
 ```
 
+Graph node coloring is explicit and taxonomy-neutral. When `graph.presentation.nodes.colorBy.taxonomy` is present, Core projects the matching configured term identity and presentation. A term color falls back to its taxonomy main color; unclassified and multi-term Pages remain neutral rather than receiving an inferred category. A missing taxonomy is a View diagnostic. Without `colorBy`, the Graph keeps Host-neutral node colors.
+
 Graph should be opened through normal view navigation, tabs, or links. It is a view mode, not a separate global product surface. Relationship panels may show backlinks and outgoing links for the current page, but they are not the primary graph surface.
 
 `graph.edges` configures which resolved references become graph edges. Wikilinks, embeds, and structured field references are all relation rules. Body edges declare at least `source` and `intent`. Field edges declare at least `source` and `field`; with `source: fields`, the field value is relative to the normalized `fields` object, such as `assignees` rather than `fields.assignees`. `label` is optional. A plain list of fields is not sufficient because field names such as `assignees` or `blockedBy` do not always define the edge label shown to users.
 
 Health checks should validate that configured relation fields exist, are reference-typed according to the resolved space schema, and can produce workspace-relative target paths. `view.render` should include edge source kind, intent, field when present, resolved edge label, and semantic type in graph edge output.
+
+The shared Graph renderer sizes nodes from their incoming and outgoing semantic reference count with a bounded logarithmic scale. One-hop selection still uses unique adjacent Pages, so repeated references may increase visual importance without duplicating focus neighbors.
 
 ## Interfaces And Contracts
 

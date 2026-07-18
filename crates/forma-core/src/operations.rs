@@ -5754,6 +5754,7 @@ conventions:
         let entries = vec![IndexEntry {
             path: "notes/linked.md".to_string(),
             space: "notes".to_string(),
+            taxonomies: Default::default(),
             kind: Some("note".to_string()),
             title: Some("Linked".to_string()),
             summary: None,

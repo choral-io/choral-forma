@@ -9,6 +9,10 @@ description: Links and structured references across product, delivery, validatio
 source:
   type: pages
 graph:
+  presentation:
+    nodes:
+      colorBy:
+        taxonomy: spaces
   edges:
     - source: body
       intent: link

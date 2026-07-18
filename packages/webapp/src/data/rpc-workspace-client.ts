@@ -326,6 +326,7 @@ function mapViewProjection(render: ViewRenderOutput, entries: DashboardEntry[]):
     if (render.kind === "graph") {
         return {
             kind: "graph",
+            legend: render.legend ?? [],
             nodes: render.nodes.map((node) => {
                 const entry = entries.find((entry) => entry.path === node.path);
 
@@ -337,6 +338,7 @@ function mapViewProjection(render: ViewRenderOutput, entries: DashboardEntry[]):
                     kind: node.kind,
                     path: node.path,
                     title: node.title ?? entry?.title ?? node.path,
+                    classification: node.classification,
                 };
             }),
             edges: render.edges.map((edge) => ({

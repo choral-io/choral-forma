@@ -18,6 +18,7 @@ export class GraphViewModel {
     #adjacency = new Map<string, Set<string>>();
     #displayEdges: GraphDisplayEdge[] = [];
     #nodes = new Map<string, GraphNodeInput>();
+    #referenceCounts = new Map<string, number>();
     #selectedNodeId: string | null = null;
     #selectionSource: GraphSelectionSource | null = null;
 
@@ -33,6 +34,7 @@ export class GraphViewModel {
             (edge) => this.#nodes.has(edge.source) && this.#nodes.has(edge.target),
         );
         this.#adjacency = buildAdjacency(this.#nodes.keys(), semanticEdges);
+        this.#referenceCounts = buildReferenceCounts(this.#nodes.keys(), semanticEdges);
         this.#displayEdges = aggregateDisplayEdges(semanticEdges);
 
         if (previousSelection && this.#nodes.has(previousSelection)) {
@@ -78,6 +80,7 @@ export class GraphViewModel {
             nodeState(
                 node,
                 this.#adjacency.get(node.id)?.size ?? 0,
+                this.#referenceCounts.get(node.id) ?? 0,
                 selectedNodeId,
                 adjacentNodeIds,
                 this.#presentation,
@@ -123,8 +126,9 @@ export function aggregateDisplayEdges(edges: readonly GraphEdgeInput[]): GraphDi
         });
 }
 
-export function nodeSize(degree: number, presentation: GraphPresentation): number {
-    const scaled = presentation.baseNodeSize + Math.log2(Math.max(0, degree) + 1) * presentation.degreeSizeScale;
+export function nodeSize(referenceCount: number, presentation: GraphPresentation): number {
+    const scaled =
+        presentation.baseNodeSize + Math.log2(Math.max(0, referenceCount) + 1) * presentation.degreeSizeScale;
     return Math.min(presentation.maxNodeSize, Math.max(presentation.minNodeSize, scaled));
 }
 
@@ -153,20 +157,32 @@ function buildAdjacency(nodeIds: Iterable<string>, edges: readonly GraphEdgeInpu
     return adjacency;
 }
 
+function buildReferenceCounts(nodeIds: Iterable<string>, edges: readonly GraphEdgeInput[]): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const nodeId of nodeIds) counts.set(nodeId, 0);
+    for (const edge of edges) {
+        counts.set(edge.source, (counts.get(edge.source) ?? 0) + 1);
+        if (edge.target !== edge.source) counts.set(edge.target, (counts.get(edge.target) ?? 0) + 1);
+    }
+    return counts;
+}
+
 function nodeState(
     node: GraphNodeInput,
     degree: number,
+    referenceCount: number,
     selectedNodeId: string | null,
     adjacentNodeIds: ReadonlySet<string>,
     presentation: GraphPresentation,
 ): GraphNodeState {
-    const baseSize = nodeSize(degree, presentation);
+    const baseSize = nodeSize(referenceCount, presentation);
     const displayLabel = graphLabel(node.title ?? node.path, presentation.maxLabelLength);
     if (!selectedNodeId) {
         return {
             ...node,
             displayLabel,
             degree,
+            referenceCount,
             size: baseSize,
             role: "default",
             opacity: 1,
@@ -178,6 +194,7 @@ function nodeState(
             ...node,
             displayLabel,
             degree,
+            referenceCount,
             size: Math.min(presentation.maxNodeSize, baseSize * presentation.selectedNodeScale),
             role: "selected",
             opacity: 1,
@@ -189,6 +206,7 @@ function nodeState(
             ...node,
             displayLabel,
             degree,
+            referenceCount,
             size: Math.min(presentation.maxNodeSize, baseSize * presentation.neighborNodeScale),
             role: "neighbor",
             opacity: 1,
@@ -199,6 +217,7 @@ function nodeState(
         ...node,
         displayLabel,
         degree,
+        referenceCount,
         size: baseSize,
         role: "muted",
         opacity: presentation.unrelatedOpacity,

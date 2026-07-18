@@ -267,6 +267,18 @@ export type GraphRenderNode = {
     title?: string;
     space: string;
     kind?: string;
+    classification?: GraphRenderNodeClassification;
+};
+
+export type GraphRenderNodeClassification = {
+    key: string;
+    taxonomy: string;
+    terms?: string[];
+    label: string;
+};
+
+export type GraphRenderLegendItem = GraphRenderNodeClassification & {
+    color?: string;
 };
 
 export type GraphRenderEdge = {
@@ -312,6 +324,7 @@ export type ViewRenderOutput =
           kind: "graph";
           nodes: GraphRenderNode[];
           edges: GraphRenderEdge[];
+          legend?: GraphRenderLegendItem[];
       };
 
 export type ViewRenderDocument = {

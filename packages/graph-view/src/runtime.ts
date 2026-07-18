@@ -10,6 +10,7 @@ import {
     type GraphologyViewGraph,
 } from "./layout.ts";
 import { GraphViewModel } from "./model.ts";
+import { mixGraphColors } from "./theme.ts";
 import {
     DEFAULT_GRAPH_LAYOUT_OPTIONS,
     DEFAULT_GRAPH_PRESENTATION,
@@ -277,14 +278,17 @@ class SigmaGraphRuntime implements GraphRuntime {
     #reduceNode(nodeId: string, data: GraphologyNodeAttributes) {
         const node = this.#nodeStates.get(nodeId);
         if (!node) return { ...data, hidden: true };
+        const classificationColor = node.classification?.color;
         const color =
             node.role === "selected"
-                ? this.#theme.nodeSelected
+                ? (classificationColor ?? this.#theme.nodeSelected)
                 : node.role === "neighbor"
-                  ? this.#theme.nodeNeighbor
+                  ? (classificationColor ?? this.#theme.nodeNeighbor)
                   : node.role === "muted"
-                    ? this.#theme.nodeMuted
-                    : this.#theme.node;
+                    ? classificationColor
+                        ? mixGraphColors(this.#theme.background, classificationColor, node.opacity)
+                        : this.#theme.nodeMuted
+                    : (classificationColor ?? this.#theme.node);
         return {
             ...data,
             color,

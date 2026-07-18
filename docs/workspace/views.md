@@ -58,6 +58,10 @@ mode: graph
 source:
     type: pages
 graph:
+    presentation:
+        nodes:
+            colorBy:
+                taxonomy: areas
     edges:
         - source: fields
           field: owner
@@ -68,6 +72,10 @@ graph:
 
 <!-- forma:content -->
 ```
+
+`graph.presentation.nodes.colorBy.taxonomy` optionally colors nodes by any configured taxonomy. A Page that matches one term uses the term's `display.color`, falling back to the taxonomy's `display.color`. Unclassified Pages and Pages that match several terms keep a neutral fill, so Forma never chooses an arbitrary first term. Omitting `colorBy` preserves the Host's neutral Graph colors; naming an unknown taxonomy reports `view.graphTaxonomyMissing`.
+
+Node size is derived from the number of incoming and outgoing resolved references, using a bounded logarithmic scale so highly connected Pages stand out without overwhelming the layout.
 
 Use `query` only for filters within the selected source:
 
