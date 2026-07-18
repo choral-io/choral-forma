@@ -1,4 +1,9 @@
-import { createGraphRuntime, type GraphRuntime, type GraphTheme } from "@choral-forma/graph-view";
+import {
+    createGraphRuntime,
+    createGraphThemeFromTokens,
+    type GraphRuntime,
+    type GraphTheme,
+} from "@choral-forma/graph-view";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 
@@ -13,6 +18,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     const location = useLocation();
     const navigate = useNavigate();
     const containerRef = useRef<HTMLDivElement | null>(null);
+    const navigateRef = useRef(navigate);
     const runtimeRef = useRef<GraphRuntime | null>(null);
     const routesRef = useRef(new Map<string, string>());
     const [graphTheme, setGraphTheme] = useState<GraphTheme>(() => readGraphThemeTokens(resolvedMode));
@@ -23,6 +29,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         () => activeGraphNodeId(projection, location.pathname),
         [location.pathname, projection],
     );
+    const runtimeInputRef = useRef({ activeNodeId, graphTheme, projection: runtimeProjection });
     const adjacentNodes = useMemo(() => graphAdjacentNodes(projection), [projection]);
     const selectedNode = selectedNodeId ? projection.nodes.find((node) => node.id === selectedNodeId) : undefined;
     const normalizedSearch = search.trim().toLocaleLowerCase();
@@ -44,6 +51,10 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     useEffect(() => {
         routesRef.current = routes;
     }, [routes]);
+
+    useEffect(() => {
+        navigateRef.current = navigate;
+    }, [navigate]);
 
     useEffect(() => {
         const frame = requestAnimationFrame(() => {
@@ -72,7 +83,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                 "Interactive graph preview. Select a node with one click and open it with Enter or double click.",
             onOpenNode(node) {
                 const routePath = routesRef.current.get(node.id);
-                if (routePath) void navigate(routePath);
+                if (routePath) void navigateRef.current(routePath);
             },
             onSelectionChange(snapshot) {
                 setSelectedNodeId(snapshot.selectedNodeId);
@@ -83,13 +94,19 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
             runtimeRef.current = null;
             runtime.destroy();
         };
-    }, [navigate]);
+    }, []);
 
     useEffect(() => {
+        const previousInput = runtimeInputRef.current;
+        const activeNodeChanged = previousInput.activeNodeId !== activeNodeId;
+        const projectionChanged = previousInput.projection !== runtimeProjection;
+        const themeChanged = previousInput.graphTheme !== graphTheme;
+        runtimeInputRef.current = { activeNodeId, graphTheme, projection: runtimeProjection };
+        if (!activeNodeChanged && !projectionChanged && !themeChanged) return;
         runtimeRef.current?.update({
-            activeNodeId,
-            projection: runtimeProjection,
-            theme: graphTheme,
+            ...(activeNodeChanged ? { activeNodeId } : {}),
+            ...(projectionChanged ? { projection: runtimeProjection } : {}),
+            ...(themeChanged ? { theme: graphTheme } : {}),
         });
     }, [activeNodeId, graphTheme, runtimeProjection]);
 
@@ -219,21 +236,16 @@ function readGraphThemeTokens(resolvedMode: "light" | "dark"): GraphTheme {
     const token = (name: string, fallback: string) =>
         normalizeGraphColor(styles.getPropertyValue(name).trim(), fallback, colorContext);
 
-    return {
+    return createGraphThemeFromTokens({
         background: token("--background", dark ? "#0f172a" : "#ffffff"),
         surface: token("--card", dark ? "#1e293b" : "#ffffff"),
         border: token("--border", dark ? "#334155" : "#e2e8f0"),
-        node: token("--muted-foreground", dark ? "#94a3b8" : "#64748b"),
-        nodeSelected: token("--primary", "#0f9f75"),
-        nodeNeighbor: token("--chart-1", dark ? "#38bdf8" : "#0284c7"),
-        nodeMuted: token("--border", dark ? "#334155" : "#e2e8f0"),
-        edge: token("--muted-foreground", dark ? "#94a3b8" : "#64748b"),
-        edgeSelected: token("--primary", "#0f9f75"),
-        edgeMuted: token("--border", dark ? "#334155" : "#e2e8f0"),
-        label: token("--foreground", dark ? "#f8fafc" : "#0f172a"),
-        labelMuted: token("--muted-foreground", dark ? "#94a3b8" : "#64748b"),
+        foreground: token("--foreground", dark ? "#f8fafc" : "#0f172a"),
+        mutedForeground: token("--muted-foreground", dark ? "#94a3b8" : "#64748b"),
+        primary: token("--primary", "#0f9f75"),
+        accent: token("--chart-1", dark ? "#38bdf8" : "#0284c7"),
         focusRing: token("--ring", "#0f9f75"),
-    };
+    });
 }
 
 function normalizeGraphColor(value: string, fallback: string, context: CanvasRenderingContext2D | null) {

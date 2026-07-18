@@ -7,6 +7,7 @@ export {
 } from "./fixtures.ts";
 export { GraphViewModel, aggregateDisplayEdges, graphLabel, nodeSize } from "./model.ts";
 export { createGraphRuntime } from "./runtime.ts";
+export { createGraphThemeFromTokens, mixGraphColors, opaqueGraphColor, type GraphThemeTokens } from "./theme.ts";
 export {
     DEFAULT_GRAPH_LAYOUT_OPTIONS,
     DEFAULT_GRAPH_PRESENTATION,
