@@ -614,14 +614,14 @@ pub fn render_view(
     let has_legacy_mount = document.references.iter().any(|reference| {
         reference.intent == FormaReferenceIntent::View && reference.target.is_empty()
     });
-    if view_document.mounts.is_empty() {
-        let message = if has_legacy_mount {
-            "Replace legacy `<!-- forma-view -->` with `<!-- forma:content -->`."
-        } else {
-            "View must contain exactly one `<!-- forma:content -->` marker."
-        };
-        diagnostics
-            .push(Diagnostic::error("view.mountMissing", message).with_path(view_path.clone()));
+    if view_document.mounts.is_empty() && has_legacy_mount {
+        diagnostics.push(
+            Diagnostic::error(
+                "view.mountMissing",
+                "Replace legacy `<!-- forma-view -->` with `<!-- forma:content -->`.",
+            )
+            .with_path(view_path.clone()),
+        );
     }
     if view_document.mounts.len() > 1 {
         diagnostics.push(
@@ -2622,7 +2622,7 @@ mod tests {
     }
 
     #[test]
-    fn reports_missing_view_mount_as_diagnostic() {
+    fn allows_missing_view_mount_for_clients_that_append_the_projection() {
         let root = fixture_root("view-missing-mount");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
@@ -2634,12 +2634,21 @@ mod tests {
 
         let result = render_view(&root, "notes", BTreeMap::new()).unwrap();
 
-        assert_eq!(result.status, crate::OperationStatus::Failed);
-        assert!(result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.code == "view.mountMissing"
-                && diagnostic.message
-                    == "View must contain exactly one `<!-- forma:content -->` marker."
-        }));
+        assert_eq!(result.status, crate::OperationStatus::Passed);
+        assert!(result.render.is_some());
+        assert_eq!(
+            result
+                .document
+                .as_ref()
+                .map(|document| document.mounts.len()),
+            Some(0)
+        );
+        assert!(
+            !result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "view.mountMissing")
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

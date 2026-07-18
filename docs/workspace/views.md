@@ -91,6 +91,6 @@ query:
 
 Add views after the underlying spaces and fields exist. Treat views as projections, not as hidden state.
 
-Every rendered view page needs a `<!-- forma:content -->` mount in the Markdown body. `forma view render` reports `view.mountMissing` when the mount is absent.
+Use `<!-- forma:content -->` when the rendered projection needs an explicit position in the Markdown body. When the marker is absent, clients append the projection to the end of the document. Multiple markers are invalid, and the legacy `<!-- forma-view -->` directive produces a migration diagnostic.
 
 Render configured views with `forma view render <view-id-or-path> --json`. Use this for lists, tables, kanban boards, and graphs instead of introducing workflow-specific read commands.
