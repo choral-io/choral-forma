@@ -150,8 +150,12 @@ class SigmaGraphRuntime implements GraphRuntime {
                 drawGraphNodeHover(context, data, settings, this.#theme);
             },
             edgeProgramClasses: {
-                arrow: createEdgeArrowProgram<GraphologyNodeAttributes, GraphologyEdgeAttributes>(),
-                doubleArrow: createEdgeDoubleArrowProgram<GraphologyNodeAttributes, GraphologyEdgeAttributes>(),
+                arrow: createEdgeArrowProgram<GraphologyNodeAttributes, GraphologyEdgeAttributes>(
+                    EDGE_ARROW_HEAD_OPTIONS,
+                ),
+                doubleArrow: createEdgeDoubleArrowProgram<GraphologyNodeAttributes, GraphologyEdgeAttributes>(
+                    EDGE_ARROW_HEAD_OPTIONS,
+                ),
             },
             edgeReducer: (edge, data) => this.#reduceEdge(edge, data),
             enableEdgeEvents: false,
@@ -254,7 +258,8 @@ class SigmaGraphRuntime implements GraphRuntime {
             return;
         }
         this.#edgeFlowStartedAt ??= time;
-        if (time - this.#edgeFlowStartedAt >= EDGE_FLOW_ACTIVE_DURATION_MS) {
+        const elapsed = time - this.#edgeFlowStartedAt;
+        if (elapsed >= EDGE_FLOW_DURATION_MS) {
             this.#stopEdgeFlow();
             return;
         }
@@ -264,7 +269,7 @@ class SigmaGraphRuntime implements GraphRuntime {
             this.#renderer,
             this.#edgeFlowEdges,
             this.#theme,
-            time,
+            elapsed / EDGE_FLOW_DURATION_MS,
         );
         this.#edgeFlowFrame = requestAnimationFrame(this.#drawEdgeFlow);
     };
@@ -340,7 +345,7 @@ function drawGraphEdgeFlow(
     renderer: EdgeFlowRenderer,
     edges: readonly GraphDisplayEdgeState[],
     theme: GraphTheme,
-    time: number,
+    phase: number,
 ): void {
     const dimensions = renderer.getDimensions();
     const pixelRatio = Math.max(1, globalThis.devicePixelRatio || 1);
@@ -354,7 +359,6 @@ function drawGraphEdgeFlow(
     context.clearRect(0, 0, dimensions.width, dimensions.height);
     context.fillStyle = theme.edgeSelected;
     context.globalAlpha = 0.9;
-    const phase = (time % EDGE_FLOW_DURATION_MS) / EDGE_FLOW_DURATION_MS;
     for (const edge of edges) {
         const sourceData = renderer.getNodeDisplayData(edge.source);
         const targetData = renderer.getNodeDisplayData(edge.target);
@@ -367,10 +371,14 @@ function drawGraphEdgeFlow(
     context.globalAlpha = 1;
 }
 
-const EDGE_FLOW_DURATION_MS = 1_400;
-const EDGE_FLOW_ACTIVE_DURATION_MS = EDGE_FLOW_DURATION_MS * 2;
+const EDGE_ARROW_HEAD_OPTIONS = {
+    lengthToThicknessRatio: 5,
+    widenessToThicknessRatio: 4,
+} as const;
+const EDGE_FLOW_DURATION_MS = 1_800;
 const MAX_ANIMATED_EDGE_COUNT = 64;
-const EDGE_FLOW_PARTICLE_OFFSETS = [0, 1 / 3, 2 / 3] as const;
+const EDGE_FLOW_PARTICLE_DELAYS = [0, 0.1, 0.2] as const;
+const EDGE_FLOW_PARTICLE_TRAVEL_PHASE = 0.8;
 
 function drawEdgeFlowDirection(
     context: CanvasRenderingContext2D,
@@ -378,8 +386,10 @@ function drawEdgeFlowDirection(
     target: { x: number; y: number },
     phase: number,
 ): void {
-    for (const offset of EDGE_FLOW_PARTICLE_OFFSETS) {
-        const progress = 0.12 + ((phase + offset) % 1) * 0.76;
+    for (const delay of EDGE_FLOW_PARTICLE_DELAYS) {
+        const localProgress = (phase - delay) / EDGE_FLOW_PARTICLE_TRAVEL_PHASE;
+        if (localProgress < 0 || localProgress > 1) continue;
+        const progress = 0.12 + easeInOutCubic(localProgress) * 0.76;
         context.beginPath();
         context.arc(
             source.x + (target.x - source.x) * progress,
@@ -390,6 +400,10 @@ function drawEdgeFlowDirection(
         );
         context.fill();
     }
+}
+
+function easeInOutCubic(value: number): number {
+    return value < 0.5 ? 4 * value ** 3 : 1 - (-2 * value + 2) ** 3 / 2;
 }
 
 function drawGraphNodeHover(

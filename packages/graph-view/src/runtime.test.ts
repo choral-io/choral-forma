@@ -67,7 +67,12 @@ const sigmaMocks = vi.hoisted(() => {
         }
     }
 
-    return { FakeSigma, instances: [] as FakeSigma[] };
+    return {
+        FakeSigma,
+        arrowProgramOptions: [] as unknown[],
+        doubleArrowProgramOptions: [] as unknown[],
+        instances: [] as FakeSigma[],
+    };
 });
 
 vi.mock("sigma", () => ({
@@ -80,14 +85,18 @@ vi.mock("sigma", () => ({
 }));
 
 vi.mock("sigma/rendering", () => ({
-    createEdgeArrowProgram: () =>
-        class EdgeArrowProgram {
+    createEdgeArrowProgram: (options: unknown) => {
+        sigmaMocks.arrowProgramOptions.push(options);
+        return class EdgeArrowProgram {
             readonly type = "arrow";
-        },
-    createEdgeDoubleArrowProgram: () =>
-        class EdgeDoubleArrowProgram {
+        };
+    },
+    createEdgeDoubleArrowProgram: (options: unknown) => {
+        sigmaMocks.doubleArrowProgramOptions.push(options);
+        return class EdgeDoubleArrowProgram {
             readonly type = "doubleArrow";
-        },
+        };
+    },
 }));
 
 import { createGraphRuntime } from "./runtime.ts";
@@ -98,6 +107,8 @@ describe("SigmaGraphRuntime lifecycle", () => {
     const resizeObservers: FakeResizeObserver[] = [];
 
     beforeEach(() => {
+        sigmaMocks.arrowProgramOptions.length = 0;
+        sigmaMocks.doubleArrowProgramOptions.length = 0;
         sigmaMocks.instances.length = 0;
         animationFrames.length = 0;
         resizeObservers.length = 0;
@@ -258,6 +269,21 @@ describe("SigmaGraphRuntime lifecycle", () => {
         runtime.destroy();
     });
 
+    it("uses more legible arrowhead proportions for one-way and reciprocal edges", () => {
+        const runtime = createGraphRuntime({
+            container: fakeContainer(),
+            projection: projection(),
+            theme: theme(),
+            layout: { engine: "force", reducedMotion: true },
+        });
+
+        expect(sigmaMocks.arrowProgramOptions).toEqual([{ lengthToThicknessRatio: 5, widenessToThicknessRatio: 4 }]);
+        expect(sigmaMocks.doubleArrowProgramOptions).toEqual([
+            { lengthToThicknessRatio: 5, widenessToThicknessRatio: 4 },
+        ]);
+        runtime.destroy();
+    });
+
     it("animates only emphasized edge directions and stops the frame loop when selection clears", () => {
         const runtime = createGraphRuntime({
             container: fakeContainer(),
@@ -271,11 +297,11 @@ describe("SigmaGraphRuntime lifecycle", () => {
         expect(requestAnimationFrame).not.toHaveBeenCalled();
         renderer.emit("clickNode", { node: "a.md" });
         expect(requestAnimationFrame).toHaveBeenCalledOnce();
-        const drawFrame = animationFrames.shift();
-        if (!drawFrame) throw new Error("Expected edge flow frame.");
-        drawFrame(0);
+        const firstFrame = animationFrames.shift();
+        if (!firstFrame) throw new Error("Expected first edge flow frame.");
+        firstFrame(0);
 
-        expect(renderer.flowArc).toHaveBeenCalledTimes(3);
+        expect(renderer.flowArc).toHaveBeenCalledTimes(1);
         expect(renderer.flowArc).toHaveBeenNthCalledWith(1, 12, 0, 1.8, 0, Math.PI * 2);
         expect(renderer.flowCanvas).toMatchObject({
             height: 480,
@@ -283,10 +309,19 @@ describe("SigmaGraphRuntime lifecycle", () => {
             width: 720,
         });
         expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+        const easedFrame = animationFrames.shift();
+        if (!easedFrame) throw new Error("Expected eased edge flow frame.");
+        easedFrame(900);
+        expect(renderer.flowArc).toHaveBeenCalledTimes(4);
+        expect(renderer.flowArc).toHaveBeenNthCalledWith(2, 71.96875, 0, 1.8, 0, Math.PI * 2);
+        expect(renderer.flowArc).toHaveBeenNthCalledWith(3, 50, 0, 1.8, 0, Math.PI * 2);
+        expect(renderer.flowArc.mock.calls[3]?.[0]).toBeCloseTo(28.03125);
+        expect(renderer.flowArc.mock.calls[3]?.slice(1)).toEqual([0, 1.8, 0, Math.PI * 2]);
+        expect(requestAnimationFrame).toHaveBeenCalledTimes(3);
         const finalFrame = animationFrames.shift();
         if (!finalFrame) throw new Error("Expected final edge flow frame.");
-        finalFrame(2_800);
-        expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+        finalFrame(1_800);
+        expect(requestAnimationFrame).toHaveBeenCalledTimes(3);
         expect(renderer.flowClearRect).toHaveBeenLastCalledWith(0, 0, 720, 480);
         renderer.emit("clickStage", {});
         expect(cancelAnimationFrame).toHaveBeenCalled();
@@ -338,9 +373,9 @@ describe("SigmaGraphRuntime lifecycle", () => {
         if (!drawFrame) throw new Error("Expected edge flow frame.");
         drawFrame(0);
 
-        expect(renderer.flowArc).toHaveBeenCalledTimes(6);
+        expect(renderer.flowArc).toHaveBeenCalledTimes(2);
         expect(renderer.flowArc).toHaveBeenNthCalledWith(1, 12, 0, 1.8, 0, Math.PI * 2);
-        expect(renderer.flowArc).toHaveBeenNthCalledWith(4, 88, 0, 1.8, 0, Math.PI * 2);
+        expect(renderer.flowArc).toHaveBeenNthCalledWith(2, 88, 0, 1.8, 0, Math.PI * 2);
         runtime.destroy();
     });
 
