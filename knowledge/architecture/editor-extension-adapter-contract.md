@@ -192,13 +192,15 @@ VS Code Preview tokens
 
 The VS Code adapter derives these values from `--vscode-*` variables, including editor colors, focus and contrast borders, chart colors, and editor font settings. Renderers must support light, dark, high-contrast, and reduced-motion modes without theme-name-specific rules.
 
-Other editor adapters may provide the same semantic Forma tokens from their own theme APIs. Shared renderer code must not import a VS Code API or WebApp theme context.
+The WebApp and other editor adapters provide the same semantic Forma roles from their own theme APIs. Shared renderer code must not import a VS Code API, React, React Router, or the WebApp theme context. Geometry, opacity hierarchy, label policy, selected and neighbor emphasis, and edge semantics remain identical across Hosts while concrete colors, fonts, surfaces, borders, and focus treatment adapt to the environment.
 
 ## Graph Renderer Boundary
 
 `view.render` graph nodes and edges are the stable input boundary. The current WebApp renderer's fixed circular placement, simple space-color hash, and hover-only focus behavior are not part of the adapter contract.
 
-Before selecting a graph library or sharing an existing component, the VS Code work should validate at least two renderer approaches against the same fixture and requirements:
+Sigma.js plus Graphology is the accepted 2D direction. `packages/graph-view` is the required implementation boundary for both WebApp and editor extensions. The VS Code adapter contributes the Preview browser bundle, active-document input, native source links, theme mapping, and reload lifecycle; it must not duplicate graph construction, layout, Sigma reducers, or interaction state.
+
+The shared implementation and each Host adapter should be validated against the same fixtures and requirements:
 
 - meaningful force-directed or hierarchical layout;
 - deterministic initial placement and stable refresh behavior;

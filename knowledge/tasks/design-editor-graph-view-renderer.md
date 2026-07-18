@@ -2,8 +2,8 @@
 schemaVersion: 1
 kind: task
 scope: project
-title: Design editor Graph View renderer
-summary: Run a focused post-Alpha-13 design and renderer evaluation for meaningful, themed, accessible knowledge graph exploration.
+title: Design Shared Graph View Renderer
+summary: Define one meaningful, themed, accessible Graph renderer shared by the WebApp and editor extensions through thin Host adapters.
 type: task
 priority: P2
 value: M
@@ -19,6 +19,8 @@ tags:
     - forma
     - graph
     - vscode
+    - webapp
+    - shared-renderer
     - design
 blockedBy: []
 relatedTo:
@@ -27,17 +29,21 @@ relatedTo:
     - "discovery/editor-graph-view-technical-research-2026-07-17"
     - "tasks/generalize-taxonomy-neutral-page-model"
     - "tasks/implement-vscode-extension-mvp"
+    - "tasks/implement-shared-graph-view-runtime"
+    - "tasks/integrate-shared-graph-view-vscode-preview"
+    - "tasks/migrate-webapp-to-shared-graph-view"
+    - "tasks/validate-shared-graph-view-cross-host-parity"
 severity: ""
 sprint: ""
 reportedBy: ""
-affectedArea: Editor Graph View design and renderer selection
+affectedArea: Shared Graph View renderer, WebApp adapter, and editor-extension adapters
 ---
 
-# Design Editor Graph View Renderer
+# Design Shared Graph View Renderer
 
 ## Goal
 
-Treat Graph as a focused product and technical project after the first extension release instead of carrying forward the current WebApp renderer by default.
+Treat Graph as a focused product and technical project implemented once for consistent WebApp and editor-extension behavior, with Host-adapted theme, navigation, active-document, persistence, and lifecycle integration.
 
 ## Sources
 
@@ -52,9 +58,11 @@ Treat Graph as a focused product and technical project after the first extension
 - Gather concrete feedback on the current fixed-circle WebApp graph and Alpha 13 deferred state.
 - Define graph exploration journeys, density thresholds, layouts, selection, filters, source navigation, theme, contrast, keyboard, and reduced-motion requirements.
 - Build a Sigma vertical slice and compare at least two Graphology layout approaches using the same fixtures.
+- Define `packages/graph-view` as the required framework- and Host-neutral implementation package.
 - Evaluate deterministic placement, refresh stability, performance, bundle cost, accessibility, host-theme integration, and maintenance burden.
 - Validate persistent single selection, one-hop emphasis, active-document following, directed and reciprocal edges, source navigation, and richer semantic node styling.
 - Define the renderer-neutral boundary needed by later frontmatter-driven groups, filters, and an optional 3D renderer.
+- Define thin React and native Markdown Preview adapters that cannot reimplement renderer state or Sigma reducers.
 - Record layout evidence and any reason to activate a fallback renderer before production implementation.
 - Split implementation and validation follow-up tasks.
 
@@ -70,6 +78,8 @@ Treat Graph as a focused product and technical project after the first extension
 
 - User dissatisfaction and target experience are expressed as observable criteria.
 - Sigma is validated as the 2D renderer with shared small, medium, and large fixtures.
+- WebApp and VS Code consume the same shared Graph package, state controller, layout, node and edge programs, and presentation rules.
+- Host-specific code is limited to theme mapping, navigation, active-document discovery, persistence, and lifecycle wiring.
 - At least two Graphology layout approaches are compared with shared fixtures.
 - Single click selects; selected and directly connected nodes and edges are emphasized; unrelated elements are de-emphasized.
 - The Graph follows an applicable active managed document and otherwise fits the full graph without selection.
@@ -83,3 +93,10 @@ Treat Graph as a focused product and technical project after the first extension
 The 2026-07-17 technical assessment accepts Sigma.js plus Graphology as the 2D production direction because Forma already uses Sigma and the fixed-circle layout, rather than the renderer, is the main current limitation. The spike should compare ForceAtlas2 worker and Graphology's simpler force layout rather than pay for a second full renderer prototype. Foam's `force-graph` approach remains a fallback only if Sigma misses an accepted requirement.
 
 The spike can continue with renderer-neutral fixtures and interfaces. Production integration must consume the taxonomy-neutral Page model and must not extend the current `GraphRenderNode.space` compatibility field or introduce special behavior for any taxonomy id. Frontmatter-defined groups and filters are a follow-up over Forma's generic query model. A 3D renderer is a later opt-in, lazily loaded experiment over the same projection and state, not part of the first production acceptance criteria.
+
+## Delivery Slices
+
+1. [[tasks/implement-shared-graph-view-runtime]] owns the framework-neutral package, fixtures, controller, Sigma programs, layout, theme roles, and shared interaction behavior.
+2. [[tasks/migrate-webapp-to-shared-graph-view]] removes the package-local WebApp renderer and adds a thin React Host adapter.
+3. [[tasks/integrate-shared-graph-view-vscode-preview]] adds the native Preview browser bundle and VS Code Host adapter.
+4. [[tasks/validate-shared-graph-view-cross-host-parity]] proves behavior, theme adaptation, lifecycle, accessibility, performance, and packaged integration across both Hosts before the milestone push.

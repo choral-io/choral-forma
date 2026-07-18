@@ -244,14 +244,14 @@ The WebApp should keep a package-local adapter boundary. Fake data can remain as
 5. Wire document detail to `file.render` and `file.references`.
 6. Replace server-rendered document HTML consumption with a WebApp-local Markdown reader that uses backend-provided source, headings, references, and diagnostics.
 7. Keep view detail renderers lightweight while graph interaction and layout choices remain outside the current `view.render` output contract.
-8. Keep graph renderer implementation package-local and isolated from route orchestration so renderer choices can change without changing the read-model contract.
+8. Keep the WebApp Graph adapter package-local and isolated from route orchestration, while consuming the Host-neutral renderer from `packages/graph-view` so WebApp and editor extensions share layout, interaction, and presentation behavior without changing the read-model contract.
 
 ## Open Questions
 
 - Should document ids stay path-derived slugs permanently, or should a future read-model API eventually expose explicit stable ids? Current direction: path-derived slugs.
 - Should document heading ids eventually be embedded directly into server HTML output for export modes? Current direction: WebApp reader attaches ids from backend heading analysis during client render.
 - Should `workspace.dashboard` include document bodies? Current direction: no.
-- Should graph rendering use Sigma.js long-term? Current direction: Sigma.js is acceptable as the current WebApp renderer because it improves read-only graph interaction with modest dependency cost, but the backend and shared contract must remain renderer-agnostic.
+- Should graph rendering use Sigma.js long-term? Current direction: Sigma.js plus Graphology is the accepted 2D renderer inside `packages/graph-view`. The backend and projection contract remain renderer-agnostic, and the WebApp consumes the package through a thin React adapter rather than maintaining a separate Sigma implementation.
 - Should the first client renderer use `marked` or a React/unified component renderer? Current direction: use a `marked` pipeline close to Choral Flows for the first implementation, with DOMPurify sanitization and isolated WebApp CSS, then revisit if component-level rendering becomes necessary.
 
 ## Related Documents

@@ -40,7 +40,7 @@ affectedArea: Graph views
 
 # Implement Interactive Graph View Render
 
-> Cancelled as a WebApp-hardening task. The stable graph data contract remains relevant, while editor-first Graph design and implementation now belong to [[tasks/implement-vscode-extension-mvp]].
+> Cancelled as a WebApp-only hardening task. The stable graph data contract remains relevant; its active successor is the cross-Host implementation beginning with [[tasks/implement-shared-graph-view-runtime]].
 
 ## Goal
 
@@ -67,7 +67,7 @@ The current implementation already has the first baseline:
 - Graph nodes can navigate to indexed documents.
 - Theme-aware graph colors and hover labels have a first-pass implementation.
 
-The planned WebApp hardening is no longer the active product path. The current fixed-circle renderer is not the desired editor Graph baseline. The next implementation should reuse the `view.render` nodes and edges while validating new layout and interaction approaches inside the editor extension.
+The planned WebApp-only hardening is no longer the active product path. The current fixed-circle renderer is not the desired Graph baseline. The successor implementation reuses the `view.render` nodes and edges through one shared package consumed by the WebApp and editor extensions, with Host-specific theme, navigation, active-document, persistence, and lifecycle adapters.
 
 ## In Scope
 
@@ -102,7 +102,7 @@ The planned WebApp hardening is no longer the active product path. The current f
 
 ## Relationship Notes
 
-The completed graph query and render-result work remains valid. WebApp-specific visual hardening is cancelled because the WebApp is in maintenance mode. Graph renderer requirements, spike criteria, editor theme behavior, and source navigation are now recorded in [[design/editor-extension-mvp-design]] and [[planning/editor-extension-mvp-roadmap]].
+The completed graph query and render-result work remains valid. This WebApp-only hardening task stays cancelled. Cross-Host renderer requirements and implementation slices are now recorded in [[discovery/editor-graph-view-technical-research-2026-07-17]], [[tasks/design-editor-graph-view-renderer]], and [[tasks/implement-shared-graph-view-runtime]].
 
 ## Open Questions
 

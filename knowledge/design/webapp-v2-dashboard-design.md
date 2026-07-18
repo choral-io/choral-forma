@@ -178,7 +178,7 @@ Configured views should render as first-class pages. Product-level view definiti
 
 View rendering must come from shared Forma operations. The WebApp must not re-implement Markdown scanning or query semantics in the browser.
 
-The first graph renderer may use a lightweight client library for pan, zoom, and hover feedback, but the design contract is still a read-only projection over backend-provided nodes and explicit body-derived links. Graph colors should come from existing theme tokens, with renderer-specific color conversion isolated in the WebApp implementation. Labels should be readable by default, and hover labels should use bounded, theme-aware presentation rather than library defaults that can clash with dark mode.
+The Graph renderer consumes a read-only projection over backend-provided nodes and explicit configured references. WebApp and editor extensions must use the same implementation from `packages/graph-view` for layout, selection, one-hop emphasis, arrows, node sizing, label policy, and other observable behavior. The WebApp keeps only a thin React adapter for routing, lifecycle, active-Page state, and mapping WebApp theme tokens into shared semantic Graph roles. Labels and focus presentation should remain bounded and theme-aware rather than relying on library defaults that can clash with dark mode.
 
 ### Diagnostics And Health
 

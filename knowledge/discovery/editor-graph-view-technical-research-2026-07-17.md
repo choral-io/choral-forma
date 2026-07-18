@@ -1,14 +1,15 @@
 ---
 scope: project
 type: technical-assessment
-title: Editor Graph View Technical Research — 2026-07-17
-summary: Assesses 2D and 3D graph references and defines an extensible, configurable, editor-native Graph View direction for Forma.
+title: Cross-Host Graph View Technical Research — 2026-07-17
+summary: Defines a shared, configurable Graph View renderer for consistent WebApp and editor-extension behavior with host-adapted themes and navigation.
 owners:
     - "members/tiscs"
 tags:
     - discovery
     - graph
     - vscode
+    - webapp
     - views
     - performance
     - accessibility
@@ -18,21 +19,25 @@ sources:
     - "design/editor-extension-mvp-design"
     - "tasks/design-editor-graph-view-renderer"
     - "tasks/generalize-taxonomy-neutral-page-model"
+    - "tasks/implement-shared-graph-view-runtime"
+    - "tasks/integrate-shared-graph-view-vscode-preview"
+    - "tasks/migrate-webapp-to-shared-graph-view"
+    - "tasks/validate-shared-graph-view-cross-host-parity"
 ---
 
-# Editor Graph View Technical Research — 2026-07-17
+# Cross-Host Graph View Technical Research — 2026-07-17
 
 ## Outcome
 
-Forma should keep Graph as a normal configured View and implement it as an enhancement of the editor's native Markdown Preview. Sigma.js plus Graphology is the accepted 2D production direction. The implementation spike should now concentrate on interaction, relationship-driven layout, styling, refresh stability, theme integration, accessibility, and performance instead of building a second full renderer prototype by default.
+Forma should keep Graph as a normal configured View and render it through one shared implementation in the WebApp and editor extensions. Sigma.js plus Graphology is the accepted 2D production direction. The implementation should concentrate on interaction, relationship-driven layout, styling, refresh stability, theme integration, accessibility, and performance instead of building independent Host renderers or a second full renderer prototype.
 
 Forma already carries Sigma and Graphology in the WebApp, Sigma provides a WebGL path for larger graphs, and Graphology supplies worker-based ForceAtlas2. The present WebApp's fixed-circle layout is the primary visual limitation; it is not evidence that Sigma itself is unsuitable. Foam's `force-graph` approach remains a reference and fallback only if the Sigma spike fails an accepted requirement.
 
 The first production Graph remains 2D. A 3D Graph is technically feasible and may later become an opt-in, lazily loaded renderer over the same projection and interaction state, but it should not block or inflate the first useful editor Graph.
 
-Do not share the current React route component. Extract a host-neutral graph component only after the spike establishes its boundary. That component should consume a renderer-independent projection, semantic `--forma-*` theme tokens, and callbacks for selection and navigation. It must not import VS Code, React Router, or the WebApp theme context.
+Do not share the current React route component. Create `packages/graph-view` from the first implementation slice as a framework- and Host-neutral package. It should consume a renderer-independent projection, semantic theme values, external active-node state, and callbacks for selection and navigation. It must not import VS Code, React, React Router, or the WebApp theme context. The WebApp uses a thin React lifecycle wrapper; VS Code uses a native Markdown Preview script adapter over the same renderer.
 
-Production integration is sequenced behind the taxonomy-neutral Page contract. The current `GraphRenderNode.space` field and space-color hash contradict the accepted rule that every configured taxonomy is equal. A spike may translate the current fixture at its boundary, but it must not add another production dependency on `space` or reserve any taxonomy id.
+The shared runtime and both Host adapters may proceed now using the taxonomy-neutral subset of the current projection: id, path, title, kind, and directed semantic edges. They must ignore the compatibility `GraphRenderNode.space` field. The final public node-facet contract and taxonomy-driven groups, filters, and styling remain sequenced behind the taxonomy-neutral Page contract; no implementation may add another dependency on `space` or reserve any taxonomy id.
 
 ## Accepted Product Decisions — 2026-07-17
 
@@ -44,6 +49,7 @@ Production integration is sequenced behind the taxonomy-neutral Page contract. T
 - Directed edges use arrows. A single reference shows one direction; reciprocal references must visibly show both directions, using two curved edges or an equally unambiguous bidirectional treatment.
 - Node appearance must support meaningful variation in size, fill color, outline, icon or shape, and label density. These are semantic, renderer-neutral style channels, not hard-coded taxonomies.
 - Groups and filters will be defined by the Graph View's frontmatter and reuse Forma's query model. They are important but may follow the selection, active-document, direction, and styling baseline.
+- WebApp and VS Code must use the same Graph projection, layout, state controller, Sigma node and edge programs, presentation rules, and interaction semantics. Host adapters may differ only where environment behavior differs, such as theme-token resolution, navigation, active-document discovery, persistence, and lifecycle wiring.
 
 ## Current Forma Baseline
 
@@ -95,7 +101,7 @@ Obsidian is a product-behavior reference rather than an implementation reference
 
 Forma should adopt the separation between Filters, Groups, Display, and Forces. It should model global and local graph as two scopes over the same configured View, not as separate built-in product surfaces. A View whose source includes all managed Pages is the global case; local depth is a temporary exploration state anchored to a selected or active Page.
 
-## Editor Host Integration
+## Host Integration
 
 VS Code officially supports `markdown.previewScripts` for advanced behavior inside the built-in Markdown Preview, and reloads contributed scripts on every content change. This gives Forma a route to an interactive Graph without creating a second preview command or a separate custom-editor surface.
 
@@ -114,6 +120,18 @@ The preview script must be idempotent. Each reload disposes the previous rendere
 
 Node navigation should reuse native Markdown Preview link behavior through companion links rather than introducing another file-opening protocol. Source mode remains the normal Markdown editor, and Preview remains the normal editor Preview command.
 
+The WebApp pipeline uses the same package through a thin React adapter:
+
+```text
+Graph View route
+  -> Forma Core view.render projection
+  -> WebApp workspace adapter supplies route and theme context
+  -> shared graph controller mounts in a React-owned element
+  -> node activation delegates to React Router
+```
+
+The React adapter must not duplicate graph construction, reducers, layout, or visual-state rules. It owns only mounting, updates, routing, and Host theme translation.
+
 ## Renderer Comparison
 
 | Approach | Strengths | Risks | Spike decision |
@@ -126,9 +144,9 @@ Node navigation should reuse native Markdown Preview link behavior through compa
 
 The renderer is not the layout. The spike must keep layout, graph state, and host integration behind interfaces so a renderer change does not alter the View or RPC contract.
 
-## Recommended Component Boundary
+## Required Shared Component Boundary
 
-After the spike, create a small host-neutral package only if both VS Code and the maintenance WebApp can consume the same boundary without adapter leakage. A likely package is `packages/graph-view`, containing:
+Create `packages/graph-view` before either Host receives the new renderer. Both VS Code and the maintenance WebApp are required consumers. The package contains:
 
 - renderer-independent graph projection types;
 - layout-engine and renderer adapters;
@@ -136,6 +154,8 @@ After the spike, create a small host-neutral package only if both VS Code and th
 - semantic theme-token resolution;
 - the graph component and accessible details/list surface;
 - deterministic fixture and benchmark helpers.
+
+The shared package owns observable rendering behavior: layout seeding and settling, degree-to-size mapping, label thresholds, selected and one-hop emphasis, directed and reciprocal edge programs, visible-subgraph rules, and renderer disposal. Keeping only projection types shared while reimplementing Sigma reducers or state in each Host would not satisfy cross-Host parity.
 
 Host adapters remain responsible for:
 
@@ -146,7 +166,9 @@ Host adapters remain responsible for:
 - translating host theme values into `--forma-*` tokens;
 - workspace trust, diagnostics, and lifecycle.
 
-The first package should not expose the underlying Sigma, Graphology, or `force-graph` object as its public API. Renderer-specific escape hatches would make later replacement and cross-editor reuse harder.
+The WebApp adapter additionally maps the current route or selected Page to `activeNodeId`, delegates source opening to React Router, and mounts the shared controller through a thin React wrapper. The VS Code adapter maps the active managed editor document to `activeNodeId`, delegates source opening to native Preview links, builds the browser entrypoint, and disposes or rehydrates the controller on Preview reload.
+
+The package should not expose the underlying Sigma, Graphology, or `force-graph` object as its public API. Renderer-specific escape hatches would make later replacement and cross-editor reuse harder.
 
 The renderer boundary should accept the same selection, visible-subgraph, styling, direction, camera, and navigation state whether the implementation is Sigma 2D or a later 3D renderer. This preserves the option to add 3D without turning it into a second Graph product.
 
@@ -270,7 +292,7 @@ If Forma pursues 3D, use these constraints:
 
 ## Theme And Accessibility
 
-The graph must consume the same semantic `--forma-*` tokens as other View renderers and respond to light, dark, high-contrast, and live theme changes. Graph groups should use editor chart colors only as defaults; user-defined colors need contrast checks and a non-color indicator.
+The shared renderer consumes semantic Forma theme roles and responds to light, dark, high-contrast, and live theme changes. The VS Code adapter derives them from `--vscode-*` Preview variables; the WebApp adapter derives them from WebApp theme tokens. Geometry, opacity hierarchy, label policy, selection emphasis, and edge semantics remain shared even when concrete colors, fonts, surfaces, borders, and focus treatments adapt to the Host. Graph groups may use Host chart colors only as defaults; user-defined colors need contrast checks and a non-color indicator.
 
 Canvas or WebGL output is not an accessible interaction tree. The component therefore needs a synchronized DOM surface containing:
 
@@ -305,13 +327,14 @@ Visual and behavioral review should compare:
 ## Proposed Small-Step Execution
 
 1. Resolve the taxonomy-neutral node-facet dependency; do not expand `GraphRenderNode.space`.
-2. Add deterministic shared fixtures and a host-neutral renderer and state interface.
-3. Build the Sigma vertical slice with single selection, one-hop emphasis, active-document following, directed edges, source activation, and richer semantic node styling.
+2. Implement `packages/graph-view` with deterministic fixtures, a Host-neutral state controller, Sigma programs, theme roles, and navigation callbacks.
+3. Build the shared Sigma vertical slice with single selection, one-hop emphasis, external active-document following, directed edges, source activation, and richer semantic node styling.
 4. Compare ForceAtlas2 worker and the simpler Graphology force layout on small and medium fixtures; add stable seeding and refresh coordinate reuse.
-5. Implement the native Markdown Preview script lifecycle and accessible companion surface.
-6. Add package, Extension Host, theme, reload, performance, and real-editor validation.
-7. Add frontmatter-defined groups and filters as a follow-up over the same generic facet and query model.
-8. Run a separate lazy-loaded 3D proof of concept only after the 2D baseline is accepted.
+5. Replace the WebApp's package-local Sigma component with a thin React adapter over the shared package.
+6. Add the VS Code native Markdown Preview browser bundle, active-document adapter, native navigation, reload lifecycle, and accessible companion surface.
+7. Validate normalized renderer state, interaction semantics, fixtures, theme adaptation, disposal, and performance across both Hosts before the milestone push.
+8. Add frontmatter-defined groups and filters as a follow-up over the same generic facet and query model.
+9. Run a separate lazy-loaded 3D proof of concept only after the 2D baseline is accepted.
 
 ## Remaining Product Refinement
 
