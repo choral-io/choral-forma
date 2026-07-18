@@ -4,22 +4,21 @@ import * as vscode from "vscode";
 import {
     colorizeBundledLucideSvg,
     configuredIconColor,
-    presentationIconCacheName,
+    svgDataUri,
+    uniformThemeIconPath,
 } from "./workspace-icon-cache-utils.ts";
 import type { TreeNodePresentation } from "./workspace-tree-presentation.ts";
 
 const maximumCachedIcons = 256;
-type ResolvedIcon = vscode.Uri | { light: vscode.Uri; dark: vscode.Uri };
+type ResolvedIcon = { light: vscode.Uri; dark: vscode.Uri };
 
 export class WorkspaceIconCache implements vscode.Disposable {
     private readonly pending = new Map<string, Promise<vscode.Uri>>();
     private readonly resolved = new Map<string, vscode.Uri>();
     private readonly themeSubscription: vscode.Disposable;
-    private prunePending: Promise<void> | undefined;
 
     constructor(
         private readonly extensionUri: vscode.Uri,
-        private readonly globalStorageUri: vscode.Uri,
         refresh: () => void,
     ) {
         this.themeSubscription = vscode.window.onDidChangeActiveColorTheme(refresh);
@@ -36,16 +35,16 @@ export class WorkspaceIconCache implements vscode.Disposable {
         if (cached) {
             this.resolved.delete(key);
             this.resolved.set(key, cached);
-            return cached;
+            return this.presentColoredIcon(cached, fallback);
         }
         const existing = this.pending.get(key);
-        if (existing) return await existing;
+        if (existing) return this.presentColoredIcon(await existing, fallback);
         const load = this.resolveColoredIcon(icon, color).finally(() => this.pending.delete(key));
         this.pending.set(key, load);
         try {
             const resolved = await load;
             this.remember(key, resolved);
-            return isHighContrastTheme(vscode.window.activeColorTheme.kind) ? fallback : resolved;
+            return this.presentColoredIcon(resolved, fallback);
         } catch {
             return fallback;
         }
@@ -74,54 +73,14 @@ export class WorkspaceIconCache implements vscode.Disposable {
         };
     }
 
-    private async resolveColoredIcon(icon: string, color: string): Promise<vscode.Uri> {
-        const directory = vscode.Uri.joinPath(this.globalStorageUri, "presentation-icons", "v1");
-        const target = vscode.Uri.joinPath(directory, presentationIconCacheName(icon, color));
-        try {
-            await vscode.workspace.fs.stat(target);
-            return target;
-        } catch {
-            // A missing cache entry is populated from the trusted bundled asset below.
-        }
+    private presentColoredIcon(uri: vscode.Uri, fallback: { light: vscode.Uri; dark: vscode.Uri }): ResolvedIcon {
+        return isHighContrastTheme(vscode.window.activeColorTheme.kind) ? fallback : uniformThemeIconPath(uri);
+    }
 
-        await vscode.workspace.fs.createDirectory(directory);
+    private async resolveColoredIcon(icon: string, color: string): Promise<vscode.Uri> {
         const source = await vscode.workspace.fs.readFile(this.bundledIcon(icon).light);
         const colored = colorizeBundledLucideSvg(new TextDecoder().decode(source), color);
-        await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(colored));
-        this.schedulePrune(directory);
-        return target;
-    }
-
-    private schedulePrune(directory: vscode.Uri): void {
-        if (this.prunePending) return;
-        this.prunePending = this.prune(directory).finally(() => {
-            this.prunePending = undefined;
-        });
-    }
-
-    private async prune(directory: vscode.Uri): Promise<void> {
-        try {
-            const entries = (await vscode.workspace.fs.readDirectory(directory)).filter(
-                ([name, type]) => type === vscode.FileType.File && name.endsWith(".svg"),
-            );
-            if (entries.length <= maximumCachedIcons) return;
-            const files = await Promise.all(
-                entries.map(async ([name]) => {
-                    const uri = vscode.Uri.joinPath(directory, name);
-                    return { uri, modified: (await vscode.workspace.fs.stat(uri)).mtime };
-                }),
-            );
-            files.sort((left, right) => left.modified - right.modified);
-            const protectedUris = new Set([...this.resolved.values()].map((uri) => uri.toString()));
-            const removable = files.filter(({ uri }) => !protectedUris.has(uri.toString()));
-            await Promise.all(
-                removable
-                    .slice(0, Math.max(0, files.length - maximumCachedIcons))
-                    .map(({ uri }) => vscode.workspace.fs.delete(uri)),
-            );
-        } catch {
-            // Cache cleanup is best-effort and never affects Explorer rendering.
-        }
+        return vscode.Uri.parse(svgDataUri(colored));
     }
 }
 

@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
     colorizeBundledLucideSvg,
     configuredIconColor,
-    presentationIconCacheName,
+    svgDataUri,
+    uniformThemeIconPath,
 } from "./workspace-icon-cache-utils.ts";
 
 describe("workspace icon cache utilities", () => {
@@ -20,16 +21,21 @@ describe("workspace icon cache utilities", () => {
         expect(() => colorizeBundledLucideSvg('<svg stroke="currentColor" />', "#4f7cac")).toThrow(/unexpected/u);
     });
 
-    it("uses an opaque digest filename with no user-controlled path segments", () => {
-        const name = presentationIconCacheName("folder-tree", "#4f7cac");
-        expect(name).toMatch(/^[0-9a-f]{64}\.svg$/u);
-        expect(name).toBe(presentationIconCacheName("folder-tree", "#4f7cac"));
-        expect(name).not.toBe(presentationIconCacheName("folder-tree", "#64748b"));
-    });
-
     it("falls back to theme assets in high contrast themes", () => {
         expect(configuredIconColor("#4F7CAC", false)).toBe("#4f7cac");
         expect(configuredIconColor("#4F7CAC", true)).toBeUndefined();
         expect(configuredIconColor("red", false)).toBeUndefined();
+    });
+
+    it("presents generated icons through both VS Code theme slots", () => {
+        const uri = { path: "/generated/icon.svg" };
+        expect(uniformThemeIconPath(uri)).toEqual({ light: uri, dark: uri });
+    });
+
+    it("keeps generated SVGs self-contained for local and remote extension hosts", () => {
+        const source = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M1 1" /></svg>';
+        const uri = svgDataUri(source);
+        expect(uri).toMatch(/^data:image\/svg\+xml;base64,/u);
+        expect(Buffer.from(uri.split(",")[1] ?? "", "base64").toString("utf8")).toBe(source);
     });
 });

@@ -27,7 +27,7 @@ export class FormaWorkspaceExplorer implements vscode.Disposable {
         private readonly runtime: FormaRuntime,
         context: vscode.ExtensionContext,
     ) {
-        this.iconCache = new WorkspaceIconCache(context.extensionUri, context.globalStorageUri, () => {
+        this.iconCache = new WorkspaceIconCache(context.extensionUri, () => {
             this.changed.fire(undefined);
         });
         this.treeView = vscode.window.createTreeView("forma.workspace", {

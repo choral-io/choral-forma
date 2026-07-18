@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
 
 import { normalizeDisplayColor } from "@choral-forma/shared";
 
@@ -11,11 +11,14 @@ export function colorizeBundledLucideSvg(source: string, requestedColor: string)
     return source.replace(bundledStrokePattern, `$1${color}$2`);
 }
 
-export function presentationIconCacheName(icon: string, color: string): string {
-    const digest = createHash("sha256").update(`v1\0${icon}\0${color}`).digest("hex");
-    return `${digest}.svg`;
-}
-
 export function configuredIconColor(requestedColor: string | undefined, highContrast: boolean): string | undefined {
     return highContrast ? undefined : normalizeDisplayColor(requestedColor);
+}
+
+export function uniformThemeIconPath<T>(uri: T): { light: T; dark: T } {
+    return { light: uri, dark: uri };
+}
+
+export function svgDataUri(source: string): string {
+    return `data:image/svg+xml;base64,${Buffer.from(source, "utf8").toString("base64")}`;
 }
