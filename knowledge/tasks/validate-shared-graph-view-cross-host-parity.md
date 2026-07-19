@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: app
 effort: M
-status: backlog
-readiness: blocked
+status: doing
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -22,9 +22,7 @@ tags:
     - webapp
     - validation
     - performance
-blockedBy:
-    - "tasks/integrate-shared-graph-view-vscode-preview"
-    - "tasks/migrate-webapp-to-shared-graph-view"
+blockedBy: []
 relatedTo:
     - "discovery/editor-graph-view-technical-research-2026-07-17"
     - "tasks/design-editor-graph-view-renderer"
@@ -71,6 +69,6 @@ Establish evidence that the WebApp and VS Code Graph surfaces share one implemen
 - The same projection and presentation configuration produce equivalent normalized layout, node sizing, edge direction, label policy, selection, one-hop emphasis, and reset behavior.
 - Theme differences are traceable only to explicit Host semantic-token mappings.
 - Source navigation, active-document following, reload, and disposal work according to each Host adapter contract.
-- The accessible companion surface exposes searchable nodes, selected-node details, incoming and outgoing neighbors, and a graph-size summary in both Hosts; filter summaries become required when filters are implemented.
+- The text legend exposes configured taxonomy and Term identities, while the accessible selected-node summary exposes the active Page identity, path, and relationship count in both Hosts without duplicating the complete searchable node collection. Filter summaries become required when filters are implemented.
 - Medium and large fixtures remain responsive within recorded budgets, layout work is bounded, and idle graphs do not consume continuous CPU after settling.
 - WebApp checks, VS Code package and integration checks, shared package tests, performance evidence, and the milestone local validation gate pass before push and CI.

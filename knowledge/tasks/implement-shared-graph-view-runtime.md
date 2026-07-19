@@ -71,7 +71,7 @@ Create `packages/graph-view` as the single framework- and Host-neutral implement
 - Single click selects without navigating; the selected node, direct neighbors, and connecting edges are emphasized while unrelated elements are de-emphasized.
 - External `activeNodeId` updates select and center an applicable node; an absent or inapplicable active node falls back to an unselected fit-to-graph state.
 - Single-direction edges show one arrow and reciprocal references show an unambiguous two-direction treatment without discarding semantic edge details.
-- Node size, color role, outline, label visibility, and edge emphasis are semantic shared rules rather than Host-specific reducers.
+- Node size, color role, focus halo, label visibility, label surface, and edge emphasis are semantic shared rules rather than Host-specific reducers.
 - The runtime ignores the compatibility `GraphRenderNode.space` field and introduces no special behavior for any taxonomy id.
 - Renderer, Worker, observer, timer, and listener resources are released by `destroy` and covered by focused tests.
 - Package checks, deterministic fixture tests, and bundle-cost evidence pass locally.
@@ -84,9 +84,9 @@ The public API exposes Forma projection, theme, presentation, update, snapshot, 
 
 Layout behavior uses the simple Graphology force layout for up to 64 nodes. Larger graphs use ForceAtlas2; graphs above 2,000 nodes skip synchronous ForceAtlas2 work and move directly from deterministic placement to the bounded Worker session. The Worker, renderer, resize observer, animation frame, timer, and keyboard listener all have explicit idempotent disposal paths.
 
-Local validation on 2026-07-18:
+Local validation refreshed on 2026-07-19:
 
-- `mise run check:pnpm`, `mise run test:pnpm`, and `mise run build:pnpm` pass; the workspace test run reports 176 passing tests.
-- `pnpm --filter @choral-forma/graph-view test` reports 21 passing focused tests.
+- `CI=true mise run check` passes across TypeScript, Rust, WebApp, VS Code, and Zed validation; the workspace Vitest run reports 198 passing tests.
+- `pnpm --filter @choral-forma/graph-view test` reports 33 passing focused tests.
 - Deterministic layout benchmark means are approximately 0.41 ms for 25 nodes and 50 edges, 15.67 ms for the 500-node and 1,500-edge synchronous ForceAtlas2 seed, and 21.54 ms for constructing the deterministic 5,000-node and 15,000-edge Worker seed without a synchronous large-graph simulation.
-- The package-owned ESM output is 22.24 kB, or 6.05 kB gzip, with runtime dependencies left to Host bundlers.
+- The package-owned ESM output is 32.48 kB, or 8.48 kB gzip, with runtime dependencies left to Host bundlers.

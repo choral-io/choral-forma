@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.20
+
+- Render configured Graph Views in VS Code native Markdown Preview through the same shared Sigma and Graphology runtime used by the WebApp.
+- Add taxonomy-driven Graph colors and legends, reference-count node sizing, static directional arrows, one-hop focus, theme-aware labels, and page-contained expansion.
+- Preserve native Markdown source navigation, restore Graph selection across Preview refresh and theme changes, and keep ordinary Markdown behavior host-owned.
+- Render the original View Markdown around its projection in the WebApp, inserting at `<!-- forma:content -->` or appending when the marker is absent.
+- Resolve namespaced space convention fields so configured titles and summaries appear consistently in Graph nodes, links, and other entry projections.
+- Keep Explorer icons theme-readable, remove the duplicate Graph node list and source action, and align embedded Graph canvases to a responsive 3:2 presentation.
+- Upgrade the coordinated development toolchain to pnpm 11.14.0.
+
 ## 0.1.0-alpha.19
 
 - Migrate VS Code navigation, diagnostics, and Preview link analysis to the persistent Forma LSP while retaining the coordinated managed-CLI lifecycle.

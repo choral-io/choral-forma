@@ -74,11 +74,14 @@ Remove the independent WebApp Graph behavior and consume `packages/graph-view` t
 
 The WebApp Graph route now uses a thin React adapter over `@choral-forma/graph-view`. The adapter maps the RPC projection into taxonomy-neutral shared nodes and semantic edges, passes the active route as `activeNodeId`, delegates source activation to React Router, translates live WebApp theme roles, and owns only mount, update, and destroy lifecycle calls.
 
-The Graph projection is lazy-loaded from `DashboardHome`; WebApp no longer directly depends on or constructs Graphology or Sigma objects. The resulting Graph route chunk is 198,412 bytes, or 49,046 bytes gzip, while non-Graph routes do not load it.
+The Graph projection is lazy-loaded from `DashboardHome`; WebApp no longer directly depends on or constructs Graphology or Sigma objects. The refreshed Alpha 20 Graph route chunk is 203.41 kB, or 51.15 kB gzip, while non-Graph routes do not load it.
 
-Local validation on 2026-07-18:
+The WebApp View route now preserves the complete source-backed View document contract instead of mapping only `result.render`. It renders Markdown before and after the Core-provided `<!-- forma:content -->` mount and appends the projection after the body when no mount is present, matching the VS Code source-first View behavior.
 
-- `mise run check:pnpm`, `mise run test:pnpm`, and `mise run build:pnpm` pass; the workspace test run reports 176 passing tests.
-- Focused shared Graph tests report 21 passing tests, including bounded Worker settling and disposal.
-- Browser validation against the real 162-node Workspace Graph confirms responsive light and dark rendering, single-click selection with one-hop emphasis, fit behavior, and accessible search filtering from 162 nodes to 3 matching nodes.
+Local validation refreshed on 2026-07-19:
+
+- `CI=true mise run check` passes; the workspace Vitest run reports 198 passing tests.
+- Focused shared Graph tests report 33 passing tests, including bounded Worker settling and disposal.
+- Browser validation against the example and project Workspace Graphs confirms responsive light and dark rendering, single-click selection with one-hop emphasis, fit behavior, page-contained expansion, taxonomy-driven colors, and readable selected-node summaries. The intentionally removed duplicate node-search list is no longer treated as an accessibility requirement.
+- A focused RPC-adapter test covers explicit and missing content mounts, and a running-browser DOM assertion confirms the Release Scope source body appears before its table projection.
 - Forma workspace health reports no errors and only the three pre-existing release backlink warnings.

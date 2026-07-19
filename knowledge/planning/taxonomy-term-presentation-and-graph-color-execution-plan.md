@@ -235,11 +235,11 @@ Stop condition:
 - Parse and validate `graph.presentation.nodes.colorBy.taxonomy` in Core.
 - Include the selected taxonomy definition, term presentation, and Page facets in the Graph projection.
 - Extend `packages/graph-view` with normalized classification roles and deterministic legend items.
-- Keep Term fill colors during selection; express selection and one-hop focus with outline, halo, size, opacity, z-index, and edge emphasis.
+- Keep Term fill colors during selection; express selection and one-hop focus with halo, label surface, opacity, z-index, and edge emphasis without changing node size.
 - Keep the Graph runtime, camera, and selected node alive across Light, Dark, System, and Host theme changes; theme updates must not tear down the renderer.
 - Derive default, muted, neighbor, selected, edge, label, hover-surface, and focus-ring roles from Host theme tokens through the shared runtime contract.
 - Replace Sigma's fixed white hover-label surface with the shared `surface`, `label`, `border`, and `focusRing` roles.
-- When a node is selected, animate only its one-hop edges to reinforce reference direction: one-way edges flow from source to target and bidirectional edges flow both ways. Static arrowheads remain authoritative. Reduced-motion disables the animation, dense selections above the supported edge limit skip it, and a short finite pulse replaces an indefinite animation loop.
+- When a node is selected, reinforce one-hop reference direction with persistent static arrowheads: one-way edges point from source to target and bidirectional edges show both directions. Direction animation is deferred until a future interaction study demonstrates that motion adds useful information.
 - Render the same legend, unclassified role, and accessible text summary in WebApp and VS Code Preview.
 - Preserve neutral rendering for Graph Views without `colorBy`.
 
@@ -249,9 +249,9 @@ Quick evaluation:
 - Compare light, dark, high contrast, selected, neighbor, muted, unclassified, and multiple-membership states.
 - Switch repeatedly between Light and Dark with a node selected; the Graph, selection, labels, and camera remain visible and stable.
 - Confirm Dark mode selected labels meet readable foreground/background contrast and muted nodes and edges remain visible without competing with the selected neighborhood.
-- Confirm selected-edge direction animation agrees with static arrowheads, stops after selection clears, and is absent under reduced motion.
-- Confirm the custom animation Canvas uses the same logical CSS dimensions and DPR-scaled backing dimensions as Sigma's native edge Canvas so particles remain aligned at non-1x display scaling.
-- Confirm Graph search and the accessible companion list expose the same Term labels as the visual legend.
+- Confirm selected-edge arrows agree with the projection direction and disappear after selection clears.
+- Confirm the static focus-edge Canvas uses the same logical CSS dimensions and DPR-scaled backing dimensions as Sigma's native edge Canvas so arrows remain aligned at non-1x display scaling.
+- Confirm the visual legend and accessible selected-node summary expose the same configured Term labels without requiring a duplicate searchable node list.
 
 ### Iteration 5: Cross-Host Validation And Cleanup
 
@@ -264,7 +264,7 @@ Quick evaluation:
 ## Accessibility And Theme Rules
 
 - Color is never the only signal for selection, errors, relationship direction, or multi-membership.
-- Every Graph color has a text legend entry and appears in the accessible companion surface.
+- Every Graph color has a text legend entry, while the accessible selected-node summary exposes the active Page identity and relationship count without duplicating the complete node collection.
 - Configured colors do not alter editor text color in the VS Code tree.
 - High-contrast Host modes may override configured color while keeping icon shape and text identity.
 - Unknown or inaccessible presentation values fall back predictably and remain inspectable through diagnostics.
@@ -301,13 +301,14 @@ Do not combine the Page-model migration, Panel presentation, Graph behavior, and
 - Iterations 0-2 are complete for the first taxonomy and term `display.icon/color` cut: Core validation and diagnostics, RPC and CLI contracts, shared TypeScript definitions, example fixtures, and VS Code Forma Panel presentation are covered.
 - The VS Code icon implementation packages only the finite registry, caches generated color variants through Remote-safe storage URIs, bounds both memory and disk caches, and preserves diagnostic and high-contrast precedence.
 - The shared Graph runtime now derives theme roles from Host tokens, preserves the renderer, camera, and selection across theme changes, and uses themed hover and selected-node surfaces.
-- Selected-edge direction uses one finite 1.8-second eased Canvas pulse with staggered particles, skips selections above 64 emphasized edges, respects reduced motion, and runs no continuous idle loop. Static arrowheads use enlarged native Sigma proportions for persistent direction readability. The animation Canvas is explicitly synchronized with Sigma's CSS and DPR dimensions; this was verified at 2x DPR against the real WebApp.
+- Selected-edge animation was removed from the current release after visual validation showed that it did not communicate reference direction clearly enough. Persistent static arrowheads and the selected-edge focus layer remain authoritative. The focus Canvas is synchronized with Sigma's CSS and DPR dimensions; future motion treatment is deferred to a dedicated interaction study.
 - Iteration 3 remains intentionally bounded because [[tasks/generalize-taxonomy-neutral-page-model]] is still `needs-refinement`. Graph nodes are not colored from the compatibility `space` field, and no taxonomy id is treated as primary.
 - A focused generic membership facet is now computed once for every currently indexed Page from all configured taxonomy term include patterns. View taxonomy filters and Graph coloring consume this facet without inspecting a taxonomy id. Full taxonomy-neutral Page discovery, schema composition, create identity, and compatibility-field removal remain in [[tasks/generalize-taxonomy-neutral-page-model]].
 - Taxonomy-driven Graph coloring now uses explicit `graph.presentation.nodes.colorBy.taxonomy`, carries a projection legend, preserves configured fill during selection, and falls back from Term color to Taxonomy color to Host neutral. Unclassified and multi-term Pages remain neutral.
 - Shared node sizing now uses incoming and outgoing semantic reference count rather than only unique adjacency, with a stronger bounded logarithmic scale. One-hop focus continues to use unique adjacent Pages.
-- The 2026-07-18 quick performance gate reports a 1,000-entry `view.render` median of 71.8 ms and p95 of 72.6 ms after generic membership was added. The WebApp Graph chunk is 204.42 kB / 51.31 kB gzip, a bounded increase of 1.89 kB / 0.49 kB gzip from the previous Graph milestone.
-- Iteration 5 cross-Host scale validation remains follow-up work; VS Code Graph Preview is still deferred in the current extension surface.
+- The 2026-07-19 quick performance gate reports a 1,000-entry `view.render` median of 66.8 ms and p95 of 67.2 ms after the complete Alpha 20 implementation. The WebApp Graph chunk is 203.41 kB / 51.15 kB gzip, and the packaged development VSIX is 199.29 kB.
+- VS Code Graph Preview is now integrated through native Markdown Preview and uses the same shared Graph runtime as the WebApp. Iteration 5 remains active for the planned 25/500/5,000-node cross-Host matrix, real Remote Extension Host validation, live high-contrast and reduced-motion sessions, and long-running memory and idle-CPU profiling.
+- Alpha 20 intentionally ships this shared Graph milestone before Iteration 5 is complete. The remaining validation is tracked as an explicit internal-Alpha boundary rather than represented as completed evidence.
 
 ## Complete Local Validation Gate
 
@@ -334,7 +335,7 @@ Stop and revise the affected iteration when:
 - configured color hides a diagnostic or becomes the only selection signal;
 - high-contrast mode becomes unreadable;
 - a theme change removes the Graph canvas, loses selection, or makes labels, muted nodes, or muted edges indistinguishable from the background;
-- selected-edge animation disagrees with edge direction, runs while no node is active, or ignores reduced-motion;
+- selected-edge arrows disagree with the projection direction or remain visible while no node is active;
 - icon support requires bundling the complete Lucide package;
 - Remote VS Code resolves an icon through a local-machine-only path;
 - a Graph View without `colorBy` changes visual meaning unexpectedly;
