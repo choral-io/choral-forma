@@ -70,16 +70,16 @@ Publish the first shared Graph View milestone after [[releases/forma-v0.1.0-alph
 
 ## Validation
 
-Pre-alignment validation on 2026-07-19 established the candidate baseline:
+Aligned local candidate validation on 2026-07-19 established the release baseline:
 
-- The pre-alignment `CI=true mise run check` passed, and the aligned test remediation now runs 34 Vitest files with 200 tests plus 23 Node tooling tests. The exact-candidate complete gate remains required before tagging.
-- `mise run perf:quick` measured the generated 1,000-entry `view.render` at 66.8 ms median and 67.2 ms p95, compared with the previous recorded 71.8 ms median and 72.6 ms p95.
+- `mise run version:check -- v0.1.0-alpha.20` and `CI=true mise run check` passed with 34 Vitest files and 200 tests, 23 Node tooling tests, the complete Rust workspace tests, formatting, linting, TypeScript checks, production builds, and the Zed `wasm32-wasip1` check.
+- `mise run perf:quick` measured the generated 1,000-entry `view.render` at 68.2 ms median and 74.0 ms p95, with no material regression from the previous recorded 71.8 ms median and 72.6 ms p95.
 - The WebApp Graph chunk measured 203.41 kB, or 51.15 kB gzip.
-- The development VSIX packaged 56 files at 199.29 KB. An isolated profile of the production VS Code installation verified `choral-io.forma@0.1.0-alpha.19` installation and activation before version alignment, with 125.3 ms activation, 10.6 ms warm Definition p95, and 2.5 ms warm Document Link p95.
+- `forma-0.1.0-alpha.20.vsix` packaged 56 files at 199.68 KB. An isolated profile of the production VS Code installation verified `choral-io.forma@0.1.0-alpha.20` installation and activation, with 62.9 ms activation, 41.1 ms cold Definition, 10.3 ms warm Definition p95, 2.2 ms cold Document Link, and 1.8 ms warm Document Link p95.
 - A WebApp RPC-adapter regression test verifies View Markdown before and after an explicit content mount and the no-mount append contract. Browser validation against the running example workspace confirms the source sentence appears before the Release Scope table projection.
-- Forma config inspection and `forma check --json` passed without diagnostics. Workspace health reported only no-backlink warnings, including this newly created release record until related references are indexed.
+- Forma config inspection and `forma check --json` passed without diagnostics. Workspace health reported only five no-backlink warnings, including this planned release record.
 
-The complete aligned Alpha 20 candidate gate and immutable publication evidence remain open until the version commit, exact-candidate main CI, Release workflow, and published-release verification complete.
+The exact-candidate main CI, Release workflow, and published-release verification remain open. The complete local gate will be rerun after this evidence-only update before the candidate is pushed.
 
 ## Rollout Plan
 
