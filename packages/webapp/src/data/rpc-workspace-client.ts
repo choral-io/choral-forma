@@ -7,6 +7,7 @@ import {
     type ReferenceEdge,
     type ViewRenderItem,
     type ViewRenderOutput,
+    type ViewRenderResult,
     type WorkspaceDashboardResult,
     type WorkspaceHealthFinding,
     type WorkspaceHealthResult,
@@ -26,6 +27,7 @@ import type {
     DashboardView,
     DashboardViewProjection,
     DashboardViewProjectionItem,
+    DashboardViewRender,
     WorkspaceClient,
     WorkspaceDashboard,
     WorkspaceHealth,
@@ -64,7 +66,7 @@ export class RpcWorkspaceClient implements WorkspaceClient {
         return mapEntryDetail(entry, renderResult, referencesResult, dashboard.entries);
     }
 
-    async getViewProjection(viewId: string): Promise<DashboardViewProjection> {
+    async getViewRender(viewId: string): Promise<DashboardViewRender> {
         const dashboard = this.#dashboard ?? (await this.getDashboard());
         const result = await this.#rpc.renderView(viewId);
 
@@ -72,8 +74,34 @@ export class RpcWorkspaceClient implements WorkspaceClient {
             throw new Error(`View render output not found: ${viewId}`);
         }
 
-        return mapViewProjection(result.render, dashboard.entries);
+        return {
+            document: mapViewDocument(result, viewId),
+            projection: mapViewProjection(result.render, dashboard.entries),
+        };
     }
+}
+
+function mapViewDocument(result: ViewRenderResult, viewId: string): DashboardViewRender["document"] {
+    const bodySource = result.document?.bodySource ?? "";
+    const mount = result.document?.mounts[0];
+    const path = result.view?.path ?? viewId;
+
+    if (!mount) {
+        return {
+            afterProjection: "",
+            beforeProjection: bodySource,
+            path,
+        };
+    }
+
+    const startOffset = Math.max(0, Math.min(bodySource.length, mount.startOffset));
+    const endOffset = Math.max(startOffset, Math.min(bodySource.length, mount.endOffset));
+
+    return {
+        afterProjection: bodySource.slice(endOffset),
+        beforeProjection: bodySource.slice(0, startOffset),
+        path,
+    };
 }
 
 function mapWorkspaceDashboard(

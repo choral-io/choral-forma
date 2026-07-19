@@ -34,6 +34,7 @@ import type {
     DashboardSpace,
     DashboardViewProjection,
     DashboardViewProjectionItem,
+    DashboardViewRender,
     WorkspaceDashboard,
     WorkspaceHealth,
 } from "@/data/workspace-client";
@@ -227,9 +228,9 @@ export function ViewRoute() {
     const params = useParams();
     const viewId = params["*"];
     const view = dashboard.views.find((item) => item.id === viewId);
-    const [projectionState, setProjectionState] = useState<
+    const [renderState, setRenderState] = useState<
         | {
-              projection: DashboardViewProjection;
+              render: DashboardViewRender;
               viewId: string;
           }
         | undefined
@@ -242,10 +243,10 @@ export function ViewRoute() {
 
         let cancelled = false;
         workspaceClient
-            .getViewProjection(viewId)
-            .then((projection) => {
+            .getViewRender(viewId)
+            .then((render) => {
                 if (!cancelled) {
-                    setProjectionState({ projection, viewId });
+                    setRenderState({ render, viewId });
                 }
             })
             .catch((error: unknown) => {
@@ -265,7 +266,8 @@ export function ViewRoute() {
         );
     }
 
-    const projection = projectionState && projectionState.viewId === viewId ? projectionState.projection : undefined;
+    const render = renderState && renderState.viewId === viewId ? renderState.render : undefined;
+    const projection = render?.projection;
 
     return (
         <WorkspacePageShell
@@ -274,7 +276,7 @@ export function ViewRoute() {
             eyebrow="Views"
             title={view.title}
         >
-            <ViewPage dashboard={dashboard} projection={projection} view={view} />
+            <ViewPage dashboard={dashboard} render={render} view={view} />
         </WorkspacePageShell>
     );
 }
@@ -1195,22 +1197,39 @@ function ViewsContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
 
 function ViewPage({
     dashboard,
-    projection,
+    render,
     view,
 }: {
     dashboard: WorkspaceDashboard;
-    projection?: DashboardViewProjection;
+    render?: DashboardViewRender;
     view: WorkspaceDashboard["views"][number];
 }) {
+    const projection = render?.projection;
     const entries = entriesForView(dashboard, view);
     const itemCount = projection ? projectionItemCount(projection) : entries.length;
 
     return (
         <div className="flex flex-col gap-6">
             <ViewSummary dashboard={dashboard} itemCount={itemCount} view={view} />
+            {render?.document.beforeProjection.trim() ? (
+                <MarkdownReader
+                    currentPath={render.document.path}
+                    entries={dashboard.entries}
+                    headings={[]}
+                    markdown={render.document.beforeProjection}
+                />
+            ) : null}
             <RouteBodySection description={view.description} meta={view.kind} title="Projection preview">
                 <ViewProjectionRenderer projection={projection} />
             </RouteBodySection>
+            {render?.document.afterProjection.trim() ? (
+                <MarkdownReader
+                    currentPath={render.document.path}
+                    entries={dashboard.entries}
+                    headings={[]}
+                    markdown={render.document.afterProjection}
+                />
+            ) : null}
         </div>
     );
 }

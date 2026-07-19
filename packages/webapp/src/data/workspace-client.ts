@@ -223,6 +223,15 @@ export type DashboardViewProjection =
           legend: DashboardGraphLegendItem[];
       };
 
+export interface DashboardViewRender {
+    document: {
+        afterProjection: string;
+        beforeProjection: string;
+        path: string;
+    };
+    projection: DashboardViewProjection;
+}
+
 export interface WorkspaceDashboard {
     workspaceName: string;
     workspaceLogo?: {
@@ -241,5 +250,5 @@ export interface WorkspaceDashboard {
 export interface WorkspaceClient {
     getDashboard(): Promise<WorkspaceDashboard>;
     getEntry(entryId: string): Promise<DashboardEntry>;
-    getViewProjection(viewId: string): Promise<DashboardViewProjection>;
+    getViewRender(viewId: string): Promise<DashboardViewRender>;
 }
