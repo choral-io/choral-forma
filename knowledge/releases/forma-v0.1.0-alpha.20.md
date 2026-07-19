@@ -5,7 +5,7 @@ title: Forma v0.1.0-alpha.20
 summary: Internal alpha for shared WebApp and VS Code Graph rendering with taxonomy-driven presentation.
 scope: project
 type: release
-status: planned
+status: released
 version: v0.1.0-alpha.20
 date: 2026-07-19
 owners:
@@ -77,9 +77,16 @@ Aligned local candidate validation on 2026-07-19 established the release baselin
 - The WebApp Graph chunk measured 203.41 kB, or 51.15 kB gzip.
 - `forma-0.1.0-alpha.20.vsix` packaged 56 files at 199.68 KB. An isolated profile of the production VS Code installation verified `choral-io.forma@0.1.0-alpha.20` installation and activation, with 62.9 ms activation, 41.1 ms cold Definition, 10.3 ms warm Definition p95, 2.2 ms cold Document Link, and 1.8 ms warm Document Link p95.
 - A WebApp RPC-adapter regression test verifies View Markdown before and after an explicit content mount and the no-mount append contract. Browser validation against the running example workspace confirms the source sentence appears before the Release Scope table projection.
-- Forma config inspection and `forma check --json` passed without diagnostics. Workspace health reported only five no-backlink warnings, including this planned release record.
+- Forma config inspection and `forma check --json` passed without diagnostics. Workspace health reported only five no-backlink warnings, including this release record.
 
-The exact-candidate main CI, Release workflow, and published-release verification remain open. The complete local gate will be rerun after this evidence-only update before the candidate is pushed.
+Immutable publication evidence:
+
+- Candidate commit: `d5e7a51881e9c2fa4f8b81b6266a8e5a9d9f32de`.
+- [Main CI run 29680047978](https://github.com/choral-io/choral-forma/actions/runs/29680047978) passed for that exact commit before tagging.
+- Annotated tag: `v0.1.0-alpha.20`, created on the same candidate commit.
+- [Release workflow run 29680141318](https://github.com/choral-io/choral-forma/actions/runs/29680141318) passed its version gate, VS Code Extension build and smoke test, five platform builds, and GitHub Release publication.
+- [GitHub prerelease](https://github.com/choral-io/choral-forma/releases/tag/v0.1.0-alpha.20) contains the exact expected 22 assets.
+- `mise run release:verify -- v0.1.0-alpha.20` passed. The verified host CLI reports `forma 0.1.0-alpha.20` with SHA-256 `20815b8d53e6e6c24173866aeb5a76ef4fc50a9748a34ec5a62bb27309aa3cf2`; the VSIX reports `choral-io.forma@0.1.0-alpha.20`, engine `^1.110.0`, and SHA-256 `608a96faf279a203454c32a6a5065a7e2d67427497262f475c40edf0355a5d4f`. The managed-install verification selected the published `forma-macos-arm64` asset and confirmed the coordinated CLI version.
 
 ## Rollout Plan
 
