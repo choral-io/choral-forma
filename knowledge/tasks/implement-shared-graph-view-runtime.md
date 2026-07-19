@@ -86,7 +86,7 @@ Layout behavior uses the simple Graphology force layout for up to 64 nodes. Larg
 
 Local validation refreshed on 2026-07-19:
 
-- `CI=true mise run check` passes across TypeScript, Rust, WebApp, VS Code, and Zed validation; the workspace Vitest run reports 198 passing tests.
+- `CI=true mise run check` passes across TypeScript, Rust, WebApp, VS Code, and Zed validation; the workspace Vitest run reports 200 passing tests.
 - `pnpm --filter @choral-forma/graph-view test` reports 33 passing focused tests.
 - Deterministic layout benchmark means are approximately 0.41 ms for 25 nodes and 50 edges, 15.67 ms for the 500-node and 1,500-edge synchronous ForceAtlas2 seed, and 21.54 ms for constructing the deterministic 5,000-node and 15,000-edge Worker seed without a synchronous large-graph simulation.
 - The package-owned ESM output is 32.48 kB, or 8.48 kB gzip, with runtime dependencies left to Host bundlers.

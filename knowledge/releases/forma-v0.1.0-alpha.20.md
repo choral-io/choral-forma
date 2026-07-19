@@ -72,7 +72,7 @@ Publish the first shared Graph View milestone after [[releases/forma-v0.1.0-alph
 
 Pre-alignment validation on 2026-07-19 established the candidate baseline:
 
-- `CI=true mise run check` passed with 33 Vitest files and 198 tests, 23 Node tooling tests, the complete Rust workspace tests, formatting, linting, TypeScript checks, production builds, and the Zed `wasm32-wasip1` check.
+- The pre-alignment `CI=true mise run check` passed, and the aligned test remediation now runs 34 Vitest files with 200 tests plus 23 Node tooling tests. The exact-candidate complete gate remains required before tagging.
 - `mise run perf:quick` measured the generated 1,000-entry `view.render` at 66.8 ms median and 67.2 ms p95, compared with the previous recorded 71.8 ms median and 72.6 ms p95.
 - The WebApp Graph chunk measured 203.41 kB, or 51.15 kB gzip.
 - The development VSIX packaged 56 files at 199.29 KB. An isolated profile of the production VS Code installation verified `choral-io.forma@0.1.0-alpha.19` installation and activation before version alignment, with 125.3 ms activation, 10.6 ms warm Definition p95, and 2.5 ms warm Document Link p95.

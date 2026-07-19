@@ -80,7 +80,7 @@ The WebApp View route now preserves the complete source-backed View document con
 
 Local validation refreshed on 2026-07-19:
 
-- `CI=true mise run check` passes; the workspace Vitest run reports 198 passing tests.
+- `CI=true mise run check` passes; the workspace Vitest run reports 200 passing tests.
 - Focused shared Graph tests report 33 passing tests, including bounded Worker settling and disposal.
 - Browser validation against the example and project Workspace Graphs confirms responsive light and dark rendering, single-click selection with one-hop emphasis, fit behavior, page-contained expansion, taxonomy-driven colors, and readable selected-node summaries. The intentionally removed duplicate node-search list is no longer treated as an accessibility requirement.
 - A focused RPC-adapter test covers explicit and missing content mounts, and a running-browser DOM assertion confirms the Release Scope source body appears before its table projection.
