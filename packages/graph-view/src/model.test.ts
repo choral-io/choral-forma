@@ -7,11 +7,18 @@ import { DEFAULT_GRAPH_PRESENTATION, type GraphEdgeInput, type GraphProjection }
 describe("GraphViewModel", () => {
     it("selects a node without navigating and emphasizes only its one-hop neighborhood", () => {
         const model = new GraphViewModel(projection());
+        const defaultNodesById = new Map(model.snapshot().nodes.map((node) => [node.id, node]));
 
         const snapshot = model.selectNode("a.md");
+        const selectedNode = snapshot.nodes.find((node) => node.id === "a.md");
+        const neighborNodes = snapshot.nodes.filter((node) => node.role === "neighbor");
 
         expect(snapshot.selectedNodeId).toBe("a.md");
         expect(snapshot.selectionSource).toBe("user");
+        expect(selectedNode?.size).toBe(defaultNodesById.get("a.md")?.size);
+        expect(neighborNodes.map((node) => node.size)).toEqual(
+            neighborNodes.map((node) => defaultNodesById.get(node.id)?.size),
+        );
         expect(snapshot.adjacentNodeIds).toEqual(new Set(["b.md", "c.md"]));
         expect(Object.fromEntries(snapshot.nodes.map((node) => [node.id, node.role]))).toEqual({
             "a.md": "selected",

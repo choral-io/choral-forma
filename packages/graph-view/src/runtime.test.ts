@@ -17,29 +17,28 @@ const sigmaMocks = vi.hoisted(() => {
             Object.assign(this.settings, settings);
         });
         readonly settings: Record<string, unknown>;
-        readonly flowArc = vi.fn();
-        readonly flowClearRect = vi.fn();
-        readonly flowLineTo = vi.fn();
-        readonly flowMoveTo = vi.fn();
-        readonly flowStroke = vi.fn();
-        readonly flowContext = {
-            arc: this.flowArc,
+        readonly focusClearRect = vi.fn();
+        readonly focusFill = vi.fn();
+        readonly focusLineTo = vi.fn();
+        readonly focusMoveTo = vi.fn();
+        readonly focusStroke = vi.fn();
+        readonly focusContext = {
             beginPath: vi.fn(),
             closePath: vi.fn(),
-            clearRect: this.flowClearRect,
-            fill: vi.fn(),
-            lineTo: this.flowLineTo,
-            moveTo: this.flowMoveTo,
+            clearRect: this.focusClearRect,
+            fill: this.focusFill,
+            lineTo: this.focusLineTo,
+            moveTo: this.focusMoveTo,
             setTransform: vi.fn(),
-            stroke: this.flowStroke,
+            stroke: this.focusStroke,
         } as unknown as CanvasRenderingContext2D;
-        readonly flowCanvas = {
-            getContext: vi.fn(() => this.flowContext),
+        readonly focusCanvas = {
+            getContext: vi.fn(() => this.focusContext),
             height: 0,
             style: {},
             width: 0,
         } as unknown as HTMLCanvasElement;
-        readonly createCanvas = vi.fn(() => this.flowCanvas);
+        readonly createCanvas = vi.fn(() => this.focusCanvas);
 
         constructor(settings: Record<string, unknown> = {}) {
             this.settings = settings;
@@ -82,6 +81,7 @@ const sigmaMocks = vi.hoisted(() => {
         FakeSigma,
         arrowProgramOptions: [] as unknown[],
         doubleArrowProgramOptions: [] as unknown[],
+        drawDiscNodeLabel: vi.fn(),
         instances: [] as FakeSigma[],
     };
 });
@@ -108,6 +108,7 @@ vi.mock("sigma/rendering", () => ({
             readonly type = "doubleArrow";
         };
     },
+    drawDiscNodeLabel: sigmaMocks.drawDiscNodeLabel,
 }));
 
 import { createGraphRuntime } from "./runtime.ts";
@@ -121,6 +122,7 @@ describe("SigmaGraphRuntime lifecycle", () => {
     beforeEach(() => {
         sigmaMocks.arrowProgramOptions.length = 0;
         sigmaMocks.doubleArrowProgramOptions.length = 0;
+        sigmaMocks.drawDiscNodeLabel.mockClear();
         sigmaMocks.instances.length = 0;
         animationFrames.length = 0;
         resizeObservers.length = 0;
@@ -172,6 +174,48 @@ describe("SigmaGraphRuntime lifecycle", () => {
         expect(resizeObservers[0]?.disconnect).toHaveBeenCalledOnce();
         expect(removeEventListener).toHaveBeenCalledOnce();
         expect(cancelAnimationFrame).toHaveBeenCalledWith(41);
+    });
+
+    it("reuses Sigma's standard label renderer for hover and focus states", () => {
+        const runtime = createGraphRuntime({
+            container: fakeContainer(),
+            projection: projection(),
+            theme: theme(),
+            layout: { engine: "force", reducedMotion: true },
+        });
+        const renderer = sigmaMocks.instances[0];
+        if (!renderer) throw new Error("Expected Sigma renderer.");
+        const drawHover = renderer.settings.defaultDrawNodeHover as (
+            context: CanvasRenderingContext2D,
+            data: Record<string, unknown>,
+            settings: Record<string, unknown>,
+        ) => void;
+        const context = {
+            arc: vi.fn(),
+            beginPath: vi.fn(),
+            closePath: vi.fn(),
+            fill: vi.fn(),
+            fillText: vi.fn(),
+            lineTo: vi.fn(),
+            measureText: vi.fn(() => ({ width: 72 })),
+            moveTo: vi.fn(),
+            quadraticCurveTo: vi.fn(),
+            restore: vi.fn(),
+            save: vi.fn(),
+        } as unknown as CanvasRenderingContext2D;
+        const data = { x: 120, y: 80, size: 9, label: "Stable label", color: "#336699" };
+        const settings = {
+            labelSize: 12,
+            labelFont: "Inter",
+            labelWeight: "normal",
+            labelColor: { color: "#111111" },
+        };
+
+        drawHover(context, data, settings);
+
+        expect(sigmaMocks.drawDiscNodeLabel).toHaveBeenCalledOnce();
+        expect(sigmaMocks.drawDiscNodeLabel).toHaveBeenCalledWith(context, data, settings);
+        runtime.destroy();
     });
 
     it("updates theme and projection without exposing the renderer", () => {
@@ -252,7 +296,7 @@ describe("SigmaGraphRuntime lifecycle", () => {
         if (!edge) throw new Error("Expected display edge.");
         expect(edgeReducer(edge.id, {}).color).toBe("#ff00ff");
         expect(edgeReducer(edge.id, {}).zIndex).toBe(10);
-        expect(renderer.flowStroke).toHaveBeenCalled();
+        expect(renderer.focusStroke).toHaveBeenCalled();
         runtime.destroy();
     });
 
@@ -290,7 +334,7 @@ describe("SigmaGraphRuntime lifecycle", () => {
         runtime.destroy();
     });
 
-    it("draws the highlighted surface behind only the label text", () => {
+    it("draws a separate node ring and label surface without moving the label", () => {
         const currentTheme = theme();
         const runtime = createGraphRuntime({
             container: fakeContainer(),
@@ -304,25 +348,37 @@ describe("SigmaGraphRuntime lifecycle", () => {
         const strokes: string[] = [];
         const context = fakeCanvasContext(fills, strokes);
         const contextSpies = context as unknown as {
+            arc: ReturnType<typeof vi.fn>;
             fillText: ReturnType<typeof vi.fn>;
             moveTo: ReturnType<typeof vi.fn>;
         };
         const drawHover = renderer.settings.defaultDrawNodeHover as (
             context: CanvasRenderingContext2D,
             data: { x: number; y: number; size: number; label: string; color: string },
-            settings: { labelSize: number; labelFont: string; labelWeight: string },
+            settings: {
+                labelSize: number;
+                labelFont: string;
+                labelWeight: string;
+                labelColor: { color: string };
+            },
         ) => void;
 
         drawHover(
             context,
             { x: 10, y: 10, size: 6, label: "Selected node", color: currentTheme.nodeSelected },
-            { labelSize: 11, labelFont: "sans-serif", labelWeight: "normal" },
+            {
+                labelSize: 11,
+                labelFont: "sans-serif",
+                labelWeight: "normal",
+                labelColor: { color: currentTheme.label },
+            },
         );
 
-        expect(fills).toEqual([currentTheme.surface, currentTheme.label]);
+        expect(fills).toEqual([currentTheme.surface, currentTheme.surface]);
         expect(strokes).toEqual([]);
-        expect(contextSpies.moveTo).toHaveBeenCalledWith(23, 1.5);
-        expect(contextSpies.fillText).toHaveBeenCalledWith("Selected node", 25, 10 + 11 / 3);
+        expect(contextSpies.arc).toHaveBeenCalledWith(10, 10, 8, 0, Math.PI * 2);
+        expect(contextSpies.moveTo).toHaveBeenCalledWith(17, 1.5);
+        expect(contextSpies.fillText).not.toHaveBeenCalled();
         runtime.destroy();
     });
 
@@ -339,14 +395,14 @@ describe("SigmaGraphRuntime lifecycle", () => {
             { lengthToThicknessRatio: 5, widenessToThicknessRatio: 4 },
         ]);
         const renderer = sigmaMocks.instances[0];
-        expect(renderer?.createCanvas).toHaveBeenCalledWith("forma-edge-flow", {
+        expect(renderer?.createCanvas).toHaveBeenCalledWith("forma-edge-focus", {
             afterLayer: "nodes",
             style: { pointerEvents: "none" },
         });
         runtime.destroy();
     });
 
-    it("animates only emphasized edge directions and stops the frame loop when selection clears", () => {
+    it("draws static emphasized edge directions without starting an animation loop", () => {
         const runtime = createGraphRuntime({
             container: fakeContainer(),
             projection: projection(),
@@ -358,70 +414,21 @@ describe("SigmaGraphRuntime lifecycle", () => {
 
         expect(requestAnimationFrame).not.toHaveBeenCalled();
         renderer.emit("clickNode", { node: "a.md" });
-        expect(requestAnimationFrame).toHaveBeenCalledOnce();
-        const firstFrame = animationFrames.shift();
-        if (!firstFrame) throw new Error("Expected first edge flow frame.");
-        firstFrame(0);
-
-        expect(renderer.flowArc).toHaveBeenCalledTimes(1);
-        expect(renderer.flowArc).toHaveBeenNthCalledWith(1, 16.56, 0, 1.8, 0, Math.PI * 2);
-        expect(renderer.flowCanvas).toMatchObject({
+        expect(requestAnimationFrame).not.toHaveBeenCalled();
+        expect(renderer.focusStroke).toHaveBeenCalled();
+        expect(renderer.focusFill).toHaveBeenCalledOnce();
+        expect(renderer.focusCanvas).toMatchObject({
             height: 480,
             style: { height: "480px", width: "720px" },
             width: 720,
         });
-        expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
-        const easedFrame = animationFrames.shift();
-        if (!easedFrame) throw new Error("Expected eased edge flow frame.");
-        easedFrame(900);
-        expect(renderer.flowArc).toHaveBeenCalledTimes(4);
-        expect(renderer.flowArc.mock.calls[1]?.[0]).toBeCloseTo(69.3325);
-        expect(renderer.flowArc.mock.calls[1]?.slice(1)).toEqual([0, 1.8, 0, Math.PI * 2]);
-        expect(renderer.flowArc).toHaveBeenNthCalledWith(3, 50, 0, 1.8, 0, Math.PI * 2);
-        expect(renderer.flowArc.mock.calls[3]?.[0]).toBeCloseTo(30.6675);
-        expect(renderer.flowArc.mock.calls[3]?.slice(1)).toEqual([0, 1.8, 0, Math.PI * 2]);
-        expect(requestAnimationFrame).toHaveBeenCalledTimes(3);
-        const finalFrame = animationFrames.shift();
-        if (!finalFrame) throw new Error("Expected final edge flow frame.");
-        finalFrame(1_800);
-        expect(requestAnimationFrame).toHaveBeenCalledTimes(3);
-        expect(renderer.flowClearRect).toHaveBeenLastCalledWith(0, 0, 720, 480);
         renderer.emit("clickStage", {});
-        expect(cancelAnimationFrame).toHaveBeenCalled();
-        expect(renderer.flowClearRect).toHaveBeenLastCalledWith(0, 0, 720, 480);
-        runtime.destroy();
-    });
-
-    it("does not start directional edge animation when reduced motion is enabled", () => {
-        const runtime = createGraphRuntime({
-            activeNodeId: "a.md",
-            container: fakeContainer(),
-            projection: projection(),
-            theme: theme(),
-            layout: { engine: "force", reducedMotion: true },
-        });
-
         expect(requestAnimationFrame).not.toHaveBeenCalled();
+        expect(renderer.focusClearRect).toHaveBeenLastCalledWith(0, 0, 720, 480);
         runtime.destroy();
     });
 
-    it("skips directional animation when the selected neighborhood exceeds the edge budget", () => {
-        const runtime = createGraphRuntime({
-            container: fakeContainer(),
-            projection: denseProjection(65),
-            theme: theme(),
-            layout: { engine: "force", reducedMotion: false },
-        });
-        const renderer = sigmaMocks.instances[0];
-        if (!renderer) throw new Error("Expected Sigma renderer.");
-
-        renderer.emit("clickNode", { node: "a.md" });
-
-        expect(requestAnimationFrame).not.toHaveBeenCalled();
-        runtime.destroy();
-    });
-
-    it("animates reciprocal edges in both directions", () => {
+    it("draws both static arrowheads for a reciprocal focused edge", () => {
         const runtime = createGraphRuntime({
             container: fakeContainer(),
             projection: reciprocalProjection(),
@@ -432,13 +439,10 @@ describe("SigmaGraphRuntime lifecycle", () => {
         if (!renderer) throw new Error("Expected Sigma renderer.");
 
         renderer.emit("clickNode", { node: "a.md" });
-        const drawFrame = animationFrames.shift();
-        if (!drawFrame) throw new Error("Expected edge flow frame.");
-        drawFrame(0);
 
-        expect(renderer.flowArc).toHaveBeenCalledTimes(2);
-        expect(renderer.flowArc).toHaveBeenNthCalledWith(1, 16.56, 0, 1.8, 0, Math.PI * 2);
-        expect(renderer.flowArc).toHaveBeenNthCalledWith(2, 83.44, 0, 1.8, 0, Math.PI * 2);
+        expect(requestAnimationFrame).not.toHaveBeenCalled();
+        expect(renderer.focusStroke).toHaveBeenCalledOnce();
+        expect(renderer.focusFill).toHaveBeenCalledTimes(2);
         runtime.destroy();
     });
 
@@ -529,27 +533,6 @@ function reciprocalProjection(): GraphProjection {
                 label: "links back",
             },
         ],
-    };
-}
-
-function denseProjection(edgeCount: number): GraphProjection {
-    const neighbors = Array.from({ length: edgeCount }, (_, index) => ({
-        id: `node-${String(index)}.md`,
-        path: `node-${String(index)}.md`,
-        title: `Node ${String(index)}`,
-    }));
-    return {
-        nodes: [{ id: "a.md", path: "a.md", title: "A" }, ...neighbors],
-        edges: neighbors.map((node, index) => ({
-            id: `edge-${String(index)}`,
-            source: "a.md",
-            target: node.id,
-            sourcePath: "a.md",
-            targetPath: node.path,
-            intent: "link" as const,
-            referenceSource: "body" as const,
-            label: "links",
-        })),
     };
 }
 

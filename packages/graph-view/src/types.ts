@@ -58,8 +58,6 @@ export type GraphPresentation = {
     maxNodeSize: number;
     maxLabelLength: number;
     unrelatedOpacity: number;
-    selectedNodeScale: number;
-    neighborNodeScale: number;
     labelDensity: number;
     labelGridCellSize: number;
     labelFont: string;
@@ -92,8 +90,6 @@ export const DEFAULT_GRAPH_PRESENTATION: Readonly<GraphPresentation> = Object.fr
     maxNodeSize: 16,
     maxLabelLength: 42,
     unrelatedOpacity: 0.22,
-    selectedNodeScale: 1.45,
-    neighborNodeScale: 1.12,
     labelDensity: 0.35,
     labelGridCellSize: 120,
     labelFont: "sans-serif",

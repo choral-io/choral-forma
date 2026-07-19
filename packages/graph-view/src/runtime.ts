@@ -1,5 +1,6 @@
 import Sigma from "sigma";
-import { createEdgeArrowProgram, createEdgeDoubleArrowProgram } from "sigma/rendering";
+import { createEdgeArrowProgram, createEdgeDoubleArrowProgram, drawDiscNodeLabel } from "sigma/rendering";
+import type { Settings } from "sigma/settings";
 
 import {
     buildGraphologyGraph,
@@ -40,11 +41,9 @@ class SigmaGraphRuntime implements GraphRuntime {
     readonly #onOpenNode: ((node: GraphNodeInput) => void) | undefined;
     readonly #onSelectionChange: ((snapshot: GraphViewSnapshot) => void) | undefined;
     #destroyed = false;
-    #edgeFlowCanvas: HTMLCanvasElement;
-    #edgeFlowContext: CanvasRenderingContext2D | null;
-    #edgeFlowEdges: readonly GraphDisplayEdgeState[] = [];
-    #edgeFlowFrame = 0;
-    #edgeFlowStartedAt: number | null = null;
+    #edgeFocusCanvas: HTMLCanvasElement;
+    #edgeFocusContext: CanvasRenderingContext2D | null;
+    #edgeFocusEdges: readonly GraphDisplayEdgeState[] = [];
     #graph: GraphologyViewGraph;
     #layout: GraphLayoutSession;
     #edgeStates = new Map<string, GraphDisplayEdgeState>();
@@ -70,11 +69,11 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#graph = buildGraphologyGraph(this.#snapshot);
         this.#layout = this.#createLayoutSession(this.#graph);
         this.#renderer = this.#createRenderer(this.#graph);
-        this.#edgeFlowCanvas = this.#renderer.createCanvas("forma-edge-flow", {
+        this.#edgeFocusCanvas = this.#renderer.createCanvas("forma-edge-focus", {
             afterLayer: "nodes",
             style: { pointerEvents: "none" },
         });
-        this.#edgeFlowContext = this.#edgeFlowCanvas.getContext("2d");
+        this.#edgeFocusContext = this.#edgeFocusCanvas.getContext("2d");
         this.#container.setAttribute("role", "application");
         this.#container.setAttribute("aria-label", options.ariaLabel ?? "Interactive knowledge graph");
         if (!this.#container.hasAttribute("tabindex")) this.#container.tabIndex = 0;
@@ -135,7 +134,6 @@ class SigmaGraphRuntime implements GraphRuntime {
         if (this.#destroyed) return;
         this.#destroyed = true;
         cancelAnimationFrame(this.#resizeFrame);
-        this.#stopEdgeFlow();
         this.#container.removeEventListener("keydown", this.#handleKeyDown);
         this.#resizeObserver.disconnect();
         this.#layout.destroy();
@@ -222,73 +220,19 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#snapshot = snapshot;
         this.#nodeStates = new Map(snapshot.nodes.map((node) => [node.id, node]));
         this.#edgeStates = new Map(snapshot.edges.map((edge) => [edge.id, edge]));
-        this.#edgeFlowEdges = snapshot.edges.filter((edge) => edge.emphasized);
+        this.#edgeFocusEdges = snapshot.edges.filter((edge) => edge.emphasized);
         this.#renderer.refresh();
         this.#drawEdgeFocus();
-        this.#syncEdgeFlow();
         this.#onSelectionChange?.(snapshot);
     }
 
-    #syncEdgeFlow(): void {
-        if (
-            this.#layoutOptions.reducedMotion ||
-            this.#edgeFlowEdges.length === 0 ||
-            this.#edgeFlowEdges.length > MAX_ANIMATED_EDGE_COUNT ||
-            !this.#edgeFlowContext
-        ) {
-            this.#stopEdgeFlow();
-            return;
-        }
-        this.#edgeFlowStartedAt = null;
-        this.#drawEdgeFocus();
-        if (!this.#edgeFlowFrame) this.#edgeFlowFrame = requestAnimationFrame(this.#drawEdgeFlow);
-    }
-
-    #stopEdgeFlow(): void {
-        cancelAnimationFrame(this.#edgeFlowFrame);
-        this.#edgeFlowFrame = 0;
-        this.#edgeFlowStartedAt = null;
-        this.#drawEdgeFocus();
-    }
-
-    #clearEdgeFlow(): void {
-        const context = this.#edgeFlowContext;
-        if (!context) return;
-        const { width, height } = this.#renderer.getDimensions();
-        context.clearRect(0, 0, width, height);
-    }
-
-    #drawEdgeFlow = (time: number): void => {
-        this.#edgeFlowFrame = 0;
-        if (this.#destroyed || this.#layoutOptions.reducedMotion || !this.#edgeFlowContext) return;
-        if (this.#edgeFlowEdges.length === 0) {
-            this.#clearEdgeFlow();
-            return;
-        }
-        this.#edgeFlowStartedAt ??= time;
-        const elapsed = time - this.#edgeFlowStartedAt;
-        if (elapsed >= EDGE_FLOW_DURATION_MS) {
-            this.#stopEdgeFlow();
-            return;
-        }
-        drawGraphEdgeFocus(
-            this.#edgeFlowCanvas,
-            this.#edgeFlowContext,
-            this.#renderer,
-            this.#edgeFlowEdges,
-            this.#theme,
-            elapsed / EDGE_FLOW_DURATION_MS,
-        );
-        this.#edgeFlowFrame = requestAnimationFrame(this.#drawEdgeFlow);
-    };
-
     #drawEdgeFocus(): void {
-        if (!this.#edgeFlowContext) return;
+        if (!this.#edgeFocusContext) return;
         drawGraphEdgeFocus(
-            this.#edgeFlowCanvas,
-            this.#edgeFlowContext,
+            this.#edgeFocusCanvas,
+            this.#edgeFocusContext,
             this.#renderer,
-            this.#edgeFlowEdges,
+            this.#edgeFocusEdges,
             this.#theme,
         );
     }
@@ -359,7 +303,7 @@ class SigmaGraphRuntime implements GraphRuntime {
     };
 }
 
-type EdgeFlowRenderer = Pick<
+type EdgeFocusRenderer = Pick<
     GraphRenderer,
     "framedGraphToViewport" | "getDimensions" | "getNodeDisplayData" | "scaleSize"
 >;
@@ -367,10 +311,9 @@ type EdgeFlowRenderer = Pick<
 function drawGraphEdgeFocus(
     canvas: HTMLCanvasElement,
     context: CanvasRenderingContext2D,
-    renderer: EdgeFlowRenderer,
+    renderer: EdgeFocusRenderer,
     edges: readonly GraphDisplayEdgeState[],
     theme: GraphTheme,
-    phase?: number,
 ): void {
     const dimensions = renderer.getDimensions();
     const pixelRatio = Math.max(1, globalThis.devicePixelRatio || 1);
@@ -407,12 +350,6 @@ function drawGraphEdgeFocus(
         context.stroke();
         drawEdgeFocusArrow(context, segment.source, segment.target);
         if (edge.direction === "reciprocal") drawEdgeFocusArrow(context, segment.target, segment.source);
-        if (phase !== undefined) {
-            drawEdgeFlowDirection(context, segment.source, segment.target, phase);
-            if (edge.direction === "reciprocal") {
-                drawEdgeFlowDirection(context, segment.target, segment.source, phase);
-            }
-        }
     }
     context.globalAlpha = 1;
 }
@@ -459,44 +396,14 @@ const EDGE_ARROW_HEAD_OPTIONS = {
     lengthToThicknessRatio: 5,
     widenessToThicknessRatio: 4,
 } as const;
-const EDGE_FLOW_DURATION_MS = 1_800;
-const MAX_ANIMATED_EDGE_COUNT = 64;
-const EDGE_FLOW_PARTICLE_DELAYS = [0, 0.1, 0.2] as const;
-const EDGE_FLOW_PARTICLE_TRAVEL_PHASE = 0.8;
 const EDGE_FOCUS_ARROW_ANGLE = Math.PI / 6;
 const EDGE_FOCUS_ARROW_LENGTH = 7;
 const EDGE_FOCUS_NODE_GAP = 2;
 
-function drawEdgeFlowDirection(
-    context: CanvasRenderingContext2D,
-    source: { x: number; y: number },
-    target: { x: number; y: number },
-    phase: number,
-): void {
-    for (const delay of EDGE_FLOW_PARTICLE_DELAYS) {
-        const localProgress = (phase - delay) / EDGE_FLOW_PARTICLE_TRAVEL_PHASE;
-        if (localProgress < 0 || localProgress > 1) continue;
-        const progress = 0.12 + easeInOutCubic(localProgress) * 0.76;
-        context.beginPath();
-        context.arc(
-            source.x + (target.x - source.x) * progress,
-            source.y + (target.y - source.y) * progress,
-            1.8,
-            0,
-            Math.PI * 2,
-        );
-        context.fill();
-    }
-}
-
-function easeInOutCubic(value: number): number {
-    return value < 0.5 ? 4 * value ** 3 : 1 - (-2 * value + 2) ** 3 / 2;
-}
-
 function drawGraphNodeHover(
     context: CanvasRenderingContext2D,
     data: { x: number; y: number; size: number; label: string | null; color: string },
-    settings: { labelSize: number; labelFont: string; labelWeight: string },
+    settings: Settings<GraphologyNodeAttributes, GraphologyEdgeAttributes>,
     theme: GraphTheme,
 ): void {
     const label = typeof data.label === "string" ? data.label : undefined;
@@ -506,25 +413,33 @@ function drawGraphNodeHover(
     const paddingY = 3;
     context.save();
     context.font = `${settings.labelWeight} ${String(labelSize)}px ${settings.labelFont}`;
+    context.fillStyle = theme.surface;
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
+    context.shadowBlur = 8;
+    context.shadowColor = theme.border;
+    context.beginPath();
+    context.arc(data.x, data.y, data.size + 2, 0, Math.PI * 2);
+    context.closePath();
+    context.fill();
+    context.shadowBlur = 0;
     if (label) {
         const textWidth = context.measureText(label).width;
-        const left = data.x + data.size + labelGap;
+        const labelX = data.x + data.size + labelGap;
+        const left = labelX - paddingX;
         const top = data.y - labelSize / 2 - paddingY;
         const width = textWidth + paddingX * 2;
         const height = labelSize + paddingY * 2;
         context.fillStyle = theme.surface;
-        context.shadowOffsetX = 0;
         context.shadowOffsetY = 1;
         context.shadowBlur = 8;
-        context.shadowColor = theme.border;
         context.beginPath();
         roundedRectangle(context, left, top, width, height, Math.min(4, height / 2));
         context.closePath();
         context.fill();
         context.shadowBlur = 0;
-        context.fillStyle = theme.label;
-        context.fillText(label, left + paddingX, data.y + labelSize / 3);
     }
+    drawDiscNodeLabel<GraphologyNodeAttributes, GraphologyEdgeAttributes>(context, data, settings);
     context.restore();
 }
 
