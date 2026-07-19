@@ -52,7 +52,10 @@ function stubRpc(bodySource: string, startOffset?: number, markerLength?: number
     vi.stubGlobal(
         "fetch",
         vi.fn((_input: string | URL | Request, requestInit?: RequestInit) => {
-            const request = JSON.parse(String(requestInit?.body)) as {
+            if (typeof requestInit?.body !== "string") {
+                throw new Error("Expected a JSON string RPC request body.");
+            }
+            const request = JSON.parse(requestInit.body) as {
                 id: string;
                 method: string;
             };
