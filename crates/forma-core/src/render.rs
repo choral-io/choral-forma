@@ -2261,6 +2261,34 @@ mod tests {
     }
 
     #[test]
+    fn renders_graph_node_titles_from_namespaced_space_conventions() {
+        let root = fixture_root("graph-view-convention-title");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("members/ava-patel.md"),
+            "---\nname: Ava Patel\ndescription: Product lead\n---\n\n# Ava Patel\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/workspace-graph.md"),
+            "---\nkind: view\nmode: graph\ntitle: Workspace Graph\nsource:\n  type: pages\n  include:\n    - \"members/**/*.md\"\n---\n\n# Workspace Graph\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "workspace-graph", BTreeMap::new()).unwrap();
+        let Some(ViewRenderOutput::Graph { nodes, .. }) = result.render else {
+            panic!("expected graph render");
+        };
+
+        assert_eq!(nodes.len(), 1);
+        assert_eq!(nodes[0].path, "members/ava-patel.md");
+        assert_eq!(nodes[0].title.as_deref(), Some("Ava Patel"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn renders_graph_classification_from_an_explicit_taxonomy() {
         let root = fixture_root("graph-view-taxonomy-color");
         fs::create_dir_all(&root).unwrap();

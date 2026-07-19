@@ -264,6 +264,8 @@ pub struct SpaceConventions {
     pub summary_field: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at_field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at_field: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -2054,6 +2056,34 @@ mod tests {
         )
         .unwrap();
         assert_eq!(workspace.config.spaces["notes"].schema, expected_schema);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn loads_created_and_updated_at_convention_fields() {
+        let root = fixture_root("space-timestamp-conventions");
+        write_minimal_config(&root, "UTC", "notes/**/*.md");
+        let space_path = root.join(".forma/spaces/notes.md");
+        let space = fs::read_to_string(&space_path)
+            .unwrap()
+            .replace(
+                "  summaryField: fields.summary",
+                "  summaryField: fields.summary\n  createdAtField: fields.createdAt\n  updatedAtField: fields.updatedAt",
+            );
+        fs::write(space_path, space).unwrap();
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let conventions = &workspace.config.spaces["notes"].conventions;
+
+        assert_eq!(
+            conventions.created_at_field.as_deref(),
+            Some("fields.createdAt")
+        );
+        assert_eq!(
+            conventions.updated_at_field.as_deref(),
+            Some("fields.updatedAt")
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

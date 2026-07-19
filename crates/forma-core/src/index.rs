@@ -1285,7 +1285,7 @@ fn title_for_entry(
         .conventions
         .title_field
         .as_deref()
-        .and_then(|field| scalar_field(value, field))
+        .and_then(|field| convention_scalar_field(value, field))
         .or_else(|| scalar_field(value, "title"))
 }
 
@@ -1297,12 +1297,16 @@ fn summary_for_entry(
         .conventions
         .summary_field
         .as_deref()
-        .and_then(|field| scalar_field(value, field))
+        .and_then(|field| convention_scalar_field(value, field))
         .or_else(|| scalar_field(value, "summary"))
 }
 
 fn scalar_field(value: Option<&Value>, field: &str) -> Option<String> {
     value_at_path(value?, field).and_then(|value| value.as_str().map(ToString::to_string))
+}
+
+fn convention_scalar_field(value: Option<&Value>, field: &str) -> Option<String> {
+    scalar_field(value, field.strip_prefix("fields.").unwrap_or(field))
 }
 
 fn value_at_path<'a>(value: &'a Value, field: &str) -> Option<&'a Value> {
@@ -1733,6 +1737,75 @@ mod tests {
     }
 
     #[test]
+    fn uses_namespaced_convention_fields_for_entry_titles() {
+        let root = fixture_root("namespaced-title-field");
+        write_workspace(&root);
+        let members_path = root.join(".forma/spaces/members.md");
+        let members = fs::read_to_string(&members_path)
+            .unwrap()
+            .replace("titleField: fields.title", "titleField: fields.name");
+        fs::write(members_path, members).unwrap();
+        write_entry(
+            &root,
+            "members/ava-patel.md",
+            "---\nkind: member\nname: Ava Patel\n---\n\n# Ava Patel\n",
+        );
+        write_entry(
+            &root,
+            "notes/source.md",
+            "---\nkind: note\ntitle: Source\n---\n\nSee [[members/ava-patel]].\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+        let entry = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "members/ava-patel.md")
+            .unwrap();
+
+        assert_eq!(entry.title.as_deref(), Some("Ava Patel"));
+        let source = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "notes/source.md")
+            .unwrap();
+        assert_eq!(source.refs[0].resolved_title.as_deref(), Some("Ava Patel"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn uses_namespaced_convention_fields_for_entry_summaries() {
+        let root = fixture_root("namespaced-summary-field");
+        write_workspace(&root);
+        let members_path = root.join(".forma/spaces/members.md");
+        let members = fs::read_to_string(&members_path).unwrap().replace(
+            "summaryField: fields.summary",
+            "summaryField: fields.description",
+        );
+        fs::write(members_path, members).unwrap();
+        write_entry(
+            &root,
+            "members/ava-patel.md",
+            "---\nkind: member\ntitle: Ava Patel\ndescription: Product lead\n---\n\n# Ava Patel\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+        let entry = discovery
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "members/ava-patel.md")
+            .unwrap();
+
+        assert_eq!(entry.summary.as_deref(), Some("Product lead"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn language_variant_files_do_not_become_primary_index_entries() {
         let root = fixture_root("language-variants");
         write_workspace(&root);
@@ -1851,15 +1924,24 @@ mod tests {
             &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n    - zh-Hans\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\n  - .forma/views/*.md\n",
         );
+        let notes_path = root.join(".forma/spaces/notes.md");
+        let notes = fs::read_to_string(&notes_path)
+            .unwrap()
+            .replace("titleField: fields.title", "titleField: fields.name")
+            .replace(
+                "summaryField: fields.summary",
+                "summaryField: fields.description",
+            );
+        fs::write(notes_path, notes).unwrap();
         write_entry(
             &root,
             "notes/getting-started.md",
-            "---\nkind: note\ntitle: Getting Started\nsummary: Canonical summary\n---\n",
+            "---\nkind: note\nname: Getting Started\ndescription: Canonical summary\n---\n",
         );
         write_entry(
             &root,
             "notes/getting-started.zh-hans.md",
-            "---\nkind: note\ntitle: Getting Started ZH\nsummary: Variant summary\n---\n",
+            "---\nkind: note\nname: Getting Started ZH\ndescription: Variant summary\n---\n",
         );
 
         let discovery = discover_workspace(&root).unwrap();
