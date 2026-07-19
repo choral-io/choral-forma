@@ -18,11 +18,13 @@ describe("view projection rendering", () => {
         } satisfies ViewRenderResult;
         const html = renderViewProjectionHtml(result);
         expect(html).toContain("data-forma-view");
-        expect(html).toContain('href="/tasks/one.md"');
+        const href = /href="([^"]+)" data-href="[^"]+" data-open-source="tasks\/one\.md"/u.exec(html)?.[1];
+        expect(href).toBeDefined();
+        expect(new URL(href ?? "", "file:///workspace/.forma/views/tasks.md").pathname).toBe("/workspace/tasks/one.md");
         expect(html).toContain('data-open-source="tasks/one.md"');
     });
 
-    it("renders an inert Graph mount and accessible source fallback", () => {
+    it("renders an inert Graph mount without duplicating the native source action", () => {
         const result = {
             schemaVersion: 1,
             operation: "view.render",
@@ -56,6 +58,7 @@ describe("view projection rendering", () => {
             },
         } satisfies ViewRenderResult;
         const html = renderViewProjectionHtml(result, { activePath: "members/sam-rivera.md" });
+        expect(html).toContain('data-forma-view-source=".forma/views/graph.md"');
         expect(html).toContain("data-forma-graph-host");
         expect(html).toContain("data-forma-graph-expand");
         expect(html).toContain('aria-label="Expand graph"');
@@ -68,6 +71,7 @@ describe("view projection rendering", () => {
         expect(html).not.toContain("data-forma-graph-search");
         expect(html).not.toContain("data-forma-graph-node-list");
         expect(html).not.toContain("Graph preview is deferred");
+        expect(html).not.toContain("Open editable source");
     });
 
     it("distinguishes empty projections from invalid views", () => {
@@ -148,7 +152,11 @@ describe("view projection rendering", () => {
         expect(kanbanHtml).toContain("Doing");
         expect(kanbanHtml.match(/class="kanban-column"/g)).toHaveLength(3);
         expect(kanbanHtml).toContain('aria-label="Kanban board"');
-        expect(kanbanHtml).toContain('href="/tasks/one.md"');
+        const kanbanHref = /href="([^"]+)" data-href="[^"]+" data-open-source="tasks\/one\.md"/u.exec(kanbanHtml)?.[1];
+        expect(kanbanHref).toBeDefined();
+        expect(new URL(kanbanHref ?? "", "file:///workspace/.forma/views/board.md").pathname).toBe(
+            "/workspace/tasks/one.md",
+        );
         expect(kanbanHtml).toContain("A concise task summary.");
         expect(kanbanHtml).toContain("P1");
         expect(kanbanHtml).toContain('<time datetime="2026-07-19"');

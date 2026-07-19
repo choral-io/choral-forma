@@ -16,6 +16,7 @@ import {
     graphSummaryPresentation,
     shouldScheduleGraphReconcile,
 } from "./graph-preview-lifecycle.ts";
+import { relativePreviewHref } from "./preview-links.ts";
 
 type GraphController = {
     host: HTMLElement;
@@ -303,10 +304,14 @@ function readGraphTypography(): { labelFont: string; labelWeight: string } {
 
 function openNodeSource(host: HTMLElement, node: GraphNodeInput): void {
     const section = host.closest<HTMLElement>("[data-forma-view]");
+    const sourcePath = section?.dataset.formaViewSource;
+    if (!section || !sourcePath) return;
+    const href = relativePreviewHref(sourcePath, node.path);
     const anchor = document.createElement("a");
-    anchor.href = `/${node.path}`;
+    anchor.href = href;
+    anchor.dataset.href = href;
     anchor.hidden = true;
-    section?.append(anchor);
+    section.append(anchor);
     anchor.click();
     anchor.remove();
 }

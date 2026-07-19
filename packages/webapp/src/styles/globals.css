@@ -140,6 +140,19 @@
 }
 
 @layer components {
+    [data-forma-graph-stage] {
+        aspect-ratio: 3 / 2;
+        min-height: 22rem;
+        max-height: 40rem;
+    }
+
+    [data-forma-graph-stage][data-expanded] {
+        aspect-ratio: auto;
+        height: 100%;
+        min-height: 0;
+        max-height: none;
+    }
+
     [data-reader="markdown"] {
         @apply text-foreground/90 max-w-none text-sm/7;
     }

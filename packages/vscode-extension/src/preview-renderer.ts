@@ -1,5 +1,7 @@
 import type { Diagnostic, ViewRenderItem, ViewRenderOutput, ViewRenderResult } from "@choral-forma/shared";
 
+import { relativePreviewHref } from "./preview-links.ts";
+
 export type ViewRenderOptions = {
     activePath?: string;
     locale?: string;
@@ -13,7 +15,7 @@ type GraphRenderOutput = Extract<ViewRenderOutput, { kind: "graph" }>;
 export function renderViewProjectionHtml(result: ViewRenderResult, options: ViewRenderOptions = {}): string {
     const sourcePath = result.view?.path ?? "";
     const projection = renderProjection(result.render, result.diagnostics ?? [], sourcePath, options);
-    return `<section class="forma-view" data-forma-view>${projection}</section>`;
+    return `<section class="forma-view" data-forma-view data-forma-view-source="${escapeAttribute(sourcePath)}">${projection}</section>`;
 }
 
 function renderProjection(
@@ -23,27 +25,27 @@ function renderProjection(
     options: ViewRenderOptions,
 ): string {
     if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
-        return `<section class="state error" role="alert"><h2>View needs attention</h2>${renderDiagnostics(diagnostics, sourcePath)}${sourceButton(sourcePath)}</section>`;
+        return `<section class="state error" role="alert"><h2>View needs attention</h2>${renderDiagnostics(diagnostics, sourcePath)}</section>`;
     }
     if (!render) {
-        return `<section class="state"><h2>No projection</h2><p>Save a valid Forma view to render its projection.</p>${sourceButton(sourcePath)}</section>`;
+        return '<section class="state"><h2>No projection</h2><p>Save a valid Forma view to render its projection.</p></section>';
     }
 
     switch (render.kind) {
         case "list":
             return render.items.length === 0
                 ? emptyState("No entries match this view.")
-                : `<ul class="entry-list">${render.items.map(renderItemLink).join("")}</ul>`;
+                : `<ul class="entry-list">${render.items.map((item) => renderItemLink(item, sourcePath)).join("")}</ul>`;
         case "table":
-            return renderTable(render, options);
+            return renderTable(render, sourcePath, options);
         case "kanban":
-            return renderKanban(render, options);
+            return renderKanban(render, sourcePath, options);
         case "graph":
             return renderGraph(render, sourcePath, options.activePath);
     }
 }
 
-function renderTable(render: TableRenderOutput, options: ViewRenderOptions): string {
+function renderTable(render: TableRenderOutput, sourcePath: string, options: ViewRenderOptions): string {
     if (render.items.length === 0) return emptyState("No entries match this table.");
     const headings = render.columns.map((column) => `<th scope="col">${escapeHtml(column.label)}</th>`).join("");
     const rows = render.items
@@ -53,7 +55,7 @@ function renderTable(render: TableRenderOutput, options: ViewRenderOptions): str
                     const value = rawFieldValue(item, column.field);
                     const content =
                         index === 0
-                            ? itemButton(item, firstNonEmpty(plainFieldValue(value), item.title, item.path))
+                            ? itemButton(item, firstNonEmpty(plainFieldValue(value), item.title, item.path), sourcePath)
                             : renderFieldValue(value, options);
                     return `<td>${content}</td>`;
                 })
@@ -64,25 +66,30 @@ function renderTable(render: TableRenderOutput, options: ViewRenderOptions): str
     return `<div class="table-wrap"><table><thead><tr>${headings}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-function renderKanban(render: KanbanRenderOutput, options: ViewRenderOptions): string {
+function renderKanban(render: KanbanRenderOutput, sourcePath: string, options: ViewRenderOptions): string {
     const columns = render.columns
         .map((column) => {
             const icon = column.icon ? `<span aria-hidden="true">${escapeHtml(column.icon)}</span> ` : "";
             const items =
                 column.items.length === 0
                     ? '<p class="muted">No entries</p>'
-                    : column.items.map((item) => renderKanbanCard(item, render.card, options)).join("");
+                    : column.items.map((item) => renderKanbanCard(item, render.card, sourcePath, options)).join("");
             return `<section class="kanban-column"><h2>${icon}${escapeHtml(column.label)} <span class="count">${String(column.items.length)}</span></h2>${items}</section>`;
         })
         .join("");
     return `<div class="kanban" role="region" aria-label="Kanban board">${columns}</div>`;
 }
 
-function renderKanbanCard(item: ViewRenderItem, card: KanbanRenderOutput["card"], options: ViewRenderOptions): string {
+function renderKanbanCard(
+    item: ViewRenderItem,
+    card: KanbanRenderOutput["card"],
+    sourcePath: string,
+    options: ViewRenderOptions,
+): string {
     const title = firstNonEmpty(plainFieldValue(rawFieldValue(item, card.titleField)), item.title, item.path);
     const subtitles = renderCardFields(item, card.subtitleFields ?? [], "card-subtitle", options);
     const badges = renderCardFields(item, card.badgeFields ?? [], "badge", options);
-    return `<article class="card">${itemButton(item, title)}${subtitles ? `<div class="card-subtitles">${subtitles}</div>` : ""}${badges ? `<div class="badges">${badges}</div>` : ""}</article>`;
+    return `<article class="card">${itemButton(item, title, sourcePath)}${subtitles ? `<div class="card-subtitles">${subtitles}</div>` : ""}${badges ? `<div class="badges">${badges}</div>` : ""}</article>`;
 }
 
 function renderCardFields(
@@ -115,7 +122,7 @@ function renderGraph(render: GraphRenderOutput, sourcePath: string, activePath: 
                 `<span class="graph-legend-item"><span aria-hidden="true" class="graph-legend-swatch"${item.color ? ` style="background:${escapeAttribute(item.color)}"` : ""}></span>${escapeHtml(item.label)}</span>`,
         )
         .join("");
-    return `<div class="graph-shell"><div class="graph-stage" id="${graphId}" data-forma-graph-host></div><button class="graph-expand-button" data-forma-graph-expand type="button" aria-label="Expand graph" title="Expand graph" hidden><span aria-hidden="true">⛶</span></button><aside class="graph-summary" data-forma-graph-summary hidden aria-live="polite"></aside></div>${legend ? `<section class="graph-legend" aria-label="Graph node colors">${legend}</section>` : ""}<script type="application/json" data-forma-graph-data>${data}</script><p class="graph-source-action">${sourceButton(sourcePath)}</p>`;
+    return `<div class="graph-shell"><div class="graph-stage" id="${graphId}" data-forma-graph-host></div><button class="graph-expand-button" data-forma-graph-expand type="button" aria-label="Expand graph" title="Expand graph" hidden><span aria-hidden="true">⛶</span></button><aside class="graph-summary" data-forma-graph-summary hidden aria-live="polite"></aside></div>${legend ? `<section class="graph-legend" aria-label="Graph node colors">${legend}</section>` : ""}<script type="application/json" data-forma-graph-data>${data}</script>`;
 }
 
 function safeJson(value: unknown): string {
@@ -136,16 +143,17 @@ function stableHash(value: string): string {
     return (hash >>> 0).toString(36);
 }
 
-function renderItemLink(item: ViewRenderItem): string {
-    return `<li>${itemButton(item, item.title ?? item.path)}</li>`;
+function renderItemLink(item: ViewRenderItem, sourcePath: string): string {
+    return `<li>${itemButton(item, item.title ?? item.path, sourcePath)}</li>`;
 }
 
-function itemButton(item: ViewRenderItem, label: string): string {
-    return `<a class="source-link" href="/${escapeAttribute(item.path)}" data-open-source="${escapeAttribute(item.path)}">${escapeHtml(label)}</a>`;
+function itemButton(item: ViewRenderItem, label: string, sourcePath: string): string {
+    return sourceLink(item.path, sourcePath, escapeHtml(label));
 }
 
-function sourceButton(path: string): string {
-    return `<a class="source-link" href="/${escapeAttribute(path)}" data-open-source="${escapeAttribute(path)}">Open editable source</a>`;
+function sourceLink(path: string, sourcePath: string, label: string, attributes = ""): string {
+    const href = escapeAttribute(relativePreviewHref(sourcePath, path));
+    return `<a class="source-link" href="${href}" data-href="${href}" data-open-source="${escapeAttribute(path)}"${attributes}>${label}</a>`;
 }
 
 function rawFieldValue(item: ViewRenderItem, field: string): unknown {
@@ -199,7 +207,8 @@ function renderDiagnostics(diagnostics: Diagnostic[], fallbackPath: string): str
             const line = diagnostic.location?.kind === "body" ? diagnostic.location.line : undefined;
             const column = diagnostic.location?.kind === "body" ? diagnostic.location.column : undefined;
             const path = diagnostic.path ?? fallbackPath;
-            return `<li><strong>${escapeHtml(diagnostic.code)}</strong>: ${escapeHtml(diagnostic.message)} <a class="source-link" href="/${escapeAttribute(path)}" data-open-source="${escapeAttribute(path)}"${line ? ` data-line="${String(line)}"` : ""}${column ? ` data-column="${String(column)}"` : ""}>Open source</a></li>`;
+            const attributes = `${line ? ` data-line="${String(line)}"` : ""}${column ? ` data-column="${String(column)}"` : ""}`;
+            return `<li><strong>${escapeHtml(diagnostic.code)}</strong>: ${escapeHtml(diagnostic.message)} ${sourceLink(path, fallbackPath, "Open source", attributes)}</li>`;
         })
         .join("")}</ul>`;
 }
