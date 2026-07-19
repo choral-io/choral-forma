@@ -501,33 +501,29 @@ function drawGraphNodeHover(
 ): void {
     const label = typeof data.label === "string" ? data.label : undefined;
     const labelSize = settings.labelSize;
-    const paddingX = 7;
-    const paddingY = 4;
-    const nodeRadius = Math.max(data.size + 3, labelSize / 2 + paddingY);
+    const labelGap = 3;
+    const paddingX = 6;
+    const paddingY = 3;
     context.save();
     context.font = `${settings.labelWeight} ${String(labelSize)}px ${settings.labelFont}`;
-    context.fillStyle = theme.surface;
-    context.shadowOffsetX = 0;
-    context.shadowOffsetY = 1;
-    context.shadowBlur = 8;
-    context.shadowColor = theme.border;
-    context.beginPath();
     if (label) {
         const textWidth = context.measureText(label).width;
-        const left = data.x - nodeRadius;
-        const top = data.y - nodeRadius;
-        const width = nodeRadius * 2 + textWidth + paddingX * 2;
-        const height = nodeRadius * 2;
-        roundedRectangle(context, left, top, width, height, Math.min(6, nodeRadius));
-    } else {
-        context.arc(data.x, data.y, nodeRadius, 0, Math.PI * 2);
-    }
-    context.closePath();
-    context.fill();
-    context.shadowBlur = 0;
-    if (label) {
+        const left = data.x + data.size + labelGap;
+        const top = data.y - labelSize / 2 - paddingY;
+        const width = textWidth + paddingX * 2;
+        const height = labelSize + paddingY * 2;
+        context.fillStyle = theme.surface;
+        context.shadowOffsetX = 0;
+        context.shadowOffsetY = 1;
+        context.shadowBlur = 8;
+        context.shadowColor = theme.border;
+        context.beginPath();
+        roundedRectangle(context, left, top, width, height, Math.min(4, height / 2));
+        context.closePath();
+        context.fill();
+        context.shadowBlur = 0;
         context.fillStyle = theme.label;
-        context.fillText(label, data.x + data.size + paddingX, data.y + labelSize / 3);
+        context.fillText(label, left + paddingX, data.y + labelSize / 3);
     }
     context.restore();
 }

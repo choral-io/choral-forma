@@ -290,7 +290,7 @@ describe("SigmaGraphRuntime lifecycle", () => {
         runtime.destroy();
     });
 
-    it("draws highlighted labels with the shared theme without an enclosing selection border", () => {
+    it("draws the highlighted surface behind only the label text", () => {
         const currentTheme = theme();
         const runtime = createGraphRuntime({
             container: fakeContainer(),
@@ -303,6 +303,10 @@ describe("SigmaGraphRuntime lifecycle", () => {
         const fills: string[] = [];
         const strokes: string[] = [];
         const context = fakeCanvasContext(fills, strokes);
+        const contextSpies = context as unknown as {
+            fillText: ReturnType<typeof vi.fn>;
+            moveTo: ReturnType<typeof vi.fn>;
+        };
         const drawHover = renderer.settings.defaultDrawNodeHover as (
             context: CanvasRenderingContext2D,
             data: { x: number; y: number; size: number; label: string; color: string },
@@ -317,6 +321,8 @@ describe("SigmaGraphRuntime lifecycle", () => {
 
         expect(fills).toEqual([currentTheme.surface, currentTheme.label]);
         expect(strokes).toEqual([]);
+        expect(contextSpies.moveTo).toHaveBeenCalledWith(23, 1.5);
+        expect(contextSpies.fillText).toHaveBeenCalledWith("Selected node", 25, 10 + 11 / 3);
         runtime.destroy();
     });
 
