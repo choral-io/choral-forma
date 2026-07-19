@@ -381,7 +381,7 @@ dependencies = [
 
 [[package]]
 name = "forma-cli"
-version = "0.1.0-alpha.19"
+version = "0.1.0-alpha.20"
 dependencies = [
  "axum",
  "clap",
@@ -397,7 +397,7 @@ dependencies = [
 
 [[package]]
 name = "forma-core"
-version = "0.1.0-alpha.19"
+version = "0.1.0-alpha.20"
 dependencies = [
  "camino",
  "chrono",
@@ -412,7 +412,7 @@ dependencies = [
 
 [[package]]
 name = "forma-lsp"
-version = "0.1.0-alpha.19"
+version = "0.1.0-alpha.20"
 dependencies = [
  "forma-core",
  "lsp-server",
@@ -425,7 +425,7 @@ dependencies = [
 
 [[package]]
 name = "forma-rpc"
-version = "0.1.0-alpha.19"
+version = "0.1.0-alpha.20"
 dependencies = [
  "forma-core",
  "serde",
@@ -436,7 +436,7 @@ dependencies = [
 
 [[package]]
 name = "forma-zed-extension"
-version = "0.1.0-alpha.19"
+version = "0.1.0-alpha.20"
 dependencies = [
  "zed_extension_api",
 ]
