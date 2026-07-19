@@ -290,7 +290,7 @@ describe("SigmaGraphRuntime lifecycle", () => {
         runtime.destroy();
     });
 
-    it("draws highlighted labels with the shared theme instead of a fixed white background", () => {
+    it("draws highlighted labels with the shared theme without an enclosing selection border", () => {
         const currentTheme = theme();
         const runtime = createGraphRuntime({
             container: fakeContainer(),
@@ -316,7 +316,7 @@ describe("SigmaGraphRuntime lifecycle", () => {
         );
 
         expect(fills).toEqual([currentTheme.surface, currentTheme.label]);
-        expect(strokes).toEqual([currentTheme.focusRing]);
+        expect(strokes).toEqual([]);
         runtime.destroy();
     });
 

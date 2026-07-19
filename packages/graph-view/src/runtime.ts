@@ -507,8 +507,6 @@ function drawGraphNodeHover(
     context.save();
     context.font = `${settings.labelWeight} ${String(labelSize)}px ${settings.labelFont}`;
     context.fillStyle = theme.surface;
-    context.strokeStyle = theme.focusRing;
-    context.lineWidth = 2;
     context.shadowOffsetX = 0;
     context.shadowOffsetY = 1;
     context.shadowBlur = 8;
@@ -526,7 +524,6 @@ function drawGraphNodeHover(
     }
     context.closePath();
     context.fill();
-    context.stroke();
     context.shadowBlur = 0;
     if (label) {
         context.fillStyle = theme.label;
