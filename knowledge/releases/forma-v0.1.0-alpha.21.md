@@ -5,7 +5,7 @@ title: Forma v0.1.0-alpha.21
 summary: Internal alpha for the new Forma icon, stricter cross-Host Graph parity, release-record cleanup, and compatible dependency updates.
 scope: project
 type: release
-status: planned
+status: released
 version: v0.1.0-alpha.21
 date: 2026-07-20
 owners:
@@ -70,7 +70,14 @@ Local candidate validation on 2026-07-20 established the release baseline:
 - `forma-0.1.0-alpha.21.vsix` packaged 57 files at 205.2 KB and included the 256-by-256 Marketplace icon.
 - An isolated profile of the production VS Code installation verified `choral-io.forma@0.1.0-alpha.21` installation and activation, with 69.6 ms activation, 35.0 ms cold Definition, 53.8 ms warm Definition p95, 1.8 ms cold Document Link, and 1.9 ms warm Document Link p95.
 
-Immutable publication evidence will be added after main CI, the Release workflow, and published-asset verification succeed.
+Immutable publication evidence:
+
+- Candidate commit: `878f6e9bbfb723a08d27bc9390ca0c454690673f`.
+- [Main CI run 29740418724](https://github.com/choral-io/choral-forma/actions/runs/29740418724) passed Knowledge, Web, Rust, and VS Code Extension for that exact commit before tagging.
+- Annotated tag: `v0.1.0-alpha.21`, created on the same candidate commit.
+- [Release workflow run 29740674553](https://github.com/choral-io/choral-forma/actions/runs/29740674553) passed its version gate, VS Code Extension build and smoke test, five platform builds, and GitHub Release publication.
+- [GitHub prerelease v0.1.0-alpha.21](https://github.com/choral-io/choral-forma/releases/tag/v0.1.0-alpha.21) contains the exact expected 22 assets.
+- `mise run release:verify -- v0.1.0-alpha.21` passed. The verified macOS arm64 CLI reports `forma 0.1.0-alpha.21` with SHA-256 `18d4f7fae9268bc496bfd2f9d7bf73a4b30b4fe474e6efb78415a683246592f7`; the VSIX reports `choral-io.forma@0.1.0-alpha.21`, engine `^1.110.0`, and SHA-256 `dc95ade7a46e35e51004e71f7e063ef72b88146a300d90e559dc3e780c59bde7`. The managed-install verification selected the published `forma-macos-arm64` asset and confirmed the coordinated CLI version.
 
 ## Rollout Plan
 
