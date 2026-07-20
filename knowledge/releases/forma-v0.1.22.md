@@ -7,7 +7,7 @@ scope: project
 type: release
 status: planned
 version: v0.1.22
-date: 2026-07-20
+date: 2026-07-21
 owners:
     - "members/tiscs"
 tags:
@@ -56,6 +56,20 @@ Required candidate evidence:
 7. The tag-triggered Release workflow publishes the expected archives, standalone binaries, VSIX, and sibling SHA-256 files.
 8. `mise run release:verify -- v0.1.22` validates the published release, current-host CLI, VSIX identity, and managed-install path.
 9. The Publisher portal accepts `choral-io.forma@0.1.22`, and a clean VS Code Stable profile installs and activates it from Marketplace.
+
+Completed candidate and GitHub publication evidence:
+
+- Candidate commit: `35bc76b337ef6f2a24da19f9ccc596dfb3d1b757`.
+- `mise run version:check -- v0.1.22` and the complete local `CI=true mise run check` gate passed with the repository-pinned pnpm `11.14.0` toolchain.
+- Forma config inspection and `forma check --json` passed without diagnostics. Workspace health reported eight non-blocking no-backlink warnings, including this release record.
+- A local `forma-0.1.22.vsix` packaged 57 files and passed isolated installation, activation, and LSP smoke validation as `choral-io.forma@0.1.22` in VS Code `1.110.0`.
+- [Main CI run 29759219839](https://github.com/choral-io/choral-forma/actions/runs/29759219839) passed Knowledge, Web, Rust, and VS Code Extension for the exact candidate commit before tagging.
+- Annotated tag `v0.1.22` points to the exact candidate commit.
+- [Release workflow run 29759487540](https://github.com/choral-io/choral-forma/actions/runs/29759487540) passed its version gate, VS Code Extension build and smoke test, five platform builds, and GitHub Release publication.
+- [GitHub Release v0.1.22](https://github.com/choral-io/choral-forma/releases/tag/v0.1.22) is published as a regular release with the exact expected 22 assets.
+- `mise run release:verify -- v0.1.22` passed. The verified macOS arm64 CLI reports `forma 0.1.22` with SHA-256 `d2ae6667dbe79c22b82b069edf9b457144d9e37de4b4886c03a62848a9cd4466`; the VSIX reports `choral-io.forma@0.1.22`, engine `^1.110.0`, and SHA-256 `8c03c7987587b848e3ca4b1a777a33692f4d1992d4c01cd190373591ff13debf`. The managed-install verification selected the published `forma-macos-arm64` asset and confirmed the coordinated CLI version.
+
+Marketplace publication remains pending. Keep this release record at `planned` until the Publisher portal accepts the verified VSIX and a clean VS Code Stable profile installs and activates `choral-io.forma@0.1.22` from Marketplace.
 
 ## Rollout Plan
 
