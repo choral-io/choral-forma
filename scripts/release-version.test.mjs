@@ -153,10 +153,12 @@ test("rejects stale manifests, lock entries, release content, documentation, and
 });
 
 test("normalizes tagged and untagged versions found in current documentation", () => {
-    assert.deepEqual(documentReleaseVersions("v0.1.0-alpha.16 and forma-0.1.0-alpha.16.vsix"), [
-        "0.1.0-alpha.16",
-        "0.1.0-alpha.16",
-    ]);
+    assert.deepEqual(
+        documentReleaseVersions(
+            "v0.1.0-alpha.16, forma-0.1.0-alpha.16.vsix, and knowledge/releases/forma-v0.1.0-alpha.16.md",
+        ),
+        ["0.1.0-alpha.16", "0.1.0-alpha.16", "0.1.0-alpha.16"],
+    );
     assert.deepEqual(documentReleaseVersions("VS Code 1.110.0"), []);
 });
 

@@ -23,7 +23,7 @@ relatedTestCases:
 
 ## Purpose
 
-Publish the editor-first Forma experience implemented after [[releases/next-internal-release]] as a new immutable prerelease. This release is intended for internal VS Code testing with a separately installed, version-aligned Forma CLI.
+Publish the editor-first Forma experience implemented after [[releases/forma-v0.1.0-alpha.14]] as a new immutable prerelease. This release is intended for internal VS Code testing with a separately installed, version-aligned Forma CLI.
 
 ## Scope
 

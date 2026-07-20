@@ -19,8 +19,6 @@ target: "Ready when all required checks pass, the starter-kit pressure suite has
 reviewCadence: "Before internal release review and after major content workflow changes."
 relatedExperiments:
     - "experiments/starter-kit-agent-pressure-validation"
-relatedReleases:
-    - "releases/next-internal-release"
 ---
 
 # Product Workflow Readiness
@@ -63,7 +61,7 @@ Passing diagnostics alone is not enough. The workflow must also be understandabl
 
 Status: `ready`
 
-As of 2026-06-23, the metric meets its threshold for the next internal release:
+As of 2026-06-23, the metric met its threshold for internal release review:
 
 - repository `config inspect`, `check`, and `workspace health` pass;
 - starter-kit `config inspect`, `check`, `workspace health`, `list --space tasks`, and `inspect --space tasks` pass;
@@ -78,7 +76,6 @@ Review before the next internal release and after any significant change to Form
 
 ## Related Knowledge
 
-- [[releases/next-internal-release]]
 - [[product/product-direction]]
 - [[architecture/forma-core-technical-direction]]
 

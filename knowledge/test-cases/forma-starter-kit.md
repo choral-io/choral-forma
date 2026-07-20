@@ -29,7 +29,7 @@ relatedTasks:
 
 This suite defines project-level validation cases for `examples/getting-started-workspace`. The starter workspace should remain clean and copyable for users, while these test cases live in the Forma project knowledge base as evaluation assets.
 
-This suite is part of the validation chain for [[releases/next-internal-release]] and [[metrics/knowledge-workflow-replacement-readiness]].
+This suite is reusable evidence for internal release review through [[metrics/knowledge-workflow-replacement-readiness]].
 
 ## Contract Tests
 

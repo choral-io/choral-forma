@@ -4,6 +4,14 @@ import test from "node:test";
 
 const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
+test("packages the Forma Marketplace icon", async () => {
+    assert.equal(manifest.icon, "media/icon.png");
+    const icon = await readFile(new URL(`../${manifest.icon}`, import.meta.url));
+    assert.deepEqual([...icon.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+    assert.equal(icon.readUInt32BE(16), 256);
+    assert.equal(icon.readUInt32BE(20), 256);
+});
+
 test("enhances the native Markdown preview without adding a second editor title action", () => {
     assert.equal(manifest.contributes["markdown.markdownItPlugins"], true);
     assert.deepEqual(manifest.contributes["markdown.previewStyles"], ["./media/preview.css"]);

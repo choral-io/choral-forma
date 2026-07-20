@@ -1,6 +1,8 @@
 import {
     createGraphRuntime,
     createGraphThemeFromTokens,
+    graphExpandPresentation,
+    graphSummaryPresentation,
     type GraphRuntime,
     type GraphTheme,
 } from "@choral-forma/graph-view";
@@ -38,6 +40,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         () => new Map(projection.nodes.flatMap((node) => (node.routePath ? [[node.id, node.routePath] as const] : []))),
         [projection.nodes],
     );
+    const expandPresentation = graphExpandPresentation(isExpanded);
 
     useEffect(() => {
         routesRef.current = routes;
@@ -130,13 +133,13 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                     ref={containerRef}
                 />
                 <Button
-                    aria-label={isExpanded ? "Exit expanded graph" : "Expand graph"}
+                    aria-label={expandPresentation.ariaLabel}
                     className="bg-background/80 absolute top-3 right-3 z-20 shadow-sm backdrop-blur-sm"
                     onClick={() => {
                         setIsExpanded((expanded) => !expanded);
                     }}
                     size="icon"
-                    title={isExpanded ? "Exit expanded graph" : "Expand graph"}
+                    title={expandPresentation.title}
                     type="button"
                     variant="outline"
                 >
@@ -165,15 +168,17 @@ function GraphNodeSummary({
     linkedCount: number;
     node: DashboardGraphProjection["nodes"][number];
 }) {
+    const summary = graphSummaryPresentation(node, linkedCount);
+    if (!summary) return null;
     return (
         <div className="bg-popover text-popover-foreground pointer-events-none absolute bottom-3 left-3 z-10 w-[min(18rem,calc(100%-1.5rem))] rounded-md border p-3 shadow-lg">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="truncate text-sm font-medium" title={node.title}>
-                        {node.title}
+                    <p className="truncate text-sm font-medium" title={summary.title}>
+                        {summary.title}
                     </p>
-                    <p className="text-muted-foreground mt-1 truncate text-xs" title={node.path}>
-                        {node.path}
+                    <p className="text-muted-foreground mt-1 truncate text-xs" title={summary.path}>
+                        {summary.path}
                     </p>
                     {node.classification ? (
                         <p className="text-muted-foreground mt-1 truncate text-xs" title={node.classification.label}>
@@ -182,7 +187,7 @@ function GraphNodeSummary({
                     ) : null}
                 </div>
                 <Badge className="shrink-0" variant="outline">
-                    {String(linkedCount)} linked
+                    {summary.links}
                 </Badge>
             </div>
         </div>

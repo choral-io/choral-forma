@@ -2,7 +2,7 @@
 schemaVersion: 1
 kind: release
 title: Forma v0.1.0-alpha.14
-summary: Internal corrective prerelease for the post-Alpha 13 core and VS Code extension fixes.
+summary: Immutable internal corrective prerelease record for the post-Alpha 13 core and VS Code extension fixes.
 scope: project
 type: release
 status: released

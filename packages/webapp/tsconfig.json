@@ -16,6 +16,9 @@
     "paths": {
       "@/*": ["./src/*"],
       "@choral-forma/graph-view": ["../graph-view/src/index.ts"],
+      "@choral-forma/graph-view/fixtures": ["../graph-view/src/fixtures.ts"],
+      "@choral-forma/graph-view/presentation": ["../graph-view/src/presentation.ts"],
+      "@choral-forma/graph-view/projection": ["../graph-view/src/projection.ts"],
       "@choral-forma/shared": ["../shared/src/index.ts"]
     },
 

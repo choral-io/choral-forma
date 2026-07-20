@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.21
+
+- Add the new Forma brand icon to the VS Code Marketplace package and align the WebApp favicon with the canonical vector asset.
+- Move Graph projection normalization and shared selection and expansion presentation into `@choral-forma/graph-view` so the WebApp and VS Code Preview consume the same Host-neutral behavior.
+- Add cross-Host fixture parity coverage for empty, small, medium, and large Graph projections and package the new shared Graph entrypoints explicitly.
+- Refresh the compatible Rust and pnpm dependency lockfiles and upgrade selected TypeScript, Vite, Tailwind CSS, Lucide, and build-tool dependencies.
+
 ## 0.1.0-alpha.20
 
 - Render configured Graph Views in VS Code native Markdown Preview through the same shared Sigma and Graphology runtime used by the WebApp.

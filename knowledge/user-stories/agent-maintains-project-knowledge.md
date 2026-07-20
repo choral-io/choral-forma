@@ -65,11 +65,10 @@ As an Agent, I want to discover the knowledge workspace structure and operating 
 
 ## Acceptance Intent
 
-This story is satisfied for the next internal release when the starter-kit pressure validation demonstrates that the workflow is discoverable, repeatable, and reviewable using Forma CLI plus configured guidelines.
+This story supports internal release review when the starter-kit pressure validation demonstrates that the workflow is discoverable, repeatable, and reviewable using Forma CLI plus configured guidelines.
 
 ## Related Knowledge
 
-- [[releases/next-internal-release]]
 - [[metrics/knowledge-workflow-replacement-readiness]]
 - [[guidelines/forma-workspace-operations]]
 - [[guidelines/content-maintenance]]

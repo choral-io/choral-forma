@@ -1,4 +1,5 @@
 import type { GraphProjection } from "@choral-forma/graph-view";
+import { normalizeGraphProjection } from "@choral-forma/graph-view/projection";
 import type { ViewRenderOutput } from "@choral-forma/shared";
 
 export type GraphRenderOutput = Extract<ViewRenderOutput, { kind: "graph" }>;
@@ -10,31 +11,7 @@ export type PreviewGraphData = {
 };
 
 export function mapPreviewGraphProjection(projection: GraphRenderOutput): GraphProjection {
-    const legend = projection.legend ?? [];
-    const legendByKey = new Map(legend.map((item) => [item.key, item]));
-    return {
-        legend: legend.map(({ key, label, color }) => ({ key, label, ...(color ? { color } : {}) })),
-        nodes: projection.nodes.map((node) => {
-            const classification = node.classification;
-            const color = classification ? legendByKey.get(classification.key)?.color : undefined;
-            return {
-                id: node.id,
-                path: node.path,
-                ...(node.title ? { title: node.title } : {}),
-                ...(node.kind ? { kind: node.kind } : {}),
-                ...(classification
-                    ? {
-                          classification: {
-                              key: classification.key,
-                              label: classification.label,
-                              ...(color ? { color } : {}),
-                          },
-                      }
-                    : {}),
-            };
-        }),
-        edges: projection.edges.map((edge) => ({ ...edge })),
-    };
+    return normalizeGraphProjection(projection);
 }
 
 export function parsePreviewGraphData(value: string): PreviewGraphData | undefined {

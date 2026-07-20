@@ -8,11 +8,23 @@
     ".": {
       "types": "./dist/index.d.mts",
       "default": "./dist/index.mjs"
+    },
+    "./fixtures": {
+      "types": "./dist/fixtures.d.mts",
+      "default": "./dist/fixtures.mjs"
+    },
+    "./presentation": {
+      "types": "./dist/presentation.d.mts",
+      "default": "./dist/presentation.mjs"
+    },
+    "./projection": {
+      "types": "./dist/projection.d.mts",
+      "default": "./dist/projection.mjs"
     }
   },
   "scripts": {
     "lint": "eslint . --cache --cache-location node_modules/.tmp/.eslintcache",
-    "build": "tsdown src/index.ts --format esm --dts --clean --out-dir dist",
+    "build": "tsdown src/index.ts src/fixtures.ts src/presentation.ts src/projection.ts --format esm --dts --clean --out-dir dist",
     "benchmark": "vitest bench src/layout.bench.ts --run",
     "check": "tsc --noEmit",
     "test": "vitest run src"
@@ -24,6 +36,6 @@
     "sigma": "~3.0.3"
   },
   "devDependencies": {
-    "tsdown": "~0.22.7"
+    "tsdown": "~0.22.9"
   }
 }

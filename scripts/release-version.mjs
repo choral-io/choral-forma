@@ -79,13 +79,14 @@ export function replaceCargoLockPackageVersions(source, nextVersion, packageName
 }
 
 export function documentReleaseVersions(source) {
+    const normalizedSource = source.replace(new RegExp(`(forma-v${releaseVersionSource})\\.md\\b`, "gu"), "$1");
     const patterns = [
         new RegExp(`\\bv(${releaseVersionSource})\\b`, "gu"),
         new RegExp(`forma-(${releaseVersionSource})\\.vsix\\b`, "gu"),
         new RegExp(`choral-forma@(${releaseVersionSource})\\b`, "gu"),
         new RegExp(`"github:choral-io/choral-forma"\\s*=\\s*"(${releaseVersionSource})"`, "gu"),
     ];
-    return patterns.flatMap((pattern) => [...source.matchAll(pattern)].map((match) => match[1]));
+    return patterns.flatMap((pattern) => [...normalizedSource.matchAll(pattern)].map((match) => match[1]));
 }
 
 export function validateReleaseVersions({

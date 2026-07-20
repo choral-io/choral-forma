@@ -6,6 +6,13 @@ export {
     type GraphFixtureProfile,
 } from "./fixtures.ts";
 export { GraphViewModel, aggregateDisplayEdges, graphLabel, nodeSize } from "./model.ts";
+export {
+    graphExpandPresentation,
+    graphSummaryPresentation,
+    type GraphExpandPresentation,
+    type GraphSummaryPresentation,
+} from "./presentation.ts";
+export { normalizeGraphProjection } from "./projection.ts";
 export { createGraphRuntime } from "./runtime.ts";
 export { createGraphThemeFromTokens, mixGraphColors, opaqueGraphColor, type GraphThemeTokens } from "./theme.ts";
 export {

@@ -1,6 +1,8 @@
 import {
     createGraphRuntime,
     createGraphThemeFromTokens,
+    graphExpandPresentation,
+    graphSummaryPresentation,
     type GraphNodeInput,
     type GraphTheme,
     type GraphViewSnapshot,
@@ -11,11 +13,7 @@ import {
     type GraphRenderOutput,
     type PreviewGraphData,
 } from "./graph-preview-data.ts";
-import {
-    graphExpandPresentation,
-    graphSummaryPresentation,
-    shouldScheduleGraphReconcile,
-} from "./graph-preview-lifecycle.ts";
+import { shouldScheduleGraphReconcile } from "./graph-preview-lifecycle.ts";
 import { relativePreviewHref } from "./preview-links.ts";
 
 type GraphController = {

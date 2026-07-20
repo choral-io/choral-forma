@@ -1,11 +1,8 @@
+import { graphExpandPresentation, graphSummaryPresentation } from "@choral-forma/graph-view/presentation";
 import { describe, expect, it } from "vitest";
 
 import { mapPreviewGraphProjection, parsePreviewGraphData } from "./graph-preview-data.ts";
-import {
-    graphExpandPresentation,
-    graphSummaryPresentation,
-    shouldScheduleGraphReconcile,
-} from "./graph-preview-lifecycle.ts";
+import { shouldScheduleGraphReconcile } from "./graph-preview-lifecycle.ts";
 
 describe("VS Code Graph Preview adapter", () => {
     it("maps taxonomy presentation without reading the compatibility space field", () => {
@@ -53,21 +50,8 @@ describe("VS Code Graph Preview adapter", () => {
         expect(shouldScheduleGraphReconcile([{ target: nativePreviewTarget }])).toBe(true);
     });
 
-    it("uses explicit page-local expansion labels", () => {
-        expect(graphExpandPresentation(false)).toEqual({ ariaLabel: "Expand graph", title: "Expand graph" });
-        expect(graphExpandPresentation(true)).toEqual({
-            ariaLabel: "Exit expanded graph",
-            title: "Exit expanded graph",
-        });
-    });
-
-    it("produces a stable summary fingerprint until selection content changes", () => {
-        const first = graphSummaryPresentation({ path: "notes/one.md", title: "One" }, 3);
-        const repeated = graphSummaryPresentation({ path: "notes/one.md", title: "One" }, 3);
-        const changed = graphSummaryPresentation({ path: "notes/one.md", title: "One" }, 4);
-
-        expect(first?.fingerprint).toBe(repeated?.fingerprint);
-        expect(changed?.fingerprint).not.toBe(first?.fingerprint);
-        expect(graphSummaryPresentation(undefined, 0)).toBeUndefined();
+    it("consumes shared page-local expansion and selection-summary semantics", () => {
+        expect(graphExpandPresentation(false).ariaLabel).toBe("Expand graph");
+        expect(graphSummaryPresentation({ path: "notes/one.md", title: "One" }, 3)?.links).toBe("3 linked");
     });
 });

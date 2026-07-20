@@ -9,8 +9,8 @@ priority: P2
 value: M
 module: app
 effort: L
-status: backlog
-readiness: needs-refinement
+status: done
+readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
@@ -100,3 +100,11 @@ The spike can continue with renderer-neutral fixtures and interfaces. Production
 2. [[tasks/migrate-webapp-to-shared-graph-view]] removes the package-local WebApp renderer and adds a thin React Host adapter.
 3. [[tasks/integrate-shared-graph-view-vscode-preview]] adds the native Preview browser bundle and VS Code Host adapter.
 4. [[tasks/validate-shared-graph-view-cross-host-parity]] proves behavior, theme adaptation, lifecycle, accessibility, performance, and packaged integration across both Hosts before the milestone push.
+
+## Result
+
+The design phase accepted Sigma.js plus Graphology as Forma's shared 2D Graph direction and established `packages/graph-view` as the only owner of layout, interaction state, node and edge programs, presentation rules, fixtures, and renderer lifecycle. The comparison retained Graphology's simple force layout for small graphs and bounded ForceAtlas2 plus Worker settling for larger graphs, with deterministic placement and reduced-motion behavior defined as shared runtime concerns.
+
+The accepted interaction model separates single-click selection from source activation, keeps one-hop emphasis and active-document following consistent across Hosts, renders directed and reciprocal relationships explicitly, and exposes node size, color, outline, shape or icon, and label density as renderer-neutral semantic channels. Thin WebApp and native Markdown Preview adapters own only Host theme translation, navigation, active-document discovery, persistence, mounting, and disposal.
+
+The planned delivery slices were created and executed: the shared runtime and WebApp migration are complete, VS Code Preview integration is in review, and cross-Host validation remains active. Remote Extension Host validation, live high-contrast sessions, long-running resource profiling, and full 25/500/5,000-node render measurements belong to [[tasks/validate-shared-graph-view-cross-host-parity]] rather than keeping this design task open. Frontmatter-defined groups and filters and any optional 3D renderer remain explicit follow-up scope.

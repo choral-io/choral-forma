@@ -10,6 +10,15 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": fileURLToPath(new URL("./src", import.meta.url)),
+            "@choral-forma/graph-view/fixtures": fileURLToPath(
+                new URL("../graph-view/src/fixtures.ts", import.meta.url),
+            ),
+            "@choral-forma/graph-view/presentation": fileURLToPath(
+                new URL("../graph-view/src/presentation.ts", import.meta.url),
+            ),
+            "@choral-forma/graph-view/projection": fileURLToPath(
+                new URL("../graph-view/src/projection.ts", import.meta.url),
+            ),
             "@choral-forma/graph-view": fileURLToPath(new URL("../graph-view/src/index.ts", import.meta.url)),
             "@choral-forma/shared": fileURLToPath(new URL("../shared/src/index.ts", import.meta.url)),
         },

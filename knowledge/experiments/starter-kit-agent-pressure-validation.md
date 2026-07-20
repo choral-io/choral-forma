@@ -19,8 +19,6 @@ guardrails:
     - "Do not require old knowledge-workflow skills."
     - "Do not move private local material into shared project content without approval."
     - "Do not expand internal release scope to broad write-operation automation."
-relatedReleases:
-    - "releases/next-internal-release"
 relatedUserStories:
     - "user-stories/agent-maintains-project-knowledge"
 ---

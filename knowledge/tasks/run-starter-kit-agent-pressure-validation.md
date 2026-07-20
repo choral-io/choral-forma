@@ -24,7 +24,6 @@ tags:
     - validation
 blockedBy: []
 relatedTo:
-    - "releases/next-internal-release"
     - "metrics/knowledge-workflow-replacement-readiness"
     - "user-stories/agent-maintains-project-knowledge"
     - "experiments/starter-kit-agent-pressure-validation"
@@ -46,7 +45,6 @@ Execute and record a first validation pass over the starter-kit evaluation suite
 ## Sources
 
 - [[tasks/replace-knowledge-workflow-mechanics-with-forma-cli]]
-- [[releases/next-internal-release]]
 - [[metrics/knowledge-workflow-replacement-readiness]]
 - [[user-stories/agent-maintains-project-knowledge]]
 - [[experiments/starter-kit-agent-pressure-validation]]
@@ -58,7 +56,7 @@ Execute and record a first validation pass over the starter-kit evaluation suite
 
 ## Product R&D Context
 
-This task is the primary validation gate for [[releases/next-internal-release]]. It should produce evidence for [[metrics/knowledge-workflow-replacement-readiness]] and exercise the workflow described by [[user-stories/agent-maintains-project-knowledge]].
+This task provides reusable validation evidence for internal release review. It should produce evidence for [[metrics/knowledge-workflow-replacement-readiness]] and exercise the workflow described by [[user-stories/agent-maintains-project-knowledge]].
 
 ## In Scope
 

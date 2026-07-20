@@ -14,7 +14,6 @@ tags:
     - validation
 sources:
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
-    - "releases/next-internal-release"
     - "metrics/knowledge-workflow-replacement-readiness"
     - "experiments/starter-kit-agent-pressure-validation"
     - "user-stories/agent-maintains-project-knowledge"
@@ -32,7 +31,7 @@ Evaluate whether Forma CLI plus configured guidelines can now support this repos
 
 ## Current Product R&D Role
 
-This planning record is supporting evidence for [[releases/next-internal-release]]. It is not the release gate itself.
+This planning record is reusable supporting evidence for internal release review. It is not a release gate itself.
 
 Current readiness should be judged through [[metrics/knowledge-workflow-replacement-readiness]], [[experiments/starter-kit-agent-pressure-validation]], [[test-cases/forma-starter-kit]], and [[tasks/run-starter-kit-agent-pressure-validation]].
 
