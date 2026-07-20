@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.22
+
+- Publish the first Marketplace-ready Public Preview with one coordinated numeric version across Forma CLI, VS Code, and Zed.
+- Replace internal VSIX-only installation guidance with Marketplace installation, an offline VSIX fallback, and a concise first-run path.
+- Keep the extension visibly marked as Preview while preserving the checksum-verified matching CLI installation flow.
+- Add the Forma brand banner to the repository README and retain the canonical Marketplace icon in the packaged extension.
+
 ## 0.1.0-alpha.21
 
 - Add the new Forma brand icon to the VS Code Marketplace package and align the WebApp favicon with the canonical vector asset.

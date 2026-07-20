@@ -4,6 +4,12 @@ import test from "node:test";
 
 const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
+test("keeps the public Marketplace identity in Preview", () => {
+    assert.equal(manifest.publisher, "choral-io");
+    assert.equal(manifest.name, "forma");
+    assert.equal(manifest.preview, true);
+});
+
 test("packages the Forma Marketplace icon", async () => {
     assert.equal(manifest.icon, "media/icon.png");
     const icon = await readFile(new URL(`../${manifest.icon}`, import.meta.url));

@@ -12,7 +12,7 @@ Product-facing Forma docs, examples, UI copy, and CLI guidance should default to
 
 ## Current Status
 
-This repository is in P0 public-alpha stabilization. It is source-visible for early evaluation and installation, but it is not a production release. Public issue tracking is open for alpha feedback; external pull requests are not accepted before beta.
+This repository is in P0 Public Preview stabilization. It is source-visible for early evaluation and installation, but it is not a production release. Public issue tracking is open for preview feedback; external pull requests are not accepted during Public Preview.
 
 It contains:
 
@@ -24,7 +24,7 @@ It contains:
 - A pnpm web workspace for the local read-only WebApp under `packages/`.
 - Project tool versions declared through `package.json` and `rust-toolchain.toml`, with mise tasks for Rust and web checks.
 
-The current application code implements the P0 read, inspect, check, render, serve, create, resource-preview, reference-navigation, and read-only WebApp surfaces. It is an alpha candidate for early feedback, not a production release.
+The current application code implements the P0 read, inspect, check, render, serve, create, resource-preview, reference-navigation, and read-only WebApp surfaces. It is available for Public Preview feedback, not as a production release.
 
 ## Repository Layout
 
@@ -164,17 +164,17 @@ These assets let editor extensions acquire the exact coordinated Forma version w
 Unix-like systems:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/choral-io/choral-forma/main/install.sh | sh -s -- v0.1.0-alpha.21
+curl -fsSL https://raw.githubusercontent.com/choral-io/choral-forma/main/install.sh | sh -s -- v0.1.22
 ```
 
 Windows PowerShell:
 
 ```powershell
 $script = iwr https://raw.githubusercontent.com/choral-io/choral-forma/main/install.ps1 -UseBasicParsing
-& ([scriptblock]::Create($script.Content)) -Version v0.1.0-alpha.21
+& ([scriptblock]::Create($script.Content)) -Version v0.1.22
 ```
 
-During the alpha stage, install a pinned release tag. GitHub does not expose prereleases through the `latest` release endpoint used by some installers and tools. Update the tag in these examples before publishing each new alpha release. Set `FORMA_INSTALL_DIR` to override the install directory.
+During Public Preview, install a pinned release tag so the CLI and editor extensions remain on the same coordinated version. Update the tag in these examples before publishing each preview release. Set `FORMA_INSTALL_DIR` to override the install directory.
 
 ### mise GitHub Backend
 
@@ -184,8 +184,8 @@ Forma release assets are also intended to work with mise's GitHub backend:
 # Installing from GitHub Releases requires internet access. If the current
 # environment is sandboxed without network access, run these install steps
 # outside the sandbox, then use the installed shim from sandboxed sessions.
-mise use github:choral-io/choral-forma@0.1.0-alpha.21
-mise install github:choral-io/choral-forma@0.1.0-alpha.21
+mise use github:choral-io/choral-forma@0.1.22
+mise install github:choral-io/choral-forma@0.1.22
 forma --version
 ```
 
@@ -193,10 +193,10 @@ A project or user config can declare the same tool:
 
 ```toml
 [tools]
-"github:choral-io/choral-forma" = "0.1.0-alpha.21"
+"github:choral-io/choral-forma" = "0.1.22"
 ```
 
-Mise normally autodetects the matching GitHub Release asset from OS and architecture. During the alpha stage, pin a release version because `latest` does not resolve prerelease-only repositories. GitHub release tags use the `v0.1.0-alpha.21` form, while mise normalizes the GitHub backend tool version to `0.1.0-alpha.21`. If autodetection is not enough for a team's environment, add platform-specific `asset_pattern` values as described in the [mise GitHub backend documentation](https://mise.jdx.dev/dev-tools/backends/github.html).
+Mise normally autodetects the matching GitHub Release asset from OS and architecture. During Public Preview, pin the release version to preserve the coordinated CLI and editor-extension contract. GitHub release tags use the `v0.1.22` form, while mise normalizes the GitHub backend tool version to `0.1.22`. If autodetection is not enough for a team's environment, add platform-specific `asset_pattern` values as described in the [mise GitHub backend documentation](https://mise.jdx.dev/dev-tools/backends/github.html).
 
 After installation, verify that the CLI is available:
 
@@ -242,7 +242,7 @@ Use the local Forma config as the active project workspace context:
 - `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json`
 - `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
 
-For project context, start from the configured Forma workspace: product direction in [knowledge/product/product-direction.md](knowledge/product/product-direction.md), latest published release state in [knowledge/releases/forma-v0.1.0-alpha.21.md](knowledge/releases/forma-v0.1.0-alpha.21.md), and current delivery state through `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`. Keep durable project facts in `knowledge/` and keep local personal notes and Agent runtime state out of git.
+For project context, start from the configured Forma workspace: product direction in [knowledge/product/product-direction.md](knowledge/product/product-direction.md), latest published release state in [knowledge/releases/forma-v0.1.22.md](knowledge/releases/forma-v0.1.22.md), and current delivery state through `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`. Keep durable project facts in `knowledge/` and keep local personal notes and Agent runtime state out of git.
 
 ## Commit Messages
 
