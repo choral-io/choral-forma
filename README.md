@@ -1,5 +1,7 @@
 # Choral Forma
 
+![Forma — Files-first Markdown workspace](assets/brand/forma-banner.svg)
+
 Choral Forma is an early-stage exploration of a lightweight, editor-independent Markdown content workspace.
 
 The project is files-first: product direction, reusable concepts, decisions, planning, and delivery workflow live in repository Markdown while the application reads and writes explicit Markdown files and schemas. The long-term product direction is to keep Markdown files and explicit schemas as the source of truth, rather than hiding workspace content in a proprietary store.
