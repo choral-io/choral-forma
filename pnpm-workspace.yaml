@@ -1,4 +1,5 @@
 packages:
+  - "extensions/*"
   - "packages/*"
 minimumReleaseAge: 4320
 pmOnFail: warn

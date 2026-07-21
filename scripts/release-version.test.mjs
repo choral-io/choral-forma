@@ -164,7 +164,7 @@ test("normalizes tagged and untagged versions found in current documentation", (
 
 test("derives workflow VSIX names from the extension manifest", () => {
     for (const workflow of workflows) {
-        assert.match(workflow, /packages\/vscode-extension\/package\.json/u);
+        assert.match(workflow, /extensions\/vscode\/package\.json/u);
         assert.doesNotMatch(workflow, /forma-0\.1\.0-alpha\.\d+\.vsix/u);
     }
 });

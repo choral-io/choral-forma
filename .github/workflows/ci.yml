@@ -119,7 +119,7 @@ jobs:
       - name: Resolve VSIX output
         shell: bash
         run: |
-          version="$(node -p "require('./packages/vscode-extension/package.json').version")"
+          version="$(node -p "require('./extensions/vscode/package.json').version")"
           echo "VSIX_OUT=${RUNNER_TEMP}/forma-${version}.vsix" >> "$GITHUB_ENV"
 
       - name: Package VSIX

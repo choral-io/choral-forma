@@ -10,12 +10,10 @@ import {
 
 const cargo = await readFile(new URL("../Cargo.toml", import.meta.url), "utf8");
 const cargoLock = await readFile(new URL("../Cargo.lock", import.meta.url), "utf8");
-const extension = JSON.parse(
-    await readFile(new URL("../packages/vscode-extension/package.json", import.meta.url), "utf8"),
-);
+const extension = JSON.parse(await readFile(new URL("../extensions/vscode/package.json", import.meta.url), "utf8"));
 const zedExtensionManifest = await readFile(new URL("../extensions/zed/extension.toml", import.meta.url), "utf8");
-const extensionReadme = await readFile(new URL("../packages/vscode-extension/README.md", import.meta.url), "utf8");
-const changelog = await readFile(new URL("../packages/vscode-extension/CHANGELOG.md", import.meta.url), "utf8");
+const extensionReadme = await readFile(new URL("../extensions/vscode/README.md", import.meta.url), "utf8");
+const changelog = await readFile(new URL("../extensions/vscode/CHANGELOG.md", import.meta.url), "utf8");
 const rootReadme = await readFile(new URL("../README.md", import.meta.url), "utf8");
 const cargoVersion = cargoWorkspaceVersion(cargo);
 const release = await readOptional(new URL(`../knowledge/releases/forma-v${cargoVersion}.md`, import.meta.url));

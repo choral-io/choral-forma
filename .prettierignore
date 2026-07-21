@@ -17,3 +17,5 @@ node_modules/
 pnpm-lock.yaml
 packages/*/dist/
 packages/*/node_modules/
+extensions/*/dist/
+extensions/*/node_modules/

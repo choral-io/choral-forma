@@ -6,7 +6,7 @@ The bundled extension has one direct third-party JavaScript runtime dependency:
 
 The dependency bundles the Microsoft `vscode-jsonrpc`, `vscode-languageserver-protocol`, `vscode-languageserver-types`, and `vscode-languageserver-textdocument` packages under the same MIT license family. The remaining runtime uses Node.js and VS Code APIs, while shared Forma imports are type-only and erased by esbuild. The package also vendors only the selected Lucide SVG assets used by the Forma tree, with light and dark variants and the corresponding third-party notice.
 
-Development dependencies stay inside `packages/vscode-extension`:
+Development dependencies stay inside `extensions/vscode`:
 
 - `esbuild`: build-only bundler for the single CommonJS extension-host entrypoint; selected by the accepted architecture and removable if the repository adopts another extension bundler.
 - `@types/vscode`, `@types/node`, `@types/mocha`: compile-time contracts only. The VS Code type version is pinned to the declared minimum compatibility floor.

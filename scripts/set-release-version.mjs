@@ -21,7 +21,7 @@ const nextVersion = assertReleaseVersion(positionals[0]);
 const files = {
     cargo: new URL("../Cargo.toml", import.meta.url),
     cargoLock: new URL("../Cargo.lock", import.meta.url),
-    extension: new URL("../packages/vscode-extension/package.json", import.meta.url),
+    extension: new URL("../extensions/vscode/package.json", import.meta.url),
     rootReadme: new URL("../README.md", import.meta.url),
     zedExtension: new URL("../extensions/zed/extension.toml", import.meta.url),
 };
@@ -67,7 +67,7 @@ if (changed.length === 0) console.log(`Forma is already set to ${nextVersion}.`)
 else console.log(`${dryRun ? "Dry run would set" : "Set"} Forma from ${currentVersion} to ${nextVersion}.`);
 
 console.log("Manual release content still required:");
-console.log(`- add a ${nextVersion} entry to packages/vscode-extension/CHANGELOG.md`);
+console.log(`- add a ${nextVersion} entry to extensions/vscode/CHANGELOG.md`);
 console.log(`- create knowledge/releases/forma-v${nextVersion}.md with version: v${nextVersion}`);
 console.log("- run mise run version:check after completing the release content");
 

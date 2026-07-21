@@ -15,7 +15,7 @@
   "scripts": {
     "lint": "pnpm --recursive --if-present lint",
     "build": "pnpm --recursive --if-present build",
-    "test": "vitest run packages/graph-view/src packages/shared/src packages/webapp/src packages/vscode-extension/src && node --test scripts/*.test.mjs",
+    "test": "vitest run extensions/vscode/src packages/graph-view/src packages/shared/src packages/webapp/src && node --test scripts/*.test.mjs",
     "check": "node scripts/check-release-version.mjs && pnpm --recursive --if-present check && prettier --check . --cache",
     "format": "prettier --write . --cache"
   },

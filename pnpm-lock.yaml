@@ -64,7 +64,7 @@ importers:
         specifier: ~0.22.9
         version: 0.22.9(typescript@6.0.3)
 
-  packages/vscode-extension:
+  extensions/vscode:
     dependencies:
       vscode-languageclient:
         specifier: ~10.1.0
@@ -72,10 +72,10 @@ importers:
     devDependencies:
       '@choral-forma/graph-view':
         specifier: workspace:*
-        version: link:../graph-view
+        version: link:../../packages/graph-view
       '@choral-forma/shared':
         specifier: workspace:*
-        version: link:../shared
+        version: link:../../packages/shared
       '@types/mocha':
         specifier: ~10.0.10
         version: 10.0.10

@@ -1,10 +1,10 @@
 import { graphFixtureProfile, type GraphFixtureProfile } from "@choral-forma/graph-view/fixtures";
+import { normalizeGraphProjection } from "@choral-forma/graph-view/projection";
 import type { ViewRenderOutput } from "@choral-forma/shared";
 import { describe, expect, it } from "vitest";
 
 import type { DashboardViewProjection } from "@/data/workspace-client";
 
-import { mapPreviewGraphProjection } from "../../../../vscode-extension/src/graph-preview-data.ts";
 import { mapDashboardGraphProjection } from "./graph-adapter";
 
 type GraphRenderOutput = Extract<ViewRenderOutput, { kind: "graph" }>;
@@ -15,7 +15,7 @@ describe("Graph adapter parity", () => {
         it(`normalizes the ${profile} fixture identically in WebApp and VS Code`, () => {
             const render = renderProjection(profile);
 
-            expect(mapDashboardGraphProjection(dashboardProjection(render))).toEqual(mapPreviewGraphProjection(render));
+            expect(mapDashboardGraphProjection(dashboardProjection(render))).toEqual(normalizeGraphProjection(render));
         });
     }
 });

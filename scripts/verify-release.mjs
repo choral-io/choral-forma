@@ -16,7 +16,7 @@ import {
 } from "./release-verification.mjs";
 
 const execFileAsync = promisify(execFile);
-const extensionPackageUrl = new URL("../packages/vscode-extension/package.json", import.meta.url);
+const extensionPackageUrl = new URL("../extensions/vscode/package.json", import.meta.url);
 const extensionRequire = createRequire(extensionPackageUrl);
 const { build } = extensionRequire("esbuild");
 const { readVSIXPackage } = extensionRequire("@vscode/vsce/out/zip.js");
@@ -112,7 +112,7 @@ async function verifyRelease(releaseTag) {
 async function buildManagedCliModule(scratch) {
     const outfile = join(scratch, "managed-cli.mjs");
     await build({
-        entryPoints: [fileURLToPath(new URL("../packages/vscode-extension/src/managed-cli.ts", import.meta.url))],
+        entryPoints: [fileURLToPath(new URL("../extensions/vscode/src/managed-cli.ts", import.meta.url))],
         outfile,
         bundle: true,
         platform: "node",
