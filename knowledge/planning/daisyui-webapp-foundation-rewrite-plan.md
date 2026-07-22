@@ -299,7 +299,7 @@ The rewrite was implemented and validated on 2026-07-22 in the isolated `codex/d
 - DaisyUI `5.6.18` is the WebApp-local Tailwind plugin.
 - `choral-light` is the default theme and `choral-dark` follows `prefers-color-scheme`; the obsolete startup script that wrote `data-theme="system"` was removed because it prevented DaisyUI's `prefersdark` selector from activating.
 - Desktop navigation is an ordinary responsive sidebar. The initial checkbox Drawer experiment closed SPA items correctly but failed Escape dismissal and modal focus containment, so the documented native `dialog.modal-start` fallback was adopted for mobile navigation.
-- Quick Open uses a native dialog and React state only for its filter query and rendered result set. A local Escape handler closes the dialog from a non-empty search input because the browser otherwise consumes the first Escape to clear `type="search"`.
+- Quick Open uses DaisyUI's native `dialog.modal`, portalled to `document.body` so enclosing `menu` styles cannot override Modal placement. The dialog owns open/closed state; feature-local React state owns query, ranked results, and active keyboard selection. `Ctrl/Cmd+K`, arrows, Home/End, Enter, Escape, pointer activation, backdrop dismissal, and SPA-close behavior were retained after visual testing showed that the simpler first cut was not sufficient.
 - Nested navigation uses details/summary, reading width uses a native select, Context/Outline uses radio-backed DaisyUI tabs, and mobile context uses an inline details disclosure.
 - No Dropdown or Popover interaction remained necessary in the accepted first cut.
 - No Headless component dependency remains.
@@ -307,7 +307,7 @@ The rewrite was implemented and validated on 2026-07-22 in the isolated `codex/d
 ### Dependency And Source Evidence
 
 - Direct WebApp dependencies decreased from 30 to 27: `@base-ui/react`, `class-variance-authority`, `shadcn`, and `tw-animate-css` were removed; DaisyUI was added as a development dependency.
-- `packages/webapp/src/components/ui`, `components.json`, Theme provider/context, the theme menu, responsive sidebar hooks, controlled context-panel state, and the old Quick Open keyboard model were deleted instead of retained as compatibility shells.
+- `packages/webapp/src/components/ui`, `components.json`, Theme provider/context, the theme menu, responsive sidebar hooks, and controlled context-panel state were deleted instead of retained as compatibility shells. Quick Open keyboard behavior now lives directly in its feature rather than in a generic UI abstraction.
 - `clsx` and `tailwind-merge` remain because `cn` still has feature-level consumers.
 - DaisyUI's excluded `properties` output was inspected in the installed version. It contains only `@property` declarations for unused `radialprogress` and `aura` components, so exclusion remains a small output-minimization choice rather than a required browser workaround and should not be treated as permanent policy.
 - Browser validation exposed that the RPC contract can omit an empty `ViewRenderDocument.mounts` array. The shared TypeScript type and WebApp mapper now accept the serialized form, with a focused regression test.
@@ -316,18 +316,25 @@ The rewrite was implemented and validated on 2026-07-22 in the isolated `codex/d
 
 | Output          |                     Before |                      After |                          Change |
 | --------------- | -------------------------: | -------------------------: | ------------------------------: |
-| Main CSS        |   98.87 kB / 15.35 kB gzip |   95.69 kB / 15.93 kB gzip |    -3.18 kB raw / +0.58 kB gzip |
-| Main JavaScript | 779.77 kB / 242.68 kB gzip | 573.44 kB / 174.87 kB gzip | -206.33 kB raw / -67.81 kB gzip |
+| Main CSS        |   98.87 kB / 15.35 kB gzip |   99.52 kB / 16.35 kB gzip |    +0.65 kB raw / +1.00 kB gzip |
+| Main JavaScript | 779.77 kB / 242.68 kB gzip | 582.18 kB / 177.11 kB gzip | -197.59 kB raw / -65.57 kB gzip |
 
 The existing Vite warning for chunks above 500 kB remains outside this foundation rewrite; the main JavaScript bundle still decreased materially.
 
 ### Validation Evidence
 
-- Package type-check, ESLint, six Vitest files with 16 tests, and production build passed after the final changes.
+- Package type-check, ESLint, six Vitest files with 20 tests, production build, and the Forma CLI's 25 library plus 26 integration tests passed after the final changes.
 - Edge validated 1440 px, 1024 px, and 390 px layouts, system light/dark theme switching, reduced motion, Markdown reading width, Context/Outline tabs, mobile disclosure, navigation dismissal and focus, Quick Open filtering and activation, and Graph rendering without horizontal overflow.
 - WebKit validated mobile navigation Escape/focus behavior, Quick Open Enter navigation, Graph rendering, and absence of console warnings or errors.
 - Edge and WebKit both rendered the native dialogs and Graph route successfully. The final Edge Graph run produced eight Sigma canvas layers and no console warning or error.
 - High-contrast mode was not separately automated; semantic controls, accessible names, non-color diagnostic labels, and browser focus behavior remain the baseline mitigation.
+
+### Follow-Up Validation Adjustments
+
+- Workspace navigation is now projected from configured taxonomies and terms. `Spaces` appears only when that is the configured taxonomy title; it is not a WebApp built-in.
+- Configured classification routes use `/:taxonomyId` and `/:taxonomyId/:termId`. Product routes such as `/pages`, `/views`, and `/taxonomies` keep static-route precedence and therefore remain reserved route roots.
+- Table columns come directly from configured `render.columns`, and Kanban columns, order, icons, card fields, and item membership come directly from the rendered view projection. Kanban columns remain on one horizontal row with overflow scrolling regardless of configured column count.
+- The `examples/software-product-rd-workspace/` workspace was used for the final IAB visual audit. Quick Open, taxonomy term routes, dashboard density, and responsive summary layouts were checked at desktop and 390 px mobile widths after the follow-up changes.
 
 ### Abstraction Review
 
