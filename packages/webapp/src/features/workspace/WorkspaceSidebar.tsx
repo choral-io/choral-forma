@@ -45,7 +45,7 @@ export function WorkspaceSidebar({
             </div>
 
             <nav aria-label="Workspace" className="is-drawer-close:overflow-visible min-h-0 flex-1 overflow-y-auto">
-                <ul className="menu is-drawer-open:menu-lg w-full grow gap-0.5">
+                <ul className="menu w-full grow gap-0.5">
                     {showQuickOpen ? (
                         <li data-sidebar-quick-open>
                             <QuickOpenDialog dashboard={dashboard} trigger="sidebar" />
@@ -121,8 +121,8 @@ function SidebarLink({
                 aria-label={label}
                 className={
                     active
-                        ? "menu-active is-drawer-close:tooltip is-drawer-close:tooltip-right bg-base-300! text-base-content! focus-visible:ring-base-content/30 flex! items-center gap-3 outline-none focus-visible:ring-2 max-lg:min-h-11"
-                        : "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 flex! items-center gap-3 outline-none focus-visible:ring-2 max-lg:min-h-11"
+                        ? "menu-active is-drawer-close:tooltip is-drawer-close:tooltip-right bg-base-300! text-base-content! focus-visible:ring-base-content/30 flex! items-center gap-3 leading-4 outline-none focus-visible:ring-2 max-lg:min-h-11"
+                        : "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 flex! items-center gap-3 leading-4 outline-none focus-visible:ring-2 max-lg:min-h-11"
                 }
                 data-tip={label}
                 data-sidebar-link

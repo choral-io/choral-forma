@@ -159,7 +159,7 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
                 aria-label="Quick open"
                 className={cn(
                     trigger === "sidebar"
-                        ? "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 flex! w-full items-center gap-3 outline-none focus-visible:ring-2"
+                        ? "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 flex! w-full items-center gap-3 leading-4 outline-none focus-visible:ring-2"
                         : "btn btn-square",
                     triggerClassName,
                 )}

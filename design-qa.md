@@ -7,19 +7,19 @@
     - Pixels: 1440 × 900.
     - CSS viewport: 1440 × 900.
     - Device scale factor: 1.
-- Primary implementation screenshot: `.local/visual-regression-2026-07-22/14-collapsed-after-menu-lg.png`
-    - Pixels: 1440 × 900.
-    - CSS viewport: 1440 × 900.
+- Primary implementation screenshot: `.local/visual-regression-2026-07-22/27-regular-menu-height-stable.png`
+    - Pixels: 1280 × 720.
+    - CSS viewport: 1280 × 720.
     - Device scale factor: 1.
-- Expanded implementation: `.local/visual-regression-2026-07-22/13-expanded-menu-lg.png`
+- Expanded implementation: `.local/visual-regression-2026-07-22/28-regular-menu-expanded.png`
 - Tooltip implementation: `.local/visual-regression-2026-07-22/15-quick-open-tooltip-default-stack.png`
 - Mobile implementation: `.local/visual-regression-2026-07-22/17-mobile-navigation-open.png`
 - Quick Open Light/Dark: `.local/visual-regression-2026-07-22/18-quick-open-modal-light.png` and `.local/visual-regression-2026-07-22/19-quick-open-modal-dark.png`
-- Density normalization: none. The primary source and implementation captures have identical pixel and CSS dimensions at device scale factor 1.
+- Density normalization: none. Source and implementation captures use their native CSS dimensions at device scale factor 1; exact component measurements supplement the different full-view viewport sizes.
 
 ## State
 
-- Desktop expanded: 256 px sidebar, `menu-lg`, 2 px inter-item gap, 39 px menu-item height, 18 px menu label.
+- Desktop expanded: 256 px sidebar, default `menu` sizing, 2 px inter-item gap, 28 px menu-item height, 14 px menu label.
 - Desktop collapsed: 56 px rail, default compact menu sizing, 40 × 28 px menu controls, 16 px icons, labels hidden.
 - Mobile: 390 × 844 viewport, desktop drawer unchecked and visually absent, native navigation dialog open.
 - Themes: Quick Open Modal reviewed in `choral-light` and `choral-dark`.
@@ -35,7 +35,7 @@ A separate focused crop was not needed: the reference preview isolates the compl
 - No actionable P0, P1, or P2 visual mismatch remains.
 - Quick Open and navigation labels are vertically centered through their computed Flex alignment.
 - The Quick Open Tooltip renders over the main content without a project-authored z-index utility. The implementation relies on DaisyUI's `.drawer-side` stacking behavior and `is-drawer-close:overflow-visible`.
-- The expanded menu uses the requested `menu-lg` sizing with a small 2 px gap. The variant is limited to the open state so it does not widen the 56 px compact rail.
+- Expanded and collapsed states now use the same default `menu` sizing with a small 2 px gap. A 16 px line height matches the 16 px icons, so menu-item height remains 28 px throughout the drawer transition.
 - The page root has no horizontal overflow at 1440 × 900 or 390 × 844.
 - No P3 follow-up polish was identified in the reviewed sidebar states.
 
@@ -58,10 +58,15 @@ A separate focused crop was not needed: the reference preview isolates the compl
 4. Requested expanded-menu density adjustment
     - Fix: applied `is-drawer-open:menu-lg` and `gap-0.5`, preserving compact sizing when closed.
     - Post-fix evidence: `.local/visual-regression-2026-07-22/13-expanded-menu-lg.png` and `14-collapsed-after-menu-lg.png`.
+5. P2 drawer-transition height shift
+    - Earlier finding: `is-drawer-open:menu-lg` changed each item from 39 px to 28 px as soon as collapse began. After removing `menu-lg`, the default 21 px text line box still changed the natural height from 33 px to 28 px when labels became hidden.
+    - Fix: retained default `menu` sizing in both states and applied a 16 px line height to the direct Quick Open and navigation controls. This matches the 16 px icons without fixing component height explicitly.
+    - Post-fix evidence: `.local/visual-regression-2026-07-22/27-regular-menu-height-stable.png` and `28-regular-menu-expanded.png`; browser measurements remain 28 px before, immediately after, and after the 200 ms drawer transition.
 
 ## Primary interactions tested
 
 - Expanded and collapsed desktop drawer state, including persistence after reload.
+- Deterministic Quick Open and navigation height measurement before, immediately after, and after the drawer transition.
 - Quick Open and navigation Tooltip hover in collapsed state.
 - Quick Open Modal opening and rendering in Light and Dark themes.
 - Mobile navigation opening, backdrop presence, SPA navigation, and automatic close after selecting `Views`.
