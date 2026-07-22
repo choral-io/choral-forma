@@ -242,6 +242,8 @@ Reusable extraction happens only after every target page passes automated and br
 
 ## Delivery And Validation Protocol
 
+Use [[guidelines/webapp-engineering-and-visual-validation]] for the reusable implementation, debugging, transition-measurement, and browser-evidence workflow behind these route-specific acceptance requirements.
+
 Use the approved isolated worktree. Deliver one observable vertical slice at a time:
 
 1. Record the existing route state and relevant regression risk.
