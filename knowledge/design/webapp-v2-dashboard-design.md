@@ -19,6 +19,8 @@ sources:
 
 # WebApp V2 Dashboard Design
 
+> This design has been superseded by [[design/webapp-review-surface-design]]. It remains as historical context for the earlier Notion-style dashboard direction and must not be used as the current rewrite acceptance specification.
+
 ## Purpose
 
 Define the WebApp V2 product surface before replacing the current P0 validation shell. V2 should feel like a Notion-style knowledge dashboard for a local repository workspace, while keeping repository Markdown and shared Forma operations as the source of truth.
