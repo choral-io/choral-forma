@@ -79,9 +79,9 @@ The theme copy is a starting point, not an irrevocable design contract. Subseque
 
 | Surface | First-cut implementation | Behavior deliberately omitted or simplified |
 | --- | --- | --- |
-| Application shell | DaisyUI `drawer` with `lg:drawer-open` and an uncontrolled `drawer-toggle` checkbox | No desktop icon-collapse mode, rail, `Cmd+B`, persisted sidebar state, or mirrored React `open` state |
+| Application shell | Responsive grid with a directly rendered desktop sidebar and a native mobile `<dialog className="modal modal-start">` | No desktop icon-collapse mode, rail, `Cmd+B`, persisted sidebar state, or mirrored React `open` state |
 | Workspace navigation | DaisyUI `menu`; native `<details>` and `<summary>` for nested groups | No generic Collapsible wrapper |
-| Mobile navigation | Drawer toggle and overlay; menu activation imperatively unchecks the toggle | No separate Base UI Sheet implementation |
+| Mobile navigation | Native modal dialog; menu activation calls `close("navigate")`; route changes provide a fallback close path | DaisyUI checkbox Drawer was rejected after browser validation; no Base UI Sheet implementation |
 | Transient action menus | DaisyUI Dropdown using the Popover API; route actions call `hidePopover()` | No CSS-focus Dropdown or manual `.blur()` dismissal |
 | Quick Open | DaisyUI `modal` on native `<dialog>` with an input and semantic result buttons/links; the dialog owns its open state | No custom active index, `aria-activedescendant`, arrow-key loop, IME-specific navigation helper, or mirrored React `open` state in the first cut |
 | Reading width | Native `<select>` styled with DaisyUI `select` | No dropdown menu abstraction |
@@ -100,7 +100,7 @@ Use the narrowest state owner that already expresses the interaction:
 
 | Interaction | State owner | Open and close mechanism | SPA activation behavior |
 | --- | --- | --- | --- |
-| Mobile Drawer | Uncontrolled DaisyUI `drawer-toggle` checkbox | Associated labels open, toggle, and close it; feature-local code may set `checked = false` through a ref | Every navigation or action item closes the Drawer directly; a location-change effect in the persistent shell is a fallback for programmatic navigation and history traversal |
+| Mobile navigation | Native modal `<dialog>` | A button calls `showModal()`; Escape, method-dialog backdrop, or local code calls `close()` | Every navigation item calls `close("navigate")`; a location-change effect is the fallback for programmatic navigation and history traversal |
 | Dropdown | Native Popover API with `popover="auto"` | `popovertarget`, browser light dismissal, and `hidePopover()` | Every navigation or action item calls `hidePopover()`; do not rely on focus moving away |
 | Inline disclosure | Native `<details>` and `<summary>` | Browser-owned `open` state | Keep the disclosure open by default; set `details.open = false` only when the product behavior explicitly requires it |
 | Modal and Quick Open | Native `<dialog>` | `showModal()`, `close()`, method-dialog controls, and Escape | Close through the dialog API; route-level focus handling owns focus placement after successful navigation |
@@ -172,20 +172,20 @@ Exit criteria:
 
 ### Phase 2: Replace The Application Shell And Navigation
 
-- Rebuild the outer shell with DaisyUI `drawer` and `lg:drawer-open`.
-- Render desktop navigation as a permanently visible sidebar and mobile navigation through an uncontrolled drawer toggle and overlay.
+- Render desktop navigation as a permanently visible sidebar in the responsive application grid.
+- Start by evaluating DaisyUI's uncontrolled Drawer, then use the documented native dialog fallback if keyboard or modal behavior fails browser validation.
 - Convert workspace navigation to `menu` markup and nested native disclosure elements.
-- Close the mobile Drawer directly from every SPA navigation and action item by unchecking the drawer toggle through a local ref.
-- Add location-change dismissal only as a fallback for programmatic navigation and browser history traversal; do not make the router location a second source of Drawer state.
+- Close mobile navigation directly from every SPA navigation and action item through the owning native state primitive.
+- Add location-change dismissal only as a fallback for programmatic navigation and browser history traversal; do not make router location a second source of open state.
 - Retain route selection, workspace identity, diagnostics entry points, and accessible navigation labels.
 - Remove desktop sidebar collapse state, keyboard shortcut, persistence, resize rail, and Tooltip provider.
 
 Exit criteria:
 
 - Current routes remain reachable by keyboard and pointer.
-- Mobile Drawer opens and closes without React mirroring the checkbox state.
-- Activating a Drawer item closes it even when the item targets the current route; programmatic navigation and browser history traversal do not leave it open.
-- Canceling the Drawer restores focus when appropriate, and successful navigation follows route-level focus placement without trapping page scrolling.
+- Mobile navigation opens and closes without React mirroring dialog state.
+- Activating a navigation item closes it even when the item targets the current route; programmatic navigation and browser history traversal do not leave it open.
+- Canceling mobile navigation restores focus when appropriate, and successful navigation follows route-level focus placement without trapping page scrolling.
 - Desktop and tablet layouts do not overflow horizontally.
 
 ### Phase 3: Replace Feature Interactions
@@ -201,7 +201,7 @@ Exit criteria:
 
 - Quick Open passes the retained interaction contract and focus checks.
 - Context, Outline, and reading-width settings work without Base UI.
-- Drawer, Popover, details, and dialog interactions use their native or DOM state without default React-controlled `open` mirrors.
+- Mobile navigation, Popover, details, and dialog interactions use their native or DOM state without default React-controlled `open` mirrors.
 - No Dropdown uses CSS focus or manual `.blur()` as its dismissal mechanism.
 - No new global provider or generic Headless wrapper is introduced.
 
@@ -278,7 +278,7 @@ For each relevant route, verify:
 - `choral-light` and `choral-dark` under matching system preferences;
 - visible focus indicators and logical Tab order;
 - desktop navigation visibility and mobile drawer open, close, overlay, Escape, and focus return;
-- Drawer and Dropdown dismissal after mouse, Enter, and Space activation of current-route and different-route SPA links;
+- mobile navigation and Dropdown dismissal after pointer or Enter activation of current-route and different-route SPA links; Space applies only to button-like controls, not native links;
 - dismissal of persistent-shell surfaces after programmatic navigation and browser history traversal;
 - Popover outside-click and Escape dismissal without `.blur()` helpers;
 - Quick Open focus, filtering, Tab, Enter, pointer selection, Escape, empty state, and repeat opening;
@@ -289,6 +289,49 @@ For each relevant route, verify:
 - reduced-motion and high-contrast behavior where supported by the target browser.
 
 Test current Chromium and one non-Chromium engine before declaring native dialog and disclosure behavior sufficient.
+
+## Implementation Result
+
+The rewrite was implemented and validated on 2026-07-22 in the isolated `codex/daisyui-webapp-rewrite` worktree branch.
+
+### Accepted Foundation
+
+- DaisyUI `5.6.18` is the WebApp-local Tailwind plugin.
+- `choral-light` is the default theme and `choral-dark` follows `prefers-color-scheme`; the obsolete startup script that wrote `data-theme="system"` was removed because it prevented DaisyUI's `prefersdark` selector from activating.
+- Desktop navigation is an ordinary responsive sidebar. The initial checkbox Drawer experiment closed SPA items correctly but failed Escape dismissal and modal focus containment, so the documented native `dialog.modal-start` fallback was adopted for mobile navigation.
+- Quick Open uses a native dialog and React state only for its filter query and rendered result set. A local Escape handler closes the dialog from a non-empty search input because the browser otherwise consumes the first Escape to clear `type="search"`.
+- Nested navigation uses details/summary, reading width uses a native select, Context/Outline uses radio-backed DaisyUI tabs, and mobile context uses an inline details disclosure.
+- No Dropdown or Popover interaction remained necessary in the accepted first cut.
+- No Headless component dependency remains.
+
+### Dependency And Source Evidence
+
+- Direct WebApp dependencies decreased from 30 to 27: `@base-ui/react`, `class-variance-authority`, `shadcn`, and `tw-animate-css` were removed; DaisyUI was added as a development dependency.
+- `packages/webapp/src/components/ui`, `components.json`, Theme provider/context, the theme menu, responsive sidebar hooks, controlled context-panel state, and the old Quick Open keyboard model were deleted instead of retained as compatibility shells.
+- `clsx` and `tailwind-merge` remain because `cn` still has feature-level consumers.
+- DaisyUI's excluded `properties` output was inspected in the installed version. It contains only `@property` declarations for unused `radialprogress` and `aura` components, so exclusion remains a small output-minimization choice rather than a required browser workaround and should not be treated as permanent policy.
+- Browser validation exposed that the RPC contract can omit an empty `ViewRenderDocument.mounts` array. The shared TypeScript type and WebApp mapper now accept the serialized form, with a focused regression test.
+
+### Bundle Evidence
+
+| Output          |                     Before |                      After |                          Change |
+| --------------- | -------------------------: | -------------------------: | ------------------------------: |
+| Main CSS        |   98.87 kB / 15.35 kB gzip |   95.69 kB / 15.93 kB gzip |    -3.18 kB raw / +0.58 kB gzip |
+| Main JavaScript | 779.77 kB / 242.68 kB gzip | 573.44 kB / 174.87 kB gzip | -206.33 kB raw / -67.81 kB gzip |
+
+The existing Vite warning for chunks above 500 kB remains outside this foundation rewrite; the main JavaScript bundle still decreased materially.
+
+### Validation Evidence
+
+- Package type-check, ESLint, six Vitest files with 16 tests, and production build passed after the final changes.
+- Edge validated 1440 px, 1024 px, and 390 px layouts, system light/dark theme switching, reduced motion, Markdown reading width, Context/Outline tabs, mobile disclosure, navigation dismissal and focus, Quick Open filtering and activation, and Graph rendering without horizontal overflow.
+- WebKit validated mobile navigation Escape/focus behavior, Quick Open Enter navigation, Graph rendering, and absence of console warnings or errors.
+- Edge and WebKit both rendered the native dialogs and Graph route successfully. The final Edge Graph run produced eight Sigma canvas layers and no console warning or error.
+- High-contrast mode was not separately automated; semantic controls, accessible names, non-color diagnostic labels, and browser focus behavior remain the baseline mitigation.
+
+### Abstraction Review
+
+No post-validation extraction is justified in this change. The remaining route and feature components express product structure, data mapping, Markdown/Graph integration, or focus behavior. Repeated DaisyUI markup and class lists remain direct at their call sites, and no replacement generic UI directory, CVA recipe, shared class recipe, or stylesheet component abstraction was introduced.
 
 ## Scope Guardrails
 
