@@ -1612,11 +1612,11 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
     return (
         <div className="border-base-300 overflow-hidden rounded-lg border">
             <div className="overflow-x-auto">
-                <table className="w-full min-w-160 text-sm">
+                <table className="table-sm table min-w-max">
                     <thead className="bg-base-200/60 text-base-content/60">
                         <tr className="border-base-300 border-b">
                             {projection.columns.map((column) => (
-                                <th className="px-4 py-3 text-start font-medium" key={column.field}>
+                                <th className="font-medium whitespace-nowrap" key={column.field}>
                                     {column.label}
                                 </th>
                             ))}
@@ -1629,7 +1629,7 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
                                 key={item.path}
                             >
                                 {projection.columns.map((column) => (
-                                    <td className="max-w-80 px-4 py-3 align-top" key={`${item.path}-${column.field}`}>
+                                    <td className="max-w-80 align-top" key={`${item.path}-${column.field}`}>
                                         <ViewProjectionCell column={column} item={item} />
                                     </td>
                                 ))}
@@ -1649,83 +1649,159 @@ function ViewProjectionCell({
     column: Extract<DashboardViewProjection, { kind: "table" }>["columns"][number];
     item: DashboardViewProjectionItem;
 }) {
-    if (column.field === "path") {
+    const value = rawViewFieldValue(item, column.field);
+
+    if (value === undefined || value === null || plainViewFieldValue(value) === "") {
+        return <span className="text-base-content/50">—</span>;
+    }
+
+    if (Array.isArray(value)) {
         return (
-            <code className="text-base-content/60 block truncate text-xs" title={item.path}>
-                {item.path}
-            </code>
+            <ul className="space-y-1">
+                {value.map((entry, index) => {
+                    const label = plainViewFieldValue(entry);
+                    return (
+                        <li
+                            className="text-base-content/70 max-w-72 truncate"
+                            key={`${label}-${String(index)}`}
+                            title={label}
+                        >
+                            {label}
+                        </li>
+                    );
+                })}
+            </ul>
         );
     }
 
-    const value = item.fields[column.field] ?? "";
-
+    const label = plainViewFieldValue(value);
     return (
-        <span className="text-base-content/60 block truncate" title={value}>
-            {value || "—"}
+        <span className="text-base-content/70 block max-w-80 truncate" title={label}>
+            {label}
         </span>
     );
 }
 
 function ViewKanbanProjection({ projection }: { projection: Extract<DashboardViewProjection, { kind: "kanban" }> }) {
     return (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {projection.columns.map((column) => (
-                <section className="bg-base-200/30 flex min-h-60 flex-col gap-3 rounded-lg border p-3" key={column.id}>
-                    <div className="flex items-center justify-between gap-3">
-                        <h3 className="font-medium">{column.label}</h3>
-                        <span className="badge badge-outline">{column.items.length}</span>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                        {column.items.map((item) => (
-                            <ViewKanbanCard item={item} key={item.path} />
-                        ))}
-                        {column.items.length === 0 ? (
-                            <p className="text-base-content/60 rounded-md border border-dashed p-3 text-sm">
-                                No items in this group.
-                            </p>
-                        ) : null}
-                    </div>
-                </section>
-            ))}
+        <div
+            aria-label="Kanban board"
+            className="focus-visible:ring-primary/40 max-w-full min-w-0 overflow-x-auto overscroll-x-contain pb-3 outline-none focus-visible:ring-3"
+            role="region"
+            tabIndex={0}
+        >
+            <div className="flex min-w-max flex-nowrap items-start gap-3">
+                {projection.columns.map((column) => (
+                    <section
+                        className="bg-base-200/30 min-h-60 max-w-[min(20rem,85vw)] min-w-[min(16rem,85vw)] flex-[1_0_min(16rem,85vw)] rounded-lg border p-3"
+                        key={column.id}
+                    >
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                            <h3 className="min-w-0 truncate font-medium" title={column.label}>
+                                {column.icon ? <span aria-hidden="true">{column.icon} </span> : null}
+                                {column.label}
+                            </h3>
+                            <span className="badge badge-ghost badge-sm shrink-0">{column.items.length}</span>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            {column.items.map((item) => (
+                                <ViewKanbanCard card={projection.card} item={item} key={item.path} />
+                            ))}
+                            {column.items.length === 0 ? (
+                                <p className="border-base-300 text-base-content/60 rounded-md border border-dashed p-3 text-sm">
+                                    No entries
+                                </p>
+                            ) : null}
+                        </div>
+                    </section>
+                ))}
+            </div>
         </div>
     );
 }
 
-function ViewKanbanCard({ item }: { item: DashboardViewProjectionItem }) {
-    const summary = item.fields.summary;
-    const badges = Object.entries(item.fields).filter(([key, value]) => key !== "title" && key !== "summary" && value);
+function ViewKanbanCard({
+    card,
+    item,
+}: {
+    card: Extract<DashboardViewProjection, { kind: "kanban" }>["card"];
+    item: DashboardViewProjectionItem;
+}) {
+    const title = formattedViewFieldValue(item, card.titleField) || item.title || item.path;
+    const subtitles = card.subtitleFields
+        .map((field) => ({ field, value: formattedViewFieldValue(item, field) }))
+        .filter(({ value }) => value !== "");
+    const badges = card.badgeFields
+        .map((field) => ({ field, value: formattedViewFieldValue(item, field) }))
+        .filter(({ value }) => value !== "");
     const content = (
-        <>
-            <span className="block truncate font-medium" title={item.title}>
-                {item.title}
+        <div className="card-body gap-2 p-3">
+            <span className="card-title block truncate text-base" title={title}>
+                {title}
             </span>
-            {summary ? (
-                <span className="text-base-content/60 mt-2 line-clamp-2 block text-sm" title={summary}>
-                    {summary}
-                </span>
+            {subtitles.length > 0 ? (
+                <div className="grid gap-1">
+                    {subtitles.map(({ field, value }) => (
+                        <p className="text-base-content/60 line-clamp-2 text-sm" key={field} title={value}>
+                            <span className="sr-only">{viewFieldLabel(field)}: </span>
+                            {value}
+                        </p>
+                    ))}
+                </div>
             ) : null}
-            <div className="mt-3 flex flex-wrap gap-2">
-                {badges.map(([key, value]) => (
-                    <span className="badge badge-outline" key={key}>
-                        {value}
+            <div className="flex flex-wrap gap-1.5">
+                {badges.map(({ field, value }) => (
+                    <span
+                        className="badge badge-soft badge-sm max-w-full"
+                        key={field}
+                        title={`${viewFieldLabel(field)}: ${value}`}
+                    >
+                        <span className="sr-only">{viewFieldLabel(field)}: </span>
+                        <span className="truncate">{value}</span>
                     </span>
                 ))}
             </div>
-        </>
+        </div>
     );
 
     if (!item.routePath) {
-        return <div className="bg-base-100 rounded-md border p-3 shadow-sm">{content}</div>;
+        return <article className="card card-sm card-border bg-base-100 overflow-hidden">{content}</article>;
     }
 
     return (
         <Link
-            className="bg-base-100 hover:bg-base-200/50 focus-visible:ring-primary/50 rounded-md border p-3 shadow-sm transition-colors outline-none focus-visible:ring-3"
+            className="card card-sm card-border bg-base-100 hover:bg-base-200/50 focus-visible:ring-primary/50 overflow-hidden transition-colors outline-none focus-visible:ring-3"
             to={item.routePath}
         >
             {content}
         </Link>
     );
+}
+
+function rawViewFieldValue(item: DashboardViewProjectionItem, field: string): unknown {
+    if (field === "path" || field === "entry.path") return item.path;
+    if (field === "title" || field === "entry.title") return item.title;
+    const key = field.replace(/^fields\./u, "");
+    return item.rawFields[field] ?? item.rawFields[key];
+}
+
+function formattedViewFieldValue(item: DashboardViewProjectionItem, field: string): string {
+    if (field === "path" || field === "entry.path") return item.path;
+    if (field === "title" || field === "entry.title") return item.title;
+    const key = field.replace(/^fields\./u, "");
+    return item.fields[field] ?? item.fields[key] ?? "";
+}
+
+function plainViewFieldValue(value: unknown): string {
+    if (value === undefined || value === null) return "";
+    if (Array.isArray(value)) return value.map(plainViewFieldValue).filter(Boolean).join(", ");
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
+    return JSON.stringify(value);
+}
+
+function viewFieldLabel(field: string): string {
+    return field.replace(/^fields\./u, "");
 }
 
 function SpaceSummary({ space }: { space: DashboardSpace }) {

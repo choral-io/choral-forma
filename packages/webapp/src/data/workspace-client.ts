@@ -152,6 +152,7 @@ export interface DashboardViewProjectionItem {
     entryId?: string;
     routePath?: string;
     fields: Record<string, string>;
+    rawFields: Record<string, unknown>;
     path: string;
     title: string;
 }
@@ -210,8 +211,14 @@ export type DashboardViewProjection =
       }
     | {
           kind: "kanban";
+          card: {
+              titleField: string;
+              subtitleFields: string[];
+              badgeFields: string[];
+          };
           columns: {
               id: string;
+              icon?: string;
               items: DashboardViewProjectionItem[];
               label: string;
           }[];

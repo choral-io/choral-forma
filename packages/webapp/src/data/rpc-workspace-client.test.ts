@@ -1,3 +1,4 @@
+import type { ViewRenderOutput } from "@choral-forma/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RpcWorkspaceClient } from "./rpc-workspace-client";
@@ -46,9 +47,67 @@ describe("RpcWorkspaceClient View rendering", () => {
             projection: { kind: "table" },
         });
     });
+
+    it("preserves configured Kanban card fields and dynamic columns", async () => {
+        stubRpc("", undefined, undefined, {
+            kind: "kanban",
+            card: {
+                titleField: "fields.title",
+                subtitleFields: ["fields.summary", "fields.readiness"],
+                badgeFields: ["fields.priority"],
+            },
+            columns: [
+                {
+                    id: "doing",
+                    icon: "●",
+                    label: "Doing",
+                    items: [
+                        {
+                            path: "tasks/one.md",
+                            title: "Fallback title",
+                            fields: { title: "One", summary: "Configured summary", priority: "P1" },
+                        },
+                    ],
+                },
+                { id: "done", label: "Done", items: [] },
+            ],
+        });
+
+        const client = new RpcWorkspaceClient("/rpc");
+
+        await expect(client.getViewRender(".forma/views/task-board")).resolves.toMatchObject({
+            projection: {
+                kind: "kanban",
+                card: {
+                    titleField: "fields.title",
+                    subtitleFields: ["fields.summary", "fields.readiness"],
+                    badgeFields: ["fields.priority"],
+                },
+                columns: [
+                    {
+                        id: "doing",
+                        icon: "●",
+                        label: "Doing",
+                        items: [
+                            {
+                                fields: { priority: "P1", summary: "Configured summary", title: "One" },
+                                rawFields: { priority: "P1", summary: "Configured summary", title: "One" },
+                            },
+                        ],
+                    },
+                    { id: "done", label: "Done", items: [] },
+                ],
+            },
+        });
+    });
 });
 
-function stubRpc(bodySource: string, startOffset?: number, markerLength?: number): void {
+function stubRpc(
+    bodySource: string,
+    startOffset?: number,
+    markerLength?: number,
+    render: ViewRenderOutput = { kind: "table", columns: [], items: [] },
+): void {
     vi.stubGlobal(
         "fetch",
         vi.fn((_input: string | URL | Request, requestInit?: RequestInit) => {
@@ -59,7 +118,7 @@ function stubRpc(bodySource: string, startOffset?: number, markerLength?: number
                 id: string;
                 method: string;
             };
-            const result = rpcResult(request.method, bodySource, startOffset, markerLength);
+            const result = rpcResult(request.method, bodySource, startOffset, markerLength, render);
 
             return Promise.resolve({
                 ok: true,
@@ -70,7 +129,13 @@ function stubRpc(bodySource: string, startOffset?: number, markerLength?: number
     );
 }
 
-function rpcResult(method: string, bodySource: string, startOffset?: number, markerLength?: number): unknown {
+function rpcResult(
+    method: string,
+    bodySource: string,
+    startOffset: number | undefined,
+    markerLength: number | undefined,
+    render: ViewRenderOutput,
+): unknown {
     if (method === "workspace.dashboard") {
         return {
             schemaVersion: 1,
@@ -126,7 +191,7 @@ function rpcResult(method: string, bodySource: string, startOffset?: number, mar
                           ],
                       }),
             },
-            render: { kind: "table", columns: [], items: [] },
+            render,
             diagnostics: [],
         };
     }

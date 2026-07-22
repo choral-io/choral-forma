@@ -343,8 +343,14 @@ function mapViewProjection(render: ViewRenderOutput, entries: DashboardEntry[]):
     if (render.kind === "kanban") {
         return {
             kind: "kanban",
+            card: {
+                titleField: render.card.titleField,
+                subtitleFields: render.card.subtitleFields ?? [],
+                badgeFields: render.card.badgeFields ?? [],
+            },
             columns: render.columns.map((column) => ({
                 id: column.id,
+                icon: column.icon,
                 label: column.label,
                 items: column.items.map((item) => mapViewProjectionItem(item, entries)),
             })),
@@ -402,6 +408,7 @@ function mapViewProjectionItem(item: ViewRenderItem, entries: DashboardEntry[]):
         fields: Object.fromEntries(
             Object.entries(item.fields ?? {}).map(([key, value]) => [key, formatViewField(key, value)]),
         ),
+        rawFields: item.fields ?? {},
         path: item.path,
         title: item.title ?? entry?.title ?? item.path,
     };
