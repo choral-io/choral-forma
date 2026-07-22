@@ -1080,9 +1080,9 @@ fn app_root_location(root_path: &str) -> String {
 
 fn should_serve_spa_index(path: &str) -> bool {
     let route = path.trim_matches('/');
-    matches!(route, "pages" | "spaces" | "views")
+    matches!(route, "pages" | "taxonomies" | "views")
         || route.starts_with("pages/")
-        || route.starts_with("spaces/")
+        || route.starts_with("taxonomies/")
         || route.starts_with("views/")
 }
 

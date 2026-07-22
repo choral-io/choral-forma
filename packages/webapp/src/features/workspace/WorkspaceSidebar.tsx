@@ -53,39 +53,41 @@ export function WorkspaceSidebar({ dashboard, onNavigate, showQuickOpen = true }
                             Pages
                         </Link>
                     </li>
-                    <li>
-                        <details open>
-                            <summary>
-                                <LibraryBig aria-hidden="true" />
-                                Spaces
-                            </summary>
-                            <ul>
-                                <li>
-                                    <Link onClick={onNavigate} to="/spaces">
-                                        All spaces
-                                    </Link>
-                                </li>
-                                {dashboard.spaces.map((space) => {
-                                    const to = `/spaces/${space.id}`;
-                                    return (
-                                        <li key={space.id}>
-                                            <Link
-                                                aria-current={pathname === to ? "page" : undefined}
-                                                className={pathname === to ? "menu-active" : undefined}
-                                                onClick={onNavigate}
-                                                to={to}
-                                            >
-                                                <span className="min-w-0 flex-1 truncate">{space.title}</span>
-                                                <span className="text-base-content/60 text-xs tabular-nums">
-                                                    {space.entryCount}
-                                                </span>
-                                            </Link>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </details>
-                    </li>
+                    {dashboard.taxonomies.map((taxonomy) => (
+                        <li key={taxonomy.id}>
+                            <details open={taxonomy.mode === "primary" || dashboard.taxonomies.length === 1}>
+                                <summary>
+                                    <LibraryBig aria-hidden="true" />
+                                    <span className="min-w-0 flex-1 truncate">{taxonomy.title}</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <Link onClick={onNavigate} to={taxonomyRoutePath(taxonomy.id)}>
+                                            All {taxonomy.title.toLocaleLowerCase()}
+                                        </Link>
+                                    </li>
+                                    {taxonomy.terms.map((term) => {
+                                        const to = taxonomyTermRoutePath(taxonomy.id, term.id);
+                                        return (
+                                            <li key={term.id}>
+                                                <Link
+                                                    aria-current={pathname === to ? "page" : undefined}
+                                                    className={pathname === to ? "menu-active" : undefined}
+                                                    onClick={onNavigate}
+                                                    to={to}
+                                                >
+                                                    <span className="min-w-0 flex-1 truncate">{term.title}</span>
+                                                    <span className="text-base-content/60 text-xs tabular-nums">
+                                                        {term.entryCount}
+                                                    </span>
+                                                </Link>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </details>
+                        </li>
+                    ))}
                     <li>
                         <details open>
                             <summary>
@@ -140,6 +142,14 @@ function viewRoutePath(viewId: string) {
         .split("/")
         .map((segment) => encodeURIComponent(segment))
         .join("/")}`;
+}
+
+function taxonomyRoutePath(taxonomyId: string) {
+    return `/taxonomies/${encodeURIComponent(taxonomyId)}`;
+}
+
+function taxonomyTermRoutePath(taxonomyId: string, termId: string) {
+    return `${taxonomyRoutePath(taxonomyId)}/${encodeURIComponent(termId)}`;
 }
 
 function WorkspaceBrandLogo({ dashboard }: { dashboard: WorkspaceDashboard }) {

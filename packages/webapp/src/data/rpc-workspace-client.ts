@@ -24,6 +24,7 @@ import type {
     DashboardHealth,
     DashboardHealthFinding,
     DashboardSpace,
+    DashboardTaxonomy,
     DashboardView,
     DashboardViewProjection,
     DashboardViewProjectionItem,
@@ -117,11 +118,37 @@ function mapWorkspaceDashboard(
         workspaceLogo: result.workspace.logo,
         tagline: "Markdown-backed workspace content.",
         status: maxHealth(mapStatus(result.status), health.status),
+        taxonomies: result.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entries)),
         spaces: result.spaces.map((space) => mapSpace(space, entries)),
         entries,
         diagnostics,
         health,
         views: result.views.map(mapView),
+    };
+}
+
+function mapTaxonomy(
+    taxonomy: WorkspaceDashboardResult["taxonomies"][number],
+    entries: DashboardEntry[],
+): DashboardTaxonomy {
+    return {
+        id: taxonomy.id,
+        title: taxonomy.title,
+        mode: taxonomy.mode,
+        display: taxonomy.display,
+        description: taxonomy.description ?? "Configured workspace classification.",
+        terms: taxonomy.terms.map((term) => ({
+            id: term.id,
+            title: term.title,
+            display: term.display,
+            description: term.description ?? "Configured classification term.",
+            entryCount: term.entryCount,
+            entries: term.entries.map((termEntry) => {
+                const entry = entries.find((candidate) => candidate.path === termEntry.path);
+                return entry ?? mapEntry(termEntry);
+            }),
+            status: mapStatus(term.status),
+        })),
     };
 }
 

@@ -37,12 +37,19 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
         { href: "/", label: "Dashboard", meta: "route" },
         { href: "/pages", label: "Pages", meta: "route" },
         ...dashboard.entries.map((entry) => ({ href: entry.routePath, label: entry.title, meta: entry.path })),
-        { href: "/spaces", label: "Spaces", meta: "route" },
-        ...dashboard.spaces.map((space) => ({
-            href: `/spaces/${space.id}`,
-            label: space.title,
-            meta: space.path,
-        })),
+        { href: "/taxonomies", label: "Classifications", meta: "route" },
+        ...dashboard.taxonomies.flatMap((taxonomy) => [
+            {
+                href: taxonomyRoutePath(taxonomy.id),
+                label: taxonomy.title,
+                meta: "taxonomy",
+            },
+            ...taxonomy.terms.map((term) => ({
+                href: taxonomyTermRoutePath(taxonomy.id, term.id),
+                label: term.title,
+                meta: taxonomy.title,
+            })),
+        ]),
         { href: "/views", label: "Views", meta: "route" },
         ...dashboard.views.map((view) => ({ href: viewRoutePath(view.id), label: view.title, meta: view.kind })),
     ];
@@ -90,7 +97,7 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
                         <div>
                             <h2 className="text-lg font-semibold">Quick open</h2>
                             <p className="text-base-content/60 mt-1 text-sm">
-                                Jump to workspace routes, spaces, pages, and views.
+                                Jump to workspace routes, classifications, pages, and views.
                             </p>
                         </div>
                         <form method="dialog">
@@ -166,4 +173,12 @@ function viewRoutePath(viewId: string) {
         .split("/")
         .map((segment) => encodeURIComponent(segment))
         .join("/")}`;
+}
+
+function taxonomyRoutePath(taxonomyId: string) {
+    return `/taxonomies/${encodeURIComponent(taxonomyId)}`;
+}
+
+function taxonomyTermRoutePath(taxonomyId: string, termId: string) {
+    return `${taxonomyRoutePath(taxonomyId)}/${encodeURIComponent(termId)}`;
 }

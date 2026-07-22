@@ -98,6 +98,25 @@ export interface DashboardSpace {
     updatedLabel: string;
 }
 
+export interface DashboardTaxonomyTerm {
+    id: string;
+    title: string;
+    display?: DisplayOptions;
+    description: string;
+    entryCount: number;
+    entries: DashboardEntry[];
+    status: WorkspaceHealth;
+}
+
+export interface DashboardTaxonomy {
+    id: string;
+    title: string;
+    mode: string;
+    display?: DisplayOptions;
+    description: string;
+    terms: DashboardTaxonomyTerm[];
+}
+
 export interface DashboardDiagnostic {
     severity: "error" | "warning" | "info";
     code: string;
@@ -247,6 +266,7 @@ export interface WorkspaceDashboard {
     };
     tagline: string;
     status: WorkspaceHealth;
+    taxonomies: DashboardTaxonomy[];
     spaces: DashboardSpace[];
     entries: DashboardEntry[];
     diagnostics: DashboardDiagnostic[];

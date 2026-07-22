@@ -16,7 +16,8 @@ import type {
     DashboardEntry,
     DashboardEntryBlock,
     DashboardEntryLink,
-    DashboardSpace,
+    DashboardTaxonomy,
+    DashboardTaxonomyTerm,
     DashboardViewProjection,
     DashboardViewProjectionItem,
     DashboardViewRender,
@@ -147,30 +148,37 @@ export function EntryRoute() {
             mobileContextPanel={<EntryContextPanel entry={entry} outline={outline} />}
             title={entry.title}
         >
-            <EntryPage entry={entry} entries={dashboard.entries} outline={outline} readingWidth={readingWidth} />
+            <EntryPage
+                classificationLabel={
+                    dashboard.taxonomies.find((taxonomy) => taxonomy.mode === "primary")?.title ?? "Classification"
+                }
+                entry={entry}
+                entries={dashboard.entries}
+                outline={outline}
+                readingWidth={readingWidth}
+            />
         </WorkspacePageShell>
     );
 }
 
-export function SpacesRoute() {
+export function TaxonomiesRoute() {
     const dashboard = useWorkspaceDashboard();
 
     return (
-        <WorkspacePageShell dashboard={dashboard} eyebrow="Workspace" title="Spaces">
-            <SpacesPage dashboard={dashboard} />
+        <WorkspacePageShell dashboard={dashboard} eyebrow="Workspace" title="Classifications">
+            <TaxonomiesPage dashboard={dashboard} />
         </WorkspacePageShell>
     );
 }
 
-export function SpaceRoute() {
+export function TaxonomyRoute() {
     const dashboard = useWorkspaceDashboard();
-    const { spaceId } = useParams();
-    const space = dashboard.spaces.find((item) => item.id === spaceId);
-    const entries = space ? dashboard.entries.filter((entry) => entry.space === space.id) : [];
+    const { taxonomyId } = useParams();
+    const taxonomy = dashboard.taxonomies.find((item) => item.id === taxonomyId);
 
-    if (!space) {
+    if (!taxonomy) {
         return (
-            <WorkspacePageShell dashboard={dashboard} eyebrow="Spaces" title="Not found">
+            <WorkspacePageShell dashboard={dashboard} eyebrow="Classifications" title="Not found">
                 <EmptyPage />
             </WorkspacePageShell>
         );
@@ -178,12 +186,38 @@ export function SpaceRoute() {
 
     return (
         <WorkspacePageShell
-            contextPanel={<SpaceContextPanel dashboard={dashboard} entries={entries} space={space} />}
+            contextPanel={<TaxonomyContextPanel dashboard={dashboard} taxonomy={taxonomy} />}
             dashboard={dashboard}
-            eyebrow="Spaces"
-            title={space.title}
+            eyebrow="Classifications"
+            title={taxonomy.title}
         >
-            <SpacePage entries={entries} space={space} />
+            <TaxonomyPage taxonomy={taxonomy} />
+        </WorkspacePageShell>
+    );
+}
+
+export function TaxonomyTermRoute() {
+    const dashboard = useWorkspaceDashboard();
+    const { taxonomyId, termId } = useParams();
+    const taxonomy = dashboard.taxonomies.find((item) => item.id === taxonomyId);
+    const term = taxonomy?.terms.find((item) => item.id === termId);
+
+    if (!taxonomy || !term) {
+        return (
+            <WorkspacePageShell dashboard={dashboard} eyebrow="Classifications" title="Not found">
+                <EmptyPage />
+            </WorkspacePageShell>
+        );
+    }
+
+    return (
+        <WorkspacePageShell
+            contextPanel={<TaxonomyTermContextPanel dashboard={dashboard} taxonomy={taxonomy} term={term} />}
+            dashboard={dashboard}
+            eyebrow={taxonomy.title}
+            title={term.title}
+        >
+            <TaxonomyTermPage taxonomy={taxonomy} term={term} />
         </WorkspacePageShell>
     );
 }
@@ -312,6 +346,9 @@ function WorkspacePageShell({
 }
 
 function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
+    const primaryTaxonomy = dashboard.taxonomies.find((taxonomy) => taxonomy.mode === "primary");
+    const taxonomyEntryPoint = primaryTaxonomy ?? dashboard.taxonomies[0];
+
     return (
         <div className="flex flex-col gap-6">
             <WorkspaceOverview dashboard={dashboard} />
@@ -321,11 +358,15 @@ function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
             >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <NavigationCard
-                        description="Browse the content groups defined by this workspace."
+                        description="Browse the configured classifications and their terms."
                         icon={Layers3}
-                        meta={`${String(dashboard.spaces.length)} spaces`}
-                        title="Spaces"
-                        to="/spaces"
+                        meta={
+                            taxonomyEntryPoint
+                                ? `${String(taxonomyEntryPoint.terms.length)} terms`
+                                : `${String(dashboard.taxonomies.length)} taxonomies`
+                        }
+                        title={taxonomyEntryPoint?.title ?? "Classifications"}
+                        to={taxonomyEntryPoint ? taxonomyRoutePath(taxonomyEntryPoint.id) : "/taxonomies"}
                     />
                     <NavigationCard
                         description="Open the workspace page index."
@@ -359,7 +400,7 @@ function PagesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
         <div className="flex flex-col gap-6">
             <PagesOverview dashboard={dashboard} />
             <RouteBodySection
-                description="Global page index across spaces from the workspace read model."
+                description="Global page index from the workspace read model."
                 meta={`${String(dashboard.entries.length)} indexed`}
                 title="All pages"
             >
@@ -371,7 +412,9 @@ function PagesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
 
 function PagesContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
     const warningCount = dashboard.entries.filter((entry) => entry.status !== "healthy").length;
-    const coveredSpaceCount = new Set(dashboard.entries.map((entry) => entry.space)).size;
+    const coveredTaxonomyCount = dashboard.taxonomies.filter((taxonomy) =>
+        taxonomy.terms.some((term) => term.entryCount > 0),
+    ).length;
 
     return (
         <ContextPanelTabs
@@ -386,7 +429,7 @@ function PagesContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <ContextStat label="Indexed" value={dashboard.entries.length} />
-                            <ContextStat label="Spaces" value={coveredSpaceCount} />
+                            <ContextStat label="Taxonomies" value={coveredTaxonomyCount} />
                             <ContextStat label="Warnings" value={warningCount} />
                         </div>
                     </section>
@@ -530,11 +573,13 @@ function EntryViewOptions({
 }
 
 function EntryPage({
+    classificationLabel,
     entry,
     entries,
     outline,
     readingWidth,
 }: {
+    classificationLabel: string;
     entry: DashboardEntry;
     entries: DashboardEntry[];
     outline: EntryOutlineItem[];
@@ -559,7 +604,7 @@ function EntryPage({
                     </div>
                 </div>
                 <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-4">
-                    <StatCell label="Space" value={entry.space} />
+                    <StatCell label={classificationLabel} value={entry.space || "—"} />
                     <StatCell
                         label="Languages"
                         title={formatEntrySupportedLanguages(entry)}
@@ -1038,35 +1083,58 @@ function ReferenceKindBadge({ kind }: { kind: DashboardEntryLink["kind"] }) {
     );
 }
 
-function SpacesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
+function TaxonomiesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
         <div className="flex flex-col gap-6">
-            <SpacesOverview dashboard={dashboard} />
+            <TaxonomiesOverview dashboard={dashboard} />
             <RouteBodySection
-                description="Start with one workflow, then browse the content groups it defines."
-                meta={`${String(dashboard.spaces.length)} spaces`}
-                title="Browse spaces"
+                description="Each classification is declared by workspace configuration."
+                meta={`${String(dashboard.taxonomies.length)} taxonomies`}
+                title="Browse classifications"
             >
-                <SpacesGrid dashboard={dashboard} />
+                <TaxonomiesGrid taxonomies={dashboard.taxonomies} />
             </RouteBodySection>
         </div>
     );
 }
 
-function SpacePage({ entries, space }: { entries: DashboardEntry[]; space: DashboardSpace }) {
+function TaxonomyPage({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
     return (
         <div className="flex flex-col gap-6">
-            <SpaceSummary space={space} />
+            <TaxonomySummary taxonomy={taxonomy} />
             <RouteBodySection
-                description="Markdown-backed pages in this configured content group."
-                meta={`${String(entries.length)} pages`}
-                title="Pages"
+                description="Terms declared for this configured classification."
+                meta={`${String(taxonomy.terms.length)} terms`}
+                title={`Browse ${taxonomy.title.toLocaleLowerCase()}`}
             >
-                {entries.length > 0 ? (
-                    <PagesList entries={entries} />
+                {taxonomy.terms.length > 0 ? (
+                    <TaxonomyTermsGrid taxonomy={taxonomy} />
                 ) : (
                     <EmptyState
-                        description="Add the first Markdown page for this workflow, then verify it with forma check."
+                        description="Add the first configured term, then verify the workspace configuration."
+                        icon={Layers3}
+                        title="No terms"
+                    />
+                )}
+            </RouteBodySection>
+        </div>
+    );
+}
+
+function TaxonomyTermPage({ taxonomy, term }: { taxonomy: DashboardTaxonomy; term: DashboardTaxonomyTerm }) {
+    return (
+        <div className="flex flex-col gap-6">
+            <TaxonomyTermSummary taxonomy={taxonomy} term={term} />
+            <RouteBodySection
+                description="Markdown-backed pages matched by this configured term."
+                meta={`${String(term.entries.length)} pages`}
+                title="Pages"
+            >
+                {term.entries.length > 0 ? (
+                    <PagesList entries={term.entries} />
+                ) : (
+                    <EmptyState
+                        description="No Markdown pages currently match this configured term."
                         icon={FileText}
                         title="No pages"
                     />
@@ -1076,14 +1144,42 @@ function SpacePage({ entries, space }: { entries: DashboardEntry[]; space: Dashb
     );
 }
 
-function SpaceContextPanel({
+function TaxonomyContextPanel({ dashboard, taxonomy }: { dashboard: WorkspaceDashboard; taxonomy: DashboardTaxonomy }) {
+    const entryCount = taxonomy.terms.reduce((total, term) => total + term.entryCount, 0);
+
+    return (
+        <ContextPanelTabs
+            context={
+                <>
+                    <section className="flex flex-col gap-3">
+                        <div>
+                            <h2 className="text-sm font-semibold">Classification Context</h2>
+                            <p className="text-base-content/60 mt-1 text-sm/6">
+                                Route-level read model for a configured taxonomy.
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <ContextStat label="Mode" value={taxonomy.mode} />
+                            <ContextStat label="Terms" value={taxonomy.terms.length} />
+                            <ContextStat label="Entries" value={entryCount} />
+                        </div>
+                    </section>
+                    <hr className="border-base-300" />
+                    <WorkspaceDefaultContextPanel dashboard={dashboard} />
+                </>
+            }
+        />
+    );
+}
+
+function TaxonomyTermContextPanel({
     dashboard,
-    entries,
-    space,
+    taxonomy,
+    term,
 }: {
     dashboard: WorkspaceDashboard;
-    entries: DashboardEntry[];
-    space: DashboardSpace;
+    taxonomy: DashboardTaxonomy;
+    term: DashboardTaxonomyTerm;
 }) {
     return (
         <ContextPanelTabs
@@ -1091,24 +1187,15 @@ function SpaceContextPanel({
                 <>
                     <section className="flex flex-col gap-3">
                         <div>
-                            <h2 className="text-sm font-semibold">Space Context</h2>
+                            <h2 className="text-sm font-semibold">Term Context</h2>
                             <p className="text-base-content/60 mt-1 text-sm/6">
-                                Route-level read model for the selected configured content group.
+                                Membership comes from the {taxonomy.title} configuration.
                             </p>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                            <ContextStat label="Pages" value={space.entryCount} />
-                            <ContextStat label="Indexed" value={entries.length} />
-                            <ContextStat
-                                label="Updated"
-                                title={formatAbsoluteDateTime(space.updatedAt)}
-                                value={space.updatedLabel}
-                            />
-                            <ContextStat label="Findings" value={space.status === "healthy" ? 0 : 1} />
-                        </div>
-                        <div className="border-base-300/80 bg-base-100/60 rounded-lg border p-3">
-                            <span className="text-base-content/60 text-xs">Path</span>
-                            <code className="text-base-content/60 mt-1 block truncate text-xs">{space.path}</code>
+                            <ContextStat label="Taxonomy" value={taxonomy.title} />
+                            <ContextStat label="Pages" value={term.entryCount} />
+                            <ContextStat label="Findings" value={term.status === "healthy" ? 0 : 1} />
                         </div>
                     </section>
                     <hr className="border-base-300" />
@@ -1149,7 +1236,7 @@ function ViewsContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
                         <div className="grid grid-cols-2 gap-2">
                             <ContextStat label="Views" value={dashboard.views.length} />
                             <ContextStat label="Pages" value={dashboard.entries.length} />
-                            <ContextStat label="Spaces" value={dashboard.spaces.length} />
+                            <ContextStat label="Taxonomies" value={dashboard.taxonomies.length} />
                         </div>
                     </section>
                     <hr className="border-base-300" />
@@ -1332,33 +1419,53 @@ function NavigationCard({
     );
 }
 
-function SpacesGrid({ dashboard }: { dashboard: WorkspaceDashboard }) {
+function TaxonomiesGrid({ taxonomies }: { taxonomies: DashboardTaxonomy[] }) {
     return (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {dashboard.spaces.map((space) => (
-                <SpaceCard
-                    key={space.id}
-                    entryCount={dashboard.entries.filter((entry) => entry.space === space.id).length}
-                    space={space}
-                />
+            {taxonomies.map((taxonomy) => (
+                <Link
+                    className="card border-base-300 bg-base-100 hover:bg-base-200/50 focus-visible:ring-primary/50 border transition-colors outline-none focus-visible:ring-3"
+                    key={taxonomy.id}
+                    to={taxonomyRoutePath(taxonomy.id)}
+                >
+                    <div className="card-body">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <span className="badge badge-outline">{taxonomy.mode}</span>
+                                <h2 className="card-title mt-3">{taxonomy.title}</h2>
+                                <p className="text-base-content/60 mt-2 text-sm">{taxonomy.description}</p>
+                            </div>
+                            <ArrowUpRight className="text-base-content/60 shrink-0" />
+                        </div>
+                        <div className="mt-2 flex gap-2">
+                            <span className="badge badge-ghost">{taxonomy.terms.length} terms</span>
+                            <span className="badge badge-ghost">
+                                {taxonomy.terms.reduce((total, term) => total + term.entryCount, 0)} entries
+                            </span>
+                        </div>
+                    </div>
+                </Link>
             ))}
         </div>
     );
 }
 
-function SpacesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    const totalEntries = dashboard.spaces.reduce((total, space) => total + space.entryCount, 0);
-    const warningCount = dashboard.spaces.filter((space) => space.status !== "healthy").length;
+function TaxonomiesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
+    const termCount = dashboard.taxonomies.reduce((total, taxonomy) => total + taxonomy.terms.length, 0);
+    const entryCount = dashboard.taxonomies.reduce(
+        (total, taxonomy) => total + taxonomy.terms.reduce((subtotal, term) => subtotal + term.entryCount, 0),
+        0,
+    );
 
     return (
         <section className="card border-base-300 bg-base-100 border">
             <div className="card-body">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                        <span className={warningCount > 0 ? "badge badge-warning" : "badge"}>{dashboard.status}</span>
-                        <h2 className="card-title mt-4">Spaces overview</h2>
+                        <span className={healthBadgeClass(dashboard.status)}>{dashboard.status}</span>
+                        <h2 className="card-title mt-4">Classifications overview</h2>
                         <p className="text-base-content/60 mt-2 text-sm">
-                            Content groups defined by the workspace for browsing.
+                            Taxonomies and terms discovered from workspace configuration.
                         </p>
                     </div>
                     <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
@@ -1367,9 +1474,9 @@ function SpacesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                 </div>
             </div>
             <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
-                <StatCell label="Spaces" value={dashboard.spaces.length} />
-                <StatCell label="Pages" value={totalEntries} />
-                <StatCell label="Warnings" value={warningCount} />
+                <StatCell label="Taxonomies" value={dashboard.taxonomies.length} />
+                <StatCell label="Terms" value={termCount} />
+                <StatCell label="Memberships" value={entryCount} />
             </div>
         </section>
     );
@@ -1377,7 +1484,9 @@ function SpacesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
 
 function PagesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
     const warningCount = dashboard.entries.filter((entry) => entry.status !== "healthy").length;
-    const coveredSpaceCount = new Set(dashboard.entries.map((entry) => entry.space)).size;
+    const coveredTaxonomyCount = dashboard.taxonomies.filter((taxonomy) =>
+        taxonomy.terms.some((term) => term.entryCount > 0),
+    ).length;
 
     return (
         <section className="card border-base-300 bg-base-100 border">
@@ -1387,7 +1496,7 @@ function PagesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                         <span className={warningCount > 0 ? "badge badge-warning" : "badge"}>{dashboard.status}</span>
                         <h2 className="card-title mt-4">Pages overview</h2>
                         <p className="text-base-content/60 mt-2 text-sm">
-                            Global read-only index for Markdown pages across configured spaces.
+                            Global read-only index for Markdown pages in the workspace.
                         </p>
                     </div>
                     <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
@@ -1397,7 +1506,7 @@ function PagesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
             </div>
             <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
                 <StatCell label="Indexed" value={dashboard.entries.length} />
-                <StatCell label="Spaces" value={coveredSpaceCount} />
+                <StatCell label="Taxonomies" value={coveredTaxonomyCount} />
                 <StatCell label="Warnings" value={warningCount} />
             </div>
         </section>
@@ -1424,7 +1533,7 @@ function ViewsOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
             <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
                 <StatCell label="Views" value={dashboard.views.length} />
                 <StatCell label="Pages" value={dashboard.entries.length} />
-                <StatCell label="Spaces" value={dashboard.spaces.length} />
+                <StatCell label="Taxonomies" value={dashboard.taxonomies.length} />
             </div>
         </section>
     );
@@ -1481,6 +1590,14 @@ function viewRoutePath(viewId: string) {
         .join("/")}`;
 }
 
+function taxonomyRoutePath(taxonomyId: string) {
+    return `/taxonomies/${encodeURIComponent(taxonomyId)}`;
+}
+
+function taxonomyTermRoutePath(taxonomyId: string, termId: string) {
+    return `${taxonomyRoutePath(taxonomyId)}/${encodeURIComponent(termId)}`;
+}
+
 function ViewSummary({
     dashboard,
     itemCount,
@@ -1506,8 +1623,8 @@ function ViewSummary({
             </div>
             <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
                 <StatCell label="Items" value={itemCount} />
-                <StatCell label="Spaces" value={dashboard.spaces.length} />
-                <StatCell label="Space" value={view.space ?? "workspace"} />
+                <StatCell label="Taxonomies" value={dashboard.taxonomies.length} />
+                <StatCell label="Scope" value={view.space ?? "workspace"} />
             </div>
         </section>
     );
@@ -1804,27 +1921,79 @@ function viewFieldLabel(field: string): string {
     return field.replace(/^fields\./u, "");
 }
 
-function SpaceSummary({ space }: { space: DashboardSpace }) {
+function TaxonomySummary({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
+    const entryCount = taxonomy.terms.reduce((total, term) => total + term.entryCount, 0);
+
     return (
         <section className="card border-base-300 bg-base-100 border">
             <div className="card-body">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                        <span className={healthBadgeClass(space.status)}>{space.status}</span>
-                        <h2 className="card-title mt-4">{space.title}</h2>
-                        <p className="text-base-content/60 mt-2 text-sm">{space.description}</p>
+                        <span className="badge badge-outline">{taxonomy.mode}</span>
+                        <h2 className="card-title mt-4">{taxonomy.title}</h2>
+                        <p className="text-base-content/60 mt-2 text-sm">{taxonomy.description}</p>
                     </div>
-                    <code className="text-base-content/60 bg-base-200 max-w-full truncate rounded-md px-2 py-1 text-xs">
-                        {space.path}
-                    </code>
+                    <Layers3 className="text-base-content/60 shrink-0" />
                 </div>
             </div>
             <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
-                <StatCell label="Pages" value={space.entryCount} />
-                <StatCell label="Updated" title={formatAbsoluteDateTime(space.updatedAt)} value={space.updatedLabel} />
-                <StatCell label="Findings" value={space.status === "healthy" ? 0 : 1} />
+                <StatCell label="Terms" value={taxonomy.terms.length} />
+                <StatCell label="Memberships" value={entryCount} />
+                <StatCell label="Mode" value={taxonomy.mode} />
             </div>
         </section>
+    );
+}
+
+function TaxonomyTermSummary({ taxonomy, term }: { taxonomy: DashboardTaxonomy; term: DashboardTaxonomyTerm }) {
+    return (
+        <section className="card border-base-300 bg-base-100 border">
+            <div className="card-body">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                        <span className={healthBadgeClass(term.status)}>{term.status}</span>
+                        <h2 className="card-title mt-4">{term.title}</h2>
+                        <p className="text-base-content/60 mt-2 text-sm">{term.description}</p>
+                    </div>
+                    <span className="badge badge-outline">{taxonomy.title}</span>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
+                <StatCell label="Pages" value={term.entryCount} />
+                <StatCell label="Taxonomy" value={taxonomy.title} />
+                <StatCell label="Term ID" value={term.id} />
+            </div>
+        </section>
+    );
+}
+
+function TaxonomyTermsGrid({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
+    return (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {taxonomy.terms.map((term) => (
+                <Link
+                    className="card border-base-300 bg-base-100 hover:bg-base-200/50 focus-visible:ring-primary/50 border transition-colors outline-none focus-visible:ring-3"
+                    key={term.id}
+                    to={taxonomyTermRoutePath(taxonomy.id, term.id)}
+                >
+                    <div className="card-body">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <h2 className="card-title">{term.title}</h2>
+                                <p className="text-base-content/60 mt-2 line-clamp-2 text-sm">{term.description}</p>
+                            </div>
+                            <ArrowUpRight className="text-base-content/60 shrink-0" />
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-3">
+                            <span className={healthBadgeClass(term.status)}>{term.status}</span>
+                            <span className="text-base-content/60 text-sm tabular-nums">
+                                {term.entryCount} {term.entryCount === 1 ? "page" : "pages"}
+                            </span>
+                        </div>
+                    </div>
+                </Link>
+            ))}
+        </div>
     );
 }
 
@@ -1846,7 +2015,7 @@ function WorkspaceOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                     <Metric icon={FileText} label="Pages" value={dashboard.entries.length} />
                     <Metric icon={ShieldCheck} label="Findings" value={dashboard.health.findings.length} />
                     <Metric icon={Network} label="Views" value={dashboard.views.length} />
-                    <Metric icon={ArrowUpRight} label="Spaces" value={dashboard.spaces.length} />
+                    <Metric icon={ArrowUpRight} label="Taxonomies" value={dashboard.taxonomies.length} />
                 </div>
             </div>
         </section>
@@ -1882,41 +2051,6 @@ function StatCell({ label, title, value }: { label: string; title?: string; valu
                 {value}
             </strong>
         </div>
-    );
-}
-
-function SpaceCard({ entryCount, space }: { entryCount: number; space: DashboardSpace }) {
-    return (
-        <Link className="group block rounded-lg outline-none" to={`/spaces/${space.id}`}>
-            <section className="card border-base-300 bg-base-100 group-hover:bg-base-200/50 group-focus-visible:border-primary group-focus-visible:ring-primary/50 flex h-full flex-col border transition-colors group-focus-visible:ring-3">
-                <div className="card-body">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                            <h2 className="card-title truncate">{space.title}</h2>
-                            <p className="text-base-content/60 mt-2 line-clamp-2 text-sm" title={space.description}>
-                                {space.description}
-                            </p>
-                        </div>
-                        <ArrowUpRight className="text-base-content/60 shrink-0" />
-                    </div>
-                </div>
-                <div className="mt-auto flex flex-col gap-3 px-6 pb-6">
-                    <div className="flex items-center justify-between gap-3">
-                        <span className={healthBadgeClass(space.status)}>{space.status}</span>
-                        <code className="text-base-content/60 min-w-0 truncate text-xs">{space.path}</code>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                        <StatCell label="Pages" value={space.entryCount} />
-                        <StatCell label="Indexed" value={entryCount} />
-                        <StatCell
-                            label="Updated"
-                            title={formatAbsoluteDateTime(space.updatedAt)}
-                            value={space.updatedLabel}
-                        />
-                    </div>
-                </div>
-            </section>
-        </Link>
     );
 }
 

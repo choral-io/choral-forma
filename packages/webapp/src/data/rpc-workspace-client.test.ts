@@ -1,4 +1,4 @@
-import type { ViewRenderOutput } from "@choral-forma/shared";
+import type { DashboardTaxonomy, ViewRenderOutput } from "@choral-forma/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RpcWorkspaceClient } from "./rpc-workspace-client";
@@ -100,6 +100,58 @@ describe("RpcWorkspaceClient View rendering", () => {
             },
         });
     });
+
+    it("preserves configured taxonomies without requiring spaces", async () => {
+        stubRpc("", undefined, undefined, { kind: "table", columns: [], items: [] }, [
+            {
+                id: "topics",
+                title: "Topics",
+                mode: "multiple",
+                description: "Configured topics.",
+                terms: [
+                    {
+                        id: "guides",
+                        title: "Guides",
+                        description: "Configured guides.",
+                        entryCount: 1,
+                        status: "passed",
+                        entries: [
+                            {
+                                id: "docs/getting-started",
+                                path: "docs/getting-started.md",
+                                rawPath: "docs/getting-started.md",
+                                routePath: "/pages/docs/getting-started",
+                                title: "Getting Started",
+                                summary: "First guide.",
+                                status: "passed",
+                                renderable: true,
+                            },
+                        ],
+                    },
+                ],
+            },
+        ]);
+
+        const client = new RpcWorkspaceClient("/rpc");
+        const dashboard = await client.getDashboard();
+
+        expect(dashboard.spaces).toEqual([]);
+        expect(dashboard.taxonomies).toMatchObject([
+            {
+                id: "topics",
+                title: "Topics",
+                mode: "multiple",
+                terms: [
+                    {
+                        id: "guides",
+                        title: "Guides",
+                        entryCount: 1,
+                        entries: [{ path: "docs/getting-started.md", title: "Getting Started" }],
+                    },
+                ],
+            },
+        ]);
+    });
 });
 
 function stubRpc(
@@ -107,6 +159,7 @@ function stubRpc(
     startOffset?: number,
     markerLength?: number,
     render: ViewRenderOutput = { kind: "table", columns: [], items: [] },
+    taxonomies: DashboardTaxonomy[] = [],
 ): void {
     vi.stubGlobal(
         "fetch",
@@ -118,7 +171,7 @@ function stubRpc(
                 id: string;
                 method: string;
             };
-            const result = rpcResult(request.method, bodySource, startOffset, markerLength, render);
+            const result = rpcResult(request.method, bodySource, startOffset, markerLength, render, taxonomies);
 
             return Promise.resolve({
                 ok: true,
@@ -135,6 +188,7 @@ function rpcResult(
     startOffset: number | undefined,
     markerLength: number | undefined,
     render: ViewRenderOutput,
+    taxonomies: DashboardTaxonomy[],
 ): unknown {
     if (method === "workspace.dashboard") {
         return {
@@ -143,6 +197,7 @@ function rpcResult(
             status: "passed",
             summary: { errors: 0, warnings: 0, infos: 0 },
             workspace: { root: ".", name: "Example" },
+            taxonomies,
             spaces: [],
             entries: [],
             views: [],
