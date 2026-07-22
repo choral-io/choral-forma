@@ -104,6 +104,43 @@
 }
 
 @layer components {
+    @media (width >= 64rem) {
+        html[data-workspace-sidebar="collapsed"] [data-workspace-shell] {
+            grid-template-columns: 4.5rem minmax(0, 1fr) !important;
+        }
+
+        html[data-workspace-sidebar="collapsed"] [data-sidebar-label] {
+            display: none !important;
+        }
+
+        html[data-workspace-sidebar="collapsed"] [data-sidebar-link],
+        html[data-workspace-sidebar="collapsed"] [data-sidebar-quick-open] button,
+        html[data-workspace-sidebar="collapsed"] [data-sidebar-toggle] {
+            height: 3rem !important;
+            min-height: 3rem !important;
+            width: 3rem !important;
+            justify-content: center !important;
+            padding-inline: 0 !important;
+        }
+
+        html[data-workspace-sidebar="collapsed"] [data-sidebar-quick-open] button {
+            border-color: transparent !important;
+            background: transparent !important;
+        }
+
+        html[data-workspace-sidebar="collapsed"] [data-sidebar-collapse-icon] {
+            display: none;
+        }
+
+        html[data-workspace-sidebar="collapsed"] [data-sidebar-expand-icon] {
+            display: block !important;
+        }
+
+        html[data-workspace-sidebar="collapsed"] [data-sidebar-mark] {
+            display: block !important;
+        }
+    }
+
     [data-forma-graph-stage] {
         aspect-ratio: 3 / 2;
         min-height: 22rem;

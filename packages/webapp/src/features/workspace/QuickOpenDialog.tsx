@@ -56,43 +56,56 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
     const navigate = useNavigate();
     const [activeIndex, setActiveIndex] = useState(0);
     const [query, setQuery] = useState("");
-    const items = [
-        { group: "Navigate", href: "/", label: "Dashboard", meta: "route" },
-        { group: "Navigate", href: "/pages", label: "Pages", meta: "route" },
+    const routeItems = [
+        { group: "Navigate", href: "/", label: "Home", meta: "route" },
         { group: "Navigate", href: "/views", label: "Views", meta: "route" },
-        { group: "Navigate", href: "/taxonomies", label: "Classifications", meta: "route" },
-        ...dashboard.views.map((view) => ({
-            group: "Views",
-            href: viewRoutePath(view.id),
-            keywords: view.id,
-            label: view.title,
-            meta: view.kind,
+        { group: "Navigate", href: "/taxonomies", label: "Browse", meta: "route" },
+        { group: "Navigate", href: "/health", label: "Health", meta: "route" },
+    ];
+    const viewItems = dashboard.views.map((view) => ({
+        group: "Views",
+        href: viewRoutePath(view.id),
+        keywords: view.id,
+        label: view.title,
+        meta: view.kind,
+    }));
+    const taxonomyItems = dashboard.taxonomies.flatMap((taxonomy) => [
+        {
+            group: "Taxonomies",
+            href: taxonomyRoutePath(taxonomy.id),
+            keywords: taxonomy.id,
+            label: taxonomy.title,
+            meta: `${String(taxonomy.terms.length)} terms`,
+        },
+        ...taxonomy.terms.map((term) => ({
+            group: taxonomy.title,
+            href: taxonomyTermRoutePath(taxonomy.id, term.id),
+            keywords: `${taxonomy.id} ${term.id}`,
+            label: term.title,
+            meta: `${String(term.entryCount)} ${term.entryCount === 1 ? "page" : "pages"}`,
         })),
-        ...dashboard.taxonomies.flatMap((taxonomy) => [
-            {
-                group: "Classifications",
-                href: taxonomyRoutePath(taxonomy.id),
-                keywords: taxonomy.id,
-                label: taxonomy.title,
-                meta: `${String(taxonomy.terms.length)} terms`,
-            },
-            ...taxonomy.terms.map((term) => ({
-                group: taxonomy.title,
-                href: taxonomyTermRoutePath(taxonomy.id, term.id),
-                keywords: `${taxonomy.id} ${term.id}`,
-                label: term.title,
-                meta: `${String(term.entryCount)} ${term.entryCount === 1 ? "page" : "pages"}`,
-            })),
-        ]),
-        ...dashboard.entries.map((entry) => ({
-            group: "Pages",
+    ]);
+    const entryItems = dashboard.entries.map((entry) => ({
+        group: "Content",
+        href: entry.routePath,
+        keywords: `${entry.kind ?? ""} ${entry.space}`,
+        label: entry.title,
+        meta: entry.path,
+    }));
+    const items = [...routeItems, ...viewItems, ...taxonomyItems, ...entryItems];
+    const recentEntryItems = [...dashboard.entries]
+        .sort((left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""))
+        .slice(0, 6)
+        .map((entry) => ({
+            group: "Recent content",
             href: entry.routePath,
             keywords: `${entry.kind ?? ""} ${entry.space}`,
             label: entry.title,
             meta: entry.path,
-        })),
-    ];
-    const filteredItems = filterQuickOpenItems(items, query, query.trim() ? 30 : 14);
+        }));
+    const filteredItems = query.trim()
+        ? filterQuickOpenItems(items, query, 30)
+        : [...routeItems, ...viewItems, ...recentEntryItems];
     const activeItem = filteredItems[activeIndex];
 
     useEffect(() => {
@@ -143,9 +156,11 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
         <>
             <button
                 aria-keyshortcuts="Control+K Meta+K"
-                aria-label={trigger === "header" ? "Quick open" : undefined}
+                aria-label="Quick open"
                 className={cn(
-                    trigger === "sidebar" ? "btn btn-ghost w-full justify-start" : "btn btn-square",
+                    trigger === "sidebar"
+                        ? "btn border-base-300 bg-base-100 hover:bg-base-300 h-14! min-h-14! w-full justify-start shadow-none"
+                        : "btn btn-square",
                     triggerClassName,
                 )}
                 onClick={openQuickOpen}
@@ -153,7 +168,16 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
                 type="button"
             >
                 <Search aria-hidden="true" />
-                {trigger === "sidebar" ? <span>Quick open</span> : <span className="sr-only">Quick open</span>}
+                {trigger === "sidebar" ? (
+                    <>
+                        <span data-sidebar-label>Quick open</span>
+                        <kbd className="kbd kbd-sm ms-auto" data-sidebar-label>
+                            ⌘ K
+                        </kbd>
+                    </>
+                ) : (
+                    <span className="sr-only">Quick open</span>
+                )}
             </button>
 
             {createPortal(
@@ -171,7 +195,7 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
                             <div>
                                 <h2 className="text-lg font-semibold">Quick open</h2>
                                 <p className="text-base-content/60 mt-1 text-sm">
-                                    Jump to workspace routes, classifications, pages, and views.
+                                    Jump to configured views, taxonomies, and content.
                                 </p>
                             </div>
                             <form method="dialog">

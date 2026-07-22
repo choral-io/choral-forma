@@ -58,6 +58,13 @@ export function WorkspaceRouteFrame({
                                 if (dialog instanceof HTMLDialogElement) {
                                     dialog.returnValue = "";
                                     dialog.showModal();
+                                    requestAnimationFrame(() => {
+                                        (
+                                            dialog.querySelector<HTMLElement>(
+                                                '[data-sidebar-link][aria-current="page"]',
+                                            ) ?? dialog.querySelector<HTMLElement>("[data-sidebar-link]")
+                                        )?.focus();
+                                    });
                                 }
                             }}
                         >
@@ -65,7 +72,11 @@ export function WorkspaceRouteFrame({
                         </button>
                         <div className="min-w-0">
                             <p className="text-base-content/60 text-sm">{eyebrow}</p>
-                            <h1 className="truncate text-2xl font-semibold tracking-normal" tabIndex={-1} title={title}>
+                            <h1
+                                className="line-clamp-2 text-2xl font-semibold tracking-normal lg:line-clamp-1"
+                                tabIndex={-1}
+                                title={title}
+                            >
                                 {title}
                             </h1>
                             {description && (

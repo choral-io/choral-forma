@@ -1,12 +1,13 @@
 import {
+    AlertTriangle,
     ArrowUpRight,
     ChevronRight,
+    Columns3,
     FileText,
     Layers3,
+    List,
     Network,
-    ShieldCheck,
-    SlidersHorizontal,
-    Workflow,
+    Table2,
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useId, useState, type ReactNode } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
@@ -26,11 +27,7 @@ import type {
 } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
-import {
-    WorkspaceDefaultContextPanel,
-    WorkspaceRouteActions,
-    WorkspaceRouteFrame,
-} from "@/features/workspace/WorkspaceRouteFrame";
+import { WorkspaceDefaultContextPanel, WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
 import { cn } from "@/lib/utils";
 
@@ -46,8 +43,28 @@ export function DashboardRoute() {
     const dashboard = useWorkspaceDashboard();
 
     return (
-        <WorkspacePageShell dashboard={dashboard} eyebrow="Workspace" title="Dashboard">
+        <WorkspacePageShell
+            dashboard={dashboard}
+            description={`${dashboard.tagline.replace(/[.!?。！？]\s*$/u, "")} • Read-only`}
+            eyebrow="Workspace"
+            title={dashboard.workspaceName}
+        >
             <DashboardPage dashboard={dashboard} />
+        </WorkspacePageShell>
+    );
+}
+
+export function HealthRoute() {
+    const dashboard = useWorkspaceDashboard();
+
+    return (
+        <WorkspacePageShell
+            dashboard={dashboard}
+            description="Read-only checks for workspace configuration, references, and link structure."
+            eyebrow="Workspace"
+            title="Health"
+        >
+            <WorkspaceDefaultContextPanel dashboard={dashboard} />
         </WorkspacePageShell>
     );
 }
@@ -71,7 +88,6 @@ export function EntryRoute() {
     const dashboard = useWorkspaceDashboard();
     const params = useParams();
     const routePath = `/pages/${params["*"] ?? ""}`;
-    const [readingWidth, setReadingWidth] = useState<ReadingWidth>("standard");
     const summaryEntry = dashboard.entries.find((item) => item.routePath === routePath);
     const [entryDetail, setEntryDetail] = useState<
         | {
@@ -135,28 +151,13 @@ export function EntryRoute() {
 
     return (
         <WorkspacePageShell
-            actions={
-                <>
-                    <EntryViewOptions readingWidth={readingWidth} onReadingWidthChange={setReadingWidth} />
-                    <WorkspaceRouteActions />
-                </>
-            }
-            contextPanel={<EntryContextPanel entry={entry} outline={outline} outlineDesktopOnly />}
-            contentWidth="fluid"
+            contentWidth="readable"
             dashboard={dashboard}
+            description={entry.summary}
             eyebrow="Pages"
-            mobileContextPanel={<EntryContextPanel entry={entry} outline={outline} />}
             title={entry.title}
         >
-            <EntryPage
-                classificationLabel={
-                    dashboard.taxonomies.find((taxonomy) => taxonomy.mode === "primary")?.title ?? "Classification"
-                }
-                entry={entry}
-                entries={dashboard.entries}
-                outline={outline}
-                readingWidth={readingWidth}
-            />
+            <EntryPage entry={entry} entries={dashboard.entries} outline={outline} />
         </WorkspacePageShell>
     );
 }
@@ -165,7 +166,12 @@ export function TaxonomiesRoute() {
     const dashboard = useWorkspaceDashboard();
 
     return (
-        <WorkspacePageShell dashboard={dashboard} eyebrow="Workspace" title="Classifications">
+        <WorkspacePageShell
+            dashboard={dashboard}
+            description="Taxonomies and terms declared by workspace configuration."
+            eyebrow="Workspace"
+            title="Browse"
+        >
             <TaxonomiesPage dashboard={dashboard} />
         </WorkspacePageShell>
     );
@@ -178,7 +184,7 @@ export function TaxonomyRoute() {
 
     if (!taxonomy) {
         return (
-            <WorkspacePageShell dashboard={dashboard} eyebrow="Classifications" title="Not found">
+            <WorkspacePageShell dashboard={dashboard} eyebrow="Browse" title="Not found">
                 <EmptyPage />
             </WorkspacePageShell>
         );
@@ -186,9 +192,9 @@ export function TaxonomyRoute() {
 
     return (
         <WorkspacePageShell
-            contextPanel={<TaxonomyContextPanel dashboard={dashboard} taxonomy={taxonomy} />}
             dashboard={dashboard}
-            eyebrow="Classifications"
+            description={taxonomy.description}
+            eyebrow="Browse"
             title={taxonomy.title}
         >
             <TaxonomyPage taxonomy={taxonomy} />
@@ -204,7 +210,7 @@ export function TaxonomyTermRoute() {
 
     if (!taxonomy || !term) {
         return (
-            <WorkspacePageShell dashboard={dashboard} eyebrow="Classifications" title="Not found">
+            <WorkspacePageShell dashboard={dashboard} eyebrow="Browse" title="Not found">
                 <EmptyPage />
             </WorkspacePageShell>
         );
@@ -212,8 +218,8 @@ export function TaxonomyTermRoute() {
 
     return (
         <WorkspacePageShell
-            contextPanel={<TaxonomyTermContextPanel dashboard={dashboard} taxonomy={taxonomy} term={term} />}
             dashboard={dashboard}
+            description={term.description}
             eyebrow={taxonomy.title}
             title={term.title}
         >
@@ -227,8 +233,8 @@ export function ViewsRoute() {
 
     return (
         <WorkspacePageShell
-            contextPanel={<ViewsContextPanel dashboard={dashboard} />}
             dashboard={dashboard}
+            description="Read-only projections declared by workspace configuration."
             eyebrow="Workspace"
             title="Views"
         >
@@ -281,12 +287,12 @@ export function ViewRoute() {
     }
 
     const render = renderState && renderState.viewId === viewId ? renderState.render : undefined;
-    const projection = render?.projection;
 
     return (
         <WorkspacePageShell
-            contextPanel={<ViewContextPanel dashboard={dashboard} projection={projection} view={view} />}
+            contentWidth={view.kind === "list" ? "readable" : "fluid"}
             dashboard={dashboard}
+            description={view.description}
             eyebrow="Views"
             title={view.title}
         >
@@ -315,6 +321,7 @@ function WorkspacePageShell({
     contextPanel,
     contentWidth,
     dashboard,
+    description,
     eyebrow,
     mobileContextPanel,
     title,
@@ -324,21 +331,20 @@ function WorkspacePageShell({
     contextPanel?: ReactNode;
     contentWidth?: "default" | "fluid" | "readable";
     dashboard: WorkspaceDashboard;
+    description?: string;
     eyebrow: string;
     mobileContextPanel?: ReactNode;
     title: string;
 }) {
-    const resolvedContextPanel = contextPanel ?? (
-        <ContextPanelTabs context={<WorkspaceDefaultContextPanel dashboard={dashboard} />} />
-    );
     const resolvedMobileContextPanel = mobileContextPanel ?? (contextPanel ? undefined : null);
 
     return (
         <WorkspaceRouteFrame
             actions={actions}
-            contextPanel={resolvedContextPanel}
+            contextPanel={contextPanel}
             contentWidth={contentWidth}
             dashboard={dashboard}
+            description={description}
             eyebrow={eyebrow}
             mobileContextPanel={resolvedMobileContextPanel}
             title={title}
@@ -349,51 +355,116 @@ function WorkspacePageShell({
 }
 
 function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    const primaryTaxonomy = dashboard.taxonomies.find((taxonomy) => taxonomy.mode === "primary");
-    const taxonomyEntryPoint = primaryTaxonomy ?? dashboard.taxonomies[0];
+    const recentEntries = [...dashboard.entries]
+        .sort((left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""))
+        .slice(0, 5);
+    const healthFindings = dashboard.health.findings;
 
     return (
-        <div className="flex flex-col gap-6">
-            <WorkspaceOverview dashboard={dashboard} />
-            <RouteBodySection
-                description="Start with one workflow, then browse the content and views it defines."
-                title="Workspace entry points"
-            >
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
-                    <NavigationCard
-                        description="Browse the configured classifications and their terms."
-                        icon={Layers3}
-                        meta={
-                            taxonomyEntryPoint
-                                ? `${String(taxonomyEntryPoint.terms.length)} terms`
-                                : `${String(dashboard.taxonomies.length)} taxonomies`
-                        }
-                        title={taxonomyEntryPoint?.title ?? "Classifications"}
-                        to={taxonomyEntryPoint ? taxonomyRoutePath(taxonomyEntryPoint.id) : "/taxonomies"}
-                    />
-                    <NavigationCard
-                        description="Open the workspace page index."
-                        icon={FileText}
-                        meta={`${String(dashboard.entries.length)} indexed`}
-                        title="Pages"
-                        to="/pages"
-                    />
-                    <NavigationCard
-                        description="Inspect saved read-only projections."
-                        icon={Workflow}
-                        meta={`${String(dashboard.views.length)} views`}
-                        title="Views"
-                        to="/views"
-                    />
+        <div className="flex flex-col gap-12">
+            <section>
+                <div>
+                    <h2 className="text-lg font-semibold">Configured views</h2>
+                    <p className="text-base-content/60 mt-1 text-sm/6">
+                        Start with a configured projection to review the workspace from a useful angle.
+                    </p>
                 </div>
-            </RouteBodySection>
-            <RouteBodySection
-                description="Most relevant repository pages from the current workspace index."
-                meta={`${String(dashboard.entries.length)} pages`}
-                title="Pages"
-            >
-                <PagesList entries={dashboard.entries} />
-            </RouteBodySection>
+                {dashboard.views.length > 0 ? (
+                    <nav aria-label="Configured views" className="mt-4">
+                        <div className="divide-base-300 divide-y">
+                            {dashboard.views.map((view) => (
+                                <Link
+                                    className="hover:bg-base-200/50 focus-visible:ring-base-content/30 grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-4 px-0 py-4 outline-none focus-visible:ring-2"
+                                    key={view.id}
+                                    to={viewRoutePath(view.id)}
+                                >
+                                    <span className="bg-base-200 text-base-content/60 flex size-10 items-center justify-center rounded-md">
+                                        {view.kind === "kanban" ? (
+                                            <Columns3 aria-hidden="true" />
+                                        ) : view.kind === "table" ? (
+                                            <Table2 aria-hidden="true" />
+                                        ) : view.kind === "graph" ? (
+                                            <Network aria-hidden="true" />
+                                        ) : (
+                                            <List aria-hidden="true" />
+                                        )}
+                                    </span>
+                                    <span className="min-w-0">
+                                        <span className="block font-medium">{view.title}</span>
+                                        <span className="text-base-content/60 mt-1 block truncate text-sm">
+                                            {view.description}
+                                        </span>
+                                    </span>
+                                    <ChevronRight aria-hidden="true" className="text-base-content/60" />
+                                </Link>
+                            ))}
+                        </div>
+                    </nav>
+                ) : (
+                    <p className="text-base-content/60 mt-4 text-sm">No configured views are available.</p>
+                )}
+                <Link className="link mt-4 inline-flex items-center gap-2 text-sm" to="/views">
+                    View all configured views
+                    <ArrowUpRight aria-hidden="true" className="size-4" />
+                </Link>
+            </section>
+
+            <div className={healthFindings.length > 0 ? "grid gap-10 lg:grid-cols-[minmax(0,1fr)_24rem]" : undefined}>
+                <section>
+                    <h2 className="text-lg font-semibold">Recently updated</h2>
+                    <p className="text-base-content/60 mt-1 text-sm/6">Latest changes across workspace content.</p>
+                    {recentEntries.length > 0 ? (
+                        <nav aria-label="Recently updated content" className="mt-4">
+                            <div className="divide-base-300 divide-y">
+                                {recentEntries.map((entry) => (
+                                    <Link
+                                        className="hover:bg-base-200/50 focus-visible:ring-base-content/30 grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 px-0 py-3 outline-none focus-visible:ring-2"
+                                        key={entry.path}
+                                        to={entry.routePath}
+                                    >
+                                        <FileText aria-hidden="true" className="text-base-content/60 size-5" />
+                                        <span className="min-w-0">
+                                            <span className="block truncate text-sm font-medium">{entry.title}</span>
+                                            <code className="text-base-content/60 mt-0.5 block truncate text-xs">
+                                                {entry.path}
+                                            </code>
+                                        </span>
+                                        <span
+                                            className="text-base-content/60 text-xs whitespace-nowrap"
+                                            title={formatAbsoluteDateTime(entry.updatedAt)}
+                                        >
+                                            {entry.updatedLabel}
+                                        </span>
+                                    </Link>
+                                ))}
+                            </div>
+                        </nav>
+                    ) : (
+                        <p className="text-base-content/60 mt-4 text-sm">No recently updated content was found.</p>
+                    )}
+                </section>
+
+                {healthFindings.length > 0 ? (
+                    <section>
+                        <h2 className="text-lg font-semibold">Workspace health</h2>
+                        <p className="text-base-content/60 mt-1 text-sm/6">Actionable findings that need attention.</p>
+                        <div className="alert alert-outline mt-4 items-start">
+                            <AlertTriangle aria-hidden="true" className="mt-0.5" />
+                            <div>
+                                <h3 className="font-semibold">
+                                    {healthFindings.length} {healthFindings.length === 1 ? "finding" : "findings"} need
+                                    attention
+                                </h3>
+                                <p className="text-base-content/60 mt-1 text-sm/6">{healthFindings[0]?.message}</p>
+                                <Link className="link mt-3 inline-flex items-center gap-2 text-sm" to="/health">
+                                    Open health details
+                                    <ArrowUpRight aria-hidden="true" className="size-4" />
+                                </Link>
+                            </div>
+                        </div>
+                    </section>
+                ) : null}
+            </div>
         </div>
     );
 }
@@ -443,8 +514,6 @@ function PagesContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
         />
     );
 }
-
-type ReadingWidth = "full" | "standard" | "wide";
 
 interface EntryOutlineItem {
     blockIndex: number;
@@ -537,91 +606,49 @@ function getEntryDiagnostics(entry: DashboardEntry): DashboardDiagnostic[] {
     return diagnostics;
 }
 
-const readingWidthOptions: {
-    label: string;
-    value: ReadingWidth;
-}[] = [
-    { label: "Standard", value: "standard" },
-    { label: "Wide", value: "wide" },
-    { label: "Full", value: "full" },
-];
-
-function EntryViewOptions({
-    onReadingWidthChange,
-    readingWidth,
-}: {
-    onReadingWidthChange: (value: ReadingWidth) => void;
-    readingWidth: ReadingWidth;
-}) {
-    return (
-        <label className="flex items-center gap-2">
-            <SlidersHorizontal aria-hidden="true" className="text-base-content/60 size-4" />
-            <span className="sr-only">Reading width</span>
-            <select
-                aria-label="Reading width"
-                className="select select-sm"
-                onChange={(event) => {
-                    onReadingWidthChange(event.target.value as ReadingWidth);
-                }}
-                value={readingWidth}
-            >
-                {readingWidthOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                        {option.label}
-                    </option>
-                ))}
-            </select>
-        </label>
-    );
-}
-
 function EntryPage({
-    classificationLabel,
     entry,
     entries,
     outline,
-    readingWidth,
 }: {
-    classificationLabel: string;
     entry: DashboardEntry;
     entries: DashboardEntry[];
     outline: EntryOutlineItem[];
-    readingWidth: ReadingWidth;
 }) {
-    const readingWidthClass = {
-        full: "max-w-none",
-        standard: "max-w-4xl",
-        wide: "max-w-6xl",
-    }[readingWidth];
+    const diagnostics = getEntryDiagnostics(entry);
 
     return (
-        <div className={cn("mx-auto flex w-full flex-col gap-6", readingWidthClass)}>
-            <section className="card border-base-300 bg-base-100 border">
-                <div className="card-body">
-                    <div className="min-w-0">
-                        <span className={healthBadgeClass(entry.status)}>{entry.status}</span>
-                        <h2 className="card-title mt-4" id={entry.id}>
-                            {entry.title}
-                        </h2>
-                        <p className="text-base-content/60 mt-2 text-sm">{entry.summary}</p>
-                    </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 px-4 pb-4 sm:grid-cols-4 sm:gap-3 sm:px-6 sm:pb-6">
-                    <StatCell label={classificationLabel} value={entry.space || "—"} />
-                    <StatCell
-                        label="Languages"
-                        title={formatEntrySupportedLanguages(entry)}
-                        value={formatEntrySupportedLanguages(entry)}
-                    />
-                    <StatCell
-                        label="Updated"
-                        title={formatAbsoluteDateTime(entry.updatedAt)}
-                        value={entry.updatedLabel}
-                    />
-                    <StatCell label="Status" value={entry.status} />
-                </div>
-            </section>
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+            <div className="text-base-content/60 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                <code className="basis-full break-all sm:basis-auto">{entry.path}</code>
+                <span>{formatEntrySupportedLanguages(entry)}</span>
+                <time dateTime={entry.updatedAt} title={formatAbsoluteDateTime(entry.updatedAt)}>
+                    Updated {entry.updatedLabel}
+                </time>
+                {entry.status !== "healthy" ? (
+                    <span className={healthBadgeClass(entry.status)}>{entry.status}</span>
+                ) : null}
+            </div>
             <EntryReader blocks={entry.body} currentPath={entry.path} entries={entries} outline={outline} />
+            <details className="border-base-300 group border-y py-1">
+                <summary className="hover:bg-base-200/50 focus-visible:bg-base-200/50 flex cursor-pointer list-none items-center justify-between rounded-sm px-2 py-3 text-sm font-medium outline-none">
+                    <span>Document context</span>
+                    <ChevronRight
+                        aria-hidden="true"
+                        className="text-base-content/50 size-4 transition-transform group-open:rotate-90"
+                    />
+                </summary>
+                <div className="flex flex-col gap-6 px-2 pt-2 pb-5">
+                    <EntryReferencesSection entry={entry} />
+                    <EntryOutlineSection entry={entry} outline={outline} />
+                    <DiagnosticsPanel
+                        description="Page-level checks from the current read model."
+                        diagnostics={diagnostics}
+                        emptyLabel="No page diagnostics found."
+                        title="Diagnostics"
+                    />
+                </div>
+            </details>
         </div>
     );
 }
@@ -638,7 +665,7 @@ function EntryReader({
     outline: EntryOutlineItem[];
 }) {
     return (
-        <div className="w-full border-y px-4 py-6 md:py-8">
+        <div className="w-full py-2 md:py-4">
             <article className="flex w-full flex-col gap-5">
                 {blocks.map((block, index) => {
                     const headingId = outline.find((item) => item.blockIndex === index)?.id;
@@ -649,6 +676,7 @@ function EntryReader({
                             currentPath={currentPath}
                             entries={entries}
                             headingId={headingId}
+                            hideFirstHeading={index === 0}
                             key={`${block.type}-${String(index)}`}
                         />
                     );
@@ -663,20 +691,24 @@ function EntryBlockView({
     currentPath,
     entries,
     headingId,
+    hideFirstHeading = false,
 }: {
     block: DashboardEntryBlock;
     currentPath: string;
     entries: DashboardEntry[];
     headingId?: string;
+    hideFirstHeading?: boolean;
 }) {
     if (block.type === "markdown") {
         return (
-            <MarkdownReader
-                currentPath={currentPath}
-                entries={entries}
-                headings={block.outline}
-                markdown={block.markdown}
-            />
+            <div className={hideFirstHeading ? "[&_[data-reader=markdown]>h1:first-child]:hidden" : undefined}>
+                <MarkdownReader
+                    currentPath={currentPath}
+                    entries={entries}
+                    headings={block.outline}
+                    markdown={block.markdown}
+                />
+            </div>
         );
     }
 
@@ -769,63 +801,6 @@ function EntryBlockView({
                 </table>
             </div>
         </div>
-    );
-}
-
-function EntryContextPanel({
-    entry,
-    outline,
-    outlineDesktopOnly = false,
-}: {
-    entry: DashboardEntry;
-    outline: EntryOutlineItem[];
-    outlineDesktopOnly?: boolean;
-}) {
-    const diagnostics = getEntryDiagnostics(entry);
-
-    return (
-        <ContextPanelTabs
-            context={
-                <>
-                    <section className="flex flex-col gap-3">
-                        <div>
-                            <h2 className="text-sm font-semibold">Overview</h2>
-                            <p className="text-base-content/60 mt-1 text-sm/6">
-                                Basic read-model details for the selected page.
-                            </p>
-                        </div>
-                        <div className="border-base-300/80 bg-base-100/60 rounded-lg border p-3">
-                            <span className="text-base-content/60 text-xs">Path</span>
-                            <code
-                                className="text-base-content/60 mt-1 line-clamp-2 text-xs break-all"
-                                title={entry.path}
-                            >
-                                {entry.path}
-                            </code>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <ContextStat label="Languages" value={formatEntrySupportedLanguages(entry)} />
-                            <ContextStat
-                                label="Updated"
-                                title={formatAbsoluteDateTime(entry.updatedAt)}
-                                value={entry.updatedLabel}
-                            />
-                        </div>
-                    </section>
-                    <hr className="border-base-300" />
-                    <EntryReferencesSection entry={entry} />
-                    <hr className="border-base-300" />
-                    <DiagnosticsPanel
-                        description="Page-level checks from the current read model."
-                        diagnostics={diagnostics}
-                        emptyLabel="No page diagnostics found."
-                        title="Diagnostics"
-                    />
-                </>
-            }
-            outline={<EntryOutlineSection entry={entry} outline={outline} />}
-            outlineDesktopOnly={outlineDesktopOnly}
-        />
     );
 }
 
@@ -1088,165 +1063,73 @@ function ReferenceKindBadge({ kind }: { kind: DashboardEntryLink["kind"] }) {
 
 function TaxonomiesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
-        <div className="flex flex-col gap-6">
-            <TaxonomiesOverview dashboard={dashboard} />
-            <RouteBodySection
-                description="Each classification is declared by workspace configuration."
-                meta={`${String(dashboard.taxonomies.length)} taxonomies`}
-                title="Browse classifications"
-            >
+        <RouteBodySection
+            description="Choose a configured taxonomy to browse its terms and matching content."
+            meta={`${String(dashboard.taxonomies.length)} taxonomies`}
+            title="Configured taxonomies"
+        >
+            {dashboard.taxonomies.length > 0 ? (
                 <TaxonomiesGrid taxonomies={dashboard.taxonomies} />
-            </RouteBodySection>
-        </div>
+            ) : (
+                <p className="text-base-content/60 py-8 text-sm">No taxonomies are configured.</p>
+            )}
+        </RouteBodySection>
     );
 }
 
 function TaxonomyPage({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
     return (
-        <div className="flex flex-col gap-6">
-            <TaxonomySummary taxonomy={taxonomy} />
-            <RouteBodySection
-                description="Terms declared for this configured classification."
-                meta={`${String(taxonomy.terms.length)} terms`}
-                title={`Browse ${taxonomy.title.toLocaleLowerCase()}`}
-            >
-                {taxonomy.terms.length > 0 ? (
-                    <TaxonomyTermsGrid taxonomy={taxonomy} />
-                ) : (
-                    <EmptyState
-                        description="Add the first configured term, then verify the workspace configuration."
-                        icon={Layers3}
-                        title="No terms"
-                    />
-                )}
-            </RouteBodySection>
-        </div>
+        <RouteBodySection
+            description="Terms declared for this configured taxonomy."
+            meta={`${String(taxonomy.terms.length)} terms`}
+            title="Configured terms"
+        >
+            {taxonomy.terms.length > 0 ? (
+                <TaxonomyTermsGrid taxonomy={taxonomy} />
+            ) : (
+                <EmptyState
+                    description="Add the first configured term, then verify the workspace configuration."
+                    icon={Layers3}
+                    title="No terms"
+                />
+            )}
+        </RouteBodySection>
     );
 }
 
 function TaxonomyTermPage({ taxonomy, term }: { taxonomy: DashboardTaxonomy; term: DashboardTaxonomyTerm }) {
     return (
-        <div className="flex flex-col gap-6">
-            <TaxonomyTermSummary taxonomy={taxonomy} term={term} />
-            <RouteBodySection
-                description="Markdown-backed pages matched by this configured term."
-                meta={`${String(term.entries.length)} pages`}
-                title="Pages"
-            >
-                {term.entries.length > 0 ? (
-                    <PagesList entries={term.entries} />
-                ) : (
-                    <EmptyState
-                        description="No Markdown pages currently match this configured term."
-                        icon={FileText}
-                        title="No pages"
-                    />
-                )}
-            </RouteBodySection>
-        </div>
-    );
-}
-
-function TaxonomyContextPanel({ dashboard, taxonomy }: { dashboard: WorkspaceDashboard; taxonomy: DashboardTaxonomy }) {
-    const entryCount = taxonomy.terms.reduce((total, term) => total + term.entryCount, 0);
-
-    return (
-        <ContextPanelTabs
-            context={
-                <>
-                    <section className="flex flex-col gap-3">
-                        <div>
-                            <h2 className="text-sm font-semibold">Classification Context</h2>
-                            <p className="text-base-content/60 mt-1 text-sm/6">
-                                Route-level read model for a configured taxonomy.
-                            </p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <ContextStat label="Mode" value={taxonomy.mode} />
-                            <ContextStat label="Terms" value={taxonomy.terms.length} />
-                            <ContextStat label="Entries" value={entryCount} />
-                        </div>
-                    </section>
-                    <hr className="border-base-300" />
-                    <WorkspaceDefaultContextPanel dashboard={dashboard} />
-                </>
-            }
-        />
-    );
-}
-
-function TaxonomyTermContextPanel({
-    dashboard,
-    taxonomy,
-    term,
-}: {
-    dashboard: WorkspaceDashboard;
-    taxonomy: DashboardTaxonomy;
-    term: DashboardTaxonomyTerm;
-}) {
-    return (
-        <ContextPanelTabs
-            context={
-                <>
-                    <section className="flex flex-col gap-3">
-                        <div>
-                            <h2 className="text-sm font-semibold">Term Context</h2>
-                            <p className="text-base-content/60 mt-1 text-sm/6">
-                                Membership comes from the {taxonomy.title} configuration.
-                            </p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <ContextStat label="Taxonomy" value={taxonomy.title} />
-                            <ContextStat label="Pages" value={term.entryCount} />
-                            <ContextStat label="Findings" value={term.status === "healthy" ? 0 : 1} />
-                        </div>
-                    </section>
-                    <hr className="border-base-300" />
-                    <WorkspaceDefaultContextPanel dashboard={dashboard} />
-                </>
-            }
-        />
+        <RouteBodySection
+            description={`Content matched by the configured ${taxonomy.title} term.`}
+            meta={`${String(term.entries.length)} entries`}
+            title="Matching content"
+        >
+            {term.entries.length > 0 ? (
+                <PagesList entries={term.entries} />
+            ) : (
+                <EmptyState
+                    description="No Markdown content currently matches this configured term."
+                    icon={FileText}
+                    title="No matching content"
+                />
+            )}
+        </RouteBodySection>
     );
 }
 
 function ViewsPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
-        <div className="flex flex-col gap-6">
-            <ViewsOverview dashboard={dashboard} />
-            <RouteBodySection
-                description="Saved read-only projections over indexed workspace content."
-                meta={`${String(dashboard.views.length)} views`}
-                title="Browse views"
-            >
+        <RouteBodySection
+            description="Choose a configured projection over the indexed workspace content."
+            meta={`${String(dashboard.views.length)} views`}
+            title="Configured views"
+        >
+            {dashboard.views.length > 0 ? (
                 <ViewsGrid views={dashboard.views} />
-            </RouteBodySection>
-        </div>
-    );
-}
-
-function ViewsContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    return (
-        <ContextPanelTabs
-            context={
-                <>
-                    <section className="flex flex-col gap-3">
-                        <div>
-                            <h2 className="text-sm font-semibold">Views Index</h2>
-                            <p className="text-base-content/60 mt-1 text-sm/6">
-                                Route-level read model for saved workspace projections.
-                            </p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <ContextStat label="Views" value={dashboard.views.length} />
-                            <ContextStat label="Pages" value={dashboard.entries.length} />
-                            <ContextStat label="Taxonomies" value={dashboard.taxonomies.length} />
-                        </div>
-                    </section>
-                    <hr className="border-base-300" />
-                    <WorkspaceDefaultContextPanel dashboard={dashboard} />
-                </>
-            }
-        />
+            ) : (
+                <p className="text-base-content/60 py-8 text-sm">No views are configured.</p>
+            )}
+        </RouteBodySection>
     );
 }
 
@@ -1264,19 +1147,24 @@ function ViewPage({
     const itemCount = projection ? projectionItemCount(projection) : entries.length;
 
     return (
-        <div className="flex flex-col gap-6">
-            <ViewSummary dashboard={dashboard} itemCount={itemCount} view={view} />
+        <div className="flex min-w-0 flex-col gap-6">
+            <div className="text-base-content/60 flex flex-wrap items-center gap-2 text-xs">
+                <span className="badge badge-outline badge-sm">{view.kind}</span>
+                <span>{view.space ?? "workspace"}</span>
+                <span>{itemCount} items</span>
+                {render?.document.path ? <code className="basis-full break-all">{render.document.path}</code> : null}
+            </div>
             {render?.document.beforeProjection.trim() ? (
-                <MarkdownReader
-                    currentPath={render.document.path}
-                    entries={dashboard.entries}
-                    headings={[]}
-                    markdown={render.document.beforeProjection}
-                />
+                <div className="[&_[data-reader=markdown]>h1:first-child]:hidden">
+                    <MarkdownReader
+                        currentPath={render.document.path}
+                        entries={dashboard.entries}
+                        headings={[]}
+                        markdown={render.document.beforeProjection}
+                    />
+                </div>
             ) : null}
-            <RouteBodySection description={view.description} meta={view.kind} title="Projection preview">
-                <ViewProjectionRenderer projection={projection} />
-            </RouteBodySection>
+            <ViewProjectionRenderer projection={projection} />
             {render?.document.afterProjection.trim() ? (
                 <MarkdownReader
                     currentPath={render.document.path}
@@ -1286,41 +1174,6 @@ function ViewPage({
                 />
             ) : null}
         </div>
-    );
-}
-
-function ViewContextPanel({
-    dashboard,
-    projection,
-    view,
-}: {
-    dashboard: WorkspaceDashboard;
-    projection?: DashboardViewProjection;
-    view: WorkspaceDashboard["views"][number];
-}) {
-    const itemCount = projection ? projectionItemCount(projection) : entriesForView(dashboard, view).length;
-
-    return (
-        <ContextPanelTabs
-            context={
-                <>
-                    <section className="flex flex-col gap-3">
-                        <div>
-                            <h2 className="text-sm font-semibold">View Context</h2>
-                            <p className="text-base-content/60 mt-1 text-sm/6">
-                                Route-level read model for the selected saved projection.
-                            </p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <ContextStat label="Kind" value={view.kind} />
-                            <ContextStat label="Items" value={itemCount} />
-                        </div>
-                    </section>
-                    <hr className="border-base-300" />
-                    <WorkspaceDefaultContextPanel dashboard={dashboard} />
-                </>
-            }
-        />
     );
 }
 
@@ -1391,97 +1244,30 @@ function RouteBodySection({
     );
 }
 
-function NavigationCard({
-    description,
-    icon: Icon,
-    meta,
-    title,
-    to,
-}: {
-    description: string;
-    icon: typeof FileText;
-    meta: string;
-    title: string;
-    to: string;
-}) {
-    return (
-        <Link className="group block rounded-lg outline-none" to={to}>
-            <section className="card border-base-300 bg-base-100 group-hover:bg-base-200/50 group-focus-visible:border-primary group-focus-visible:ring-primary/50 h-full border transition-colors group-focus-visible:ring-3">
-                <div className="card-body p-4 sm:p-6">
-                    <div className="bg-base-200 text-base-content/60 flex size-8 items-center justify-center rounded-md sm:size-10">
-                        <Icon data-icon="inline-start" />
-                    </div>
-                    <h2 className="card-title">{title}</h2>
-                    <p className="text-base-content/60 text-sm">{description}</p>
-                </div>
-                <div className="px-4 pb-4 sm:px-6 sm:pb-6">
-                    <span className="badge badge-outline">{meta}</span>
-                </div>
-            </section>
-        </Link>
-    );
-}
-
 function TaxonomiesGrid({ taxonomies }: { taxonomies: DashboardTaxonomy[] }) {
     return (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <nav aria-label="Configured taxonomies" className="border-base-300 divide-base-300 divide-y border-y">
             {taxonomies.map((taxonomy) => (
                 <Link
-                    className="card border-base-300 bg-base-100 hover:bg-base-200/50 focus-visible:ring-primary/50 border transition-colors outline-none focus-visible:ring-3"
+                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-2 py-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto]"
                     key={taxonomy.id}
                     to={taxonomyRoutePath(taxonomy.id)}
                 >
-                    <div className="card-body">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                                <span className="badge badge-outline">{taxonomy.mode}</span>
-                                <h2 className="card-title mt-3">{taxonomy.title}</h2>
-                                <p className="text-base-content/60 mt-2 text-sm">{taxonomy.description}</p>
-                            </div>
-                            <ArrowUpRight className="text-base-content/60 shrink-0" />
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">{taxonomy.title}</span>
+                            <span className="badge badge-outline badge-sm">{taxonomy.mode}</span>
                         </div>
-                        <div className="mt-2 flex gap-2">
-                            <span className="badge badge-ghost">{taxonomy.terms.length} terms</span>
-                            <span className="badge badge-ghost">
-                                {taxonomy.terms.reduce((total, term) => total + term.entryCount, 0)} entries
-                            </span>
-                        </div>
+                        <p className="text-base-content/60 mt-1 truncate text-sm">{taxonomy.description}</p>
                     </div>
+                    <div className="text-base-content/60 hidden gap-4 text-sm sm:flex">
+                        <span>{taxonomy.terms.length} terms</span>
+                        <span>{taxonomy.terms.reduce((total, term) => total + term.entryCount, 0)} entries</span>
+                    </div>
+                    <ArrowUpRight aria-hidden="true" className="text-base-content/50 size-5 shrink-0" />
                 </Link>
             ))}
-        </div>
-    );
-}
-
-function TaxonomiesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    const termCount = dashboard.taxonomies.reduce((total, taxonomy) => total + taxonomy.terms.length, 0);
-    const entryCount = dashboard.taxonomies.reduce(
-        (total, taxonomy) => total + taxonomy.terms.reduce((subtotal, term) => subtotal + term.entryCount, 0),
-        0,
-    );
-
-    return (
-        <section className="card border-base-300 bg-base-100 border">
-            <div className="card-body">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                        <span className={healthBadgeClass(dashboard.status)}>{dashboard.status}</span>
-                        <h2 className="card-title mt-4">Classifications overview</h2>
-                        <p className="text-base-content/60 mt-2 text-sm">
-                            Taxonomies and terms discovered from workspace configuration.
-                        </p>
-                    </div>
-                    <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
-                        <Layers3 data-icon="inline-start" />
-                    </div>
-                </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
-                <StatCell label="Taxonomies" value={dashboard.taxonomies.length} />
-                <StatCell label="Terms" value={termCount} />
-                <StatCell label="Memberships" value={entryCount} />
-            </div>
-        </section>
+        </nav>
     );
 }
 
@@ -1516,73 +1302,43 @@ function PagesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
     );
 }
 
-function ViewsOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    return (
-        <section className="card border-base-300 bg-base-100 border">
-            <div className="card-body">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                        <span className="badge">preview</span>
-                        <h2 className="card-title mt-4">Views overview</h2>
-                        <p className="text-base-content/60 mt-2 text-sm">
-                            Saved projections for list, table, kanban, and graph-style workspace browsing.
-                        </p>
-                    </div>
-                    <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
-                        <Workflow data-icon="inline-start" />
-                    </div>
-                </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
-                <StatCell label="Views" value={dashboard.views.length} />
-                <StatCell label="Pages" value={dashboard.entries.length} />
-                <StatCell label="Taxonomies" value={dashboard.taxonomies.length} />
-            </div>
-        </section>
-    );
-}
-
 function PagesList({ entries }: { entries: DashboardEntry[] }) {
     return (
-        <div className="grid gap-3">
+        <nav aria-label="Matching content" className="border-base-300 divide-base-300 divide-y border-y">
             {entries.map((entry) => (
                 <EntryRow entry={entry} key={entry.path} />
             ))}
-        </div>
+        </nav>
     );
 }
 
 function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
     return (
-        <div className="border-base-300 bg-base-100 overflow-hidden rounded-lg border">
-            <div className="text-base-content/60 bg-base-200/50 grid grid-cols-[minmax(0,1fr)_5rem_7rem_2.5rem] gap-4 border-b px-4 py-2 text-xs font-medium">
-                <span>View</span>
-                <span>Kind</span>
-                <span>Scope</span>
-                <span className="sr-only">Open</span>
-            </div>
-            <div className="divide-base-300 divide-y">
-                {views.map((view) => (
-                    <Link
-                        className="hover:bg-base-200/50 focus-visible:ring-primary/50 grid grid-cols-[minmax(0,1fr)_5rem_7rem_2.5rem] items-center gap-4 px-4 py-3 transition-colors outline-none focus-visible:ring-3"
-                        key={view.id}
-                        to={viewRoutePath(view.id)}
-                    >
-                        <div className="min-w-0">
-                            <div className="truncate font-medium" title={view.title}>
-                                {view.title}
-                            </div>
-                            <div className="text-base-content/60 mt-1 line-clamp-1 text-sm" title={view.description}>
-                                {view.description}
-                            </div>
+        <nav aria-label="Configured views" className="border-base-300 divide-base-300 divide-y border-y">
+            {views.map((view) => (
+                <Link
+                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-2 py-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
+                    key={view.id}
+                    to={viewRoutePath(view.id)}
+                >
+                    <div className="min-w-0">
+                        <div className="truncate font-medium" title={view.title}>
+                            {view.title}
                         </div>
-                        <span className="badge badge-outline justify-self-start">{view.kind}</span>
-                        <span className="text-base-content/60 truncate text-sm">{view.space ?? "workspace"}</span>
-                        <ChevronRight className="text-base-content/60 justify-self-end" />
-                    </Link>
-                ))}
-            </div>
-        </div>
+                        <div className="text-base-content/60 mt-1 line-clamp-1 text-sm" title={view.description}>
+                            {view.description}
+                        </div>
+                    </div>
+                    <span className="badge badge-outline badge-sm hidden justify-self-start sm:inline-flex">
+                        {view.kind}
+                    </span>
+                    <span className="text-base-content/60 hidden truncate text-sm sm:block">
+                        {view.space ?? "workspace"}
+                    </span>
+                    <ChevronRight aria-hidden="true" className="text-base-content/50 size-5 justify-self-end" />
+                </Link>
+            ))}
+        </nav>
     );
 }
 
@@ -1599,38 +1355,6 @@ function taxonomyRoutePath(taxonomyId: string) {
 
 function taxonomyTermRoutePath(taxonomyId: string, termId: string) {
     return `${taxonomyRoutePath(taxonomyId)}/${encodeURIComponent(termId)}`;
-}
-
-function ViewSummary({
-    dashboard,
-    itemCount,
-    view,
-}: {
-    dashboard: WorkspaceDashboard;
-    itemCount: number;
-    view: WorkspaceDashboard["views"][number];
-}) {
-    return (
-        <section className="card border-base-300 bg-base-100 border">
-            <div className="card-body">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                        <span className="badge badge-outline">{view.kind}</span>
-                        <h2 className="card-title mt-4">{view.title}</h2>
-                        <p className="text-base-content/60 mt-2 text-sm">{view.description}</p>
-                    </div>
-                    <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
-                        <Workflow data-icon="inline-start" />
-                    </div>
-                </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
-                <StatCell label="Items" value={itemCount} />
-                <StatCell label="Taxonomies" value={dashboard.taxonomies.length} />
-                <StatCell label="Scope" value={view.space ?? "workspace"} />
-            </div>
-        </section>
-    );
 }
 
 function ViewProjectionRenderer({ projection }: { projection?: DashboardViewProjection }) {
@@ -1683,7 +1407,7 @@ function ProjectionLoadingState() {
 
 function ViewListProjection({ projection }: { projection: Extract<DashboardViewProjection, { kind: "list" }> }) {
     return (
-        <div className="border-base-300 overflow-hidden rounded-lg border">
+        <div className="border-base-300 overflow-hidden border-y">
             <div className="divide-base-300 divide-y">
                 {projection.items.map((item) => (
                     <ViewListProjectionRow item={item} key={item.path} />
@@ -1813,7 +1537,7 @@ function ViewKanbanProjection({ projection }: { projection: Extract<DashboardVie
             <div className="flex min-w-max flex-nowrap items-start gap-3">
                 {projection.columns.map((column) => (
                     <section
-                        className="bg-base-200/30 min-h-60 max-w-[min(20rem,85vw)] min-w-[min(16rem,85vw)] flex-[1_0_min(16rem,85vw)] rounded-lg border p-3"
+                        className="border-base-300 bg-base-200/30 min-h-60 max-w-[min(20rem,85vw)] min-w-[min(16rem,85vw)] flex-[1_0_min(16rem,85vw)] rounded-lg border p-3"
                         key={column.id}
                     >
                         <div className="mb-3 flex items-center justify-between gap-3">
@@ -1924,116 +1648,26 @@ function viewFieldLabel(field: string): string {
     return field.replace(/^fields\./u, "");
 }
 
-function TaxonomySummary({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
-    const entryCount = taxonomy.terms.reduce((total, term) => total + term.entryCount, 0);
-
-    return (
-        <section className="card border-base-300 bg-base-100 border">
-            <div className="card-body">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                        <span className="badge badge-outline">{taxonomy.mode}</span>
-                        <h2 className="card-title mt-4">{taxonomy.title}</h2>
-                        <p className="text-base-content/60 mt-2 text-sm">{taxonomy.description}</p>
-                    </div>
-                    <Layers3 className="text-base-content/60 shrink-0" />
-                </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
-                <StatCell label="Terms" value={taxonomy.terms.length} />
-                <StatCell label="Memberships" value={entryCount} />
-                <StatCell label="Mode" value={taxonomy.mode} />
-            </div>
-        </section>
-    );
-}
-
-function TaxonomyTermSummary({ taxonomy, term }: { taxonomy: DashboardTaxonomy; term: DashboardTaxonomyTerm }) {
-    return (
-        <section className="card border-base-300 bg-base-100 border">
-            <div className="card-body">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                        <span className={healthBadgeClass(term.status)}>{term.status}</span>
-                        <h2 className="card-title mt-4">{term.title}</h2>
-                        <p className="text-base-content/60 mt-2 text-sm">{term.description}</p>
-                    </div>
-                    <span className="badge badge-outline">{taxonomy.title}</span>
-                </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
-                <StatCell label="Pages" value={term.entryCount} />
-                <StatCell label="Taxonomy" value={taxonomy.title} />
-                <StatCell label="Term ID" value={term.id} />
-            </div>
-        </section>
-    );
-}
-
 function TaxonomyTermsGrid({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
     return (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <nav aria-label={`${taxonomy.title} terms`} className="border-base-300 divide-base-300 divide-y border-y">
             {taxonomy.terms.map((term) => (
                 <Link
-                    className="card border-base-300 bg-base-100 hover:bg-base-200/50 focus-visible:ring-primary/50 border transition-colors outline-none focus-visible:ring-3"
+                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-2 py-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto]"
                     key={term.id}
                     to={taxonomyTermRoutePath(taxonomy.id, term.id)}
                 >
-                    <div className="card-body">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                                <h2 className="card-title">{term.title}</h2>
-                                <p className="text-base-content/60 mt-2 line-clamp-2 text-sm">{term.description}</p>
-                            </div>
-                            <ArrowUpRight className="text-base-content/60 shrink-0" />
-                        </div>
-                        <div className="mt-2 flex items-center justify-between gap-3">
-                            <span className={healthBadgeClass(term.status)}>{term.status}</span>
-                            <span className="text-base-content/60 text-sm tabular-nums">
-                                {term.entryCount} {term.entryCount === 1 ? "page" : "pages"}
-                            </span>
-                        </div>
+                    <div className="min-w-0">
+                        <span className="font-medium">{term.title}</span>
+                        <p className="text-base-content/60 mt-1 truncate text-sm">{term.description}</p>
                     </div>
+                    <span className="text-base-content/60 hidden text-sm tabular-nums sm:block">
+                        {term.entryCount} {term.entryCount === 1 ? "entry" : "entries"}
+                    </span>
+                    <ArrowUpRight aria-hidden="true" className="text-base-content/50 size-5 shrink-0" />
                 </Link>
             ))}
-        </div>
-    );
-}
-
-function WorkspaceOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    return (
-        <section className="border-base-300 bg-base-100 rounded-lg border p-4 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl">
-                    <span className={healthBadgeClass(dashboard.status)}>{dashboard.status}</span>
-                    <h2 className="mt-4 text-2xl font-semibold tracking-normal sm:text-3xl">
-                        {dashboard.workspaceName}
-                    </h2>
-                    <p className="text-base-content/60 mt-3 text-sm/6">{dashboard.tagline}</p>
-                    <div className="mt-5 hidden flex-wrap gap-2 sm:flex">
-                        <span className="badge badge-outline">Read-only GUI</span>
-                        <span className="badge badge-outline">Repository Markdown</span>
-                        <span className="badge badge-outline">Workspace index</span>
-                    </div>
-                </div>
-                <div className="grid w-full grid-cols-2 gap-3 sm:w-72">
-                    <Metric icon={FileText} label="Pages" value={dashboard.entries.length} />
-                    <Metric icon={ShieldCheck} label="Findings" value={dashboard.health.findings.length} />
-                    <Metric icon={Network} label="Views" value={dashboard.views.length} />
-                    <Metric icon={ArrowUpRight} label="Taxonomies" value={dashboard.taxonomies.length} />
-                </div>
-            </div>
-        </section>
-    );
-}
-
-function Metric({ icon: Icon, label, value }: { icon: typeof FileText; label: string; value: number }) {
-    return (
-        <div className="border-base-300 bg-base-100 rounded-lg border p-3">
-            <Icon className="text-base-content/60 hidden sm:block" data-icon="inline-start" />
-            <strong className="block text-xl sm:mt-3 sm:text-2xl">{value}</strong>
-            <span className="text-base-content/60 text-xs">{label}</span>
-        </div>
+        </nav>
     );
 }
 
@@ -2062,12 +1696,9 @@ function StatCell({ label, title, value }: { label: string; title?: string; valu
 function EntryRow({ entry }: { entry: DashboardEntry }) {
     return (
         <Link
-            className="border-base-300 bg-base-100 group hover:bg-base-200/50 focus-visible:border-primary focus-visible:ring-primary/50 flex min-w-0 flex-col gap-3 rounded-lg border p-4 shadow-sm transition-colors outline-none focus-visible:ring-3 sm:flex-row sm:items-center"
+            className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-2 py-4 outline-none"
             to={entry.routePath}
         >
-            <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
-                <FileText data-icon="inline-start" />
-            </div>
             <div className="min-w-0 flex-1">
                 <h3 className="truncate font-medium" title={entry.title}>
                     {entry.title}
@@ -2079,12 +1710,9 @@ function EntryRow({ entry }: { entry: DashboardEntry }) {
                     {entry.path}
                 </code>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-                <span className="badge badge-outline">{entry.space}</span>
-                <span className="text-base-content/60 text-xs" title={formatAbsoluteDateTime(entry.updatedAt)}>
-                    {entry.updatedLabel}
-                </span>
-            </div>
+            <span className="text-base-content/60 shrink-0 text-xs" title={formatAbsoluteDateTime(entry.updatedAt)}>
+                {entry.updatedLabel}
+            </span>
         </Link>
     );
 }

@@ -88,15 +88,18 @@ export function App() {
     }
 
     return (
-        <div className="grid h-svh min-w-0 grid-cols-1 overflow-hidden lg:grid-cols-[18rem_minmax(0,1fr)]">
-            <aside className="border-base-300 bg-base-200 text-base-content hidden min-h-0 border-e lg:block">
+        <div
+            className="grid h-svh min-w-0 grid-cols-1 overflow-hidden lg:grid-cols-[16rem_minmax(0,1fr)]"
+            data-workspace-shell
+        >
+            <aside className="border-base-300 bg-base-200 text-base-content hidden min-h-0 overflow-visible border-e lg:block">
                 <WorkspaceSidebar dashboard={dashboard} onNavigate={closeNavigation} />
             </aside>
             <div className="bg-base-100 text-base-content min-h-0 min-w-0 overflow-hidden">
                 <Outlet context={dashboard} />
             </div>
             <dialog
-                className="modal modal-start p-0 lg:hidden"
+                className="modal modal-start p-0 outline-none lg:hidden"
                 id={workspaceDrawerId}
                 ref={navigationDialogRef}
                 onClose={(event) => {
@@ -106,12 +109,27 @@ export function App() {
                             ?.focus();
                     }
                 }}
+                onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                        event.preventDefault();
+                        event.currentTarget.close();
+                    }
+                }}
             >
                 <div className="modal-box bg-base-200 text-base-content h-svh max-h-none w-72 max-w-[calc(100vw-3rem)] rounded-none p-0">
-                    <WorkspaceSidebar dashboard={dashboard} onNavigate={closeNavigation} showQuickOpen={false} />
+                    <WorkspaceSidebar
+                        collapsible={false}
+                        dashboard={dashboard}
+                        onNavigate={closeNavigation}
+                        showQuickOpen={false}
+                    />
                 </div>
                 <form className="modal-backdrop" method="dialog">
-                    <button aria-label="Close workspace navigation" type="submit">
+                    <button
+                        aria-label="Close workspace navigation"
+                        onClick={() => navigationDialogRef.current?.close()}
+                        type="button"
+                    >
                         Close
                     </button>
                 </form>

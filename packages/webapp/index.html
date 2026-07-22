@@ -7,6 +7,14 @@
         <title>Choral Forma</title>
     </head>
     <body>
+        <script>
+            try {
+                document.documentElement.dataset.workspaceSidebar =
+                    localStorage.getItem("forma.workspaceSidebar") === "collapsed" ? "collapsed" : "expanded";
+            } catch {
+                document.documentElement.dataset.workspaceSidebar = "expanded";
+            }
+        </script>
         <div id="root"></div>
         <script type="module" src="/src/main.tsx"></script>
     </body>

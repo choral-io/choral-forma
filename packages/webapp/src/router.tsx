@@ -5,6 +5,7 @@ import {
     DashboardRoute,
     EntryRoute,
     FallbackRoute,
+    HealthRoute,
     PagesRoute,
     TaxonomiesRoute,
     TaxonomyRoute,
@@ -22,6 +23,7 @@ export const routes = (
             <Route path="taxonomies" Component={TaxonomiesRoute} />
             <Route path="views" Component={ViewsRoute} />
             <Route path="views/*" Component={ViewRoute} />
+            <Route path="health" Component={HealthRoute} />
             <Route path=":taxonomyId" Component={TaxonomyRoute} />
             <Route path=":taxonomyId/:termId" Component={TaxonomyTermRoute} />
             <Route path="*" Component={FallbackRoute} />
