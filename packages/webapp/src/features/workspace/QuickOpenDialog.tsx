@@ -171,10 +171,16 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
                 <Search aria-hidden="true" className={trigger === "sidebar" ? "size-4 shrink-0" : undefined} />
                 {trigger === "sidebar" ? (
                     <>
-                        <span className="is-drawer-close:hidden" data-sidebar-label>
+                        <span
+                            className="is-drawer-close:hidden min-w-0 flex-1 truncate whitespace-nowrap"
+                            data-sidebar-label
+                        >
                             Quick open
                         </span>
-                        <kbd className="kbd kbd-xs is-drawer-close:hidden ms-auto" data-sidebar-label>
+                        <kbd
+                            className="kbd kbd-xs is-drawer-close:hidden ms-auto shrink-0 whitespace-nowrap"
+                            data-sidebar-label
+                        >
                             ⌘ K
                         </kbd>
                     </>
