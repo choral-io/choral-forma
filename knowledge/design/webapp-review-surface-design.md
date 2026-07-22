@@ -424,3 +424,7 @@ The rewrite is complete only when:
 - the final abstraction review records what was extracted or why no extraction was justified;
 - product, design, architecture, code, and validation evidence agree;
 - commits remain reviewable by page or capability boundary.
+
+## Validation Record
+
+Implementation and browser evidence for the first complete redesign candidate is recorded in [[design/webapp-review-surface-validation-2026-07-22]].
