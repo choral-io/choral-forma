@@ -1080,10 +1080,17 @@ fn app_root_location(root_path: &str) -> String {
 
 fn should_serve_spa_index(path: &str) -> bool {
     let route = path.trim_matches('/');
+    let segments = route.split('/').collect::<Vec<_>>();
+    let configured_classification_route = matches!(segments.len(), 1 | 2)
+        && segments[0] != "assets"
+        && segments
+            .iter()
+            .all(|segment| !segment.is_empty() && !segment.contains('.'));
+
     matches!(route, "pages" | "taxonomies" | "views")
         || route.starts_with("pages/")
-        || route.starts_with("taxonomies/")
         || route.starts_with("views/")
+        || configured_classification_route
 }
 
 fn should_redirect_to_app_root(path: &str) -> bool {
@@ -1136,8 +1143,30 @@ mod tests {
     use super::{
         inject_base_href, rpc_router, rpc_router_with_dispatcher,
         rpc_router_with_dispatcher_and_workspace, rpc_router_with_options,
-        rpc_router_with_options_and_root_path,
+        rpc_router_with_options_and_root_path, should_serve_spa_index,
     };
+
+    #[test]
+    fn spa_index_supports_direct_taxonomy_and_term_routes() {
+        for path in ["spaces", "spaces/tasks", "/spaces/tasks/"] {
+            assert!(should_serve_spa_index(path), "expected SPA route: {path}");
+        }
+    }
+
+    #[test]
+    fn spa_index_rejects_assets_files_and_deeper_classification_paths() {
+        for path in [
+            "assets",
+            "assets/app.js",
+            "favicon.ico",
+            "spaces/tasks/extra",
+        ] {
+            assert!(
+                !should_serve_spa_index(path),
+                "expected asset route: {path}"
+            );
+        }
+    }
 
     fn copy_starter_workspace(root: &Path) {
         let source = Path::new(env!("CARGO_MANIFEST_DIR"))

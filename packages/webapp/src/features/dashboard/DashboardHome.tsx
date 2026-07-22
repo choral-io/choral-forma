@@ -328,16 +328,19 @@ function WorkspacePageShell({
     mobileContextPanel?: ReactNode;
     title: string;
 }) {
+    const resolvedContextPanel = contextPanel ?? (
+        <ContextPanelTabs context={<WorkspaceDefaultContextPanel dashboard={dashboard} />} />
+    );
+    const resolvedMobileContextPanel = mobileContextPanel ?? (contextPanel ? undefined : null);
+
     return (
         <WorkspaceRouteFrame
             actions={actions}
-            contextPanel={
-                contextPanel ?? <ContextPanelTabs context={<WorkspaceDefaultContextPanel dashboard={dashboard} />} />
-            }
+            contextPanel={resolvedContextPanel}
             contentWidth={contentWidth}
             dashboard={dashboard}
             eyebrow={eyebrow}
-            mobileContextPanel={mobileContextPanel}
+            mobileContextPanel={resolvedMobileContextPanel}
             title={title}
         >
             {children}
@@ -356,7 +359,7 @@ function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
                 description="Start with one workflow, then browse the content and views it defines."
                 title="Workspace entry points"
             >
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
                     <NavigationCard
                         description="Browse the configured classifications and their terms."
                         icon={Layers3}
@@ -603,7 +606,7 @@ function EntryPage({
                         <p className="text-base-content/60 mt-2 text-sm">{entry.summary}</p>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 px-4 pb-4 sm:grid-cols-4 sm:gap-3 sm:px-6 sm:pb-6">
                     <StatCell label={classificationLabel} value={entry.space || "—"} />
                     <StatCell
                         label="Languages"
@@ -1404,14 +1407,14 @@ function NavigationCard({
     return (
         <Link className="group block rounded-lg outline-none" to={to}>
             <section className="card border-base-300 bg-base-100 group-hover:bg-base-200/50 group-focus-visible:border-primary group-focus-visible:ring-primary/50 h-full border transition-colors group-focus-visible:ring-3">
-                <div className="card-body">
-                    <div className="bg-base-200 text-base-content/60 flex size-10 items-center justify-center rounded-md">
+                <div className="card-body p-4 sm:p-6">
+                    <div className="bg-base-200 text-base-content/60 flex size-8 items-center justify-center rounded-md sm:size-10">
                         <Icon data-icon="inline-start" />
                     </div>
                     <h2 className="card-title">{title}</h2>
                     <p className="text-base-content/60 text-sm">{description}</p>
                 </div>
-                <div className="px-6 pb-6">
+                <div className="px-4 pb-4 sm:px-6 sm:pb-6">
                     <span className="badge badge-outline">{meta}</span>
                 </div>
             </section>
@@ -1473,7 +1476,7 @@ function TaxonomiesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                     </div>
                 </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
                 <StatCell label="Taxonomies" value={dashboard.taxonomies.length} />
                 <StatCell label="Terms" value={termCount} />
                 <StatCell label="Memberships" value={entryCount} />
@@ -1504,7 +1507,7 @@ function PagesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                     </div>
                 </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
                 <StatCell label="Indexed" value={dashboard.entries.length} />
                 <StatCell label="Taxonomies" value={coveredTaxonomyCount} />
                 <StatCell label="Warnings" value={warningCount} />
@@ -1530,7 +1533,7 @@ function ViewsOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
                     </div>
                 </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
                 <StatCell label="Views" value={dashboard.views.length} />
                 <StatCell label="Pages" value={dashboard.entries.length} />
                 <StatCell label="Taxonomies" value={dashboard.taxonomies.length} />
@@ -1591,7 +1594,7 @@ function viewRoutePath(viewId: string) {
 }
 
 function taxonomyRoutePath(taxonomyId: string) {
-    return `/taxonomies/${encodeURIComponent(taxonomyId)}`;
+    return `/${encodeURIComponent(taxonomyId)}`;
 }
 
 function taxonomyTermRoutePath(taxonomyId: string, termId: string) {
@@ -1621,7 +1624,7 @@ function ViewSummary({
                     </div>
                 </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
                 <StatCell label="Items" value={itemCount} />
                 <StatCell label="Taxonomies" value={dashboard.taxonomies.length} />
                 <StatCell label="Scope" value={view.space ?? "workspace"} />
@@ -1936,7 +1939,7 @@ function TaxonomySummary({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
                     <Layers3 className="text-base-content/60 shrink-0" />
                 </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
                 <StatCell label="Terms" value={taxonomy.terms.length} />
                 <StatCell label="Memberships" value={entryCount} />
                 <StatCell label="Mode" value={taxonomy.mode} />
@@ -1958,7 +1961,7 @@ function TaxonomyTermSummary({ taxonomy, term }: { taxonomy: DashboardTaxonomy; 
                     <span className="badge badge-outline">{taxonomy.title}</span>
                 </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
                 <StatCell label="Pages" value={term.entryCount} />
                 <StatCell label="Taxonomy" value={taxonomy.title} />
                 <StatCell label="Term ID" value={term.id} />
@@ -1999,13 +2002,15 @@ function TaxonomyTermsGrid({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
 
 function WorkspaceOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
-        <section className="border-base-300 bg-base-100 rounded-lg border p-6 shadow-sm">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <section className="border-base-300 bg-base-100 rounded-lg border p-4 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="max-w-2xl">
                     <span className={healthBadgeClass(dashboard.status)}>{dashboard.status}</span>
-                    <h2 className="mt-4 text-3xl font-semibold tracking-normal">{dashboard.workspaceName}</h2>
+                    <h2 className="mt-4 text-2xl font-semibold tracking-normal sm:text-3xl">
+                        {dashboard.workspaceName}
+                    </h2>
                     <p className="text-base-content/60 mt-3 text-sm/6">{dashboard.tagline}</p>
-                    <div className="mt-5 flex flex-wrap gap-2">
+                    <div className="mt-5 hidden flex-wrap gap-2 sm:flex">
                         <span className="badge badge-outline">Read-only GUI</span>
                         <span className="badge badge-outline">Repository Markdown</span>
                         <span className="badge badge-outline">Workspace index</span>
@@ -2025,8 +2030,8 @@ function WorkspaceOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
 function Metric({ icon: Icon, label, value }: { icon: typeof FileText; label: string; value: number }) {
     return (
         <div className="border-base-300 bg-base-100 rounded-lg border p-3">
-            <Icon className="text-base-content/60" data-icon="inline-start" />
-            <strong className="mt-3 block text-2xl">{value}</strong>
+            <Icon className="text-base-content/60 hidden sm:block" data-icon="inline-start" />
+            <strong className="block text-xl sm:mt-3 sm:text-2xl">{value}</strong>
             <span className="text-base-content/60 text-xs">{label}</span>
         </div>
     );
@@ -2045,9 +2050,9 @@ function ContextStat({ label, title, value }: { label: string; title?: string; v
 
 function StatCell({ label, title, value }: { label: string; title?: string; value: number | string }) {
     return (
-        <div className="border-base-300 bg-base-100 rounded-md border p-3">
+        <div className="border-base-300 bg-base-100 rounded-md border p-2 sm:p-3">
             <span className="text-base-content/60 text-xs">{label}</span>
-            <strong className="mt-1 block truncate text-base" title={title}>
+            <strong className="mt-1 block truncate text-sm sm:text-base" title={title ?? String(value)}>
                 {value}
             </strong>
         </div>

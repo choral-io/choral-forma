@@ -31,7 +31,7 @@ export function WorkspaceRouteFrame({
     title,
 }: WorkspaceRouteFrameProps) {
     const hasContextPanel = Boolean(contextPanel);
-    const inlineContextPanel = mobileContextPanel ?? contextPanel;
+    const inlineContextPanel = mobileContextPanel === undefined ? contextPanel : mobileContextPanel;
     const contentWidthClass = {
         default: "max-w-6xl",
         fluid: "max-w-none",
@@ -47,7 +47,7 @@ export function WorkspaceRouteFrame({
         >
             <div className="flex min-w-0 flex-col xl:min-h-0">
                 <header className="border-base-300 bg-base-100/90 flex shrink-0 flex-col gap-4 border-b p-4 backdrop-blur-sm md:px-6 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
                         <button
                             aria-controls={workspaceDrawerId}
                             aria-label="Open workspace navigation"
@@ -72,11 +72,9 @@ export function WorkspaceRouteFrame({
                                 <p className="text-base-content/60 mt-1 max-w-3xl text-sm/6">{description}</p>
                             )}
                         </div>
+                        <QuickOpenDialog dashboard={dashboard} trigger="header" triggerClassName="ml-auto lg:hidden" />
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <QuickOpenDialog dashboard={dashboard} trigger="header" triggerClassName="lg:hidden" />
-                        {actions}
-                    </div>
+                    {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
                 </header>
 
                 {hasContextPanel && inlineContextPanel ? (

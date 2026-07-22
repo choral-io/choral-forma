@@ -145,7 +145,7 @@ function viewRoutePath(viewId: string) {
 }
 
 function taxonomyRoutePath(taxonomyId: string) {
-    return `/taxonomies/${encodeURIComponent(taxonomyId)}`;
+    return `/${encodeURIComponent(taxonomyId)}`;
 }
 
 function taxonomyTermRoutePath(taxonomyId: string, termId: string) {

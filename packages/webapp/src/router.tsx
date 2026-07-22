@@ -20,10 +20,10 @@ export const routes = (
             <Route path="pages" Component={PagesRoute} />
             <Route path="pages/*" Component={EntryRoute} />
             <Route path="taxonomies" Component={TaxonomiesRoute} />
-            <Route path="taxonomies/:taxonomyId" Component={TaxonomyRoute} />
-            <Route path="taxonomies/:taxonomyId/:termId" Component={TaxonomyTermRoute} />
             <Route path="views" Component={ViewsRoute} />
             <Route path="views/*" Component={ViewRoute} />
+            <Route path=":taxonomyId" Component={TaxonomyRoute} />
+            <Route path=":taxonomyId/:termId" Component={TaxonomyTermRoute} />
             <Route path="*" Component={FallbackRoute} />
         </Route>
     </Routes>
