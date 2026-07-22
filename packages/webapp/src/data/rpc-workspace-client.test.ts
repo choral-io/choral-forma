@@ -113,10 +113,10 @@ function rpcResult(method: string, bodySource: string, startOffset?: number, mar
             },
             document: {
                 bodySource,
-                mounts:
-                    startOffset === undefined || markerLength === undefined
-                        ? []
-                        : [
+                ...(startOffset === undefined || markerLength === undefined
+                    ? {}
+                    : {
+                          mounts: [
                               {
                                   kind: "content",
                                   startOffset,
@@ -124,6 +124,7 @@ function rpcResult(method: string, bodySource: string, startOffset?: number, mar
                                   location: { kind: "body", line: 5, column: 1 },
                               },
                           ],
+                      }),
             },
             render: { kind: "table", columns: [], items: [] },
             diagnostics: [],

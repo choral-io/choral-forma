@@ -329,7 +329,7 @@ export type ViewRenderOutput =
 
 export type ViewRenderDocument = {
     bodySource: string;
-    mounts: Array<{
+    mounts?: Array<{
         kind: "content";
         startOffset: number;
         endOffset: number;

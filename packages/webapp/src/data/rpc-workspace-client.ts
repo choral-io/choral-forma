@@ -83,7 +83,7 @@ export class RpcWorkspaceClient implements WorkspaceClient {
 
 function mapViewDocument(result: ViewRenderResult, viewId: string): DashboardViewRender["document"] {
     const bodySource = result.document?.bodySource ?? "";
-    const mount = result.document?.mounts[0];
+    const mount = result.document?.mounts?.[0];
     const path = result.view?.path ?? viewId;
 
     if (!mount) {

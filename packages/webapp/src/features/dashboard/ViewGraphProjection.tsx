@@ -10,22 +10,18 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
-import { useTheme } from "@/app/theme-context";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { activeGraphNodeId, mapDashboardGraphProjection, type DashboardGraphProjection } from "./graph-adapter";
 
 export function ViewGraphProjection({ projection }: { projection: DashboardGraphProjection }) {
-    const { resolvedMode } = useTheme();
     const location = useLocation();
     const navigate = useNavigate();
     const containerRef = useRef<HTMLDivElement | null>(null);
     const navigateRef = useRef(navigate);
     const runtimeRef = useRef<GraphRuntime | null>(null);
     const routesRef = useRef(new Map<string, string>());
-    const [graphTheme, setGraphTheme] = useState<GraphTheme>(() => readGraphThemeTokens(resolvedMode));
+    const [graphTheme, setGraphTheme] = useState<GraphTheme>(() => readGraphThemeTokens());
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const runtimeProjection = useMemo(() => mapDashboardGraphProjection(projection), [projection]);
@@ -65,13 +61,22 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     }, [isExpanded]);
 
     useEffect(() => {
-        const frame = requestAnimationFrame(() => {
-            setGraphTheme(readGraphThemeTokens(resolvedMode));
+        const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+        let frame = requestAnimationFrame(() => {
+            setGraphTheme(readGraphThemeTokens());
         });
+        const updateTheme = () => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                setGraphTheme(readGraphThemeTokens());
+            });
+        };
+        colorScheme.addEventListener("change", updateTheme);
         return () => {
             cancelAnimationFrame(frame);
+            colorScheme.removeEventListener("change", updateTheme);
         };
-    }, [resolvedMode]);
+    }, []);
 
     const initialInputRef = useRef({ activeNodeId, graphTheme, projection: runtimeProjection });
 
@@ -122,29 +127,27 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         <div className="flex flex-col gap-4">
             <div
                 className={cn(
-                    "border-border bg-muted/20 relative overflow-hidden rounded-lg border",
-                    isExpanded && "bg-background fixed inset-0 z-50 h-dvh w-dvw rounded-none border-0",
+                    "border-base-300 bg-base-200/20 relative overflow-hidden rounded-lg border",
+                    isExpanded && "bg-base-100 fixed inset-0 z-50 h-dvh w-dvw rounded-none border-0",
                 )}
             >
                 <div
-                    className="focus-visible:ring-ring/50 relative w-full outline-none focus-visible:ring-3 focus-visible:ring-inset"
+                    className="focus-visible:ring-primary/50 relative w-full outline-none focus-visible:ring-3 focus-visible:ring-inset"
                     data-expanded={isExpanded || undefined}
                     data-forma-graph-stage
                     ref={containerRef}
                 />
-                <Button
+                <button
                     aria-label={expandPresentation.ariaLabel}
-                    className="bg-background/80 absolute top-3 right-3 z-20 shadow-sm backdrop-blur-sm"
+                    className="btn btn-square bg-base-100/80 absolute top-3 right-3 z-20 shadow-sm backdrop-blur-sm"
                     onClick={() => {
                         setIsExpanded((expanded) => !expanded);
                     }}
-                    size="icon"
                     title={expandPresentation.title}
                     type="button"
-                    variant="outline"
                 >
                     {isExpanded ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
-                </Button>
+                </button>
                 {selectedNode ? (
                     <GraphNodeSummary linkedCount={adjacentNodes.get(selectedNode.id)?.size ?? 0} node={selectedNode} />
                 ) : null}
@@ -153,7 +156,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
             {projection.legend.length > 0 ? <GraphLegend items={projection.legend} /> : null}
 
             {projection.nodes.length === 0 ? (
-                <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
+                <p className="text-base-content/60 rounded-lg border border-dashed p-4 text-sm">
                     No nodes match this graph view.
                 </p>
             ) : null}
@@ -171,24 +174,22 @@ function GraphNodeSummary({
     const summary = graphSummaryPresentation(node, linkedCount);
     if (!summary) return null;
     return (
-        <div className="bg-popover text-popover-foreground pointer-events-none absolute bottom-3 left-3 z-10 w-[min(18rem,calc(100%-1.5rem))] rounded-md border p-3 shadow-lg">
+        <div className="bg-base-100 text-base-content pointer-events-none absolute bottom-3 left-3 z-10 w-[min(18rem,calc(100%-1.5rem))] rounded-md border p-3 shadow-lg">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <p className="truncate text-sm font-medium" title={summary.title}>
                         {summary.title}
                     </p>
-                    <p className="text-muted-foreground mt-1 truncate text-xs" title={summary.path}>
+                    <p className="text-base-content/60 mt-1 truncate text-xs" title={summary.path}>
                         {summary.path}
                     </p>
                     {node.classification ? (
-                        <p className="text-muted-foreground mt-1 truncate text-xs" title={node.classification.label}>
+                        <p className="text-base-content/60 mt-1 truncate text-xs" title={node.classification.label}>
                             {node.classification.label}
                         </p>
                     ) : null}
                 </div>
-                <Badge className="shrink-0" variant="outline">
-                    {summary.links}
-                </Badge>
+                <span className="badge badge-outline shrink-0">{summary.links}</span>
             </div>
         </div>
     );
@@ -202,8 +203,8 @@ function GraphLegend({ items }: { items: DashboardGraphProjection["legend"] }) {
                     <span
                         aria-hidden="true"
                         className={cn(
-                            "border-border size-2.5 rounded-full border",
-                            !item.color && "bg-muted-foreground",
+                            "border-base-300 size-2.5 rounded-full border",
+                            !item.color && "bg-base-content/60",
                         )}
                         style={item.color ? { backgroundColor: item.color } : undefined}
                     />
@@ -224,22 +225,22 @@ function graphAdjacentNodes(projection: DashboardGraphProjection) {
     return adjacentNodes;
 }
 
-function readGraphThemeTokens(resolvedMode: "light" | "dark"): GraphTheme {
+function readGraphThemeTokens(): GraphTheme {
     const styles = getComputedStyle(document.documentElement);
     const colorContext = document.createElement("canvas").getContext("2d");
-    const dark = resolvedMode === "dark";
+    const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const token = (name: string, fallback: string) =>
         normalizeGraphColor(styles.getPropertyValue(name).trim(), fallback, colorContext);
 
     return createGraphThemeFromTokens({
-        background: token("--background", dark ? "#0f172a" : "#ffffff"),
-        surface: token("--card", dark ? "#1e293b" : "#ffffff"),
-        border: token("--border", dark ? "#334155" : "#e2e8f0"),
-        foreground: token("--foreground", dark ? "#f8fafc" : "#0f172a"),
-        mutedForeground: token("--muted-foreground", dark ? "#94a3b8" : "#64748b"),
-        primary: token("--primary", "#0f9f75"),
-        accent: token("--chart-1", dark ? "#38bdf8" : "#0284c7"),
-        focusRing: token("--ring", "#0f9f75"),
+        background: token("--color-base-100", dark ? "#171717" : "#ffffff"),
+        surface: token("--color-base-200", dark ? "#262626" : "#f5f5f5"),
+        border: token("--color-base-300", dark ? "#404040" : "#e5e5e5"),
+        foreground: token("--color-base-content", dark ? "#fafafa" : "#171717"),
+        mutedForeground: token("--color-neutral", dark ? "#a3a3a3" : "#737373"),
+        primary: token("--color-primary", "#0f9f75"),
+        accent: token("--graph-accent", dark ? "#38bdf8" : "#0284c7"),
+        focusRing: token("--color-primary", "#0f9f75"),
     });
 }
 

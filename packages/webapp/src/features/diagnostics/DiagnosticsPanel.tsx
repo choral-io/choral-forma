@@ -1,7 +1,6 @@
 import { AlertTriangle, Info } from "lucide-react";
 import { Link } from "react-router";
 
-import { Badge } from "@/components/ui/badge";
 import type { DashboardDiagnostic, DashboardHealth, DashboardHealthCategory } from "@/data/workspace-client";
 
 export function DiagnosticsPanel({
@@ -19,16 +18,16 @@ export function DiagnosticsPanel({
         <section className="flex flex-col gap-3">
             <div>
                 <h2 className="text-sm font-semibold">{title}</h2>
-                <p className="text-muted-foreground mt-1 text-sm/6">{description}</p>
+                <p className="text-base-content/60 mt-1 text-sm/6">{description}</p>
             </div>
             <div className="flex flex-col gap-2">
                 {diagnostics.length > 0 ? (
                     diagnostics.map((diagnostic) => (
                         <article
-                            className="border-border/80 bg-background/60 flex gap-3 rounded-lg border p-3"
+                            className="border-base-300/80 bg-base-100/60 flex gap-3 rounded-lg border p-3"
                             key={`${diagnostic.code}-${diagnostic.path ?? diagnostic.message}`}
                         >
-                            <div className="text-muted-foreground mt-0.5">
+                            <div className="text-base-content/60 mt-0.5">
                                 {diagnostic.severity === "info" ? (
                                     <Info data-icon="inline-start" />
                                 ) : (
@@ -37,23 +36,23 @@ export function DiagnosticsPanel({
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
-                                    <Badge
-                                        variant={
-                                            diagnostic.severity === "warning"
-                                                ? "secondary"
-                                                : diagnostic.severity === "error"
-                                                  ? "destructive"
-                                                  : "secondary"
+                                    <span
+                                        className={
+                                            diagnostic.severity === "error"
+                                                ? "badge badge-error"
+                                                : diagnostic.severity === "warning"
+                                                  ? "badge badge-warning"
+                                                  : "badge badge-info"
                                         }
                                     >
                                         {diagnostic.code}
-                                    </Badge>
-                                    <span className="text-muted-foreground text-xs">{diagnostic.severity}</span>
+                                    </span>
+                                    <span className="text-base-content/60 text-xs">{diagnostic.severity}</span>
                                 </div>
                                 <p className="mt-2 text-sm/6">{diagnostic.message}</p>
                                 {diagnostic.path && (
                                     <code
-                                        className="text-muted-foreground mt-2 block truncate text-xs"
+                                        className="text-base-content/60 mt-2 block truncate text-xs"
                                         title={diagnostic.path}
                                     >
                                         {diagnostic.path}
@@ -64,7 +63,7 @@ export function DiagnosticsPanel({
                         </article>
                     ))
                 ) : (
-                    <p className="text-muted-foreground text-sm">{emptyLabel}</p>
+                    <p className="text-base-content/60 text-sm">{emptyLabel}</p>
                 )}
             </div>
         </section>
@@ -84,9 +83,9 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
             <div>
                 <div className="flex items-center gap-2">
                     <h2 className="text-sm font-semibold">Workspace Health</h2>
-                    <Badge variant={health.status === "failed" ? "destructive" : "secondary"}>{health.status}</Badge>
+                    <span className={health.status === "failed" ? "badge badge-error" : "badge"}>{health.status}</span>
                 </div>
-                <p className="text-muted-foreground mt-1 text-sm/6">
+                <p className="text-base-content/60 mt-1 text-sm/6">
                     Read-only findings from workspace diagnostics, references, and link structure.
                 </p>
             </div>
@@ -97,17 +96,17 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                         <section className="flex flex-col gap-2" key={group.category}>
                             <div>
                                 <h3 className="text-sm font-medium">{healthCategoryLabels[group.category]}</h3>
-                                <p className="text-muted-foreground mt-0.5 text-xs/5">
+                                <p className="text-base-content/60 mt-0.5 text-xs/5">
                                     {healthCategoryDescriptions[group.category]}
                                 </p>
                             </div>
                             <div className="flex flex-col gap-2">
                                 {group.findings.map((finding) => (
                                     <article
-                                        className="border-border/80 bg-background/60 flex gap-3 rounded-lg border p-3"
+                                        className="border-base-300/80 bg-base-100/60 flex gap-3 rounded-lg border p-3"
                                         key={`${finding.category}-${finding.path}-${finding.target ?? finding.message}`}
                                     >
-                                        <div className="text-muted-foreground mt-0.5">
+                                        <div className="text-base-content/60 mt-0.5">
                                             {finding.severity === "info" ? (
                                                 <Info data-icon="inline-start" />
                                             ) : (
@@ -116,12 +115,18 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
-                                                <Badge
-                                                    variant={finding.severity === "error" ? "destructive" : "secondary"}
+                                                <span
+                                                    className={
+                                                        finding.severity === "error"
+                                                            ? "badge badge-error"
+                                                            : finding.severity === "warning"
+                                                              ? "badge badge-warning"
+                                                              : "badge badge-info"
+                                                    }
                                                 >
                                                     {finding.severity}
-                                                </Badge>
-                                                <span className="text-muted-foreground text-xs">
+                                                </span>
+                                                <span className="text-base-content/60 text-xs">
                                                     {healthCategoryLabels[finding.category]}
                                                 </span>
                                             </div>
@@ -136,7 +141,7 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                                                 </Link>
                                             ) : (
                                                 <code
-                                                    className="text-muted-foreground mt-2 block truncate text-xs"
+                                                    className="text-base-content/60 mt-2 block truncate text-xs"
                                                     title={finding.path}
                                                 >
                                                     {finding.path}
@@ -144,7 +149,7 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                                             )}
                                             {finding.target ? (
                                                 <code
-                                                    className="text-muted-foreground mt-1 block truncate text-xs"
+                                                    className="text-base-content/60 mt-1 block truncate text-xs"
                                                     title={finding.target}
                                                 >
                                                     Target: {finding.target}
@@ -158,7 +163,7 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                     ))}
                 </div>
             ) : (
-                <p className="text-muted-foreground text-sm">No health findings found.</p>
+                <p className="text-base-content/60 text-sm">No health findings found.</p>
             )}
         </section>
     );
@@ -198,7 +203,7 @@ function DiagnosticDetailList({ diagnostic }: { diagnostic: DashboardDiagnostic 
     }
 
     return (
-        <dl className="text-muted-foreground mt-3 grid gap-1 text-xs">
+        <dl className="text-base-content/60 mt-3 grid gap-1 text-xs">
             {location ? (
                 <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2">
                     <dt>Location</dt>

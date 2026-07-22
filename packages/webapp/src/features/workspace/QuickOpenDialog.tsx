@@ -1,22 +1,9 @@
-import { Search } from "lucide-react";
-import { useId, useState } from "react";
+import { Search, X } from "lucide-react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { SidebarMenuButton } from "@/components/ui/sidebar";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { cn } from "@/lib/utils";
-
-import { getQuickOpenKeyboardAction } from "./quick-open-keyboard";
 
 interface QuickOpenDialogProps {
     className?: string;
@@ -25,21 +12,31 @@ interface QuickOpenDialogProps {
     triggerClassName?: string;
 }
 
+export interface QuickOpenItem {
+    href: string;
+    label: string;
+    meta: string;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function filterQuickOpenItems(items: QuickOpenItem[], query: string, limit = 8) {
+    const normalizedQuery = query.trim().toLowerCase();
+    return (
+        normalizedQuery
+            ? items.filter((item) => `${item.label} ${item.meta}`.toLowerCase().includes(normalizedQuery))
+            : items
+    ).slice(0, limit);
+}
+
 export function QuickOpenDialog({ className, dashboard, trigger, triggerClassName }: QuickOpenDialogProps) {
+    const dialogRef = useRef<HTMLDialogElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const navigate = useNavigate();
-    const listboxId = useId();
-    const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
-    const [activeIndex, setActiveIndex] = useState(0);
-    const [isComposing, setIsComposing] = useState(false);
     const items = [
         { href: "/", label: "Dashboard", meta: "route" },
         { href: "/pages", label: "Pages", meta: "route" },
-        ...dashboard.entries.map((entry) => ({
-            href: entry.routePath,
-            label: entry.title,
-            meta: entry.path,
-        })),
+        ...dashboard.entries.map((entry) => ({ href: entry.routePath, label: entry.title, meta: entry.path })),
         { href: "/spaces", label: "Spaces", meta: "route" },
         ...dashboard.spaces.map((space) => ({
             href: `/spaces/${space.id}`,
@@ -47,30 +44,18 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
             meta: space.path,
         })),
         { href: "/views", label: "Views", meta: "route" },
-        ...dashboard.views.map((view) => ({
-            href: viewRoutePath(view.id),
-            label: view.title,
-            meta: view.kind,
-        })),
+        ...dashboard.views.map((view) => ({ href: viewRoutePath(view.id), label: view.title, meta: view.kind })),
     ];
-    const normalizedQuery = query.trim().toLowerCase();
-    const filteredItems = normalizedQuery
-        ? items.filter((item) => `${item.label} ${item.meta}`.toLowerCase().includes(normalizedQuery)).slice(0, 8)
-        : items.slice(0, 8);
-    const normalizedActiveIndex =
-        filteredItems.length === 0 ? 0 : Math.min(Math.max(activeIndex, 0), filteredItems.length - 1);
-    const activeItem = filteredItems[normalizedActiveIndex];
-    const triggerElement =
-        trigger === "sidebar" ? (
-            <SidebarMenuButton className={triggerClassName} tooltip="Quick open" type="button" variant="outline" />
-        ) : (
-            <Button aria-label="Quick open" className={triggerClassName} size="icon" type="button" variant="outline" />
-        );
+    const filteredItems = filterQuickOpenItems(items, query);
+
+    function openQuickOpen() {
+        dialogRef.current?.showModal();
+        requestAnimationFrame(() => inputRef.current?.focus());
+    }
 
     function closeQuickOpen() {
-        setOpen(false);
+        dialogRef.current?.close();
         setQuery("");
-        setActiveIndex(0);
     }
 
     function openItem(href: string) {
@@ -79,109 +64,100 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
     }
 
     return (
-        <Dialog
-            onOpenChange={(nextOpen) => {
-                if (nextOpen) {
-                    setActiveIndex(0);
-                    setOpen(true);
-                    return;
-                }
-
-                closeQuickOpen();
-            }}
-            open={open}
-        >
-            <DialogTrigger render={triggerElement}>
-                <Search />
-                {trigger === "sidebar" ? <span>Quick open</span> : <span className="sr-only">Quick open</span>}
-            </DialogTrigger>
-            <DialogContent
+        <>
+            <button
+                aria-label={trigger === "header" ? "Quick open" : undefined}
                 className={cn(
-                    "max-h-[calc(100dvh-(--spacing(32)))] grid-rows-[auto_auto_auto_minmax(0,1fr)] sm:max-w-lg",
-                    className,
+                    trigger === "sidebar" ? "btn btn-ghost w-full justify-start" : "btn btn-square",
+                    triggerClassName,
                 )}
-                placement="top"
+                onClick={openQuickOpen}
+                type="button"
             >
-                <DialogHeader>
-                    <DialogTitle>Quick open</DialogTitle>
-                    <DialogDescription>Jump to workspace routes, spaces, pages, and views.</DialogDescription>
-                </DialogHeader>
-                <Input
-                    aria-activedescendant={
-                        activeItem === undefined ? undefined : `${listboxId}-option-${String(normalizedActiveIndex)}`
-                    }
-                    aria-controls={listboxId}
-                    autoFocus
-                    onChange={(event) => {
-                        setQuery(event.target.value);
-                        setActiveIndex(0);
-                    }}
-                    onCompositionEnd={() => {
-                        setIsComposing(false);
-                    }}
-                    onCompositionStart={() => {
-                        setIsComposing(true);
-                    }}
-                    onKeyDown={(event) => {
-                        const action = getQuickOpenKeyboardAction({
-                            activeIndex: normalizedActiveIndex,
-                            itemCount: filteredItems.length,
-                            isComposing: isComposing || event.nativeEvent.isComposing,
-                            key: event.key,
-                        });
+                <Search aria-hidden="true" />
+                {trigger === "sidebar" ? <span>Quick open</span> : <span className="sr-only">Quick open</span>}
+            </button>
 
-                        if (action.kind === "none") {
-                            return;
-                        }
-
-                        event.preventDefault();
-                        if (action.kind === "move") {
-                            setActiveIndex(action.activeIndex);
-                            return;
-                        }
-
-                        if (action.kind === "block") {
-                            return;
-                        }
-
-                        const item = filteredItems[action.activeIndex];
-                        if (item !== undefined) {
-                            openItem(item.href);
-                        }
-                    }}
-                    placeholder="Search workspace..."
-                    role="combobox"
-                    value={query}
-                />
-                <div className="flex min-h-0 flex-col gap-1 overflow-auto" id={listboxId} role="listbox">
-                    {filteredItems.map((item, index) => (
-                        <Link
-                            aria-selected={index === normalizedActiveIndex}
-                            className={cn(
-                                "hover:bg-accent focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 text-sm outline-none focus-visible:ring-3",
-                                index === normalizedActiveIndex && "bg-accent text-accent-foreground",
-                            )}
-                            id={`${listboxId}-option-${String(index)}`}
-                            key={item.href}
-                            onClick={() => {
-                                closeQuickOpen();
-                            }}
-                            role="option"
-                            tabIndex={-1}
-                            to={item.href}
-                        >
-                            <span className="min-w-0 truncate font-medium">{item.label}</span>
-                            <span className="text-muted-foreground shrink-0 truncate text-xs">{item.meta}</span>
-                        </Link>
-                    ))}
-                    {filteredItems.length === 0 && (
-                        <div className="text-muted-foreground rounded-lg border px-3 py-6 text-center text-sm">
-                            No matching routes.
+            <dialog
+                className={cn("modal modal-top", className)}
+                onClose={() => {
+                    setQuery("");
+                }}
+                ref={dialogRef}
+            >
+                <div className="modal-box mt-12 grid max-h-[calc(100dvh-6rem)] max-w-lg grid-rows-[auto_auto_minmax(0,1fr)] gap-4">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 className="text-lg font-semibold">Quick open</h2>
+                            <p className="text-base-content/60 mt-1 text-sm">
+                                Jump to workspace routes, spaces, pages, and views.
+                            </p>
                         </div>
-                    )}
+                        <form method="dialog">
+                            <button aria-label="Close quick open" className="btn btn-square btn-ghost btn-sm">
+                                <X aria-hidden="true" />
+                            </button>
+                        </form>
+                    </div>
+
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            const firstItem = filteredItems[0];
+                            if (firstItem) openItem(firstItem.href);
+                        }}
+                    >
+                        <label className="input w-full">
+                            <Search aria-hidden="true" className="size-4 opacity-60" />
+                            <input
+                                aria-label="Search workspace"
+                                onChange={(event) => {
+                                    setQuery(event.target.value);
+                                }}
+                                onKeyDown={(event) => {
+                                    if (event.key === "Escape") {
+                                        event.preventDefault();
+                                        closeQuickOpen();
+                                    }
+                                }}
+                                placeholder="Search workspace..."
+                                ref={inputRef}
+                                type="search"
+                                value={query}
+                            />
+                        </label>
+                    </form>
+
+                    <div className="min-h-0 overflow-y-auto">
+                        {filteredItems.length > 0 ? (
+                            <ul className="menu w-full gap-1 p-0">
+                                {filteredItems.map((item) => (
+                                    <li key={item.href}>
+                                        <Link
+                                            className="flex min-w-0 justify-between gap-3"
+                                            onClick={closeQuickOpen}
+                                            to={item.href}
+                                        >
+                                            <span className="min-w-0 truncate font-medium">{item.label}</span>
+                                            <span className="text-base-content/60 shrink-0 truncate text-xs">
+                                                {item.meta}
+                                            </span>
+                                        </Link>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="rounded-box border-base-300 text-base-content/60 border border-dashed px-3 py-8 text-center text-sm">
+                                No matching routes.
+                            </p>
+                        )}
+                    </div>
                 </div>
-            </DialogContent>
-        </Dialog>
+                <form className="modal-backdrop" method="dialog">
+                    <button aria-label="Close quick open">close</button>
+                </form>
+            </dialog>
+        </>
     );
 }
 

@@ -1,17 +1,11 @@
-import { useState, type ReactNode } from "react";
+import { Menu, PanelRightIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { workspaceDrawerId } from "@/app/App";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { WorkspaceHealthPanel } from "@/features/diagnostics/DiagnosticsPanel";
-import { ThemeModeMenu } from "@/features/theme/ThemeModeMenu";
 import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
-import { PanelRightIcon } from "lucide-react";
-
-const CONTEXT_SHEET_DESKTOP_MEDIA_QUERY = "(min-width: 1280px)";
 
 interface WorkspaceRouteFrameProps {
     actions?: ReactNode;
@@ -37,7 +31,7 @@ export function WorkspaceRouteFrame({
     title,
 }: WorkspaceRouteFrameProps) {
     const hasContextPanel = Boolean(contextPanel);
-    const drawerContextPanel = mobileContextPanel ?? contextPanel;
+    const inlineContextPanel = mobileContextPanel ?? contextPanel;
     const contentWidthClass = {
         default: "max-w-6xl",
         fluid: "max-w-none",
@@ -52,28 +46,49 @@ export function WorkspaceRouteFrame({
             )}
         >
             <div className="flex min-w-0 flex-col xl:min-h-0">
-                <header className="border-border bg-background/90 flex shrink-0 flex-col gap-4 border-b p-4 backdrop-blur-sm md:px-6 lg:flex-row lg:items-center lg:justify-between">
+                <header className="border-base-300 bg-base-100/90 flex shrink-0 flex-col gap-4 border-b p-4 backdrop-blur-sm md:px-6 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex min-w-0 items-start gap-3">
-                        <SidebarTrigger className="-ms-1 hidden lg:inline-flex" />
+                        <button
+                            aria-controls={workspaceDrawerId}
+                            aria-label="Open workspace navigation"
+                            className="btn btn-square btn-ghost lg:hidden"
+                            type="button"
+                            onClick={() => {
+                                const dialog = document.getElementById(workspaceDrawerId);
+                                if (dialog instanceof HTMLDialogElement) {
+                                    dialog.returnValue = "";
+                                    dialog.showModal();
+                                }
+                            }}
+                        >
+                            <Menu aria-hidden="true" />
+                        </button>
                         <div className="min-w-0">
-                            <p className="text-muted-foreground text-sm">{eyebrow}</p>
-                            <h1 className="truncate text-2xl font-semibold tracking-normal" title={title}>
+                            <p className="text-base-content/60 text-sm">{eyebrow}</p>
+                            <h1 className="truncate text-2xl font-semibold tracking-normal" tabIndex={-1} title={title}>
                                 {title}
                             </h1>
                             {description && (
-                                <p className="text-muted-foreground mt-1 max-w-3xl text-sm/6">{description}</p>
+                                <p className="text-base-content/60 mt-1 max-w-3xl text-sm/6">{description}</p>
                             )}
                         </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <SidebarTrigger className="lg:hidden" size="icon" variant="outline" />
-                        <QuickOpenDialog dashboard={dashboard} trigger="header" triggerClassName="md:hidden" />
-                        {hasContextPanel && drawerContextPanel ? (
-                            <ContextDrawer panel={drawerContextPanel} title={title} />
-                        ) : null}
-                        {actions ?? <WorkspaceRouteActions />}
+                        <QuickOpenDialog dashboard={dashboard} trigger="header" triggerClassName="lg:hidden" />
+                        {actions}
                     </div>
                 </header>
+
+                {hasContextPanel && inlineContextPanel ? (
+                    <details className="collapse-arrow border-base-300 bg-base-200/40 collapse rounded-none border-b xl:hidden">
+                        <summary className="collapse-title flex items-center gap-2 text-sm font-medium">
+                            <PanelRightIcon aria-hidden="true" className="size-4" />
+                            Context and outline
+                        </summary>
+                        <div className="collapse-content">{inlineContextPanel}</div>
+                    </details>
+                ) : null}
+
                 <main className="min-w-0 xl:min-h-0 xl:flex-1 xl:overflow-auto">
                     <div className={cn("mx-auto flex w-full flex-col gap-6 p-4 md:p-6 lg:p-8", contentWidthClass)}>
                         {children}
@@ -81,7 +96,7 @@ export function WorkspaceRouteFrame({
                 </main>
             </div>
             {hasContextPanel && (
-                <aside className="border-border bg-muted/20 hidden min-w-0 xl:block xl:min-h-0 xl:overflow-hidden xl:border-s">
+                <aside className="border-base-300 bg-base-200/20 hidden min-w-0 border-s xl:block xl:min-h-0 xl:overflow-hidden">
                     {contextPanel}
                 </aside>
             )}
@@ -89,46 +104,8 @@ export function WorkspaceRouteFrame({
     );
 }
 
-function ContextDrawer({ panel, title }: { panel: ReactNode; title: string }) {
-    const [open, setOpen] = useState(false);
-    const isDesktopContextPanel = useMediaQuery(CONTEXT_SHEET_DESKTOP_MEDIA_QUERY, {
-        onChange: (matches) => {
-            if (matches) {
-                setOpen(false);
-            }
-        },
-    });
-
-    const sheetOpen = open && !isDesktopContextPanel;
-
-    const handleOpenChange = (nextOpen: boolean) => {
-        setOpen(isDesktopContextPanel ? false : nextOpen);
-    };
-
-    return (
-        <Sheet open={sheetOpen} onOpenChange={handleOpenChange}>
-            <SheetTrigger
-                render={<Button aria-label="Open context panel" className="xl:hidden" size="icon" variant="outline" />}
-            >
-                <PanelRightIcon data-icon="inline-start" />
-            </SheetTrigger>
-            <SheetContent
-                className="w-[min(28rem,calc(100vw-2rem))] gap-0 p-0 sm:max-w-md xl:hidden"
-                showCloseButton={false}
-                side="right"
-            >
-                <SheetHeader className="sr-only">
-                    <SheetTitle>{title} context</SheetTitle>
-                    <SheetDescription>Route context and outline panels.</SheetDescription>
-                </SheetHeader>
-                {panel}
-            </SheetContent>
-        </Sheet>
-    );
-}
-
 export function WorkspaceRouteActions() {
-    return <ThemeModeMenu />;
+    return null;
 }
 
 export function WorkspaceDefaultContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {

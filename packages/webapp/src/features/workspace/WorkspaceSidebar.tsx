@@ -1,133 +1,137 @@
-import { ChevronRight, FileText, LayoutDashboard, LibraryBig, Workflow } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { FileText, LayoutDashboard, LibraryBig, Workflow } from "lucide-react";
+import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarHeader,
-    SidebarMenu,
-    SidebarMenuAction,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    SidebarMenuSub,
-    SidebarMenuSubButton,
-    SidebarMenuSubItem,
-    SidebarRail,
-    useSidebar,
-} from "@/components/ui/sidebar";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
 
 interface WorkspaceSidebarProps {
     dashboard: WorkspaceDashboard;
+    onNavigate: () => void;
+    showQuickOpen?: boolean;
 }
 
-interface WorkspaceUser {
-    name: string;
-    email: string;
-    avatar: string;
-    initials: string;
-}
-
-const workspaceUser: WorkspaceUser = {
-    name: "Git user",
-    email: "git@example.com",
-    avatar: "",
-    initials: "GU",
-};
-
-export function WorkspaceSidebar({ dashboard }: WorkspaceSidebarProps) {
-    const [spacesOpen, setSpacesOpen] = useState(true);
-    const [viewsOpen, setViewsOpen] = useState(true);
+export function WorkspaceSidebar({ dashboard, onNavigate, showQuickOpen = true }: WorkspaceSidebarProps) {
     const { pathname } = useLocation();
-    const { isMobile, setOpenMobile } = useSidebar();
-
-    useEffect(() => {
-        if (isMobile) {
-            setOpenMobile(false);
-        }
-    }, [isMobile, pathname, setOpenMobile]);
 
     return (
-        <Sidebar collapsible="icon" variant="sidebar">
-            <SidebarHeader>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" tooltip={dashboard.workspaceName}>
-                            <WorkspaceBrandLogo dashboard={dashboard} />
-                            <div className="grid flex-1 text-left text-sm/tight">
-                                <span className="truncate font-medium">{dashboard.workspaceName}</span>
-                                <span className="truncate text-xs">Local repository workspace</span>
-                            </div>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarHeader>
-            <SidebarContent>
-                <SidebarGroup>
-                    <SidebarGroupContent>
-                        <SidebarMenu className="gap-1">
-                            <SidebarMenuItem className="hidden md:block">
-                                <QuickOpenDialog dashboard={dashboard} trigger="sidebar" />
-                            </SidebarMenuItem>
-                            <SidebarItem active={pathname === "/"} icon={LayoutDashboard} label="Dashboard" to="/" />
-                            <SidebarItem
-                                active={pathname.startsWith("/pages")}
-                                icon={FileText}
-                                label="Pages"
-                                to="/pages"
-                            />
-                            <SidebarTree
-                                active={pathname.startsWith("/spaces")}
-                                icon={LibraryBig}
-                                label="Spaces"
-                                onOpenChange={setSpacesOpen}
-                                open={spacesOpen}
-                                to="/spaces"
-                            >
-                                {dashboard.spaces.map((space) => (
-                                    <SidebarChildItem
-                                        active={pathname === `/spaces/${space.id}`}
-                                        key={space.id}
-                                        label={space.title}
-                                        meta={String(space.entryCount)}
-                                        to={`/spaces/${space.id}`}
-                                    />
-                                ))}
-                            </SidebarTree>
-                            <SidebarTree
-                                active={pathname.startsWith("/views")}
-                                icon={Workflow}
-                                label="Views"
-                                onOpenChange={setViewsOpen}
-                                open={viewsOpen}
-                                to="/views"
-                            >
-                                {dashboard.views.map((view) => (
-                                    <SidebarChildItem
-                                        active={pathname === viewRoutePath(view.id)}
-                                        key={view.id}
-                                        label={view.title}
-                                        meta={view.kind}
-                                        to={viewRoutePath(view.id)}
-                                    />
-                                ))}
-                            </SidebarTree>
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-            </SidebarContent>
-            <SidebarFooter>
-                <WorkspaceUserMenu user={workspaceUser} />
-            </SidebarFooter>
-            <SidebarRail />
-        </Sidebar>
+        <div className="flex h-full min-h-0 flex-col">
+            <div className="border-base-300 flex items-center gap-3 border-b p-4">
+                <WorkspaceBrandLogo dashboard={dashboard} />
+                <div className="min-w-0 flex-1 text-sm/tight">
+                    <p className="truncate font-semibold">{dashboard.workspaceName}</p>
+                    <p className="text-base-content/60 truncate text-xs">Local repository workspace</p>
+                </div>
+            </div>
+
+            <nav aria-label="Workspace" className="min-h-0 flex-1 overflow-y-auto p-3">
+                <ul className="menu menu-sm w-full gap-1 p-0">
+                    {showQuickOpen ? (
+                        <li>
+                            <QuickOpenDialog dashboard={dashboard} trigger="sidebar" />
+                        </li>
+                    ) : null}
+                    <li>
+                        <Link
+                            aria-current={pathname === "/" ? "page" : undefined}
+                            className={pathname === "/" ? "menu-active" : undefined}
+                            onClick={onNavigate}
+                            to="/"
+                        >
+                            <LayoutDashboard aria-hidden="true" />
+                            Dashboard
+                        </Link>
+                    </li>
+                    <li>
+                        <Link
+                            aria-current={pathname.startsWith("/pages") ? "page" : undefined}
+                            className={pathname.startsWith("/pages") ? "menu-active" : undefined}
+                            onClick={onNavigate}
+                            to="/pages"
+                        >
+                            <FileText aria-hidden="true" />
+                            Pages
+                        </Link>
+                    </li>
+                    <li>
+                        <details open>
+                            <summary>
+                                <LibraryBig aria-hidden="true" />
+                                Spaces
+                            </summary>
+                            <ul>
+                                <li>
+                                    <Link onClick={onNavigate} to="/spaces">
+                                        All spaces
+                                    </Link>
+                                </li>
+                                {dashboard.spaces.map((space) => {
+                                    const to = `/spaces/${space.id}`;
+                                    return (
+                                        <li key={space.id}>
+                                            <Link
+                                                aria-current={pathname === to ? "page" : undefined}
+                                                className={pathname === to ? "menu-active" : undefined}
+                                                onClick={onNavigate}
+                                                to={to}
+                                            >
+                                                <span className="min-w-0 flex-1 truncate">{space.title}</span>
+                                                <span className="text-base-content/60 text-xs tabular-nums">
+                                                    {space.entryCount}
+                                                </span>
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </details>
+                    </li>
+                    <li>
+                        <details open>
+                            <summary>
+                                <Workflow aria-hidden="true" />
+                                Views
+                            </summary>
+                            <ul>
+                                <li>
+                                    <Link onClick={onNavigate} to="/views">
+                                        All views
+                                    </Link>
+                                </li>
+                                {dashboard.views.map((view) => {
+                                    const to = viewRoutePath(view.id);
+                                    return (
+                                        <li key={view.id}>
+                                            <Link
+                                                aria-current={pathname === to ? "page" : undefined}
+                                                className={pathname === to ? "menu-active" : undefined}
+                                                onClick={onNavigate}
+                                                to={to}
+                                            >
+                                                <span className="min-w-0 flex-1 truncate">{view.title}</span>
+                                                <span className="text-base-content/60 text-xs">{view.kind}</span>
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </details>
+                    </li>
+                </ul>
+            </nav>
+
+            <div className="border-base-300 flex items-center gap-3 border-t p-4">
+                <div aria-hidden="true" className="avatar avatar-placeholder">
+                    <div className="rounded-box bg-neutral text-neutral-content w-9">
+                        <span className="text-xs">GU</span>
+                    </div>
+                </div>
+                <div className="min-w-0 flex-1 text-sm/tight">
+                    <p className="truncate font-medium">Git user</p>
+                    <p className="text-base-content/60 truncate text-xs">git@example.com</p>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -145,7 +149,7 @@ function WorkspaceBrandLogo({ dashboard }: { dashboard: WorkspaceDashboard }) {
     const initial = dashboard.workspaceName.trim().charAt(0).toLocaleUpperCase() || "F";
 
     return (
-        <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg text-base font-semibold">
+        <div className="rounded-box bg-primary text-primary-content flex size-9 shrink-0 items-center justify-center overflow-hidden font-semibold">
             {canUseLogo ? (
                 <img
                     alt={logo.alt}
@@ -159,116 +163,5 @@ function WorkspaceBrandLogo({ dashboard }: { dashboard: WorkspaceDashboard }) {
                 initial
             )}
         </div>
-    );
-}
-
-function SidebarTree({
-    active = false,
-    children,
-    icon: Icon,
-    label,
-    onOpenChange,
-    open,
-    to,
-}: {
-    active?: boolean;
-    children: ReactNode;
-    icon: typeof LayoutDashboard;
-    label: string;
-    onOpenChange: (open: boolean) => void;
-    open: boolean;
-    to: string;
-}) {
-    return (
-        <Collapsible className="group/collapsible" onOpenChange={onOpenChange} open={open}>
-            <SidebarMenuItem>
-                <SidebarMenuButton isActive={active} render={<Link to={to} />} tooltip={label}>
-                    <Icon />
-                    <span>{label}</span>
-                </SidebarMenuButton>
-                <CollapsibleTrigger render={<SidebarMenuAction />}>
-                    <ChevronRight className="transition-transform duration-200 group-data-open/collapsible:rotate-90" />
-                    <span className="sr-only">Toggle {label}</span>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                    <SidebarMenuSub>{children}</SidebarMenuSub>
-                </CollapsibleContent>
-            </SidebarMenuItem>
-        </Collapsible>
-    );
-}
-
-function SidebarChildItem({
-    active = false,
-    label,
-    meta,
-    to,
-}: {
-    active?: boolean;
-    label: string;
-    meta?: string;
-    to: string;
-}) {
-    return (
-        <SidebarMenuSubItem>
-            <SidebarMenuSubButton className="pe-2" isActive={active} render={<Link to={to} />}>
-                <span className="min-w-0 flex-1 truncate">{label}</span>
-                {meta && <span className="text-sidebar-foreground/60 shrink-0 text-xs tabular-nums">{meta}</span>}
-            </SidebarMenuSubButton>
-        </SidebarMenuSubItem>
-    );
-}
-
-function WorkspaceUserMenu({ user }: { user: WorkspaceUser }) {
-    return (
-        <SidebarMenu>
-            <SidebarMenuItem>
-                <SidebarMenuButton
-                    className="hover:text-sidebar-foreground active:text-sidebar-foreground cursor-default hover:bg-transparent active:bg-transparent"
-                    render={<div />}
-                    size="lg"
-                    tooltip={user.name}
-                >
-                    <div className="flex min-w-0 items-center gap-2">
-                        <Avatar className="size-8 rounded-lg after:rounded-lg">
-                            <AvatarImage alt={user.name} className="rounded-lg" src={user.avatar} />
-                            <AvatarFallback className="rounded-lg">{user.initials}</AvatarFallback>
-                        </Avatar>
-                        <div className="grid flex-1 text-left text-sm/tight">
-                            <span className="truncate font-medium">{user.name}</span>
-                            <span className="truncate text-xs">{user.email}</span>
-                        </div>
-                    </div>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-        </SidebarMenu>
-    );
-}
-
-function SidebarItem({
-    active = false,
-    icon: Icon,
-    label,
-    meta,
-    to,
-}: {
-    active?: boolean;
-    icon: typeof LayoutDashboard;
-    label: string;
-    meta?: string;
-    to: string;
-}) {
-    return (
-        <SidebarMenuItem>
-            <SidebarMenuButton isActive={active} render={<Link to={to} />} tooltip={label}>
-                <Icon />
-                <span className="min-w-0 flex-1 truncate">{label}</span>
-                {meta && (
-                    <span className="text-sidebar-foreground/60 shrink-0 text-xs group-data-[collapsible=icon]:hidden">
-                        {meta}
-                    </span>
-                )}
-            </SidebarMenuButton>
-        </SidebarMenuItem>
     );
 }

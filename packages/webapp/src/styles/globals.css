@@ -1,132 +1,96 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 
-@custom-variant dark (&:is(.dark *));
+@plugin "daisyui" {
+    logs: false;
+    themes: false;
+    exclude: properties;
+}
+
+@plugin "daisyui/theme" {
+    name: "choral-light";
+    default: true;
+    prefersdark: false;
+    color-scheme: "light";
+    --color-base-100: oklch(100% 0 0);
+    --color-base-200: oklch(97% 0 0);
+    --color-base-300: oklch(92.2% 0 0);
+    --color-base-content: oklch(14.5% 0 0);
+    --color-primary: oklch(50.8% 0.118 165.612);
+    --color-primary-content: oklch(97.9% 0.021 166.113);
+    --color-secondary: oklch(47% 0.09 270);
+    --color-secondary-content: oklch(98.5% 0 0);
+    --color-accent: oklch(50% 0.105 205);
+    --color-accent-content: oklch(98.5% 0 0);
+    --color-neutral: oklch(20.5% 0 0);
+    --color-neutral-content: oklch(98.5% 0 0);
+    --color-info: oklch(50% 0.14 245);
+    --color-info-content: oklch(98.5% 0 0);
+    --color-success: oklch(45% 0.125 132);
+    --color-success-content: oklch(98.5% 0 0);
+    --color-warning: oklch(54% 0.145 72);
+    --color-warning-content: oklch(98.5% 0 0);
+    --color-error: oklch(56% 0.235 27.325);
+    --color-error-content: oklch(98.5% 0 0);
+    --radius-selector: 0.5rem;
+    --radius-field: 0.375rem;
+    --radius-box: 0.5rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+    --reader-link: oklch(50.8% 0.118 165.612);
+    --graph-accent: oklch(58.8% 0.158 241.966);
+}
+
+@plugin "daisyui/theme" {
+    name: "choral-dark";
+    default: false;
+    prefersdark: true;
+    color-scheme: "dark";
+    --color-base-100: oklch(14.5% 0 0);
+    --color-base-200: oklch(20.5% 0 0);
+    --color-base-300: oklch(26.9% 0 0);
+    --color-base-content: oklch(98.5% 0 0);
+    --color-primary: oklch(69.6% 0.17 162.48);
+    --color-primary-content: oklch(26.2% 0.051 172.552);
+    --color-secondary: oklch(68% 0.095 270);
+    --color-secondary-content: oklch(18% 0.02 270);
+    --color-accent: oklch(70% 0.115 205);
+    --color-accent-content: oklch(18% 0.02 205);
+    --color-neutral: oklch(40% 0 0);
+    --color-neutral-content: oklch(98.5% 0 0);
+    --color-info: oklch(70% 0.13 245);
+    --color-info-content: oklch(18% 0.02 245);
+    --color-success: oklch(67% 0.13 130);
+    --color-success-content: oklch(18% 0.02 130);
+    --color-warning: oklch(76% 0.14 75);
+    --color-warning-content: oklch(20.5% 0 0);
+    --color-error: oklch(70.4% 0.191 22.216);
+    --color-error-content: oklch(18% 0.02 22.216);
+    --radius-selector: 0.5rem;
+    --radius-field: 0.375rem;
+    --radius-box: 0.5rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+    --reader-link: oklch(69.6% 0.17 162.48);
+    --graph-accent: oklch(68.5% 0.169 237.323);
+}
+
 @source "../**/*.{ts,tsx}";
 
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: "Inter Variable", sans-serif;
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-:root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.508 0.118 165.612);
-    --primary-foreground: oklch(0.979 0.021 166.113);
-    --secondary: oklch(0.967 0.001 286.375);
-    --secondary-foreground: oklch(0.21 0.006 285.885);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.828 0.111 230.318);
-    --chart-2: oklch(0.685 0.169 237.323);
-    --chart-3: oklch(0.588 0.158 241.966);
-    --chart-4: oklch(0.5 0.134 242.749);
-    --chart-5: oklch(0.443 0.11 240.79);
-    --reader-link: oklch(0.596 0.145 163.225);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.596 0.145 163.225);
-    --sidebar-primary-foreground: oklch(0.979 0.021 166.113);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.432 0.095 166.913);
-    --primary-foreground: oklch(0.979 0.021 166.113);
-    --secondary: oklch(0.274 0.006 286.033);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.828 0.111 230.318);
-    --chart-2: oklch(0.685 0.169 237.323);
-    --chart-3: oklch(0.588 0.158 241.966);
-    --chart-4: oklch(0.5 0.134 242.749);
-    --chart-5: oklch(0.443 0.11 240.79);
-    --reader-link: oklch(0.696 0.17 162.48);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.696 0.17 162.48);
-    --sidebar-primary-foreground: oklch(0.262 0.051 172.552);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
-    * {
-        @apply border-border outline-ring/50;
-    }
-
     body {
-        @apply bg-background text-foreground;
+        @apply bg-base-100 text-base-content;
     }
 
     button:not(:disabled),
@@ -154,7 +118,7 @@
     }
 
     [data-reader="markdown"] {
-        @apply text-foreground/90 max-w-none text-sm/7;
+        @apply text-base-content/90 max-w-none text-sm/7;
     }
 
     [data-reader="markdown"] a {
@@ -163,7 +127,7 @@
     }
 
     [data-reader="markdown"] blockquote {
-        @apply border-border/70 text-muted-foreground my-5 border-s-4 ps-4;
+        @apply border-base-300/70 text-base-content/60 my-5 border-s-4 ps-4;
     }
 
     [data-reader="markdown"] blockquote p {
@@ -171,15 +135,15 @@
     }
 
     [data-reader="markdown"] code {
-        @apply bg-muted rounded-sm px-1 py-0.5 text-sm;
+        @apply bg-base-200 rounded-sm px-1 py-0.5 text-sm;
     }
 
     [data-reader="markdown"] del {
-        @apply text-muted-foreground;
+        @apply text-base-content/60;
     }
 
     [data-reader="markdown"] h1 {
-        @apply text-foreground mt-10 mb-5 scroll-m-20 text-2xl font-semibold tracking-normal;
+        @apply text-base-content mt-10 mb-5 scroll-m-20 text-2xl font-semibold tracking-normal;
     }
 
     [data-reader="markdown"] h1:first-child {
@@ -187,7 +151,7 @@
     }
 
     [data-reader="markdown"] h2 {
-        @apply text-foreground mt-8 mb-4 scroll-m-20 text-xl font-semibold tracking-normal;
+        @apply text-base-content mt-8 mb-4 scroll-m-20 text-xl font-semibold tracking-normal;
     }
 
     [data-reader="markdown"] h2:first-child {
@@ -195,7 +159,7 @@
     }
 
     [data-reader="markdown"] h3 {
-        @apply text-foreground mt-6 mb-3 scroll-m-20 text-base font-semibold tracking-normal;
+        @apply text-base-content mt-6 mb-3 scroll-m-20 text-base font-semibold tracking-normal;
     }
 
     [data-reader="markdown"] h3:first-child {
@@ -203,7 +167,7 @@
     }
 
     [data-reader="markdown"] h4 {
-        @apply text-foreground mt-5 mb-2 scroll-m-20 text-sm font-semibold tracking-normal;
+        @apply text-base-content mt-5 mb-2 scroll-m-20 text-sm font-semibold tracking-normal;
     }
 
     [data-reader="markdown"] h4:first-child {
@@ -212,7 +176,7 @@
 
     [data-reader="markdown"] h5,
     [data-reader="markdown"] h6 {
-        @apply text-foreground mt-4 mb-2 scroll-m-20 text-sm font-medium tracking-normal;
+        @apply text-base-content mt-4 mb-2 scroll-m-20 text-sm font-medium tracking-normal;
     }
 
     [data-reader="markdown"] h5:first-child,
@@ -221,15 +185,15 @@
     }
 
     [data-reader="markdown"] hr {
-        @apply border-border my-7 border-0 border-t;
+        @apply border-base-300 my-7 border-0 border-t;
     }
 
     [data-reader="markdown"] img {
-        @apply border-border my-5 max-w-full border;
+        @apply border-base-300 my-5 max-w-full border;
     }
 
     [data-reader="markdown"] input[type="checkbox"] {
-        @apply border-border bg-background accent-primary me-2 size-3.5 rounded-sm align-middle;
+        @apply border-base-300 bg-base-100 accent-primary me-2 size-3.5 rounded-sm align-middle;
     }
 
     [data-reader="markdown"] input[type="checkbox"]:disabled {
@@ -241,7 +205,7 @@
     }
 
     [data-reader="markdown"] li::marker {
-        @apply text-muted-foreground;
+        @apply text-base-content/60;
     }
 
     [data-reader="markdown"] ol {
@@ -258,7 +222,7 @@
 
     [data-reader="markdown"] [data-code-block]::before {
         content: attr(data-language);
-        @apply bg-background/95 text-muted-foreground border-border pointer-events-none absolute inset-e-3 top-0 z-1 -translate-y-1/2 rounded-full border px-2.5 py-0.5 text-xs font-medium opacity-90 shadow-sm;
+        @apply bg-base-100/95 text-base-content/60 border-base-300 pointer-events-none absolute inset-e-3 top-0 z-1 -translate-y-1/2 rounded-full border px-2.5 py-0.5 text-xs font-medium opacity-90 shadow-sm;
     }
 
     [data-reader="markdown"] [data-code-block] pre {
@@ -266,11 +230,11 @@
     }
 
     [data-reader="markdown"] pre {
-        @apply bg-muted/50 my-5 overflow-x-auto rounded-lg border p-4;
+        @apply bg-base-200/50 my-5 overflow-x-auto rounded-lg border p-4;
     }
 
     [data-reader="markdown"] pre.shiki {
-        @apply bg-muted/50!;
+        @apply bg-base-200/50!;
     }
 
     [data-reader="markdown"] pre code {
@@ -285,13 +249,15 @@
         @apply min-h-lh;
     }
 
-    .dark [data-reader="markdown"] pre.shiki,
-    .dark [data-reader="markdown"] pre.shiki span {
-        color: var(--shiki-dark) !important;
+    @media (prefers-color-scheme: dark) {
+        [data-reader="markdown"] pre.shiki,
+        [data-reader="markdown"] pre.shiki span {
+            color: var(--shiki-dark) !important;
+        }
     }
 
     [data-reader="markdown"] .table-wrapper {
-        @apply border-border my-5 block w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border;
+        @apply border-base-300 my-5 block w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border;
     }
 
     [data-reader="markdown"] table {
@@ -299,15 +265,15 @@
     }
 
     [data-reader="markdown"] td {
-        @apply border-border border-t px-4 py-3;
+        @apply border-base-300 border-t px-4 py-3;
     }
 
     [data-reader="markdown"] thead {
-        @apply bg-muted/50;
+        @apply bg-base-200/50;
     }
 
     [data-reader="markdown"] th {
-        @apply text-muted-foreground px-4 py-2 font-medium;
+        @apply text-base-content/60 px-4 py-2 font-medium;
     }
 
     [data-reader="markdown"] ul {

@@ -60,11 +60,5 @@ export default defineConfig(
             "better-tailwindcss/no-unnecessary-whitespace": "error",
         },
     },
-    {
-        files: ["src/components/ui/**/*.{ts,tsx}"],
-        rules: {
-            "react-refresh/only-export-components": "off",
-        },
-    },
     { ...prettierRecommended },
 );

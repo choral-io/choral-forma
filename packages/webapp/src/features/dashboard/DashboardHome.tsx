@@ -1,6 +1,5 @@
 import {
     ArrowUpRight,
-    CheckIcon,
     ChevronRight,
     FileText,
     Layers3,
@@ -9,23 +8,9 @@ import {
     SlidersHorizontal,
     Workflow,
 } from "lucide-react";
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useId, useState, type ReactNode } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuGroup,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
     DashboardDiagnostic,
     DashboardEntry,
@@ -40,11 +25,6 @@ import type {
 } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
-import {
-    setContextPanelTab,
-    useContextPanelTab,
-    type ContextPanelTabValue,
-} from "@/features/workspace/context-panel-state";
 import {
     WorkspaceDefaultContextPanel,
     WorkspaceRouteActions,
@@ -400,7 +380,7 @@ function PagesContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
                     <section className="flex flex-col gap-3">
                         <div>
                             <h2 className="text-sm font-semibold">Page Index</h2>
-                            <p className="text-muted-foreground mt-1 text-sm/6">
+                            <p className="text-base-content/60 mt-1 text-sm/6">
                                 Route-level read model for the global page list.
                             </p>
                         </div>
@@ -410,7 +390,7 @@ function PagesContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
                             <ContextStat label="Warnings" value={warningCount} />
                         </div>
                     </section>
-                    <Separator />
+                    <hr className="border-base-300" />
                     <WorkspaceDefaultContextPanel dashboard={dashboard} />
                 </>
             }
@@ -528,31 +508,24 @@ function EntryViewOptions({
     readingWidth: ReadingWidth;
 }) {
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger render={<Button aria-label="Page view options" size="icon" variant="outline" />}>
-                <SlidersHorizontal data-icon="inline-start" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuGroup>
-                    <DropdownMenuLabel>Reading width</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {readingWidthOptions.map((option) => (
-                        <DropdownMenuItem
-                            key={option.value}
-                            onClick={() => {
-                                onReadingWidthChange(option.value);
-                            }}
-                        >
-                            <span className="flex-1">{option.label}</span>
-                            <CheckIcon
-                                aria-hidden
-                                className={cn("ms-auto", readingWidth === option.value ? "opacity-100" : "opacity-0")}
-                            />
-                        </DropdownMenuItem>
-                    ))}
-                </DropdownMenuGroup>
-            </DropdownMenuContent>
-        </DropdownMenu>
+        <label className="flex items-center gap-2">
+            <SlidersHorizontal aria-hidden="true" className="text-base-content/60 size-4" />
+            <span className="sr-only">Reading width</span>
+            <select
+                aria-label="Reading width"
+                className="select select-sm"
+                onChange={(event) => {
+                    onReadingWidthChange(event.target.value as ReadingWidth);
+                }}
+                value={readingWidth}
+            >
+                {readingWidthOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+            </select>
+        </label>
     );
 }
 
@@ -575,17 +548,17 @@ function EntryPage({
 
     return (
         <div className={cn("mx-auto flex w-full flex-col gap-6", readingWidthClass)}>
-            <Card>
-                <CardHeader>
+            <section className="card border-base-300 bg-base-100 border">
+                <div className="card-body">
                     <div className="min-w-0">
-                        <Badge variant={healthVariant(entry.status)}>{entry.status}</Badge>
-                        <CardTitle className="mt-4" id={entry.id}>
+                        <span className={healthBadgeClass(entry.status)}>{entry.status}</span>
+                        <h2 className="card-title mt-4" id={entry.id}>
                             {entry.title}
-                        </CardTitle>
-                        <CardDescription className="mt-2">{entry.summary}</CardDescription>
+                        </h2>
+                        <p className="text-base-content/60 mt-2 text-sm">{entry.summary}</p>
                     </div>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                </div>
+                <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-4">
                     <StatCell label="Space" value={entry.space} />
                     <StatCell
                         label="Languages"
@@ -598,8 +571,8 @@ function EntryPage({
                         value={entry.updatedLabel}
                     />
                     <StatCell label="Status" value={entry.status} />
-                </CardContent>
-            </Card>
+                </div>
+            </section>
             <EntryReader blocks={entry.body} currentPath={entry.path} entries={entries} outline={outline} />
         </div>
     );
@@ -673,8 +646,8 @@ function EntryBlockView({
         const Heading = block.level === 2 ? "h2" : "h3";
         const className =
             block.level === 2
-                ? "text-foreground mt-2 scroll-m-20 text-xl font-semibold tracking-normal first:mt-0"
-                : "text-foreground mt-2 scroll-m-20 text-base font-semibold tracking-normal first:mt-0";
+                ? "text-base-content mt-2 scroll-m-20 text-xl font-semibold tracking-normal first:mt-0"
+                : "text-base-content mt-2 scroll-m-20 text-base font-semibold tracking-normal first:mt-0";
 
         return (
             <Heading className={className} id={headingId}>
@@ -684,12 +657,12 @@ function EntryBlockView({
     }
 
     if (block.type === "paragraph") {
-        return <p className="text-foreground/90 text-sm/7">{block.text}</p>;
+        return <p className="text-base-content/90 text-sm/7">{block.text}</p>;
     }
 
     if (block.type === "list") {
         return (
-            <ul className="text-foreground/90 flex list-disc flex-col gap-2 ps-5 text-sm/7">
+            <ul className="text-base-content/90 flex list-disc flex-col gap-2 ps-5 text-sm/7">
                 {block.items.map((item) => (
                     <li key={item}>{item}</li>
                 ))}
@@ -699,7 +672,7 @@ function EntryBlockView({
 
     if (block.type === "quote") {
         return (
-            <blockquote className="border-border text-muted-foreground bg-muted/30 rounded-r-lg border-s-4 px-4 py-3 text-sm/7">
+            <blockquote className="border-base-300 text-base-content/60 bg-base-200/30 rounded-r-lg border-s-4 px-4 py-3 text-sm/7">
                 {block.text}
             </blockquote>
         );
@@ -707,8 +680,8 @@ function EntryBlockView({
 
     if (block.type === "code") {
         return (
-            <figure className="border-border bg-muted/50 overflow-hidden rounded-lg border">
-                <figcaption className="border-border text-muted-foreground border-b px-4 py-2 text-xs">
+            <figure className="border-base-300 bg-base-200/50 overflow-hidden rounded-lg border">
+                <figcaption className="border-base-300 text-base-content/60 border-b px-4 py-2 text-xs">
                     {block.language}
                 </figcaption>
                 <pre className="overflow-x-auto p-4 text-sm/6">
@@ -719,10 +692,10 @@ function EntryBlockView({
     }
 
     return (
-        <div className="border-border overflow-hidden rounded-lg border">
+        <div className="border-base-300 overflow-hidden rounded-lg border">
             <div className="overflow-x-auto">
                 <table className="w-full min-w-xl text-left text-sm">
-                    <thead className="bg-muted/60 text-muted-foreground">
+                    <thead className="bg-base-200/60 text-base-content/60">
                         <tr>
                             {block.columns.map((column) => (
                                 <th className="px-4 py-2 font-medium" key={column}>
@@ -733,7 +706,7 @@ function EntryBlockView({
                     </thead>
                     <tbody>
                         {block.rows.map((row) => (
-                            <tr className="border-border border-t" key={row.join("|")}>
+                            <tr className="border-base-300 border-t" key={row.join("|")}>
                                 {row.map((cell, cellIndex) => (
                                     <td
                                         className="px-4 py-3 align-top"
@@ -769,14 +742,14 @@ function EntryContextPanel({
                     <section className="flex flex-col gap-3">
                         <div>
                             <h2 className="text-sm font-semibold">Overview</h2>
-                            <p className="text-muted-foreground mt-1 text-sm/6">
+                            <p className="text-base-content/60 mt-1 text-sm/6">
                                 Basic read-model details for the selected page.
                             </p>
                         </div>
-                        <div className="border-border/80 bg-background/60 rounded-lg border p-3">
-                            <span className="text-muted-foreground text-xs">Path</span>
+                        <div className="border-base-300/80 bg-base-100/60 rounded-lg border p-3">
+                            <span className="text-base-content/60 text-xs">Path</span>
                             <code
-                                className="text-muted-foreground mt-1 line-clamp-2 text-xs break-all"
+                                className="text-base-content/60 mt-1 line-clamp-2 text-xs break-all"
                                 title={entry.path}
                             >
                                 {entry.path}
@@ -791,9 +764,9 @@ function EntryContextPanel({
                             />
                         </div>
                     </section>
-                    <Separator />
+                    <hr className="border-base-300" />
                     <EntryReferencesSection entry={entry} />
-                    <Separator />
+                    <hr className="border-base-300" />
                     <DiagnosticsPanel
                         description="Page-level checks from the current read model."
                         diagnostics={diagnostics}
@@ -818,43 +791,35 @@ function ContextPanelTabs({
     outlineDesktopOnly?: boolean;
 }) {
     const hasOutline = outline !== undefined && outline !== null;
-    const activeTab = useContextPanelTab();
-    const value = hasOutline ? activeTab : "context";
+    const tabId = useId();
+
+    if (!hasOutline) {
+        return <div className="flex flex-col gap-4 p-4 md:p-6 xl:min-h-0 xl:overflow-auto">{context}</div>;
+    }
 
     return (
-        <Tabs
-            className="gap-0 xl:h-full xl:min-h-0"
-            onValueChange={(nextValue) => {
-                setContextPanelTab(nextValue as ContextPanelTabValue);
-            }}
-            value={value}
-        >
-            <TabsList
-                className={cn(
-                    "grid w-full border-b",
-                    hasOutline && !outlineDesktopOnly ? "grid-cols-2" : "grid-cols-1 xl:grid-cols-2",
-                )}
-                variant="line"
-            >
-                <TabsTrigger value="context">Context</TabsTrigger>
-                {hasOutline ? (
-                    <TabsTrigger className={cn(outlineDesktopOnly && "hidden xl:inline-flex")} value="outline">
-                        Outline
-                    </TabsTrigger>
-                ) : null}
-            </TabsList>
-            <TabsContent className="p-4 md:p-6 xl:min-h-0 xl:overflow-auto" value="context">
+        <div className="tabs tabs-border grid grid-cols-2 xl:h-full xl:min-h-0" role="tablist">
+            <input aria-label="Context" className="tab" defaultChecked name={tabId} role="tab" type="radio" />
+            <div className="tab-content col-span-2 p-4 md:p-6 xl:min-h-0 xl:overflow-auto" role="tabpanel">
                 <div className="flex flex-col gap-4">{context}</div>
-            </TabsContent>
-            {hasOutline ? (
-                <TabsContent
-                    className={cn("p-4 md:p-6 xl:min-h-0 xl:overflow-auto", outlineDesktopOnly && "hidden xl:block")}
-                    value="outline"
-                >
-                    <div className="flex flex-col gap-3">{outline}</div>
-                </TabsContent>
-            ) : null}
-        </Tabs>
+            </div>
+            <input
+                aria-label="Outline"
+                className={cn("tab", outlineDesktopOnly && "hidden xl:inline-grid")}
+                name={tabId}
+                role="tab"
+                type="radio"
+            />
+            <div
+                className={cn(
+                    "tab-content col-span-2 p-4 md:p-6 xl:min-h-0 xl:overflow-auto",
+                    outlineDesktopOnly && "hidden xl:block",
+                )}
+                role="tabpanel"
+            >
+                <div className="flex flex-col gap-3">{outline}</div>
+            </div>
+        </div>
     );
 }
 
@@ -865,12 +830,12 @@ function EntryOutlineSection({ entry, outline }: { entry: DashboardEntry; outlin
         <section className="flex flex-col gap-3">
             <div>
                 <h2 className="text-sm font-semibold">Outline</h2>
-                <p className="text-muted-foreground mt-1 text-sm/6">Headings from the current entry.</p>
+                <p className="text-base-content/60 mt-1 text-sm/6">Headings from the current entry.</p>
             </div>
             {tree.length > 0 ? (
                 <OutlineNav entry={entry} tree={tree} />
             ) : (
-                <p className="text-muted-foreground text-sm">No headings indexed.</p>
+                <p className="text-base-content/60 text-sm">No headings indexed.</p>
             )}
         </section>
     );
@@ -880,7 +845,7 @@ function OutlineNav({ entry, tree }: { entry: DashboardEntry; tree: EntryOutline
     return (
         <nav aria-label="Page outline" className="flex flex-col gap-1">
             <EntryOutlineLink
-                className="text-foreground font-semibold"
+                className="text-base-content font-semibold"
                 href={`#${entry.id}`}
                 item={{
                     blockIndex: -1,
@@ -917,7 +882,7 @@ function EntryOutlineLink({ className, href, item }: { className?: string; href?
     return (
         <a
             className={cn(
-                "text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring flex h-7 min-w-0 items-center overflow-hidden rounded-md px-2 text-sm outline-none focus-visible:ring-2",
+                "text-base-content/60 hover:bg-base-200 hover:text-base-content focus-visible:ring-primary flex h-7 min-w-0 items-center overflow-hidden rounded-md px-2 text-sm outline-none focus-visible:ring-2",
                 item.level === 3 && "text-xs",
                 className,
             )}
@@ -934,7 +899,7 @@ function EntryReferencesSection({ entry }: { entry: DashboardEntry }) {
         <section className="flex flex-col gap-3">
             <div>
                 <h2 className="text-sm font-semibold">References</h2>
-                <p className="text-muted-foreground mt-1 text-sm/6">
+                <p className="text-base-content/60 mt-1 text-sm/6">
                     Explicit links from Markdown and wikilink indexing.
                 </p>
             </div>
@@ -949,12 +914,12 @@ function OutgoingReferenceGroup({ links }: { links: DashboardEntryLink[] }) {
         <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-medium">Outgoing</span>
-                <Badge variant="outline">{links.length}</Badge>
+                <span className="badge badge-outline">{links.length}</span>
             </div>
             {links.length > 0 ? (
                 <ReferenceList links={links} />
             ) : (
-                <p className="text-muted-foreground text-sm">No outgoing links indexed.</p>
+                <p className="text-base-content/60 text-sm">No outgoing links indexed.</p>
             )}
         </div>
     );
@@ -973,12 +938,12 @@ function ReferenceGroup({
         <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-medium">{label}</span>
-                <Badge variant="outline">{links.length}</Badge>
+                <span className="badge badge-outline">{links.length}</span>
             </div>
             {links.length > 0 ? (
                 <ReferenceList links={links} />
             ) : (
-                <p className="text-muted-foreground text-sm">{emptyLabel}</p>
+                <p className="text-base-content/60 text-sm">{emptyLabel}</p>
             )}
         </div>
     );
@@ -1024,7 +989,7 @@ function RelationLink({
                 <span className="min-w-0 truncate">{label}</span>
                 <ReferenceKindBadge kind={kind} />
             </span>
-            <span className="text-muted-foreground truncate text-xs" title={targetPath}>
+            <span className="text-base-content/60 truncate text-xs" title={targetPath}>
                 {targetPath}
             </span>
         </>
@@ -1033,7 +998,7 @@ function RelationLink({
     if (kind === "external") {
         return (
             <a
-                className="border-border/80 bg-background/60 hover:bg-accent/50 focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm transition-colors outline-none focus-visible:ring-3"
+                className="border-base-300/80 bg-base-100/60 hover:bg-base-200/50 focus-visible:border-primary focus-visible:ring-primary/50 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm transition-colors outline-none focus-visible:ring-3"
                 href={targetPath}
                 rel="noreferrer"
                 target="_blank"
@@ -1045,7 +1010,7 @@ function RelationLink({
 
     if (!targetEntryId || !targetRoutePath) {
         return (
-            <div className="border-border/80 bg-background/60 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm">
+            <div className="border-base-300/80 bg-base-100/60 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm">
                 {content}
             </div>
         );
@@ -1053,7 +1018,7 @@ function RelationLink({
 
     return (
         <Link
-            className="border-border/80 bg-background/60 hover:bg-accent focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm outline-none focus-visible:ring-3"
+            className="border-base-300/80 bg-base-100/60 hover:bg-base-200 focus-visible:border-primary focus-visible:ring-primary/50 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm outline-none focus-visible:ring-3"
             to={targetRoutePath}
         >
             {content}
@@ -1067,9 +1032,9 @@ function ReferenceKindBadge({ kind }: { kind: DashboardEntryLink["kind"] }) {
     }
 
     return (
-        <Badge className="shrink-0" variant={kind === "unresolved" ? "secondary" : "outline"}>
+        <span className={kind === "unresolved" ? "badge badge-warning shrink-0" : "badge badge-outline shrink-0"}>
             {kind}
-        </Badge>
+        </span>
     );
 }
 
@@ -1127,7 +1092,7 @@ function SpaceContextPanel({
                     <section className="flex flex-col gap-3">
                         <div>
                             <h2 className="text-sm font-semibold">Space Context</h2>
-                            <p className="text-muted-foreground mt-1 text-sm/6">
+                            <p className="text-base-content/60 mt-1 text-sm/6">
                                 Route-level read model for the selected configured content group.
                             </p>
                         </div>
@@ -1141,12 +1106,12 @@ function SpaceContextPanel({
                             />
                             <ContextStat label="Findings" value={space.status === "healthy" ? 0 : 1} />
                         </div>
-                        <div className="border-border/80 bg-background/60 rounded-lg border p-3">
-                            <span className="text-muted-foreground text-xs">Path</span>
-                            <code className="text-muted-foreground mt-1 block truncate text-xs">{space.path}</code>
+                        <div className="border-base-300/80 bg-base-100/60 rounded-lg border p-3">
+                            <span className="text-base-content/60 text-xs">Path</span>
+                            <code className="text-base-content/60 mt-1 block truncate text-xs">{space.path}</code>
                         </div>
                     </section>
-                    <Separator />
+                    <hr className="border-base-300" />
                     <WorkspaceDefaultContextPanel dashboard={dashboard} />
                 </>
             }
@@ -1177,7 +1142,7 @@ function ViewsContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
                     <section className="flex flex-col gap-3">
                         <div>
                             <h2 className="text-sm font-semibold">Views Index</h2>
-                            <p className="text-muted-foreground mt-1 text-sm/6">
+                            <p className="text-base-content/60 mt-1 text-sm/6">
                                 Route-level read model for saved workspace projections.
                             </p>
                         </div>
@@ -1187,7 +1152,7 @@ function ViewsContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
                             <ContextStat label="Spaces" value={dashboard.spaces.length} />
                         </div>
                     </section>
-                    <Separator />
+                    <hr className="border-base-300" />
                     <WorkspaceDefaultContextPanel dashboard={dashboard} />
                 </>
             }
@@ -1252,7 +1217,7 @@ function ViewContextPanel({
                     <section className="flex flex-col gap-3">
                         <div>
                             <h2 className="text-sm font-semibold">View Context</h2>
-                            <p className="text-muted-foreground mt-1 text-sm/6">
+                            <p className="text-base-content/60 mt-1 text-sm/6">
                                 Route-level read model for the selected saved projection.
                             </p>
                         </div>
@@ -1261,7 +1226,7 @@ function ViewContextPanel({
                             <ContextStat label="Items" value={itemCount} />
                         </div>
                     </section>
-                    <Separator />
+                    <hr className="border-base-300" />
                     <WorkspaceDefaultContextPanel dashboard={dashboard} />
                 </>
             }
@@ -1277,15 +1242,15 @@ function EmptyPage() {
 
 function EmptyState({ description, icon: Icon, title }: { description: string; icon: typeof FileText; title: string }) {
     return (
-        <Card>
-            <CardHeader>
-                <div className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-md">
+        <section className="card border-base-300 bg-base-100 border">
+            <div className="card-body">
+                <div className="bg-base-200 text-base-content/60 flex size-10 items-center justify-center rounded-md">
                     <Icon data-icon="inline-start" />
                 </div>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-            </CardHeader>
-        </Card>
+                <h2 className="card-title">{title}</h2>
+                <p className="text-base-content/60 text-sm">{description}</p>
+            </div>
+        </section>
     );
 }
 
@@ -1299,15 +1264,15 @@ function SectionIntro({
     title: string;
 }) {
     return (
-        <Card>
-            <CardHeader>
-                <div className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-md">
+        <section className="card border-base-300 bg-base-100 border">
+            <div className="card-body">
+                <div className="bg-base-200 text-base-content/60 flex size-10 items-center justify-center rounded-md">
                     <Icon data-icon="inline-start" />
                 </div>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-            </CardHeader>
-        </Card>
+                <h2 className="card-title">{title}</h2>
+                <p className="text-base-content/60 text-sm">{description}</p>
+            </div>
+        </section>
     );
 }
 
@@ -1327,9 +1292,9 @@ function RouteBodySection({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h2 className="text-lg font-semibold tracking-normal">{title}</h2>
-                    <p className="text-muted-foreground mt-1 text-sm/6">{description}</p>
+                    <p className="text-base-content/60 mt-1 text-sm/6">{description}</p>
                 </div>
-                {meta && <span className="text-muted-foreground text-sm">{meta}</span>}
+                {meta && <span className="text-base-content/60 text-sm">{meta}</span>}
             </div>
             {children}
         </section>
@@ -1351,18 +1316,18 @@ function NavigationCard({
 }) {
     return (
         <Link className="group block rounded-lg outline-none" to={to}>
-            <Card className="group-hover:bg-accent/50 group-focus-visible:border-ring group-focus-visible:ring-ring/50 h-full transition-colors group-focus-visible:ring-3">
-                <CardHeader>
-                    <div className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-md">
+            <section className="card border-base-300 bg-base-100 group-hover:bg-base-200/50 group-focus-visible:border-primary group-focus-visible:ring-primary/50 h-full border transition-colors group-focus-visible:ring-3">
+                <div className="card-body">
+                    <div className="bg-base-200 text-base-content/60 flex size-10 items-center justify-center rounded-md">
                         <Icon data-icon="inline-start" />
                     </div>
-                    <CardTitle>{title}</CardTitle>
-                    <CardDescription>{description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Badge variant="outline">{meta}</Badge>
-                </CardContent>
-            </Card>
+                    <h2 className="card-title">{title}</h2>
+                    <p className="text-base-content/60 text-sm">{description}</p>
+                </div>
+                <div className="px-6 pb-6">
+                    <span className="badge badge-outline">{meta}</span>
+                </div>
+            </section>
         </Link>
     );
 }
@@ -1386,27 +1351,27 @@ function SpacesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
     const warningCount = dashboard.spaces.filter((space) => space.status !== "healthy").length;
 
     return (
-        <Card>
-            <CardHeader>
+        <section className="card border-base-300 bg-base-100 border">
+            <div className="card-body">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                        <Badge variant={warningCount > 0 ? "secondary" : "default"}>{dashboard.status}</Badge>
-                        <CardTitle className="mt-4">Spaces overview</CardTitle>
-                        <CardDescription className="mt-2">
+                        <span className={warningCount > 0 ? "badge badge-warning" : "badge"}>{dashboard.status}</span>
+                        <h2 className="card-title mt-4">Spaces overview</h2>
+                        <p className="text-base-content/60 mt-2 text-sm">
                             Content groups defined by the workspace for browsing.
-                        </CardDescription>
+                        </p>
                     </div>
-                    <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-md">
+                    <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
                         <Layers3 data-icon="inline-start" />
                     </div>
                 </div>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            </div>
+            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
                 <StatCell label="Spaces" value={dashboard.spaces.length} />
                 <StatCell label="Pages" value={totalEntries} />
                 <StatCell label="Warnings" value={warningCount} />
-            </CardContent>
-        </Card>
+            </div>
+        </section>
     );
 }
 
@@ -1415,53 +1380,53 @@ function PagesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
     const coveredSpaceCount = new Set(dashboard.entries.map((entry) => entry.space)).size;
 
     return (
-        <Card>
-            <CardHeader>
+        <section className="card border-base-300 bg-base-100 border">
+            <div className="card-body">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                        <Badge variant={warningCount > 0 ? "secondary" : "default"}>{dashboard.status}</Badge>
-                        <CardTitle className="mt-4">Pages overview</CardTitle>
-                        <CardDescription className="mt-2">
+                        <span className={warningCount > 0 ? "badge badge-warning" : "badge"}>{dashboard.status}</span>
+                        <h2 className="card-title mt-4">Pages overview</h2>
+                        <p className="text-base-content/60 mt-2 text-sm">
                             Global read-only index for Markdown pages across configured spaces.
-                        </CardDescription>
+                        </p>
                     </div>
-                    <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-md">
+                    <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
                         <FileText data-icon="inline-start" />
                     </div>
                 </div>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            </div>
+            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
                 <StatCell label="Indexed" value={dashboard.entries.length} />
                 <StatCell label="Spaces" value={coveredSpaceCount} />
                 <StatCell label="Warnings" value={warningCount} />
-            </CardContent>
-        </Card>
+            </div>
+        </section>
     );
 }
 
 function ViewsOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
-        <Card>
-            <CardHeader>
+        <section className="card border-base-300 bg-base-100 border">
+            <div className="card-body">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                        <Badge variant="secondary">preview</Badge>
-                        <CardTitle className="mt-4">Views overview</CardTitle>
-                        <CardDescription className="mt-2">
+                        <span className="badge">preview</span>
+                        <h2 className="card-title mt-4">Views overview</h2>
+                        <p className="text-base-content/60 mt-2 text-sm">
                             Saved projections for list, table, kanban, and graph-style workspace browsing.
-                        </CardDescription>
+                        </p>
                     </div>
-                    <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-md">
+                    <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
                         <Workflow data-icon="inline-start" />
                     </div>
                 </div>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            </div>
+            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
                 <StatCell label="Views" value={dashboard.views.length} />
                 <StatCell label="Pages" value={dashboard.entries.length} />
                 <StatCell label="Spaces" value={dashboard.spaces.length} />
-            </CardContent>
-        </Card>
+            </div>
+        </section>
     );
 }
 
@@ -1477,17 +1442,17 @@ function PagesList({ entries }: { entries: DashboardEntry[] }) {
 
 function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
     return (
-        <div className="border-border bg-card overflow-hidden rounded-lg border">
-            <div className="text-muted-foreground bg-muted/50 grid grid-cols-[minmax(0,1fr)_5rem_7rem_2.5rem] gap-4 border-b px-4 py-2 text-xs font-medium">
+        <div className="border-base-300 bg-base-100 overflow-hidden rounded-lg border">
+            <div className="text-base-content/60 bg-base-200/50 grid grid-cols-[minmax(0,1fr)_5rem_7rem_2.5rem] gap-4 border-b px-4 py-2 text-xs font-medium">
                 <span>View</span>
                 <span>Kind</span>
                 <span>Scope</span>
                 <span className="sr-only">Open</span>
             </div>
-            <div className="divide-border divide-y">
+            <div className="divide-base-300 divide-y">
                 {views.map((view) => (
                     <Link
-                        className="hover:bg-accent/50 focus-visible:ring-ring/50 grid grid-cols-[minmax(0,1fr)_5rem_7rem_2.5rem] items-center gap-4 px-4 py-3 transition-colors outline-none focus-visible:ring-3"
+                        className="hover:bg-base-200/50 focus-visible:ring-primary/50 grid grid-cols-[minmax(0,1fr)_5rem_7rem_2.5rem] items-center gap-4 px-4 py-3 transition-colors outline-none focus-visible:ring-3"
                         key={view.id}
                         to={viewRoutePath(view.id)}
                     >
@@ -1495,15 +1460,13 @@ function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
                             <div className="truncate font-medium" title={view.title}>
                                 {view.title}
                             </div>
-                            <div className="text-muted-foreground mt-1 line-clamp-1 text-sm" title={view.description}>
+                            <div className="text-base-content/60 mt-1 line-clamp-1 text-sm" title={view.description}>
                                 {view.description}
                             </div>
                         </div>
-                        <Badge className="justify-self-start" variant="outline">
-                            {view.kind}
-                        </Badge>
-                        <span className="text-muted-foreground truncate text-sm">{view.space ?? "workspace"}</span>
-                        <ChevronRight className="text-muted-foreground justify-self-end" />
+                        <span className="badge badge-outline justify-self-start">{view.kind}</span>
+                        <span className="text-base-content/60 truncate text-sm">{view.space ?? "workspace"}</span>
+                        <ChevronRight className="text-base-content/60 justify-self-end" />
                     </Link>
                 ))}
             </div>
@@ -1528,25 +1491,25 @@ function ViewSummary({
     view: WorkspaceDashboard["views"][number];
 }) {
     return (
-        <Card>
-            <CardHeader>
+        <section className="card border-base-300 bg-base-100 border">
+            <div className="card-body">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                        <Badge variant="outline">{view.kind}</Badge>
-                        <CardTitle className="mt-4">{view.title}</CardTitle>
-                        <CardDescription className="mt-2">{view.description}</CardDescription>
+                        <span className="badge badge-outline">{view.kind}</span>
+                        <h2 className="card-title mt-4">{view.title}</h2>
+                        <p className="text-base-content/60 mt-2 text-sm">{view.description}</p>
                     </div>
-                    <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-md">
+                    <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
                         <Workflow data-icon="inline-start" />
                     </div>
                 </div>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            </div>
+            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
                 <StatCell label="Items" value={itemCount} />
                 <StatCell label="Spaces" value={dashboard.spaces.length} />
                 <StatCell label="Space" value={view.space ?? "workspace"} />
-            </CardContent>
-        </Card>
+            </div>
+        </section>
     );
 }
 
@@ -1592,7 +1555,7 @@ function projectionItemCount(projection: DashboardViewProjection) {
 
 function ProjectionLoadingState() {
     return (
-        <div className="border-border text-muted-foreground rounded-lg border border-dashed p-6 text-sm">
+        <div className="border-base-300 text-base-content/60 rounded-lg border border-dashed p-6 text-sm">
             Loading view projection...
         </div>
     );
@@ -1600,13 +1563,13 @@ function ProjectionLoadingState() {
 
 function ViewListProjection({ projection }: { projection: Extract<DashboardViewProjection, { kind: "list" }> }) {
     return (
-        <div className="border-border overflow-hidden rounded-lg border">
-            <div className="divide-border divide-y">
+        <div className="border-base-300 overflow-hidden rounded-lg border">
+            <div className="divide-base-300 divide-y">
                 {projection.items.map((item) => (
                     <ViewListProjectionRow item={item} key={item.path} />
                 ))}
                 {projection.items.length === 0 ? (
-                    <p className="text-muted-foreground p-4 text-sm">No items match this view.</p>
+                    <p className="text-base-content/60 p-4 text-sm">No items match this view.</p>
                 ) : null}
             </div>
         </div>
@@ -1621,11 +1584,11 @@ function ViewListProjectionRow({ item }: { item: DashboardViewProjectionItem }) 
                 {item.title}
             </span>
             {summary ? (
-                <span className="text-muted-foreground mt-1 line-clamp-2 block text-sm" title={summary}>
+                <span className="text-base-content/60 mt-1 line-clamp-2 block text-sm" title={summary}>
                     {summary}
                 </span>
             ) : null}
-            <code className="text-muted-foreground mt-2 block truncate text-xs" title={item.path}>
+            <code className="text-base-content/60 mt-2 block truncate text-xs" title={item.path}>
                 {item.path}
             </code>
         </>
@@ -1637,7 +1600,7 @@ function ViewListProjectionRow({ item }: { item: DashboardViewProjectionItem }) 
 
     return (
         <Link
-            className="hover:bg-accent/50 focus-visible:ring-ring/50 block p-4 transition-colors outline-none focus-visible:ring-3"
+            className="hover:bg-base-200/50 focus-visible:ring-primary/50 block p-4 transition-colors outline-none focus-visible:ring-3"
             to={item.routePath}
         >
             {content}
@@ -1647,11 +1610,11 @@ function ViewListProjectionRow({ item }: { item: DashboardViewProjectionItem }) 
 
 function ViewTableProjection({ projection }: { projection: Extract<DashboardViewProjection, { kind: "table" }> }) {
     return (
-        <div className="border-border overflow-hidden rounded-lg border">
+        <div className="border-base-300 overflow-hidden rounded-lg border">
             <div className="overflow-x-auto">
                 <table className="w-full min-w-160 text-sm">
-                    <thead className="bg-muted/60 text-muted-foreground">
-                        <tr className="border-border border-b">
+                    <thead className="bg-base-200/60 text-base-content/60">
+                        <tr className="border-base-300 border-b">
                             {projection.columns.map((column) => (
                                 <th className="px-4 py-3 text-start font-medium" key={column.field}>
                                     {column.label}
@@ -1661,7 +1624,10 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
                     </thead>
                     <tbody>
                         {projection.items.map((item) => (
-                            <tr className="border-border hover:bg-accent/50 border-b last:border-b-0" key={item.path}>
+                            <tr
+                                className="border-base-300 hover:bg-base-200/50 border-b last:border-b-0"
+                                key={item.path}
+                            >
                                 {projection.columns.map((column) => (
                                     <td className="max-w-80 px-4 py-3 align-top" key={`${item.path}-${column.field}`}>
                                         <ViewProjectionCell column={column} item={item} />
@@ -1685,7 +1651,7 @@ function ViewProjectionCell({
 }) {
     if (column.field === "path") {
         return (
-            <code className="text-muted-foreground block truncate text-xs" title={item.path}>
+            <code className="text-base-content/60 block truncate text-xs" title={item.path}>
                 {item.path}
             </code>
         );
@@ -1694,7 +1660,7 @@ function ViewProjectionCell({
     const value = item.fields[column.field] ?? "";
 
     return (
-        <span className="text-muted-foreground block truncate" title={value}>
+        <span className="text-base-content/60 block truncate" title={value}>
             {value || "—"}
         </span>
     );
@@ -1704,17 +1670,17 @@ function ViewKanbanProjection({ projection }: { projection: Extract<DashboardVie
     return (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {projection.columns.map((column) => (
-                <section className="bg-muted/30 flex min-h-60 flex-col gap-3 rounded-lg border p-3" key={column.id}>
+                <section className="bg-base-200/30 flex min-h-60 flex-col gap-3 rounded-lg border p-3" key={column.id}>
                     <div className="flex items-center justify-between gap-3">
                         <h3 className="font-medium">{column.label}</h3>
-                        <Badge variant="outline">{column.items.length}</Badge>
+                        <span className="badge badge-outline">{column.items.length}</span>
                     </div>
                     <div className="flex flex-col gap-3">
                         {column.items.map((item) => (
                             <ViewKanbanCard item={item} key={item.path} />
                         ))}
                         {column.items.length === 0 ? (
-                            <p className="text-muted-foreground rounded-md border border-dashed p-3 text-sm">
+                            <p className="text-base-content/60 rounded-md border border-dashed p-3 text-sm">
                                 No items in this group.
                             </p>
                         ) : null}
@@ -1734,27 +1700,27 @@ function ViewKanbanCard({ item }: { item: DashboardViewProjectionItem }) {
                 {item.title}
             </span>
             {summary ? (
-                <span className="text-muted-foreground mt-2 line-clamp-2 block text-sm" title={summary}>
+                <span className="text-base-content/60 mt-2 line-clamp-2 block text-sm" title={summary}>
                     {summary}
                 </span>
             ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
                 {badges.map(([key, value]) => (
-                    <Badge key={key} variant="outline">
+                    <span className="badge badge-outline" key={key}>
                         {value}
-                    </Badge>
+                    </span>
                 ))}
             </div>
         </>
     );
 
     if (!item.routePath) {
-        return <div className="bg-card rounded-md border p-3 shadow-sm">{content}</div>;
+        return <div className="bg-base-100 rounded-md border p-3 shadow-sm">{content}</div>;
     }
 
     return (
         <Link
-            className="bg-card hover:bg-accent/50 focus-visible:ring-ring/50 rounded-md border p-3 shadow-sm transition-colors outline-none focus-visible:ring-3"
+            className="bg-base-100 hover:bg-base-200/50 focus-visible:ring-primary/50 rounded-md border p-3 shadow-sm transition-colors outline-none focus-visible:ring-3"
             to={item.routePath}
         >
             {content}
@@ -1764,40 +1730,40 @@ function ViewKanbanCard({ item }: { item: DashboardViewProjectionItem }) {
 
 function SpaceSummary({ space }: { space: DashboardSpace }) {
     return (
-        <Card>
-            <CardHeader>
+        <section className="card border-base-300 bg-base-100 border">
+            <div className="card-body">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                        <Badge variant={healthVariant(space.status)}>{space.status}</Badge>
-                        <CardTitle className="mt-4">{space.title}</CardTitle>
-                        <CardDescription className="mt-2">{space.description}</CardDescription>
+                        <span className={healthBadgeClass(space.status)}>{space.status}</span>
+                        <h2 className="card-title mt-4">{space.title}</h2>
+                        <p className="text-base-content/60 mt-2 text-sm">{space.description}</p>
                     </div>
-                    <code className="text-muted-foreground bg-muted max-w-full truncate rounded-md px-2 py-1 text-xs">
+                    <code className="text-base-content/60 bg-base-200 max-w-full truncate rounded-md px-2 py-1 text-xs">
                         {space.path}
                     </code>
                 </div>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            </div>
+            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-3">
                 <StatCell label="Pages" value={space.entryCount} />
                 <StatCell label="Updated" title={formatAbsoluteDateTime(space.updatedAt)} value={space.updatedLabel} />
                 <StatCell label="Findings" value={space.status === "healthy" ? 0 : 1} />
-            </CardContent>
-        </Card>
+            </div>
+        </section>
     );
 }
 
 function WorkspaceOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
-        <section className="border-border bg-card rounded-lg border p-6 shadow-sm">
+        <section className="border-base-300 bg-base-100 rounded-lg border p-6 shadow-sm">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="max-w-2xl">
-                    <Badge variant={healthVariant(dashboard.status)}>{dashboard.status}</Badge>
+                    <span className={healthBadgeClass(dashboard.status)}>{dashboard.status}</span>
                     <h2 className="mt-4 text-3xl font-semibold tracking-normal">{dashboard.workspaceName}</h2>
-                    <p className="text-muted-foreground mt-3 text-sm/6">{dashboard.tagline}</p>
+                    <p className="text-base-content/60 mt-3 text-sm/6">{dashboard.tagline}</p>
                     <div className="mt-5 flex flex-wrap gap-2">
-                        <Badge variant="outline">Read-only GUI</Badge>
-                        <Badge variant="outline">Repository Markdown</Badge>
-                        <Badge variant="outline">Workspace index</Badge>
+                        <span className="badge badge-outline">Read-only GUI</span>
+                        <span className="badge badge-outline">Repository Markdown</span>
+                        <span className="badge badge-outline">Workspace index</span>
                     </div>
                 </div>
                 <div className="grid w-full grid-cols-2 gap-3 sm:w-72">
@@ -1813,18 +1779,18 @@ function WorkspaceOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
 
 function Metric({ icon: Icon, label, value }: { icon: typeof FileText; label: string; value: number }) {
     return (
-        <div className="border-border bg-background rounded-lg border p-3">
-            <Icon className="text-muted-foreground" data-icon="inline-start" />
+        <div className="border-base-300 bg-base-100 rounded-lg border p-3">
+            <Icon className="text-base-content/60" data-icon="inline-start" />
             <strong className="mt-3 block text-2xl">{value}</strong>
-            <span className="text-muted-foreground text-xs">{label}</span>
+            <span className="text-base-content/60 text-xs">{label}</span>
         </div>
     );
 }
 
 function ContextStat({ label, title, value }: { label: string; title?: string; value: number | string }) {
     return (
-        <div className="border-border/80 bg-background/60 rounded-lg border p-3">
-            <span className="text-muted-foreground text-xs">{label}</span>
+        <div className="border-base-300/80 bg-base-100/60 rounded-lg border p-3">
+            <span className="text-base-content/60 text-xs">{label}</span>
             <strong className="mt-1 block truncate text-sm" title={title}>
                 {value}
             </strong>
@@ -1834,8 +1800,8 @@ function ContextStat({ label, title, value }: { label: string; title?: string; v
 
 function StatCell({ label, title, value }: { label: string; title?: string; value: number | string }) {
     return (
-        <div className="border-border bg-background rounded-md border p-3">
-            <span className="text-muted-foreground text-xs">{label}</span>
+        <div className="border-base-300 bg-base-100 rounded-md border p-3">
+            <span className="text-base-content/60 text-xs">{label}</span>
             <strong className="mt-1 block truncate text-base" title={title}>
                 {value}
             </strong>
@@ -1846,22 +1812,22 @@ function StatCell({ label, title, value }: { label: string; title?: string; valu
 function SpaceCard({ entryCount, space }: { entryCount: number; space: DashboardSpace }) {
     return (
         <Link className="group block rounded-lg outline-none" to={`/spaces/${space.id}`}>
-            <Card className="group-hover:bg-accent/50 group-focus-visible:border-ring group-focus-visible:ring-ring/50 flex h-full flex-col transition-colors group-focus-visible:ring-3">
-                <CardHeader>
+            <section className="card border-base-300 bg-base-100 group-hover:bg-base-200/50 group-focus-visible:border-primary group-focus-visible:ring-primary/50 flex h-full flex-col border transition-colors group-focus-visible:ring-3">
+                <div className="card-body">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                            <CardTitle className="truncate">{space.title}</CardTitle>
-                            <CardDescription className="mt-2 line-clamp-2" title={space.description}>
+                            <h2 className="card-title truncate">{space.title}</h2>
+                            <p className="text-base-content/60 mt-2 line-clamp-2 text-sm" title={space.description}>
                                 {space.description}
-                            </CardDescription>
+                            </p>
                         </div>
-                        <ArrowUpRight className="text-muted-foreground shrink-0" />
+                        <ArrowUpRight className="text-base-content/60 shrink-0" />
                     </div>
-                </CardHeader>
-                <CardContent className="mt-auto flex flex-col gap-3">
+                </div>
+                <div className="mt-auto flex flex-col gap-3 px-6 pb-6">
                     <div className="flex items-center justify-between gap-3">
-                        <Badge variant={healthVariant(space.status)}>{space.status}</Badge>
-                        <code className="text-muted-foreground min-w-0 truncate text-xs">{space.path}</code>
+                        <span className={healthBadgeClass(space.status)}>{space.status}</span>
+                        <code className="text-base-content/60 min-w-0 truncate text-xs">{space.path}</code>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                         <StatCell label="Pages" value={space.entryCount} />
@@ -1872,8 +1838,8 @@ function SpaceCard({ entryCount, space }: { entryCount: number; space: Dashboard
                             value={space.updatedLabel}
                         />
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </section>
         </Link>
     );
 }
@@ -1881,26 +1847,26 @@ function SpaceCard({ entryCount, space }: { entryCount: number; space: Dashboard
 function EntryRow({ entry }: { entry: DashboardEntry }) {
     return (
         <Link
-            className="border-border bg-card group hover:bg-accent/50 focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 flex-col gap-3 rounded-lg border p-4 shadow-sm transition-colors outline-none focus-visible:ring-3 sm:flex-row sm:items-center"
+            className="border-base-300 bg-base-100 group hover:bg-base-200/50 focus-visible:border-primary focus-visible:ring-primary/50 flex min-w-0 flex-col gap-3 rounded-lg border p-4 shadow-sm transition-colors outline-none focus-visible:ring-3 sm:flex-row sm:items-center"
             to={entry.routePath}
         >
-            <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-md">
+            <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
                 <FileText data-icon="inline-start" />
             </div>
             <div className="min-w-0 flex-1">
                 <h3 className="truncate font-medium" title={entry.title}>
                     {entry.title}
                 </h3>
-                <p className="text-muted-foreground truncate text-sm" title={entry.summary}>
+                <p className="text-base-content/60 truncate text-sm" title={entry.summary}>
                     {entry.summary}
                 </p>
-                <code className="text-muted-foreground mt-2 block truncate text-xs" title={entry.path}>
+                <code className="text-base-content/60 mt-2 block truncate text-xs" title={entry.path}>
                     {entry.path}
                 </code>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-                <Badge variant="outline">{entry.space}</Badge>
-                <span className="text-muted-foreground text-xs" title={formatAbsoluteDateTime(entry.updatedAt)}>
+                <span className="badge badge-outline">{entry.space}</span>
+                <span className="text-base-content/60 text-xs" title={formatAbsoluteDateTime(entry.updatedAt)}>
                     {entry.updatedLabel}
                 </span>
             </div>
@@ -1908,6 +1874,6 @@ function EntryRow({ entry }: { entry: DashboardEntry }) {
     );
 }
 
-function healthVariant(status: WorkspaceHealth) {
-    return status === "failed" ? "destructive" : status === "warning" ? "secondary" : "default";
+function healthBadgeClass(status: WorkspaceHealth) {
+    return status === "failed" ? "badge badge-error" : status === "warning" ? "badge badge-warning" : "badge";
 }
