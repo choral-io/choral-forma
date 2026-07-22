@@ -159,19 +159,22 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
                 aria-label="Quick open"
                 className={cn(
                     trigger === "sidebar"
-                        ? "btn border-base-300 bg-base-100 hover:bg-base-300 h-14! min-h-14! w-full justify-start shadow-none"
+                        ? "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 flex! w-full items-center gap-3 outline-none focus-visible:ring-2"
                         : "btn btn-square",
                     triggerClassName,
                 )}
+                data-tip={trigger === "sidebar" ? "Quick open" : undefined}
                 onClick={openQuickOpen}
                 title="Quick open (Ctrl/⌘ K)"
                 type="button"
             >
-                <Search aria-hidden="true" />
+                <Search aria-hidden="true" className={trigger === "sidebar" ? "size-4 shrink-0" : undefined} />
                 {trigger === "sidebar" ? (
                     <>
-                        <span data-sidebar-label>Quick open</span>
-                        <kbd className="kbd kbd-sm ms-auto" data-sidebar-label>
+                        <span className="is-drawer-close:hidden" data-sidebar-label>
+                            Quick open
+                        </span>
+                        <kbd className="kbd kbd-xs is-drawer-close:hidden ms-auto" data-sidebar-label>
                             ⌘ K
                         </kbd>
                     </>

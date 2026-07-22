@@ -6,11 +6,18 @@ import { workspaceClient } from "@/data/workspace-client-source";
 import { WorkspaceSidebar } from "@/features/workspace/WorkspaceSidebar";
 
 export const workspaceDrawerId = "workspace-navigation";
+const workspaceDesktopDrawerId = "workspace-sidebar";
 
 export function App() {
     const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [desktopDrawerInitiallyOpen] = useState(
+        () =>
+            window.matchMedia("(min-width: 64rem)").matches &&
+            document.documentElement.dataset.workspaceSidebar !== "collapsed",
+    );
     const navigationDialogRef = useRef<HTMLDialogElement>(null);
+    const desktopDrawerRef = useRef<HTMLInputElement>(null);
     const { pathname } = useLocation();
     const previousPathnameRef = useRef(pathname);
 
@@ -44,6 +51,21 @@ export function App() {
             });
         }
     }, [pathname]);
+
+    useEffect(() => {
+        const desktopMedia = window.matchMedia("(min-width: 64rem)");
+        const syncDesktopDrawer = () => {
+            if (!desktopDrawerRef.current) return;
+            desktopDrawerRef.current.checked =
+                desktopMedia.matches && document.documentElement.dataset.workspaceSidebar !== "collapsed";
+        };
+
+        syncDesktopDrawer();
+        desktopMedia.addEventListener("change", syncDesktopDrawer);
+        return () => {
+            desktopMedia.removeEventListener("change", syncDesktopDrawer);
+        };
+    }, []);
 
     function closeNavigation() {
         if (navigationDialogRef.current?.open) {
@@ -88,14 +110,33 @@ export function App() {
     }
 
     return (
-        <div
-            className="grid h-svh min-w-0 grid-cols-1 overflow-hidden lg:grid-cols-[16rem_minmax(0,1fr)]"
-            data-workspace-shell
-        >
-            <aside className="border-base-300 bg-base-200 text-base-content hidden min-h-0 overflow-visible border-e lg:block">
-                <WorkspaceSidebar dashboard={dashboard} onNavigate={closeNavigation} />
-            </aside>
-            <div className="bg-base-100 text-base-content min-h-0 min-w-0 overflow-hidden">
+        <div className="drawer lg:drawer-open h-svh min-w-0 overflow-hidden" data-workspace-shell>
+            <input
+                className="drawer-toggle"
+                defaultChecked={desktopDrawerInitiallyOpen}
+                id={workspaceDesktopDrawerId}
+                onChange={(event) => {
+                    const value = event.currentTarget.checked ? "expanded" : "collapsed";
+                    document.documentElement.dataset.workspaceSidebar = value;
+                    try {
+                        window.localStorage.setItem("forma.workspaceSidebar", value);
+                    } catch {
+                        // The browser-owned drawer state remains usable without persistence.
+                    }
+                }}
+                ref={desktopDrawerRef}
+                type="checkbox"
+            />
+            <div className="drawer-side is-drawer-close:overflow-visible max-lg:hidden">
+                <aside className="bg-base-200 text-base-content is-drawer-close:w-14 is-drawer-open:w-64 flex min-h-full flex-col overflow-visible transition-[width] duration-200">
+                    <WorkspaceSidebar
+                        dashboard={dashboard}
+                        onNavigate={closeNavigation}
+                        toggleId={workspaceDesktopDrawerId}
+                    />
+                </aside>
+            </div>
+            <div className="drawer-content bg-base-100 text-base-content min-h-0 min-w-0 overflow-hidden">
                 <Outlet context={dashboard} />
             </div>
             <dialog
