@@ -8,10 +8,10 @@ export type FormaLspRuntimeContext = {
 };
 
 export type FormaLspClient = {
-    start(signal: AbortSignal): Promise<void>;
-    stop(): Promise<void>;
-    dispose(): Promise<void>;
-    isRunning?(): boolean;
+    start: (signal: AbortSignal) => Promise<void>;
+    stop: () => Promise<void>;
+    dispose: () => Promise<void>;
+    isRunning?: () => boolean;
 };
 
 export type FormaLspClientFactory = (context: FormaLspRuntimeContext) => FormaLspClient;
