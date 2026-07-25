@@ -34,7 +34,7 @@ export function WorkspaceRouteFrame({
     titleAs = "h1",
 }: WorkspaceRouteFrameProps) {
     const [themePreference, setThemePreference] = useState(readThemePreference);
-    const [isFabOpen, setFabOpen] = useState(false);
+    const [isFabOpen, setIsFabOpen] = useState(false);
     const [isMobileFabSuppressed, setIsMobileFabSuppressed] = useState(false);
     const hasContextPanel = Boolean(contextPanel);
     const contentWidthClass = {
@@ -48,13 +48,13 @@ export function WorkspaceRouteFrame({
         applyThemePreference(preference);
     };
     const closeFab = () => {
-        setFabOpen(false);
+        setIsFabOpen(false);
     };
     useEffect(() => {
         return subscribeWorkspaceInteractionLayer((occupied) => {
             setIsMobileFabSuppressed(occupied);
             if (occupied) {
-                setFabOpen(false);
+                setIsFabOpen(false);
             }
         });
     }, []);
@@ -159,7 +159,7 @@ export function WorkspaceRouteFrame({
                         tabIndex={0}
                         type="button"
                         onClick={() => {
-                            setFabOpen(true);
+                            setIsFabOpen(true);
                         }}
                     >
                         <Ellipsis aria-hidden="true" />

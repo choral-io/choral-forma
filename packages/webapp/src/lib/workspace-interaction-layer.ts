@@ -11,16 +11,22 @@ const listeners = new Set<WorkspaceInteractionLayerListener>();
 export function acquireWorkspaceInteractionLayer() {
     const lease = Symbol("workspace-interaction-layer");
     let released = false;
+    const wasOccupied = leases.size > 0;
     leases.add(lease);
-    notifyListeners();
+    if (!wasOccupied) {
+        notifyListeners();
+    }
 
     return () => {
         if (released) {
             return;
         }
         released = true;
+        const wasOccupied = leases.size > 0;
         leases.delete(lease);
-        notifyListeners();
+        if (wasOccupied && leases.size === 0) {
+            notifyListeners();
+        }
     };
 }
 
