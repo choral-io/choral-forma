@@ -8,3 +8,5 @@ This directory is a framework-independent browser boundary around `beautiful-mer
 - `scope.ts` accounts for aggregate work across multiple readers.
 
 React, Marked, DOM sanitization, theme CSS variables, and reader markup remain in the dashboard feature adapter. A future consumer such as Choral Flows can extract or reuse this boundary only after matching its product policy and security requirements; this directory is not a published package.
+
+Run `pnpm --filter @choral-forma/webapp test:mermaid-worker-upgrade` after changing `beautiful-mermaid` or its transitive layout dependencies. The fast Chrome gate exercises the real module Worker, abort-and-recreate behavior, an admitted render, the production SVG sanitization path, and main-thread scheduling. It complements the complete unit, security, accessibility, and browser checks.
