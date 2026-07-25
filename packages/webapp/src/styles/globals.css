@@ -214,7 +214,7 @@
         }
 
         & .mermaid-diagram-source {
-            @apply border-base-300 rounded-none border-t;
+            @apply border-base-300 rounded-t-none! border-t;
         }
 
         & .mermaid-diagram-source > .collapse-title {

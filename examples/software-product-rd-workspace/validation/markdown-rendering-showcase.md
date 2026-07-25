@@ -109,15 +109,44 @@ An intentionally long code line should scroll inside its own block instead of wi
 workspace/validation/markdown-rendering-showcase/this-is-an-intentionally-long-unbroken-value-used-to-confirm-that-code-overflow-remains-local-to-the-code-block-and-does-not-create-page-level-horizontal-scrolling
 ```
 
-## Diagram
+## Diagrams
 
-Mermaid source should become a theme-aware diagram when supported while remaining readable as fenced code when rendering is unavailable.
+Mermaid source should become theme-aware diagrams when supported while remaining readable as fenced code when rendering is unavailable. These examples cover a bounded render flow and the corresponding reader-to-Worker interaction without approaching the supported syntax or resource limits.
+
+### Bounded render flow
 
 ```mermaid
 flowchart LR
-  Source[Repository Markdown] --> Diagram[Worker Mermaid adapter]
-  Diagram --> Output[Sanitized SVG]
+  Source[Repository Markdown] --> Validate[Validate syntax and budgets]
+  Validate -->|admitted| Worker[Dedicated Worker]
+  Validate -->|invalid| Fallback[Readable source fallback]
+  subgraph Safe[Bounded rendering]
+    direction TB
+    Worker --> Render[Render diagram]
+    Render --> Sanitize[Sanitize SVG]
+  end
+  Sanitize --> Reader[Accessible reader]
+  Fallback --> Reader
 ```
+
+### Worker rendering sequence
+
+```mermaid
+sequenceDiagram
+  actor Author
+  participant Reader as Markdown reader
+  participant Worker as Mermaid Worker
+  participant Sanitizer as SVG sanitizer
+  Author->>Reader: Open Markdown entry
+  Reader->>Worker: Render admitted diagram
+  Note right of Worker: Timeout and output caps apply
+  Worker-->>Reader: Return bounded SVG
+  Reader->>Sanitizer: Remove remote and active content
+  Sanitizer-->>Reader: Return safe SVG
+  Reader-->>Author: Show accessible diagram and source
+```
+
+The four sequence participants represent the actual reader boundary rather than an artificial overflow case. On narrow screens, diagrams should keep readable proportions: an SVG may scale within the container when its labels remain clear, while naturally wider output should use the keyboard-focusable local scroller without widening the page. Captions and source disclosures should remain usable outside the scrolling viewport.
 
 ## Formulae
 
@@ -210,7 +239,8 @@ A long unbroken token should wrap or stay locally contained rather than widening
 - [ ] Internal links stay in the app, while external links are visibly distinguishable.
 - [ ] Wikilinks resolve and contribute to outgoing links and backlinks.
 - [ ] The wide table and long code line scroll locally without page-level horizontal overflow.
-- [ ] The Mermaid diagram follows the active theme, exposes a meaningful text alternative and source disclosure, and owns its horizontal overflow on narrow screens.
+- [ ] Both Mermaid diagrams follow the active theme, expose meaningful text alternatives and source disclosures, and own their horizontal overflow on narrow screens.
+- [ ] At mobile width, diagram labels remain readable: SVGs that fit may scale proportionally, while naturally wider SVGs scroll inside the keyboard-focusable local region without widening the page; captions and source disclosures remain usable.
 - [ ] Inline, display, invalid, and long formulae remain readable without interpreting currency or code as math.
 - [ ] Task items, nested lists, quotes, tables, code, and inline styles remain clear in light and dark themes.
 - [ ] The local image stays within the reading column and has meaningful alternative text.
