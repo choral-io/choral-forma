@@ -35,6 +35,7 @@ import { workspaceClient } from "@/data/workspace-client-source";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { WorkspaceDefaultContextPanel, WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
+import { createMermaidRenderScope } from "@/lib/mermaid";
 import { cn } from "@/lib/utils";
 import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 
@@ -46,6 +47,17 @@ const ViewGraphProjection = lazy(async () => {
     const module = await import("./ViewGraphProjection");
     return { default: module.ViewGraphProjection };
 });
+
+function useMermaidScope(key: string) {
+    const reactId = useId();
+    const [scope] = useState(() => createMermaidRenderScope(`${key}-${reactId}`));
+    useEffect(() => {
+        return () => {
+            scope.dispose();
+        };
+    }, [scope]);
+    return scope;
+}
 
 export function DashboardRoute() {
     const dashboard = useWorkspaceDashboard();
@@ -388,6 +400,7 @@ export function ViewRoute() {
         >
             <ViewPage
                 dashboard={dashboard}
+                key={viewId}
                 onRetry={() => {
                     setRenderState(undefined);
                     setRenderRequestVersion((version) => version + 1);
@@ -779,6 +792,7 @@ function EntryPage({
                                     blocks={entry.body}
                                     currentPath={entry.path}
                                     entries={entries}
+                                    key={entry.path}
                                     omitLeadingTitle={entry.omitLeadingTitle}
                                     outline={outline}
                                 />
@@ -896,6 +910,8 @@ function EntryReader({
     omitLeadingTitle: boolean;
     outline: EntryOutlineItem[];
 }) {
+    const mermaidScope = useMermaidScope(currentPath);
+
     return (
         <div className="w-full py-2 md:py-4">
             <article className="flex w-full flex-col gap-5">
@@ -908,6 +924,7 @@ function EntryReader({
                             currentPath={currentPath}
                             entries={entries}
                             headingId={headingId}
+                            mermaidScope={mermaidScope}
                             omitLeadingTitle={omitLeadingTitle && index === 0}
                             key={`${block.type}-${String(index)}`}
                         />
@@ -923,12 +940,14 @@ function EntryBlockView({
     currentPath,
     entries,
     headingId,
+    mermaidScope,
     omitLeadingTitle = false,
 }: {
     block: DashboardEntryBlock;
     currentPath: string;
     entries: DashboardEntry[];
     headingId?: string;
+    mermaidScope: ReturnType<typeof createMermaidRenderScope>;
     omitLeadingTitle?: boolean;
 }) {
     if (block.type === "markdown") {
@@ -938,6 +957,7 @@ function EntryBlockView({
                 entries={entries}
                 headings={block.outline}
                 markdown={block.markdown}
+                mermaidScope={mermaidScope}
                 omitLeadingTitle={omitLeadingTitle}
             />
         );
@@ -1418,6 +1438,7 @@ function ViewPage({
     renderError?: string;
     view: WorkspaceDashboard["views"][number];
 }) {
+    const mermaidScope = useMermaidScope(render?.document.path ?? view.path);
     const projection = render?.projection;
     const entries = entriesForView(dashboard, view);
     const itemCount = projection ? projectionItemCount(projection) : entries.length;
@@ -1450,6 +1471,7 @@ function ViewPage({
                         entries={dashboard.entries}
                         headings={[]}
                         markdown={render.document.beforeProjection}
+                        mermaidScope={mermaidScope}
                     />
                 </div>
             ) : null}
@@ -1460,6 +1482,7 @@ function ViewPage({
                     entries={dashboard.entries}
                     headings={[]}
                     markdown={render.document.afterProjection}
+                    mermaidScope={mermaidScope}
                 />
             ) : null}
         </div>

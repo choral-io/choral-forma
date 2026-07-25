@@ -2,6 +2,7 @@ import DOMPurify from "dompurify";
 import { useEffect, useState } from "react";
 
 import type { DashboardEntry, DashboardEntryHeading } from "@/data/workspace-client";
+import type { MermaidRenderScope } from "@/lib/mermaid";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 
 import { resolveReaderLink } from "./markdown-links";
@@ -12,6 +13,7 @@ export interface MarkdownReaderProps {
     entries: DashboardEntry[];
     headings: DashboardEntryHeading[];
     markdown: string;
+    mermaidScope?: MermaidRenderScope;
     omitLeadingTitle?: boolean;
 }
 
@@ -31,6 +33,7 @@ export function MarkdownReader({
     entries,
     headings,
     markdown,
+    mermaidScope,
     omitLeadingTitle = false,
 }: MarkdownReaderProps) {
     const [renderState, setRenderState] = useState<MarkdownRenderState>();
@@ -44,8 +47,9 @@ export function MarkdownReader({
 
     useEffect(() => {
         let cancelled = false;
+        const abortController = new AbortController();
 
-        void renderMarkdown(markdown)
+        void renderMarkdown(markdown, { mermaidScope, signal: abortController.signal })
             .then((rendered) => {
                 if (cancelled) {
                     return;
@@ -78,8 +82,9 @@ export function MarkdownReader({
 
         return () => {
             cancelled = true;
+            abortController.abort();
         };
-    }, [currentPath, entries, headings, markdown, omitLeadingTitle, retryKey]);
+    }, [currentPath, entries, headings, markdown, mermaidScope, omitLeadingTitle, retryKey]);
 
     if (!isCurrentRender) {
         return (

@@ -115,7 +115,7 @@ Mermaid source should become a theme-aware diagram when supported while remainin
 
 ```mermaid
 flowchart LR
-  Source[Repository Markdown] --> Diagram[Lazy Mermaid adapter]
+  Source[Repository Markdown] --> Diagram[Worker Mermaid adapter]
   Diagram --> Output[Sanitized SVG]
 ```
 
@@ -210,7 +210,7 @@ A long unbroken token should wrap or stay locally contained rather than widening
 - [ ] Internal links stay in the app, while external links are visibly distinguishable.
 - [ ] Wikilinks resolve and contribute to outgoing links and backlinks.
 - [ ] The wide table and long code line scroll locally without page-level horizontal overflow.
-- [ ] The Mermaid diagram follows the active theme and owns its horizontal overflow on narrow screens.
+- [ ] The Mermaid diagram follows the active theme, exposes a meaningful text alternative and source disclosure, and owns its horizontal overflow on narrow screens.
 - [ ] Inline, display, invalid, and long formulae remain readable without interpreting currency or code as math.
 - [ ] Task items, nested lists, quotes, tables, code, and inline styles remain clear in light and dark themes.
 - [ ] The local image stays within the reading column and has meaningful alternative text.

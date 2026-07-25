@@ -3,40 +3,87 @@
 import { Marked } from "marked";
 import { describe, expect, it, vi } from "vitest";
 
+import { createMermaidRenderScope, mermaidPolicy, type MermaidRenderScope } from "@/lib/mermaid";
+
 import { postProcessMarkdownHtml } from "./MarkdownReader";
 import { createMarkedMermaid, mermaidSupport, sanitizeMermaidSvg } from "./markdown-mermaid";
 
+const safeSvg = '<svg xmlns="http://www.w3.org/2000/svg"><text>Rendered</text></svg>';
+
 describe("createMarkedMermaid", () => {
-    it("lazily renders a supported diagram into a semantic, theme-aware SVG wrapper", async () => {
-        const html = await render("```mermaid\ngraph LR\n  Start --> Finish\n```");
+    it("renders a fully validated diagram into a semantic, theme-aware accessible figure", async () => {
+        const html = postProcessMarkdownHtml(
+            await render("```mermaid\ngraph LR\n  Start[Repository Markdown] --> Finish[Worker adapter]\n```"),
+            [],
+            "validation/markdown-rendering-showcase.md",
+            [],
+            false,
+        );
 
         expect(html).toContain('class="mermaid-diagram"');
         expect(html).toContain('data-diagram-kind="flowchart"');
-        expect(html).toContain('aria-label="Mermaid flowchart diagram"');
-        expect(html).toContain('tabindex="0"');
-        expect(html).toContain("<svg");
+        expect(html).toContain("<figcaption");
+        expect(html).toContain("Flowchart diagram");
+        expect(html).toContain('aria-labelledby="forma-mermaid-test-scope-1-caption"');
+        expect(html).toContain('aria-describedby="forma-mermaid-test-scope-1-description"');
+        expect(html).toContain("Items: Repository Markdown, Worker adapter.");
+        expect(html).toContain("Relationships: Start to Finish.");
+        expect(html).toContain('aria-label="Scrollable flowchart diagram"');
+        expect(html).toContain("View Mermaid source");
+        expect(html).toContain("Start[Repository Markdown] --&gt; Finish[Worker adapter]");
+        expect(html).toContain('aria-hidden="true"');
         expect(html).toContain("--bg:var(--color-base-100)");
         expect(html).toContain("--fg:var(--color-base-content)");
         expect(html).toContain("--accent:var(--color-primary)");
-        expect(html).not.toMatch(/https?:\/\/fonts\./);
-        expect(html).not.toContain("@import");
     });
 
-    it("keeps invalid and unsupported diagrams as readable source code", async () => {
+    it("keeps invalid, unsupported, timed-out, and over-budget diagrams as readable source", async () => {
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-        const invalid = await render(
-            "```mermaid\ngraph TD\n  A --> B\n```",
-            createMarkedMermaid(() => Promise.reject(new Error("invalid diagram"))),
-        );
+        const invalid = await render("```mermaid\ngraph TD\n  A --> B trailing\n```");
+        const mixed = await render("```mermaid\ngraph TD\n  A --> B\n  participant C\n```");
         const unsupported = await render('```mermaid\npie\n  title Pets\n  "Dogs" : 4\n```');
+        const rejected = await render("```mermaid\ngraph TD\n  A --> B\n```", {
+            renderDiagram: () => Promise.reject(new Error("timeout")),
+        });
 
-        expect(invalid).toContain('<code class="language-mermaid">');
-        expect(invalid).toContain("A --&gt; B");
-        expect(unsupported).toContain('<code class="language-mermaid">');
-        expect(unsupported).toContain("title Pets");
-        expect(invalid).not.toContain("mermaid-diagram");
-        expect(unsupported).not.toContain("mermaid-diagram");
+        for (const html of [invalid, mixed, unsupported, rejected]) {
+            expect(html).toContain('<code class="language-mermaid">');
+            expect(html).not.toContain("mermaid-diagram");
+        }
+        expect(rejected).toContain("A --&gt; B");
         warn.mockRestore();
+    });
+
+    it.each([
+        ["click A https://evil.test", "click directive"],
+        ["accTitle: Hidden title", "accessibility title"],
+        ["accDescr: Hidden description", "accessibility description"],
+        ["Note over A: Ignored", "unsupported note"],
+    ])("fails closed on %s", async (trailing) => {
+        const renderDiagram = vi.fn(() => Promise.resolve(safeSvg));
+        const html = await render(`\`\`\`mermaid\nflowchart LR\nA --> B\n${trailing}\n\`\`\``, { renderDiagram });
+
+        expect(renderDiagram).not.toHaveBeenCalled();
+        expect(html).toContain('<code class="language-mermaid">');
+        expect(html).toContain(trailing);
+    });
+
+    it("supports sequence notes because they are fully consumed by the declared subset", async () => {
+        const html = await render("```mermaid\nsequenceDiagram\nA->>B: Hello\nNote right of B: Accessible source\n```");
+
+        expect(html).toContain("Sequence diagram");
+        expect(html).toContain("Note right of B: Accessible source");
+    });
+
+    it("escapes malicious source in the optional disclosure", async () => {
+        const html = await render(
+            "```mermaid\nflowchart LR\nA[&lt;/code&gt;&lt;img src=x onerror=alert(1)&gt;] --> B\n```",
+        );
+        const document = new DOMParser().parseFromString(html, "text/html");
+
+        expect(document.querySelector("img")).toBeNull();
+        expect(document.querySelector("[onerror]")).toBeNull();
+        expect(html).toContain("&amp;lt;/code&amp;gt;");
     });
 
     it("does not change ordinary fenced code rendering", async () => {
@@ -47,7 +94,7 @@ describe("createMarkedMermaid", () => {
         expect(html).not.toContain("mermaid-diagram");
     });
 
-    it("uses Forma semantic colors for both light and dark theme resolution", async () => {
+    it("uses Forma semantic colors for light and dark theme resolution", async () => {
         const html = await render("```mermaid\nsequenceDiagram\n  Alice->>Bob: Hello\n```");
 
         expect(html).toContain("--bg:var(--color-base-100)");
@@ -57,27 +104,34 @@ describe("createMarkedMermaid", () => {
         expect(html).not.toContain("choral-dark");
     });
 
-    it("defines a bounded supported subset", () => {
-        expect(mermaidSupport).toEqual({
-            diagramTypes: ["flowchart", "state", "sequence", "class", "entity relationship"],
-            maxDiagramsPerDocument: 20,
-            maxSourceLength: 50_000,
-        });
+    it("publishes the reviewed structural, output, and aggregate policy", () => {
+        expect(mermaidSupport.diagramTypes).toEqual(["flowchart", "state", "sequence", "class", "entity relationship"]);
+        expect(mermaidSupport.policy).toEqual(mermaidPolicy);
+        expect(mermaidPolicy.diagram.maxRelations).toBe(128);
+        expect(mermaidPolicy.scope.maxDiagrams).toBe(8);
+        expect(mermaidPolicy.output.maxBytes).toBe(512 * 1024);
     });
 
-    it("leaves diagrams beyond the per-document bounds as source without invoking the renderer", async () => {
-        const renderDiagram = vi.fn(() => Promise.resolve('<svg xmlns="http://www.w3.org/2000/svg"/>'));
-        const markdown = Array.from(
-            { length: mermaidSupport.maxDiagramsPerDocument + 1 },
-            (_, index) => `\`\`\`mermaid\ngraph LR\n  A${String(index)} --> B${String(index)}\n\`\`\``,
-        ).join("\n\n");
+    it("shares aggregate limits across separate Marked readers", async () => {
+        const scope = createMermaidRenderScope("shared");
+        const renderDiagram = vi.fn(() => Promise.resolve(safeSvg));
+        const markdown = "```mermaid\ngraph LR\nA --> B\n```";
+        const readers = await Promise.all(
+            Array.from({ length: mermaidPolicy.scope.maxDiagrams + 1 }, () =>
+                render(markdown, { renderDiagram, scope }),
+            ),
+        );
 
-        const html = await render(markdown, createMarkedMermaid(renderDiagram));
-
-        expect(renderDiagram).toHaveBeenCalledTimes(mermaidSupport.maxDiagramsPerDocument);
-        expect(html.match(/class="mermaid-diagram"/g)).toHaveLength(mermaidSupport.maxDiagramsPerDocument);
-        expect(html).toContain('<code class="language-mermaid">graph LR');
-        expect(html).toContain("A20 --&gt; B20");
+        expect(renderDiagram).toHaveBeenCalledTimes(mermaidPolicy.scope.maxDiagrams);
+        expect(readers.filter((html) => html.includes("mermaid-diagram"))).toHaveLength(
+            mermaidPolicy.scope.maxDiagrams,
+        );
+        expect(
+            readers.filter(
+                (html) => !html.includes("mermaid-diagram") && html.includes('<code class="language-mermaid">'),
+            ),
+        ).toHaveLength(1);
+        scope.dispose();
     });
 });
 
@@ -116,10 +170,34 @@ describe("sanitizeMermaidSvg", () => {
         expect(finalHtml).not.toContain("<foreignObject");
         expect(finalHtml).not.toContain("<image");
     });
+
+    it("rejects oversized SVG strings and element trees", () => {
+        expect(() =>
+            sanitizeMermaidSvg(
+                `<svg xmlns="http://www.w3.org/2000/svg"><text>${"x".repeat(mermaidPolicy.output.maxBytes)}</text></svg>`,
+            ),
+        ).toThrow("output limit");
+        expect(() =>
+            sanitizeMermaidSvg(
+                `<svg xmlns="http://www.w3.org/2000/svg">${"<path/>".repeat(mermaidPolicy.output.maxElements)}</svg>`,
+            ),
+        ).toThrow("element limit");
+    });
 });
 
-async function render(markdown: string, extension = createMarkedMermaid()) {
+interface RenderOptions {
+    renderDiagram?: NonNullable<Parameters<typeof createMarkedMermaid>[0]["renderDiagram"]>;
+    scope?: MermaidRenderScope;
+}
+
+async function render(markdown: string, { renderDiagram = () => Promise.resolve(safeSvg), scope }: RenderOptions = {}) {
+    const activeScope = scope ?? createMermaidRenderScope("test-scope");
+    const ownedScope = scope ? undefined : activeScope;
     const marked = new Marked({ gfm: true });
-    marked.use(extension);
-    return await Promise.resolve(marked.parse(markdown, { async: true }));
+    marked.use(createMarkedMermaid({ renderDiagram, scope: activeScope }));
+    try {
+        return await Promise.resolve(marked.parse(markdown, { async: true }));
+    } finally {
+        ownedScope?.dispose();
+    }
 }
