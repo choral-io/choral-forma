@@ -54,7 +54,7 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
     viewerCanvas.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0");
 
     const tools = createTools({ canvasId, caption: captionText });
-    caption.append(tools.element);
+    caption.append(tools.expand, tools.element);
 
     let controller = createController(viewerCanvas, viewerSvg, tools, announce);
     let dialog: HTMLDialogElement | undefined;
@@ -100,6 +100,7 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
         closeDialog();
         controller.destroy();
         tools.element.remove();
+        tools.expand.remove();
         help.remove();
         status.remove();
         delete viewerCanvas.dataset.mermaidViewer;
@@ -251,8 +252,8 @@ function createTools({
     panel.append(zoomOut, reset, zoomIn);
     let expand: HTMLButtonElement | undefined;
     if (includeExpand) {
-        expand = createButton(`Expand ${caption}`, "Expand", canvasId);
-        panel.append(expand);
+        expand = createButton(`Expand ${caption}`, "Expand diagram", canvasId);
+        expand.classList.add("mermaid-diagram-expand");
     }
     element.append(summary, panel);
     return { element, expand: expand ?? createButton(`Expand ${caption}`, "Expand", canvasId), reset, zoomIn, zoomOut };

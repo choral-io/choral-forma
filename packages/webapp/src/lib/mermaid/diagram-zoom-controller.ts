@@ -71,6 +71,8 @@ export function createSvgDiagramZoomController({
         svgTransform: svg.style.transform,
         svgTransformOrigin: svg.style.transformOrigin,
         svgUserSelect: svg.style.userSelect,
+        svgHeight: svg.style.height,
+        svgWidth: svg.style.width,
     };
     const activePointers = new Map<number, PointerSnapshot>();
     let destroyed = false;
@@ -79,6 +81,7 @@ export function createSvgDiagramZoomController({
     let hasUserAdjusted = false;
     let interactionTimer: ReturnType<typeof setTimeout> | undefined;
     let pinch: PinchGesture | undefined;
+    let fittedBounds = baseBounds;
     let scale: number = mermaidDiagramZoom.minScale;
     let x = 0;
     let y = 0;
@@ -97,6 +100,7 @@ export function createSvgDiagramZoomController({
         typeof ResizeObserver === "undefined"
             ? undefined
             : new ResizeObserver(() => {
+                  fitDiagramToCanvas();
                   if (hasUserAdjusted) {
                       constrain();
                   } else {
@@ -144,6 +148,8 @@ export function createSvgDiagramZoomController({
         svg.style.transform = originalStyles.svgTransform;
         svg.style.transformOrigin = originalStyles.svgTransformOrigin;
         svg.style.userSelect = originalStyles.svgUserSelect;
+        svg.style.height = originalStyles.svgHeight;
+        svg.style.width = originalStyles.svgWidth;
     }
 
     function getState(): SvgDiagramZoomState {
@@ -304,8 +310,8 @@ export function createSvgDiagramZoomController({
     function initialPosition() {
         const canvasBounds = boundsFor(canvas);
         return {
-            x: (canvasBounds.width - baseBounds.width * mermaidDiagramZoom.minScale) / 2,
-            y: (canvasBounds.height - baseBounds.height * mermaidDiagramZoom.minScale) / 2,
+            x: (canvasBounds.width - fittedBounds.width * mermaidDiagramZoom.minScale) / 2,
+            y: (canvasBounds.height - fittedBounds.height * mermaidDiagramZoom.minScale) / 2,
         };
     }
 
@@ -320,6 +326,7 @@ export function createSvgDiagramZoomController({
 
     function reset() {
         hasUserAdjusted = false;
+        fitDiagramToCanvas();
         scale = mermaidDiagramZoom.minScale;
         const initial = initialPosition();
         x = initial.x;
@@ -373,9 +380,20 @@ export function createSvgDiagramZoomController({
     function constrainedPosition(nextX: number, nextY: number, nextScale: number) {
         const canvasBounds = boundsFor(canvas);
         return {
-            x: clampPanAxis(nextX, baseBounds.width * nextScale, canvasBounds.width),
-            y: clampPanAxis(nextY, baseBounds.height * nextScale, canvasBounds.height),
+            x: clampPanAxis(nextX, fittedBounds.width * nextScale, canvasBounds.width),
+            y: clampPanAxis(nextY, fittedBounds.height * nextScale, canvasBounds.height),
         };
+    }
+
+    function fitDiagramToCanvas() {
+        const canvasBounds = boundsFor(canvas);
+        const fitScale = Math.min(1, canvasBounds.width / baseBounds.width);
+        fittedBounds = {
+            height: baseBounds.height * fitScale,
+            width: baseBounds.width * fitScale,
+        };
+        svg.style.height = "auto";
+        svg.style.width = `${String(fittedBounds.width)}px`;
     }
 
     function notify() {
