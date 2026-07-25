@@ -34,6 +34,13 @@ export function createGraphRuntime(options: GraphRuntimeOptions): GraphRuntime {
     return new SigmaGraphRuntime(options);
 }
 
+export function shouldAllowGraphWheelZoom(
+    event: Pick<WheelEvent, "ctrlKey">,
+    isPhysicalControlKeyPressed: boolean,
+): boolean {
+    return event.ctrlKey && isPhysicalControlKeyPressed;
+}
+
 class SigmaGraphRuntime implements GraphRuntime {
     readonly #container: HTMLElement;
     readonly #layoutOptions: GraphLayoutOptions;
@@ -54,6 +61,8 @@ class SigmaGraphRuntime implements GraphRuntime {
     #resizeObserver: ResizeObserver;
     #snapshot: GraphViewSnapshot;
     #theme: GraphTheme;
+    #isPhysicalControlKeyPressed = false;
+    #windowEventTarget: Window | undefined;
 
     constructor(options: GraphRuntimeOptions) {
         this.#container = options.container;
@@ -78,6 +87,7 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#container.setAttribute("aria-label", options.ariaLabel ?? "Interactive knowledge graph");
         if (!this.#container.hasAttribute("tabindex")) this.#container.tabIndex = 0;
         this.#container.addEventListener("keydown", this.#handleKeyDown);
+        this.#bindWheelZoomModifier();
         this.#resizeObserver = new ResizeObserver(this.#handleResize);
         this.#resizeObserver.observe(this.#container);
         this.#bindRendererEvents();
@@ -135,6 +145,10 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#destroyed = true;
         cancelAnimationFrame(this.#resizeFrame);
         this.#container.removeEventListener("keydown", this.#handleKeyDown);
+        this.#container.removeEventListener("wheel", this.#handleWheelCapture, { capture: true });
+        this.#windowEventTarget?.removeEventListener("keydown", this.#handleControlKeyDown);
+        this.#windowEventTarget?.removeEventListener("keyup", this.#handleControlKeyUp);
+        this.#windowEventTarget?.removeEventListener("blur", this.#clearControlKey);
         this.#resizeObserver.disconnect();
         this.#layout.destroy();
         this.#renderer.kill();
@@ -195,6 +209,17 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#renderer.on("afterRender", () => {
             this.#drawEdgeFocus();
         });
+    }
+
+    #bindWheelZoomModifier(): void {
+        // Sigma consumes wheel events to zoom. Capture non-opted-in events before
+        // its bubble listener without cancelling their browser scroll default.
+        this.#container.addEventListener("wheel", this.#handleWheelCapture, { capture: true });
+        if (typeof window === "undefined") return;
+        this.#windowEventTarget = window;
+        this.#windowEventTarget.addEventListener("keydown", this.#handleControlKeyDown);
+        this.#windowEventTarget.addEventListener("keyup", this.#handleControlKeyUp);
+        this.#windowEventTarget.addEventListener("blur", this.#clearControlKey);
     }
 
     #replaceGraph(graph: GraphologyViewGraph): void {
@@ -287,6 +312,23 @@ class SigmaGraphRuntime implements GraphRuntime {
             if (this.#destroyed || this.#container.offsetWidth <= 0 || this.#container.offsetHeight <= 0) return;
             this.#renderer.resize().scheduleRender();
         });
+    };
+
+    #handleWheelCapture = (event: WheelEvent): void => {
+        if (shouldAllowGraphWheelZoom(event, this.#isPhysicalControlKeyPressed)) return;
+        event.stopImmediatePropagation();
+    };
+
+    #handleControlKeyDown = (event: KeyboardEvent): void => {
+        if (event.key === "Control") this.#isPhysicalControlKeyPressed = true;
+    };
+
+    #handleControlKeyUp = (event: KeyboardEvent): void => {
+        if (event.key === "Control") this.#isPhysicalControlKeyPressed = false;
+    };
+
+    #clearControlKey = (): void => {
+        this.#isPhysicalControlKeyPressed = false;
     };
 
     #handleKeyDown = (event: KeyboardEvent): void => {
