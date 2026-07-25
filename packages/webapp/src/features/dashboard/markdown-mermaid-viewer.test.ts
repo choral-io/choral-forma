@@ -8,6 +8,7 @@ const zoomMocks = vi.hoisted(() => {
         getState: ReturnType<typeof vi.fn>;
         panBy: ReturnType<typeof vi.fn>;
         reset: ReturnType<typeof vi.fn>;
+        zoomTo: ReturnType<typeof vi.fn>;
         zoomIn: ReturnType<typeof vi.fn>;
         zoomOut: ReturnType<typeof vi.fn>;
     }[] = [];
@@ -26,6 +27,7 @@ const zoomMocks = vi.hoisted(() => {
                 })),
                 panBy: vi.fn(),
                 reset: vi.fn(),
+                zoomTo: vi.fn(),
                 zoomIn: vi.fn(),
                 zoomOut: vi.fn(),
             };
@@ -37,6 +39,7 @@ const zoomMocks = vi.hoisted(() => {
 
 vi.mock("@/lib/mermaid", () => ({
     createSvgDiagramZoomController: zoomMocks.createSvgDiagramZoomController,
+    mermaidDiagramZoom: { maxScale: 3, minScale: 1 },
 }));
 
 import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
@@ -66,35 +69,42 @@ describe("enhanceMermaidDiagrams", () => {
         document.body.replaceChildren();
     });
 
-    it("adds a compact, accessible contextual control surface without changing the source disclosure", () => {
+    it("adds an always-available, accessible zoom rail without changing the source disclosure", () => {
         const root = fixture();
         const cleanup = enhanceMermaidDiagrams(root);
 
-        const controls = root.querySelector<HTMLDetailsElement>(".mermaid-diagram-tools");
-        expect(controls?.querySelector("summary")?.getAttribute("aria-label")).toBe(
-            "Diagram controls for Flowchart diagram",
-        );
-        expect(controls?.querySelector("summary")?.textContent).toBe("•••");
-        expect(controls?.querySelector("summary")?.getAttribute("title")).toBe("Diagram controls");
-        expect(root.querySelector('[aria-label="Zoom in Flowchart diagram"]')?.getAttribute("aria-controls")).toBe(
-            "diagram-viewport",
-        );
+        const controls = root.querySelector<HTMLDivElement>(".mermaid-diagram-control-rail");
+        expect(controls?.getAttribute("aria-label")).toBe("Controls for Flowchart diagram");
+        expect(root.querySelector("details.mermaid-diagram-tools")).toBeNull();
+        const slider = root.querySelector<HTMLInputElement>('[aria-label="Zoom Flowchart diagram"]');
+        expect(slider?.classList.contains("range-vertical")).toBe(true);
+        expect(slider?.getAttribute("aria-controls")).toBe("diagram-viewport");
+        expect(slider?.min).toBe("100");
+        expect(slider?.max).toBe("300");
+        expect(slider?.step).toBe("5");
         expect(
             root.querySelector<HTMLButtonElement>('[aria-label="Reset Flowchart diagram zoom to 100%"]')?.disabled,
         ).toBe(true);
+        expect(
+            root
+                .querySelector<HTMLButtonElement>('[aria-label="Reset Flowchart diagram zoom to 100%"]')
+                ?.querySelector('svg[aria-hidden="true"]'),
+        ).not.toBeNull();
         expect(root.querySelector(".mermaid-diagram-source summary")?.textContent).toBe("View Mermaid source");
         const expand = root.querySelector<HTMLButtonElement>('[aria-label="Expand Flowchart diagram"]');
         expect(expand?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
         expect(expand?.getAttribute("title")).toBe("Expand diagram");
-        expect(expand?.classList.contains("mermaid-diagram-expand")).toBe(true);
-        expect(expand?.classList.contains("btn-md")).toBe(true);
-        expect(expand?.parentElement).toBe(root.querySelector(".mermaid-diagram-viewport"));
+        expect(expand?.classList.contains("join-item")).toBe(true);
+        expect(expand?.parentElement).toBe(controls);
         expect(root.querySelector(".mermaid-diagram-viewport")?.getAttribute("aria-keyshortcuts")).toBe(
             "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0",
         );
 
-        root.querySelector<HTMLButtonElement>('[aria-label="Zoom in Flowchart diagram"]')?.click();
-        expect(zoomMocks.controllers[0]?.zoomIn).toHaveBeenCalledOnce();
+        if (slider) {
+            slider.value = "150";
+            slider.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        expect(zoomMocks.controllers[0]?.zoomTo).toHaveBeenCalledWith(1.5);
         cleanup();
     });
 
@@ -123,7 +133,7 @@ describe("enhanceMermaidDiagrams", () => {
         expect(zoomMocks.controllers).toHaveLength(3);
         cleanup();
         expect(zoomMocks.controllers[2]?.destroy).toHaveBeenCalledOnce();
-        expect(root.querySelector(".mermaid-diagram-tools")).toBeNull();
+        expect(root.querySelector(".mermaid-diagram-control-rail")).toBeNull();
     });
 });
 

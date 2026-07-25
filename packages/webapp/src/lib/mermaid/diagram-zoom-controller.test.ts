@@ -45,8 +45,10 @@ describe("SvgDiagramZoomController", () => {
 
         controller.zoomIn();
         expect(controller.getState()).toMatchObject({ canZoomOut: true, scale: 1.25 });
+        controller.zoomTo(1.5);
+        expect(controller.getState()).toMatchObject({ scale: 1.5 });
         controller.panBy(-10_000, -10_000);
-        expect(controller.getState()).toMatchObject({ x: -75, y: -50 });
+        expect(controller.getState()).toMatchObject({ x: -150, y: -100 });
 
         controller.reset();
         expect(controller.getState()).toMatchObject({ canReset: false, scale: 1, x: 0, y: 0 });
@@ -80,12 +82,12 @@ describe("SvgDiagramZoomController", () => {
     });
 
     it("maps continuous wheel and pinch input to conservative bounded zoom factors", () => {
-        expect(wheelScaleFactor(-10)).toBeCloseTo(Math.exp(0.015));
+        expect(wheelScaleFactor(-10)).toBeCloseTo(Math.exp(0.05));
         expect(wheelScaleFactor(-10)).toBeLessThan(1 + mermaidDiagramZoom.buttonStep);
-        expect(wheelScaleFactor(-10_000)).toBeCloseTo(Math.exp(0.18));
-        expect(wheelScaleFactor(10_000)).toBeCloseTo(Math.exp(-0.18));
-        expect(pinchScaleFactor(160, 100)).toBeCloseTo(Math.sqrt(1.6));
-        expect(pinchScaleFactor(160, 100)).toBeLessThan(1 + mermaidDiagramZoom.buttonStep + 0.02);
+        expect(wheelScaleFactor(-10_000)).toBeCloseTo(Math.exp(0.225));
+        expect(wheelScaleFactor(10_000)).toBeCloseTo(Math.exp(-0.225));
+        expect(pinchScaleFactor(160, 100)).toBeCloseTo(1.6 ** mermaidDiagramZoom.pinchExponent);
+        expect(pinchScaleFactor(160, 100)).toBeLessThan(1.6);
         expect(pinchScaleFactor(160, 0)).toBe(1);
     });
 
@@ -144,7 +146,9 @@ describe("SvgDiagramZoomController", () => {
         canvas.dispatchEvent(
             pointer("pointermove", { clientX: 260, clientY: 100, pointerId: 3, pointerType: "touch" }),
         );
-        expect(controller.getState().scale).toBeCloseTo((1 + mermaidDiagramZoom.buttonStep) * Math.sqrt(1.6));
+        expect(controller.getState().scale).toBeCloseTo(
+            (1 + mermaidDiagramZoom.buttonStep) * 1.6 ** mermaidDiagramZoom.pinchExponent,
+        );
 
         controller.destroy();
         expect(canvas.style.touchAction).toBe("");
