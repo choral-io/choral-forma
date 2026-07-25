@@ -284,6 +284,47 @@ The Table prototype is authorized only under this contract:
 5. **Lifecycle and reuse seam:** visibility and alignment remain correct after viewport resize, browser zoom, theme changes, configured label/content changes, projection rerender, and component unmount, with observers and listeners cleaned up. The proof must keep boundary lifecycle inputs projection-neutral while Table geometry remains Table-specific.
 6. **Completion:** Light and Dark themes, keyboard Table scrolling, focus visibility, content before and after the projection, console output, focused automated checks, production build, and project-native validation pass. If any gate is unreliable, stop without starting Kanban or forcing a partial solution.
 
+## Table Visual Prototype Result — 2026-07-25
+
+The bounded Table implementation passed its proof gates without a dependency, nested vertical scroller, fixed projection height, page-level horizontal overflow, Kanban change, or VS Code change.
+
+### Implemented contract and reuse seam
+
+- A projection-neutral boundary controller owns reveal, hide, responsive sticky-offset measurement, animation-frame scheduling, resize observation, document-scroll observation, and cleanup.
+- The Table adapter remains feature-specific. It measures the authoritative `<thead>` cell widths into a presentation-only `<colgroup>`, mirrors only the Table scroller's `scrollLeft`, and renders configured labels in one `aria-hidden` visual header.
+- The real Table remains semantic and authoritative, with one `<thead>` and seven `<th scope="col">` elements in the representative fixture.
+- The visual header is outside the horizontal overflow ancestor, `aria-hidden`, `pointer-events: none`, and has no focusable descendants.
+- The existing Table scroller is now a named, focus-visible region so horizontal overflow remains keyboard-accessible.
+- The controller accepts projection-neutral boundary, source, sticky presentation, observed elements, and presentation-sync inputs. A later Kanban adapter can reuse that lifecycle while supplying controlled column-rail geometry; no Kanban source behavior was implemented or tested in this slice.
+
+### Responsive geometry evidence
+
+The production WebApp build was served through the real Forma backend with the 80-row, seven-column Table fixture, long labels, local horizontal overflow, and Markdown before and after the projection.
+
+| Width | Active vertical owner | Required top | Measured visual-header top | Horizontal start / midpoint / maximum | Maximum cell left/width delta | Page root overflow |
+| --: | --- | --: | --: | --- | --: | --- |
+| 1440 px | View route `<main>` | 112 px | 112 px | 0 / 165 / 330 px | 0 / 0 px | none |
+| 1024 px | Route frame | 112 px | 112 px | 0 / 273 / 546 px | 0 / 0 px | none |
+| 768 px | Route frame | 0 px | 0 px | 0 / 365 / 730 px | 0 / 0 px | none |
+| 390 px | Route frame | 0 px | 0 px | 0 / 546 / 1092 px | 0 / 0 px | none |
+
+At every width, the sticky grid overlay and bordered Table wrapper both measured 8889 px high, proving that the overlapping presentation adds no document height. `document.scrollWidth === document.clientWidth` remained true.
+
+A temporary browser-only after-content spacer let the projection boundary pass the sticky offset. At 1440 and 1024 px the visual header's bottom stopped exactly at the 142 px projection boundary; at 768 and 390 px it stopped exactly at the 30 px boundary. The controller removed the visible state before the header could cross into following content.
+
+### Accessibility, theme, and resilience evidence
+
+- The browser accessibility snapshot contained the seven real column headers once and could not find an accessibility node for the visual header.
+- The visual header remained `aria-hidden`, contained zero focusable descendants, and computed to `pointer-events: none`.
+- The named Table region moved from `scrollLeft: 0` to `240` through Arrow Right input at 390 px; the visual header followed to `240`, and the focus ring computed as the semantic primary color at 3 px.
+- The directly relevant Axe `scrollable-region-focusable` violation was removed. The remaining audit findings concern the pre-existing workspace Drawer checkbox outside this Table slice.
+- Light and Dark both used semantic DaisyUI surfaces and borders. The pinned header measured `bg-base-200` as `oklch(0.97 0 0)` with `border-base-300` as `oklch(0.922 0 0)` in Light, and `oklch(0.205 0 0)` / `oklch(0.269 0 0)` in Dark.
+- At 125% root text zoom and 1024 px width, the route Header and sticky offset both expanded to 140 px; all cell left and width deltas remained zero and the page root retained no horizontal overflow.
+- A browser-only content change expanded one real column from 124.0625 px to 598.25 px and the observed visual column followed with zero left or width delta.
+- SPA navigation removed the Table presentation completely on unmount and restored exactly one visual header with seven semantic headers on remount. Console and page-error output remained empty.
+
+Focused automated validation covers hidden/revealed/end-boundary decisions. WebApp type checking, lint, focused tests, and the production build passed. The existing build-size advisory remained unchanged.
+
 ## Acceptance Criteria
 
 - A long Table keeps its column headers visible during vertical scrolling without losing horizontal scrolling or column alignment.

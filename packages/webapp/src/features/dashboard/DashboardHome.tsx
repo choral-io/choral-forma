@@ -41,6 +41,7 @@ import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/w
 import { formatEntrySupportedLanguages } from "./entry-languages";
 import { prewarmMarkdownHighlighter } from "./markdown-shiki";
 import { MarkdownReader } from "./MarkdownReader";
+import { createProjectionStickyBoundaryController } from "./projection-sticky-boundary";
 
 const ViewGraphProjection = lazy(async () => {
     const module = await import("./ViewGraphProjection");
@@ -1753,10 +1754,47 @@ function ViewListProjectionRow({ item }: { item: DashboardViewProjectionItem }) 
 }
 
 function ViewTableProjection({ projection }: { projection: Extract<DashboardViewProjection, { kind: "table" }> }) {
+    const boundaryRef = useRef<HTMLDivElement>(null);
+    const headerRef = useRef<HTMLTableSectionElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const stickyHeaderRef = useRef<HTMLDivElement>(null);
+    const stickyTableRef = useRef<HTMLTableElement>(null);
+    const tableRef = useRef<HTMLTableElement>(null);
+
+    useEffect(() => {
+        const boundary = boundaryRef.current;
+        const header = headerRef.current;
+        const scroll = scrollRef.current;
+        const stickyHeader = stickyHeaderRef.current;
+        const stickyTable = stickyTableRef.current;
+        const table = tableRef.current;
+        if (!boundary || !header || !scroll || !stickyHeader || !stickyTable || !table) return;
+
+        return createProjectionStickyBoundaryController({
+            boundary,
+            observe: [table],
+            source: header,
+            sticky: stickyHeader,
+            syncPresentation: () => {
+                syncTableStickyHeaderGeometry({ header, scroll, stickyHeader, stickyTable, table });
+            },
+        });
+    }, [projection]);
+
     return (
-        <div className="border-base-300 overflow-hidden rounded-lg border">
-            <div className="overflow-x-auto">
-                <table className="table-sm table min-w-max">
+        <div className="relative grid" ref={boundaryRef}>
+            <div
+                aria-hidden="true"
+                className="border-base-300 pointer-events-none invisible sticky top-0 z-10 col-start-1 row-start-1 self-start overflow-hidden rounded-lg border data-sticky-visible:visible lg:top-28 xl:top-0"
+                data-view-sticky-header=""
+                ref={stickyHeaderRef}
+            >
+                <table className="table-sm table min-w-0 table-fixed" ref={stickyTableRef}>
+                    <colgroup>
+                        {projection.columns.map((column) => (
+                            <col key={column.field} />
+                        ))}
+                    </colgroup>
                     <thead className="bg-base-200 text-base-content/60">
                         <tr className="border-base-300 border-b">
                             {projection.columns.map((column) => (
@@ -1766,24 +1804,73 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
                             ))}
                         </tr>
                     </thead>
-                    <tbody>
-                        {projection.items.map((item) => (
-                            <tr
-                                className="border-base-300 hover:bg-base-200/50 border-b last:border-b-0"
-                                key={item.path}
-                            >
+                </table>
+            </div>
+            <div className="border-base-300 col-start-1 row-start-1 overflow-hidden rounded-lg border">
+                <div
+                    aria-label="Table view"
+                    className="focus-visible:ring-primary/40 overflow-x-auto overscroll-x-contain outline-none focus-visible:ring-3"
+                    data-view-table-scroll=""
+                    onScroll={(event) => {
+                        if (stickyHeaderRef.current)
+                            stickyHeaderRef.current.scrollLeft = event.currentTarget.scrollLeft;
+                    }}
+                    ref={scrollRef}
+                    role="region"
+                    tabIndex={0}
+                >
+                    <table className="table-sm table min-w-max" ref={tableRef}>
+                        <thead className="bg-base-200 text-base-content/60" ref={headerRef}>
+                            <tr className="border-base-300 border-b">
                                 {projection.columns.map((column) => (
-                                    <td className="max-w-80 align-top" key={`${item.path}-${column.field}`}>
-                                        <ViewProjectionCell column={column} item={item} />
-                                    </td>
+                                    <th className="font-medium whitespace-nowrap" key={column.field} scope="col">
+                                        {column.label}
+                                    </th>
                                 ))}
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {projection.items.map((item) => (
+                                <tr
+                                    className="border-base-300 hover:bg-base-200/50 border-b last:border-b-0"
+                                    key={item.path}
+                                >
+                                    {projection.columns.map((column) => (
+                                        <td className="max-w-80 align-top" key={`${item.path}-${column.field}`}>
+                                            <ViewProjectionCell column={column} item={item} />
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );
+}
+
+function syncTableStickyHeaderGeometry({
+    header,
+    scroll,
+    stickyHeader,
+    stickyTable,
+    table,
+}: {
+    header: HTMLTableSectionElement;
+    scroll: HTMLDivElement;
+    stickyHeader: HTMLDivElement;
+    stickyTable: HTMLTableElement;
+    table: HTMLTableElement;
+}) {
+    const headerCells = header.querySelectorAll("th");
+    const stickyColumns = stickyTable.querySelectorAll("col");
+    headerCells.forEach((cell, index) => {
+        const stickyColumn = stickyColumns.item(index);
+        stickyColumn.style.width = `${cell.getBoundingClientRect().width.toString()}px`;
+    });
+    stickyTable.style.width = `${table.getBoundingClientRect().width.toString()}px`;
+    stickyHeader.scrollLeft = scroll.scrollLeft;
 }
 
 function ViewProjectionCell({
