@@ -140,19 +140,14 @@ export function WorkspaceRouteFrame({
                 At lg+ the chrome takes over — header Theme, header Outline toggle
                 in the lg..xl band, sidebar Quick Open, xl Outline aside — so the
                 FAB stays hidden and never becomes a lone-button dial. */}
-            <div className="fab lg:hidden">
+            <div className="fab lg:hidden!">
                 <button
                     aria-expanded={isFabOpen}
                     aria-label="Open page actions"
                     className="btn btn-circle btn-lg btn-neutral"
                     tabIndex={0}
                     type="button"
-                    onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                            setFabOpen(true);
-                        }
-                    }}
-                    onPointerDown={() => {
+                    onClick={() => {
                         setFabOpen(true);
                     }}
                 >

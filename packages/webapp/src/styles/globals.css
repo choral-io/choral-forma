@@ -112,14 +112,6 @@
     pointer-events: auto;
 }
 
-/* The FAB is mobile-only workspace chrome. Keep daisyUI's component display
-   rule from overriding the responsive utility at desktop widths. */
-@media (width >= 64rem) {
-    [data-workspace-shell] .fab {
-        display: none;
-    }
-}
-
 /* daisyUI's FAB motion is not gated by reduced-motion. Keep the narrow,
    workspace-scoped exception here; dialogs use Tailwind's
    motion-reduce:transition-none utility at each instance. */
