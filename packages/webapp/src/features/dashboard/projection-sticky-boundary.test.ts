@@ -59,11 +59,11 @@ describe("projection sticky header boundary", () => {
         ).toBe(false);
     });
 
-    it("uses semantic presentation tokens and a top-only box radius", () => {
+    it("uses semantic presentation tokens with square overlay corners", () => {
         expect(projectionStickyHeaderClassName).toContain("bg-base-100");
         expect(projectionStickyHeaderClassName).toContain("border-base-300");
         expect(projectionStickyHeaderClassName).toContain("text-base-content");
         expect(projectionStickyHeaderClassName).toContain(projectionStickyHeaderSurfaceClassName);
-        expect(projectionStickyHeaderSurfaceClassName).toBe("rounded-t-[var(--radius-box)] rounded-b-none");
+        expect(projectionStickyHeaderSurfaceClassName).toBe("rounded-none");
     });
 });
