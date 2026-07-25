@@ -141,6 +141,12 @@ describe("enhanceMermaidDiagrams", () => {
         expect(collapse?.classList.contains("btn-circle")).toBe(true);
         expect(collapse?.classList.contains("join-item")).toBe(false);
         expect(collapse?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+        expect(Array.from(collapse?.querySelectorAll("path") ?? []).map((path) => path.getAttribute("d"))).toEqual([
+            "m14 10 7-7",
+            "M20 10h-6V4",
+            "m3 21 7-7",
+            "M4 14h6v6",
+        ]);
         expect(dialog?.querySelector('[aria-label="Close expanded diagram"]')).toBeNull();
         expect(dialog?.querySelector("form.modal-backdrop")).toBeNull();
         expect(dialog?.classList.contains("modal")).toBe(false);
