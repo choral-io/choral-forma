@@ -29,16 +29,25 @@ import {
 } from "./types.ts";
 
 type GraphRenderer = Sigma<GraphologyNodeAttributes, GraphologyEdgeAttributes>;
+type GraphWheelZoomModifierState = {
+    isMacOS: boolean;
+    isPhysicalControlKeyPressed: boolean;
+    isPhysicalMetaKeyPressed: boolean;
+};
 
 export function createGraphRuntime(options: GraphRuntimeOptions): GraphRuntime {
     return new SigmaGraphRuntime(options);
 }
 
 export function shouldAllowGraphWheelZoom(
-    event: Pick<WheelEvent, "ctrlKey">,
-    isPhysicalControlKeyPressed: boolean,
+    event: Pick<WheelEvent, "ctrlKey" | "metaKey">,
+    modifierState: GraphWheelZoomModifierState,
 ): boolean {
-    return event.ctrlKey && isPhysicalControlKeyPressed;
+    // Chromium uses ctrlKey for trackpad pinch WheelEvents. A physical Control
+    // key distinguishes an intentional Ctrl-wheel from that synthetic pinch.
+    if (event.ctrlKey && !modifierState.isPhysicalControlKeyPressed) return true;
+    if (modifierState.isMacOS) return event.metaKey && modifierState.isPhysicalMetaKeyPressed;
+    return event.ctrlKey && modifierState.isPhysicalControlKeyPressed;
 }
 
 class SigmaGraphRuntime implements GraphRuntime {
@@ -61,7 +70,9 @@ class SigmaGraphRuntime implements GraphRuntime {
     #resizeObserver: ResizeObserver;
     #snapshot: GraphViewSnapshot;
     #theme: GraphTheme;
+    #isMacOS = isMacOSPlatform();
     #isPhysicalControlKeyPressed = false;
+    #isPhysicalMetaKeyPressed = false;
     #windowEventTarget: Window | undefined;
 
     constructor(options: GraphRuntimeOptions) {
@@ -146,9 +157,9 @@ class SigmaGraphRuntime implements GraphRuntime {
         cancelAnimationFrame(this.#resizeFrame);
         this.#container.removeEventListener("keydown", this.#handleKeyDown);
         this.#container.removeEventListener("wheel", this.#handleWheelCapture, { capture: true });
-        this.#windowEventTarget?.removeEventListener("keydown", this.#handleControlKeyDown);
-        this.#windowEventTarget?.removeEventListener("keyup", this.#handleControlKeyUp);
-        this.#windowEventTarget?.removeEventListener("blur", this.#clearControlKey);
+        this.#windowEventTarget?.removeEventListener("keydown", this.#handleModifierKeyDown);
+        this.#windowEventTarget?.removeEventListener("keyup", this.#handleModifierKeyUp);
+        this.#windowEventTarget?.removeEventListener("blur", this.#clearModifierKeys);
         this.#resizeObserver.disconnect();
         this.#layout.destroy();
         this.#renderer.kill();
@@ -217,9 +228,9 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#container.addEventListener("wheel", this.#handleWheelCapture, { capture: true });
         if (typeof window === "undefined") return;
         this.#windowEventTarget = window;
-        this.#windowEventTarget.addEventListener("keydown", this.#handleControlKeyDown);
-        this.#windowEventTarget.addEventListener("keyup", this.#handleControlKeyUp);
-        this.#windowEventTarget.addEventListener("blur", this.#clearControlKey);
+        this.#windowEventTarget.addEventListener("keydown", this.#handleModifierKeyDown);
+        this.#windowEventTarget.addEventListener("keyup", this.#handleModifierKeyUp);
+        this.#windowEventTarget.addEventListener("blur", this.#clearModifierKeys);
     }
 
     #replaceGraph(graph: GraphologyViewGraph): void {
@@ -315,20 +326,31 @@ class SigmaGraphRuntime implements GraphRuntime {
     };
 
     #handleWheelCapture = (event: WheelEvent): void => {
-        if (shouldAllowGraphWheelZoom(event, this.#isPhysicalControlKeyPressed)) return;
+        if (
+            shouldAllowGraphWheelZoom(event, {
+                isMacOS: this.#isMacOS,
+                isPhysicalControlKeyPressed: this.#isPhysicalControlKeyPressed,
+                isPhysicalMetaKeyPressed: this.#isPhysicalMetaKeyPressed,
+            })
+        ) {
+            return;
+        }
         event.stopImmediatePropagation();
     };
 
-    #handleControlKeyDown = (event: KeyboardEvent): void => {
+    #handleModifierKeyDown = (event: KeyboardEvent): void => {
         if (event.key === "Control") this.#isPhysicalControlKeyPressed = true;
+        if (event.key === "Meta") this.#isPhysicalMetaKeyPressed = true;
     };
 
-    #handleControlKeyUp = (event: KeyboardEvent): void => {
+    #handleModifierKeyUp = (event: KeyboardEvent): void => {
         if (event.key === "Control") this.#isPhysicalControlKeyPressed = false;
+        if (event.key === "Meta") this.#isPhysicalMetaKeyPressed = false;
     };
 
-    #clearControlKey = (): void => {
+    #clearModifierKeys = (): void => {
         this.#isPhysicalControlKeyPressed = false;
+        this.#isPhysicalMetaKeyPressed = false;
     };
 
     #handleKeyDown = (event: KeyboardEvent): void => {
@@ -343,6 +365,10 @@ class SigmaGraphRuntime implements GraphRuntime {
             this.fit();
         }
     };
+}
+
+function isMacOSPlatform(): boolean {
+    return typeof navigator !== "undefined" && navigator.platform.startsWith("Mac");
 }
 
 type EdgeFocusRenderer = Pick<
