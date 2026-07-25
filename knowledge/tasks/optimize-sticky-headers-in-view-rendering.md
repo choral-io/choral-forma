@@ -151,17 +151,70 @@ As a causality check, the probe temporarily changed both projection overflow anc
 
 Theme styling, focus geometry, and final projection-boundary behavior were not claimed as validated because the feasibility gate failed before a deliverable sticky state existed. Existing semantic markup, theme roles, accessible column headers, responsive widths, and overflow behavior remain unchanged.
 
-## Proposed Projection Scroll-Contract Follow-up
+## Projection Scroll-Contract Design Result — 2026-07-25
 
-Design a focused follow-up before resuming Table implementation. It should decide how a projection can own horizontal overflow while its sticky descendants use the responsive page-owned vertical scroll surface.
+The follow-up design did not find a browser-native CSS and semantic-markup contract that satisfies all approved constraints simultaneously:
 
-The follow-up must:
+- the page owns vertical scrolling;
+- the projection owns horizontal scrolling;
+- the sticky header follows the page scroll and stops at the projection boundary;
+- the page root does not gain horizontal overflow;
+- the projection does not gain a bounded or independent vertical scroller; and
+- no JavaScript scroll synchronization or duplicated visual header is introduced.
 
-1. define the vertical owner, horizontal owner, sticky containing block, route Header offset, and projection start/end boundaries as one explicit layout contract at 1440, 1024, 768, and 390 px;
-2. prototype a semantic Table with representative long and wide data through the real backend before changing Kanban or VS Code;
-3. preserve projection-local horizontal scrolling, root overflow, column alignment, focus visibility, Light and Dark theme roles, and content before and after the projection;
-4. reject JavaScript scroll synchronization, duplicated visual headers, hidden nested vertical scrolling, fixed projection heights, global overflow clipping, and premature generic abstractions; and
-5. return either a browser-native contract that passes geometry validation or an explicit product limitation. Only the passing native contract may unblock this task's Table gate and later slices.
+This is a platform containing-block conflict rather than a missing Tailwind or DaisyUI modifier. CSS sticky positioning follows the nearest ancestor that establishes a scrolling mechanism on either axis. An ancestor that provides `overflow-x: auto` therefore captures vertical sticky positioning even when it has no usable vertical scroll range.
+
+### Focused browser proof
+
+An isolated browser proof reproduced the relevant Table and Kanban markup with content before and after each projection. It exercised a 1200 px semantic Table at 1024 and 390 px browser widths and measured the same geometry in both responsive states.
+
+| Option | Sticky follows page | Projection-local horizontal scroll | Page horizontal overflow | Natural page vertical scroll | Result |
+| --- | --- | --- | --- | --- | --- |
+| Current `overflow-x: auto` wrapper | no | yes | no | yes | rejected |
+| Wrapper with explicit `overflow-y: clip` | no | yes | no | yes | rejected |
+| Remove projection overflow ancestors | yes | no | yes | yes | rejected |
+| Projection owns both axes | yes | yes | no | no | rejected |
+| Split sticky header from scrollable body | yes | yes | no | yes | rejected without synchronization |
+| Current natural-height Kanban board | no | yes | no | yes | rejected |
+
+The explicit clip option computed to `overflow: auto / hidden` and still captured sticky positioning. Removing the overflow ancestors let sticky pass, but a 1200 px Table increased the page scroll owner's width from 718 to 1217 px in the desktop proof and from 322 to 1217 px in the mobile proof.
+
+The bounded two-axis option passed sticky and local horizontal scrolling only by making the projection a vertical scroller with a fixed maximum height. The split-header option passed sticky and local horizontal ownership, but after the body scrolled 240 px horizontally the header and body were misaligned by 240 px. Closing that gap requires scroll synchronization. It also requires either two tables, which breaks native header associations, or an `aria-hidden` visual clone alongside the original semantic header.
+
+The Kanban proof reproduced the same containing-block failure with natural-height columns. Moving its headers outside the board scroller would likewise separate each heading from its column geometry and require horizontal synchronization or duplicated headings.
+
+Experimental scroll-driven animation, fixed-position, and view-timeline approaches are not a smaller native contract. They would reconstruct sticky lifecycle and projection boundaries through animation, have weaker cross-browser and Electron host support, and still need explicit horizontal alignment behavior.
+
+### Recommendation and decision boundary
+
+Do not implement sticky Table, Kanban, or VS Code headers under the current constraints. Preserve the current semantic, theme-safe, projection-local horizontal scrolling behavior and treat sticky headers on horizontally overflowing projections as an explicit product limitation.
+
+If sticky headers remain mandatory, a maintainer decision must explicitly relax one constraint before implementation:
+
+1. authorize a feature-local synchronized visual header while retaining the original semantic header;
+2. authorize a bounded two-axis projection scroller and its keyboard/scroll-region contract; or
+3. authorize page-level horizontal scrolling.
+
+The first option is the least disruptive to natural page vertical scrolling, but it is materially broader than the approved native-CSS task. It introduces synchronization, duplicated presentation, accessibility review, responsive offset coordination, and separate Table and Kanban geometry work. It must not be started without explicit approval.
+
+### Accessibility, theme, and responsive implications
+
+- Preserve one semantic `<table>`, `<thead>`, and `<th scope="col">` relationship unless a separately approved visual clone is hidden from the accessibility tree and the original header remains authoritative.
+- Preserve each Kanban heading inside its configured column unless a separately approved visual clone keeps the original section-heading relationship intact.
+- Do not introduce a focusable nested scroll region merely to make sticky positioning work. It would add keyboard scroll ownership, focus indication, accessible naming, and scroll-trap risks.
+- Geometry is theme-independent, but any approved pinned or cloned surface must continue to use semantic base surfaces, borders, and text roles in Light, Dark, forced-colors, and increased-contrast environments.
+- The responsive vertical owner remains `<main>` at 1440 px and the route frame below `xl`. The usable pinned top is 112 px at 1440 and 1024 px, then 0 px after the non-sticky route Header scrolls away at 768 and 390 px.
+- Any broader solution must treat long configured labels, dynamic column counts, text zoom, and narrow viewports as input geometry rather than relying on repeated Header heights or fixed projection dimensions.
+
+### Acceptance gates for any approved contract change
+
+1. Use the real backend with a representative Table and uneven natural-height Kanban columns, including Markdown before and after each projection.
+2. At 1440, 1024, 768, and 390 px, verify the active vertical owner, sticky top offset, projection start/end boundary, and `document.scrollWidth === document.clientWidth`.
+3. At horizontal positions 0, midpoint, and maximum, verify exact header/body or header/column alignment without obscuring focused content.
+4. Preserve projection-local horizontal scrolling with no independent vertical scrolling, fixed projection height, global clipping, or page-level horizontal scrolling unless that exact constraint was explicitly relaxed.
+5. Verify one authoritative accessible Table header relationship and one authoritative heading relationship per Kanban column, with no duplicate accessibility-tree announcements.
+6. Verify keyboard scrolling, focus visibility, zoom, Light and Dark themes, forced colors, and console output.
+7. Complete Table independently before re-evaluating Kanban, then evaluate VS Code native preview as a separate host contract.
 
 ## Acceptance Criteria
 
