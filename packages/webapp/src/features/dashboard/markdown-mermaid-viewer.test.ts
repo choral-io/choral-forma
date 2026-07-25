@@ -69,7 +69,7 @@ describe("enhanceMermaidDiagrams", () => {
         document.body.replaceChildren();
     });
 
-    it("adds an always-available, accessible zoom rail without changing the source disclosure", () => {
+    it("keeps embedded controls compact without changing the source disclosure", () => {
         const root = fixture();
         const cleanup = enhanceMermaidDiagrams(root);
 
@@ -77,17 +77,11 @@ describe("enhanceMermaidDiagrams", () => {
         expect(controls?.getAttribute("aria-label")).toBe("Controls for Flowchart diagram");
         expect(root.querySelector("details.mermaid-diagram-tools")).toBeNull();
         const slider = root.querySelector<HTMLInputElement>('[aria-label="Zoom Flowchart diagram"]');
-        expect(slider?.classList.contains("range-vertical")).toBe(true);
-        expect(slider?.classList.contains("mermaid-diagram-no-fill-range")).toBe(true);
-        expect(slider?.getAttribute("aria-controls")).toBe("diagram-viewport");
-        expect(slider?.min).toBe("100");
-        expect(slider?.max).toBe("300");
-        expect(slider?.step).toBe("5");
-        expect(slider?.parentElement?.classList.contains("mermaid-diagram-slider-lane")).toBe(true);
-        expect(controls?.children).toHaveLength(2);
+        expect(slider).toBeNull();
+        expect(controls?.children).toHaveLength(1);
         expect(controls?.parentElement?.classList.contains("mermaid-diagram-viewport")).toBe(true);
         const reset = root.querySelector<HTMLButtonElement>('[aria-label="Reset Flowchart diagram zoom to 100%"]');
-        expect(reset?.disabled).toBe(true);
+        expect(reset?.disabled).toBe(false);
         expect(reset?.classList.contains("btn-circle")).toBe(true);
         expect(reset?.classList.contains("join-item")).toBe(false);
         expect(reset?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
@@ -103,11 +97,8 @@ describe("enhanceMermaidDiagrams", () => {
         expect(root.querySelector(".mermaid-diagram-viewport")?.getAttribute("aria-keyshortcuts")).toBe(
             "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0",
         );
-        if (slider) {
-            slider.value = "150";
-            slider.dispatchEvent(new Event("input", { bubbles: true }));
-        }
-        expect(zoomMocks.controllers[0]?.zoomTo).toHaveBeenCalledWith(1.5);
+        reset?.click();
+        expect(zoomMocks.controllers[0]?.reset).toHaveBeenCalledOnce();
         cleanup();
     });
 
@@ -151,6 +142,12 @@ describe("enhanceMermaidDiagrams", () => {
         expect(dialog?.querySelector("form.modal-backdrop")).toBeNull();
         expect(dialog?.classList.contains("modal")).toBe(false);
         expect(zoomMocks.controllers[0]?.destroy).toHaveBeenCalledOnce();
+
+        if (dialogSlider) {
+            dialogSlider.value = "150";
+            dialogSlider.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        expect(zoomMocks.controllers[1]?.zoomTo).toHaveBeenCalledWith(1.5);
 
         collapse?.click();
         expect(root.querySelector(".mermaid-diagram-viewport svg")).not.toBeNull();

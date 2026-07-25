@@ -207,13 +207,10 @@
 
         & .mermaid-diagram-viewport {
             --mermaid-control-inset: 0.75rem;
-            --mermaid-control-slider-height: 5rem;
-            --mermaid-control-rail-gap: 0.5rem;
             --mermaid-control-action-gap: 0.25rem;
             --mermaid-control-button-size: 2rem;
             --mermaid-control-stack-height: calc(
-                var(--mermaid-control-slider-height) + var(--mermaid-control-rail-gap) +
-                    var(--mermaid-control-button-size) + var(--mermaid-control-action-gap) +
+                var(--mermaid-control-button-size) + var(--mermaid-control-action-gap) +
                     var(--mermaid-control-button-size)
             );
             @apply focus-visible:ring-primary/40 relative block max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset;
