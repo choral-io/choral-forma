@@ -1,4 +1,8 @@
-import { createDiagramViewerResetIcon } from "@/lib/diagram-viewer-icons";
+import {
+    createDiagramViewerCollapseIcon,
+    createDiagramViewerExpandIcon,
+    createDiagramViewerResetIcon,
+} from "@/lib/diagram-viewer-icons";
 import {
     createSvgDiagramZoomController,
     mermaidDiagramZoom,
@@ -229,7 +233,7 @@ function bindTools(
         onChange(controller.getState());
     });
     const zoomSlider = tools.zoomSlider;
-    zoomSlider?.addEventListener("input", () => {
+    zoomSlider.addEventListener("input", () => {
         const controller = getController();
         if (!controller) {
             return;
@@ -249,34 +253,31 @@ function createTools({
     view?: "embedded" | "expanded";
 }): MermaidDiagramTools {
     const element = document.createElement("div");
-    element.className = "diagram-viewer-control-rail mermaid-diagram-control-rail panzoom-exclude";
+    element.className = "diagram-viewer-control-rail panzoom-exclude";
     element.setAttribute("aria-label", `Controls for ${caption}`);
     element.setAttribute("role", "group");
-    const reset = createButton(`Reset ${caption} zoom to 100%`, "", canvasId);
+    const reset = createButton(`Reset ${caption} zoom to 100%`, canvasId);
     reset.title = "Reset diagram zoom";
     reset.append(createDiagramViewerResetIcon());
-    const zoomSlider = view === "expanded" ? createZoomSlider(caption, canvasId) : undefined;
+    const zoomSlider = createZoomSlider(caption, canvasId);
     const viewerToggle = createButton(
         view === "embedded" ? `Expand ${caption}` : `Return ${caption} to embedded view`,
-        "",
         canvasId,
     );
     viewerToggle.title = view === "embedded" ? "Expand diagram" : "Return to embedded view";
-    viewerToggle.append(view === "embedded" ? createMaximizeIcon() : createMinimizeIcon());
+    viewerToggle.append(view === "embedded" ? createDiagramViewerExpandIcon() : createDiagramViewerCollapseIcon());
     const actions = document.createElement("div");
-    actions.className = "diagram-viewer-control-actions mermaid-diagram-control-actions";
+    actions.className = "diagram-viewer-control-actions";
     actions.append(reset, viewerToggle);
-    if (zoomSlider) {
-        const sliderLane = document.createElement("div");
-        sliderLane.className = "diagram-viewer-slider-lane mermaid-diagram-slider-lane";
-        sliderLane.append(zoomSlider);
-        element.append(sliderLane);
-    }
+    const sliderLane = document.createElement("div");
+    sliderLane.className = "diagram-viewer-slider-lane";
+    sliderLane.append(zoomSlider);
+    element.append(sliderLane);
     element.append(actions);
     return { element, reset, viewerToggle, zoomSlider };
 }
 
-function createButton(label: string, text: string, canvasId?: string) {
+function createButton(label: string, canvasId?: string) {
     const button = document.createElement("button");
     button.className = toolButtonClass;
     if (canvasId) {
@@ -284,14 +285,13 @@ function createButton(label: string, text: string, canvasId?: string) {
     }
     button.setAttribute("aria-label", label);
     button.type = "button";
-    button.textContent = text;
     return button;
 }
 
 function createZoomSlider(caption: string, canvasId: string) {
     const slider = document.createElement("input");
     slider.className =
-        "range range-vertical range-xs diagram-viewer-zoom-slider diagram-viewer-no-fill-range mermaid-diagram-zoom-slider mermaid-diagram-no-fill-range h-full w-5 panzoom-exclude focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2";
+        "range range-vertical range-xs diagram-viewer-zoom-slider diagram-viewer-no-fill-range h-full w-5 panzoom-exclude focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2";
     slider.setAttribute("aria-controls", canvasId);
     slider.setAttribute("aria-label", `Zoom ${caption}`);
     slider.setAttribute("aria-orientation", "vertical");
@@ -304,44 +304,6 @@ function createZoomSlider(caption: string, canvasId: string) {
     return slider;
 }
 
-function createMaximizeIcon() {
-    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon.setAttribute("aria-hidden", "true");
-    icon.setAttribute("fill", "none");
-    icon.setAttribute("stroke", "currentColor");
-    icon.setAttribute("stroke-linecap", "round");
-    icon.setAttribute("stroke-linejoin", "round");
-    icon.setAttribute("stroke-width", "2");
-    icon.setAttribute("viewBox", "0 0 24 24");
-    icon.setAttribute("width", "16");
-    icon.setAttribute("height", "16");
-    for (const pathData of ["M15 3h6v6", "m21 3-7 7", "M9 21H3v-6", "m3 21 7-7"]) {
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", pathData);
-        icon.append(path);
-    }
-    return icon;
-}
-
-function createMinimizeIcon() {
-    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon.setAttribute("aria-hidden", "true");
-    icon.setAttribute("fill", "none");
-    icon.setAttribute("stroke", "currentColor");
-    icon.setAttribute("stroke-linecap", "round");
-    icon.setAttribute("stroke-linejoin", "round");
-    icon.setAttribute("stroke-width", "2");
-    icon.setAttribute("viewBox", "0 0 24 24");
-    icon.setAttribute("width", "16");
-    icon.setAttribute("height", "16");
-    for (const pathData of ["m14 10 7-7", "M20 10h-6V4", "m3 21 7-7", "M4 14h6v6"]) {
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", pathData);
-        icon.append(path);
-    }
-    return icon;
-}
-
 function formatPercent(scale: number) {
     return `${String(Math.round(scale * 100))}%`;
 }
@@ -351,9 +313,6 @@ function syncTools(tools: MermaidDiagramTools, state: SvgDiagramZoomState) {
     // overview, where it gives keyboard and assistive-technology users the
     // same explicit way to restore the view after any uncertain interaction.
     tools.reset.disabled = false;
-    if (!tools.zoomSlider) {
-        return;
-    }
     const percent = formatPercent(state.scale);
     tools.zoomSlider.value = String(Math.round(state.scale * 100));
     tools.zoomSlider.setAttribute("aria-valuetext", `Zoom ${percent}`);
@@ -368,5 +327,5 @@ interface MermaidDiagramTools {
     element: HTMLDivElement;
     reset: HTMLButtonElement;
     viewerToggle: HTMLButtonElement;
-    zoomSlider?: HTMLInputElement;
+    zoomSlider: HTMLInputElement;
 }

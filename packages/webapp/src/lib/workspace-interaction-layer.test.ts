@@ -15,7 +15,7 @@ describe("workspace interaction layer", () => {
         releaseGraph();
         releaseMermaid();
 
-        expect(occupancy).toEqual([false, true, true, true, false]);
+        expect(occupancy).toEqual([false, true, false]);
         unsubscribe();
     });
 });

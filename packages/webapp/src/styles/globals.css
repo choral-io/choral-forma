@@ -215,10 +215,13 @@
 
         & .mermaid-diagram-viewport {
             --mermaid-control-inset: 0.75rem;
+            --mermaid-control-slider-height: 5rem;
+            --mermaid-control-rail-gap: 0.5rem;
             --mermaid-control-action-gap: 0.25rem;
             --mermaid-control-button-size: 2rem;
             --mermaid-control-stack-height: calc(
-                var(--mermaid-control-button-size) + var(--mermaid-control-action-gap) +
+                var(--mermaid-control-slider-height) + var(--mermaid-control-rail-gap) +
+                    var(--mermaid-control-button-size) + var(--mermaid-control-action-gap) +
                     var(--mermaid-control-button-size)
             );
             @apply focus-visible:ring-primary/40 relative block max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset;
@@ -314,10 +317,10 @@
 }
 
 .diagram-viewer-slider-lane {
-    @apply shrink-0;
+    @apply h-20 shrink-0;
 }
 
-.mermaid-diagram-expanded-viewer .mermaid-diagram-slider-lane {
+.mermaid-diagram-expanded-viewer .diagram-viewer-slider-lane {
     @apply h-32;
 }
 
@@ -336,7 +339,7 @@
 }
 
 .diagram-viewer-control-button {
-    @apply border-base-300/60 bg-base-100/90 h-8 min-h-8 w-8 leading-7 shadow-sm backdrop-blur-sm focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2;
+    @apply border-base-300/60 bg-base-100/90 focus-visible:outline-primary h-8 min-h-8 w-8 leading-7 shadow-sm backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-offset-2;
 }
 
 .diagram-viewer-control-button > svg {

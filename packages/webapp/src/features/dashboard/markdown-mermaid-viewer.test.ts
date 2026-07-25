@@ -70,16 +70,21 @@ describe("enhanceMermaidDiagrams", () => {
         document.body.replaceChildren();
     });
 
-    it("keeps embedded controls compact without changing the source disclosure", () => {
+    it("keeps an accessible compact zoom rail without changing the source disclosure", () => {
         const root = fixture();
         const cleanup = enhanceMermaidDiagrams(root);
 
-        const controls = root.querySelector<HTMLDivElement>(".mermaid-diagram-control-rail");
+        const controls = root.querySelector<HTMLDivElement>(".diagram-viewer-control-rail");
         expect(controls?.getAttribute("aria-label")).toBe("Controls for Flowchart diagram");
         expect(root.querySelector("details.mermaid-diagram-tools")).toBeNull();
         const slider = root.querySelector<HTMLInputElement>('[aria-label="Zoom Flowchart diagram"]');
-        expect(slider).toBeNull();
-        expect(controls?.children).toHaveLength(1);
+        expect(slider?.classList.contains("range-vertical")).toBe(true);
+        expect(slider?.getAttribute("aria-controls")).toBe("diagram-viewport");
+        expect(slider?.min).toBe("100");
+        expect(slider?.max).toBe("300");
+        expect(slider?.step).toBe("5");
+        expect(slider?.parentElement?.classList.contains("diagram-viewer-slider-lane")).toBe(true);
+        expect(controls?.children).toHaveLength(2);
         expect(controls?.parentElement?.classList.contains("mermaid-diagram-viewport")).toBe(true);
         const reset = root.querySelector<HTMLButtonElement>('[aria-label="Reset Flowchart diagram zoom to 100%"]');
         expect(reset?.disabled).toBe(false);
@@ -96,12 +101,17 @@ describe("enhanceMermaidDiagrams", () => {
         expect(expand?.getAttribute("title")).toBe("Expand diagram");
         expect(expand?.classList.contains("btn-circle")).toBe(true);
         expect(expand?.classList.contains("join-item")).toBe(false);
-        expect(expand?.parentElement?.classList.contains("mermaid-diagram-control-actions")).toBe(true);
+        expect(expand?.parentElement?.classList.contains("diagram-viewer-control-actions")).toBe(true);
         expect(expand?.parentElement?.classList.contains("join")).toBe(false);
         expect(expand?.parentElement?.parentElement).toBe(controls);
         expect(root.querySelector(".mermaid-diagram-viewport")?.getAttribute("aria-keyshortcuts")).toBe(
             "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0",
         );
+        if (slider) {
+            slider.value = "150";
+            slider.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        expect(zoomMocks.controllers[0]?.zoomTo).toHaveBeenCalledWith(1.5);
         reset?.click();
         expect(zoomMocks.controllers[0]?.reset).toHaveBeenCalledOnce();
         cleanup();
@@ -127,10 +137,10 @@ describe("enhanceMermaidDiagrams", () => {
         expect(dialog?.querySelector('[role="status"]')?.textContent).toBe("Zoom 100%");
         const dialogSlider = dialog?.querySelector<HTMLInputElement>('[aria-label="Zoom Flowchart diagram"]');
         expect(dialogSlider?.classList.contains("range-vertical")).toBe(true);
-        expect(dialogSlider?.parentElement?.classList.contains("mermaid-diagram-slider-lane")).toBe(true);
+        expect(dialogSlider?.parentElement?.classList.contains("diagram-viewer-slider-lane")).toBe(true);
         expect(
             dialogSlider
-                ?.closest(".mermaid-diagram-control-rail")
+                ?.closest(".diagram-viewer-control-rail")
                 ?.parentElement?.classList.contains("mermaid-diagram-dialog-canvas"),
         ).toBe(true);
         expect(dialog?.querySelector('[aria-label="Expand Flowchart diagram"]')).toBeNull();
@@ -166,7 +176,7 @@ describe("enhanceMermaidDiagrams", () => {
         cleanup();
         unsubscribe();
         expect(zoomMocks.controllers[2]?.destroy).toHaveBeenCalledOnce();
-        expect(root.querySelector(".mermaid-diagram-control-rail")).toBeNull();
+        expect(root.querySelector(".diagram-viewer-control-rail")).toBeNull();
     });
 
     it("returns to the embedded viewer on Escape without leaving a modal shell behind", () => {
