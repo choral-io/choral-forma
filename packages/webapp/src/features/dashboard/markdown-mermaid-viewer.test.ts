@@ -123,6 +123,10 @@ describe("enhanceMermaidDiagrams", () => {
         expect(dialog?.querySelector("svg")).not.toBeNull();
         expect(dialog?.querySelector(".mermaid-diagram-dialog-source")).toBeNull();
         expect(dialog?.querySelector(".mermaid-diagram-dialog-status")?.textContent).toBe("Zoom 100%");
+        const dialogSlider = dialog?.querySelector<HTMLInputElement>('[aria-label="Zoom Flowchart diagram"]');
+        expect(dialogSlider?.classList.contains("range-vertical")).toBe(true);
+        expect(dialogSlider?.parentElement?.classList.contains("mermaid-diagram-slider-lane")).toBe(true);
+        expect(dialog?.querySelector('[aria-label="Expand Flowchart diagram"]')).toBeNull();
         const close = dialog?.querySelector<HTMLButtonElement>('[aria-label="Close diagram"]');
         expect(close?.getAttribute("title")).toBe("Close diagram");
         expect(close?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
