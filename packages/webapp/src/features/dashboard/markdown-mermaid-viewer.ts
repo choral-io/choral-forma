@@ -220,12 +220,13 @@ function bindTools(
         controller.reset();
         onChange(controller.getState());
     });
-    tools.zoomSlider.addEventListener("input", () => {
+    const zoomSlider = tools.zoomSlider;
+    zoomSlider?.addEventListener("input", () => {
         const controller = getController();
         if (!controller) {
             return;
         }
-        controller.zoomTo(Number(tools.zoomSlider.value) / 100);
+        controller.zoomTo(Number(zoomSlider.value) / 100);
         onChange(controller.getState());
     });
 }
@@ -246,7 +247,7 @@ function createTools({
     const reset = createButton(`Reset ${caption} zoom to 100%`, "", canvasId);
     reset.title = "Reset diagram zoom";
     reset.append(createResetIcon());
-    const zoomSlider = createZoomSlider(caption, canvasId);
+    const zoomSlider = view === "expanded" ? createZoomSlider(caption, canvasId) : undefined;
     const viewerToggle = createButton(
         view === "embedded" ? `Expand ${caption}` : `Return ${caption} to embedded view`,
         "",
@@ -254,13 +255,16 @@ function createTools({
     );
     viewerToggle.title = view === "embedded" ? "Expand diagram" : "Return to embedded view";
     viewerToggle.append(view === "embedded" ? createMaximizeIcon() : createMinimizeIcon());
-    const sliderLane = document.createElement("div");
-    sliderLane.className = "diagram-viewer-slider-lane mermaid-diagram-slider-lane";
-    sliderLane.append(zoomSlider);
     const actions = document.createElement("div");
     actions.className = "diagram-viewer-control-actions mermaid-diagram-control-actions";
     actions.append(reset, viewerToggle);
-    element.append(sliderLane, actions);
+    if (zoomSlider) {
+        const sliderLane = document.createElement("div");
+        sliderLane.className = "diagram-viewer-slider-lane mermaid-diagram-slider-lane";
+        sliderLane.append(zoomSlider);
+        element.append(sliderLane);
+    }
+    element.append(actions);
     return { element, reset, viewerToggle, zoomSlider };
 }
 
@@ -354,7 +358,13 @@ function formatPercent(scale: number) {
 }
 
 function syncTools(tools: MermaidDiagramTools, state: SvgDiagramZoomState) {
-    tools.reset.disabled = !state.canReset;
+    // Reset is intentionally idempotent: it remains available at the default
+    // overview, where it gives keyboard and assistive-technology users the
+    // same explicit way to restore the view after any uncertain interaction.
+    tools.reset.disabled = false;
+    if (!tools.zoomSlider) {
+        return;
+    }
     const percent = formatPercent(state.scale);
     tools.zoomSlider.value = String(Math.round(state.scale * 100));
     tools.zoomSlider.setAttribute("aria-valuetext", `Zoom ${percent}`);
@@ -369,5 +379,5 @@ interface MermaidDiagramTools {
     element: HTMLDivElement;
     reset: HTMLButtonElement;
     viewerToggle: HTMLButtonElement;
-    zoomSlider: HTMLInputElement;
+    zoomSlider?: HTMLInputElement;
 }
