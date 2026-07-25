@@ -85,6 +85,10 @@ describe("enhanceMermaidDiagrams", () => {
         expect(reset?.classList.contains("btn-circle")).toBe(true);
         expect(reset?.classList.contains("join-item")).toBe(false);
         expect(reset?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+        expect(Array.from(reset?.querySelectorAll("path") ?? []).map((path) => path.getAttribute("d"))).toEqual([
+            "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8",
+            "M3 3v5h5",
+        ]);
         expect(root.querySelector(".mermaid-diagram-source summary")?.textContent).toBe("View Mermaid source");
         const expand = root.querySelector<HTMLButtonElement>('[aria-label="Expand Flowchart diagram"]');
         expect(expand?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();

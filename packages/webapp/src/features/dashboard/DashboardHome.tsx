@@ -15,7 +15,17 @@ import {
     Table2,
     X,
 } from "lucide-react";
-import { lazy, Suspense, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+    lazy,
+    Suspense,
+    useEffect,
+    useId,
+    useRef,
+    useState,
+    type MouseEvent,
+    type ReactNode,
+    type RefObject,
+} from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
 import type {
@@ -36,6 +46,7 @@ import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { WorkspaceDefaultContextPanel, WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
 import { createMermaidRenderScope } from "@/lib/mermaid";
+import { scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
 import { cn } from "@/lib/utils";
 import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 
@@ -739,6 +750,15 @@ function EntryPage({
             outlineDialogRef.current.close("navigate");
         }
     };
+    const navigateOutline = (event: MouseEvent<HTMLAnchorElement>) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return;
+        }
+        if (scrollReaderAnchor(event.currentTarget)) {
+            event.preventDefault();
+        }
+        closeOutlineDialog();
+    };
 
     return (
         <div className="w-full">
@@ -847,7 +867,11 @@ function EntryPage({
                             <div className="skeleton h-3 w-4/5" />
                             <div className="skeleton h-3 w-11/12" />
                         </div>
-                        <EntryOutlineSection routePath={entry.routePath} tree={outlineTree} />
+                        <EntryOutlineSection
+                            onNavigate={navigateOutline}
+                            routePath={entry.routePath}
+                            tree={outlineTree}
+                        />
                     </aside>
                 ) : null}
             </div>
@@ -878,14 +902,10 @@ function EntryPage({
                             </button>
                         </header>
                         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
-                            <OutlineNav
-                                onNavigate={closeOutlineDialog}
-                                routePath={entry.routePath}
-                                tree={outlineTree}
-                            />
+                            <OutlineNav onNavigate={navigateOutline} routePath={entry.routePath} tree={outlineTree} />
                         </div>
                         <div className="shrink-0 p-2">
-                            <OutlineFooterNav onNavigate={closeOutlineDialog} routePath={entry.routePath} />
+                            <OutlineFooterNav onNavigate={navigateOutline} routePath={entry.routePath} />
                         </div>
                     </aside>
                     <form className="modal-backdrop" method="dialog">
@@ -1094,7 +1114,15 @@ function ContextPanelTabs({
     );
 }
 
-function EntryOutlineSection({ routePath, tree }: { routePath: string; tree: EntryOutlineNode[] }) {
+function EntryOutlineSection({
+    onNavigate,
+    routePath,
+    tree,
+}: {
+    onNavigate: (event: MouseEvent<HTMLAnchorElement>) => void;
+    routePath: string;
+    tree: EntryOutlineNode[];
+}) {
     return (
         <section className="sticky top-8 flex max-h-[calc(100dvh-10rem)] min-h-0 flex-col gap-3 overflow-hidden group-has-data-reader-loading/entry:hidden">
             <div className="shrink-0">
@@ -1102,9 +1130,9 @@ function EntryOutlineSection({ routePath, tree }: { routePath: string; tree: Ent
                 <p className="text-base-content/60 mt-1 text-sm/6">Headings from the current entry.</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                <OutlineNav routePath={routePath} tree={tree} />
+                <OutlineNav onNavigate={onNavigate} routePath={routePath} tree={tree} />
             </div>
-            <OutlineFooterNav routePath={routePath} />
+            <OutlineFooterNav onNavigate={onNavigate} routePath={routePath} />
         </section>
     );
 }
@@ -1114,7 +1142,7 @@ function OutlineNav({
     routePath,
     tree,
 }: {
-    onNavigate?: () => void;
+    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
     routePath: string;
     tree: EntryOutlineNode[];
 }) {
@@ -1129,7 +1157,13 @@ function OutlineNav({
     );
 }
 
-function OutlineFooterNav({ onNavigate, routePath }: { onNavigate?: () => void; routePath: string }) {
+function OutlineFooterNav({
+    onNavigate,
+    routePath,
+}: {
+    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
+    routePath: string;
+}) {
     return (
         <nav aria-label="Page outline footer" className="border-base-300 shrink-0 border-t pt-2">
             <ul className="menu w-full p-0">
@@ -1139,7 +1173,13 @@ function OutlineFooterNav({ onNavigate, routePath }: { onNavigate?: () => void; 
     );
 }
 
-function OutlineFooterItems({ onNavigate, routePath }: { onNavigate?: () => void; routePath: string }) {
+function OutlineFooterItems({
+    onNavigate,
+    routePath,
+}: {
+    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
+    routePath: string;
+}) {
     return (
         <>
             <li>
@@ -1163,7 +1203,7 @@ function EntryOutlineTreeNode({
     routePath,
 }: {
     node: EntryOutlineNode;
-    onNavigate?: () => void;
+    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
     routePath: string;
 }) {
     return (
@@ -1188,7 +1228,7 @@ function EntryOutlineLink({
     routePath,
 }: {
     item: EntryOutlineItem;
-    onNavigate?: () => void;
+    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
     routePath: string;
 }) {
     return (
