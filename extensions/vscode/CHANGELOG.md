@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.23
+
+- Rebuild the read-only WebApp review surface on DaisyUI with responsive navigation, theme selection, and a streamlined Quick Open experience.
+- Drive workspace classifications from configured taxonomy terms and render configured Table and Kanban projections alongside existing View modes.
+- Add resilient Markdown reading with preserved titles and source metadata, syntax highlighting, KaTeX math, and workspace-aware links.
+- Move the VS Code extension to `extensions/vscode` and keep CI, release packaging, version checks, and managed CLI verification aligned with the new path.
+- Refresh the coordinated frontend toolchain and compatible Rust and pnpm dependencies.
+
 ## 0.1.22
 
 - Publish the first Marketplace-ready Public Preview with one coordinated numeric version across Forma CLI, VS Code, and Zed.
