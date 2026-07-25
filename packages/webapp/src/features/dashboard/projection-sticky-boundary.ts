@@ -1,17 +1,17 @@
 export interface ProjectionStickyBoundaryMetrics {
     boundaryBottom: number;
-    sourceBottom: number;
+    sourceTop: number;
     stickyHeight: number;
     stickyTop: number;
 }
 
 export function shouldRevealProjectionStickyHeader({
     boundaryBottom,
-    sourceBottom,
+    sourceTop,
     stickyHeight,
     stickyTop,
 }: ProjectionStickyBoundaryMetrics): boolean {
-    return sourceBottom <= stickyTop && boundaryBottom > stickyTop + stickyHeight;
+    return sourceTop <= stickyTop && boundaryBottom > stickyTop + stickyHeight;
 }
 
 export function createProjectionStickyBoundaryController({
@@ -28,17 +28,21 @@ export function createProjectionStickyBoundaryController({
     syncPresentation: () => void;
 }): () => void {
     let frame: number | undefined;
+    let presentationDirty = true;
 
     function update() {
         frame = undefined;
-        syncPresentation();
+        if (presentationDirty) {
+            presentationDirty = false;
+            syncPresentation();
+        }
 
         const stickyTop = projectionStickyViewportTop(boundary, sticky);
         sticky.toggleAttribute(
             "data-sticky-visible",
             shouldRevealProjectionStickyHeader({
                 boundaryBottom: boundary.getBoundingClientRect().bottom,
-                sourceBottom: source.getBoundingClientRect().bottom,
+                sourceTop: source.getBoundingClientRect().top,
                 stickyHeight: sticky.getBoundingClientRect().height,
                 stickyTop,
             }),
@@ -50,17 +54,22 @@ export function createProjectionStickyBoundaryController({
         frame = requestAnimationFrame(update);
     }
 
-    const resizeObserver = new ResizeObserver(scheduleUpdate);
+    function schedulePresentationUpdate() {
+        presentationDirty = true;
+        scheduleUpdate();
+    }
+
+    const resizeObserver = new ResizeObserver(schedulePresentationUpdate);
     new Set<Element>([boundary, source, sticky, ...observe]).forEach((element) => {
         resizeObserver.observe(element);
     });
     document.addEventListener("scroll", scheduleUpdate, true);
-    window.addEventListener("resize", scheduleUpdate);
-    scheduleUpdate();
+    window.addEventListener("resize", schedulePresentationUpdate);
+    schedulePresentationUpdate();
 
     return () => {
         document.removeEventListener("scroll", scheduleUpdate, true);
-        window.removeEventListener("resize", scheduleUpdate);
+        window.removeEventListener("resize", schedulePresentationUpdate);
         resizeObserver.disconnect();
         if (frame !== undefined) cancelAnimationFrame(frame);
         sticky.removeAttribute("data-sticky-visible");

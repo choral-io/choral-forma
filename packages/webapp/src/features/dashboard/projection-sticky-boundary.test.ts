@@ -7,7 +7,7 @@ describe("projection sticky header boundary", () => {
         expect(
             shouldRevealProjectionStickyHeader({
                 boundaryBottom: 900,
-                sourceBottom: 113,
+                sourceTop: 113,
                 stickyHeight: 38,
                 stickyTop: 112,
             }),
@@ -18,7 +18,7 @@ describe("projection sticky header boundary", () => {
         expect(
             shouldRevealProjectionStickyHeader({
                 boundaryBottom: 900,
-                sourceBottom: 112,
+                sourceTop: 112,
                 stickyHeight: 38,
                 stickyTop: 112,
             }),
@@ -29,8 +29,27 @@ describe("projection sticky header boundary", () => {
         expect(
             shouldRevealProjectionStickyHeader({
                 boundaryBottom: 150,
-                sourceBottom: -200,
+                sourceTop: -200,
                 stickyHeight: 38,
+                stickyTop: 112,
+            }),
+        ).toBe(false);
+    });
+
+    it("uses the measured presentation height for a non-standard header", () => {
+        expect(
+            shouldRevealProjectionStickyHeader({
+                boundaryBottom: 189,
+                sourceTop: -200,
+                stickyHeight: 76,
+                stickyTop: 112,
+            }),
+        ).toBe(true);
+        expect(
+            shouldRevealProjectionStickyHeader({
+                boundaryBottom: 188,
+                sourceTop: -200,
+                stickyHeight: 76,
                 stickyTop: 112,
             }),
         ).toBe(false);

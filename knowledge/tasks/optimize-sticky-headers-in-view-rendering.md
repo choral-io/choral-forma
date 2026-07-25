@@ -325,6 +325,25 @@ A temporary browser-only after-content spacer let the projection boundary pass t
 
 Focused automated validation covers hidden/revealed/end-boundary decisions. WebApp type checking, lint, focused tests, and the production build passed. The existing build-size advisory remained unchanged.
 
+### Table visual follow-up — 2026-07-25
+
+User inspection found two defects in the initial Table proof that the resting-state browser measurements did not expose:
+
+- The original reveal rule waited for the real header's bottom edge to cross the sticky offset. This allowed one real header-height of content to disappear before the presentation appeared. The corrected contract reveals when the real header's top edge reaches the sticky offset: `sourceTop <= stickyTop`. Immediately before that crossing the real semantic header remains visible; at and after the crossing the aligned visual header covers it, avoiding both meaningful header loss and a double-header flicker.
+- The visual header originally inherited an 8 px radius on all four corners. Its curved presentation border left visible gaps against the real rounded Table boundary. The visual rail is now square on all corners while the underlying Table container keeps its normal rounding.
+
+The focused regression seam distinguishes the last hidden geometry (`sourceTop: 113`, `stickyTop: 112`) from the first revealed geometry (`sourceTop: 112`, `stickyTop: 112`) and retains the projection-end boundary check. Browser validation confirmed the same one-pixel transition with real scroll positions, zero computed radius on all four presentation corners, preserved horizontal alignment, theme-safe borders, and unchanged projection stopping.
+
+The runtime contract directly measures the semantic header rather than maintaining a separate height or column model. The controller reads the real header's top edge, the visual rail's current height, and the projection boundary on reveal/stop frames. The Table adapter observes the real table and individual semantic header cells, then copies their live widths and the table width into the presentation. Resize, font/zoom, theme-driven geometry, and content changes therefore invalidate presentation geometry through observers; vertical scroll frames only reevaluate reveal and boundary rectangles. Presentation remeasurement is RAF-coalesced and does not repeat per-column layout reads on ordinary vertical scrolling.
+
+Focused runtime assumption evidence:
+
+- A controlled browser-only wrapping fixture was required because the product contract intentionally uses non-wrapping labels plus local horizontal scrolling. With wrapped long labels, larger text, and added cell padding, the semantic header grew from 38 px to 329 px and the bordered visual rail grew from 40 px to 331 px. Column left and width deltas remained zero. Reveal still occurred at the live top threshold, and the rail changed from visible at boundary bottom 444 px to hidden at 442 px using the live 331 px rail height.
+- While the rail remained active, resizing that controlled fixture from 1024 to 390 and back changed semantic/visual heights from 59/61 px to 185/187 px and back to 59/61 px. Column deltas remained zero. Mobile projection stopping recalculated to visible at boundary bottom 188 px and hidden at 186 px; desktop recalculated to visible at 174 px and hidden at 172 px.
+- At 125% root text size, the route Header and the shared responsive sticky offset both measured 140 px, the semantic/visual Table headers measured 47.25/49.25 px, and Dark-theme alignment remained exact. The `lg` shell offset is a shared `h-28`/`top-28` `rem` contract; it is not used as a Table-header-height model. At `xl`, the page-owned `<main>` starts below that Header and the rail uses `top: 0`; below `lg`, the non-sticky Header scrolls away and the rail also uses `top: 0`.
+- Before geometry invalidation was separated from scroll visibility updates, 12 vertical scroll frames caused 84 semantic header-cell rectangle reads. After the correction, the same 12 frames caused zero header-cell reads; reveal and projection-boundary measurements remain RAF-coalesced.
+- SPA navigation removed the only visual rail and returned exactly one rail on remount, with seven authoritative semantic column headers, no visual focusable descendants, and no browser errors.
+
 ## Acceptance Criteria
 
 - A long Table keeps its column headers visible during vertical scrolling without losing horizontal scrolling or column alignment.

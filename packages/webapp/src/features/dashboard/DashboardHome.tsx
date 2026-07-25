@@ -1772,7 +1772,7 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
 
         return createProjectionStickyBoundaryController({
             boundary,
-            observe: [table],
+            observe: [table, ...header.querySelectorAll("th")],
             source: header,
             sticky: stickyHeader,
             syncPresentation: () => {
@@ -1785,7 +1785,7 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
         <div className="relative grid" ref={boundaryRef}>
             <div
                 aria-hidden="true"
-                className="border-base-300 pointer-events-none invisible sticky top-0 z-10 col-start-1 row-start-1 self-start overflow-hidden rounded-lg border data-sticky-visible:visible lg:top-28 xl:top-0"
+                className="border-base-300 pointer-events-none invisible sticky top-0 z-10 col-start-1 row-start-1 self-start overflow-hidden rounded-none border data-sticky-visible:visible lg:top-28 xl:top-0"
                 data-view-sticky-header=""
                 ref={stickyHeaderRef}
             >
