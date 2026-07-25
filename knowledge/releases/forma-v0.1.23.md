@@ -65,7 +65,7 @@ Completed candidate and immutable GitHub publication evidence:
 - [Release workflow run 30142555937](https://github.com/choral-io/choral-forma/actions/runs/30142555937) passed its version gate, VS Code Extension build and smoke test, five platform builds, and GitHub Release publication for the exact candidate commit.
 - [GitHub Release v0.1.23](https://github.com/choral-io/choral-forma/releases/tag/v0.1.23) was published on 2026-07-25 as a regular, non-draft release with the exact expected 22 assets: the VSIX and checksum; standalone Linux arm64, Linux x64, macOS arm64, macOS x64, and Windows x64 binaries and checksums; and the five matching archives and checksums.
 - `mise run release:verify -- v0.1.23` passed. The verified macOS arm64 CLI reports `forma 0.1.23` with SHA-256 `f72c6774c2017407cc5416981b5c5523ce61e5bfbd10b0abf732fc283725b4d7`; the VSIX reports `choral-io.forma@0.1.23`, engine `^1.110.0`, and SHA-256 `8688f81683cb375b1d90c2076c97bff7e24c97b0c98b9e83111db6a27b309d72`. The production managed-install verification selected `forma-macos-arm64` and confirmed `forma 0.1.23`.
-- Marketplace publication and clean-profile Marketplace installation were not authorized or performed. Remote SSH, Dev Container, WSL, signing, notarization, high-contrast, reduced-motion, long-running resource, and full-scale validation remain unverified.
+- VS Code Marketplace publication is pending and will be performed manually by a maintainer later. No Marketplace upload or clean-profile Marketplace installation was performed or verified for this evidence record. Remote SSH, Dev Container, WSL, signing, notarization, high-contrast, reduced-motion, long-running resource, and full-scale validation remain unverified.
 
 ## Rollout Plan
 
@@ -96,4 +96,4 @@ Do not move or overwrite the `v0.1.23` tag or reuse a published Marketplace exte
 
 - Record the exact candidate commit, main CI run, Release workflow run, GitHub Release URL, asset inventory, checksums, CLI version, VSIX identity, and managed-install result.
 - Record Marketplace acceptance and clean-profile install evidence if Marketplace publication is authorized.
-- Preserve the published tag and assets as immutable. Any Marketplace publication or corrective release requires separate maintainer authorization.
+- Preserve the published tag and assets as immutable. Manual VS Code Marketplace publication remains pending and requires separate maintainer action; any corrective release requires separate maintainer authorization.
