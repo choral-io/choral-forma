@@ -218,7 +218,12 @@
         }
 
         & .mermaid-diagram-viewport {
-            @apply focus-visible:ring-primary/40 relative block min-h-48 max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset sm:min-h-56;
+            --mermaid-control-inset: 0.75rem;
+            --mermaid-control-stack-height: 10rem;
+            @apply focus-visible:ring-primary/40 relative block max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset;
+            min-height: calc(
+                var(--mermaid-control-stack-height) + var(--mermaid-control-inset) + var(--mermaid-control-inset)
+            );
         }
 
         & .mermaid-diagram-viewport > svg {
@@ -324,15 +329,21 @@
 }
 
 .mermaid-diagram-control-rail {
-    @apply text-base-content/75 absolute end-3 top-3 bottom-3 z-10 flex w-8 flex-col items-center;
+    @apply text-base-content/75 absolute end-3 bottom-3 z-10 flex w-8 flex-col items-center gap-2;
 }
 
 .mermaid-diagram-slider-lane {
-    @apply min-h-0 flex-1;
+    @apply h-20 shrink-0;
 }
 
 .mermaid-diagram-zoom-slider {
     @apply h-full;
+}
+
+.mermaid-diagram-no-fill-range {
+    --range-bg: var(--color-base-300);
+    --range-thumb: var(--color-base-content);
+    --range-fill: 0;
 }
 
 .mermaid-diagram-control-actions {
