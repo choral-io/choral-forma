@@ -1,5 +1,5 @@
 import { Ellipsis, Menu, PanelRightIcon, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { workspaceDrawerId } from "@/app/App";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
@@ -8,6 +8,7 @@ import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { ThemeCycleButton, ThemeDropdown } from "@/features/workspace/ThemeDropdown";
 import { applyThemePreference, readThemePreference, type ThemePreference } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
+import { subscribeWorkspaceInteractionLayer } from "@/lib/workspace-interaction-layer";
 
 interface WorkspaceRouteFrameProps {
     actions?: ReactNode;
@@ -34,6 +35,7 @@ export function WorkspaceRouteFrame({
 }: WorkspaceRouteFrameProps) {
     const [themePreference, setThemePreference] = useState(readThemePreference);
     const [isFabOpen, setFabOpen] = useState(false);
+    const [isMobileFabSuppressed, setIsMobileFabSuppressed] = useState(false);
     const hasContextPanel = Boolean(contextPanel);
     const contentWidthClass = {
         default: "max-w-6xl",
@@ -48,6 +50,14 @@ export function WorkspaceRouteFrame({
     const closeFab = () => {
         setFabOpen(false);
     };
+    useEffect(() => {
+        return subscribeWorkspaceInteractionLayer((occupied) => {
+            setIsMobileFabSuppressed(occupied);
+            if (occupied) {
+                setFabOpen(false);
+            }
+        });
+    }, []);
 
     return (
         <div
@@ -140,38 +150,45 @@ export function WorkspaceRouteFrame({
                 At lg+ the chrome takes over — header Theme, header Outline toggle
                 in the lg..xl band, sidebar Quick Open, xl Outline aside — so the
                 FAB stays hidden and never becomes a lone-button dial. */}
-            <div className="fab lg:hidden!">
-                <button
-                    aria-expanded={isFabOpen}
-                    aria-label="Open page actions"
-                    className="btn btn-circle btn-lg btn-neutral"
-                    tabIndex={0}
-                    type="button"
-                    onClick={() => {
-                        setFabOpen(true);
-                    }}
-                >
-                    <Ellipsis aria-hidden="true" />
-                </button>
-                {isFabOpen ? (
-                    <>
-                        <button aria-label="Close page actions" className="fab-close" onClick={closeFab} type="button">
-                            <span className="btn btn-circle btn-lg btn-neutral">
-                                <X aria-hidden="true" />
-                            </span>
-                        </button>
-                        {fabActions?.(closeFab)}
-                        <QuickOpenTrigger
-                            onBeforeOpen={(trigger) => {
-                                closeFab();
-                                trigger.blur();
-                            }}
-                            trigger="fab"
-                        />
-                        <ThemeCycleButton onPreferenceChange={changeThemePreference} preference={themePreference} />
-                    </>
-                ) : null}
-            </div>
+            {!isMobileFabSuppressed ? (
+                <div className="fab lg:hidden!">
+                    <button
+                        aria-expanded={isFabOpen}
+                        aria-label="Open page actions"
+                        className="btn btn-circle btn-lg btn-neutral"
+                        tabIndex={0}
+                        type="button"
+                        onClick={() => {
+                            setFabOpen(true);
+                        }}
+                    >
+                        <Ellipsis aria-hidden="true" />
+                    </button>
+                    {isFabOpen ? (
+                        <>
+                            <button
+                                aria-label="Close page actions"
+                                className="fab-close"
+                                onClick={closeFab}
+                                type="button"
+                            >
+                                <span className="btn btn-circle btn-lg btn-neutral">
+                                    <X aria-hidden="true" />
+                                </span>
+                            </button>
+                            {fabActions?.(closeFab)}
+                            <QuickOpenTrigger
+                                onBeforeOpen={(trigger) => {
+                                    closeFab();
+                                    trigger.blur();
+                                }}
+                                trigger="fab"
+                            />
+                            <ThemeCycleButton onPreferenceChange={changeThemePreference} preference={themePreference} />
+                        </>
+                    ) : null}
+                </div>
+            ) : null}
         </div>
     );
 }

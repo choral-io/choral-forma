@@ -7,12 +7,13 @@ import {
     type GraphTheme,
 } from "@choral-forma/graph-view";
 import { Maximize2, Minimize2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { diagramViewerResetIconPaths } from "@/lib/diagram-viewer-icons";
 import { themePreferenceChangeEvent } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
+import { acquireWorkspaceInteractionLayer } from "@/lib/workspace-interaction-layer";
 
 import { activeGraphNodeId, mapDashboardGraphProjection, type DashboardGraphProjection } from "./graph-adapter";
 
@@ -25,6 +26,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     const routesRef = useRef(new Map<string, string>());
     const viewerToggleRef = useRef<HTMLButtonElement | null>(null);
     const wasExpandedRef = useRef(false);
+    const releaseInteractionLayerRef = useRef<(() => void) | undefined>(undefined);
     const [graphTheme, setGraphTheme] = useState<GraphTheme>(() => readGraphThemeTokens());
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
@@ -41,6 +43,22 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         [projection.nodes],
     );
     const expandPresentation = graphExpandPresentation(isExpanded);
+    const setExpandedView = useCallback((expanded: boolean) => {
+        setIsExpanded(expanded);
+        if (expanded) {
+            releaseInteractionLayerRef.current ??= acquireWorkspaceInteractionLayer();
+            return;
+        }
+        releaseInteractionLayerRef.current?.();
+        releaseInteractionLayerRef.current = undefined;
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            releaseInteractionLayerRef.current?.();
+            releaseInteractionLayerRef.current = undefined;
+        };
+    }, []);
 
     useEffect(() => {
         routesRef.current = routes;
@@ -54,7 +72,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         if (!isExpanded) return;
         const previousOverflow = document.body.style.overflow;
         const exitExpandedView = (event: KeyboardEvent) => {
-            if (event.key === "Escape") setIsExpanded(false);
+            if (event.key === "Escape") setExpandedView(false);
         };
         document.body.style.overflow = "hidden";
         document.addEventListener("keydown", exitExpandedView);
@@ -62,7 +80,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
             document.body.style.overflow = previousOverflow;
             document.removeEventListener("keydown", exitExpandedView);
         };
-    }, [isExpanded]);
+    }, [isExpanded, setExpandedView]);
 
     useEffect(() => {
         if (wasExpandedRef.current && !isExpanded) {
@@ -172,7 +190,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                             aria-label={expandPresentation.ariaLabel}
                             className="btn btn-ghost btn-sm btn-circle diagram-viewer-control-button"
                             onClick={() => {
-                                setIsExpanded((expanded) => !expanded);
+                                setExpandedView(!isExpanded);
                             }}
                             ref={viewerToggleRef}
                             title={expandPresentation.title}
