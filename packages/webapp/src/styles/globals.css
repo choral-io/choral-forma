@@ -104,6 +104,22 @@
     opacity: 1;
 }
 
+/* daisyUI disables the focused trigger while a FAB is expanded. The menu is
+   now state-owned, so focus may legitimately return to a *closed* trigger
+   after a dialog finishes. Keep that closed trigger clickable; no action
+   children are mounted until the next explicit activation. */
+[data-workspace-shell] .fab > [tabindex][aria-expanded="false"] {
+    pointer-events: auto;
+}
+
+/* The FAB is mobile-only workspace chrome. Keep daisyUI's component display
+   rule from overriding the responsive utility at desktop widths. */
+@media (width >= 64rem) {
+    [data-workspace-shell] .fab {
+        display: none;
+    }
+}
+
 /* daisyUI's FAB motion is not gated by reduced-motion. Keep the narrow,
    workspace-scoped exception here; dialogs use Tailwind's
    motion-reduce:transition-none utility at each instance. */

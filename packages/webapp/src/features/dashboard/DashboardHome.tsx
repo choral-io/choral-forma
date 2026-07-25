@@ -241,13 +241,14 @@ export function EntryRoute() {
             contentWidth="default"
             description={entry.title}
             eyebrow="Workspace"
-            fabActions={
+            fabActions={(closeFab) =>
                 outline.length > 0 ? (
                     <button
                         aria-controls={outlineDialogId}
                         aria-label="Outline"
                         className="btn btn-circle btn-lg btn-neutral"
                         onClick={(event) => {
+                            closeFab();
                             openOutlineDialog(event.currentTarget);
                         }}
                         type="button"
@@ -459,7 +460,7 @@ function WorkspacePageShell({
     contentWidth?: "default" | "fluid" | "readable";
     description?: string;
     eyebrow: string;
-    fabActions?: ReactNode;
+    fabActions?: (closeFab: () => void) => ReactNode;
     title: string;
     titleAs?: "div" | "h1";
 }) {

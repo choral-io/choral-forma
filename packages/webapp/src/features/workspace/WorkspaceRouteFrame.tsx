@@ -16,7 +16,7 @@ interface WorkspaceRouteFrameProps {
     contentWidth?: "default" | "fluid" | "readable";
     description?: string;
     eyebrow: string;
-    fabActions?: ReactNode;
+    fabActions?: (closeFab: () => void) => ReactNode;
     title: string;
     titleAs?: "div" | "h1";
 }
@@ -33,6 +33,7 @@ export function WorkspaceRouteFrame({
     titleAs = "h1",
 }: WorkspaceRouteFrameProps) {
     const [themePreference, setThemePreference] = useState(readThemePreference);
+    const [isFabOpen, setFabOpen] = useState(false);
     const hasContextPanel = Boolean(contextPanel);
     const contentWidthClass = {
         default: "max-w-6xl",
@@ -43,6 +44,9 @@ export function WorkspaceRouteFrame({
     const changeThemePreference = (preference: ThemePreference) => {
         setThemePreference(preference);
         applyThemePreference(preference);
+    };
+    const closeFab = () => {
+        setFabOpen(false);
     };
 
     return (
@@ -61,6 +65,7 @@ export function WorkspaceRouteFrame({
                             className="btn btn-square btn-ghost lg:hidden"
                             type="button"
                             onClick={() => {
+                                closeFab();
                                 const dialog = document.getElementById(workspaceDrawerId);
                                 if (dialog instanceof HTMLDialogElement) {
                                     dialog.returnValue = "";
@@ -136,34 +141,41 @@ export function WorkspaceRouteFrame({
                 in the lg..xl band, sidebar Quick Open, xl Outline aside — so the
                 FAB stays hidden and never becomes a lone-button dial. */}
             <div className="fab lg:hidden">
-                <div
+                <button
+                    aria-expanded={isFabOpen}
                     aria-label="Open page actions"
                     className="btn btn-circle btn-lg btn-neutral"
-                    role="button"
                     tabIndex={0}
+                    type="button"
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            setFabOpen(true);
+                        }
+                    }}
+                    onPointerDown={() => {
+                        setFabOpen(true);
+                    }}
                 >
                     <Ellipsis aria-hidden="true" />
-                </div>
-                <button
-                    aria-label="Close page actions"
-                    className="fab-close"
-                    onClick={(event) => {
-                        event.currentTarget.blur();
-                    }}
-                    type="button"
-                >
-                    <span className="btn btn-circle btn-lg btn-neutral">
-                        <X aria-hidden="true" />
-                    </span>
                 </button>
-                {fabActions}
-                <QuickOpenTrigger
-                    onBeforeOpen={(trigger) => {
-                        trigger.blur();
-                    }}
-                    trigger="fab"
-                />
-                <ThemeCycleButton onPreferenceChange={changeThemePreference} preference={themePreference} />
+                {isFabOpen ? (
+                    <>
+                        <button aria-label="Close page actions" className="fab-close" onClick={closeFab} type="button">
+                            <span className="btn btn-circle btn-lg btn-neutral">
+                                <X aria-hidden="true" />
+                            </span>
+                        </button>
+                        {fabActions?.(closeFab)}
+                        <QuickOpenTrigger
+                            onBeforeOpen={(trigger) => {
+                                closeFab();
+                                trigger.blur();
+                            }}
+                            trigger="fab"
+                        />
+                        <ThemeCycleButton onPreferenceChange={changeThemePreference} preference={themePreference} />
+                    </>
+                ) : null}
             </div>
         </div>
     );
