@@ -72,86 +72,96 @@ Adding `sticky` independently to each header would be fragile: horizontal overfl
 
 ## Approved Execution Plan
 
-Deliver this task in three gated slices. Do not begin a later slice until the
-current slice has established and passed its own scroll and sticky contract.
+Deliver this task in three gated slices. Do not begin a later slice until the current slice has established and passed its own scroll and sticky contract.
 
 ### 1. Prove the WebApp Table contract
 
 - Start with the WebApp Table projection and a representative long table.
-- Measure the actual page and projection geometry at 1440, 1024, 768, and
-  390 px before changing styles, including vertical scroll ownership, local
-  horizontal overflow, the effective sticky top offset, root overflow, and the
-  projection's start and end boundaries.
+- Measure the actual page and projection geometry at 1440, 1024, 768, and 390 px before changing styles, including vertical scroll ownership, local horizontal overflow, the effective sticky top offset, root overflow, and the projection's start and end boundaries.
 - Preserve semantic `<table>`, `<thead>`, and `<th scope="col">` markup.
-- Prefer DaisyUI `table-pin-rows` when it satisfies the measured contract.
-  Otherwise keep the smallest native `position: sticky` implementation local
-  to the Table projection.
-- Verify that the header remains aligned while the Table scrolls horizontally,
-  stays below the route Header, stops at the projection boundary, and does not
-  obscure focused content.
+- Prefer DaisyUI `table-pin-rows` when it satisfies the measured contract. Otherwise keep the smallest native `position: sticky` implementation local to the Table projection.
+- Verify that the header remains aligned while the Table scrolls horizontally, stays below the route Header, stops at the projection boundary, and does not obscure focused content.
 
-**Gate:** Continue only when Table pinning works with page-owned vertical
-scrolling and projection-owned horizontal overflow at every representative
-breakpoint without adding a nested vertical scroller, fixed projection height,
-or JavaScript scroll synchronization.
+**Gate:** Continue only when Table pinning works with page-owned vertical scrolling and projection-owned horizontal overflow at every representative breakpoint without adding a nested vertical scroller, fixed projection height, or JavaScript scroll synchronization.
 
 ### 2. Apply the proven contract to WebApp Kanban
 
 - Begin only after the Table gate passes.
-- Apply the same proven scroll-owner, sticky-offset, and projection-boundary
-  contract directly to the existing Kanban column-header markup.
-- Preserve one configurable horizontally scrollable row, natural and uneven
-  column heights, semantic heading structure, and theme behavior.
-- Do not introduce a generic sticky-header abstraction, independently scrolling
-  columns, fixed column or projection heights, or controlled scroll state.
+- Apply the same proven scroll-owner, sticky-offset, and projection-boundary contract directly to the existing Kanban column-header markup.
+- Preserve one configurable horizontally scrollable row, natural and uneven column heights, semantic heading structure, and theme behavior.
+- Do not introduce a generic sticky-header abstraction, independently scrolling columns, fixed column or projection heights, or controlled scroll state.
 
-**Gate:** Continue only when all visible Kanban column headers share the usable
-sticky position, remain aligned during board-owned horizontal scrolling, stop
-at the projection boundary, and preserve natural document scrolling.
+**Gate:** Continue only when all visible Kanban column headers share the usable sticky position, remain aligned during board-owned horizontal scrolling, stop at the projection boundary, and preserve natural document scrolling.
 
 ### 3. Evaluate VS Code native Markdown preview separately
 
-- Begin only after the WebApp projection contract is proven for Table and
-  Kanban.
-- Measure the native Markdown preview in narrow and wide editor groups rather
-  than assuming the WebApp container contract applies.
-- Implement only scoped native preview CSS when sticky behavior works naturally
-  with the host-owned scroll surface.
-- If the host cannot support the contract naturally, record the VS Code
-  limitation and evidence instead of forcing pixel parity with the WebApp.
+- Begin only after the WebApp projection contract is proven for Table and Kanban.
+- Measure the native Markdown preview in narrow and wide editor groups rather than assuming the WebApp container contract applies.
+- Implement only scoped native preview CSS when sticky behavior works naturally with the host-owned scroll surface.
+- If the host cannot support the contract naturally, record the VS Code limitation and evidence instead of forcing pixel parity with the WebApp.
 
-**Gate:** Complete the host slice only when the preview preserves VS Code-native
-rendering, scrolling, focus, and theme behavior. A documented host limitation is
-an acceptable outcome when native sticky cannot satisfy those constraints.
+**Gate:** Complete the host slice only when the preview preserves VS Code-native rendering, scrolling, focus, and theme behavior. A documented host limitation is an acceptable outcome when native sticky cannot satisfy those constraints.
 
 ## Scroll-Contract Decision Gate
 
-If local horizontal overflow prevents native sticky positioning from working
-reliably with page-owned vertical scrolling, stop this task's scope escalation.
-Record the measured container and boundary evidence, then create or design a
-focused projection scroll-contract follow-up. Do not work around the conflict
-with JavaScript scroll synchronization, hidden nested vertical scrolling, fixed
-projection heights, or global overflow clipping.
+If local horizontal overflow prevents native sticky positioning from working reliably with page-owned vertical scrolling, stop this task's scope escalation. Record the measured container and boundary evidence, then create or design a focused projection scroll-contract follow-up. Do not work around the conflict with JavaScript scroll synchronization, hidden nested vertical scrolling, fixed projection heights, or global overflow clipping.
 
 ## AI-Assisted Delivery Gates
 
-Scope and progress are governed by observable validation outcomes rather than
-staff-hour estimates:
+Scope and progress are governed by observable validation outcomes rather than staff-hour estimates:
 
-1. **Table feasibility:** real scroll ownership and boundary geometry are
-   measured; the Table gate either passes with a minimal semantic implementation
-   or stops with evidence for the scroll-contract follow-up.
-2. **Kanban transfer:** the proven Table contract is applied without abstraction
-   or a new scrolling model and passes focused geometry checks.
-3. **VS Code host fit:** native preview behavior is independently verified, with
-   scoped CSS delivered only when the host supports it naturally.
-4. **Completion:** focused automated checks, visual geometry evidence, Light and
-   Dark themes, accessibility and focus behavior, responsive widths, and
-   applicable repository gates all pass.
+1. **Table feasibility:** real scroll ownership and boundary geometry are measured; the Table gate either passes with a minimal semantic implementation or stops with evidence for the scroll-contract follow-up.
+2. **Kanban transfer:** the proven Table contract is applied without abstraction or a new scrolling model and passes focused geometry checks.
+3. **VS Code host fit:** native preview behavior is independently verified, with scoped CSS delivered only when the host supports it naturally.
+4. **Completion:** focused automated checks, visual geometry evidence, Light and Dark themes, accessibility and focus behavior, responsive widths, and applicable repository gates all pass.
 
-The main uncertainty is browser and host sticky behavior when horizontal
-overflow and vertical scrolling have different owners. Each slice resolves that
-uncertainty before broadening implementation scope.
+The main uncertainty is browser and host sticky behavior when horizontal overflow and vertical scrolling have different owners. Each slice resolves that uncertainty before broadening implementation scope.
+
+## WebApp Table Feasibility Result — 2026-07-25
+
+The first execution slice stopped at the approved scroll-contract decision gate. No product code, Kanban behavior, VS Code preview behavior, task metadata, or release artifact was changed.
+
+Validation used the production WebApp build through the real Forma backend and a temporary copy of this repository workspace. The temporary workspace added one Table View over the Tasks space with 80 rows, seven configured columns, long labels, local horizontal overflow, and Markdown before and after the projection. The temporary fixture was not added to the repository.
+
+### Measured scroll ownership
+
+| Width | Active vertical owner | Vertical viewport top | Table horizontal owner | Horizontal owner computed overflow |
+| --: | --- | --: | --- | --- |
+| 1440 px | View route `<main>` | 112 px | Table wrapper | `auto / auto` |
+| 1024 px | Route frame | 0 px | Table wrapper | `auto / auto` |
+| 768 px | Route frame | 0 px | Table wrapper | `auto / auto` |
+| 390 px | Route frame | 0 px | Table wrapper | `auto / auto` |
+
+The Table wrapper's `overflow-x: auto` computes to `overflow-y: auto`. Its projection-boundary parent also uses `overflow: hidden`. Both create overflow ancestors between the header row and the page-owned vertical scroll container. The page root retained zero horizontal overflow at every measured width.
+
+### Native sticky probe
+
+A temporary browser-only probe applied `position: sticky` to the existing semantic header row, scrolled the active vertical owner by 600 px, and scrolled the Table wrapper horizontally by 200 px. The source markup remained `<table>`, `<thead>`, and configured column headers.
+
+|   Width | Required pinned top | Measured header-row top | Result |
+| ------: | ------------------: | ----------------------: | ------ |
+| 1440 px |              112 px |                 -303 px | failed |
+| 1024 px |              112 px |                 -191 px | failed |
+|  768 px |                0 px |                 -310 px | failed |
+|  390 px |                0 px |                 -282 px | failed |
+
+The header row followed the local overflow ancestors out of view instead of pinning to the active page-owned vertical scroll surface. DaisyUI `table-pin-rows` uses the same native sticky positioning on the header row, so its modifier does not change this containing-block result.
+
+As a causality check, the probe temporarily changed both projection overflow ancestors to `overflow: visible`. The header then pinned at the required 112 px desktop and 0 px mobile positions, but horizontal overflow moved to the page-owned vertical container: its `scrollWidth` grew from 1184 to 1481 px at 1440 px and from 390 to 1465 px at 390 px. That trades projection-owned horizontal scrolling for page-level two-axis scrolling and therefore fails the accepted contract.
+
+Theme styling, focus geometry, and final projection-boundary behavior were not claimed as validated because the feasibility gate failed before a deliverable sticky state existed. Existing semantic markup, theme roles, accessible column headers, responsive widths, and overflow behavior remain unchanged.
+
+## Proposed Projection Scroll-Contract Follow-up
+
+Design a focused follow-up before resuming Table implementation. It should decide how a projection can own horizontal overflow while its sticky descendants use the responsive page-owned vertical scroll surface.
+
+The follow-up must:
+
+1. define the vertical owner, horizontal owner, sticky containing block, route Header offset, and projection start/end boundaries as one explicit layout contract at 1440, 1024, 768, and 390 px;
+2. prototype a semantic Table with representative long and wide data through the real backend before changing Kanban or VS Code;
+3. preserve projection-local horizontal scrolling, root overflow, column alignment, focus visibility, Light and Dark theme roles, and content before and after the projection;
+4. reject JavaScript scroll synchronization, duplicated visual headers, hidden nested vertical scrolling, fixed projection heights, global overflow clipping, and premature generic abstractions; and
+5. return either a browser-native contract that passes geometry validation or an explicit product limitation. Only the passing native contract may unblock this task's Table gate and later slices.
 
 ## Acceptance Criteria
 
