@@ -15,7 +15,7 @@ use crate::document::{
     SemanticReferenceField, apply_reference_transform, collect_semantic_reference_fields,
     is_explicit_path_reference,
 };
-use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
+use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, resolve_markdown_title};
 use crate::operations::workspace_skill_diagnostics;
 use crate::path::{FORMA_CONFIG_PATH, WorkspacePath, glob_scan_root};
 use crate::schema::{parse_space_schema, validate_schema_value};
@@ -91,6 +91,8 @@ pub struct IndexEntry {
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub omit_leading_title: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -108,6 +110,8 @@ pub struct IndexEntryVariant {
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub omit_leading_title: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
 }
@@ -254,21 +258,27 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
             .iter()
             .map(|variant| {
                 let frontmatter_value = variant.document.frontmatter.value.as_ref();
+                let (title, omit_leading_title) =
+                    resolved_entry_title(frontmatter_value, space, &variant.document);
                 IndexEntryVariant {
                     language: variant.language.clone(),
                     path: variant.path.clone(),
                     kind: scalar_field(frontmatter_value, "kind"),
-                    title: title_for_entry(frontmatter_value, space),
+                    title,
+                    omit_leading_title,
                     summary: summary_for_entry(frontmatter_value, space),
                 }
             })
             .collect();
+        let (title, omit_leading_title) =
+            resolved_entry_title(frontmatter_value, space, &entry.document);
         index_entries.push(IndexEntry {
             path: entry.path.clone(),
             space: entry.space.clone(),
             taxonomies: entry.taxonomies.clone(),
             kind: scalar_field(frontmatter_value, "kind"),
-            title: title_for_entry(frontmatter_value, space),
+            title,
+            omit_leading_title,
             summary: summary_for_entry(frontmatter_value, space),
             variants,
             refs,
@@ -1277,16 +1287,26 @@ fn basename_id(path: &str) -> String {
         .to_string()
 }
 
-fn title_for_entry(
+pub(crate) fn title_for_entry(
     value: Option<&Value>,
     space: &crate::config::SpaceDefinition,
 ) -> Option<String> {
-    space
-        .conventions
-        .title_field
-        .as_deref()
-        .and_then(|field| convention_scalar_field(value, field))
-        .or_else(|| scalar_field(value, "title"))
+    match space.conventions.title_field.as_deref() {
+        Some(field) => convention_scalar_field(value, field),
+        None => scalar_field(value, "title"),
+    }
+}
+
+fn resolved_entry_title(
+    value: Option<&Value>,
+    space: &crate::config::SpaceDefinition,
+    document: &FormaMarkdownDocument,
+) -> (Option<String>, bool) {
+    resolve_markdown_title(title_for_entry(value, space), document)
+}
+
+fn is_false(value: &bool) -> bool {
+    !value
 }
 
 fn summary_for_entry(
@@ -1492,6 +1512,60 @@ mod tests {
     use crate::path::FORMA_CONFIG_PATH;
 
     const FIXTURE_VIEWS_DIR: &str = ".forma/views";
+
+    #[test]
+    fn entry_titles_fall_back_to_leading_h1_and_only_omit_matching_headings() {
+        let root = fixture_root("entry-title-resolution");
+        write_workspace(&root);
+        let notes_path = root.join(".forma/spaces/notes.md");
+        let notes = fs::read_to_string(&notes_path)
+            .unwrap()
+            .replace("titleField: fields.title", "titleField: fields.name");
+        fs::write(notes_path, notes).unwrap();
+        write_entry(
+            &root,
+            "notes/matched.md",
+            "---\nkind: note\nname: Matched Title\n---\n\n# Matched   Title\n",
+        );
+        write_entry(
+            &root,
+            "notes/fallback.md",
+            "---\nkind: note\ntitle: Legacy Title\n---\n\n# Fallback *Title*\n",
+        );
+        write_entry(
+            &root,
+            "notes/mismatch.md",
+            "---\nkind: note\nname: Metadata Title\n---\n\n# Body Title\n",
+        );
+
+        let discovery = discover_workspace(&root).unwrap();
+        let entry = |path: &str| {
+            discovery
+                .index
+                .entries
+                .iter()
+                .find(|entry| entry.path == path)
+                .unwrap()
+        };
+
+        assert_eq!(
+            entry("notes/matched.md").title.as_deref(),
+            Some("Matched Title")
+        );
+        assert!(entry("notes/matched.md").omit_leading_title);
+        assert_eq!(
+            entry("notes/fallback.md").title.as_deref(),
+            Some("Fallback Title")
+        );
+        assert!(entry("notes/fallback.md").omit_leading_title);
+        assert_eq!(
+            entry("notes/mismatch.md").title.as_deref(),
+            Some("Metadata Title")
+        );
+        assert!(!entry("notes/mismatch.md").omit_leading_title);
+
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn included_markdown_collection_applies_the_complete_space_glob() {

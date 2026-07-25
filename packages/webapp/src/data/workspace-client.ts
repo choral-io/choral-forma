@@ -7,6 +7,7 @@ export interface DashboardEntry {
     routePath: string;
     rawPath: string;
     title: string;
+    omitLeadingTitle: boolean;
     summary: string;
     space: string;
     updatedAt?: string;
@@ -25,6 +26,7 @@ export interface DashboardEntryVariant {
     rawPath: string;
     kind?: string;
     title?: string;
+    omitLeadingTitle?: boolean;
     summary?: string;
 }
 
@@ -154,6 +156,7 @@ export interface DashboardHealth {
 
 export interface DashboardView {
     id: string;
+    path: string;
     title: string;
     display?: DisplayOptions;
     description: string;

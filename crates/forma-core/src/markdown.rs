@@ -179,6 +179,44 @@ pub fn parse_markdown(source: &str) -> FormaMarkdownDocument {
     }
 }
 
+pub(crate) fn leading_h1_text(body: &str) -> Option<String> {
+    let ast = to_mdast(body, &ParseOptions::gfm()).ok()?;
+    let first = ast.children()?.first()?;
+    let mdast::Node::Heading(heading) = first else {
+        return None;
+    };
+    if heading.depth != 1 {
+        return None;
+    }
+
+    normalized_title_candidate(plain_text(&heading.children))
+}
+
+pub(crate) fn resolve_markdown_title(
+    configured_title: Option<String>,
+    document: &FormaMarkdownDocument,
+) -> (Option<String>, bool) {
+    let leading_title = leading_h1_text(&document.body);
+    let title = configured_title
+        .and_then(normalized_title_candidate)
+        .or_else(|| leading_title.clone());
+    let omit_leading_title = title
+        .as_deref()
+        .zip(leading_title.as_deref())
+        .is_some_and(|(title, heading)| normalize_title(title) == normalize_title(heading));
+
+    (title, omit_leading_title)
+}
+
+fn normalized_title_candidate(value: String) -> Option<String> {
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
+fn normalize_title(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /// Projects link syntax from fenced blocks that Zed injects as Markdown.
 ///
 /// These references are editor presentation data only. The main document
@@ -837,9 +875,41 @@ fn line_column(source: &str, offset: usize) -> (usize, usize) {
 #[cfg(test)]
 mod tests {
     use super::{
-        FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax,
-        markdown_fenced_references, markdown_inline_code_references, split_frontmatter,
+        FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax, leading_h1_text,
+        markdown_fenced_references, markdown_inline_code_references, resolve_markdown_title,
+        split_frontmatter,
     };
+
+    #[test]
+    fn reads_only_a_leading_h1_as_the_document_title() {
+        assert_eq!(
+            leading_h1_text("# A *formatted* title\n\nBody.\n").as_deref(),
+            Some("A formatted title")
+        );
+        assert_eq!(leading_h1_text("Intro.\n\n# Later heading\n"), None);
+        assert_eq!(leading_h1_text("## First section\n"), None);
+    }
+
+    #[test]
+    fn configured_titles_are_trimmed_and_blank_values_fall_back_to_the_leading_h1() {
+        let document = FormaMarkdownDocument::parse("# Fallback title\n\nBody.\n");
+
+        assert_eq!(
+            resolve_markdown_title(Some(" \t".to_string()), &document),
+            (Some("Fallback title".to_string()), true)
+        );
+        assert_eq!(
+            resolve_markdown_title(Some("  Configured title \n".to_string()), &document),
+            (Some("Configured title".to_string()), false)
+        );
+        assert_eq!(
+            resolve_markdown_title(
+                Some(String::new()),
+                &FormaMarkdownDocument::parse("Body.\n")
+            ),
+            (None, false)
+        );
+    }
 
     #[test]
     fn parses_valid_markdown_with_frontmatter_and_markdown_link() {

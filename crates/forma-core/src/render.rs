@@ -44,6 +44,8 @@ pub struct RenderedFile {
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default)]
+    pub omit_leading_title: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -514,6 +516,7 @@ pub fn render_file(
             space: Some(index_entry.space.clone()),
             kind: index_entry.kind.clone(),
             title: index_entry.title.clone(),
+            omit_leading_title: index_entry.omit_leading_title,
         },
         render: FileRenderOutput {
             format: format.to_string(),
@@ -555,6 +558,7 @@ fn render_source_file(
             space: None,
             kind: None,
             title: None,
+            omit_leading_title: false,
         },
         render: FileRenderOutput {
             format: "source".to_string(),

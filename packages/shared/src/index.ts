@@ -169,6 +169,7 @@ export type RenderedFile = {
     space?: string;
     kind?: string;
     title?: string;
+    omitLeadingTitle?: boolean;
 };
 
 export type FileRenderOutput = {
@@ -390,6 +391,7 @@ export type DashboardEntrySummary = {
     space?: string;
     kind?: string;
     title?: string;
+    omitLeadingTitle?: boolean;
     summary?: string;
     variants?: DashboardEntryVariant[];
     status: OperationStatus;
@@ -423,6 +425,7 @@ export type DashboardEntryVariant = {
     rawPath: string;
     kind?: string;
     title?: string;
+    omitLeadingTitle?: boolean;
     summary?: string;
 };
 

@@ -9,17 +9,18 @@ use serde_yml::Value;
 use thiserror::Error;
 
 use crate::config::{
-    ConfigError, ConfigSourcePath, FormaWorkspace, LoadMode, TaxonomyTermDefinition,
-    WorkspaceConfig, WorkspaceSettings, config_source_paths, load_workspace,
+    ConfigError, ConfigSourcePath, FormaWorkspace, LoadMode, SpaceDefinition,
+    TaxonomyTermDefinition, WorkspaceConfig, WorkspaceSettings, config_source_paths,
+    load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::docs::embedded_doc;
 use crate::document::{DocumentAnalysis, DocumentReference, analyze_document_references};
 use crate::index::{
     Discovery, IndexEntry, IndexReference, ReferenceIntent, ReferenceSource,
-    config_error_diagnostic, discover_loaded_workspace,
+    config_error_diagnostic, discover_loaded_workspace, title_for_entry,
 };
-use crate::markdown::FormaMarkdownDocument;
+use crate::markdown::{FormaMarkdownDocument, resolve_markdown_title};
 use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath, glob_scan_root};
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
@@ -371,6 +372,8 @@ pub struct DashboardEntrySummary {
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default)]
+    pub omit_leading_title: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -392,6 +395,8 @@ pub struct DashboardEntryVariant {
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default)]
+    pub omit_leading_title: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
 }
@@ -1332,6 +1337,9 @@ pub fn workspace_explorer_entries(
         .iter()
         .map(|entry| (entry.path.as_str(), entry))
         .collect::<BTreeMap<_, _>>();
+    let title_space = (taxonomy_id == "spaces")
+        .then(|| workspace.config.spaces.get(term_id))
+        .flatten();
     let all_diagnostics = read_operation_diagnostics(discovery.diagnostics);
     let mut entries = taxonomy_term_files(term, &workspace_files, &config_paths)
         .into_iter()
@@ -1345,6 +1353,7 @@ pub fn workspace_explorer_entries(
                         taxonomy_id,
                         term_id,
                         file,
+                        title_space,
                         &all_diagnostics,
                     )
                 })
@@ -1487,6 +1496,9 @@ fn dashboard_taxonomies(
                         taxonomy_id,
                         term_id,
                         term,
+                        (taxonomy_id == "spaces")
+                            .then(|| config.spaces.get(term_id))
+                            .flatten(),
                         files,
                         config_paths,
                         indexed_entries,
@@ -1527,6 +1539,7 @@ fn dashboard_term_entries(
     taxonomy_id: &str,
     term_id: &str,
     term: &TaxonomyTermDefinition,
+    title_space: Option<&SpaceDefinition>,
     files: &[WorkspaceFile],
     config_paths: &BTreeSet<String>,
     indexed_entries: &[DashboardEntrySummary],
@@ -1540,7 +1553,14 @@ fn dashboard_term_entries(
                 .find(|entry| entry.path == file.path)
                 .cloned()
                 .unwrap_or_else(|| {
-                    dashboard_entry_summary_from_file(root, taxonomy_id, term_id, file, diagnostics)
+                    dashboard_entry_summary_from_file(
+                        root,
+                        taxonomy_id,
+                        term_id,
+                        file,
+                        title_space,
+                        diagnostics,
+                    )
                 })
         })
         .collect::<Vec<_>>();
@@ -1596,6 +1616,7 @@ fn dashboard_entry_summary(
         space: Some(entry.space.clone()),
         kind: entry.kind.clone(),
         title: entry.title.clone(),
+        omit_leading_title: entry.omit_leading_title,
         summary: entry.summary.clone(),
         variants: entry
             .variants
@@ -1607,6 +1628,7 @@ fn dashboard_entry_summary(
                 raw_path: entry_raw_path_for_path(&variant.path),
                 kind: variant.kind.clone(),
                 title: variant.title.clone(),
+                omit_leading_title: variant.omit_leading_title,
                 summary: variant.summary.clone(),
             })
             .collect(),
@@ -1621,8 +1643,24 @@ fn dashboard_entry_summary_from_file(
     taxonomy_id: &str,
     term_id: &str,
     file: &WorkspaceFile,
+    title_space: Option<&SpaceDefinition>,
     diagnostics: &[Diagnostic],
 ) -> DashboardEntrySummary {
+    let configured_title = title_space
+        .map(|space| title_for_entry(file.frontmatter.as_ref(), space))
+        .unwrap_or_else(|| {
+            file.frontmatter
+                .as_ref()
+                .and_then(|value| config_value_string(value, "title"))
+        });
+    let document = fs::read_to_string(root.join(&file.path))
+        .ok()
+        .map(|source| FormaMarkdownDocument::parse(&source));
+    let (title, omit_leading_title) = match document.as_ref() {
+        Some(document) => resolve_markdown_title(configured_title, document),
+        None => (configured_title, false),
+    };
+
     DashboardEntrySummary {
         id: document_id_for_path(&file.path),
         path: file.path.clone(),
@@ -1633,10 +1671,8 @@ fn dashboard_entry_summary_from_file(
             .frontmatter
             .as_ref()
             .and_then(|value| config_value_string(value, "kind")),
-        title: file
-            .frontmatter
-            .as_ref()
-            .and_then(|value| config_value_string(value, "title")),
+        title,
+        omit_leading_title,
         summary: file
             .frontmatter
             .as_ref()
@@ -3720,11 +3756,13 @@ mod tests {
     use super::{
         ManagedDocumentKind, OperationError, SkillSource, WorkspaceFileFeature,
         WorkspaceHealthCategory, WorkspaceSession, WorkspaceSnapshot,
-        build_workspace_health_result, create_entry, inspect_config, inspect_entry_by_path,
-        is_public_workspace_path_allowed, is_raw_workspace_path_allowed, list_file_references,
-        list_files, resolve_reference, skills_get, skills_list, workspace_dashboard,
-        workspace_explorer, workspace_explorer_entries, workspace_health,
+        build_workspace_health_result, create_entry, dashboard_entry_summary_from_file,
+        inspect_config, inspect_entry_by_path, is_public_workspace_path_allowed,
+        is_raw_workspace_path_allowed, list_file_references, list_files, resolve_reference,
+        skills_get, skills_list, workspace_dashboard, workspace_explorer,
+        workspace_explorer_entries, workspace_file_from_path, workspace_health,
     };
+    use crate::config::{LoadMode, load_workspace};
     use crate::{Diagnostic, IndexEntry, OperationStatus, ReferenceIntent, WorkspaceFileKind};
 
     const FIXTURE_VIEWS_DIR: &str = ".forma/views";
@@ -4355,6 +4393,38 @@ imports:
             explorer.taxonomies[0].terms[0].display,
             result.taxonomies[0].terms[0].display
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn dashboard_file_title_fallback_respects_the_space_title_field() {
+        let root = fixture_root("dashboard-title-field-fallback");
+        copy_starter_workspace(&root);
+        let notes_config_path = root.join(".forma/spaces/notes.md");
+        let notes_config = fs::read_to_string(&notes_config_path)
+            .unwrap()
+            .replace("titleField: fields.title", "titleField: fields.name");
+        fs::write(notes_config_path, notes_config).unwrap();
+        let entry_path = root.join("notes/custom-title.md");
+        fs::write(
+            &entry_path,
+            "---\nkind: note\nname: \"  Convention title  \"\n---\n\nBody.\n",
+        )
+        .unwrap();
+
+        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let file = workspace_file_from_path(&root, entry_path).unwrap();
+        let summary = dashboard_entry_summary_from_file(
+            &root,
+            "spaces",
+            "notes",
+            &file,
+            workspace.config.spaces.get("notes"),
+            &[],
+        );
+
+        assert_eq!(summary.title.as_deref(), Some("Convention title"));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -5757,6 +5827,7 @@ conventions:
             taxonomies: Default::default(),
             kind: Some("note".to_string()),
             title: Some("Linked".to_string()),
+            omit_leading_title: false,
             summary: None,
             variants: Vec::new(),
             refs: Vec::new(),

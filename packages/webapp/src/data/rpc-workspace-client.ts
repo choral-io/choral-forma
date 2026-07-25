@@ -197,7 +197,8 @@ function mapEntry(entry: WorkspaceDashboardResult["entries"][number]): Dashboard
         path: entry.path,
         routePath: entry.routePath,
         rawPath: entry.rawPath,
-        title: entry.title ?? entry.path,
+        title: nonBlankText(entry.title) ?? entry.path.trim(),
+        omitLeadingTitle: entry.omitLeadingTitle ?? false,
         summary: entry.summary ?? "No summary provided.",
         space: entry.space ?? "",
         updatedAt: entry.updatedAt,
@@ -210,6 +211,7 @@ function mapEntry(entry: WorkspaceDashboardResult["entries"][number]): Dashboard
             rawPath: variant.rawPath,
             kind: variant.kind,
             title: variant.title,
+            omitLeadingTitle: variant.omitLeadingTitle,
             summary: variant.summary,
         })),
         body: [
@@ -234,7 +236,8 @@ function mapEntryDetail(
 ): DashboardEntry {
     return {
         ...entry,
-        title: renderResult.file.title ?? entry.title,
+        title: nonBlankText(renderResult.file.title) ?? entry.title,
+        omitLeadingTitle: renderResult.file.omitLeadingTitle ?? entry.omitLeadingTitle,
         summary: entry.summary,
         space: renderResult.file.space ?? entry.space,
         status: mapStatus(renderResult.status),
@@ -245,6 +248,11 @@ function mapEntryDetail(
             backlinks: referencesResult.backlinks.map((edge) => mapReferenceEdge(edge, "backlink", entries)),
         },
     };
+}
+
+function nonBlankText(value: string | undefined): string | undefined {
+    const trimmed = value?.trim();
+    return trimmed === "" ? undefined : trimmed;
 }
 
 function mapRenderedBody(result: FileRenderResult, entries: DashboardEntry[]): DashboardEntryBlock[] {
@@ -259,7 +267,15 @@ function mapRenderedBody(result: FileRenderResult, entries: DashboardEntry[]): D
     }
 
     if (result.render.html) {
-        return [htmlToEntryBlock(result.render.html, result.render.headings ?? [], result.file.path, entries)];
+        return [
+            htmlToEntryBlock(
+                result.render.html,
+                result.render.headings ?? [],
+                result.file.path,
+                entries,
+                result.file.omitLeadingTitle ?? false,
+            ),
+        ];
     }
 
     if (result.render.source) {
@@ -285,12 +301,13 @@ function htmlToEntryBlock(
     headings: DashboardEntryHeading[],
     currentPath: string,
     entries: DashboardEntry[],
+    omitLeadingTitle: boolean,
 ): DashboardEntryBlock {
     const parser = new DOMParser();
     const document = parser.parseFromString(html, "text/html");
 
-    for (const heading of document.body.querySelectorAll("h1")) {
-        heading.remove();
+    if (omitLeadingTitle && document.body.firstElementChild?.tagName === "H1") {
+        document.body.firstElementChild.remove();
     }
 
     const elements = Array.from(document.body.querySelectorAll("h2, h3"));
@@ -351,6 +368,7 @@ function mapReferenceKind(edge: ReferenceEdge, targetEntry: DashboardEntry | und
 function mapView(view: WorkspaceDashboardResult["views"][number]): DashboardView {
     return {
         id: view.id,
+        path: view.path,
         title: view.title ?? view.id,
         display: view.display,
         space: view.space,

@@ -1,4 +1,9 @@
-import type { DashboardTaxonomy, ViewRenderOutput } from "@choral-forma/shared";
+import type {
+    DashboardEntrySummary,
+    DashboardTaxonomy,
+    DashboardViewSummary,
+    ViewRenderOutput,
+} from "@choral-forma/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RpcWorkspaceClient } from "./rpc-workspace-client";
@@ -152,6 +157,73 @@ describe("RpcWorkspaceClient View rendering", () => {
             },
         ]);
     });
+
+    it("preserves the configured View source path in the dashboard read model", async () => {
+        stubRpc(
+            "",
+            undefined,
+            undefined,
+            undefined,
+            [],
+            [
+                {
+                    id: ".forma/views/release-scope",
+                    path: ".forma/views/release-scope.md",
+                    kind: "table",
+                    title: "Release Scope",
+                },
+            ],
+        );
+
+        const client = new RpcWorkspaceClient("/rpc");
+        const dashboard = await client.getDashboard();
+
+        expect(dashboard.views).toMatchObject([
+            {
+                id: ".forma/views/release-scope",
+                path: ".forma/views/release-scope.md",
+                kind: "table",
+                title: "Release Scope",
+            },
+        ]);
+    });
+
+    it("trims RPC titles and uses the entry path when a title is blank", async () => {
+        stubRpc(
+            "",
+            undefined,
+            undefined,
+            undefined,
+            [],
+            [],
+            [
+                {
+                    id: "notes/untitled",
+                    path: "notes/untitled.md",
+                    rawPath: "notes/untitled.md",
+                    routePath: "/pages/notes/untitled",
+                    title: "   ",
+                    status: "passed",
+                    renderable: true,
+                },
+                {
+                    id: "notes/titled",
+                    path: "notes/titled.md",
+                    rawPath: "notes/titled.md",
+                    routePath: "/pages/notes/titled",
+                    title: "  Titled entry  ",
+                    status: "passed",
+                    renderable: true,
+                },
+            ],
+        );
+
+        const client = new RpcWorkspaceClient("/rpc");
+        const dashboard = await client.getDashboard();
+
+        expect(dashboard.entries[0]?.title).toBe("notes/untitled.md");
+        expect(dashboard.entries[1]?.title).toBe("Titled entry");
+    });
 });
 
 function stubRpc(
@@ -160,6 +232,8 @@ function stubRpc(
     markerLength?: number,
     render: ViewRenderOutput = { kind: "table", columns: [], items: [] },
     taxonomies: DashboardTaxonomy[] = [],
+    views: DashboardViewSummary[] = [],
+    entries: DashboardEntrySummary[] = [],
 ): void {
     vi.stubGlobal(
         "fetch",
@@ -171,7 +245,16 @@ function stubRpc(
                 id: string;
                 method: string;
             };
-            const result = rpcResult(request.method, bodySource, startOffset, markerLength, render, taxonomies);
+            const result = rpcResult(
+                request.method,
+                bodySource,
+                startOffset,
+                markerLength,
+                render,
+                taxonomies,
+                views,
+                entries,
+            );
 
             return Promise.resolve({
                 ok: true,
@@ -189,6 +272,8 @@ function rpcResult(
     markerLength: number | undefined,
     render: ViewRenderOutput,
     taxonomies: DashboardTaxonomy[],
+    views: DashboardViewSummary[],
+    entries: DashboardEntrySummary[],
 ): unknown {
     if (method === "workspace.dashboard") {
         return {
@@ -199,8 +284,8 @@ function rpcResult(
             workspace: { root: ".", name: "Example" },
             taxonomies,
             spaces: [],
-            entries: [],
-            views: [],
+            entries,
+            views,
             diagnostics: [],
         };
     }
