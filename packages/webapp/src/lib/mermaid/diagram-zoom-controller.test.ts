@@ -103,10 +103,12 @@ describe("SvgDiagramZoomController", () => {
     });
 
     it("maps continuous wheel and pinch input to conservative bounded zoom factors", () => {
-        expect(wheelScaleFactor(-10)).toBeCloseTo(Math.exp(0.05));
+        expect(wheelScaleFactor(-10)).toBeCloseTo(Math.exp(0.1));
         expect(wheelScaleFactor(-10)).toBeLessThan(1 + mermaidDiagramZoom.buttonStep);
-        expect(wheelScaleFactor(-10_000)).toBeCloseTo(Math.exp(0.225));
-        expect(wheelScaleFactor(10_000)).toBeCloseTo(Math.exp(-0.225));
+        expect(wheelScaleFactor(-10_000)).toBeCloseTo(Math.exp(0.4));
+        expect(wheelScaleFactor(10_000)).toBeCloseTo(Math.exp(-0.4));
+        expect(wheelScaleFactor(-10_000)).toBeGreaterThan(Math.exp(0.225));
+        expect(wheelScaleFactor(-10_000)).toBeLessThan(1.7);
         expect(pinchScaleFactor(160, 100)).toBeCloseTo(1.6 ** mermaidDiagramZoom.pinchExponent);
         expect(pinchScaleFactor(160, 100)).toBeLessThan(1.6);
         expect(pinchScaleFactor(160, 0)).toBe(1);

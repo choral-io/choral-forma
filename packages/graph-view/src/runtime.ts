@@ -120,12 +120,6 @@ class SigmaGraphRuntime implements GraphRuntime {
         else void camera.animatedReset({ duration: 250 });
     }
 
-    zoomTo(scale: number): void {
-        if (this.#destroyed) return;
-        const boundedScale = Math.min(3, Math.max(1, scale));
-        this.#renderer.getCamera().setState({ ratio: 1 / boundedScale });
-    }
-
     openSelected(): void {
         if (!this.#snapshot.selectedNodeId) return;
         const node = this.#snapshot.nodes.find((candidate) => candidate.id === this.#snapshot.selectedNodeId);
