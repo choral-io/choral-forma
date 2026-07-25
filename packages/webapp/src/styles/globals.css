@@ -205,22 +205,6 @@
             @apply border-base-300 text-base-content/70 border-b px-4 py-3 text-sm font-medium;
         }
 
-        & .mermaid-diagram-control-rail {
-            @apply text-base-content/75 absolute end-3 top-3 bottom-3 z-10 flex w-8 flex-col items-center;
-        }
-
-        & .mermaid-diagram-slider-lane {
-            @apply min-h-0 flex-1;
-        }
-
-        & .mermaid-diagram-zoom-slider {
-            @apply h-full;
-        }
-
-        & .mermaid-diagram-control-actions {
-            @apply border-base-300/60 bg-base-100/90 shrink-0 p-1 shadow-sm backdrop-blur-sm;
-        }
-
         @media (prefers-reduced-motion: no-preference) {
             & .mermaid-diagram-control-rail {
                 @apply transition-opacity duration-150;
@@ -304,7 +288,7 @@
 }
 
 .mermaid-diagram-dialog {
-    @apply fixed inset-4 m-0 h-auto max-h-none w-auto max-w-none overflow-hidden p-0;
+    @apply fixed inset-4 m-0 h-auto max-h-none w-auto max-w-none overflow-hidden rounded-lg border-0 bg-transparent p-0;
 }
 
 .mermaid-diagram-dialog::backdrop {
@@ -312,7 +296,7 @@
 }
 
 .mermaid-diagram-dialog-surface {
-    @apply bg-base-100 text-base-content flex h-full min-h-0 w-full max-w-none flex-col overflow-hidden rounded-lg p-0 shadow-2xl;
+    @apply bg-base-100 text-base-content isolate flex h-full min-h-0 w-full max-w-none flex-col overflow-hidden rounded-lg p-0 shadow-2xl;
 }
 
 .mermaid-diagram-dialog-header {
@@ -324,25 +308,33 @@
 }
 
 .mermaid-diagram-dialog-footer {
-    @apply border-base-300 flex shrink-0 items-center gap-3 border-t px-4 py-2;
+    @apply border-base-300 flex shrink-0 items-center border-t px-4 py-2;
 }
 
 .mermaid-diagram-dialog-status {
     @apply text-base-content/60 me-auto text-xs tabular-nums;
 }
 
-.mermaid-diagram-dialog-tools {
-    @apply shrink-0;
-}
-
-.mermaid-diagram-dialog-tools {
-    @apply static bg-transparent shadow-none;
-}
-
 .mermaid-diagram-dialog-canvas {
-    @apply focus-visible:ring-primary/40 min-h-0 flex-1 overflow-hidden p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset;
+    @apply focus-visible:ring-primary/40 relative min-h-0 flex-1 overflow-hidden p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset;
 }
 
 .mermaid-diagram-dialog-canvas > svg {
     @apply block h-auto max-w-none;
+}
+
+.mermaid-diagram-control-rail {
+    @apply text-base-content/75 absolute end-3 top-3 bottom-3 z-10 flex w-8 flex-col items-center;
+}
+
+.mermaid-diagram-slider-lane {
+    @apply min-h-0 flex-1;
+}
+
+.mermaid-diagram-zoom-slider {
+    @apply h-full;
+}
+
+.mermaid-diagram-control-actions {
+    @apply border-base-300/60 bg-base-100/90 shrink-0 p-1 shadow-sm backdrop-blur-sm;
 }

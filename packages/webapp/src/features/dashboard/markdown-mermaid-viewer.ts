@@ -57,7 +57,7 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
     );
     viewerCanvas.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0");
 
-    const tools = createTools({ canvasId, caption: captionText, includeSlider: true });
+    const tools = createTools({ canvasId, caption: captionText });
     viewerCanvas.append(tools.element);
 
     let controller = createController(viewerCanvas, viewerSvg, tools, announce);
@@ -66,22 +66,7 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
     let dialogStatus: HTMLSpanElement | undefined;
     let destroyed = false;
 
-    tools.zoomIn?.addEventListener("click", () => {
-        controller.zoomIn();
-        announce(controller.getState());
-    });
-    tools.zoomOut?.addEventListener("click", () => {
-        controller.zoomOut();
-        announce(controller.getState());
-    });
-    tools.reset.addEventListener("click", () => {
-        controller.reset();
-        announce(controller.getState());
-    });
-    tools.zoomSlider?.addEventListener("input", () => {
-        controller.zoomTo(Number(tools.zoomSlider?.value) / 100);
-        announce(controller.getState());
-    });
+    bindTools(tools, () => controller, announce);
     tools.expand?.addEventListener("click", () => {
         openDialog();
     });
@@ -170,17 +155,14 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
             canvasId: modalCanvas.id,
             caption: captionText,
             includeExpand: false,
-            includeSlider: false,
-            orientation: "horizontal",
         });
-        modalTools.element.classList.add("mermaid-diagram-dialog-tools");
         const footer = document.createElement("footer");
         footer.className = "mermaid-diagram-dialog-footer";
         dialogStatus = document.createElement("span");
         dialogStatus.className = "mermaid-diagram-dialog-status";
         dialogStatus.setAttribute("aria-live", "polite");
         dialogStatus.setAttribute("role", "status");
-        footer.append(dialogStatus, modalTools.element);
+        footer.append(dialogStatus);
         surface.append(header, modalDescription, modalCanvas, modalHelp, footer);
         const backdrop = document.createElement("form");
         backdrop.className = "modal-backdrop";
@@ -191,32 +173,10 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
         backdrop.append(backdropClose);
         dialog.append(surface, backdrop);
         document.body.append(dialog);
-        modalCanvas.append(viewerSvg);
+        modalCanvas.append(viewerSvg, modalTools.element);
         dialogController = createController(modalCanvas, viewerSvg, modalTools, announceDialogState);
         dialogStatus.textContent = `Zoom ${formatPercent(dialogController.getState().scale)}`;
-
-        const announceDialogChange = (action: () => void) => {
-            action();
-            const state = dialogController?.getState();
-            if (state) {
-                announceDialogState(state);
-            }
-        };
-        modalTools.zoomIn?.addEventListener("click", () => {
-            announceDialogChange(() => {
-                dialogController?.zoomIn();
-            });
-        });
-        modalTools.zoomOut?.addEventListener("click", () => {
-            announceDialogChange(() => {
-                dialogController?.zoomOut();
-            });
-        });
-        modalTools.reset.addEventListener("click", () => {
-            announceDialogChange(() => {
-                dialogController?.reset();
-            });
-        });
+        bindTools(modalTools, () => dialogController, announceDialogState);
         close.addEventListener("click", closeDialog);
         dialog.addEventListener("click", (event) => {
             if (event.target === dialog) {
@@ -262,48 +222,60 @@ function createController(
     return controller;
 }
 
+function bindTools(
+    tools: MermaidDiagramTools,
+    getController: () => SvgDiagramZoomController | undefined,
+    onChange: (state: SvgDiagramZoomState) => void,
+) {
+    tools.reset.addEventListener("click", () => {
+        const controller = getController();
+        if (!controller) {
+            return;
+        }
+        controller.reset();
+        onChange(controller.getState());
+    });
+    tools.zoomSlider.addEventListener("input", () => {
+        const controller = getController();
+        if (!controller) {
+            return;
+        }
+        controller.zoomTo(Number(tools.zoomSlider.value) / 100);
+        onChange(controller.getState());
+    });
+}
+
 function createTools({
     canvasId,
     caption,
     includeExpand = true,
-    includeSlider = false,
-    orientation = "vertical",
 }: {
     canvasId: string;
     caption: string;
     includeExpand?: boolean;
-    includeSlider?: boolean;
-    orientation?: "horizontal" | "vertical";
 }): MermaidDiagramTools {
     const element = document.createElement("div");
     element.className = "mermaid-diagram-control-rail panzoom-exclude";
     element.setAttribute("aria-label", `Controls for ${caption}`);
     element.setAttribute("role", "group");
-    const zoomOut = includeSlider ? undefined : createButton(`Zoom out ${caption}`, "−", canvasId);
     const reset = createButton(`Reset ${caption} zoom to 100%`, "", canvasId);
     reset.title = "Reset diagram zoom";
     reset.append(createResetIcon());
-    const zoomIn = includeSlider ? undefined : createButton(`Zoom in ${caption}`, "+", canvasId);
-    const zoomSlider = includeSlider ? createZoomSlider(caption, canvasId) : undefined;
+    const zoomSlider = createZoomSlider(caption, canvasId);
     let expand: HTMLButtonElement | undefined;
     if (includeExpand) {
         expand = createButton(`Expand ${caption}`, "", canvasId);
         expand.title = "Expand diagram";
         expand.append(createMaximizeIcon());
     }
-    if (zoomSlider) {
-        const sliderLane = document.createElement("div");
-        sliderLane.className = "mermaid-diagram-slider-lane";
-        sliderLane.append(zoomSlider);
-        const actions = document.createElement("div");
-        actions.className = "mermaid-diagram-control-actions join join-vertical";
-        actions.append(reset, ...(expand ? [expand] : []));
-        element.append(sliderLane, actions);
-    } else {
-        element.classList.add(orientation === "vertical" ? "join-vertical" : "join-horizontal");
-        element.append(...(zoomIn ? [zoomIn] : []), reset, ...(zoomOut ? [zoomOut] : []));
-    }
-    return { element, expand, reset, zoomIn, zoomOut, zoomSlider };
+    const sliderLane = document.createElement("div");
+    sliderLane.className = "mermaid-diagram-slider-lane";
+    sliderLane.append(zoomSlider);
+    const actions = document.createElement("div");
+    actions.className = "mermaid-diagram-control-actions join join-vertical";
+    actions.append(reset, ...(expand ? [expand] : []));
+    element.append(sliderLane, actions);
+    return { element, expand, reset, zoomSlider };
 }
 
 function createButton(label: string, text: string, canvasId?: string) {
@@ -395,18 +367,10 @@ function formatPercent(scale: number) {
 
 function syncTools(tools: MermaidDiagramTools, state: SvgDiagramZoomState) {
     tools.reset.disabled = !state.canReset;
-    if (tools.zoomIn) {
-        tools.zoomIn.disabled = !state.canZoomIn;
-    }
-    if (tools.zoomOut) {
-        tools.zoomOut.disabled = !state.canZoomOut;
-    }
-    if (tools.zoomSlider) {
-        const percent = formatPercent(state.scale);
-        tools.zoomSlider.value = String(Math.round(state.scale * 100));
-        tools.zoomSlider.setAttribute("aria-valuetext", `Zoom ${percent}`);
-        tools.zoomSlider.title = `Zoom ${percent}`;
-    }
+    const percent = formatPercent(state.scale);
+    tools.zoomSlider.value = String(Math.round(state.scale * 100));
+    tools.zoomSlider.setAttribute("aria-valuetext", `Zoom ${percent}`);
+    tools.zoomSlider.title = `Zoom ${percent}`;
 }
 
 interface MermaidDiagramEnhancement {
@@ -417,7 +381,5 @@ interface MermaidDiagramTools {
     element: HTMLDivElement;
     expand?: HTMLButtonElement;
     reset: HTMLButtonElement;
-    zoomIn?: HTMLButtonElement;
-    zoomOut?: HTMLButtonElement;
-    zoomSlider?: HTMLInputElement;
+    zoomSlider: HTMLInputElement;
 }
