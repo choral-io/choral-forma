@@ -212,6 +212,12 @@ function createController(
 ) {
     const controller = createSvgDiagramZoomController({
         canvas,
+        getOverviewSafeInsetRight: () => {
+            const canvasBounds = canvas.getBoundingClientRect();
+            const controlsBounds = tools.element.getBoundingClientRect();
+            const paddingLeft = Number.parseFloat(getComputedStyle(canvas).paddingLeft) || 0;
+            return Math.max(0, canvasBounds.right - controlsBounds.left + paddingLeft);
+        },
         onChange(state) {
             syncTools(tools, state);
         },
@@ -292,7 +298,8 @@ function createButton(label: string, text: string, canvasId?: string) {
 
 function createZoomSlider(caption: string, canvasId: string) {
     const slider = document.createElement("input");
-    slider.className = "range range-vertical range-xs mermaid-diagram-zoom-slider h-full w-5 panzoom-exclude";
+    slider.className =
+        "range range-vertical range-xs mermaid-diagram-zoom-slider mermaid-diagram-no-fill-range h-full w-5 panzoom-exclude";
     slider.setAttribute("aria-controls", canvasId);
     slider.setAttribute("aria-label", `Zoom ${caption}`);
     slider.setAttribute("aria-orientation", "vertical");

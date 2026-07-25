@@ -78,11 +78,14 @@ describe("enhanceMermaidDiagrams", () => {
         expect(root.querySelector("details.mermaid-diagram-tools")).toBeNull();
         const slider = root.querySelector<HTMLInputElement>('[aria-label="Zoom Flowchart diagram"]');
         expect(slider?.classList.contains("range-vertical")).toBe(true);
+        expect(slider?.classList.contains("mermaid-diagram-no-fill-range")).toBe(true);
         expect(slider?.getAttribute("aria-controls")).toBe("diagram-viewport");
         expect(slider?.min).toBe("100");
         expect(slider?.max).toBe("300");
         expect(slider?.step).toBe("5");
         expect(slider?.parentElement?.classList.contains("mermaid-diagram-slider-lane")).toBe(true);
+        expect(controls?.children).toHaveLength(2);
+        expect(controls?.parentElement?.classList.contains("mermaid-diagram-viewport")).toBe(true);
         expect(
             root.querySelector<HTMLButtonElement>('[aria-label="Reset Flowchart diagram zoom to 100%"]')?.disabled,
         ).toBe(true);
@@ -101,7 +104,6 @@ describe("enhanceMermaidDiagrams", () => {
         expect(root.querySelector(".mermaid-diagram-viewport")?.getAttribute("aria-keyshortcuts")).toBe(
             "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0",
         );
-
         if (slider) {
             slider.value = "150";
             slider.dispatchEvent(new Event("input", { bubbles: true }));
@@ -126,6 +128,11 @@ describe("enhanceMermaidDiagrams", () => {
         const dialogSlider = dialog?.querySelector<HTMLInputElement>('[aria-label="Zoom Flowchart diagram"]');
         expect(dialogSlider?.classList.contains("range-vertical")).toBe(true);
         expect(dialogSlider?.parentElement?.classList.contains("mermaid-diagram-slider-lane")).toBe(true);
+        expect(
+            dialogSlider
+                ?.closest(".mermaid-diagram-control-rail")
+                ?.parentElement?.classList.contains("mermaid-diagram-dialog-canvas"),
+        ).toBe(true);
         expect(dialog?.querySelector('[aria-label="Expand Flowchart diagram"]')).toBeNull();
         const close = dialog?.querySelector<HTMLButtonElement>('[aria-label="Close diagram"]');
         expect(close?.getAttribute("title")).toBe("Close diagram");

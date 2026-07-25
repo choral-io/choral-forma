@@ -32,6 +32,11 @@ export interface SvgDiagramZoomController {
 
 export interface SvgDiagramZoomControllerOptions {
     canvas: HTMLElement;
+    /**
+     * Space occupied by overlay controls while the diagram is at its reset
+     * overview. Zoomed diagrams retain the entire canvas for inspection.
+     */
+    getOverviewSafeInsetRight?: () => number;
     onChange?: (state: SvgDiagramZoomState) => void;
     onInteraction?: (state: SvgDiagramZoomState) => void;
     svg: SVGSVGElement;
@@ -65,6 +70,7 @@ const minimumChange = 0.5;
  */
 export function createSvgDiagramZoomController({
     canvas,
+    getOverviewSafeInsetRight,
     onChange,
     onInteraction,
     svg,
@@ -318,7 +324,7 @@ export function createSvgDiagramZoomController({
     }
 
     function initialPosition() {
-        const canvasBounds = boundsFor(canvas);
+        const canvasBounds = availableCanvasBounds();
         return {
             x: (canvasBounds.width - fittedBounds.width * mermaidDiagramZoom.minScale) / 2,
             y: (canvasBounds.height - fittedBounds.height * mermaidDiagramZoom.minScale) / 2,
@@ -336,8 +342,8 @@ export function createSvgDiagramZoomController({
 
     function reset() {
         hasUserAdjusted = false;
-        fitDiagramToCanvas();
         scale = mermaidDiagramZoom.minScale;
+        fitDiagramToCanvas();
         const initial = initialPosition();
         x = initial.x;
         y = initial.y;
@@ -383,7 +389,7 @@ export function createSvgDiagramZoomController({
     }
 
     function constrainedPosition(nextX: number, nextY: number, nextScale: number) {
-        const canvasBounds = boundsFor(canvas);
+        const canvasBounds = availableCanvasBounds(nextScale);
         return {
             x: clampPanAxis(nextX, fittedBounds.width * nextScale, canvasBounds.width),
             y: clampPanAxis(nextY, fittedBounds.height * nextScale, canvasBounds.height),
@@ -391,7 +397,7 @@ export function createSvgDiagramZoomController({
     }
 
     function fitDiagramToCanvas() {
-        const canvasBounds = boundsFor(canvas);
+        const canvasBounds = availableCanvasBounds();
         const fitScale = Math.min(1, canvasBounds.width / baseBounds.width);
         fittedBounds = {
             height: baseBounds.height * fitScale,
@@ -399,6 +405,17 @@ export function createSvgDiagramZoomController({
         };
         svg.style.height = "auto";
         svg.style.width = `${String(fittedBounds.width)}px`;
+    }
+
+    function availableCanvasBounds(nextScale = scale) {
+        const canvasBounds = boundsFor(canvas);
+        if (nextScale > mermaidDiagramZoom.minScale + minimumChange / 100) {
+            return canvasBounds;
+        }
+        return {
+            ...canvasBounds,
+            width: Math.max(0, canvasBounds.width - Math.max(0, getOverviewSafeInsetRight?.() ?? 0)),
+        };
     }
 
     function notify() {

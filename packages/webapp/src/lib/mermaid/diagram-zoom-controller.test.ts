@@ -66,6 +66,27 @@ describe("SvgDiagramZoomController", () => {
         controller.destroy();
     });
 
+    it("keeps the reset overview clear of overlay controls while zoomed inspection reclaims the canvas", () => {
+        const { canvas, svg } = createFixture();
+        const controller = createSvgDiagramZoomController({
+            canvas,
+            getOverviewSafeInsetRight: () => 44,
+            svg,
+        });
+
+        expect(svg.style.width).toBe("256px");
+        expect(controller.getState()).toMatchObject({ scale: 1, x: 0 });
+
+        controller.zoomIn();
+        controller.panBy(-10_000, 0);
+        expect(controller.getState()).toMatchObject({ scale: 1.25, x: -20 });
+
+        controller.reset();
+        expect(svg.style.width).toBe("256px");
+        expect(controller.getState()).toMatchObject({ canReset: false, scale: 1, x: 0 });
+        controller.destroy();
+    });
+
     it("uses Ctrl-wheel for diagram zoom while leaving ordinary wheel scrolling alone", () => {
         const { canvas, svg } = createFixture();
         const controller = createSvgDiagramZoomController({ canvas, svg });
