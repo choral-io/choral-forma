@@ -2,7 +2,12 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createSvgDiagramZoomController } from "./diagram-zoom-controller";
+import {
+    createSvgDiagramZoomController,
+    mermaidDiagramZoom,
+    pinchScaleFactor,
+    wheelScaleFactor,
+} from "./diagram-zoom-controller";
 
 describe("SvgDiagramZoomController", () => {
     let notifyResize: ResizeObserverCallback | undefined;
@@ -74,6 +79,16 @@ describe("SvgDiagramZoomController", () => {
         controller.destroy();
     });
 
+    it("maps continuous wheel and pinch input to conservative bounded zoom factors", () => {
+        expect(wheelScaleFactor(-10)).toBeCloseTo(Math.exp(0.015));
+        expect(wheelScaleFactor(-10)).toBeLessThan(1 + mermaidDiagramZoom.buttonStep);
+        expect(wheelScaleFactor(-10_000)).toBeCloseTo(Math.exp(0.18));
+        expect(wheelScaleFactor(10_000)).toBeCloseTo(Math.exp(-0.18));
+        expect(pinchScaleFactor(160, 100)).toBeCloseTo(Math.sqrt(1.6));
+        expect(pinchScaleFactor(160, 100)).toBeLessThan(1 + mermaidDiagramZoom.buttonStep + 0.02);
+        expect(pinchScaleFactor(160, 0)).toBe(1);
+    });
+
     it("keeps keyboard panning and zoom state scoped to the focused diagram", () => {
         const first = createFixture();
         const second = createFixture({ append: true });
@@ -105,6 +120,12 @@ describe("SvgDiagramZoomController", () => {
         });
         const controller = createSvgDiagramZoomController({ canvas, svg });
 
+        const control = document.createElement("button");
+        control.className = "panzoom-exclude";
+        canvas.append(control);
+        control.dispatchEvent(pointer("pointerdown", { clientX: 120, clientY: 100, pointerId: 9 }));
+        expect(setPointerCapture).not.toHaveBeenCalled();
+
         controller.zoomIn();
 
         canvas.dispatchEvent(pointer("pointerdown", { clientX: 120, clientY: 100, pointerId: 1 }));
@@ -123,7 +144,7 @@ describe("SvgDiagramZoomController", () => {
         canvas.dispatchEvent(
             pointer("pointermove", { clientX: 260, clientY: 100, pointerId: 3, pointerType: "touch" }),
         );
-        expect(controller.getState().scale).toBeGreaterThan(1);
+        expect(controller.getState().scale).toBeCloseTo((1 + mermaidDiagramZoom.buttonStep) * Math.sqrt(1.6));
 
         controller.destroy();
         expect(canvas.style.touchAction).toBe("");

@@ -74,6 +74,8 @@ describe("enhanceMermaidDiagrams", () => {
         expect(controls?.querySelector("summary")?.getAttribute("aria-label")).toBe(
             "Diagram controls for Flowchart diagram",
         );
+        expect(controls?.querySelector("summary")?.textContent).toBe("•••");
+        expect(controls?.querySelector("summary")?.getAttribute("title")).toBe("Diagram controls");
         expect(root.querySelector('[aria-label="Zoom in Flowchart diagram"]')?.getAttribute("aria-controls")).toBe(
             "diagram-viewport",
         );
@@ -82,9 +84,11 @@ describe("enhanceMermaidDiagrams", () => {
         ).toBe(true);
         expect(root.querySelector(".mermaid-diagram-source summary")?.textContent).toBe("View Mermaid source");
         const expand = root.querySelector<HTMLButtonElement>('[aria-label="Expand Flowchart diagram"]');
-        expect(expand?.textContent).toBe("Expand diagram");
+        expect(expand?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+        expect(expand?.getAttribute("title")).toBe("Expand diagram");
         expect(expand?.classList.contains("mermaid-diagram-expand")).toBe(true);
-        expect(expand?.parentElement).toBe(root.querySelector(".mermaid-diagram-caption"));
+        expect(expand?.classList.contains("btn-md")).toBe(true);
+        expect(expand?.parentElement).toBe(root.querySelector(".mermaid-diagram-viewport"));
         expect(root.querySelector(".mermaid-diagram-viewport")?.getAttribute("aria-keyshortcuts")).toBe(
             "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0",
         );
@@ -105,10 +109,12 @@ describe("enhanceMermaidDiagrams", () => {
         expect(dialog?.getAttribute("aria-labelledby")).toContain("dialog-title");
         expect(dialog?.querySelector("h2")?.textContent).toBe("Flowchart diagram");
         expect(dialog?.querySelector("svg")).not.toBeNull();
-        expect(dialog?.querySelector("code")?.textContent).toContain("A --> B");
-        expect(dialog?.querySelector("pre")?.getAttribute("aria-label")).toBe("Mermaid source for Flowchart diagram");
-        expect(dialog?.querySelector("pre")?.getAttribute("role")).toBe("region");
-        expect(dialog?.querySelector("pre")?.tabIndex).toBe(0);
+        expect(dialog?.querySelector(".mermaid-diagram-dialog-source")).toBeNull();
+        expect(dialog?.querySelector(".mermaid-diagram-dialog-status")?.textContent).toBe("Zoom 100%");
+        const close = dialog?.querySelector<HTMLButtonElement>('[aria-label="Close diagram"]');
+        expect(close?.getAttribute("title")).toBe("Close diagram");
+        expect(close?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+        expect(dialog?.querySelector("form.modal-backdrop")).not.toBeNull();
         expect(zoomMocks.controllers[0]?.destroy).toHaveBeenCalledOnce();
 
         dialog?.close();

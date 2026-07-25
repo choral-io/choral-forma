@@ -21,7 +21,6 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
     const caption = figure.querySelector<HTMLElement>(".mermaid-diagram-caption");
     const description = figure.querySelector<HTMLElement>(".sr-only");
     const svg = canvas?.querySelector<SVGSVGElement>("svg");
-    const source = figure.querySelector<HTMLElement>(".mermaid-diagram-source code")?.textContent ?? "";
     if (!canvas || !caption || !description || !svg) {
         return undefined;
     }
@@ -54,11 +53,13 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
     viewerCanvas.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0");
 
     const tools = createTools({ canvasId, caption: captionText });
-    caption.append(tools.expand, tools.element);
+    caption.append(tools.element);
+    viewerCanvas.append(tools.expand);
 
     let controller = createController(viewerCanvas, viewerSvg, tools, announce);
     let dialog: HTMLDialogElement | undefined;
     let dialogController: SvgDiagramZoomController | undefined;
+    let dialogStatus: HTMLSpanElement | undefined;
     let destroyed = false;
 
     tools.zoomIn.addEventListener("click", () => {
@@ -86,6 +87,9 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
 
     function announceDialogState(state: SvgDiagramZoomState) {
         status.textContent = `${captionText} zoom ${formatPercent(state.scale)}.`;
+        if (dialogStatus) {
+            dialogStatus.textContent = `Zoom ${formatPercent(state.scale)}`;
+        }
     }
 
     function closeDialog() {
@@ -120,18 +124,22 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
 
         controller.destroy();
         dialog = document.createElement("dialog");
-        dialog.className = "mermaid-diagram-dialog";
+        dialog.className = "modal mermaid-diagram-dialog";
         dialog.setAttribute("aria-labelledby", `${viewerId}-dialog-title`);
         dialog.setAttribute("aria-describedby", `${viewerId}-dialog-description`);
 
         const surface = document.createElement("div");
-        surface.className = "mermaid-diagram-dialog-surface";
+        surface.className = "modal-box mermaid-diagram-dialog-surface";
         const header = document.createElement("header");
         header.className = "mermaid-diagram-dialog-header";
         const title = document.createElement("h2");
         title.id = `${viewerId}-dialog-title`;
         title.textContent = captionText;
-        const close = createButton("Close diagram", "Close");
+        const close = createButton("Close diagram", "");
+        close.classList.replace("btn-xs", "btn-sm");
+        close.classList.add("btn-square");
+        close.title = "Close diagram";
+        close.append(createCloseIcon());
         header.append(title, close);
 
         const modalDescription = document.createElement("p");
@@ -154,18 +162,32 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
         const modalTools = createTools({ canvasId: modalCanvas.id, caption: captionText, includeExpand: false });
         modalTools.element.classList.add("mermaid-diagram-dialog-tools");
         modalTools.element.open = true;
-        const modalSource = createSourceDisclosure(source, captionText);
-        surface.append(header, modalDescription, modalTools.element, modalCanvas, modalHelp, modalSource);
-        dialog.append(surface);
+        const footer = document.createElement("footer");
+        footer.className = "mermaid-diagram-dialog-footer";
+        dialogStatus = document.createElement("span");
+        dialogStatus.className = "mermaid-diagram-dialog-status";
+        dialogStatus.setAttribute("aria-live", "polite");
+        dialogStatus.setAttribute("role", "status");
+        footer.append(dialogStatus, modalTools.element);
+        surface.append(header, modalDescription, modalCanvas, modalHelp, footer);
+        const backdrop = document.createElement("form");
+        backdrop.className = "modal-backdrop";
+        backdrop.method = "dialog";
+        const backdropClose = document.createElement("button");
+        backdropClose.type = "submit";
+        backdropClose.textContent = "Close diagram";
+        backdrop.append(backdropClose);
+        dialog.append(surface, backdrop);
         document.body.append(dialog);
         modalCanvas.append(viewerSvg);
         dialogController = createController(modalCanvas, viewerSvg, modalTools, announceDialogState);
+        dialogStatus.textContent = `Zoom ${formatPercent(dialogController.getState().scale)}`;
 
         const announceDialogChange = (action: () => void) => {
             action();
             const state = dialogController?.getState();
             if (state) {
-                status.textContent = `${captionText} zoom ${formatPercent(state.scale)}.`;
+                announceDialogState(state);
             }
         };
         modalTools.zoomIn.addEventListener("click", () => {
@@ -194,6 +216,7 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
             () => {
                 dialogController?.destroy();
                 dialogController = undefined;
+                dialogStatus = undefined;
                 originalParent.insertBefore(viewerSvg, originalNextSibling);
                 dialog?.remove();
                 dialog = undefined;
@@ -239,9 +262,10 @@ function createTools({
     const element = document.createElement("details");
     element.className = "mermaid-diagram-tools panzoom-exclude";
     const summary = document.createElement("summary");
-    summary.className = "btn btn-ghost btn-xs";
+    summary.className = "btn btn-ghost btn-xs btn-square mermaid-diagram-menu-trigger";
     summary.setAttribute("aria-label", `Diagram controls for ${caption}`);
-    summary.textContent = "Inspect";
+    summary.title = "Diagram controls";
+    summary.textContent = "•••";
     const panel = document.createElement("div");
     panel.className = "mermaid-diagram-tool-panel join join-horizontal";
     panel.setAttribute("aria-label", `Controls for ${caption}`);
@@ -252,8 +276,11 @@ function createTools({
     panel.append(zoomOut, reset, zoomIn);
     let expand: HTMLButtonElement | undefined;
     if (includeExpand) {
-        expand = createButton(`Expand ${caption}`, "Expand diagram", canvasId);
-        expand.classList.add("mermaid-diagram-expand");
+        expand = createButton(`Expand ${caption}`, "", canvasId);
+        expand.classList.add("btn-square", "mermaid-diagram-expand");
+        expand.classList.replace("btn-xs", "btn-md");
+        expand.title = "Expand diagram";
+        expand.append(createMaximizeIcon());
     }
     element.append(summary, panel);
     return { element, expand: expand ?? createButton(`Expand ${caption}`, "Expand", canvasId), reset, zoomIn, zoomOut };
@@ -271,21 +298,41 @@ function createButton(label: string, text: string, canvasId?: string) {
     return button;
 }
 
-function createSourceDisclosure(source: string, caption: string) {
-    const details = document.createElement("details");
-    details.className = "mermaid-diagram-dialog-source";
-    const summary = document.createElement("summary");
-    summary.textContent = "View Mermaid source";
-    const pre = document.createElement("pre");
-    pre.setAttribute("aria-label", `Mermaid source for ${caption}`);
-    pre.setAttribute("role", "region");
-    pre.tabIndex = 0;
-    const code = document.createElement("code");
-    code.className = "language-mermaid";
-    code.textContent = source;
-    pre.append(code);
-    details.append(summary, pre);
-    return details;
+function createMaximizeIcon() {
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("aria-hidden", "true");
+    icon.setAttribute("fill", "none");
+    icon.setAttribute("stroke", "currentColor");
+    icon.setAttribute("stroke-linecap", "round");
+    icon.setAttribute("stroke-linejoin", "round");
+    icon.setAttribute("stroke-width", "2");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("width", "16");
+    icon.setAttribute("height", "16");
+    for (const pathData of ["M15 3h6v6", "m21 3-7 7", "M9 21H3v-6", "m3 21 7-7"]) {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", pathData);
+        icon.append(path);
+    }
+    return icon;
+}
+
+function createCloseIcon() {
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("aria-hidden", "true");
+    icon.setAttribute("fill", "none");
+    icon.setAttribute("stroke", "currentColor");
+    icon.setAttribute("stroke-linecap", "round");
+    icon.setAttribute("stroke-width", "2");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("width", "16");
+    icon.setAttribute("height", "16");
+    for (const pathData of ["M18 6 6 18", "m6 6 12 12"]) {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", pathData);
+        icon.append(path);
+    }
+    return icon;
 }
 
 function formatPercent(scale: number) {
