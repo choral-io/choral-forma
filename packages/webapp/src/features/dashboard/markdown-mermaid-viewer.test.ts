@@ -86,20 +86,19 @@ describe("enhanceMermaidDiagrams", () => {
         expect(slider?.parentElement?.classList.contains("mermaid-diagram-slider-lane")).toBe(true);
         expect(controls?.children).toHaveLength(2);
         expect(controls?.parentElement?.classList.contains("mermaid-diagram-viewport")).toBe(true);
-        expect(
-            root.querySelector<HTMLButtonElement>('[aria-label="Reset Flowchart diagram zoom to 100%"]')?.disabled,
-        ).toBe(true);
-        expect(
-            root
-                .querySelector<HTMLButtonElement>('[aria-label="Reset Flowchart diagram zoom to 100%"]')
-                ?.querySelector('svg[aria-hidden="true"]'),
-        ).not.toBeNull();
+        const reset = root.querySelector<HTMLButtonElement>('[aria-label="Reset Flowchart diagram zoom to 100%"]');
+        expect(reset?.disabled).toBe(true);
+        expect(reset?.classList.contains("btn-circle")).toBe(true);
+        expect(reset?.classList.contains("join-item")).toBe(false);
+        expect(reset?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
         expect(root.querySelector(".mermaid-diagram-source summary")?.textContent).toBe("View Mermaid source");
         const expand = root.querySelector<HTMLButtonElement>('[aria-label="Expand Flowchart diagram"]');
         expect(expand?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
         expect(expand?.getAttribute("title")).toBe("Expand diagram");
-        expect(expand?.classList.contains("join-item")).toBe(true);
+        expect(expand?.classList.contains("btn-circle")).toBe(true);
+        expect(expand?.classList.contains("join-item")).toBe(false);
         expect(expand?.parentElement?.classList.contains("mermaid-diagram-control-actions")).toBe(true);
+        expect(expand?.parentElement?.classList.contains("join")).toBe(false);
         expect(expand?.parentElement?.parentElement).toBe(controls);
         expect(root.querySelector(".mermaid-diagram-viewport")?.getAttribute("aria-keyshortcuts")).toBe(
             "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0",
@@ -134,13 +133,20 @@ describe("enhanceMermaidDiagrams", () => {
                 ?.parentElement?.classList.contains("mermaid-diagram-dialog-canvas"),
         ).toBe(true);
         expect(dialog?.querySelector('[aria-label="Expand Flowchart diagram"]')).toBeNull();
-        const close = dialog?.querySelector<HTMLButtonElement>('[aria-label="Close diagram"]');
-        expect(close?.getAttribute("title")).toBe("Close diagram");
+        const collapse = dialog?.querySelector<HTMLButtonElement>(
+            '[aria-label="Return Flowchart diagram to embedded view"]',
+        );
+        expect(collapse?.getAttribute("title")).toBe("Return to embedded view");
+        expect(collapse?.classList.contains("btn-circle")).toBe(true);
+        expect(collapse?.classList.contains("join-item")).toBe(false);
+        expect(collapse?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+        const close = dialog?.querySelector<HTMLButtonElement>('[aria-label="Close expanded diagram"]');
+        expect(close?.getAttribute("title")).toBe("Close expanded view");
         expect(close?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
         expect(dialog?.querySelector("form.modal-backdrop")).not.toBeNull();
         expect(zoomMocks.controllers[0]?.destroy).toHaveBeenCalledOnce();
 
-        dialog?.close();
+        collapse?.click();
         expect(root.querySelector(".mermaid-diagram-viewport svg")).not.toBeNull();
         expect(document.activeElement).toBe(expand);
         expect(zoomMocks.controllers).toHaveLength(3);
