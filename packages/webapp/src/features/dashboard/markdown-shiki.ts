@@ -11,6 +11,10 @@ export const markedShiki: MarkedExtension = {
 
         const codeToken = token as Tokens.Code;
         const language = codeToken.lang?.trim().split(/\s+/, 1)[0]?.toLowerCase() ?? "text";
+        if (language === "mermaid") {
+            return;
+        }
+
         try {
             const highlighter = await getHighlighterWithRetry();
             const resolvedLanguage = highlighter.getLoadedLanguages().includes(language) ? language : "text";

@@ -217,7 +217,8 @@ function createMarkdownTableStickyHeaders(reader: HTMLElement): () => void {
     };
 }
 
-function postProcessMarkdownHtml(
+// eslint-disable-next-line react-refresh/only-export-components
+export function postProcessMarkdownHtml(
     html: string,
     headings: DashboardEntryHeading[],
     currentPath: string,

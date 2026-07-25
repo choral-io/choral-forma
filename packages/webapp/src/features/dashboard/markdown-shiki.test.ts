@@ -80,6 +80,16 @@ describe("markedShiki", () => {
         );
         expect((token as unknown as Tokens.HTML).text).toContain('data-language="text"');
     });
+
+    it("leaves Mermaid tokens for the lazy diagram renderer without initializing Shiki", async () => {
+        const { markedShiki } = await import("./markdown-shiki");
+        const token = codeToken("graph TD\nA --> B", "mermaid");
+
+        await markedShiki.walkTokens?.(token);
+
+        expect(token.type).toBe("code");
+        expect(shikiMocks.createMarkdownHighlighter).not.toHaveBeenCalled();
+    });
 });
 
 function codeToken(text: string, language = "ts"): Tokens.Code {
