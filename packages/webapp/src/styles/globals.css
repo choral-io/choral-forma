@@ -213,6 +213,10 @@
             @apply relative shrink-0 transition-opacity;
         }
 
+        & .mermaid-diagram-expand {
+            @apply ms-auto shrink-0;
+        }
+
         & .mermaid-diagram-tools > summary {
             @apply list-none;
         }

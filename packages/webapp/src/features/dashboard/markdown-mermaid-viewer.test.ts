@@ -81,6 +81,10 @@ describe("enhanceMermaidDiagrams", () => {
             root.querySelector<HTMLButtonElement>('[aria-label="Reset Flowchart diagram zoom to 100%"]')?.disabled,
         ).toBe(true);
         expect(root.querySelector(".mermaid-diagram-source summary")?.textContent).toBe("View Mermaid source");
+        const expand = root.querySelector<HTMLButtonElement>('[aria-label="Expand Flowchart diagram"]');
+        expect(expand?.textContent).toBe("Expand diagram");
+        expect(expand?.classList.contains("mermaid-diagram-expand")).toBe(true);
+        expect(expand?.parentElement).toBe(root.querySelector(".mermaid-diagram-caption"));
         expect(root.querySelector(".mermaid-diagram-viewport")?.getAttribute("aria-keyshortcuts")).toBe(
             "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0",
         );

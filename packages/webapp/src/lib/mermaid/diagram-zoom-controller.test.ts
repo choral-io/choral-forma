@@ -30,30 +30,32 @@ describe("SvgDiagramZoomController", () => {
         document.body.replaceChildren();
     });
 
-    it("keeps a natural readable default, bounds viewer transforms, and resets independently", () => {
+    it("fits a complete overview, bounds viewer transforms, and resets independently", () => {
         const { canvas, svg } = createFixture();
         const controller = createSvgDiagramZoomController({ canvas, svg });
 
-        expect(controller.getState()).toMatchObject({ canZoomOut: false, scale: 1, x: -150, y: -100 });
-        expect(svg.style.transform).toContain("translate3d(-150px, -100px, 0) scale(1)");
+        expect(controller.getState()).toMatchObject({ canZoomOut: false, scale: 1, x: 0, y: 0 });
+        expect(svg.style.transform).toContain("translate3d(0px, 0px, 0) scale(1)");
+        expect(svg.style.width).toBe("300px");
 
         controller.zoomIn();
         expect(controller.getState()).toMatchObject({ canZoomOut: true, scale: 1.25 });
         controller.panBy(-10_000, -10_000);
-        expect(controller.getState()).toMatchObject({ x: -450, y: -300 });
+        expect(controller.getState()).toMatchObject({ x: -75, y: -50 });
 
         controller.reset();
-        expect(controller.getState()).toMatchObject({ canReset: false, scale: 1, x: -150, y: -100 });
+        expect(controller.getState()).toMatchObject({ canReset: false, scale: 1, x: 0, y: 0 });
         controller.destroy();
     });
 
-    it("recenters an untouched natural diagram when reader layout settles after mount", () => {
+    it("refits an untouched overview when reader layout settles after mount", () => {
         const { canvas, svg } = createFixture();
         const controller = createSvgDiagramZoomController({ canvas, svg });
         setBounds(canvas, 400, 200);
         notifyResize?.([], {} as ResizeObserver);
 
-        expect(controller.getState()).toMatchObject({ canReset: false, scale: 1, x: -100, y: -100 });
+        expect(controller.getState()).toMatchObject({ canReset: false, scale: 1, x: 0 });
+        expect(svg.style.width).toBe("400px");
         controller.destroy();
     });
 
@@ -84,10 +86,10 @@ describe("SvgDiagramZoomController", () => {
             new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "ArrowRight" }),
         );
 
-        expect(firstController.getState()).toMatchObject({ canReset: true, scale: 1.25, x: -273 });
-        expect(secondController.getState()).toMatchObject({ canReset: false, scale: 1, x: -150, y: -100 });
+        expect(firstController.getState()).toMatchObject({ canReset: true, scale: 1.25, x: -75 });
+        expect(secondController.getState()).toMatchObject({ canReset: false, scale: 1, x: 0, y: 0 });
         expect(onInteraction).toHaveBeenCalledTimes(2);
-        expect(onInteraction).toHaveBeenLastCalledWith(expect.objectContaining({ scale: 1.25, x: -273 }));
+        expect(onInteraction).toHaveBeenLastCalledWith(expect.objectContaining({ scale: 1.25, x: -75 }));
         firstController.destroy();
         secondController.destroy();
     });
@@ -103,9 +105,11 @@ describe("SvgDiagramZoomController", () => {
         });
         const controller = createSvgDiagramZoomController({ canvas, svg });
 
+        controller.zoomIn();
+
         canvas.dispatchEvent(pointer("pointerdown", { clientX: 120, clientY: 100, pointerId: 1 }));
         canvas.dispatchEvent(pointer("pointermove", { clientX: 50, clientY: 40, pointerId: 1 }));
-        expect(controller.getState()).toMatchObject({ x: -220, y: -160 });
+        expect(controller.getState()).toMatchObject({ x: -75, y: -50 });
         canvas.dispatchEvent(pointer("pointerup", { clientX: 50, clientY: 40, pointerId: 1 }));
         expect(setPointerCapture).toHaveBeenCalledWith(1);
         expect(releasePointerCapture).toHaveBeenCalledWith(1);
