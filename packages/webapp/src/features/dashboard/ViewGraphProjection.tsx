@@ -124,7 +124,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                 reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
             },
             ariaLabel:
-                "Interactive graph preview. Select a node with one click and open it with Enter or double click. Press F to reset the view.",
+                "Interactive graph preview. Select a node with one click and open it with Enter or double click. Zoom with Command plus wheel on macOS or Control plus wheel on Windows and Linux, or pinch on a trackpad or touch screen. Press F to reset the view.",
             onOpenNode(node) {
                 const routePath = routesRef.current.get(node.id);
                 if (routePath) void navigateRef.current(routePath);

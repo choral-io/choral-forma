@@ -181,9 +181,10 @@ describe("SigmaGraphRuntime lifecycle", () => {
         expect(cancelAnimationFrame).toHaveBeenCalledWith(41);
     });
 
-    it("only passes physical Control-wheel events through to Sigma", () => {
+    it("passes platform-approved wheel zoom and trackpad pinch events through to Sigma", () => {
         const browserWindow = fakeWindowEventTarget();
         vi.stubGlobal("window", browserWindow);
+        vi.stubGlobal("navigator", { platform: "Win32" });
         const container = fakeContainer();
         const runtime = createGraphRuntime({
             container,
@@ -212,16 +213,38 @@ describe("SigmaGraphRuntime lifecycle", () => {
         browserWindow.emit("keyup", { key: "Control" } as KeyboardEvent);
         const stopPinchLikeWheel = vi.fn();
         wheelCapture({ ctrlKey: true, stopImmediatePropagation: stopPinchLikeWheel } as unknown as Event);
-        expect(stopPinchLikeWheel).toHaveBeenCalledOnce();
+        expect(stopPinchLikeWheel).not.toHaveBeenCalled();
 
         runtime.destroy();
         expect(browserWindow.removedEventTypes).toEqual(expect.arrayContaining(["keydown", "keyup", "blur"]));
     });
 
-    it("requires both the wheel modifier and a physical Control key state", () => {
-        expect(shouldAllowGraphWheelZoom({ ctrlKey: false }, true)).toBe(false);
-        expect(shouldAllowGraphWheelZoom({ ctrlKey: true }, false)).toBe(false);
-        expect(shouldAllowGraphWheelZoom({ ctrlKey: true }, true)).toBe(true);
+    it("uses Command-wheel on macOS, Control-wheel elsewhere, and preserves trackpad pinch", () => {
+        const macOS = {
+            isMacOS: true,
+            isPhysicalControlKeyPressed: false,
+            isPhysicalMetaKeyPressed: false,
+        };
+        const windows = { ...macOS, isMacOS: false };
+
+        expect(shouldAllowGraphWheelZoom({ ctrlKey: false, metaKey: false }, macOS)).toBe(false);
+        expect(
+            shouldAllowGraphWheelZoom(
+                { ctrlKey: true, metaKey: false },
+                { ...macOS, isPhysicalControlKeyPressed: true },
+            ),
+        ).toBe(false);
+        expect(
+            shouldAllowGraphWheelZoom({ ctrlKey: false, metaKey: true }, { ...macOS, isPhysicalMetaKeyPressed: true }),
+        ).toBe(true);
+        expect(shouldAllowGraphWheelZoom({ ctrlKey: true, metaKey: false }, macOS)).toBe(true);
+        expect(
+            shouldAllowGraphWheelZoom(
+                { ctrlKey: true, metaKey: false },
+                { ...windows, isPhysicalControlKeyPressed: true },
+            ),
+        ).toBe(true);
+        expect(shouldAllowGraphWheelZoom({ ctrlKey: true, metaKey: false }, windows)).toBe(true);
     });
 
     it("reuses Sigma's standard label renderer for hover and focus states", () => {
