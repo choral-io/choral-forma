@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sigmaMocks = vi.hoisted(() => {
     class FakeSigma {
@@ -111,7 +111,7 @@ vi.mock("sigma/rendering", () => ({
     drawDiscNodeLabel: sigmaMocks.drawDiscNodeLabel,
 }));
 
-import { createGraphRuntime } from "./runtime.ts";
+import { createGraphRuntime, shouldAllowGraphWheelZoom } from "./runtime.ts";
 import { mixGraphColors } from "./theme.ts";
 import type { GraphProjection, GraphTheme } from "./types.ts";
 
@@ -145,6 +145,10 @@ describe("SigmaGraphRuntime lifecycle", () => {
         vi.stubGlobal("cancelAnimationFrame", vi.fn());
     });
 
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
     it("keeps selection separate from activation and releases all host resources", () => {
         const removeEventListener = vi.fn();
         const container = fakeContainer(removeEventListener);
@@ -172,8 +176,52 @@ describe("SigmaGraphRuntime lifecycle", () => {
 
         expect(renderer.kill).toHaveBeenCalledOnce();
         expect(resizeObservers[0]?.disconnect).toHaveBeenCalledOnce();
-        expect(removeEventListener).toHaveBeenCalledOnce();
+        expect(removeEventListener).toHaveBeenCalledWith("keydown", expect.any(Function));
+        expect(removeEventListener).toHaveBeenCalledWith("wheel", expect.any(Function), { capture: true });
         expect(cancelAnimationFrame).toHaveBeenCalledWith(41);
+    });
+
+    it("only passes physical Control-wheel events through to Sigma", () => {
+        const browserWindow = fakeWindowEventTarget();
+        vi.stubGlobal("window", browserWindow);
+        const container = fakeContainer();
+        const runtime = createGraphRuntime({
+            container,
+            projection: projection(),
+            theme: theme(),
+            layout: { engine: "force", reducedMotion: true },
+        });
+        const wheelCapture = container.eventListeners.get("wheel");
+        if (typeof wheelCapture !== "function") throw new Error("Expected Graph wheel capture listener.");
+        const stopPlainWheel = vi.fn();
+        const preventPlainWheel = vi.fn();
+
+        wheelCapture({
+            ctrlKey: false,
+            preventDefault: preventPlainWheel,
+            stopImmediatePropagation: stopPlainWheel,
+        } as unknown as Event);
+        expect(stopPlainWheel).toHaveBeenCalledOnce();
+        expect(preventPlainWheel).not.toHaveBeenCalled();
+
+        browserWindow.emit("keydown", { key: "Control" } as KeyboardEvent);
+        const stopControlWheel = vi.fn();
+        wheelCapture({ ctrlKey: true, stopImmediatePropagation: stopControlWheel } as unknown as Event);
+        expect(stopControlWheel).not.toHaveBeenCalled();
+
+        browserWindow.emit("keyup", { key: "Control" } as KeyboardEvent);
+        const stopPinchLikeWheel = vi.fn();
+        wheelCapture({ ctrlKey: true, stopImmediatePropagation: stopPinchLikeWheel } as unknown as Event);
+        expect(stopPinchLikeWheel).toHaveBeenCalledOnce();
+
+        runtime.destroy();
+        expect(browserWindow.removedEventTypes).toEqual(expect.arrayContaining(["keydown", "keyup", "blur"]));
+    });
+
+    it("requires both the wheel modifier and a physical Control key state", () => {
+        expect(shouldAllowGraphWheelZoom({ ctrlKey: false }, true)).toBe(false);
+        expect(shouldAllowGraphWheelZoom({ ctrlKey: true }, false)).toBe(false);
+        expect(shouldAllowGraphWheelZoom({ ctrlKey: true }, true)).toBe(true);
     });
 
     it("reuses Sigma's standard label renderer for hover and focus states", () => {
@@ -480,18 +528,44 @@ class FakeResizeObserver {
     }
 }
 
-function fakeContainer(removeEventListener = vi.fn()): HTMLElement {
+function fakeContainer(removeEventListener = vi.fn()): HTMLElement & { eventListeners: Map<string, EventListener> } {
     const attributes = new Map<string, string>();
+    const eventListeners = new Map<string, EventListener>();
     return {
+        eventListeners,
         offsetHeight: 480,
         offsetWidth: 720,
         style: { removeProperty: vi.fn() },
         tabIndex: -1,
-        addEventListener: vi.fn(),
+        addEventListener: vi.fn((type: string, listener: EventListener) => {
+            eventListeners.set(type, listener);
+        }),
         hasAttribute: vi.fn((name: string) => attributes.has(name)),
         removeEventListener,
         setAttribute: vi.fn((name: string, value: string) => attributes.set(name, value)),
-    } as unknown as HTMLElement;
+    } as unknown as HTMLElement & { eventListeners: Map<string, EventListener> };
+}
+
+function fakeWindowEventTarget(): Window & {
+    emit(type: string, event: Event): void;
+    removedEventTypes: string[];
+} {
+    const listeners = new Map<string, EventListener>();
+    const removedEventTypes: string[] = [];
+    const removeEventListener = (type: string, listener: EventListener) => {
+        removedEventTypes.push(type);
+        if (listeners.get(type) === listener) listeners.delete(type);
+    };
+    return {
+        addEventListener: vi.fn((type: string, listener: EventListener) => {
+            listeners.set(type, listener);
+        }),
+        emit(type: string, event: Event) {
+            listeners.get(type)?.(event);
+        },
+        removeEventListener,
+        removedEventTypes,
+    } as unknown as Window & { emit(type: string, event: Event): void; removedEventTypes: string[] };
 }
 
 function projection(): GraphProjection {
