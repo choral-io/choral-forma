@@ -257,6 +257,33 @@ Official references:
 5. **Resilience:** alignment and visibility remain correct after viewport resize, browser zoom, theme changes, configured label/count/content changes, and uneven natural column heights.
 6. **Completion:** ordinary Kanban card links, keyboard board scrolling, focus visibility, Light and Dark themes, forced-colors behavior, console output, focused automated checks, and project-native validation pass. Table and VS Code remain deferred.
 
+## Table Visual Prototype Adjustment — 2026-07-25
+
+Before any Kanban product code changed, the user changed the immediate proof order again: use Table first to validate the framework-agnostic visual sticky-header mechanism. This section supersedes only the implementation order in the preceding Kanban adjustment. It does not withdraw the accepted Kanban rail contract or broaden the task beyond a bounded Table prototype.
+
+The Table prototype is authorized only under this contract:
+
+- preserve the existing semantic `<table>`, `<thead>`, `<th scope="col">`, and configured header relationships inside the horizontal scroller;
+- render one presentation-only visual header with the Table projection and keep it `aria-hidden`;
+- place the visual header outside the Table's horizontal overflow ancestor so page-owned vertical sticky positioning remains possible;
+- share the real Table's measured column geometry rather than maintaining an independent fixed-width model;
+- synchronize only the Table scroller's horizontal position in one direction;
+- show the visual header only after the real semantic header crosses the responsive sticky offset;
+- let native sticky positioning stop the visual header at the projection boundary;
+- never make the visual header focusable or pointer-interactive;
+- keep the reusable seam below projection rendering: one narrow projection-boundary lifecycle controller may own reveal, hide, native boundary stopping, observer/listener scheduling, and cleanup;
+- keep Table-specific header measurement and horizontal synchronization in a Table adapter; document that a later Kanban adapter can provide controlled column-rail geometry without sharing Table markup;
+- do not add a generic cloned-header component, projection renderer, third-party dependency, nested vertical scroller, fixed projection height, page-root horizontal overflow, Kanban source change, or VS Code change.
+
+### Table prototype gates
+
+1. **Architecture:** an overlapping sticky visual header remains outside the horizontal overflow ancestor, adds no document height, and stops before Markdown rendered after the projection.
+2. **Semantic authority:** the real `<thead>` remains in the accessibility tree and the visual clone is absent from it, has no focusable descendants, and cannot intercept pointer input.
+3. **Geometry:** at 1440, 1024, 768, and 390 px, every visual header cell matches its real column's left edge and width within one CSS pixel at horizontal start, midpoint, and maximum positions.
+4. **Scroll ownership:** vertical scrolling remains page-owned; horizontal scrolling remains Table-owned; the page root continues to satisfy `scrollWidth === clientWidth`.
+5. **Lifecycle and reuse seam:** visibility and alignment remain correct after viewport resize, browser zoom, theme changes, configured label/content changes, projection rerender, and component unmount, with observers and listeners cleaned up. The proof must keep boundary lifecycle inputs projection-neutral while Table geometry remains Table-specific.
+6. **Completion:** Light and Dark themes, keyboard Table scrolling, focus visibility, content before and after the projection, console output, focused automated checks, production build, and project-native validation pass. If any gate is unreliable, stop without starting Kanban or forcing a partial solution.
+
 ## Acceptance Criteria
 
 - A long Table keeps its column headers visible during vertical scrolling without losing horizontal scrolling or column alignment.
