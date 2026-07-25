@@ -5,6 +5,7 @@ import {
     type SvgDiagramZoomController,
     type SvgDiagramZoomState,
 } from "@/lib/mermaid";
+import { acquireWorkspaceInteractionLayer } from "@/lib/workspace-interaction-layer";
 
 const toolButtonClass = "btn btn-ghost btn-sm btn-circle diagram-viewer-control-button panzoom-exclude";
 let nextViewerId = 1;
@@ -65,6 +66,7 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
     let dialog: HTMLDialogElement | undefined;
     let dialogController: SvgDiagramZoomController | undefined;
     let dialogStatus: HTMLSpanElement | undefined;
+    let releaseInteractionLayer: (() => void) | undefined;
     let destroyed = false;
 
     bindTools(tools, () => controller, announce);
@@ -96,6 +98,8 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
         }
         destroyed = true;
         closeDialog();
+        releaseInteractionLayer?.();
+        releaseInteractionLayer = undefined;
         controller.destroy();
         tools.element.remove();
         help.remove();
@@ -169,6 +173,8 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
                 dialogController?.destroy();
                 dialogController = undefined;
                 dialogStatus = undefined;
+                releaseInteractionLayer?.();
+                releaseInteractionLayer = undefined;
                 originalParent.insertBefore(viewerSvg, originalNextSibling);
                 dialog?.remove();
                 dialog = undefined;
@@ -180,6 +186,7 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
             { once: true },
         );
         dialog.showModal();
+        releaseInteractionLayer = acquireWorkspaceInteractionLayer();
         modalTools.viewerToggle.focus({ preventScroll: true });
     }
 }
