@@ -2,7 +2,13 @@ export const mermaidDiagramZoom = {
     keyboardPanPixels: 48,
     maxScale: 3,
     minScale: 1,
-    wheelSensitivity: 0.25,
+    // Buttons and keyboard use deliberate, predictable 25% steps. Continuous
+    // inputs use separate damped mappings so a single high-resolution wheel
+    // or pinch update cannot jump the view by a button-sized increment.
+    buttonStep: 0.25,
+    pinchExponent: 0.5,
+    wheelDeltaLimit: 120,
+    wheelZoomPerPixel: 0.0015,
 } as const;
 
 export interface SvgDiagramZoomState {
@@ -213,6 +219,9 @@ export function createSvgDiagramZoomController({
     }
 
     function handlePointerDown(event: PointerEvent) {
+        if (isDiagramControl(event.target)) {
+            return;
+        }
         if (event.pointerType === "mouse" && event.button !== 0) {
             return;
         }
@@ -241,7 +250,7 @@ export function createSvgDiagramZoomController({
         activePointers.set(event.pointerId, point);
         if (activePointers.size >= 2 && pinch) {
             const next = createPinchGesture(activePointers.values(), pinch.scale, pinch.x, pinch.y);
-            const nextScale = clampScale(pinch.scale * (next.distance / pinch.distance));
+            const nextScale = clampScale(pinch.scale * pinchScaleFactor(next.distance, pinch.distance));
             scale = nextScale;
             x = pinch.midpointX - ((pinch.midpointX - pinch.x) / pinch.scale) * nextScale;
             y = pinch.midpointY - ((pinch.midpointY - pinch.y) / pinch.scale) * nextScale;
@@ -296,7 +305,7 @@ export function createSvgDiagramZoomController({
         }
         event.preventDefault();
         const direction = event.deltaY === 0 && event.deltaX ? event.deltaX : event.deltaY;
-        const factor = Math.exp((direction < 0 ? 1 : -1) * mermaidDiagramZoom.wheelSensitivity);
+        const factor = wheelScaleFactor(normalizeWheelDelta(event, direction, canvas));
         zoomAtPoint(scale * factor, event.clientX, event.clientY);
         if (interactionTimer) {
             clearTimeout(interactionTimer);
@@ -352,7 +361,7 @@ export function createSvgDiagramZoomController({
     function zoomIn() {
         const bounds = canvas.getBoundingClientRect();
         zoomAtPoint(
-            scale * (1 + mermaidDiagramZoom.wheelSensitivity),
+            scale * (1 + mermaidDiagramZoom.buttonStep),
             bounds.left + bounds.width / 2,
             bounds.top + bounds.height / 2,
         );
@@ -361,7 +370,7 @@ export function createSvgDiagramZoomController({
     function zoomOut() {
         const bounds = canvas.getBoundingClientRect();
         zoomAtPoint(
-            scale / (1 + mermaidDiagramZoom.wheelSensitivity),
+            scale / (1 + mermaidDiagramZoom.buttonStep),
             bounds.left + bounds.width / 2,
             bounds.top + bounds.height / 2,
         );
@@ -405,6 +414,10 @@ export function createSvgDiagramZoomController({
     }
 }
 
+function isDiagramControl(target: EventTarget | null) {
+    return target instanceof Element && Boolean(target.closest(".panzoom-exclude"));
+}
+
 function boundsFor(element: Element): DiagramBounds {
     const { height, width } = element.getBoundingClientRect();
     return { height, width };
@@ -432,6 +445,32 @@ function clampPanAxis(value: number, contentSize: number, canvasSize: number) {
 
 function clampScale(value: number) {
     return Math.min(mermaidDiagramZoom.maxScale, Math.max(mermaidDiagramZoom.minScale, value));
+}
+
+export function wheelScaleFactor(deltaPixels: number) {
+    const boundedDelta = Math.min(
+        mermaidDiagramZoom.wheelDeltaLimit,
+        Math.max(-mermaidDiagramZoom.wheelDeltaLimit, deltaPixels),
+    );
+    return Math.exp(-boundedDelta * mermaidDiagramZoom.wheelZoomPerPixel);
+}
+
+export function pinchScaleFactor(distance: number, initialDistance: number) {
+    if (initialDistance <= 0) {
+        return 1;
+    }
+    return Math.pow(distance / initialDistance, mermaidDiagramZoom.pinchExponent);
+}
+
+function normalizeWheelDelta(event: WheelEvent, delta: number, canvas: HTMLElement) {
+    switch (event.deltaMode) {
+        case WheelEvent.DOM_DELTA_LINE:
+            return delta * 16;
+        case WheelEvent.DOM_DELTA_PAGE:
+            return delta * Math.max(canvas.clientHeight, 1);
+        default:
+            return delta;
+    }
 }
 
 function createPinchGesture(pointers: Iterable<PointerSnapshot>, scale: number, x: number, y: number): PinchGesture {

@@ -202,11 +202,11 @@
         }
 
         & .mermaid-diagram-caption {
-            @apply border-base-300 text-base-content/70 flex items-center justify-between gap-3 border-b px-4 py-3 text-sm font-medium;
+            @apply border-base-300 text-base-content/70 flex items-center gap-1 border-b px-4 py-3 text-sm font-medium;
         }
 
         & .mermaid-diagram-caption-label {
-            @apply min-w-0;
+            @apply me-auto min-w-0;
         }
 
         & .mermaid-diagram-tools {
@@ -214,7 +214,11 @@
         }
 
         & .mermaid-diagram-expand {
-            @apply ms-auto shrink-0;
+            @apply border-base-300/60 bg-base-100/90 text-base-content/75 hover:text-base-content absolute end-3 bottom-3 z-10 shrink-0 border shadow-sm backdrop-blur-sm;
+        }
+
+        & .mermaid-diagram-menu-trigger {
+            @apply text-base-content/65 hover:text-base-content;
         }
 
         & .mermaid-diagram-tools > summary {
@@ -227,12 +231,6 @@
 
         & .mermaid-diagram-tool-panel {
             @apply border-base-300 bg-base-100 absolute end-0 z-10 mt-1 rounded-md border p-1 shadow-lg;
-        }
-
-        @media (hover: hover) {
-            & .mermaid-diagram:not(:hover, :focus-within) .mermaid-diagram-tools {
-                @apply pointer-events-none opacity-0;
-            }
         }
 
         & .mermaid-diagram-viewport {
@@ -306,7 +304,7 @@
 }
 
 .mermaid-diagram-dialog {
-    @apply bg-base-100 text-base-content fixed inset-4 m-0 h-auto max-h-none w-auto max-w-none overflow-hidden rounded-lg border-0 p-0 shadow-2xl;
+    @apply fixed inset-4 m-0 h-auto max-h-none w-auto max-w-none overflow-hidden p-0;
 }
 
 .mermaid-diagram-dialog::backdrop {
@@ -314,7 +312,7 @@
 }
 
 .mermaid-diagram-dialog-surface {
-    @apply flex h-full min-h-0 flex-col;
+    @apply bg-base-100 text-base-content flex h-full min-h-0 w-full max-w-none flex-col overflow-hidden rounded-lg p-0 shadow-2xl;
 }
 
 .mermaid-diagram-dialog-header {
@@ -325,8 +323,16 @@
     @apply min-w-0 text-base font-medium;
 }
 
+.mermaid-diagram-dialog-footer {
+    @apply border-base-300 flex shrink-0 items-center gap-3 border-t px-4 py-2;
+}
+
+.mermaid-diagram-dialog-status {
+    @apply text-base-content/60 me-auto text-xs tabular-nums;
+}
+
 .mermaid-diagram-dialog-tools {
-    @apply border-base-300 flex shrink-0 items-center justify-end gap-2 border-b px-4 py-2;
+    @apply shrink-0;
 }
 
 .mermaid-diagram-dialog-tools > summary {
@@ -343,16 +349,4 @@
 
 .mermaid-diagram-dialog-canvas > svg {
     @apply block h-auto max-w-none;
-}
-
-.mermaid-diagram-dialog-source {
-    @apply border-base-300 shrink-0 border-t px-4 py-3 text-sm;
-}
-
-.mermaid-diagram-dialog-source > summary {
-    @apply cursor-pointer font-medium;
-}
-
-.mermaid-diagram-dialog-source pre {
-    @apply border-base-300 bg-base-200/50 mt-3 max-h-48 overflow-auto rounded-md border p-3;
 }
