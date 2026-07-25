@@ -1,11 +1,12 @@
 import DOMPurify from "dompurify";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { DashboardEntry, DashboardEntryHeading } from "@/data/workspace-client";
 import type { MermaidRenderScope } from "@/lib/mermaid";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 
 import { resolveReaderLink } from "./markdown-links";
+import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
 import { renderMarkdown } from "./markdown-renderer";
 
 export interface MarkdownReaderProps {
@@ -36,6 +37,7 @@ export function MarkdownReader({
     mermaidScope,
     omitLeadingTitle = false,
 }: MarkdownReaderProps) {
+    const readerRef = useRef<HTMLDivElement>(null);
     const [renderState, setRenderState] = useState<MarkdownRenderState>();
     const [retryKey, setRetryKey] = useState(0);
     const isCurrentRender =
@@ -86,6 +88,13 @@ export function MarkdownReader({
         };
     }, [currentPath, entries, headings, markdown, mermaidScope, omitLeadingTitle, retryKey]);
 
+    useEffect(() => {
+        if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) {
+            return;
+        }
+        return enhanceMermaidDiagrams(readerRef.current);
+    }, [isCurrentRender, renderState?.html, renderState?.status]);
+
     if (!isCurrentRender) {
         return (
             <div
@@ -129,6 +138,7 @@ export function MarkdownReader({
     return (
         <div
             data-reader="markdown"
+            ref={readerRef}
             // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
             dangerouslySetInnerHTML={{ __html: renderState.html ?? "" }}
         />

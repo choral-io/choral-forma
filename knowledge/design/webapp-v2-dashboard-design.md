@@ -149,6 +149,8 @@ For Mermaid, Forma owns the browser Worker adapter, syntax and resource budgets,
 
 Dependency upgrades should keep a normal semver-compatible manifest range and rely on the committed lockfile for reproducible installs. Every resolved Beautiful Mermaid upgrade must pass the fast real-browser Worker gate for module loading, an admitted canonical render, abort-and-recreate behavior, the SVG sanitization path, and continued main-thread scheduling; this gate supplements rather than replaces the full syntax, security, accessibility, and browser validation suite.
 
+Reader diagrams use the framework-independent `SvgDiagramZoomController`: the default and Reset are the natural 100% SVG size, bounded zoom is 100–300%, and source labels remain readable rather than auto-fitting to a narrow reader. It handles focused keyboard panning, drag panning, touch pinch, and browser touchpad-pinch (`Ctrl`-wheel); ordinary wheel and one-finger vertical reading scroll remain browser-owned. The React reader adds only a compact contextual inspection control and a Mermaid-local app-owned dialog for detailed inspection, focus restoration, Escape close, and the same source disclosure. This intentionally remains Mermaid-local rather than creating a generic overlay prematurely: a future Graph or other consumer can extract a small shell once a second natural call site establishes the shared API. No third-party pan/zoom dependency is used; the controller is independently tested and its public browser-oriented API is the reuse boundary.
+
 Document relationship surfaces should first expose only relationships that come from explicit Markdown links:
 
 - ordinary Markdown links, wikilinks, URLs, and path links produce outgoing links;

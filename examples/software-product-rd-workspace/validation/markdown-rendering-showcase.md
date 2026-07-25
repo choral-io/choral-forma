@@ -146,7 +146,7 @@ sequenceDiagram
   Reader-->>Author: Show accessible diagram and source
 ```
 
-The four sequence participants represent the actual reader boundary rather than an artificial overflow case. On narrow screens, diagrams should keep readable proportions: an SVG may scale within the container when its labels remain clear, while naturally wider output should use the keyboard-focusable local scroller without widening the page. Captions and source disclosures should remain usable outside the scrolling viewport.
+The four sequence participants represent the actual reader boundary rather than an artificial overflow case. On narrow screens, diagrams keep their natural readable 100% size instead of auto-fitting text smaller: a keyboard-focusable local viewer supports arrow-key and pointer panning, while **Expand** opens a larger inspection canvas with the same zoom controls. The viewer must not widen the page, and captions and source disclosures remain usable outside it.
 
 ## Formulae
 
@@ -239,8 +239,8 @@ A long unbroken token should wrap or stay locally contained rather than widening
 - [ ] Internal links stay in the app, while external links are visibly distinguishable.
 - [ ] Wikilinks resolve and contribute to outgoing links and backlinks.
 - [ ] The wide table and long code line scroll locally without page-level horizontal overflow.
-- [ ] Both Mermaid diagrams follow the active theme, expose meaningful text alternatives and source disclosures, and own their horizontal overflow on narrow screens.
-- [ ] At mobile width, diagram labels remain readable: SVGs that fit may scale proportionally, while naturally wider SVGs scroll inside the keyboard-focusable local region without widening the page; captions and source disclosures remain usable.
+- [ ] Both Mermaid diagrams follow the active theme, expose meaningful text alternatives and source disclosures, and keep their wide content inside a local viewer on narrow screens.
+- [ ] At mobile width, diagram labels remain at natural readable size; arrow-key/pointer panning and **Expand** reveal wide content without widening the page, while captions and source disclosures remain usable.
 - [ ] Inline, display, invalid, and long formulae remain readable without interpreting currency or code as math.
 - [ ] Task items, nested lists, quotes, tables, code, and inline styles remain clear in light and dark themes.
 - [ ] The local image stays within the reading column and has meaningful alternative text.
