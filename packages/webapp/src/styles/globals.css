@@ -329,13 +329,3 @@
 .diagram-viewer-control-button {
     @apply border-base-300/60 bg-base-100/90 h-8 min-h-8 w-8 shadow-sm backdrop-blur-sm focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2;
 }
-
-.graph-viewer-canvas {
-    @apply absolute start-0 top-0;
-    inset-inline-end: calc(2rem + 0.75rem);
-    inset-block-end: calc(9.75rem + 0.75rem);
-}
-
-.graph-viewer-canvas--zoomed {
-    @apply inset-0;
-}

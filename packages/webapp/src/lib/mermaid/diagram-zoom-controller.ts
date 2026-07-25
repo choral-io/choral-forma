@@ -3,12 +3,12 @@ export const mermaidDiagramZoom = {
     maxScale: 3,
     minScale: 1,
     // Buttons and keyboard use deliberate, predictable 25% steps. Continuous
-    // inputs use separate damped mappings: small high-resolution updates stay
-    // below a button-sized increment, while explicit input caps bound spikes.
+    // inputs sit between the deliberately calm previous revision and Sigma's
+    // native 1.7x wheel step: responsive for trackpads, bounded for readers.
     buttonStep: 0.25,
-    pinchExponent: 0.65,
-    wheelDeltaLimit: 45,
-    wheelZoomPerPixel: 0.005,
+    pinchExponent: 0.8,
+    wheelDeltaLimit: 40,
+    wheelZoomPerPixel: 0.01,
 } as const;
 
 export interface SvgDiagramZoomState {

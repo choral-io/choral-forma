@@ -24,8 +24,6 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     const viewerToggleRef = useRef<HTMLButtonElement | null>(null);
     const wasExpandedRef = useRef(false);
     const [graphTheme, setGraphTheme] = useState<GraphTheme>(() => readGraphThemeTokens());
-    const [graphZoom, setGraphZoom] = useState(100);
-    const [isGraphZoomed, setIsGraphZoomed] = useState(false);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const runtimeProjection = useMemo(() => mapDashboardGraphProjection(projection), [projection]);
@@ -134,29 +132,8 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         });
     }, [activeNodeId, graphTheme, runtimeProjection]);
 
-    useEffect(() => {
-        const runtime = runtimeRef.current;
-        if (!runtime) return;
-        const frame = requestAnimationFrame(() => {
-            if (graphZoom > 100) {
-                runtime.zoomTo(graphZoom / 100);
-            } else if (!isGraphZoomed) {
-                runtime.fit();
-            }
-        });
-        return () => {
-            cancelAnimationFrame(frame);
-        };
-    }, [graphZoom, isGraphZoomed, isExpanded]);
-
     const resetGraph = () => {
-        setGraphZoom(100);
-        setIsGraphZoomed(false);
-    };
-
-    const setGraphZoomFromControl = (nextZoom: number) => {
-        setGraphZoom(nextZoom);
-        setIsGraphZoomed(nextZoom > 100);
+        runtimeRef.current?.fit();
     };
 
     return (
@@ -170,46 +147,11 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                 )}
             >
                 <div
-                    className={cn(
-                        "focus-visible:ring-primary/50 graph-viewer-canvas outline-none focus-visible:ring-3 focus-visible:ring-inset",
-                        isGraphZoomed && "graph-viewer-canvas--zoomed",
-                    )}
+                    className="focus-visible:ring-primary/50 relative size-full outline-none focus-visible:ring-3 focus-visible:ring-inset"
                     id="graph-viewer-canvas"
-                    onKeyDownCapture={(event) => {
-                        if (event.key.toLowerCase() === "f") resetGraph();
-                    }}
-                    onTouchStartCapture={(event) => {
-                        if (event.touches.length > 1) setIsGraphZoomed(true);
-                    }}
-                    onWheelCapture={() => {
-                        setIsGraphZoomed(true);
-                    }}
                     ref={containerRef}
                 />
-                <div
-                    aria-label="Graph controls"
-                    className="diagram-viewer-control-rail graph-viewer-control-rail"
-                    role="group"
-                >
-                    <div className="diagram-viewer-slider-lane">
-                        <input
-                            aria-controls="graph-viewer-canvas"
-                            aria-label="Zoom graph"
-                            aria-orientation="vertical"
-                            aria-valuetext={`Zoom ${String(graphZoom)}%`}
-                            aria-describedby="graph-viewer-status"
-                            className="range range-vertical range-xs diagram-viewer-zoom-slider diagram-viewer-no-fill-range focus-visible:outline-primary w-5 focus-visible:outline-2 focus-visible:outline-offset-2"
-                            max="300"
-                            min="100"
-                            onChange={(event) => {
-                                setGraphZoomFromControl(Number(event.currentTarget.value));
-                            }}
-                            step="5"
-                            title={`Zoom ${String(graphZoom)}%`}
-                            type="range"
-                            value={graphZoom}
-                        />
-                    </div>
+                <div aria-label="Graph controls" className="diagram-viewer-control-rail" role="group">
                     <div className="diagram-viewer-control-actions">
                         <button
                             aria-controls="graph-viewer-canvas"
@@ -236,9 +178,6 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                         </button>
                     </div>
                 </div>
-                <span aria-live="polite" className="sr-only" id="graph-viewer-status" role="status">
-                    Graph zoom {String(graphZoom)}%.
-                </span>
                 {selectedNode ? (
                     <GraphNodeSummary linkedCount={adjacentNodes.get(selectedNode.id)?.size ?? 0} node={selectedNode} />
                 ) : null}

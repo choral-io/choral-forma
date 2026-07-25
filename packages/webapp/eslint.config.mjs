@@ -64,7 +64,7 @@ export default defineConfig(
                 {
                     ignore: [
                         "^(fab-close|drawer-overlay|drawer-button)$",
-                        "^(diagram-viewer-control-rail|diagram-viewer-slider-lane|diagram-viewer-zoom-slider|diagram-viewer-no-fill-range|diagram-viewer-control-actions|diagram-viewer-control-button|graph-viewer-control-rail|graph-viewer-canvas|graph-viewer-canvas--zoomed)$",
+                        "^(diagram-viewer-control-rail|diagram-viewer-slider-lane|diagram-viewer-zoom-slider|diagram-viewer-no-fill-range|diagram-viewer-control-actions|diagram-viewer-control-button)$",
                     ],
                 },
             ],
