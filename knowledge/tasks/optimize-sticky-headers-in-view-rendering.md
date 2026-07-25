@@ -72,6 +72,8 @@ Adding `sticky` independently to each header would be fragile: horizontal overfl
 
 ## Approved Execution Plan
 
+This original slice order is retained as decision history. The later **Kanban Priority Adjustment — 2026-07-25** supersedes its Table-first sequencing after the native scroll-contract proof failed and the user explicitly prioritized persistent Kanban column context.
+
 Deliver this task in three gated slices. Do not begin a later slice until the current slice has established and passed its own scroll and sticky contract.
 
 ### 1. Prove the WebApp Table contract
@@ -215,6 +217,45 @@ The first option is the least disruptive to natural page vertical scrolling, but
 5. Verify one authoritative accessible Table header relationship and one authoritative heading relationship per Kanban column, with no duplicate accessibility-tree announcements.
 6. Verify keyboard scrolling, focus visibility, zoom, Light and Dark themes, forced colors, and console output.
 7. Complete Table independently before re-evaluating Kanban, then evaluate VS Code native preview as a separate host contract.
+
+## Kanban Priority Adjustment — 2026-07-25
+
+The user explicitly deferred Table sticky headers and authorized a Kanban-only implementation slice because losing column context makes long boards difficult to use. This approval relaxes the previous prohibition on a duplicated presentation layer only for Kanban and only within the following bounded contract:
+
+- keep each real `<h3>` heading inside its configured `<section>` as the only authoritative accessible column heading;
+- add a feature-local, `aria-hidden` visual header rail only while the real headings have scrolled away;
+- share the existing controlled Kanban column width and gap classes between the real columns and visual rail;
+- synchronize only the board's horizontal scroll position;
+- let the page keep vertical scroll ownership and let the sticky rail stop at the projection boundary;
+- do not add independently scrolling columns, a nested vertical board scroller, fixed board or column heights, page-root horizontal overflow, JavaScript vertical-scroll synchronization, a generic sticky abstraction, Table changes, or VS Code changes.
+
+The implementation may begin only after a focused browser proof demonstrates that an overlapping sticky rail outside the horizontal board scroller can remain projection-bounded without changing natural document height. The proof must also show exact rail-to-column alignment at horizontal start, midpoint, and maximum positions on desktop and mobile.
+
+### Third-party component evaluation
+
+No dependency is approved for this slice.
+
+- **TanStack Table:** the current stable React package is `@tanstack/react-table` 8.21.3. Its official documentation describes a headless state and layout engine: the application still supplies all DOM, CSS, and scroll containers. Its column-sizing, ordering, visibility, filtering, sorting, grouping, and pinning APIs could be a useful future foundation if Forma's Table projection gains interactive table-state requirements. Virtualization is not built into TanStack Table; its official guide composes Table with TanStack Virtual or another virtualization library.
+- **Scroll-contract fit:** TanStack Table does not solve the proven overflow-ancestor constraint. Its official sticky-column example still applies CSS `position: sticky`, and its column-pinning guide either uses sticky CSS in one table or splits pinned columns into separate tables. Neither changes vertical sticky containment for a semantic header inside Forma's projection-local horizontal scroller. It improves Table column/layout/state ergonomics, not Kanban header persistence.
+- **Kanban fit:** a board component would be materially broader than the accepted presentation-only requirement and would still have to choose between the same horizontal overflow ancestor, a split visual header, or a different scrolling model. The existing Kanban already owns the required semantic headings, cards, responsive widths, and theme behavior, so replacing it would add state and interaction surface without resolving the browser constraint. The bounded feature-local rail remains the smallest candidate.
+
+Official references:
+
+- [TanStack Table overview](https://tanstack.com/table/latest/docs/overview)
+- [TanStack Table column sizing guide](https://tanstack.com/table/latest/docs/guide/column-sizing)
+- [TanStack Table column pinning guide](https://tanstack.com/table/latest/docs/guide/column-pinning)
+- [TanStack Table virtualization guide](https://tanstack.com/table/latest/docs/guide/virtualization)
+- [TanStack Table sticky column pinning example](https://tanstack.com/table/latest/docs/framework/react/examples/column-pinning-sticky)
+- [`@tanstack/react-table` on npm](https://www.npmjs.com/package/@tanstack/react-table)
+
+### Kanban proof and delivery gates
+
+1. **Architecture proof:** an overlapping page-sticky rail remains outside the board's overflow ancestor, adds no document height, and stops at the projection boundary with Markdown before and after the board.
+2. **Geometry:** at 1440, 1024, 768, and 390 px, every rail item matches its real column's left edge and width within one CSS pixel at horizontal start, midpoint, and maximum positions.
+3. **Scroll ownership:** vertical scrolling remains page-owned; horizontal scrolling remains board-owned; the rail mirrors only `scrollLeft`; the page root gains no horizontal overflow.
+4. **Accessibility and interaction:** the real column headings remain present once each in the accessibility tree; the visual rail is `aria-hidden`, has no focusable descendants, and does not intercept pointer or keyboard input.
+5. **Resilience:** alignment and visibility remain correct after viewport resize, browser zoom, theme changes, configured label/count/content changes, and uneven natural column heights.
+6. **Completion:** ordinary Kanban card links, keyboard board scrolling, focus visibility, Light and Dark themes, forced-colors behavior, console output, focused automated checks, and project-native validation pass. Table and VS Code remain deferred.
 
 ## Acceptance Criteria
 
