@@ -66,6 +66,9 @@ jobs:
       - name: Build web packages
         run: pnpm build
 
+      - name: Run Mermaid Worker upgrade gate
+        run: pnpm --filter @choral-forma/webapp test:mermaid-worker-upgrade
+
   extension:
     name: VS Code Extension
     runs-on: ubuntu-24.04
