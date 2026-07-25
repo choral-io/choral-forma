@@ -1,11 +1,15 @@
 import DOMPurify from "dompurify";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { DashboardEntry, DashboardEntryHeading } from "@/data/workspace-client";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 
 import { resolveReaderLink } from "./markdown-links";
 import { renderMarkdown } from "./markdown-renderer";
+import {
+    createProjectionStickyBoundaryController,
+    projectionStickyHeaderClassName,
+} from "./projection-sticky-boundary";
 
 export interface MarkdownReaderProps {
     currentPath: string;
@@ -33,6 +37,7 @@ export function MarkdownReader({
     markdown,
     omitLeadingTitle = false,
 }: MarkdownReaderProps) {
+    const readerRef = useRef<HTMLDivElement>(null);
     const [renderState, setRenderState] = useState<MarkdownRenderState>();
     const [retryKey, setRetryKey] = useState(0);
     const isCurrentRender =
@@ -81,6 +86,12 @@ export function MarkdownReader({
         };
     }, [currentPath, entries, headings, markdown, omitLeadingTitle, retryKey]);
 
+    useEffect(() => {
+        if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) return;
+
+        return createMarkdownTableStickyHeaders(readerRef.current);
+    }, [isCurrentRender, renderState]);
+
     if (!isCurrentRender) {
         return (
             <div
@@ -126,8 +137,84 @@ export function MarkdownReader({
             data-reader="markdown"
             // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
             dangerouslySetInnerHTML={{ __html: renderState.html ?? "" }}
+            ref={readerRef}
         />
     );
+}
+
+function createMarkdownTableStickyHeaders(reader: HTMLElement): () => void {
+    const cleanups: (() => void)[] = [];
+
+    for (const wrapper of reader.querySelectorAll<HTMLElement>(".table-wrapper")) {
+        const table = wrapper.querySelector<HTMLTableElement>(":scope > table");
+        const header = table?.tHead;
+        const headerRow = header?.rows.item(0);
+        if (!table || !header || !headerRow || headerRow.cells.length === 0) continue;
+
+        const boundary = document.createElement("div");
+        boundary.className = "relative my-5 grid";
+        boundary.dataset.markdownTableStickyBoundary = "";
+
+        const stickyHeader = document.createElement("div");
+        stickyHeader.ariaHidden = "true";
+        stickyHeader.className = projectionStickyHeaderClassName;
+        stickyHeader.dataset.markdownStickyHeader = "";
+
+        const stickyTable = document.createElement("table");
+        stickyTable.className = "table table-sm min-w-0 table-fixed whitespace-nowrap";
+        const stickyColumns = document.createElement("colgroup");
+        stickyColumns.append(...Array.from(headerRow.cells, () => document.createElement("col")));
+
+        const stickyTableHeader = header.cloneNode(true) as HTMLTableSectionElement;
+        stickyTableHeader.removeAttribute("id");
+        for (const element of stickyTableHeader.querySelectorAll<HTMLElement>("[id]")) {
+            element.removeAttribute("id");
+        }
+        for (const element of stickyTableHeader.querySelectorAll<HTMLElement>(
+            "a, button, input, select, textarea, [tabindex]",
+        )) {
+            element.replaceWith(document.createTextNode(element.textContent));
+        }
+
+        stickyTable.append(stickyColumns, stickyTableHeader);
+        stickyHeader.append(stickyTable);
+        wrapper.replaceWith(boundary);
+        wrapper.classList.add("col-start-1", "row-start-1");
+        boundary.append(stickyHeader, wrapper);
+
+        const syncHorizontalScroll = () => {
+            stickyHeader.scrollLeft = wrapper.scrollLeft;
+        };
+        wrapper.addEventListener("scroll", syncHorizontalScroll, { passive: true });
+
+        const cleanupController = createProjectionStickyBoundaryController({
+            boundary,
+            observe: [table, ...headerRow.cells],
+            source: header,
+            sticky: stickyHeader,
+            syncPresentation: () => {
+                const stickyColumnElements = stickyColumns.querySelectorAll("col");
+                Array.from(headerRow.cells).forEach((cell, index) => {
+                    stickyColumnElements.item(index).style.width = `${cell.getBoundingClientRect().width.toString()}px`;
+                });
+                stickyTable.style.width = `${table.getBoundingClientRect().width.toString()}px`;
+                syncHorizontalScroll();
+            },
+        });
+
+        cleanups.push(() => {
+            cleanupController();
+            wrapper.removeEventListener("scroll", syncHorizontalScroll);
+            if (boundary.isConnected) boundary.replaceWith(wrapper);
+            wrapper.classList.remove("col-start-1", "row-start-1");
+        });
+    }
+
+    return () => {
+        cleanups.forEach((cleanup) => {
+            cleanup();
+        });
+    };
 }
 
 function postProcessMarkdownHtml(
@@ -185,7 +272,10 @@ function postProcessMarkdownHtml(
 
     for (const table of document.body.querySelectorAll("table")) {
         const wrapper = document.createElement("div");
-        wrapper.className = "table-wrapper";
+        wrapper.ariaLabel = "Markdown table";
+        wrapper.className = "table-wrapper focus-visible:ring-primary/40 outline-none focus-visible:ring-3";
+        wrapper.role = "region";
+        wrapper.tabIndex = 0;
         table.classList.add("table", "table-sm", "w-max", "min-w-full", "whitespace-nowrap");
         table.replaceWith(wrapper);
         wrapper.append(table);

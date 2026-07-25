@@ -238,7 +238,7 @@
         }
 
         & .table-wrapper {
-            @apply border-base-300 my-5 block w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border;
+            @apply border-base-300 block w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border;
         }
     }
 }

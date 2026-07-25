@@ -344,6 +344,30 @@ Focused runtime assumption evidence:
 - Before geometry invalidation was separated from scroll visibility updates, 12 vertical scroll frames caused 84 semantic header-cell rectangle reads. After the correction, the same 12 frames caused zero header-cell reads; reveal and projection-boundary measurements remain RAF-coalesced.
 - SPA navigation removed the only visual rail and returned exactly one rail on remount, with seven authoritative semantic column headers, no visual focusable descendants, and no browser errors.
 
+### Ordinary Markdown table coverage — 2026-07-25
+
+The first Table implementation covered configured View projections only. Ordinary Markdown pages used the same semantic DaisyUI Table and local horizontal overflow pattern but did not mount the projection-boundary controller. General Table support therefore required an explicit Markdown-reader adapter rather than an inference from the View proof.
+
+The bounded extension now:
+
+- discovers rendered Markdown tables after sanitized HTML mounts;
+- preserves each real `<table>`, `<thead>`, and `<th>` as the only accessible header relationship;
+- installs one square, `aria-hidden`, non-interactive visual rail per table outside its existing `.table-wrapper` horizontal overflow owner;
+- clones header presentation without retaining ids or focusable controls;
+- observes the real table and first semantic header-row cells, copies their live cell widths and table width, and mirrors only local horizontal `scrollLeft`;
+- reuses the same reveal, projection-stop, RAF invalidation, resize, and cleanup controller as configured View Tables;
+- removes the rail, listener, and observer lifecycle on Markdown rerender or navigation.
+
+Focused browser validation used a local-only ordinary Markdown entry with seven long columns and substantial real Markdown before and after the table:
+
+- At 1024 px, reveal changed from hidden at source top 113 px to visible at 112 px. At maximum local horizontal scroll (`629` px), all header left and width deltas were zero and the page root had no horizontal overflow.
+- The ordinary table remained visible at lower boundary bottom 160 px and hid two pixels later at 158 px using its live 47 px rail height. It remained hidden while later Markdown scrolled from 190 px through -99 px, so the rail never covered following content.
+- At 390 px, the rail aligned at top 0 and maximum local horizontal scroll (`1039` px) with zero cell deltas. It remained visible at boundary bottom 48 px and hid at 46 px, again using the live 47 px height.
+- Dark theme used semantic `bg-base-100` and `border-base-300` values while pinned with exact source/rail top alignment.
+- Twelve ordinary-table vertical scroll frames caused zero semantic header-cell width reads. The named Markdown Table region moved horizontally from 0 to 160 px through Arrow Right input at 390 px and showed a 3 px semantic focus ring; a scoped Axe audit reported zero violations. SPA navigation changed the rail count from one to zero and back to exactly one, retained seven semantic headers, produced no focusable visual descendants, and logged no browser errors.
+
+The configured 80-row View fixture was also extended with substantial ordinary Markdown after the projection rather than a synthetic spacer. At 1024 px, its rail remained visible at boundary bottom 153 px, hid at 151 px, and stayed hidden while later View Markdown crossed above the viewport.
+
 ## Acceptance Criteria
 
 - A long Table keeps its column headers visible during vertical scrolling without losing horizontal scrolling or column alignment.
