@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="title description">
+  <title id="title">Markdown documents connected by links</title>
+  <desc id="description">Three document cards connected by curved lines on a blue background.</desc>
+  <rect width="960" height="320" rx="32" fill="#172554"/>
+  <path d="M288 160C360 92 432 92 504 160S648 228 720 160" fill="none" stroke="#7DD3FC" stroke-width="8" stroke-linecap="round"/>
+  <path d="M288 192C360 260 432 260 504 192S648 124 720 192" fill="none" stroke="#A5B4FC" stroke-width="8" stroke-linecap="round" opacity=".8"/>
+  <g fill="#F8FAFC" stroke="#CBD5E1" stroke-width="4">
+    <rect x="96" y="64" width="192" height="192" rx="20"/>
+    <rect x="384" y="64" width="192" height="192" rx="20"/>
+    <rect x="672" y="64" width="192" height="192" rx="20"/>
+  </g>
+  <g fill="#0F172A">
+    <rect x="128" y="104" width="112" height="14" rx="7"/>
+    <rect x="128" y="140" width="128" height="10" rx="5" opacity=".55"/>
+    <rect x="128" y="168" width="96" height="10" rx="5" opacity=".55"/>
+    <rect x="416" y="104" width="112" height="14" rx="7"/>
+    <rect x="416" y="140" width="128" height="10" rx="5" opacity=".55"/>
+    <rect x="416" y="168" width="88" height="10" rx="5" opacity=".55"/>
+    <rect x="704" y="104" width="112" height="14" rx="7"/>
+    <rect x="704" y="140" width="128" height="10" rx="5" opacity=".55"/>
+    <rect x="704" y="168" width="104" height="10" rx="5" opacity=".55"/>
+  </g>
+  <g fill="#2563EB">
+    <circle cx="256" cy="224" r="12"/>
+    <circle cx="544" cy="224" r="12"/>
+    <circle cx="832" cy="224" r="12"/>
+  </g>
+</svg>

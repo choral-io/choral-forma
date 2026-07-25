@@ -1,15 +1,21 @@
 import {
     AlertTriangle,
-    ArrowUpRight,
+    ArrowRight,
+    ArrowUp,
+    Check,
     ChevronRight,
     Columns3,
+    Copy,
     FileText,
     Layers3,
     List,
+    ListTree,
     Network,
+    RefreshCw,
     Table2,
+    X,
 } from "lucide-react";
-import { lazy, Suspense, useEffect, useId, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
 import type {
@@ -30,8 +36,10 @@ import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { WorkspaceDefaultContextPanel, WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
 import { cn } from "@/lib/utils";
+import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 
 import { formatEntrySupportedLanguages } from "./entry-languages";
+import { prewarmMarkdownHighlighter } from "./markdown-shiki";
 import { MarkdownReader } from "./MarkdownReader";
 
 const ViewGraphProjection = lazy(async () => {
@@ -44,7 +52,6 @@ export function DashboardRoute() {
 
     return (
         <WorkspacePageShell
-            dashboard={dashboard}
             description={`${dashboard.tagline.replace(/[.!?。！？]\s*$/u, "")} • Read-only`}
             eyebrow="Workspace"
             title={dashboard.workspaceName}
@@ -59,7 +66,6 @@ export function HealthRoute() {
 
     return (
         <WorkspacePageShell
-            dashboard={dashboard}
             description="Read-only checks for workspace configuration, references, and link structure."
             eyebrow="Workspace"
             title="Health"
@@ -75,7 +81,6 @@ export function PagesRoute() {
     return (
         <WorkspacePageShell
             contextPanel={<PagesContextPanel dashboard={dashboard} />}
-            dashboard={dashboard}
             eyebrow="Workspace"
             title="Pages"
         >
@@ -88,6 +93,9 @@ export function EntryRoute() {
     const dashboard = useWorkspaceDashboard();
     const params = useParams();
     const routePath = `/pages/${params["*"] ?? ""}`;
+    const outlineDialogId = useId();
+    const outlineDialogRef = useRef<HTMLDialogElement>(null);
+    const outlineTriggerRef = useRef<HTMLElement>(null);
     const summaryEntry = dashboard.entries.find((item) => item.routePath === routePath);
     const [entryDetail, setEntryDetail] = useState<
         | {
@@ -97,7 +105,20 @@ export function EntryRoute() {
         | undefined
     >(undefined);
     const entry = entryDetail?.routePath === routePath ? entryDetail.entry : summaryEntry;
+    const isEntryDetailLoading = entryDetail?.routePath !== routePath;
     const outline = entry ? getEntryOutline(entry.body) : [];
+
+    function openOutlineDialog(trigger: HTMLButtonElement) {
+        const dialog = outlineDialogRef.current;
+        if (!dialog || dialog.open) return;
+        outlineTriggerRef.current =
+            trigger.closest(".fab")?.querySelector<HTMLElement>('[aria-label="Open page actions"]') ?? trigger;
+        trigger.blur();
+        dialog.showModal();
+        requestAnimationFrame(() => {
+            dialog.querySelector<HTMLAnchorElement>("[data-outline-link]")?.focus();
+        });
+    }
 
     useEffect(() => {
         if (!summaryEntry) {
@@ -105,6 +126,7 @@ export function EntryRoute() {
         }
 
         let cancelled = false;
+        void prewarmMarkdownHighlighter();
         workspaceClient
             .getEntry(summaryEntry.id)
             .then((result) => {
@@ -141,9 +163,30 @@ export function EntryRoute() {
         };
     }, [routePath, summaryEntry]);
 
+    useEffect(() => {
+        const wideDesktopMedia = window.matchMedia("(min-width: 80rem)");
+        const closeDesktopOutlineDialog = () => {
+            if (wideDesktopMedia.matches && outlineDialogRef.current?.open) {
+                outlineDialogRef.current.close("viewport");
+            }
+        };
+
+        closeDesktopOutlineDialog();
+        wideDesktopMedia.addEventListener("change", closeDesktopOutlineDialog);
+        return () => {
+            wideDesktopMedia.removeEventListener("change", closeDesktopOutlineDialog);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (outlineDialogRef.current?.open) {
+            outlineDialogRef.current.close("navigate");
+        }
+    }, [routePath]);
+
     if (!entry) {
         return (
-            <WorkspacePageShell dashboard={dashboard} eyebrow="Pages" title="Not found">
+            <WorkspacePageShell eyebrow="Pages" title="Not found">
                 <EmptyPage />
             </WorkspacePageShell>
         );
@@ -151,13 +194,57 @@ export function EntryRoute() {
 
     return (
         <WorkspacePageShell
-            contentWidth="readable"
-            dashboard={dashboard}
-            description={entry.summary}
-            eyebrow="Pages"
-            title={entry.title}
+            actions={
+                outline.length > 0 ? (
+                    <button
+                        aria-controls={outlineDialogId}
+                        aria-label="Open outline"
+                        className="btn btn-square btn-ghost xl:hidden"
+                        onClick={(event) => {
+                            openOutlineDialog(event.currentTarget);
+                        }}
+                        type="button"
+                    >
+                        <ListTree aria-hidden="true" />
+                    </button>
+                ) : undefined
+            }
+            contentWidth="default"
+            description={entry.title}
+            eyebrow="Workspace"
+            fabActions={
+                outline.length > 0 ? (
+                    <button
+                        aria-controls={outlineDialogId}
+                        aria-label="Outline"
+                        className="btn btn-circle btn-lg btn-neutral"
+                        onClick={(event) => {
+                            openOutlineDialog(event.currentTarget);
+                        }}
+                        type="button"
+                    >
+                        <ListTree aria-hidden="true" className="size-5" />
+                    </button>
+                ) : undefined
+            }
+            title="Pages"
+            titleAs="div"
         >
-            <EntryPage entry={entry} entries={dashboard.entries} outline={outline} />
+            <EntryPage
+                entry={entry}
+                entries={dashboard.entries}
+                isLoadingDetail={isEntryDetailLoading}
+                outline={outline}
+                outlineDialogId={outlineDialogId}
+                outlineDialogRef={outlineDialogRef}
+                onOutlineDialogClose={() => {
+                    const trigger = outlineTriggerRef.current;
+                    outlineTriggerRef.current = null;
+                    requestAnimationFrame(() => {
+                        trigger?.focus();
+                    });
+                }}
+            />
         </WorkspacePageShell>
     );
 }
@@ -167,7 +254,6 @@ export function TaxonomiesRoute() {
 
     return (
         <WorkspacePageShell
-            dashboard={dashboard}
             description="Taxonomies and terms declared by workspace configuration."
             eyebrow="Workspace"
             title="Browse"
@@ -184,19 +270,14 @@ export function TaxonomyRoute() {
 
     if (!taxonomy) {
         return (
-            <WorkspacePageShell dashboard={dashboard} eyebrow="Browse" title="Not found">
+            <WorkspacePageShell eyebrow="Browse" title="Not found">
                 <EmptyPage />
             </WorkspacePageShell>
         );
     }
 
     return (
-        <WorkspacePageShell
-            dashboard={dashboard}
-            description={taxonomy.description}
-            eyebrow="Browse"
-            title={taxonomy.title}
-        >
+        <WorkspacePageShell description={taxonomy.description} eyebrow="Browse" title={taxonomy.title}>
             <TaxonomyPage taxonomy={taxonomy} />
         </WorkspacePageShell>
     );
@@ -210,19 +291,14 @@ export function TaxonomyTermRoute() {
 
     if (!taxonomy || !term) {
         return (
-            <WorkspacePageShell dashboard={dashboard} eyebrow="Browse" title="Not found">
+            <WorkspacePageShell eyebrow="Browse" title="Not found">
                 <EmptyPage />
             </WorkspacePageShell>
         );
     }
 
     return (
-        <WorkspacePageShell
-            dashboard={dashboard}
-            description={term.description}
-            eyebrow={taxonomy.title}
-            title={term.title}
-        >
+        <WorkspacePageShell description={term.description} eyebrow={taxonomy.title} title={term.title}>
             <TaxonomyTermPage taxonomy={taxonomy} term={term} />
         </WorkspacePageShell>
     );
@@ -233,7 +309,6 @@ export function ViewsRoute() {
 
     return (
         <WorkspacePageShell
-            dashboard={dashboard}
             description="Read-only projections declared by workspace configuration."
             eyebrow="Workspace"
             title="Views"
@@ -248,9 +323,16 @@ export function ViewRoute() {
     const params = useParams();
     const viewId = params["*"];
     const view = dashboard.views.find((item) => item.id === viewId);
+    const [renderRequestVersion, setRenderRequestVersion] = useState(0);
     const [renderState, setRenderState] = useState<
         | {
               render: DashboardViewRender;
+              status: "ready";
+              viewId: string;
+          }
+        | {
+              message: string;
+              status: "error";
               viewId: string;
           }
         | undefined
@@ -266,46 +348,61 @@ export function ViewRoute() {
             .getViewRender(viewId)
             .then((render) => {
                 if (!cancelled) {
-                    setRenderState({ render, viewId });
+                    setRenderState({ render, status: "ready", viewId });
                 }
             })
             .catch((error: unknown) => {
                 console.warn("View projection failed to load.", error);
+                if (!cancelled) {
+                    setRenderState({
+                        message: error instanceof Error ? error.message : "The workspace backend returned an error.",
+                        status: "error",
+                        viewId,
+                    });
+                }
             });
 
         return () => {
             cancelled = true;
         };
-    }, [viewId]);
+    }, [renderRequestVersion, viewId]);
 
     if (!view) {
         return (
-            <WorkspacePageShell dashboard={dashboard} eyebrow="Views" title="Not found">
+            <WorkspacePageShell eyebrow="Views" title="Not found">
                 <EmptyPage />
             </WorkspacePageShell>
         );
     }
 
-    const render = renderState && renderState.viewId === viewId ? renderState.render : undefined;
+    const currentRenderState = renderState?.viewId === viewId ? renderState : undefined;
+    const render = currentRenderState?.status === "ready" ? currentRenderState.render : undefined;
+    const renderError = currentRenderState?.status === "error" ? currentRenderState.message : undefined;
 
     return (
         <WorkspacePageShell
             contentWidth={view.kind === "list" ? "readable" : "fluid"}
-            dashboard={dashboard}
             description={view.description}
             eyebrow="Views"
             title={view.title}
         >
-            <ViewPage dashboard={dashboard} render={render} view={view} />
+            <ViewPage
+                dashboard={dashboard}
+                onRetry={() => {
+                    setRenderState(undefined);
+                    setRenderRequestVersion((version) => version + 1);
+                }}
+                render={render}
+                renderError={renderError}
+                view={view}
+            />
         </WorkspacePageShell>
     );
 }
 
 export function FallbackRoute() {
-    const dashboard = useWorkspaceDashboard();
-
     return (
-        <WorkspacePageShell dashboard={dashboard} eyebrow="Workspace" title="Not found">
+        <WorkspacePageShell eyebrow="Workspace" title="Not found">
             <EmptyPage />
         </WorkspacePageShell>
     );
@@ -320,34 +417,35 @@ function WorkspacePageShell({
     children,
     contextPanel,
     contentWidth,
-    dashboard,
     description,
     eyebrow,
-    mobileContextPanel,
+    fabActions,
     title,
+    titleAs,
 }: {
     actions?: ReactNode;
     children: ReactNode;
     contextPanel?: ReactNode;
     contentWidth?: "default" | "fluid" | "readable";
-    dashboard: WorkspaceDashboard;
     description?: string;
     eyebrow: string;
-    mobileContextPanel?: ReactNode;
+    fabActions?: ReactNode;
     title: string;
+    titleAs?: "div" | "h1";
 }) {
-    const resolvedMobileContextPanel = mobileContextPanel ?? (contextPanel ? undefined : null);
+    const dashboard = useWorkspaceDashboard();
 
     return (
         <WorkspaceRouteFrame
             actions={actions}
             contextPanel={contextPanel}
-            contentWidth={contentWidth}
             dashboard={dashboard}
+            contentWidth={contentWidth}
             description={description}
             eyebrow={eyebrow}
-            mobileContextPanel={resolvedMobileContextPanel}
+            fabActions={fabActions}
             title={title}
+            titleAs={titleAs}
         >
             {children}
         </WorkspaceRouteFrame>
@@ -374,7 +472,7 @@ function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
                         <div className="divide-base-300 divide-y">
                             {dashboard.views.map((view) => (
                                 <Link
-                                    className="hover:bg-base-200/50 focus-visible:ring-base-content/30 grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-4 px-0 py-4 outline-none focus-visible:ring-2"
+                                    className="hover:bg-base-200/50 focus-visible:ring-base-content/30 grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none focus-visible:ring-2"
                                     key={view.id}
                                     to={viewRoutePath(view.id)}
                                 >
@@ -405,7 +503,7 @@ function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
                 )}
                 <Link className="link mt-4 inline-flex items-center gap-2 text-sm" to="/views">
                     View all configured views
-                    <ArrowUpRight aria-hidden="true" className="size-4" />
+                    <ArrowRight aria-hidden="true" className="size-4" />
                 </Link>
             </section>
 
@@ -418,7 +516,7 @@ function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
                             <div className="divide-base-300 divide-y">
                                 {recentEntries.map((entry) => (
                                     <Link
-                                        className="hover:bg-base-200/50 focus-visible:ring-base-content/30 grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 px-0 py-3 outline-none focus-visible:ring-2"
+                                        className="hover:bg-base-200/50 focus-visible:ring-base-content/30 grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 outline-none focus-visible:ring-2"
                                         key={entry.path}
                                         to={entry.routePath}
                                     >
@@ -458,7 +556,7 @@ function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
                                 <p className="text-base-content/60 mt-1 text-sm/6">{healthFindings[0]?.message}</p>
                                 <Link className="link mt-3 inline-flex items-center gap-2 text-sm" to="/health">
                                     Open health details
-                                    <ArrowUpRight aria-hidden="true" className="size-4" />
+                                    <ArrowRight aria-hidden="true" className="size-4" />
                                 </Link>
                             </div>
                         </div>
@@ -609,46 +707,181 @@ function getEntryDiagnostics(entry: DashboardEntry): DashboardDiagnostic[] {
 function EntryPage({
     entry,
     entries,
+    isLoadingDetail,
     outline,
+    outlineDialogId,
+    outlineDialogRef,
+    onOutlineDialogClose,
 }: {
     entry: DashboardEntry;
     entries: DashboardEntry[];
+    isLoadingDetail: boolean;
     outline: EntryOutlineItem[];
+    outlineDialogId: string;
+    outlineDialogRef: RefObject<HTMLDialogElement | null>;
+    onOutlineDialogClose: () => void;
 }) {
     const diagnostics = getEntryDiagnostics(entry);
+    const outlineTree = getEntryOutlineTree(outline);
+    const hasOutline = outlineTree.length > 0;
+    const closeOutlineDialog = () => {
+        if (outlineDialogRef.current?.open) {
+            outlineDialogRef.current.close("navigate");
+        }
+    };
 
     return (
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-            <div className="text-base-content/60 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-                <code className="basis-full break-all sm:basis-auto">{entry.path}</code>
-                <span>{formatEntrySupportedLanguages(entry)}</span>
-                <time dateTime={entry.updatedAt} title={formatAbsoluteDateTime(entry.updatedAt)}>
-                    Updated {entry.updatedLabel}
-                </time>
-                {entry.status !== "healthy" ? (
-                    <span className={healthBadgeClass(entry.status)}>{entry.status}</span>
+        <div className="w-full">
+            <div className="group/entry mx-auto flex w-full max-w-6xl flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,48rem)_16rem] xl:gap-x-12">
+                <div className="mx-auto flex w-full min-w-0 flex-col gap-6 xl:mx-0">
+                    <header className="mx-auto flex w-full max-w-3xl scroll-m-8 flex-col gap-3 xl:mx-0" id="entry-top">
+                        <h1 className="text-3xl font-semibold tracking-normal">{entry.title}</h1>
+                        {entry.summary ? <p className="text-base-content/60 text-sm/6">{entry.summary}</p> : null}
+                        <div className="text-base-content/60 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                            <span className="flex min-w-0 basis-full items-center gap-1 sm:basis-auto">
+                                <code className="min-w-0 break-all">{entry.path}</code>
+                                <button
+                                    aria-label={`Copy source path ${entry.path}`}
+                                    className="btn btn-ghost btn-square btn-xs shrink-0"
+                                    onClick={(event) => {
+                                        void copySourcePath(event.currentTarget, entry.path);
+                                    }}
+                                    type="button"
+                                >
+                                    <Copy aria-hidden="true" className="size-3.5" data-copy-icon />
+                                    <Check aria-hidden="true" className="hidden size-3.5" data-copied-icon />
+                                </button>
+                            </span>
+                            <span>{formatEntrySupportedLanguages(entry)}</span>
+                            <time dateTime={entry.updatedAt} title={formatAbsoluteDateTime(entry.updatedAt)}>
+                                Updated {entry.updatedLabel}
+                            </time>
+                            {entry.status !== "healthy" ? (
+                                <span className={healthBadgeClass(entry.status)}>{entry.status}</span>
+                            ) : null}
+                        </div>
+                    </header>
+
+                    <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-12 xl:mx-0">
+                        {isLoadingDetail ? (
+                            <div
+                                aria-busy="true"
+                                aria-label="Loading page content"
+                                className="flex flex-col gap-5 py-4"
+                                role="status"
+                            >
+                                <div className="skeleton h-4 w-full" />
+                                <div className="skeleton h-4 w-11/12" />
+                                <div className="skeleton mt-4 h-7 w-2/5" />
+                                <div className="skeleton h-4 w-full" />
+                                <div className="skeleton h-4 w-4/5" />
+                            </div>
+                        ) : (
+                            <>
+                                <EntryReader
+                                    blocks={entry.body}
+                                    currentPath={entry.path}
+                                    entries={entries}
+                                    omitLeadingTitle={entry.omitLeadingTitle}
+                                    outline={outline}
+                                />
+                                <section
+                                    className="border-base-300 scroll-m-8 border-t pt-8 group-has-data-reader-loading/entry:hidden"
+                                    id="document-details"
+                                >
+                                    <div>
+                                        <h2 className="text-lg font-semibold">Document details</h2>
+                                        <p className="text-base-content/60 mt-1 text-sm/6">
+                                            References and checks associated with this entry.
+                                        </p>
+                                    </div>
+                                    <div className="mt-6 flex flex-col gap-8">
+                                        <EntryReferencesSection entry={entry} />
+                                        {diagnostics.length > 0 ? (
+                                            <DiagnosticsPanel
+                                                description="Page-level checks from the current read model."
+                                                diagnostics={diagnostics}
+                                                emptyLabel="No page diagnostics found."
+                                                title="Diagnostics"
+                                            />
+                                        ) : null}
+                                    </div>
+                                    <div className={cn("mt-8 flex justify-end", hasOutline && "xl:hidden")}>
+                                        <a className="btn btn-ghost btn-sm" href={`${entry.routePath}#entry-top`}>
+                                            <ArrowUp aria-hidden="true" className="size-4" />
+                                            Back to top
+                                        </a>
+                                    </div>
+                                </section>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {isLoadingDetail ? (
+                    <div aria-hidden="true" className="hidden flex-col gap-4 py-4 xl:flex">
+                        <div className="skeleton h-5 w-20" />
+                        <div className="skeleton h-3 w-full" />
+                        <div className="skeleton h-3 w-4/5" />
+                        <div className="skeleton h-3 w-11/12" />
+                    </div>
+                ) : hasOutline ? (
+                    <aside className="hidden xl:block">
+                        <div
+                            aria-hidden="true"
+                            className="hidden flex-col gap-4 py-4 group-has-data-reader-loading/entry:flex"
+                        >
+                            <div className="skeleton h-5 w-20" />
+                            <div className="skeleton h-3 w-full" />
+                            <div className="skeleton h-3 w-4/5" />
+                            <div className="skeleton h-3 w-11/12" />
+                        </div>
+                        <EntryOutlineSection routePath={entry.routePath} tree={outlineTree} />
+                    </aside>
                 ) : null}
             </div>
-            <EntryReader blocks={entry.body} currentPath={entry.path} entries={entries} outline={outline} />
-            <details className="border-base-300 group border-y py-1">
-                <summary className="hover:bg-base-200/50 focus-visible:bg-base-200/50 flex cursor-pointer list-none items-center justify-between rounded-sm px-2 py-3 text-sm font-medium outline-none">
-                    <span>Document context</span>
-                    <ChevronRight
-                        aria-hidden="true"
-                        className="text-base-content/50 size-4 transition-transform group-open:rotate-90"
-                    />
-                </summary>
-                <div className="flex flex-col gap-6 px-2 pt-2 pb-5">
-                    <EntryReferencesSection entry={entry} />
-                    <EntryOutlineSection entry={entry} outline={outline} />
-                    <DiagnosticsPanel
-                        description="Page-level checks from the current read model."
-                        diagnostics={diagnostics}
-                        emptyLabel="No page diagnostics found."
-                        title="Diagnostics"
-                    />
-                </div>
-            </details>
+            {hasOutline ? (
+                <dialog
+                    className="modal modal-end bg-neutral/40 p-0 backdrop-blur-xs outline-none motion-reduce:transition-none xl:hidden"
+                    id={outlineDialogId}
+                    onCancel={(event) => {
+                        event.preventDefault();
+                        event.currentTarget.close("cancel");
+                    }}
+                    onClose={onOutlineDialogClose}
+                    ref={outlineDialogRef}
+                >
+                    <aside className="modal-box bg-base-100 text-base-content flex h-svh max-h-none w-80 max-w-[calc(100vw-3rem)] flex-col rounded-none p-0">
+                        <header className="border-base-300 flex shrink-0 items-center justify-between gap-3 border-b p-4">
+                            <div>
+                                <h2 className="font-semibold">Outline</h2>
+                                <p className="text-base-content/60 mt-1 text-sm">Headings from the current entry.</p>
+                            </div>
+                            <button
+                                aria-label="Close outline"
+                                className="btn btn-square btn-ghost"
+                                onClick={closeOutlineDialog}
+                                type="button"
+                            >
+                                <X aria-hidden="true" />
+                            </button>
+                        </header>
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+                            <OutlineNav
+                                onNavigate={closeOutlineDialog}
+                                routePath={entry.routePath}
+                                tree={outlineTree}
+                            />
+                        </div>
+                        <div className="shrink-0 p-2">
+                            <OutlineFooterNav onNavigate={closeOutlineDialog} routePath={entry.routePath} />
+                        </div>
+                    </aside>
+                    <form className="modal-backdrop" method="dialog">
+                        <button aria-label="Close outline">Close</button>
+                    </form>
+                </dialog>
+            ) : null}
         </div>
     );
 }
@@ -657,11 +890,13 @@ function EntryReader({
     blocks,
     currentPath,
     entries,
+    omitLeadingTitle,
     outline,
 }: {
     blocks: DashboardEntryBlock[];
     currentPath: string;
     entries: DashboardEntry[];
+    omitLeadingTitle: boolean;
     outline: EntryOutlineItem[];
 }) {
     return (
@@ -676,7 +911,7 @@ function EntryReader({
                             currentPath={currentPath}
                             entries={entries}
                             headingId={headingId}
-                            hideFirstHeading={index === 0}
+                            omitLeadingTitle={omitLeadingTitle && index === 0}
                             key={`${block.type}-${String(index)}`}
                         />
                     );
@@ -691,24 +926,23 @@ function EntryBlockView({
     currentPath,
     entries,
     headingId,
-    hideFirstHeading = false,
+    omitLeadingTitle = false,
 }: {
     block: DashboardEntryBlock;
     currentPath: string;
     entries: DashboardEntry[];
     headingId?: string;
-    hideFirstHeading?: boolean;
+    omitLeadingTitle?: boolean;
 }) {
     if (block.type === "markdown") {
         return (
-            <div className={hideFirstHeading ? "[&_[data-reader=markdown]>h1:first-child]:hidden" : undefined}>
-                <MarkdownReader
-                    currentPath={currentPath}
-                    entries={entries}
-                    headings={block.outline}
-                    markdown={block.markdown}
-                />
-            </div>
+            <MarkdownReader
+                currentPath={currentPath}
+                entries={entries}
+                headings={block.outline}
+                markdown={block.markdown}
+                omitLeadingTitle={omitLeadingTitle}
+            />
         );
     }
 
@@ -774,11 +1008,11 @@ function EntryBlockView({
     return (
         <div className="border-base-300 overflow-hidden rounded-lg border">
             <div className="overflow-x-auto">
-                <table className="w-full min-w-xl text-left text-sm">
-                    <thead className="bg-base-200/60 text-base-content/60">
+                <table className="table-sm table min-w-xl">
+                    <thead className="bg-base-200 text-base-content/60">
                         <tr>
                             {block.columns.map((column) => (
-                                <th className="px-4 py-2 font-medium" key={column}>
+                                <th className="font-medium" key={column}>
                                     {column}
                                 </th>
                             ))}
@@ -786,12 +1020,9 @@ function EntryBlockView({
                     </thead>
                     <tbody>
                         {block.rows.map((row) => (
-                            <tr className="border-base-300 border-t" key={row.join("|")}>
+                            <tr key={row.join("|")}>
                                 {row.map((cell, cellIndex) => (
-                                    <td
-                                        className="px-4 py-3 align-top"
-                                        key={`${block.columns[cellIndex] ?? "cell"}-${cell}`}
-                                    >
+                                    <td className="align-top" key={`${block.columns[cellIndex] ?? "cell"}-${cell}`}>
                                         {cell}
                                     </td>
                                 ))}
@@ -846,70 +1077,109 @@ function ContextPanelTabs({
     );
 }
 
-function EntryOutlineSection({ entry, outline }: { entry: DashboardEntry; outline: EntryOutlineItem[] }) {
-    const tree = getEntryOutlineTree(outline);
-
+function EntryOutlineSection({ routePath, tree }: { routePath: string; tree: EntryOutlineNode[] }) {
     return (
-        <section className="flex flex-col gap-3">
-            <div>
+        <section className="sticky top-8 flex max-h-[calc(100dvh-10rem)] min-h-0 flex-col gap-3 overflow-hidden group-has-data-reader-loading/entry:hidden">
+            <div className="shrink-0">
                 <h2 className="text-sm font-semibold">Outline</h2>
                 <p className="text-base-content/60 mt-1 text-sm/6">Headings from the current entry.</p>
             </div>
-            {tree.length > 0 ? (
-                <OutlineNav entry={entry} tree={tree} />
-            ) : (
-                <p className="text-base-content/60 text-sm">No headings indexed.</p>
-            )}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <OutlineNav routePath={routePath} tree={tree} />
+            </div>
+            <OutlineFooterNav routePath={routePath} />
         </section>
     );
 }
 
-function OutlineNav({ entry, tree }: { entry: DashboardEntry; tree: EntryOutlineNode[] }) {
+function OutlineNav({
+    onNavigate,
+    routePath,
+    tree,
+}: {
+    onNavigate?: () => void;
+    routePath: string;
+    tree: EntryOutlineNode[];
+}) {
     return (
-        <nav aria-label="Page outline" className="flex flex-col gap-1">
-            <EntryOutlineLink
-                className="text-base-content font-semibold"
-                href={`#${entry.id}`}
-                item={{
-                    blockIndex: -1,
-                    id: entry.id,
-                    level: 2,
-                    text: entry.title,
-                }}
-            />
-            <div className="ms-4 flex flex-col gap-1">
+        <nav aria-label="Page outline">
+            <ul className="menu w-full p-0">
                 {tree.map((node) => (
-                    <EntryOutlineTreeNode key={node.id} node={node} />
+                    <EntryOutlineTreeNode key={node.id} node={node} onNavigate={onNavigate} routePath={routePath} />
                 ))}
-            </div>
+            </ul>
         </nav>
     );
 }
 
-function EntryOutlineTreeNode({ node }: { node: EntryOutlineNode }) {
+function OutlineFooterNav({ onNavigate, routePath }: { onNavigate?: () => void; routePath: string }) {
     return (
-        <div className="flex flex-col gap-1">
-            <EntryOutlineLink item={node} />
-            {node.children.length > 0 && (
-                <div className="ms-4 flex flex-col gap-1">
-                    {node.children.map((child) => (
-                        <EntryOutlineLink item={child} key={child.id} />
-                    ))}
-                </div>
-            )}
-        </div>
+        <nav aria-label="Page outline footer" className="border-base-300 shrink-0 border-t pt-2">
+            <ul className="menu w-full p-0">
+                <OutlineFooterItems onNavigate={onNavigate} routePath={routePath} />
+            </ul>
+        </nav>
     );
 }
 
-function EntryOutlineLink({ className, href, item }: { className?: string; href?: string; item: EntryOutlineItem }) {
+function OutlineFooterItems({ onNavigate, routePath }: { onNavigate?: () => void; routePath: string }) {
+    return (
+        <>
+            <li>
+                <a href={`${routePath}#document-details`} onClick={onNavigate}>
+                    <span data-link-kind="anchor">Document details</span>
+                </a>
+            </li>
+            <li>
+                <a href={`${routePath}#entry-top`} onClick={onNavigate}>
+                    <span>Back to top</span>
+                    <ArrowUp aria-hidden="true" className="size-3.5" />
+                </a>
+            </li>
+        </>
+    );
+}
+
+function EntryOutlineTreeNode({
+    node,
+    onNavigate,
+    routePath,
+}: {
+    node: EntryOutlineNode;
+    onNavigate?: () => void;
+    routePath: string;
+}) {
+    return (
+        <li>
+            <EntryOutlineLink item={node} onNavigate={onNavigate} routePath={routePath} />
+            {node.children.length > 0 && (
+                <ul className="before:inset-y-[0.375em]">
+                    {node.children.map((child) => (
+                        <li key={child.id}>
+                            <EntryOutlineLink item={child} onNavigate={onNavigate} routePath={routePath} />
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </li>
+    );
+}
+
+function EntryOutlineLink({
+    item,
+    onNavigate,
+    routePath,
+}: {
+    item: EntryOutlineItem;
+    onNavigate?: () => void;
+    routePath: string;
+}) {
     return (
         <a
-            className={cn(
-                "text-base-content/60 hover:bg-base-200 hover:text-base-content focus-visible:ring-primary flex h-7 min-w-0 items-center overflow-hidden rounded-md px-2 text-sm outline-none focus-visible:ring-2",
-                item.level === 3 && "text-xs",
-                className,
-            )}
-            href={href ?? `#${item.id}`}
+            className="min-w-0"
+            data-outline-link
+            href={`${routePath}#${item.id}`}
+            onClick={onNavigate}
             title={item.text}
         >
             <span className="min-w-0 truncate">{item.text}</span>
@@ -926,8 +1196,14 @@ function EntryReferencesSection({ entry }: { entry: DashboardEntry }) {
                     Explicit links from Markdown and wikilink indexing.
                 </p>
             </div>
-            <OutgoingReferenceGroup links={entry.relations.outgoing} />
-            <ReferenceGroup emptyLabel="No backlinks indexed." label="Backlinks" links={entry.relations.backlinks} />
+            <div className="grid gap-6 md:grid-cols-2">
+                <OutgoingReferenceGroup links={entry.relations.outgoing} />
+                <ReferenceGroup
+                    emptyLabel="No backlinks indexed."
+                    label="Backlinks"
+                    links={entry.relations.backlinks}
+                />
+            </div>
         </section>
     );
 }
@@ -1009,8 +1285,10 @@ function RelationLink({
     const content = (
         <>
             <span className="flex min-w-0 items-center gap-2">
-                <span className="min-w-0 truncate">{label}</span>
-                <ReferenceKindBadge kind={kind} />
+                <span className="min-w-0 truncate" data-link-kind={kind === "external" ? "external" : undefined}>
+                    {label}
+                </span>
+                <ReferenceKindIndicator kind={kind} />
             </span>
             <span className="text-base-content/60 truncate text-xs" title={targetPath}>
                 {targetPath}
@@ -1023,6 +1301,7 @@ function RelationLink({
             <a
                 className="border-base-300/80 bg-base-100/60 hover:bg-base-200/50 focus-visible:border-primary focus-visible:ring-primary/50 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm transition-colors outline-none focus-visible:ring-3"
                 href={targetPath}
+                aria-label={`${label} (opens in a new tab)`}
                 rel="noreferrer"
                 target="_blank"
             >
@@ -1049,16 +1328,12 @@ function RelationLink({
     );
 }
 
-function ReferenceKindBadge({ kind }: { kind: DashboardEntryLink["kind"] }) {
-    if (kind === "internal") {
+function ReferenceKindIndicator({ kind }: { kind: DashboardEntryLink["kind"] }) {
+    if (kind !== "unresolved") {
         return null;
     }
 
-    return (
-        <span className={kind === "unresolved" ? "badge badge-warning shrink-0" : "badge badge-outline shrink-0"}>
-            {kind}
-        </span>
-    );
+    return <span className="badge badge-warning shrink-0">{kind}</span>;
 }
 
 function TaxonomiesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
@@ -1135,11 +1410,15 @@ function ViewsPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
 
 function ViewPage({
     dashboard,
+    onRetry,
     render,
+    renderError,
     view,
 }: {
     dashboard: WorkspaceDashboard;
+    onRetry: () => void;
     render?: DashboardViewRender;
+    renderError?: string;
     view: WorkspaceDashboard["views"][number];
 }) {
     const projection = render?.projection;
@@ -1152,7 +1431,20 @@ function ViewPage({
                 <span className="badge badge-outline badge-sm">{view.kind}</span>
                 <span>{view.space ?? "workspace"}</span>
                 <span>{itemCount} items</span>
-                {render?.document.path ? <code className="basis-full break-all">{render.document.path}</code> : null}
+                <span className="flex min-w-0 basis-full items-center gap-1">
+                    <code className="min-w-0 break-all">{view.path}</code>
+                    <button
+                        aria-label={`Copy source path ${view.path}`}
+                        className="btn btn-ghost btn-xs shrink-0"
+                        onClick={(event) => {
+                            void copySourcePath(event.currentTarget, view.path);
+                        }}
+                        type="button"
+                    >
+                        <Copy aria-hidden="true" className="size-3.5" />
+                        <span data-source-action-label>Copy path</span>
+                    </button>
+                </span>
             </div>
             {render?.document.beforeProjection.trim() ? (
                 <div className="[&_[data-reader=markdown]>h1:first-child]:hidden">
@@ -1164,7 +1456,7 @@ function ViewPage({
                     />
                 </div>
             ) : null}
-            <ViewProjectionRenderer projection={projection} />
+            <ViewProjectionRenderer error={renderError} onRetry={onRetry} projection={projection} />
             {render?.document.afterProjection.trim() ? (
                 <MarkdownReader
                     currentPath={render.document.path}
@@ -1178,34 +1470,10 @@ function ViewPage({
 }
 
 function EmptyPage() {
-    return (
-        <SectionIntro description="No page has been designed for this route yet." icon={FileText} title="Not found" />
-    );
+    return <EmptyState description="No page has been designed for this route yet." icon={FileText} title="Not found" />;
 }
 
 function EmptyState({ description, icon: Icon, title }: { description: string; icon: typeof FileText; title: string }) {
-    return (
-        <section className="card border-base-300 bg-base-100 border">
-            <div className="card-body">
-                <div className="bg-base-200 text-base-content/60 flex size-10 items-center justify-center rounded-md">
-                    <Icon data-icon="inline-start" />
-                </div>
-                <h2 className="card-title">{title}</h2>
-                <p className="text-base-content/60 text-sm">{description}</p>
-            </div>
-        </section>
-    );
-}
-
-function SectionIntro({
-    description,
-    icon: Icon,
-    title,
-}: {
-    description: string;
-    icon: typeof FileText;
-    title: string;
-}) {
     return (
         <section className="card border-base-300 bg-base-100 border">
             <div className="card-body">
@@ -1249,7 +1517,7 @@ function TaxonomiesGrid({ taxonomies }: { taxonomies: DashboardTaxonomy[] }) {
         <nav aria-label="Configured taxonomies" className="border-base-300 divide-base-300 divide-y border-y">
             {taxonomies.map((taxonomy) => (
                 <Link
-                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-2 py-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto]"
                     key={taxonomy.id}
                     to={taxonomyRoutePath(taxonomy.id)}
                 >
@@ -1264,7 +1532,7 @@ function TaxonomiesGrid({ taxonomies }: { taxonomies: DashboardTaxonomy[] }) {
                         <span>{taxonomy.terms.length} terms</span>
                         <span>{taxonomy.terms.reduce((total, term) => total + term.entryCount, 0)} entries</span>
                     </div>
-                    <ArrowUpRight aria-hidden="true" className="text-base-content/50 size-5 shrink-0" />
+                    <ArrowRight aria-hidden="true" className="text-base-content/50 size-5 shrink-0" />
                 </Link>
             ))}
         </nav>
@@ -1317,7 +1585,7 @@ function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
         <nav aria-label="Configured views" className="border-base-300 divide-base-300 divide-y border-y">
             {views.map((view) => (
                 <Link
-                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-2 py-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
+                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
                     key={view.id}
                     to={viewRoutePath(view.id)}
                 >
@@ -1342,22 +1610,19 @@ function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
     );
 }
 
-function viewRoutePath(viewId: string) {
-    return `/views/${viewId
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/")}`;
-}
+function ViewProjectionRenderer({
+    error,
+    onRetry,
+    projection,
+}: {
+    error?: string;
+    onRetry: () => void;
+    projection?: DashboardViewProjection;
+}) {
+    if (error) {
+        return <ProjectionErrorState message={error} onRetry={onRetry} />;
+    }
 
-function taxonomyRoutePath(taxonomyId: string) {
-    return `/${encodeURIComponent(taxonomyId)}`;
-}
-
-function taxonomyTermRoutePath(taxonomyId: string, termId: string) {
-    return `${taxonomyRoutePath(taxonomyId)}/${encodeURIComponent(termId)}`;
-}
-
-function ViewProjectionRenderer({ projection }: { projection?: DashboardViewProjection }) {
     if (!projection) {
         return <ProjectionLoadingState />;
     }
@@ -1403,6 +1668,44 @@ function ProjectionLoadingState() {
             Loading view projection...
         </div>
     );
+}
+
+function ProjectionErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+    return (
+        <div className="alert alert-error alert-soft alert-vertical sm:alert-horizontal" role="alert">
+            <AlertTriangle aria-hidden="true" className="size-5" />
+            <div>
+                <h2 className="font-semibold">View projection failed to load</h2>
+                <p className="text-sm">{message}</p>
+            </div>
+            <button className="btn btn-sm" onClick={onRetry} type="button">
+                <RefreshCw aria-hidden="true" className="size-4" />
+                Retry
+            </button>
+        </div>
+    );
+}
+
+async function copySourcePath(button: HTMLButtonElement, path: string) {
+    const copyIcon = button.querySelector<SVGElement>("[data-copy-icon]");
+    const copiedIcon = button.querySelector<SVGElement>("[data-copied-icon]");
+    const originalLabel = button.getAttribute("aria-label") ?? "Copy source path";
+
+    try {
+        await navigator.clipboard.writeText(path);
+        button.setAttribute("aria-label", `Copied source path ${path}`);
+        copyIcon?.classList.add("hidden");
+        copiedIcon?.classList.remove("hidden");
+    } catch {
+        button.setAttribute("aria-label", `Failed to copy source path ${path}`);
+    }
+
+    window.setTimeout(() => {
+        if (!button.isConnected) return;
+        button.setAttribute("aria-label", originalLabel);
+        copyIcon?.classList.remove("hidden");
+        copiedIcon?.classList.add("hidden");
+    }, 1800);
 }
 
 function ViewListProjection({ projection }: { projection: Extract<DashboardViewProjection, { kind: "list" }> }) {
@@ -1457,7 +1760,7 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
         <div className="border-base-300 overflow-hidden rounded-lg border">
             <div className="overflow-x-auto">
                 <table className="table-sm table min-w-max">
-                    <thead className="bg-base-200/60 text-base-content/60">
+                    <thead className="bg-base-200 text-base-content/60">
                         <tr className="border-base-300 border-b">
                             {projection.columns.map((column) => (
                                 <th className="font-medium whitespace-nowrap" key={column.field}>
@@ -1537,7 +1840,7 @@ function ViewKanbanProjection({ projection }: { projection: Extract<DashboardVie
             <div className="flex min-w-max flex-nowrap items-start gap-3">
                 {projection.columns.map((column) => (
                     <section
-                        className="border-base-300 bg-base-200/30 min-h-60 max-w-[min(20rem,85vw)] min-w-[min(16rem,85vw)] flex-[1_0_min(16rem,85vw)] rounded-lg border p-3"
+                        className="border-base-300 bg-base-200 min-h-60 max-w-[min(20rem,85vw)] min-w-[min(16rem,85vw)] flex-[1_0_min(16rem,85vw)] rounded-lg border p-3"
                         key={column.id}
                     >
                         <div className="mb-3 flex items-center justify-between gap-3">
@@ -1609,12 +1912,16 @@ function ViewKanbanCard({
     );
 
     if (!item.routePath) {
-        return <article className="card card-sm card-border bg-base-100 overflow-hidden">{content}</article>;
+        return (
+            <article className="card card-sm card-border border-base-300 bg-base-100 overflow-hidden">
+                {content}
+            </article>
+        );
     }
 
     return (
         <Link
-            className="card card-sm card-border bg-base-100 hover:bg-base-200/50 focus-visible:ring-primary/50 overflow-hidden transition-colors outline-none focus-visible:ring-3"
+            className="card card-sm card-border border-base-300 bg-base-100 hover:bg-base-300 focus-visible:ring-primary/50 overflow-hidden transition-colors outline-none focus-visible:ring-3"
             to={item.routePath}
         >
             {content}
@@ -1653,7 +1960,7 @@ function TaxonomyTermsGrid({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
         <nav aria-label={`${taxonomy.title} terms`} className="border-base-300 divide-base-300 divide-y border-y">
             {taxonomy.terms.map((term) => (
                 <Link
-                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-2 py-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto]"
                     key={term.id}
                     to={taxonomyTermRoutePath(taxonomy.id, term.id)}
                 >
@@ -1664,7 +1971,7 @@ function TaxonomyTermsGrid({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
                     <span className="text-base-content/60 hidden text-sm tabular-nums sm:block">
                         {term.entryCount} {term.entryCount === 1 ? "entry" : "entries"}
                     </span>
-                    <ArrowUpRight aria-hidden="true" className="text-base-content/50 size-5 shrink-0" />
+                    <ArrowRight aria-hidden="true" className="text-base-content/50 size-5 shrink-0" />
                 </Link>
             ))}
         </nav>
@@ -1696,7 +2003,7 @@ function StatCell({ label, title, value }: { label: string; title?: string; valu
 function EntryRow({ entry }: { entry: DashboardEntry }) {
     return (
         <Link
-            className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-2 py-4 outline-none"
+            className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none"
             to={entry.routePath}
         >
             <div className="min-w-0 flex-1">

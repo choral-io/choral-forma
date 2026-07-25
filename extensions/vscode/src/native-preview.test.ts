@@ -138,6 +138,23 @@ describe("native Markdown preview enhancement", () => {
         ).toBe(html);
     });
 
+    it("leaves VS Code native KaTeX MathML unchanged", () => {
+        const html =
+            '<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">\\text{[[docs/guide]]}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true">x</span></span></p>';
+
+        expect(
+            enhanceMarkdownPreview(html, {
+                bodyLinks: [
+                    {
+                        raw: "[[docs/guide]]",
+                        label: "Guide",
+                        targetPath: "docs/guide.md",
+                    },
+                ],
+            }),
+        ).toBe(html);
+    });
+
     it("matches cached projections by document path when URI serialization differs", () => {
         setMarkdownEnhancement("file:///workspace/.forma/views/board.md", { projection: "<section>View</section>" });
         const markdownIt = extendMarkdownIt({

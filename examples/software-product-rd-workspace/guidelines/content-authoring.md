@@ -52,3 +52,5 @@ Before multi-file edits, task status changes, release evidence changes, schema c
 ## Verification
 
 Run `forma check --json` after edits. Run `forma workspace health --json` when links, relationship fields, space config, templates, or views changed.
+
+Use [[validation/markdown-rendering-showcase|Markdown Rendering Showcase]] when reviewing reader typography, links, local media, or overflow behavior.

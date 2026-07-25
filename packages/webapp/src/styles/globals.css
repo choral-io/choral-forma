@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "@fontsource-variable/inter";
+@import "katex/dist/katex.min.css";
 
 @plugin "daisyui" {
     logs: false;
@@ -40,7 +40,6 @@
     --border: 1px;
     --depth: 0;
     --noise: 0;
-    --reader-link: oklch(50.8% 0.118 165.612);
     --graph-accent: oklch(58.8% 0.158 241.966);
 }
 
@@ -77,206 +76,143 @@
     --border: 1px;
     --depth: 0;
     --noise: 0;
-    --reader-link: oklch(69.6% 0.17 162.48);
     --graph-accent: oklch(68.5% 0.169 237.323);
 }
 
-@source "../**/*.{ts,tsx}";
-
-@theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: "Inter Variable", sans-serif;
-}
-
-@layer base {
-    body {
-        @apply bg-base-100 text-base-content;
-    }
-
-    button:not(:disabled),
-    [role="button"]:not(:disabled) {
-        cursor: pointer;
-    }
-
-    html {
-        @apply font-sans;
-    }
+@font-face {
+    font-family: "Lucide Link Icons";
+    src: url("../assets/lucide-link-icons.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 400;
+    font-display: block;
 }
 
 @layer components {
-    [data-forma-graph-stage] {
-        aspect-ratio: 3 / 2;
-        min-height: 22rem;
-        max-height: 40rem;
+    [data-link-kind="external"] {
+        --link-kind-glyph: "\e0b9";
     }
 
-    [data-forma-graph-stage][data-expanded] {
-        aspect-ratio: auto;
-        height: 100%;
-        min-height: 0;
-        max-height: none;
+    [data-link-kind="anchor"] {
+        --link-kind-glyph: "\e0ef";
+    }
+
+    :is([data-link-kind="external"], [data-link-kind="anchor"])::after {
+        content: "\2009" var(--link-kind-glyph);
+        font-family: "Lucide Link Icons";
+        font-size: 0.75em;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1;
+        opacity: 0.7;
+        vertical-align: middle;
+        @apply pointer-events-none select-none;
     }
 
     [data-reader="markdown"] {
-        @apply text-base-content/90 max-w-none text-sm/7;
-    }
+        @apply text-base-content/90 text-sm/7;
 
-    [data-reader="markdown"] a {
-        color: var(--reader-link);
-        @apply underline-offset-4 hover:underline;
-    }
-
-    [data-reader="markdown"] blockquote {
-        @apply border-base-300/70 text-base-content/60 my-5 border-s-4 ps-4;
-    }
-
-    [data-reader="markdown"] blockquote p {
-        @apply my-2;
-    }
-
-    [data-reader="markdown"] code {
-        @apply bg-base-200 rounded-sm px-1 py-0.5 text-sm;
-    }
-
-    [data-reader="markdown"] del {
-        @apply text-base-content/60;
-    }
-
-    [data-reader="markdown"] h1 {
-        @apply text-base-content mt-10 mb-5 scroll-m-20 text-2xl font-semibold tracking-normal;
-    }
-
-    [data-reader="markdown"] h1:first-child {
-        @apply mt-0;
-    }
-
-    [data-reader="markdown"] h2 {
-        @apply text-base-content mt-8 mb-4 scroll-m-20 text-xl font-semibold tracking-normal;
-    }
-
-    [data-reader="markdown"] h2:first-child {
-        @apply mt-0;
-    }
-
-    [data-reader="markdown"] h3 {
-        @apply text-base-content mt-6 mb-3 scroll-m-20 text-base font-semibold tracking-normal;
-    }
-
-    [data-reader="markdown"] h3:first-child {
-        @apply mt-0;
-    }
-
-    [data-reader="markdown"] h4 {
-        @apply text-base-content mt-5 mb-2 scroll-m-20 text-sm font-semibold tracking-normal;
-    }
-
-    [data-reader="markdown"] h4:first-child {
-        @apply mt-0;
-    }
-
-    [data-reader="markdown"] h5,
-    [data-reader="markdown"] h6 {
-        @apply text-base-content mt-4 mb-2 scroll-m-20 text-sm font-medium tracking-normal;
-    }
-
-    [data-reader="markdown"] h5:first-child,
-    [data-reader="markdown"] h6:first-child {
-        @apply mt-0;
-    }
-
-    [data-reader="markdown"] hr {
-        @apply border-base-300 my-7 border-0 border-t;
-    }
-
-    [data-reader="markdown"] img {
-        @apply border-base-300 my-5 max-w-full border;
-    }
-
-    [data-reader="markdown"] input[type="checkbox"] {
-        @apply border-base-300 bg-base-100 accent-primary me-2 size-3.5 rounded-sm align-middle;
-    }
-
-    [data-reader="markdown"] input[type="checkbox"]:disabled {
-        @apply opacity-80;
-    }
-
-    [data-reader="markdown"] li + li {
-        @apply mt-2;
-    }
-
-    [data-reader="markdown"] li::marker {
-        @apply text-base-content/60;
-    }
-
-    [data-reader="markdown"] ol {
-        @apply list-decimal ps-5;
-    }
-
-    [data-reader="markdown"] p {
-        @apply my-3;
-    }
-
-    [data-reader="markdown"] [data-code-block] {
-        @apply relative my-5;
-    }
-
-    [data-reader="markdown"] [data-code-block]::before {
-        content: attr(data-language);
-        @apply bg-base-100/95 text-base-content/60 border-base-300 pointer-events-none absolute inset-e-3 top-0 z-1 -translate-y-1/2 rounded-full border px-2.5 py-0.5 text-xs font-medium opacity-90 shadow-sm;
-    }
-
-    [data-reader="markdown"] [data-code-block] pre {
-        @apply my-0;
-    }
-
-    [data-reader="markdown"] pre {
-        @apply bg-base-200/50 my-5 overflow-x-auto rounded-lg border p-4;
-    }
-
-    [data-reader="markdown"] pre.shiki {
-        @apply bg-base-200/50!;
-    }
-
-    [data-reader="markdown"] pre code {
-        @apply bg-transparent p-0;
-    }
-
-    [data-reader="markdown"] pre.shiki code {
-        @apply grid;
-    }
-
-    [data-reader="markdown"] pre.shiki code .line {
-        @apply min-h-lh;
-    }
-
-    @media (prefers-color-scheme: dark) {
-        [data-reader="markdown"] pre.shiki,
-        [data-reader="markdown"] pre.shiki span {
-            color: var(--shiki-dark) !important;
+        & a {
+            @apply text-primary underline underline-offset-4;
         }
-    }
 
-    [data-reader="markdown"] .table-wrapper {
-        @apply border-base-300 my-5 block w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border;
-    }
+        & blockquote {
+            @apply border-base-300/70 text-base-content/60 my-5 border-s-4 ps-4;
+        }
 
-    [data-reader="markdown"] table {
-        @apply w-max min-w-full text-left whitespace-nowrap;
-    }
+        & code {
+            @apply bg-base-200 rounded-sm px-1 py-0.5 text-sm;
+        }
 
-    [data-reader="markdown"] td {
-        @apply border-base-300 border-t px-4 py-3;
-    }
+        & :is(del, li::marker) {
+            @apply text-base-content/60;
+        }
 
-    [data-reader="markdown"] thead {
-        @apply bg-base-200/50;
-    }
+        & :is(h1, h2, h3, h4, h5, h6) {
+            @apply text-base-content scroll-m-20;
+        }
 
-    [data-reader="markdown"] th {
-        @apply text-base-content/60 px-4 py-2 font-medium;
-    }
+        & h1 {
+            @apply mt-10 mb-5 text-2xl font-semibold;
+        }
 
-    [data-reader="markdown"] ul {
-        @apply list-disc ps-5;
+        & h2 {
+            @apply mt-8 mb-4 text-xl font-semibold;
+        }
+
+        & h3 {
+            @apply mt-6 mb-3 text-base font-semibold;
+        }
+
+        & h4 {
+            @apply mt-5 mb-2 text-sm font-semibold;
+        }
+
+        & :is(h5, h6) {
+            @apply mt-4 mb-2 text-sm font-medium;
+        }
+
+        & :is(h1, h2, h3, h4, h5, h6):first-child {
+            @apply mt-0;
+        }
+
+        & hr {
+            @apply border-base-300 my-7 border-0 border-t;
+        }
+
+        & img {
+            @apply my-5 max-w-full;
+        }
+
+        & li + li {
+            @apply mt-2;
+        }
+
+        & .katex-display {
+            @apply max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain;
+        }
+
+        & :is(ol, ul) {
+            @apply ps-5;
+        }
+
+        & ol {
+            @apply list-decimal;
+        }
+
+        & ul {
+            @apply list-disc;
+        }
+
+        & p {
+            @apply my-3;
+        }
+
+        & blockquote p {
+            @apply my-2;
+        }
+
+        & pre {
+            @apply border-base-300 bg-base-200/50 overflow-x-auto rounded-lg border p-4;
+        }
+
+        & > pre {
+            @apply my-5;
+        }
+
+        & pre code {
+            @apply bg-transparent p-0;
+        }
+
+        & pre.shiki code {
+            @apply grid;
+        }
+
+        & pre.shiki code .line {
+            @apply min-h-lh;
+        }
+
+        & .table-wrapper {
+            @apply border-base-300 my-5 block w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border;
+        }
     }
 }

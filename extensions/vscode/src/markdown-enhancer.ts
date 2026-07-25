@@ -90,7 +90,7 @@ export function enhanceBodyLinks(html: string, links: PreviewBodyLink[]): string
 
 function replaceUnprotectedText(html: string, replace: (text: string) => string): string {
     const protectedBlock =
-        /<(pre|code|a)\b[^>]*>[\s\S]*?<\/\1>|<table\b[^>]*class="[^"]*frontmatter[^"]*"[^>]*>[\s\S]*?<\/table>/giu;
+        /<(pre|code|a|math)\b[^>]*>[\s\S]*?<\/\1>|<table\b[^>]*class="[^"]*frontmatter[^"]*"[^>]*>[\s\S]*?<\/table>/giu;
     let result = "";
     let cursor = 0;
     for (const match of html.matchAll(protectedBlock)) {

@@ -11,12 +11,14 @@ interface WorkspaceRouteFrameProps {
     actions?: ReactNode;
     children: ReactNode;
     contextPanel?: ReactNode;
-    dashboard: WorkspaceDashboard;
+    dashboard?: WorkspaceDashboard;
+    fabActions?: ReactNode;
     mobileContextPanel?: ReactNode;
     contentWidth?: "default" | "fluid" | "readable";
     description?: string;
     eyebrow: string;
     title: string;
+    titleAs?: "div" | "h1";
 }
 
 export function WorkspaceRouteFrame({
@@ -29,9 +31,11 @@ export function WorkspaceRouteFrame({
     description,
     eyebrow,
     title,
+    titleAs = "h1",
 }: WorkspaceRouteFrameProps) {
     const hasContextPanel = Boolean(contextPanel);
     const inlineContextPanel = mobileContextPanel === undefined ? contextPanel : mobileContextPanel;
+    const Title = titleAs;
     const contentWidthClass = {
         default: "max-w-6xl",
         fluid: "max-w-none",
@@ -72,18 +76,20 @@ export function WorkspaceRouteFrame({
                         </button>
                         <div className="min-w-0">
                             <p className="text-base-content/60 text-sm">{eyebrow}</p>
-                            <h1
+                            <Title
                                 className="line-clamp-2 text-2xl font-semibold tracking-normal lg:line-clamp-1"
                                 tabIndex={-1}
                                 title={title}
                             >
                                 {title}
-                            </h1>
+                            </Title>
                             {description && (
                                 <p className="text-base-content/60 mt-1 max-w-3xl text-sm/6">{description}</p>
                             )}
                         </div>
-                        <QuickOpenDialog dashboard={dashboard} trigger="header" triggerClassName="ml-auto lg:hidden" />
+                        {dashboard ? (
+                            <QuickOpenDialog dashboard={dashboard} trigger="header" triggerClassName="ml-auto lg:hidden" />
+                        ) : null}
                     </div>
                     {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
                 </header>

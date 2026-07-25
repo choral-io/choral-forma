@@ -1,12 +1,7 @@
 import type { MarkedExtension, Tokens } from "marked";
-import { bundledLanguages, createHighlighter, type BundledLanguage, type HighlighterGeneric } from "shiki";
+import type { HighlighterCore } from "shiki/core";
 
-const languages = new Set(Object.keys(bundledLanguages));
-const initialLanguages = ["css", "html", "js", "json", "jsx", "md", "sh", "shell", "ts", "tsx", "yaml"] as const;
-
-type MarkdownHighlighter = HighlighterGeneric<BundledLanguage, "github-light-default" | "github-dark-default">;
-
-let highlighterPromise: Promise<MarkdownHighlighter> | undefined;
+let highlighterPromise: Promise<HighlighterCore> | undefined;
 
 export const markedShiki: MarkedExtension = {
     async walkTokens(token) {
@@ -15,55 +10,58 @@ export const markedShiki: MarkedExtension = {
         }
 
         const codeToken = token as Tokens.Code;
-        const language = normalizeLanguage(codeToken.lang);
-        const highlighter = await getHighlighter();
-
-        if (!highlighter.getLoadedLanguages().includes(language) && languages.has(language)) {
-            await highlighter.loadLanguage(language as BundledLanguage);
-        }
-
-        token.type = "html";
-
-        const resolvedLanguage = languages.has(language) ? language : "text";
-        const htmlToken = token as Tokens.HTML;
-        htmlToken.raw = codeToken.text;
-        htmlToken.pre = true;
-        htmlToken.block = true;
-        htmlToken.text = addLanguageLabel(
-            highlighter.codeToHtml(codeToken.text, {
+        const language = codeToken.lang?.trim().split(/\s+/, 1)[0]?.toLowerCase() ?? "text";
+        try {
+            const highlighter = await getHighlighterWithRetry();
+            const resolvedLanguage = highlighter.getLoadedLanguages().includes(language) ? language : "text";
+            const highlighted = highlighter.codeToHtml(codeToken.text, {
                 lang: resolvedLanguage,
                 themes: {
                     dark: "github-dark-default",
                     light: "github-light-default",
                 },
-            }),
-            resolvedLanguage,
-        );
+                defaultColor: "light-dark()",
+                rootStyle: false,
+            });
+
+            token.type = "html";
+
+            const htmlToken = token as Tokens.HTML;
+            htmlToken.raw = codeToken.text;
+            htmlToken.pre = true;
+            htmlToken.block = true;
+            htmlToken.text = addLanguageLabel(highlighted, resolvedLanguage);
+        } catch (error: unknown) {
+            console.warn("Syntax highlighting failed; rendering plain code.", error);
+        }
     },
 };
 
-function getHighlighter() {
-    highlighterPromise ??= createHighlighter({
-        langs: initialLanguages.filter((language) => languages.has(language)),
-        themes: ["github-light-default", "github-dark-default"],
-    });
-
-    return highlighterPromise;
+export async function prewarmMarkdownHighlighter() {
+    try {
+        await getHighlighterWithRetry();
+    } catch (error: unknown) {
+        console.warn("Syntax highlighter prewarm failed; rendering will retry when needed.", error);
+    }
 }
 
-function normalizeLanguage(language: string | undefined) {
-    const normalized = language ? (/\S*/.exec(language)?.[0] ?? "text").toLowerCase() : "text";
-
-    switch (normalized) {
-        case "bash":
-            return "sh";
-        case "shell":
-            return "shell";
-        case "yml":
-            return "yaml";
-        default:
-            return normalized;
+async function getHighlighterWithRetry() {
+    try {
+        return await getHighlighter();
+    } catch {
+        return getHighlighter();
     }
+}
+
+function getHighlighter() {
+    highlighterPromise ??= import("./markdown-highlighter")
+        .then(({ createMarkdownHighlighter }) => createMarkdownHighlighter())
+        .catch((error: unknown) => {
+            highlighterPromise = undefined;
+            throw error;
+        });
+
+    return highlighterPromise;
 }
 
 function addLanguageLabel(html: string, language: string) {
