@@ -442,6 +442,62 @@ This is a narrow renderer seam, not approval for a generic sticky-header abstrac
 
 The feasibility gate passes, but this first phase does not itself authorize tracked Kanban implementation. Product implementation is ready for an explicit maintainer decision against these gates.
 
+## Kanban Implementation Result — 2026-07-25
+
+The user subsequently authorized the verified feature-local design. The WebApp Kanban slice is complete.
+
+### Implemented contract
+
+- `createProjectionStickyBoundaryController` remains unchanged and owns only reveal, lower-boundary hiding, live sticky-offset measurement, RAF scheduling, resize observation, and cleanup.
+- `ViewKanbanProjection` now renders the natural board and one overlapping presentation rail in the same projection boundary grid.
+- Every real `<h3>` remains inside its configured `<section>` as the only authoritative accessible column heading.
+- The visual rail is `aria-hidden`, inherits `pointer-events: none` from the shared presentation class, and contains plain labels and counts with no links, ids, controls, or focus targets.
+- Both tracks share one Kanban-local `gap-3` and responsive `w-[min(20rem,85vw)]` column contract. The explicit width replaced the former content-dependent flex growth after the production proof showed that rich card content made real columns about 55 px wider than the text-only rail.
+- The board's scroll handler assigns only its current `scrollLeft` to the rail. It does not use React-controlled scroll state, synchronize vertical scrolling, or read layout.
+- The Table `<colgroup>` adapter remains Table-only. No generic cloned-header abstraction, dependency, fixed projection height, independently scrolling column, or page-root overflow behavior was added.
+
+### Production browser evidence
+
+A production WebApp build was served through the real Forma backend against a temporary copy of this workspace. The configured Task Board supplied seven columns, long configured labels, uneven live card counts, variable card content, links and badges, plus substantial real View Markdown before and after the projection.
+
+| Width | Vertical owner / sticky top | Board client / scroll / maximum horizontal | Start / midpoint / maximum alignment | Root overflow |
+| --: | --- | --: | --- | --: |
+| 1440 px | route `<main>` / 112 px | 1120 / 2312 / 1192 px | 0 px left and width delta | 0 px |
+| 390 px | responsive route frame / 0 px | 358 / 2312 / 1954 px | 0 px left and width delta | 0 px |
+
+The board retained natural document height at both widths: `clientHeight === scrollHeight === 7494 px`. Its computed `overflow-y: auto` is the browser's axis coupling for `overflow-x: auto`, but it had no vertical scroll range; the route remained the only vertical owner.
+
+Entry and exit used live controller geometry:
+
+- at 1440 px the rail was hidden with the first real heading at `113 px` and visible at `111 px` against a `112 px` sticky top;
+- at 390 px it was hidden at `1 px` and visible at `-1 px` against a `0 px` sticky top;
+- the measured rail height was `26 px`;
+- at 1440 px it remained visible with projection bottom `139 px`, hid at `137 px`, and stayed hidden with the boundary at `-52 px` while later Markdown crossed above the route viewport;
+- at 390 px it remained visible at projection bottom `27 px` and hid at `25 px`.
+
+Horizontal alignment remained exact at start, midpoint, and maximum positions. An active `390 -> 768 -> 390` resize sequence preserved visibility, all column geometry, `scrollLeft`, and zero root overflow without stale measurements.
+
+Keyboard Arrow Right moved the focused board and rail together to `scrollLeft: 39`. A real Chrome DevTools touch sequence moved the 390 px board and rail together to `scrollLeft: 356`. Card links and the named board region retained their existing focus behavior.
+
+Light and Dark used the product's semantic theme values without geometry changes:
+
+- Light rail item surface/border/text: `oklch(0.97 0 0)` / `oklch(0.922 0 0)` / `oklch(0.145 0 0)`;
+- Dark rail item surface/border/text: `oklch(0.205 0 0)` / `oklch(0.269 0 0)` / `oklch(0.985 0 0)`.
+
+The accessibility tree exposed the seven real headings once and excluded the presentation rail. The rail had zero focusable descendants, and the scoped Axe 4.12.1 board audit reported zero violations or incomplete findings.
+
+SPA navigation removed the active rail completely and remounted exactly one rail with seven real headings and zero presentation focus targets. Final production console and page-error buffers were both empty, resolving the feasibility phase's only residual validation gate.
+
+### Automated and project validation
+
+- focused projection-boundary and Kanban horizontal-sync tests: 6 passed;
+- full pnpm suite: 48 files and 241 tests passed, plus 23 Node tests;
+- WebApp type-check, lint, and production build passed;
+- repository `check:pnpm` passed, including release-version alignment and Prettier;
+- the existing production chunk-size advisory remained unchanged.
+
+The Kanban slice is complete. The overall task remains open only for the separately gated VS Code native-preview evaluation; this result does not claim or implement VS Code parity.
+
 ## Acceptance Criteria
 
 - A long Table keeps its column headers visible during vertical scrolling without losing horizontal scrolling or column alignment.

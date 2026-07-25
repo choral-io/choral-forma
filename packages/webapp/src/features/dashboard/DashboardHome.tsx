@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 
 import { formatEntrySupportedLanguages } from "./entry-languages";
+import { syncKanbanStickyRailScroll } from "./kanban-sticky-header";
 import { prewarmMarkdownHighlighter } from "./markdown-shiki";
 import { MarkdownReader } from "./MarkdownReader";
 import {
@@ -1917,42 +1918,114 @@ function ViewProjectionCell({
 }
 
 function ViewKanbanProjection({ projection }: { projection: Extract<DashboardViewProjection, { kind: "kanban" }> }) {
+    const boundaryRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const sourceRef = useRef<HTMLDivElement>(null);
+    const stickyHeaderRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const boundary = boundaryRef.current;
+        const scroll = scrollRef.current;
+        const source = sourceRef.current;
+        const stickyHeader = stickyHeaderRef.current;
+        if (!boundary || !scroll || !source || !stickyHeader) return;
+
+        return createProjectionStickyBoundaryController({
+            boundary,
+            observe: [
+                scroll,
+                ...boundary.querySelectorAll("[data-view-kanban-column]"),
+                ...boundary.querySelectorAll("[data-view-kanban-column-heading]"),
+            ],
+            source,
+            sticky: stickyHeader,
+            syncPresentation: () => {
+                syncKanbanStickyRailScroll(stickyHeader, scroll.scrollLeft);
+            },
+        });
+    }, [projection]);
+
     return (
-        <div
-            aria-label="Kanban board"
-            className="focus-visible:ring-primary/40 max-w-full min-w-0 overflow-x-auto overscroll-x-contain pb-3 outline-none focus-visible:ring-3"
-            role="region"
-            tabIndex={0}
-        >
-            <div className="flex min-w-max flex-nowrap items-start gap-3">
-                {projection.columns.map((column) => (
-                    <section
-                        className="border-base-300 bg-base-200 min-h-60 max-w-[min(20rem,85vw)] min-w-[min(16rem,85vw)] flex-[1_0_min(16rem,85vw)] rounded-lg border p-3"
-                        key={column.id}
-                    >
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                            <h3 className="min-w-0 truncate font-medium" title={column.label}>
-                                {column.icon ? <span aria-hidden="true">{column.icon} </span> : null}
-                                {column.label}
-                            </h3>
-                            <span className="badge badge-ghost badge-sm shrink-0">{column.items.length}</span>
+        <div className="relative grid" ref={boundaryRef}>
+            <div
+                aria-hidden="true"
+                className={cn(projectionStickyHeaderClassName, "border-0 bg-transparent")}
+                data-view-kanban-sticky-header=""
+                ref={stickyHeaderRef}
+            >
+                <div className={kanbanTrackClassName}>
+                    {projection.columns.map((column) => (
+                        <div
+                            className={cn(
+                                kanbanColumnClassName,
+                                "border-base-300 bg-base-200 rounded-none border px-3",
+                            )}
+                            key={column.id}
+                        >
+                            <div className={kanbanColumnHeadingClassName}>
+                                <h3 className="min-w-0 truncate font-medium">
+                                    {column.icon ? <span aria-hidden="true">{column.icon} </span> : null}
+                                    {column.label}
+                                </h3>
+                                <span className="badge badge-ghost badge-sm shrink-0">{column.items.length}</span>
+                            </div>
                         </div>
-                        <div className="flex flex-col gap-3">
-                            {column.items.map((item) => (
-                                <ViewKanbanCard card={projection.card} item={item} key={item.path} />
-                            ))}
-                            {column.items.length === 0 ? (
-                                <p className="border-base-300 text-base-content/60 rounded-md border border-dashed p-3 text-sm">
-                                    No entries
-                                </p>
-                            ) : null}
-                        </div>
-                    </section>
-                ))}
+                    ))}
+                </div>
+            </div>
+            <div
+                aria-label="Kanban board"
+                className="focus-visible:ring-primary/40 col-start-1 row-start-1 max-w-full min-w-0 overflow-x-auto overscroll-x-contain pb-3 outline-none focus-visible:ring-3"
+                data-view-kanban-scroll=""
+                onScroll={(event) => {
+                    syncKanbanStickyRailScroll(stickyHeaderRef.current, event.currentTarget.scrollLeft);
+                }}
+                ref={scrollRef}
+                role="region"
+                tabIndex={0}
+            >
+                <div className={kanbanTrackClassName}>
+                    {projection.columns.map((column, index) => (
+                        <section
+                            className={cn(
+                                kanbanColumnClassName,
+                                "border-base-300 bg-base-200 min-h-60 rounded-lg border p-3",
+                            )}
+                            data-view-kanban-column=""
+                            key={column.id}
+                        >
+                            <div
+                                className={cn(kanbanColumnHeadingClassName, "mb-3")}
+                                data-view-kanban-column-heading=""
+                                ref={index === 0 ? sourceRef : undefined}
+                            >
+                                <h3 className="min-w-0 truncate font-medium" title={column.label}>
+                                    {column.icon ? <span aria-hidden="true">{column.icon} </span> : null}
+                                    {column.label}
+                                </h3>
+                                <span className="badge badge-ghost badge-sm shrink-0">{column.items.length}</span>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                {column.items.map((item) => (
+                                    <ViewKanbanCard card={projection.card} item={item} key={item.path} />
+                                ))}
+                                {column.items.length === 0 ? (
+                                    <p className="border-base-300 text-base-content/60 rounded-md border border-dashed p-3 text-sm">
+                                        No entries
+                                    </p>
+                                ) : null}
+                            </div>
+                        </section>
+                    ))}
+                </div>
             </div>
         </div>
     );
 }
+
+const kanbanTrackClassName = "flex min-w-max flex-nowrap items-start gap-3";
+const kanbanColumnClassName = "w-[min(20rem,85vw)] flex-none";
+const kanbanColumnHeadingClassName = "flex items-center justify-between gap-3";
 
 function ViewKanbanCard({
     card,
