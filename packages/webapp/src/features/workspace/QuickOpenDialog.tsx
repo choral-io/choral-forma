@@ -1,17 +1,18 @@
 import { Search, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router";
 
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { cn } from "@/lib/utils";
+import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 
-interface QuickOpenDialogProps {
+interface QuickOpenTriggerProps {
     className?: string;
-    dashboard: WorkspaceDashboard;
-    trigger: "header" | "sidebar";
-    triggerClassName?: string;
+    onBeforeOpen?: (trigger: HTMLButtonElement) => void;
+    trigger: "fab" | "header" | "sidebar";
 }
+
+export const quickOpenDialogId = "workspace-quick-open";
 
 export interface QuickOpenItem {
     group: string;
@@ -19,6 +20,11 @@ export interface QuickOpenItem {
     keywords?: string;
     label: string;
     meta: string;
+}
+
+interface QuickOpenCompositionEvent {
+    isComposing: boolean;
+    keyCode?: number;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -35,6 +41,22 @@ export function filterQuickOpenItems(items: QuickOpenItem[], query: string, limi
         .map((result) => result.item);
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
+export function isQuickOpenComposing(event: QuickOpenCompositionEvent) {
+    return event.isComposing || event.keyCode === 229;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function getQuickOpenActiveIndex(key: string, activeIndex: number, itemCount: number) {
+    const lastIndex = Math.max(itemCount - 1, 0);
+
+    if (key === "ArrowDown") return Math.min(activeIndex + 1, lastIndex);
+    if (key === "ArrowUp") return Math.max(activeIndex - 1, 0);
+    if (key === "Home") return 0;
+    if (key === "End") return lastIndex;
+    return undefined;
+}
+
 function quickOpenMatchScore(item: QuickOpenItem, query: string, queryTokens: string[]) {
     const label = item.label.toLowerCase();
     const meta = item.meta.toLowerCase();
@@ -49,7 +71,69 @@ function quickOpenMatchScore(item: QuickOpenItem, query: string, queryTokens: st
     return 6;
 }
 
-export function QuickOpenDialog({ className, dashboard, trigger, triggerClassName }: QuickOpenDialogProps) {
+export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpenTriggerProps) {
+    const isSidebarTrigger = trigger === "sidebar";
+    const isFabTrigger = trigger === "fab";
+    const openDialog = (triggerElement: HTMLButtonElement) => {
+        onBeforeOpen?.(triggerElement);
+        openQuickOpenDialog();
+    };
+
+    if (isFabTrigger) {
+        return (
+            <button
+                aria-controls={quickOpenDialogId}
+                aria-haspopup="dialog"
+                aria-keyshortcuts="Control+K Meta+K"
+                aria-label="Quick open"
+                className={cn("btn btn-circle btn-lg btn-neutral", className)}
+                onClick={(event) => {
+                    openDialog(event.currentTarget);
+                }}
+                type="button"
+            >
+                <Search aria-hidden="true" className="size-5" />
+            </button>
+        );
+    }
+
+    return (
+        <button
+            aria-controls={quickOpenDialogId}
+            aria-haspopup="dialog"
+            aria-keyshortcuts="Control+K Meta+K"
+            aria-label="Quick open"
+            className={cn(
+                isSidebarTrigger
+                    ? "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 gap-3 outline-none focus-visible:ring-2"
+                    : "btn btn-square btn-ghost",
+                className,
+            )}
+            data-tip={isSidebarTrigger ? "Quick open (⌘ K)" : undefined}
+            onClick={(event) => {
+                openDialog(event.currentTarget);
+            }}
+            title={trigger === "header" ? "Quick open (Ctrl/⌘ K)" : undefined}
+            type="button"
+        >
+            <Search aria-hidden="true" className={isSidebarTrigger ? "size-4 shrink-0" : undefined} />
+            {isSidebarTrigger ? (
+                <>
+                    <span className="is-drawer-close:hidden min-w-0 truncate" data-sidebar-label>
+                        Quick open
+                    </span>
+                    <kbd className="kbd kbd-xs is-drawer-close:hidden shrink-0" data-sidebar-label>
+                        ⌘ K
+                    </kbd>
+                </>
+            ) : (
+                <span className="sr-only">Quick open</span>
+            )}
+        </button>
+    );
+}
+
+export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }) {
     const dialogRef = useRef<HTMLDialogElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const listId = useId();
@@ -113,8 +197,6 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
     }, [activeIndex, listId]);
 
     useEffect(() => {
-        if (trigger !== "sidebar") return;
-
         function handleQuickOpenShortcut(event: KeyboardEvent) {
             if (event.key.toLowerCase() !== "k" || (!event.metaKey && !event.ctrlKey)) return;
             event.preventDefault();
@@ -132,14 +214,7 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
         return () => {
             window.removeEventListener("keydown", handleQuickOpenShortcut);
         };
-    }, [trigger]);
-
-    function openQuickOpen() {
-        setActiveIndex(0);
-        setQuery("");
-        dialogRef.current?.showModal();
-        requestAnimationFrame(() => inputRef.current?.focus());
-    }
+    }, []);
 
     function closeQuickOpen() {
         dialogRef.current?.close();
@@ -153,199 +228,149 @@ export function QuickOpenDialog({ className, dashboard, trigger, triggerClassNam
     }
 
     return (
-        <>
-            <button
-                aria-keyshortcuts="Control+K Meta+K"
-                aria-label="Quick open"
-                className={cn(
-                    trigger === "sidebar"
-                        ? "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 flex! w-full items-center gap-3 leading-4 outline-none focus-visible:ring-2"
-                        : "btn btn-square",
-                    triggerClassName,
-                )}
-                data-tip={trigger === "sidebar" ? "Quick open" : undefined}
-                onClick={openQuickOpen}
-                title="Quick open (Ctrl/⌘ K)"
-                type="button"
-            >
-                <Search aria-hidden="true" className={trigger === "sidebar" ? "size-4 shrink-0" : undefined} />
-                {trigger === "sidebar" ? (
-                    <>
-                        <span
-                            className="is-drawer-close:hidden min-w-0 flex-1 truncate whitespace-nowrap"
-                            data-sidebar-label
-                        >
-                            Quick open
-                        </span>
-                        <kbd
-                            className="kbd kbd-xs is-drawer-close:hidden ms-auto shrink-0 whitespace-nowrap"
-                            data-sidebar-label
-                        >
-                            ⌘ K
-                        </kbd>
-                    </>
-                ) : (
-                    <span className="sr-only">Quick open</span>
-                )}
-            </button>
-
-            {createPortal(
-                <dialog
-                    className={cn("modal", className)}
-                    id={`${listId}-dialog`}
-                    onClose={() => {
-                        setActiveIndex(0);
-                        setQuery("");
-                    }}
-                    ref={dialogRef}
-                >
-                    <div className="modal-box flex max-h-[min(44rem,calc(100dvh-2rem))] max-w-2xl flex-col p-0">
-                        <div className="border-base-300 flex items-start justify-between gap-4 border-b px-6 py-5">
-                            <div>
-                                <h2 className="text-lg font-semibold">Quick open</h2>
-                                <p className="text-base-content/60 mt-1 text-sm">
-                                    Jump to configured views, taxonomies, and content.
-                                </p>
-                            </div>
-                            <form method="dialog">
-                                <button aria-label="Close quick open" className="btn btn-square btn-ghost btn-sm">
-                                    <X aria-hidden="true" />
-                                </button>
-                            </form>
-                        </div>
-
-                        <form
-                            className="border-base-300 border-b px-6 py-4"
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                if (activeItem) openItem(activeItem.href);
-                            }}
-                        >
-                            <label className="input w-full">
-                                <Search aria-hidden="true" className="size-4 opacity-60" />
-                                <input
-                                    aria-activedescendant={
-                                        activeItem ? quickOpenOptionId(listId, activeIndex) : undefined
-                                    }
-                                    aria-autocomplete="list"
-                                    aria-controls={listId}
-                                    aria-expanded="true"
-                                    aria-label="Search workspace"
-                                    onChange={(event) => {
-                                        setQuery(event.target.value);
-                                        setActiveIndex(0);
-                                    }}
-                                    onKeyDown={(event) => {
-                                        if (event.key === "Escape") {
-                                            event.preventDefault();
-                                            closeQuickOpen();
-                                        } else if (event.key === "Enter") {
-                                            event.preventDefault();
-                                            if (activeItem) openItem(activeItem.href);
-                                        } else if (event.key === "ArrowDown") {
-                                            event.preventDefault();
-                                            setActiveIndex((index) =>
-                                                Math.min(index + 1, Math.max(filteredItems.length - 1, 0)),
-                                            );
-                                        } else if (event.key === "ArrowUp") {
-                                            event.preventDefault();
-                                            setActiveIndex((index) => Math.max(index - 1, 0));
-                                        } else if (event.key === "Home") {
-                                            event.preventDefault();
-                                            setActiveIndex(0);
-                                        } else if (event.key === "End") {
-                                            event.preventDefault();
-                                            setActiveIndex(Math.max(filteredItems.length - 1, 0));
-                                        }
-                                    }}
-                                    placeholder="Search workspace..."
-                                    ref={inputRef}
-                                    role="combobox"
-                                    type="search"
-                                    value={query}
-                                />
-                            </label>
-                        </form>
-
-                        <div className="min-h-0 overflow-y-auto p-2">
-                            {filteredItems.length > 0 ? (
-                                <ul className="menu w-full gap-1 p-0" id={listId} role="listbox">
-                                    {filteredItems.map((item, index) => (
-                                        <li key={item.href} role="presentation">
-                                            {index === 0 || filteredItems[index - 1]?.group !== item.group ? (
-                                                <span
-                                                    className="text-base-content/50 px-3 pt-3 pb-1 text-xs font-medium tracking-wide uppercase"
-                                                    role="presentation"
-                                                >
-                                                    {item.group}
-                                                </span>
-                                            ) : null}
-                                            <Link
-                                                aria-selected={index === activeIndex}
-                                                className={cn(
-                                                    "flex min-w-0 justify-between gap-3",
-                                                    index === activeIndex && "menu-active",
-                                                )}
-                                                id={quickOpenOptionId(listId, index)}
-                                                onClick={closeQuickOpen}
-                                                onMouseMove={() => {
-                                                    setActiveIndex(index);
-                                                }}
-                                                role="option"
-                                                to={item.href}
-                                            >
-                                                <span className="min-w-0 truncate font-medium">{item.label}</span>
-                                                <span className="text-base-content/60 hidden max-w-64 shrink-0 truncate text-xs sm:block">
-                                                    {item.meta}
-                                                </span>
-                                            </Link>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="rounded-box border-base-300 text-base-content/60 border border-dashed px-3 py-8 text-center text-sm">
-                                    No matching routes.
-                                </p>
-                            )}
-                        </div>
-
-                        <div className="modal-action border-base-300 text-base-content/60 m-0 justify-between border-t px-6 py-3 text-xs">
-                            <span className="flex items-center gap-2">
-                                <kbd className="kbd kbd-sm">↑</kbd>
-                                <kbd className="kbd kbd-sm">↓</kbd>
-                                Navigate
-                            </span>
-                            <span className="flex items-center gap-2">
-                                <kbd className="kbd kbd-sm">Enter</kbd>
-                                Open
-                                <kbd className="kbd kbd-sm">Esc</kbd>
-                                Close
-                            </span>
-                        </div>
+        <dialog
+            className="modal bg-neutral/40 backdrop-blur-xs motion-reduce:transition-none"
+            id={quickOpenDialogId}
+            onClose={() => {
+                setActiveIndex(0);
+                setQuery("");
+            }}
+            ref={dialogRef}
+        >
+            <div className="modal-box flex h-[min(44rem,calc(100dvh-4rem))] max-w-2xl flex-col p-0">
+                <div className="border-base-300 flex items-start justify-between gap-4 border-b px-6 py-5">
+                    <div>
+                        <h2 className="text-lg font-semibold">Quick open</h2>
+                        <p className="text-base-content/60 mt-1 text-sm">
+                            Jump to configured views, taxonomies, and content.
+                        </p>
                     </div>
-                    <form className="modal-backdrop" method="dialog">
-                        <button aria-label="Close quick open">close</button>
+                    <form method="dialog">
+                        <button aria-label="Close quick open" className="btn btn-square btn-ghost btn-sm">
+                            <X aria-hidden="true" />
+                        </button>
                     </form>
-                </dialog>,
-                document.body,
-            )}
-        </>
+                </div>
+
+                <form
+                    className="border-base-300 border-b px-6 py-4"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        if (activeItem) openItem(activeItem.href);
+                    }}
+                >
+                    <label className="input w-full">
+                        <Search aria-hidden="true" className="size-4 opacity-60" />
+                        <input
+                            aria-activedescendant={activeItem ? quickOpenOptionId(listId, activeIndex) : undefined}
+                            aria-autocomplete="list"
+                            aria-controls={listId}
+                            aria-expanded="true"
+                            aria-label="Search workspace"
+                            onChange={(event) => {
+                                setQuery(event.target.value);
+                                setActiveIndex(0);
+                            }}
+                            onKeyDown={(event) => {
+                                if (isQuickOpenComposing(event.nativeEvent)) return;
+
+                                const nextActiveIndex = getQuickOpenActiveIndex(
+                                    event.key,
+                                    activeIndex,
+                                    filteredItems.length,
+                                );
+                                if (nextActiveIndex !== undefined) {
+                                    event.preventDefault();
+                                    setActiveIndex(nextActiveIndex);
+                                    return;
+                                }
+
+                                if (event.key === "Escape") {
+                                    event.preventDefault();
+                                    closeQuickOpen();
+                                } else if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    if (activeItem) openItem(activeItem.href);
+                                }
+                            }}
+                            placeholder="Search workspace..."
+                            data-quick-open-input
+                            ref={inputRef}
+                            role="combobox"
+                            type="search"
+                            value={query}
+                        />
+                    </label>
+                </form>
+
+                <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                    {filteredItems.length > 0 ? (
+                        <ul className="menu w-full gap-1 p-0" id={listId} role="listbox">
+                            {filteredItems.map((item, index) => (
+                                <li key={item.href} role="presentation">
+                                    {index === 0 || filteredItems[index - 1]?.group !== item.group ? (
+                                        <span
+                                            className="text-base-content/50 px-3 pt-3 pb-1 text-xs font-medium tracking-wide uppercase"
+                                            role="presentation"
+                                        >
+                                            {item.group}
+                                        </span>
+                                    ) : null}
+                                    <Link
+                                        aria-selected={index === activeIndex}
+                                        className={cn(
+                                            "flex min-w-0 justify-between gap-3",
+                                            index === activeIndex && "menu-active",
+                                        )}
+                                        id={quickOpenOptionId(listId, index)}
+                                        onClick={closeQuickOpen}
+                                        onMouseMove={() => {
+                                            setActiveIndex(index);
+                                        }}
+                                        role="option"
+                                        to={item.href}
+                                    >
+                                        <span className="min-w-0 truncate font-medium">{item.label}</span>
+                                        <span className="text-base-content/60 hidden max-w-64 shrink-0 truncate text-xs sm:block">
+                                            {item.meta}
+                                        </span>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="rounded-box border-base-300 text-base-content/60 border border-dashed px-3 py-8 text-center text-sm">
+                            No matching routes.
+                        </p>
+                    )}
+                </div>
+
+                <div className="modal-action border-base-300 text-base-content/60 m-0 justify-between border-t px-6 py-3 text-xs">
+                    <span className="flex items-center gap-2">
+                        <kbd className="kbd kbd-sm">↑</kbd>
+                        <kbd className="kbd kbd-sm">↓</kbd>
+                        Navigate
+                    </span>
+                    <span className="flex items-center gap-2">
+                        <kbd className="kbd kbd-sm">Enter</kbd>
+                        Open
+                        <kbd className="kbd kbd-sm">Esc</kbd>
+                        Close
+                    </span>
+                </div>
+            </div>
+            <form className="modal-backdrop" method="dialog">
+                <button aria-label="Close quick open">close</button>
+            </form>
+        </dialog>
     );
 }
 
-function viewRoutePath(viewId: string) {
-    return `/views/${viewId
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/")}`;
-}
-
-function taxonomyRoutePath(taxonomyId: string) {
-    return `/${encodeURIComponent(taxonomyId)}`;
-}
-
-function taxonomyTermRoutePath(taxonomyId: string, termId: string) {
-    return `${taxonomyRoutePath(taxonomyId)}/${encodeURIComponent(termId)}`;
+function openQuickOpenDialog() {
+    const dialog = document.getElementById(quickOpenDialogId);
+    if (!(dialog instanceof HTMLDialogElement) || dialog.open) return;
+    dialog.showModal();
+    requestAnimationFrame(() => dialog.querySelector<HTMLInputElement>("[data-quick-open-input]")?.focus());
 }
 
 function quickOpenOptionId(listId: string, index: number) {

@@ -433,13 +433,10 @@ function WorkspacePageShell({
     title: string;
     titleAs?: "div" | "h1";
 }) {
-    const dashboard = useWorkspaceDashboard();
-
     return (
         <WorkspaceRouteFrame
             actions={actions}
             contextPanel={contextPanel}
-            dashboard={dashboard}
             contentWidth={contentWidth}
             description={description}
             eyebrow={eyebrow}

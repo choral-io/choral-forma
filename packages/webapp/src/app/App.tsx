@@ -3,7 +3,10 @@ import { Outlet, useLocation } from "react-router";
 
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
+import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
 import { WorkspaceSidebar } from "@/features/workspace/WorkspaceSidebar";
+
+import { resolveDesktopSidebarOpen } from "./workspace-sidebar-state";
 
 export const workspaceDrawerId = "workspace-navigation";
 const workspaceDesktopDrawerId = "workspace-sidebar";
@@ -11,13 +14,10 @@ const workspaceDesktopDrawerId = "workspace-sidebar";
 export function App() {
     const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [desktopDrawerInitiallyOpen] = useState(
-        () =>
-            window.matchMedia("(min-width: 64rem)").matches &&
-            document.documentElement.dataset.workspaceSidebar !== "collapsed",
-    );
+    const [desktopDrawerInitiallyOpen] = useState(() => window.matchMedia("(min-width: 80rem)").matches);
     const navigationDialogRef = useRef<HTMLDialogElement>(null);
     const desktopDrawerRef = useRef<HTMLInputElement>(null);
+    const desktopDrawerManuallyChangedRef = useRef(false);
     const { pathname } = useLocation();
     const previousPathnameRef = useRef(pathname);
 
@@ -53,17 +53,20 @@ export function App() {
     }, [pathname]);
 
     useEffect(() => {
-        const desktopMedia = window.matchMedia("(min-width: 64rem)");
+        const wideDesktopMedia = window.matchMedia("(min-width: 80rem)");
         const syncDesktopDrawer = () => {
             if (!desktopDrawerRef.current) return;
-            desktopDrawerRef.current.checked =
-                desktopMedia.matches && document.documentElement.dataset.workspaceSidebar !== "collapsed";
+            desktopDrawerRef.current.checked = resolveDesktopSidebarOpen({
+                currentOpen: desktopDrawerRef.current.checked,
+                hasManualOverride: desktopDrawerManuallyChangedRef.current,
+                isWideViewport: wideDesktopMedia.matches,
+            });
         };
 
         syncDesktopDrawer();
-        desktopMedia.addEventListener("change", syncDesktopDrawer);
+        wideDesktopMedia.addEventListener("change", syncDesktopDrawer);
         return () => {
-            desktopMedia.removeEventListener("change", syncDesktopDrawer);
+            wideDesktopMedia.removeEventListener("change", syncDesktopDrawer);
         };
     }, []);
 
@@ -100,10 +103,18 @@ export function App() {
 
     if (!dashboard) {
         return (
-            <main className="bg-base-100 text-base-content flex min-h-screen items-center justify-center">
-                <div className="text-base-content/60 flex items-center gap-3 text-sm">
-                    <span className="loading loading-spinner loading-sm" aria-hidden="true" />
-                    <span>Loading workspace dashboard...</span>
+            <main className="bg-base-100 text-base-content min-h-screen p-8">
+                <div
+                    aria-busy="true"
+                    aria-label="Loading workspace"
+                    className="mx-auto flex w-full max-w-3xl flex-col gap-5 pt-28"
+                    role="status"
+                >
+                    <div className="skeleton h-8 w-2/5" />
+                    <div className="skeleton h-4 w-3/5" />
+                    <div className="skeleton mt-6 h-4 w-full" />
+                    <div className="skeleton h-4 w-11/12" />
+                    <div className="skeleton h-4 w-4/5" />
                 </div>
             </main>
         );
@@ -115,20 +126,14 @@ export function App() {
                 className="drawer-toggle"
                 defaultChecked={desktopDrawerInitiallyOpen}
                 id={workspaceDesktopDrawerId}
-                onChange={(event) => {
-                    const value = event.currentTarget.checked ? "expanded" : "collapsed";
-                    document.documentElement.dataset.workspaceSidebar = value;
-                    try {
-                        window.localStorage.setItem("forma.workspaceSidebar", value);
-                    } catch {
-                        // The browser-owned drawer state remains usable without persistence.
-                    }
+                onChange={() => {
+                    desktopDrawerManuallyChangedRef.current = true;
                 }}
                 ref={desktopDrawerRef}
                 type="checkbox"
             />
             <div className="drawer-side is-drawer-close:overflow-visible max-lg:hidden">
-                <aside className="bg-base-200 text-base-content is-drawer-close:w-14 is-drawer-open:w-64 flex min-h-full flex-col overflow-visible transition-[width] duration-200">
+                <aside className="bg-base-200 text-base-content is-drawer-close:w-14 is-drawer-open:w-64 flex min-h-full flex-col overflow-visible">
                     <WorkspaceSidebar
                         dashboard={dashboard}
                         onNavigate={closeNavigation}
@@ -140,7 +145,7 @@ export function App() {
                 <Outlet context={dashboard} />
             </div>
             <dialog
-                className="modal modal-start p-0 outline-none lg:hidden"
+                className="modal modal-start bg-neutral/40 p-0 backdrop-blur-xs outline-none motion-reduce:transition-none lg:hidden"
                 id={workspaceDrawerId}
                 ref={navigationDialogRef}
                 onClose={(event) => {
@@ -148,12 +153,6 @@ export function App() {
                         document
                             .querySelector<HTMLButtonElement>(`button[aria-controls="${workspaceDrawerId}"]`)
                             ?.focus();
-                    }
-                }}
-                onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                        event.preventDefault();
-                        event.currentTarget.close();
                     }
                 }}
             >
@@ -166,15 +165,10 @@ export function App() {
                     />
                 </div>
                 <form className="modal-backdrop" method="dialog">
-                    <button
-                        aria-label="Close workspace navigation"
-                        onClick={() => navigationDialogRef.current?.close()}
-                        type="button"
-                    >
-                        Close
-                    </button>
+                    <button aria-label="Close workspace navigation">Close</button>
                 </form>
             </dialog>
+            <QuickOpenDialog dashboard={dashboard} />
         </div>
     );
 }

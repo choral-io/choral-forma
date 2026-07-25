@@ -3,18 +3,13 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/svg+xml" href="/forma-icon.svg" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="image/svg+xml" href="/forma-icon-dark.svg" media="(prefers-color-scheme: dark)" />
         <title>Choral Forma</title>
+        <!-- prettier-ignore -->
+        <script>try{const t=localStorage.getItem("forma.theme");if(t==="choral-light"||t==="choral-dark")document.documentElement.dataset.theme=t}catch{}</script>
     </head>
     <body>
-        <script>
-            try {
-                document.documentElement.dataset.workspaceSidebar =
-                    localStorage.getItem("forma.workspaceSidebar") === "collapsed" ? "collapsed" : "expanded";
-            } catch {
-                document.documentElement.dataset.workspaceSidebar = "expanded";
-            }
-        </script>
         <div id="root"></div>
         <script type="module" src="/src/main.tsx"></script>
     </body>

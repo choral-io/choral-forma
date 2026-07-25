@@ -132,9 +132,10 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                 )}
             >
                 <div
-                    className="focus-visible:ring-primary/50 relative w-full outline-none focus-visible:ring-3 focus-visible:ring-inset"
-                    data-expanded={isExpanded || undefined}
-                    data-forma-graph-stage
+                    className={cn(
+                        "focus-visible:ring-primary/50 relative w-full outline-none focus-visible:ring-3 focus-visible:ring-inset",
+                        isExpanded ? "aspect-auto h-full max-h-none min-h-0" : "aspect-3/2 max-h-160 min-h-88",
+                    )}
                     ref={containerRef}
                 />
                 <button

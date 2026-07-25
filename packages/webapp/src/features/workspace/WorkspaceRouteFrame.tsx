@@ -1,22 +1,22 @@
-import { Menu, PanelRightIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { Ellipsis, Menu, PanelRightIcon, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
 import { workspaceDrawerId } from "@/app/App";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { WorkspaceHealthPanel } from "@/features/diagnostics/DiagnosticsPanel";
-import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
+import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
+import { ThemeCycleButton, ThemeDropdown } from "@/features/workspace/ThemeDropdown";
+import { applyThemePreference, readThemePreference, type ThemePreference } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
 
 interface WorkspaceRouteFrameProps {
     actions?: ReactNode;
     children: ReactNode;
     contextPanel?: ReactNode;
-    dashboard?: WorkspaceDashboard;
-    fabActions?: ReactNode;
-    mobileContextPanel?: ReactNode;
     contentWidth?: "default" | "fluid" | "readable";
     description?: string;
     eyebrow: string;
+    fabActions?: ReactNode;
     title: string;
     titleAs?: "div" | "h1";
 }
@@ -25,22 +25,25 @@ export function WorkspaceRouteFrame({
     actions,
     children,
     contextPanel,
-    dashboard,
-    mobileContextPanel,
     contentWidth = "default",
     description,
     eyebrow,
+    fabActions,
     title,
     titleAs = "h1",
 }: WorkspaceRouteFrameProps) {
+    const [themePreference, setThemePreference] = useState(readThemePreference);
     const hasContextPanel = Boolean(contextPanel);
-    const inlineContextPanel = mobileContextPanel === undefined ? contextPanel : mobileContextPanel;
-    const Title = titleAs;
     const contentWidthClass = {
         default: "max-w-6xl",
         fluid: "max-w-none",
         readable: "max-w-4xl",
     }[contentWidth];
+    const Title = titleAs;
+    const changeThemePreference = (preference: ThemePreference) => {
+        setThemePreference(preference);
+        applyThemePreference(preference);
+    };
 
     return (
         <div
@@ -50,8 +53,8 @@ export function WorkspaceRouteFrame({
             )}
         >
             <div className="flex min-w-0 flex-col xl:min-h-0">
-                <header className="border-base-300 bg-base-100/90 flex shrink-0 flex-col gap-4 border-b p-4 backdrop-blur-sm md:px-6 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                <header className="border-base-300 bg-base-100/90 flex shrink-0 items-center border-b p-4 backdrop-blur-sm md:px-6 lg:sticky lg:top-0 lg:z-10 lg:h-28">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
                         <button
                             aria-controls={workspaceDrawerId}
                             aria-label="Open workspace navigation"
@@ -84,43 +87,86 @@ export function WorkspaceRouteFrame({
                                 {title}
                             </Title>
                             {description && (
-                                <p className="text-base-content/60 mt-1 max-w-3xl text-sm/6">{description}</p>
+                                <p
+                                    className="text-base-content/60 mt-1 line-clamp-2 max-w-3xl text-sm/6 lg:line-clamp-1"
+                                    title={description}
+                                >
+                                    {description}
+                                </p>
                             )}
                         </div>
-                        {dashboard ? (
-                            <QuickOpenDialog dashboard={dashboard} trigger="header" triggerClassName="ml-auto lg:hidden" />
-                        ) : null}
+                        <div className="ml-auto hidden shrink-0 items-center gap-1 lg:flex">
+                            {actions}
+                            <ThemeDropdown onPreferenceChange={changeThemePreference} preference={themePreference} />
+                        </div>
                     </div>
-                    {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
                 </header>
 
-                {hasContextPanel && inlineContextPanel ? (
+                {hasContextPanel && contextPanel ? (
                     <details className="collapse-arrow border-base-300 bg-base-200/40 collapse rounded-none border-b xl:hidden">
                         <summary className="collapse-title flex items-center gap-2 text-sm font-medium">
                             <PanelRightIcon aria-hidden="true" className="size-4" />
                             Context and outline
                         </summary>
-                        <div className="collapse-content">{inlineContextPanel}</div>
+                        <div className="collapse-content">{contextPanel}</div>
                     </details>
                 ) : null}
 
                 <main className="min-w-0 xl:min-h-0 xl:flex-1 xl:overflow-auto">
-                    <div className={cn("mx-auto flex w-full flex-col gap-6 p-4 md:p-6 lg:p-8", contentWidthClass)}>
+                    {/* pb-20 keeps FAB scroll-clearance below lg; lg:p-8 then restores
+                        the symmetric padding once the FAB (lg:hidden) is gone. */}
+                    <div
+                        className={cn(
+                            "mx-auto flex w-full flex-col gap-6 p-4 pb-20 md:p-6 md:pb-20 lg:p-8",
+                            contentWidthClass,
+                        )}
+                    >
                         {children}
                     </div>
                 </main>
             </div>
             {hasContextPanel && (
-                <aside className="border-base-300 bg-base-200/20 hidden min-w-0 border-s xl:block xl:min-h-0 xl:overflow-hidden">
+                <aside className="border-base-300 bg-base-200/20 hidden min-w-0 border-s xl:block xl:min-h-0 xl:overflow-y-auto">
                     {contextPanel}
                 </aside>
             )}
+            {/* FAB dial: mobile-only (below lg), where there is no persistent
+                chrome, so it carries Theme + Quick Open (+ Outline when present).
+                At lg+ the chrome takes over — header Theme, header Outline toggle
+                in the lg..xl band, sidebar Quick Open, xl Outline aside — so the
+                FAB stays hidden and never becomes a lone-button dial. */}
+            <div className="fab lg:hidden">
+                <div
+                    aria-label="Open page actions"
+                    className="btn btn-circle btn-lg btn-neutral"
+                    role="button"
+                    tabIndex={0}
+                >
+                    <Ellipsis aria-hidden="true" />
+                </div>
+                <button
+                    aria-label="Close page actions"
+                    className="fab-close"
+                    onClick={(event) => {
+                        event.currentTarget.blur();
+                    }}
+                    type="button"
+                >
+                    <span className="btn btn-circle btn-lg btn-neutral">
+                        <X aria-hidden="true" />
+                    </span>
+                </button>
+                {fabActions}
+                <QuickOpenTrigger
+                    onBeforeOpen={(trigger) => {
+                        trigger.blur();
+                    }}
+                    trigger="fab"
+                />
+                <ThemeCycleButton onPreferenceChange={changeThemePreference} preference={themePreference} />
+            </div>
         </div>
     );
-}
-
-export function WorkspaceRouteActions() {
-    return null;
 }
 
 export function WorkspaceDefaultContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {

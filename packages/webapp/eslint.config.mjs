@@ -56,7 +56,12 @@ export default defineConfig(
             "better-tailwindcss/no-conflicting-classes": "error",
             "better-tailwindcss/no-deprecated-classes": "error",
             "better-tailwindcss/no-duplicate-classes": "error",
-            "better-tailwindcss/no-unknown-classes": "error",
+            // daisyUI defines fab-close, drawer-overlay, and drawer-button only as
+            // nested selectors, so component-class detection cannot see them.
+            "better-tailwindcss/no-unknown-classes": [
+                "error",
+                { ignore: ["^(fab-close|drawer-overlay|drawer-button)$"] },
+            ],
             "better-tailwindcss/no-unnecessary-whitespace": "error",
         },
     },
