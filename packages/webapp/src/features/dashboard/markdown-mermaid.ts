@@ -1,16 +1,28 @@
 import type { MarkedExtension, Tokens } from "marked";
 
-// Forma intentionally supports only the beautiful-mermaid syntax exercised here:
-// directional flowcharts, stateDiagram-v2, sequenceDiagram, classDiagram, and
-// erDiagram. Init directives and every other Mermaid family remain source code.
+import {
+    describeMermaidDiagram,
+    mermaidDiagramKinds,
+    mermaidPolicy,
+    MermaidRendererController,
+    validateMermaidSource,
+    type MermaidRenderScope,
+    type ValidatedMermaidDiagram,
+} from "@/lib/mermaid";
+
 export const mermaidSupport = {
-    diagramTypes: ["flowchart", "state", "sequence", "class", "entity relationship"] as const,
-    maxDiagramsPerDocument: 20,
-    maxSourceLength: 50_000,
+    diagramTypes: mermaidDiagramKinds,
+    policy: mermaidPolicy,
 };
 
-type MermaidDiagramKind = (typeof mermaidSupport.diagramTypes)[number];
+export interface MarkedMermaidOptions {
+    renderDiagram?: (diagram: ValidatedMermaidDiagram, signal: AbortSignal) => Promise<string>;
+    scope: MermaidRenderScope;
+    signal?: AbortSignal;
+}
 
+const renderer = new MermaidRendererController();
+const textEncoder = new TextEncoder();
 const removableElements = new Set([
     "foreignobject",
     "iframe",
@@ -54,9 +66,11 @@ const trustedThemeStyle = [
     "font-family:ui-sans-serif,system-ui,sans-serif",
 ].join(";");
 
-export function createMarkedMermaid(renderDiagram = renderMermaid): MarkedExtension {
-    let renderedDiagrams = 0;
-
+export function createMarkedMermaid({
+    renderDiagram = renderWithWorker,
+    scope,
+    signal,
+}: MarkedMermaidOptions): MarkedExtension {
     return {
         async walkTokens(token) {
             if (token.type !== "code" || typeof token.text !== "string") {
@@ -68,41 +82,53 @@ export function createMarkedMermaid(renderDiagram = renderMermaid): MarkedExtens
                 return;
             }
 
-            const kind = supportedDiagramKind(codeToken.text);
-            if (
-                !kind ||
-                codeToken.text.length > mermaidSupport.maxSourceLength ||
-                renderedDiagrams >= mermaidSupport.maxDiagramsPerDocument
-            ) {
+            const validation = validateMermaidSource(codeToken.text);
+            if (!validation.ok) {
+                return;
+            }
+            const reservation = scope.reserve(validation.diagram);
+            if (!reservation) {
                 return;
             }
 
-            renderedDiagrams += 1;
+            const linkedSignal = linkAbortSignals(signal, scope.signal);
             try {
-                const svg = await renderDiagram(codeToken.text);
-                token.type = "html";
+                const rawSvg = await renderDiagram(validation.diagram, linkedSignal.signal);
+                const svg = sanitizeMermaidSvg(rawSvg);
+                const outputBytes = textEncoder.encode(svg).byteLength;
+                if (!scope.acceptOutput(reservation, outputBytes)) {
+                    return;
+                }
 
+                token.type = "html";
                 const htmlToken = token as Tokens.HTML;
                 htmlToken.raw = codeToken.raw;
                 htmlToken.pre = false;
                 htmlToken.block = true;
-                htmlToken.text = [
-                    `<figure aria-label="Mermaid ${kind} diagram" class="mermaid-diagram" data-diagram-kind="${kind}" tabindex="0">`,
-                    svg,
-                    "</figure>",
-                ].join("");
+                htmlToken.text = accessibleDiagramHtml(validation.diagram, reservation.diagramId, svg);
             } catch (error: unknown) {
-                console.warn("Mermaid diagram rendering failed; rendering source code.", error);
+                if (!(error instanceof DOMException && error.name === "AbortError")) {
+                    console.warn("Mermaid diagram rendering failed; rendering source code.", error);
+                }
+            } finally {
+                linkedSignal.dispose();
             }
         },
     };
 }
 
 export function sanitizeMermaidSvg(svgSource: string) {
+    if (textEncoder.encode(svgSource).byteLength > mermaidPolicy.output.maxBytes) {
+        throw new Error("Mermaid SVG exceeds the client output limit.");
+    }
+
     const parsed = new DOMParser().parseFromString(svgSource, "image/svg+xml");
     const svg = parsed.documentElement;
     if (svg.localName !== "svg" || svg.namespaceURI !== "http://www.w3.org/2000/svg") {
         throw new Error("Mermaid renderer did not return an SVG document.");
+    }
+    if (svg.querySelectorAll("*").length + 1 > mermaidPolicy.output.maxElements) {
+        throw new Error("Mermaid SVG exceeds the element limit.");
     }
 
     for (const element of Array.from(svg.querySelectorAll("*"))) {
@@ -148,41 +174,80 @@ export function sanitizeMermaidSvg(svgSource: string) {
     return svg.outerHTML;
 }
 
-function supportedDiagramKind(source: string): MermaidDiagramKind | undefined {
-    const lines = source.split(/\r?\n/).map((line) => line.trim());
-    if (lines.some((line) => line.startsWith("%%{"))) {
-        return undefined;
-    }
-
-    const firstLine = lines.find((line) => line && !line.startsWith("%%")) ?? "";
-    if (/^(?:flowchart|graph)\s+(?:TB|TD|BT|LR|RL)\b/i.test(firstLine)) {
-        return "flowchart";
-    }
-    if (/^stateDiagram-v2\b/i.test(firstLine)) {
-        return "state";
-    }
-    if (/^sequenceDiagram\b/i.test(firstLine)) {
-        return "sequence";
-    }
-    if (/^classDiagram\b/i.test(firstLine)) {
-        return "class";
-    }
-    if (/^erDiagram\b/i.test(firstLine)) {
-        return "entity relationship";
-    }
-    return undefined;
+function accessibleDiagramHtml(diagram: ValidatedMermaidDiagram, diagramId: string, svg: string) {
+    const captionId = `${diagramId}-caption`;
+    const descriptionId = `${diagramId}-description`;
+    const caption = diagramCaption(diagram);
+    return [
+        `<figure aria-describedby="${descriptionId}" aria-labelledby="${captionId}" class="mermaid-diagram" data-diagram-kind="${escapeHtmlAttribute(diagram.model.kind)}">`,
+        `<figcaption class="mermaid-diagram-caption" id="${captionId}">${caption}</figcaption>`,
+        `<p class="sr-only" id="${descriptionId}">${escapeHtml(describeMermaidDiagram(diagram))}</p>`,
+        `<div aria-label="Scrollable ${caption.toLowerCase()}" class="mermaid-diagram-viewport" role="region" tabindex="0">${svg}</div>`,
+        '<details class="collapse collapse-arrow mermaid-diagram-source">',
+        '<summary class="collapse-title">View Mermaid source</summary>',
+        `<div class="collapse-content"><pre><code class="language-mermaid">${escapeHtml(diagram.source)}</code></pre></div>`,
+        "</details>",
+        "</figure>",
+    ].join("");
 }
 
-async function renderMermaid(source: string) {
-    const { renderMermaidSVGAsync } = await import("beautiful-mermaid");
-    const svg = await renderMermaidSVGAsync(source, {
-        accent: "var(--color-primary)",
-        bg: "var(--color-base-100)",
-        border: "var(--color-base-300)",
-        fg: "var(--color-base-content)",
-        font: "system-ui",
-        surface: "var(--color-base-200)",
-        transparent: true,
+function diagramCaption(diagram: ValidatedMermaidDiagram) {
+    switch (diagram.model.kind) {
+        case "flowchart":
+            return "Flowchart diagram";
+        case "state":
+            return "State diagram";
+        case "sequence":
+            return "Sequence diagram";
+        case "class":
+            return "Class diagram";
+        case "entity relationship":
+            return "Entity relationship diagram";
+    }
+}
+
+function renderWithWorker(diagram: ValidatedMermaidDiagram, signal: AbortSignal) {
+    return renderer.render(diagram, {
+        signal,
+        theme: {
+            accent: "var(--color-primary)",
+            bg: "var(--color-base-100)",
+            border: "var(--color-base-300)",
+            fg: "var(--color-base-content)",
+            font: "system-ui",
+            surface: "var(--color-base-200)",
+            transparent: true,
+        },
     });
-    return sanitizeMermaidSvg(svg);
+}
+
+function linkAbortSignals(...sources: (AbortSignal | undefined)[]) {
+    const controller = new AbortController();
+    const activeSources = sources.filter((source): source is AbortSignal => Boolean(source));
+    const abort = () => {
+        controller.abort();
+    };
+    for (const source of activeSources) {
+        if (source.aborted) {
+            controller.abort();
+            break;
+        }
+        source.addEventListener("abort", abort, { once: true });
+    }
+    return {
+        dispose() {
+            for (const source of activeSources) {
+                source.removeEventListener("abort", abort);
+            }
+        },
+        signal: controller.signal,
+    };
+}
+
+function escapeHtml(value: string) {
+    return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
+function escapeHtmlAttribute(value: string) {
+    return escapeHtml(value).replaceAll("'", "&#39;");
 }
