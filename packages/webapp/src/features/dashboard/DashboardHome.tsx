@@ -45,6 +45,7 @@ import { MarkdownReader } from "./MarkdownReader";
 import {
     createProjectionStickyBoundaryController,
     projectionStickyHeaderClassName,
+    projectionStickyHeaderSurfaceClassName,
 } from "./projection-sticky-boundary";
 
 const ViewGraphProjection = lazy(async () => {
@@ -1929,18 +1930,21 @@ function ViewKanbanProjection({ projection }: { projection: Extract<DashboardVie
         const source = sourceRef.current;
         const stickyHeader = stickyHeaderRef.current;
         if (!boundary || !scroll || !source || !stickyHeader) return;
+        const sources = [...boundary.querySelectorAll<HTMLElement>("[data-view-kanban-column-heading]")];
+        const stickyColumns = [...stickyHeader.querySelectorAll<HTMLElement>("[data-view-kanban-sticky-column]")];
 
         return createProjectionStickyBoundaryController({
             boundary,
-            observe: [
-                scroll,
-                ...boundary.querySelectorAll("[data-view-kanban-column]"),
-                ...boundary.querySelectorAll("[data-view-kanban-column-heading]"),
-            ],
+            observe: [scroll, ...boundary.querySelectorAll("[data-view-kanban-column]"), ...sources],
             source,
             sticky: stickyHeader,
             syncPresentation: () => {
-                syncKanbanStickyRailGeometry({ scrollLeft: scroll.scrollLeft, source, stickyRail: stickyHeader });
+                syncKanbanStickyRailGeometry({
+                    scrollLeft: scroll.scrollLeft,
+                    sources,
+                    stickyColumns,
+                    stickyRail: stickyHeader,
+                });
             },
         });
     }, [projection]);
@@ -1949,7 +1953,7 @@ function ViewKanbanProjection({ projection }: { projection: Extract<DashboardVie
         <div className="relative grid" ref={boundaryRef}>
             <div
                 aria-hidden="true"
-                className={cn(projectionStickyHeaderClassName, "border-0 bg-transparent")}
+                className={cn(projectionStickyHeaderClassName, "rounded-none border-0 bg-transparent")}
                 data-view-kanban-sticky-header=""
                 ref={stickyHeaderRef}
             >
@@ -1959,8 +1963,10 @@ function ViewKanbanProjection({ projection }: { projection: Extract<DashboardVie
                             className={cn(
                                 kanbanColumnClassName,
                                 kanbanColumnHeaderBoxClassName,
-                                "bg-base-200 ring-base-300 h-[var(--view-kanban-heading-height)] rounded-none ring-1 ring-inset",
+                                projectionStickyHeaderSurfaceClassName,
+                                "bg-base-200 ring-base-300 ring-1 ring-inset",
                             )}
+                            data-view-kanban-sticky-column=""
                             key={column.id}
                         >
                             <div className={kanbanColumnHeadingClassName}>

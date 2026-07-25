@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { shouldRevealProjectionStickyHeader } from "./projection-sticky-boundary";
+import {
+    projectionStickyHeaderClassName,
+    projectionStickyHeaderSurfaceClassName,
+    shouldRevealProjectionStickyHeader,
+} from "./projection-sticky-boundary";
 
 describe("projection sticky header boundary", () => {
     it("stays hidden while the authoritative header remains above the sticky threshold", () => {
@@ -53,5 +57,13 @@ describe("projection sticky header boundary", () => {
                 stickyTop: 112,
             }),
         ).toBe(false);
+    });
+
+    it("uses semantic presentation tokens and a top-only box radius", () => {
+        expect(projectionStickyHeaderClassName).toContain("bg-base-100");
+        expect(projectionStickyHeaderClassName).toContain("border-base-300");
+        expect(projectionStickyHeaderClassName).toContain("text-base-content");
+        expect(projectionStickyHeaderClassName).toContain(projectionStickyHeaderSurfaceClassName);
+        expect(projectionStickyHeaderSurfaceClassName).toBe("rounded-t-[var(--radius-box)] rounded-b-none");
     });
 });

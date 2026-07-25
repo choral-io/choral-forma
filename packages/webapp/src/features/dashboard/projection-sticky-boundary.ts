@@ -5,8 +5,9 @@ export interface ProjectionStickyBoundaryMetrics {
     stickyTop: number;
 }
 
-export const projectionStickyHeaderClassName =
-    "border-base-300 bg-base-100 pointer-events-none invisible sticky top-0 z-10 col-start-1 row-start-1 self-start overflow-hidden rounded-none border data-sticky-visible:visible lg:top-28 xl:top-0";
+export const projectionStickyHeaderSurfaceClassName = "rounded-t-[var(--radius-box)] rounded-b-none";
+
+export const projectionStickyHeaderClassName = `border-base-300 bg-base-100 text-base-content pointer-events-none invisible sticky top-0 z-10 col-start-1 row-start-1 self-start overflow-hidden border data-sticky-visible:visible lg:top-28 xl:top-0 ${projectionStickyHeaderSurfaceClassName}`;
 
 export function shouldRevealProjectionStickyHeader({
     boundaryBottom,

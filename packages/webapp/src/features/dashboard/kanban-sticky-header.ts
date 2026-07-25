@@ -4,15 +4,20 @@ export function syncKanbanStickyRailScroll(stickyRail: { scrollLeft: number } | 
 
 export function syncKanbanStickyRailGeometry({
     scrollLeft,
-    source,
+    sources,
+    stickyColumns,
     stickyRail,
 }: {
     scrollLeft: number;
-    source: { getBoundingClientRect: () => { height: number } } | null;
-    stickyRail: { scrollLeft: number; style: { setProperty: (name: string, value: string) => void } } | null;
+    sources: readonly { getBoundingClientRect: () => { height: number } }[];
+    stickyColumns: readonly { style: { setProperty: (name: string, value: string) => void } }[];
+    stickyRail: { scrollLeft: number } | null;
 }) {
-    if (!source || !stickyRail) return;
+    if (!stickyRail) return;
 
-    stickyRail.style.setProperty("--view-kanban-heading-height", `${source.getBoundingClientRect().height}px`);
+    stickyColumns.forEach((stickyColumn, index) => {
+        const source = sources[index];
+        if (source) stickyColumn.style.setProperty("height", `${String(source.getBoundingClientRect().height)}px`);
+    });
     stickyRail.scrollLeft = scrollLeft;
 }

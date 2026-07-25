@@ -17,29 +17,31 @@ describe("Kanban sticky header", () => {
         }).not.toThrow();
     });
 
-    it("tracks the real semantic header box height without a separate height model", () => {
-        let sourceHeight = 48;
-        const properties = new Map<string, string>();
+    it("tracks every real semantic header box without a separate height model", () => {
+        let sourceHeights = [48, 72, 96];
+        const properties = sourceHeights.map(() => new Map<string, string>());
         const stickyRail = {
             scrollLeft: 0,
+        };
+        const sources = sourceHeights.map((_, index) => ({
+            getBoundingClientRect: () => ({ height: sourceHeights[index] ?? 0 }),
+        }));
+        const stickyColumns = properties.map((columnProperties) => ({
             style: {
                 setProperty(name: string, value: string) {
-                    properties.set(name, value);
+                    columnProperties.set(name, value);
                 },
             },
-        };
-        const source = {
-            getBoundingClientRect: () => ({ height: sourceHeight }),
-        };
+        }));
 
-        syncKanbanStickyRailGeometry({ scrollLeft: 180, source, stickyRail });
+        syncKanbanStickyRailGeometry({ scrollLeft: 180, sources, stickyColumns, stickyRail });
 
         expect(stickyRail.scrollLeft).toBe(180);
-        expect(properties.get("--view-kanban-heading-height")).toBe("48px");
+        expect(properties.map((columnProperties) => columnProperties.get("height"))).toEqual(["48px", "72px", "96px"]);
 
-        sourceHeight = 64;
-        syncKanbanStickyRailGeometry({ scrollLeft: 180, source, stickyRail });
+        sourceHeights = [96, 48, 120];
+        syncKanbanStickyRailGeometry({ scrollLeft: 180, sources, stickyColumns, stickyRail });
 
-        expect(properties.get("--view-kanban-heading-height")).toBe("64px");
+        expect(properties.map((columnProperties) => columnProperties.get("height"))).toEqual(["96px", "48px", "120px"]);
     });
 });
