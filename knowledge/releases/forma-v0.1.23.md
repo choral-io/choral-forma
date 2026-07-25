@@ -98,5 +98,6 @@ Do not move or overwrite the `v0.1.23` tag or reuse a published Marketplace exte
 ## Post-Release Follow-Up
 
 - Record the exact candidate commit, main CI run, Release workflow run, GitHub Release URL, asset inventory, checksums, CLI version, VSIX identity, and managed-install result.
+- Before the next release, establish GitHub Actions-based VS Code Marketplace publishing and require CI to package and validate the intended display name and coordinated version used for the Marketplace upload.
 - Verify clean-profile Marketplace acquisition, activation, and Workspace Trust behavior if that additional rollout evidence is required.
 - Preserve the published tag, GitHub assets, and Marketplace version as immutable. Reconcile the canonical `Forma by Choral` display name through the next normal version bump and complete local and main CI release gates; any corrective release requires separate maintainer authorization.
