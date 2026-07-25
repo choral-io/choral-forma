@@ -1,3 +1,4 @@
+import { createDiagramViewerResetIcon } from "@/lib/diagram-viewer-icons";
 import {
     createSvgDiagramZoomController,
     mermaidDiagramZoom,
@@ -246,7 +247,7 @@ function createTools({
     element.setAttribute("role", "group");
     const reset = createButton(`Reset ${caption} zoom to 100%`, "", canvasId);
     reset.title = "Reset diagram zoom";
-    reset.append(createResetIcon());
+    reset.append(createDiagramViewerResetIcon());
     const zoomSlider = view === "expanded" ? createZoomSlider(caption, canvasId) : undefined;
     const viewerToggle = createButton(
         view === "embedded" ? `Expand ${caption}` : `Return ${caption} to embedded view`,
@@ -308,25 +309,6 @@ function createMaximizeIcon() {
     icon.setAttribute("width", "16");
     icon.setAttribute("height", "16");
     for (const pathData of ["M15 3h6v6", "m21 3-7 7", "M9 21H3v-6", "m3 21 7-7"]) {
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", pathData);
-        icon.append(path);
-    }
-    return icon;
-}
-
-function createResetIcon() {
-    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon.setAttribute("aria-hidden", "true");
-    icon.setAttribute("fill", "none");
-    icon.setAttribute("stroke", "currentColor");
-    icon.setAttribute("stroke-linecap", "round");
-    icon.setAttribute("stroke-linejoin", "round");
-    icon.setAttribute("stroke-width", "2");
-    icon.setAttribute("viewBox", "0 0 24 24");
-    icon.setAttribute("width", "16");
-    icon.setAttribute("height", "16");
-    for (const pathData of ["M3 12a9 9 0 1 0 3-6.7", "M3 4v6h6"]) {
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute("d", pathData);
         icon.append(path);

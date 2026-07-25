@@ -6,10 +6,12 @@ import {
     type GraphRuntime,
     type GraphTheme,
 } from "@choral-forma/graph-view";
-import { Maximize2, Minimize2, RotateCcw } from "lucide-react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
+import { diagramViewerResetIconPaths } from "@/lib/diagram-viewer-icons";
+import { themePreferenceChangeEvent } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
 
 import { activeGraphNodeId, mapDashboardGraphProjection, type DashboardGraphProjection } from "./graph-adapter";
@@ -81,9 +83,11 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
             });
         };
         colorScheme.addEventListener("change", updateTheme);
+        window.addEventListener(themePreferenceChangeEvent, updateTheme);
         return () => {
             cancelAnimationFrame(frame);
             colorScheme.removeEventListener("change", updateTheme);
+            window.removeEventListener(themePreferenceChangeEvent, updateTheme);
         };
     }, []);
 
@@ -161,7 +165,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                             title="Reset graph view"
                             type="button"
                         >
-                            <RotateCcw aria-hidden="true" />
+                            <DiagramViewerResetIcon />
                         </button>
                         <button
                             aria-controls="graph-viewer-canvas"
@@ -222,6 +226,26 @@ function GraphNodeSummary({
                 <span className="badge badge-outline shrink-0">{summary.links}</span>
             </div>
         </div>
+    );
+}
+
+function DiagramViewerResetIcon() {
+    return (
+        <svg
+            aria-hidden="true"
+            fill="none"
+            height="16"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            width="16"
+        >
+            {diagramViewerResetIconPaths.map((path) => (
+                <path d={path} key={path} />
+            ))}
+        </svg>
     );
 }
 

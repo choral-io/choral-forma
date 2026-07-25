@@ -3,6 +3,7 @@ export const themePreferences = ["system", "choral-light", "choral-dark"] as con
 export type ThemePreference = (typeof themePreferences)[number];
 
 const storageKey = "forma.theme";
+export const themePreferenceChangeEvent = "forma:theme-preference-change";
 
 export function getNextThemePreference(preference: ThemePreference): ThemePreference {
     const currentIndex = themePreferences.indexOf(preference);
@@ -27,6 +28,8 @@ export function applyThemePreference(preference: ThemePreference, persist = true
     } else {
         document.documentElement.dataset.theme = preference;
     }
+
+    window.dispatchEvent(new Event(themePreferenceChangeEvent));
 
     if (!persist) return;
     try {
