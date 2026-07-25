@@ -341,7 +341,7 @@ function createMinimizeIcon() {
     icon.setAttribute("viewBox", "0 0 24 24");
     icon.setAttribute("width", "16");
     icon.setAttribute("height", "16");
-    for (const pathData of ["M9 3H3v6", "m3 3 7 7", "M21 15v6h-6", "m21 21-7-7"]) {
+    for (const pathData of ["m14 10 7-7", "M20 10h-6V4", "m3 21 7-7", "M4 14h6v6"]) {
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute("d", pathData);
         icon.append(path);
