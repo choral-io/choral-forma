@@ -368,6 +368,80 @@ Focused browser validation used a local-only ordinary Markdown entry with seven 
 
 The configured 80-row View fixture was also extended with substantial ordinary Markdown after the projection rather than a synthetic spacer. At 1024 px, its rail remained visible at boundary bottom 153 px, hid at 151 px, and stayed hidden while later View Markdown crossed above the viewport.
 
+## Kanban Feasibility Prototype — 2026-07-25
+
+The user approved a Kanban feasibility phase after accepting the completed Table implementation. This phase changed no tracked Kanban product code. A temporary browser-only fixture used the current production WebApp theme bundle and reproduced the existing natural-height Kanban shape with:
+
+- five columns in one projection-local horizontal row;
+- 52 cards distributed unevenly as 16, 12, 8, 10, and 6 cards;
+- variable card descriptions and resulting card and column heights;
+- substantial page content before and after the projection;
+- page-owned vertical scrolling;
+- a focusable, named board region with projection-local horizontal scrolling; and
+- no fixed board or column height, independent column scrolling, nested vertical scroll range, generic component, or dependency.
+
+The prototype kept every real column title in its semantic `<section>` and added one `aria-hidden` presentation rail outside the board overflow ancestor. The rail and real columns shared one controlled column-width and gap contract. The rail mirrored only the board's `scrollLeft`; the projection-neutral Table boundary controller's reveal and lower-boundary decision was reproduced without sharing Table markup or Table column-measurement behavior.
+
+### Feasibility result
+
+The presentation-only Kanban rail is viable as a bounded, feature-local implementation candidate.
+
+| Width | Board client / scroll width | Horizontal start / midpoint / maximum | Maximum rail-to-column left / width delta | Page-root overflow |
+| --: | --: | --: | --: | --: |
+| 1440 px | 1344 / 1648 px | 0 / 152 / 304 px | 1 / 0 px | 0 px |
+| 1024 px | 942 / 1648 px | 0 / 353 / 706 px | 1 / 0 px | 0 px |
+| 768 px | 707 / 1648 px | 0 / 471 / 941 px | 1 / 0 px | 0 px |
+| 390 px | 358 / 1648 px | 0 / 645 / 1290 px | 1 / 0 px | 0 px |
+
+The one-pixel left delta is the visual rail's outer border; every rail item width matched its real column exactly at all three horizontal positions. The prototype board measured `clientHeight === scrollHeight === 2831 px`, so natural document height remained authoritative and the board had no vertical scroll range.
+
+Entry and exit used live geometry rather than a fixed board-height model:
+
+- at 1024 px, the rail was hidden with the first real heading at `64.9375 px` and visible at `63.9375 px` against a measured `64 px` sticky top;
+- with a live `58 px` rail height, it remained visible at projection bottom `123 px`, hid at `121 px`, and stayed hidden with the boundary at `-126 px` while later page content was visible;
+- at 390 px, it remained visible at projection bottom `115.390625 px` and hid at `113.390625 px` against a measured `56 px` sticky top and the same live `58 px` rail height.
+
+The browser accessibility tree exposed the five real Kanban column regions once and excluded the visual rail. The rail was `aria-hidden`, contained zero focusable descendants, and computed to `pointer-events: none`. The board remained the only focusable horizontal scroll region.
+
+An active-rail resize sequence from 1024 to 390 and back to 1024 px preserved visibility, zero width delta, the one-pixel border offset, horizontal synchronization, and zero root overflow. Resize observation triggered presentation invalidation at each size; ordinary vertical scrolling did not. Across a controlled 12-step vertical scroll, presentation synchronization remained at three executions while visibility frames advanced from three to fourteen, confirming that ordinary scroll frames use only source, boundary, and rail rectangles rather than rereading every column.
+
+The production `choral-light` and `choral-dark` semantic theme values applied without geometry changes. The rail surface/border changed from `oklch(1 0 0)` / `oklch(0.922 0 0)` to `oklch(0.145 0 0)` / `oklch(0.269 0 0)`.
+
+The temporary diagnostic overlay initially logged a fixture-only property-name error after the performance path was simplified. That reference was corrected, and the final visual and geometry run completed successfully. The task-owned browser session was then intentionally shut down during local browser-process cleanup, so a new session was not started merely to clear the prior session's historical error buffer. Clean product console and page-error output remains an implementation acceptance gate.
+
+### Exact reuse seam
+
+Keep the existing `createProjectionStickyBoundaryController` unchanged and reuse only its projection-neutral lifecycle:
+
+- `boundary`: the Kanban projection grid that also bounds the natural board height;
+- `source`: the first real column-heading row, whose top is shared by the other real headings;
+- `sticky`: one feature-local presentation rail outside the board overflow ancestor;
+- `observe`: the board, rail, real columns, and real heading rows so resize, text, zoom, and configured content changes invalidate live geometry; and
+- `syncPresentation`: a Kanban adapter that mirrors the board's current horizontal position.
+
+Keep the remaining behavior local to `ViewKanbanProjection`:
+
+- retain every real `<h3>` in its configured `<section>` as the authoritative accessible heading;
+- render plain presentation text and counts in the `aria-hidden` rail, with no copied ids, links, buttons, or focus targets;
+- share one Kanban-local column width and gap class contract between the real column track and rail track;
+- set the rail's `scrollLeft` directly from the board's scroll event without controlled React scroll state;
+- do not import or generalize the Table `<colgroup>` measurement adapter; and
+- clean up the shared boundary controller, observers, and listener on projection rerender or unmount.
+
+This is a narrow renderer seam, not approval for a generic sticky-header abstraction. Table continues to use live semantic cell measurements because table layout is content-driven; Kanban can use its existing controlled column width and gap contract.
+
+### Kanban implementation acceptance gates
+
+1. Verify the feature-local adapter through the real backend and existing `ViewKanbanProjection`, with configured labels, counts, ordinary card links, uneven natural columns, and substantial View Markdown before and after the projection.
+2. At 1440, 1024, 768, and 390 px, measure the real route's vertical owner and live sticky offset; verify reveal at the first real heading's top edge and hide before the rail crosses the projection boundary.
+3. At horizontal start, midpoint, and maximum, keep every rail item within one CSS pixel of its real column's left edge and width, including after resize, browser zoom, theme change, configured column-count/label changes, and card-content changes.
+4. Preserve `document.scrollWidth === document.clientWidth`, board-owned horizontal scrolling, page-owned vertical scrolling, natural board height, and no independent vertical scroll range.
+5. Preserve exactly one accessible heading relationship per real Kanban column. The visual rail must remain `aria-hidden`, pointer-inert, and free of focusable descendants or copied ids.
+6. Verify board keyboard scrolling, card-link focus visibility, Light and Dark themes, forced colors, reduced motion, remount/navigation cleanup, one observer/listener lifecycle, and clean console/page-error output.
+7. Add focused automated coverage for reveal, lower-boundary stopping, horizontal mirroring, and cleanup without introducing Table changes, VS Code changes, a dependency, fixed heights, nested vertical scrolling, or a generic cloned-header component.
+
+The feasibility gate passes, but this first phase does not itself authorize tracked Kanban implementation. Product implementation is ready for an explicit maintainer decision against these gates.
+
 ## Acceptance Criteria
 
 - A long Table keeps its column headers visible during vertical scrolling without losing horizontal scrolling or column alignment.
