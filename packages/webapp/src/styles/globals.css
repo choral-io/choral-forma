@@ -202,15 +202,41 @@
         }
 
         & .mermaid-diagram-caption {
-            @apply border-base-300 text-base-content/70 border-b px-4 py-3 text-sm font-medium;
+            @apply border-base-300 text-base-content/70 flex items-center justify-between gap-3 border-b px-4 py-3 text-sm font-medium;
+        }
+
+        & .mermaid-diagram-caption-label {
+            @apply min-w-0;
+        }
+
+        & .mermaid-diagram-tools {
+            @apply relative shrink-0 transition-opacity;
+        }
+
+        & .mermaid-diagram-tools > summary {
+            @apply list-none;
+        }
+
+        & .mermaid-diagram-tools > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        & .mermaid-diagram-tool-panel {
+            @apply border-base-300 bg-base-100 absolute end-0 z-10 mt-1 rounded-md border p-1 shadow-lg;
+        }
+
+        @media (hover: hover) {
+            & .mermaid-diagram:not(:hover, :focus-within) .mermaid-diagram-tools {
+                @apply pointer-events-none opacity-0;
+            }
         }
 
         & .mermaid-diagram-viewport {
-            @apply focus-visible:ring-primary/40 flex max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset;
+            @apply focus-visible:ring-primary/40 relative block max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset;
         }
 
         & .mermaid-diagram-viewport > svg {
-            @apply mx-auto h-auto max-w-none shrink-0 sm:max-w-full;
+            @apply block h-auto max-w-none;
         }
 
         & .mermaid-diagram-source {
@@ -273,4 +299,56 @@
             @apply border-base-300 block w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border;
         }
     }
+}
+
+.mermaid-diagram-dialog {
+    @apply bg-base-100 text-base-content fixed inset-4 m-0 h-auto max-h-none w-auto max-w-none overflow-hidden rounded-lg border-0 p-0 shadow-2xl;
+}
+
+.mermaid-diagram-dialog::backdrop {
+    @apply bg-neutral/60;
+}
+
+.mermaid-diagram-dialog-surface {
+    @apply flex h-full min-h-0 flex-col;
+}
+
+.mermaid-diagram-dialog-header {
+    @apply border-base-300 flex items-center justify-between gap-4 border-b px-4 py-3;
+}
+
+.mermaid-diagram-dialog-header > h2 {
+    @apply min-w-0 text-base font-medium;
+}
+
+.mermaid-diagram-dialog-tools {
+    @apply border-base-300 flex shrink-0 items-center justify-end gap-2 border-b px-4 py-2;
+}
+
+.mermaid-diagram-dialog-tools > summary {
+    @apply sr-only;
+}
+
+.mermaid-diagram-dialog-tools > .mermaid-diagram-tool-panel {
+    @apply static mt-0 rounded-md border p-1 shadow-none;
+}
+
+.mermaid-diagram-dialog-canvas {
+    @apply focus-visible:ring-primary/40 min-h-0 flex-1 overflow-hidden p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset;
+}
+
+.mermaid-diagram-dialog-canvas > svg {
+    @apply block h-auto max-w-none;
+}
+
+.mermaid-diagram-dialog-source {
+    @apply border-base-300 shrink-0 border-t px-4 py-3 text-sm;
+}
+
+.mermaid-diagram-dialog-source > summary {
+    @apply cursor-pointer font-medium;
+}
+
+.mermaid-diagram-dialog-source pre {
+    @apply border-base-300 bg-base-200/50 mt-3 max-h-48 overflow-auto rounded-md border p-3;
 }

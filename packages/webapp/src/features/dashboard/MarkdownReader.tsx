@@ -6,6 +6,7 @@ import type { MermaidRenderScope } from "@/lib/mermaid";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 
 import { resolveReaderLink } from "./markdown-links";
+import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
 import { renderMarkdown } from "./markdown-renderer";
 import {
     createProjectionStickyBoundaryController,
@@ -97,6 +98,13 @@ export function MarkdownReader({
         return createMarkdownTableStickyHeaders(readerRef.current);
     }, [isCurrentRender, renderState]);
 
+    useEffect(() => {
+        if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) {
+            return;
+        }
+        return enhanceMermaidDiagrams(readerRef.current);
+    }, [isCurrentRender, renderState?.html, renderState?.status]);
+
     if (!isCurrentRender) {
         return (
             <div
@@ -140,6 +148,7 @@ export function MarkdownReader({
     return (
         <div
             data-reader="markdown"
+            ref={readerRef}
             // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
             dangerouslySetInnerHTML={{ __html: renderState.html ?? "" }}
             ref={readerRef}

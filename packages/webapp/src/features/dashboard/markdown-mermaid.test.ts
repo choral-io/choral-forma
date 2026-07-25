@@ -28,7 +28,7 @@ describe("createMarkedMermaid", () => {
         expect(html).toContain('aria-describedby="forma-mermaid-test-scope-1-description"');
         expect(html).toContain("Items: Repository Markdown, Worker adapter.");
         expect(html).toContain("Relationships: Start to Finish.");
-        expect(html).toContain('aria-label="Scrollable flowchart diagram"');
+        expect(html).toContain('aria-label="Interactive flowchart diagram"');
         expect(html).toContain("View Mermaid source");
         expect(html).toContain("Start[Repository Markdown] --&gt; Finish[Worker adapter]");
         expect(html).toContain('aria-hidden="true"');

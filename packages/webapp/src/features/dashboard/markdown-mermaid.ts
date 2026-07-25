@@ -180,12 +180,12 @@ function accessibleDiagramHtml(diagram: ValidatedMermaidDiagram, diagramId: stri
     const caption = diagramCaption(diagram);
     return [
         `<figure aria-describedby="${descriptionId}" aria-labelledby="${captionId}" class="mermaid-diagram" data-diagram-kind="${escapeHtmlAttribute(diagram.model.kind)}">`,
-        `<figcaption class="mermaid-diagram-caption" id="${captionId}">${caption}</figcaption>`,
+        `<figcaption class="mermaid-diagram-caption" id="${captionId}"><span class="mermaid-diagram-caption-label">${caption}</span></figcaption>`,
         `<p class="sr-only" id="${descriptionId}">${escapeHtml(describeMermaidDiagram(diagram))}</p>`,
-        `<div aria-label="Scrollable ${caption.toLowerCase()}" class="mermaid-diagram-viewport" role="region" tabindex="0">${svg}</div>`,
+        `<div aria-label="Interactive ${caption.toLowerCase()}" class="mermaid-diagram-viewport" id="${diagramId}-viewport" role="region" tabindex="0">${svg}</div>`,
         '<details class="collapse collapse-arrow mermaid-diagram-source">',
         '<summary class="collapse-title">View Mermaid source</summary>',
-        `<div class="collapse-content"><pre><code class="language-mermaid">${escapeHtml(diagram.source)}</code></pre></div>`,
+        `<div class="collapse-content"><pre aria-label="Mermaid source for ${escapeHtmlAttribute(caption)}" role="region" tabindex="0"><code class="language-mermaid">${escapeHtml(diagram.source)}</code></pre></div>`,
         "</details>",
         "</figure>",
     ].join("");
