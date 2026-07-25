@@ -16,6 +16,10 @@ vi.mock("./markdown-katex", () => ({
     markedKatex: {},
 }));
 
+vi.mock("./markdown-mermaid", () => ({
+    createMarkedMermaid: () => ({}),
+}));
+
 vi.mock("./markdown-shiki", () => ({
     markedShiki: {},
 }));

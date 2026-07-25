@@ -197,6 +197,14 @@
             @apply max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain;
         }
 
+        & .mermaid-diagram {
+            @apply border-base-300 bg-base-100 my-5 flex max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border p-4;
+        }
+
+        & .mermaid-diagram > svg {
+            @apply mx-auto h-auto max-w-none shrink-0 sm:max-w-full;
+        }
+
         & :is(ol, ul) {
             @apply ps-5;
         }

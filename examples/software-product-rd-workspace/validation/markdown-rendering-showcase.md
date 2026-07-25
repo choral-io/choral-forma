@@ -1,10 +1,10 @@
 ---
 title: "Markdown Rendering Showcase"
-summary: "A broad visual and behavioral check for Markdown rendering, links, formulae, overflow, and local media."
+summary: "A broad visual and behavioral check for Markdown rendering, links, diagrams, formulae, overflow, and local media."
 status: active
 priority: P2
 createdAt: "2026-07-23T00:00:00Z"
-updatedAt: "2026-07-23T00:00:00Z"
+updatedAt: "2026-07-25T00:00:00Z"
 ---
 
 # Markdown Rendering Showcase
@@ -109,6 +109,16 @@ An intentionally long code line should scroll inside its own block instead of wi
 workspace/validation/markdown-rendering-showcase/this-is-an-intentionally-long-unbroken-value-used-to-confirm-that-code-overflow-remains-local-to-the-code-block-and-does-not-create-page-level-horizontal-scrolling
 ```
 
+## Diagram
+
+Mermaid source should become a theme-aware diagram when supported while remaining readable as fenced code when rendering is unavailable.
+
+```mermaid
+flowchart LR
+  Source[Repository Markdown] --> Diagram[Lazy Mermaid adapter]
+  Diagram --> Output[Sanitized SVG]
+```
+
 ## Formulae
 
 Inline formulae should share the surrounding baseline naturally, as in $E = mc^2$ and Euler's identity $e^{i\pi} + 1 = 0$.
@@ -200,6 +210,7 @@ A long unbroken token should wrap or stay locally contained rather than widening
 - [ ] Internal links stay in the app, while external links are visibly distinguishable.
 - [ ] Wikilinks resolve and contribute to outgoing links and backlinks.
 - [ ] The wide table and long code line scroll locally without page-level horizontal overflow.
+- [ ] The Mermaid diagram follows the active theme and owns its horizontal overflow on narrow screens.
 - [ ] Inline, display, invalid, and long formulae remain readable without interpreting currency or code as math.
 - [ ] Task items, nested lists, quotes, tables, code, and inline styles remain clear in light and dark themes.
 - [ ] The local image stays within the reading column and has meaningful alternative text.
