@@ -57,10 +57,16 @@ export default defineConfig(
             "better-tailwindcss/no-deprecated-classes": "error",
             "better-tailwindcss/no-duplicate-classes": "error",
             // daisyUI defines fab-close, drawer-overlay, and drawer-button only as
-            // nested selectors, so component-class detection cannot see them.
+            // nested selectors. Diagram viewer primitives are Forma-owned CSS
+            // composition classes shared by the graph and Mermaid adapters.
             "better-tailwindcss/no-unknown-classes": [
                 "error",
-                { ignore: ["^(fab-close|drawer-overlay|drawer-button)$"] },
+                {
+                    ignore: [
+                        "^(fab-close|drawer-overlay|drawer-button)$",
+                        "^(diagram-viewer-control-rail|diagram-viewer-slider-lane|diagram-viewer-zoom-slider|diagram-viewer-no-fill-range|diagram-viewer-control-actions|diagram-viewer-control-button|graph-viewer-control-rail|graph-viewer-canvas|graph-viewer-canvas--zoomed)$",
+                    ],
+                },
             ],
             "better-tailwindcss/no-unnecessary-whitespace": "error",
         },

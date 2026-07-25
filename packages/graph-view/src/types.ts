@@ -161,6 +161,7 @@ export type GraphRuntimeUpdate = {
 export type GraphRuntime = {
     update(update: GraphRuntimeUpdate): void;
     fit(): void;
+    zoomTo(scale: number): void;
     openSelected(): void;
     snapshot(): GraphRuntimeSnapshot;
     destroy(): void;

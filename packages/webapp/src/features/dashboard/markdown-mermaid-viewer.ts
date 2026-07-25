@@ -5,8 +5,7 @@ import {
     type SvgDiagramZoomState,
 } from "@/lib/mermaid";
 
-const toolButtonClass =
-    "btn btn-ghost btn-sm btn-circle h-8 min-h-8 w-8 border-base-300/60 bg-base-100/90 shadow-sm backdrop-blur-sm panzoom-exclude focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2";
+const toolButtonClass = "btn btn-ghost btn-sm btn-circle diagram-viewer-control-button panzoom-exclude";
 let nextViewerId = 1;
 
 export function enhanceMermaidDiagrams(root: HTMLElement) {
@@ -117,23 +116,14 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
 
         controller.destroy();
         dialog = document.createElement("dialog");
-        dialog.className = "modal mermaid-diagram-dialog";
+        dialog.className = "mermaid-diagram-expanded-viewer";
         dialog.setAttribute("aria-labelledby", `${viewerId}-dialog-title`);
         dialog.setAttribute("aria-describedby", `${viewerId}-dialog-description`);
 
-        const surface = document.createElement("div");
-        surface.className = "modal-box mermaid-diagram-dialog-surface";
-        const header = document.createElement("header");
-        header.className = "mermaid-diagram-dialog-header";
         const title = document.createElement("h2");
+        title.className = "sr-only";
         title.id = `${viewerId}-dialog-title`;
         title.textContent = captionText;
-        const close = createButton("Close expanded diagram", "");
-        close.classList.remove("btn-circle");
-        close.classList.add("btn-square");
-        close.title = "Close expanded view";
-        close.append(createCloseIcon());
-        header.append(title, close);
 
         const modalDescription = document.createElement("p");
         modalDescription.className = "sr-only";
@@ -157,33 +147,20 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
             caption: captionText,
             view: "expanded",
         });
-        const footer = document.createElement("footer");
-        footer.className = "mermaid-diagram-dialog-footer";
         dialogStatus = document.createElement("span");
-        dialogStatus.className = "mermaid-diagram-dialog-status";
+        dialogStatus.className = "sr-only";
         dialogStatus.setAttribute("aria-live", "polite");
         dialogStatus.setAttribute("role", "status");
-        footer.append(dialogStatus);
-        surface.append(header, modalDescription, modalCanvas, modalHelp, footer);
-        const backdrop = document.createElement("form");
-        backdrop.className = "modal-backdrop";
-        backdrop.method = "dialog";
-        const backdropClose = document.createElement("button");
-        backdropClose.type = "submit";
-        backdropClose.textContent = "Close diagram";
-        backdrop.append(backdropClose);
-        dialog.append(surface, backdrop);
+        dialog.append(title, modalDescription, modalCanvas, modalHelp, dialogStatus);
         document.body.append(dialog);
         modalCanvas.append(viewerSvg, modalTools.element);
         dialogController = createController(modalCanvas, viewerSvg, modalTools, announceDialogState);
         dialogStatus.textContent = `Zoom ${formatPercent(dialogController.getState().scale)}`;
         bindTools(modalTools, () => dialogController, announceDialogState);
-        close.addEventListener("click", closeDialog);
         modalTools.viewerToggle.addEventListener("click", closeDialog);
-        dialog.addEventListener("click", (event) => {
-            if (event.target === dialog) {
-                closeDialog();
-            }
+        dialog.addEventListener("cancel", (event) => {
+            event.preventDefault();
+            closeDialog();
         });
         dialog.addEventListener(
             "close",
@@ -202,7 +179,7 @@ function enhanceMermaidDiagram(figure: HTMLElement): MermaidDiagramEnhancement |
             { once: true },
         );
         dialog.showModal();
-        close.focus({ preventScroll: true });
+        modalTools.viewerToggle.focus({ preventScroll: true });
     }
 }
 
@@ -263,7 +240,7 @@ function createTools({
     view?: "embedded" | "expanded";
 }): MermaidDiagramTools {
     const element = document.createElement("div");
-    element.className = "mermaid-diagram-control-rail panzoom-exclude";
+    element.className = "diagram-viewer-control-rail mermaid-diagram-control-rail panzoom-exclude";
     element.setAttribute("aria-label", `Controls for ${caption}`);
     element.setAttribute("role", "group");
     const reset = createButton(`Reset ${caption} zoom to 100%`, "", canvasId);
@@ -278,10 +255,10 @@ function createTools({
     viewerToggle.title = view === "embedded" ? "Expand diagram" : "Return to embedded view";
     viewerToggle.append(view === "embedded" ? createMaximizeIcon() : createMinimizeIcon());
     const sliderLane = document.createElement("div");
-    sliderLane.className = "mermaid-diagram-slider-lane";
+    sliderLane.className = "diagram-viewer-slider-lane mermaid-diagram-slider-lane";
     sliderLane.append(zoomSlider);
     const actions = document.createElement("div");
-    actions.className = "mermaid-diagram-control-actions";
+    actions.className = "diagram-viewer-control-actions mermaid-diagram-control-actions";
     actions.append(reset, viewerToggle);
     element.append(sliderLane, actions);
     return { element, reset, viewerToggle, zoomSlider };
@@ -302,7 +279,7 @@ function createButton(label: string, text: string, canvasId?: string) {
 function createZoomSlider(caption: string, canvasId: string) {
     const slider = document.createElement("input");
     slider.className =
-        "range range-vertical range-xs mermaid-diagram-zoom-slider mermaid-diagram-no-fill-range h-full w-5 panzoom-exclude focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2";
+        "range range-vertical range-xs diagram-viewer-zoom-slider diagram-viewer-no-fill-range mermaid-diagram-zoom-slider mermaid-diagram-no-fill-range h-full w-5 panzoom-exclude focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2";
     slider.setAttribute("aria-controls", canvasId);
     slider.setAttribute("aria-label", `Zoom ${caption}`);
     slider.setAttribute("aria-orientation", "vertical");
@@ -365,24 +342,6 @@ function createMinimizeIcon() {
     icon.setAttribute("width", "16");
     icon.setAttribute("height", "16");
     for (const pathData of ["M9 3H3v6", "m3 3 7 7", "M21 15v6h-6", "m21 21-7-7"]) {
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", pathData);
-        icon.append(path);
-    }
-    return icon;
-}
-
-function createCloseIcon() {
-    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon.setAttribute("aria-hidden", "true");
-    icon.setAttribute("fill", "none");
-    icon.setAttribute("stroke", "currentColor");
-    icon.setAttribute("stroke-linecap", "round");
-    icon.setAttribute("stroke-width", "2");
-    icon.setAttribute("viewBox", "0 0 24 24");
-    icon.setAttribute("width", "16");
-    icon.setAttribute("height", "16");
-    for (const pathData of ["M18 6 6 18", "m6 6 12 12"]) {
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute("d", pathData);
         icon.append(path);

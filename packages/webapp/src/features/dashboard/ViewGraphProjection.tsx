@@ -6,7 +6,7 @@ import {
     type GraphRuntime,
     type GraphTheme,
 } from "@choral-forma/graph-view";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
@@ -21,7 +21,11 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     const navigateRef = useRef(navigate);
     const runtimeRef = useRef<GraphRuntime | null>(null);
     const routesRef = useRef(new Map<string, string>());
+    const viewerToggleRef = useRef<HTMLButtonElement | null>(null);
+    const wasExpandedRef = useRef(false);
     const [graphTheme, setGraphTheme] = useState<GraphTheme>(() => readGraphThemeTokens());
+    const [graphZoom, setGraphZoom] = useState(100);
+    const [isGraphZoomed, setIsGraphZoomed] = useState(false);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const runtimeProjection = useMemo(() => mapDashboardGraphProjection(projection), [projection]);
@@ -61,6 +65,13 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     }, [isExpanded]);
 
     useEffect(() => {
+        if (wasExpandedRef.current && !isExpanded) {
+            requestAnimationFrame(() => viewerToggleRef.current?.focus({ preventScroll: true }));
+        }
+        wasExpandedRef.current = isExpanded;
+    }, [isExpanded]);
+
+    useEffect(() => {
         const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
         let frame = requestAnimationFrame(() => {
             setGraphTheme(readGraphThemeTokens());
@@ -93,7 +104,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                 reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
             },
             ariaLabel:
-                "Interactive graph preview. Select a node with one click and open it with Enter or double click.",
+                "Interactive graph preview. Select a node with one click and open it with Enter or double click. Press F to reset the view.",
             onOpenNode(node) {
                 const routePath = routesRef.current.get(node.id);
                 if (routePath) void navigateRef.current(routePath);
@@ -123,32 +134,111 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         });
     }, [activeNodeId, graphTheme, runtimeProjection]);
 
+    useEffect(() => {
+        const runtime = runtimeRef.current;
+        if (!runtime) return;
+        const frame = requestAnimationFrame(() => {
+            if (graphZoom > 100) {
+                runtime.zoomTo(graphZoom / 100);
+            } else if (!isGraphZoomed) {
+                runtime.fit();
+            }
+        });
+        return () => {
+            cancelAnimationFrame(frame);
+        };
+    }, [graphZoom, isGraphZoomed, isExpanded]);
+
+    const resetGraph = () => {
+        setGraphZoom(100);
+        setIsGraphZoomed(false);
+    };
+
+    const setGraphZoomFromControl = (nextZoom: number) => {
+        setGraphZoom(nextZoom);
+        setIsGraphZoomed(nextZoom > 100);
+    };
+
     return (
         <div className="flex flex-col gap-4">
             <div
                 className={cn(
                     "border-base-300 bg-base-200/20 relative overflow-hidden rounded-lg border",
-                    isExpanded && "bg-base-100 fixed inset-0 z-50 h-dvh w-dvw rounded-none border-0",
+                    isExpanded
+                        ? "bg-base-100 fixed inset-0 z-50 h-dvh w-dvw rounded-none border-0"
+                        : "aspect-3/2 max-h-160 min-h-88",
                 )}
             >
                 <div
                     className={cn(
-                        "focus-visible:ring-primary/50 relative w-full outline-none focus-visible:ring-3 focus-visible:ring-inset",
-                        isExpanded ? "aspect-auto h-full max-h-none min-h-0" : "aspect-3/2 max-h-160 min-h-88",
+                        "focus-visible:ring-primary/50 graph-viewer-canvas outline-none focus-visible:ring-3 focus-visible:ring-inset",
+                        isGraphZoomed && "graph-viewer-canvas--zoomed",
                     )}
+                    id="graph-viewer-canvas"
+                    onKeyDownCapture={(event) => {
+                        if (event.key.toLowerCase() === "f") resetGraph();
+                    }}
+                    onTouchStartCapture={(event) => {
+                        if (event.touches.length > 1) setIsGraphZoomed(true);
+                    }}
+                    onWheelCapture={() => {
+                        setIsGraphZoomed(true);
+                    }}
                     ref={containerRef}
                 />
-                <button
-                    aria-label={expandPresentation.ariaLabel}
-                    className="btn btn-square bg-base-100/80 absolute top-3 right-3 z-20 shadow-sm backdrop-blur-sm"
-                    onClick={() => {
-                        setIsExpanded((expanded) => !expanded);
-                    }}
-                    title={expandPresentation.title}
-                    type="button"
+                <div
+                    aria-label="Graph controls"
+                    className="diagram-viewer-control-rail graph-viewer-control-rail"
+                    role="group"
                 >
-                    {isExpanded ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
-                </button>
+                    <div className="diagram-viewer-slider-lane">
+                        <input
+                            aria-controls="graph-viewer-canvas"
+                            aria-label="Zoom graph"
+                            aria-orientation="vertical"
+                            aria-valuetext={`Zoom ${String(graphZoom)}%`}
+                            aria-describedby="graph-viewer-status"
+                            className="range range-vertical range-xs diagram-viewer-zoom-slider diagram-viewer-no-fill-range focus-visible:outline-primary w-5 focus-visible:outline-2 focus-visible:outline-offset-2"
+                            max="300"
+                            min="100"
+                            onChange={(event) => {
+                                setGraphZoomFromControl(Number(event.currentTarget.value));
+                            }}
+                            step="5"
+                            title={`Zoom ${String(graphZoom)}%`}
+                            type="range"
+                            value={graphZoom}
+                        />
+                    </div>
+                    <div className="diagram-viewer-control-actions">
+                        <button
+                            aria-controls="graph-viewer-canvas"
+                            aria-label="Reset graph view"
+                            className="btn btn-ghost btn-sm btn-circle diagram-viewer-control-button"
+                            onClick={resetGraph}
+                            title="Reset graph view"
+                            type="button"
+                        >
+                            <RotateCcw aria-hidden="true" />
+                        </button>
+                        <button
+                            aria-controls="graph-viewer-canvas"
+                            aria-label={expandPresentation.ariaLabel}
+                            className="btn btn-ghost btn-sm btn-circle diagram-viewer-control-button"
+                            onClick={() => {
+                                setIsExpanded((expanded) => !expanded);
+                            }}
+                            ref={viewerToggleRef}
+                            title={expandPresentation.title}
+                            type="button"
+                        >
+                            {isExpanded ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
+                        </button>
+                    </div>
+                </div>
+                <span aria-live="polite" className="sr-only" id="graph-viewer-status" role="status">
+                    Graph zoom {String(graphZoom)}%.
+                </span>
                 {selectedNode ? (
                     <GraphNodeSummary linkedCount={adjacentNodes.get(selectedNode.id)?.size ?? 0} node={selectedNode} />
                 ) : null}

@@ -117,13 +117,14 @@ describe("enhanceMermaidDiagrams", () => {
         const expand = root.querySelector<HTMLButtonElement>('[aria-label="Expand Flowchart diagram"]');
         expand?.click();
 
-        const dialog = document.querySelector<HTMLDialogElement>(".mermaid-diagram-dialog");
+        const dialog = document.querySelector<HTMLDialogElement>(".mermaid-diagram-expanded-viewer");
         expect(dialog?.open).toBe(true);
         expect(dialog?.getAttribute("aria-labelledby")).toContain("dialog-title");
         expect(dialog?.querySelector("h2")?.textContent).toBe("Flowchart diagram");
+        expect(dialog?.querySelector("h2")?.classList.contains("sr-only")).toBe(true);
         expect(dialog?.querySelector("svg")).not.toBeNull();
         expect(dialog?.querySelector(".mermaid-diagram-dialog-source")).toBeNull();
-        expect(dialog?.querySelector(".mermaid-diagram-dialog-status")?.textContent).toBe("Zoom 100%");
+        expect(dialog?.querySelector('[role="status"]')?.textContent).toBe("Zoom 100%");
         const dialogSlider = dialog?.querySelector<HTMLInputElement>('[aria-label="Zoom Flowchart diagram"]');
         expect(dialogSlider?.classList.contains("range-vertical")).toBe(true);
         expect(dialogSlider?.parentElement?.classList.contains("mermaid-diagram-slider-lane")).toBe(true);
@@ -140,10 +141,9 @@ describe("enhanceMermaidDiagrams", () => {
         expect(collapse?.classList.contains("btn-circle")).toBe(true);
         expect(collapse?.classList.contains("join-item")).toBe(false);
         expect(collapse?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
-        const close = dialog?.querySelector<HTMLButtonElement>('[aria-label="Close expanded diagram"]');
-        expect(close?.getAttribute("title")).toBe("Close expanded view");
-        expect(close?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
-        expect(dialog?.querySelector("form.modal-backdrop")).not.toBeNull();
+        expect(dialog?.querySelector('[aria-label="Close expanded diagram"]')).toBeNull();
+        expect(dialog?.querySelector("form.modal-backdrop")).toBeNull();
+        expect(dialog?.classList.contains("modal")).toBe(false);
         expect(zoomMocks.controllers[0]?.destroy).toHaveBeenCalledOnce();
 
         collapse?.click();
@@ -153,6 +153,23 @@ describe("enhanceMermaidDiagrams", () => {
         cleanup();
         expect(zoomMocks.controllers[2]?.destroy).toHaveBeenCalledOnce();
         expect(root.querySelector(".mermaid-diagram-control-rail")).toBeNull();
+    });
+
+    it("returns to the embedded viewer on Escape without leaving a modal shell behind", () => {
+        const root = fixture();
+        const cleanup = enhanceMermaidDiagrams(root);
+        const expand = root.querySelector<HTMLButtonElement>('[aria-label="Expand Flowchart diagram"]');
+        expand?.click();
+
+        const dialog = document.querySelector<HTMLDialogElement>(".mermaid-diagram-expanded-viewer");
+        const cancel = new Event("cancel", { cancelable: true });
+        dialog?.dispatchEvent(cancel);
+
+        expect(cancel.defaultPrevented).toBe(true);
+        expect(document.querySelector(".mermaid-diagram-expanded-viewer")).toBeNull();
+        expect(root.querySelector(".mermaid-diagram-viewport svg")).not.toBeNull();
+        expect(document.activeElement).toBe(expand);
+        cleanup();
     });
 });
 

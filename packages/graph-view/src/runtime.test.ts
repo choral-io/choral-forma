@@ -300,6 +300,26 @@ describe("SigmaGraphRuntime lifecycle", () => {
         runtime.destroy();
     });
 
+    it("supports bounded explicit zoom controls without changing selection state", () => {
+        const runtime = createGraphRuntime({
+            container: fakeContainer(),
+            projection: projection(),
+            theme: theme(),
+            layout: { engine: "force", reducedMotion: true },
+        });
+        const renderer = sigmaMocks.instances[0];
+        if (!renderer) throw new Error("Expected Sigma renderer.");
+
+        const selectedNodeId = runtime.snapshot().selectedNodeId;
+        renderer.camera.setState.mockClear();
+        runtime.zoomTo(1.5);
+        runtime.zoomTo(10);
+        expect(renderer.camera.setState).toHaveBeenNthCalledWith(1, { ratio: 1 / 1.5 });
+        expect(renderer.camera.setState).toHaveBeenNthCalledWith(2, { ratio: 1 / 3 });
+        expect(runtime.snapshot().selectedNodeId).toBe(selectedNodeId);
+        runtime.destroy();
+    });
+
     it("preserves configured classification fill across default, selected, and neighbor states", () => {
         const base = projection();
         const classified = {
