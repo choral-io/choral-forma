@@ -306,7 +306,11 @@
 }
 
 .diagram-viewer-slider-lane {
-    @apply h-20 shrink-0;
+    @apply shrink-0;
+}
+
+.mermaid-diagram-expanded-viewer .mermaid-diagram-slider-lane {
+    @apply h-32;
 }
 
 .diagram-viewer-zoom-slider {
