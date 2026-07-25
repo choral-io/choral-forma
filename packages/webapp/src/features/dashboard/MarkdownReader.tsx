@@ -151,7 +151,6 @@ export function MarkdownReader({
             ref={readerRef}
             // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
             dangerouslySetInnerHTML={{ __html: renderState.html ?? "" }}
-            ref={readerRef}
         />
     );
 }
