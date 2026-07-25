@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
 import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 
 import { formatEntrySupportedLanguages } from "./entry-languages";
-import { syncKanbanStickyRailScroll } from "./kanban-sticky-header";
+import { syncKanbanStickyRailGeometry, syncKanbanStickyRailScroll } from "./kanban-sticky-header";
 import { prewarmMarkdownHighlighter } from "./markdown-shiki";
 import { MarkdownReader } from "./MarkdownReader";
 import {
@@ -1940,7 +1940,7 @@ function ViewKanbanProjection({ projection }: { projection: Extract<DashboardVie
             source,
             sticky: stickyHeader,
             syncPresentation: () => {
-                syncKanbanStickyRailScroll(stickyHeader, scroll.scrollLeft);
+                syncKanbanStickyRailGeometry({ scrollLeft: scroll.scrollLeft, source, stickyRail: stickyHeader });
             },
         });
     }, [projection]);
@@ -1958,7 +1958,8 @@ function ViewKanbanProjection({ projection }: { projection: Extract<DashboardVie
                         <div
                             className={cn(
                                 kanbanColumnClassName,
-                                "border-base-300 bg-base-200 rounded-none border px-3",
+                                kanbanColumnHeaderBoxClassName,
+                                "bg-base-200 ring-base-300 h-[var(--view-kanban-heading-height)] rounded-none ring-1 ring-inset",
                             )}
                             key={column.id}
                         >
@@ -1989,23 +1990,25 @@ function ViewKanbanProjection({ projection }: { projection: Extract<DashboardVie
                         <section
                             className={cn(
                                 kanbanColumnClassName,
-                                "border-base-300 bg-base-200 min-h-60 rounded-lg border p-3",
+                                "border-base-300 bg-base-200 min-h-60 rounded-lg border",
                             )}
                             data-view-kanban-column=""
                             key={column.id}
                         >
                             <div
-                                className={cn(kanbanColumnHeadingClassName, "mb-3")}
+                                className={kanbanColumnHeaderBoxClassName}
                                 data-view-kanban-column-heading=""
                                 ref={index === 0 ? sourceRef : undefined}
                             >
-                                <h3 className="min-w-0 truncate font-medium" title={column.label}>
-                                    {column.icon ? <span aria-hidden="true">{column.icon} </span> : null}
-                                    {column.label}
-                                </h3>
-                                <span className="badge badge-ghost badge-sm shrink-0">{column.items.length}</span>
+                                <div className={kanbanColumnHeadingClassName}>
+                                    <h3 className="min-w-0 truncate font-medium" title={column.label}>
+                                        {column.icon ? <span aria-hidden="true">{column.icon} </span> : null}
+                                        {column.label}
+                                    </h3>
+                                    <span className="badge badge-ghost badge-sm shrink-0">{column.items.length}</span>
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-3 px-3 pb-3">
                                 {column.items.map((item) => (
                                     <ViewKanbanCard card={projection.card} item={item} key={item.path} />
                                 ))}
@@ -2025,6 +2028,7 @@ function ViewKanbanProjection({ projection }: { projection: Extract<DashboardVie
 
 const kanbanTrackClassName = "flex min-w-max flex-nowrap items-start gap-3";
 const kanbanColumnClassName = "w-[min(20rem,85vw)] flex-none";
+const kanbanColumnHeaderBoxClassName = "p-3";
 const kanbanColumnHeadingClassName = "flex items-center justify-between gap-3";
 
 function ViewKanbanCard({
