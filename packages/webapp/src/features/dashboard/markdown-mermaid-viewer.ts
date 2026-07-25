@@ -276,9 +276,7 @@ function createTools({
     orientation?: "horizontal" | "vertical";
 }): MermaidDiagramTools {
     const element = document.createElement("div");
-    element.className = `mermaid-diagram-control-rail join ${
-        orientation === "vertical" ? "join-vertical" : "join-horizontal"
-    } panzoom-exclude`;
+    element.className = "mermaid-diagram-control-rail panzoom-exclude";
     element.setAttribute("aria-label", `Controls for ${caption}`);
     element.setAttribute("role", "group");
     const zoomOut = includeSlider ? undefined : createButton(`Zoom out ${caption}`, "−", canvasId);
@@ -293,13 +291,18 @@ function createTools({
         expand.title = "Expand diagram";
         expand.append(createMaximizeIcon());
     }
-    element.append(
-        ...(zoomSlider ? [zoomSlider] : []),
-        ...(zoomIn ? [zoomIn] : []),
-        reset,
-        ...(zoomOut ? [zoomOut] : []),
-        ...(expand ? [expand] : []),
-    );
+    if (zoomSlider) {
+        const sliderLane = document.createElement("div");
+        sliderLane.className = "mermaid-diagram-slider-lane";
+        sliderLane.append(zoomSlider);
+        const actions = document.createElement("div");
+        actions.className = "mermaid-diagram-control-actions join join-vertical";
+        actions.append(reset, ...(expand ? [expand] : []));
+        element.append(sliderLane, actions);
+    } else {
+        element.classList.add(orientation === "vertical" ? "join-vertical" : "join-horizontal");
+        element.append(...(zoomIn ? [zoomIn] : []), reset, ...(zoomOut ? [zoomOut] : []));
+    }
     return { element, expand, reset, zoomIn, zoomOut, zoomSlider };
 }
 
@@ -317,7 +320,7 @@ function createButton(label: string, text: string, canvasId?: string) {
 
 function createZoomSlider(caption: string, canvasId: string) {
     const slider = document.createElement("input");
-    slider.className = "range range-vertical range-xs h-20 w-5 join-item panzoom-exclude";
+    slider.className = "range range-vertical range-xs mermaid-diagram-zoom-slider h-full w-5 panzoom-exclude";
     slider.setAttribute("aria-controls", canvasId);
     slider.setAttribute("aria-label", `Zoom ${caption}`);
     slider.setAttribute("aria-orientation", "vertical");

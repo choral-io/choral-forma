@@ -82,6 +82,7 @@ describe("enhanceMermaidDiagrams", () => {
         expect(slider?.min).toBe("100");
         expect(slider?.max).toBe("300");
         expect(slider?.step).toBe("5");
+        expect(slider?.parentElement?.classList.contains("mermaid-diagram-slider-lane")).toBe(true);
         expect(
             root.querySelector<HTMLButtonElement>('[aria-label="Reset Flowchart diagram zoom to 100%"]')?.disabled,
         ).toBe(true);
@@ -95,7 +96,8 @@ describe("enhanceMermaidDiagrams", () => {
         expect(expand?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
         expect(expand?.getAttribute("title")).toBe("Expand diagram");
         expect(expand?.classList.contains("join-item")).toBe(true);
-        expect(expand?.parentElement).toBe(controls);
+        expect(expand?.parentElement?.classList.contains("mermaid-diagram-control-actions")).toBe(true);
+        expect(expand?.parentElement?.parentElement).toBe(controls);
         expect(root.querySelector(".mermaid-diagram-viewport")?.getAttribute("aria-keyshortcuts")).toBe(
             "ArrowUp ArrowDown ArrowLeft ArrowRight + - 0",
         );
