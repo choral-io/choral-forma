@@ -202,35 +202,23 @@
         }
 
         & .mermaid-diagram-caption {
-            @apply border-base-300 text-base-content/70 flex items-center gap-1 border-b px-4 py-3 text-sm font-medium;
+            @apply border-base-300 text-base-content/70 border-b px-4 py-3 text-sm font-medium;
         }
 
-        & .mermaid-diagram-caption-label {
-            @apply me-auto min-w-0;
+        & .mermaid-diagram-control-rail {
+            @apply border-base-300/60 bg-base-100/90 text-base-content/75 absolute end-3 top-3 z-10 p-1 shadow-sm backdrop-blur-sm;
         }
 
-        & .mermaid-diagram-tools {
-            @apply relative shrink-0 transition-opacity;
+        @media (prefers-reduced-motion: no-preference) {
+            & .mermaid-diagram-control-rail {
+                @apply transition-opacity duration-150;
+            }
         }
 
-        & .mermaid-diagram-expand {
-            @apply border-base-300/60 bg-base-100/90 text-base-content/75 hover:text-base-content absolute end-3 bottom-3 z-10 shrink-0 border shadow-sm backdrop-blur-sm;
-        }
-
-        & .mermaid-diagram-menu-trigger {
-            @apply text-base-content/65 hover:text-base-content;
-        }
-
-        & .mermaid-diagram-tools > summary {
-            @apply list-none;
-        }
-
-        & .mermaid-diagram-tools > summary::-webkit-details-marker {
-            display: none;
-        }
-
-        & .mermaid-diagram-tool-panel {
-            @apply border-base-300 bg-base-100 absolute end-0 z-10 mt-1 rounded-md border p-1 shadow-lg;
+        @media (hover: hover) {
+            & .mermaid-diagram:not(:hover, :focus-within) .mermaid-diagram-control-rail {
+                @apply opacity-60;
+            }
         }
 
         & .mermaid-diagram-viewport {
@@ -335,12 +323,8 @@
     @apply shrink-0;
 }
 
-.mermaid-diagram-dialog-tools > summary {
-    @apply sr-only;
-}
-
-.mermaid-diagram-dialog-tools > .mermaid-diagram-tool-panel {
-    @apply static mt-0 rounded-md border p-1 shadow-none;
+.mermaid-diagram-dialog-tools {
+    @apply static bg-transparent shadow-none;
 }
 
 .mermaid-diagram-dialog-canvas {

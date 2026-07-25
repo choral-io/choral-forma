@@ -3,12 +3,12 @@ export const mermaidDiagramZoom = {
     maxScale: 3,
     minScale: 1,
     // Buttons and keyboard use deliberate, predictable 25% steps. Continuous
-    // inputs use separate damped mappings so a single high-resolution wheel
-    // or pinch update cannot jump the view by a button-sized increment.
+    // inputs use separate damped mappings: small high-resolution updates stay
+    // below a button-sized increment, while explicit input caps bound spikes.
     buttonStep: 0.25,
-    pinchExponent: 0.5,
-    wheelDeltaLimit: 120,
-    wheelZoomPerPixel: 0.0015,
+    pinchExponent: 0.65,
+    wheelDeltaLimit: 45,
+    wheelZoomPerPixel: 0.005,
 } as const;
 
 export interface SvgDiagramZoomState {
@@ -25,6 +25,7 @@ export interface SvgDiagramZoomController {
     getState(): SvgDiagramZoomState;
     panBy(x: number, y: number): void;
     reset(): void;
+    zoomTo(scale: number): void;
     zoomIn(): void;
     zoomOut(): void;
 }
@@ -130,7 +131,7 @@ export function createSvgDiagramZoomController({
         }
     });
 
-    return { destroy, getState, panBy, reset, zoomIn, zoomOut };
+    return { destroy, getState, panBy, reset, zoomIn, zoomOut, zoomTo };
 
     function destroy() {
         if (destroyed) {
@@ -359,21 +360,16 @@ export function createSvgDiagramZoomController({
     }
 
     function zoomIn() {
-        const bounds = canvas.getBoundingClientRect();
-        zoomAtPoint(
-            scale * (1 + mermaidDiagramZoom.buttonStep),
-            bounds.left + bounds.width / 2,
-            bounds.top + bounds.height / 2,
-        );
+        zoomTo(scale * (1 + mermaidDiagramZoom.buttonStep));
     }
 
     function zoomOut() {
+        zoomTo(scale / (1 + mermaidDiagramZoom.buttonStep));
+    }
+
+    function zoomTo(nextScale: number) {
         const bounds = canvas.getBoundingClientRect();
-        zoomAtPoint(
-            scale / (1 + mermaidDiagramZoom.buttonStep),
-            bounds.left + bounds.width / 2,
-            bounds.top + bounds.height / 2,
-        );
+        zoomAtPoint(nextScale, bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
     }
 
     function applyTransform() {
