@@ -267,6 +267,120 @@ describe("native preview sticky rail lifecycle", () => {
         }
     });
 
+    it("keeps the Kanban rail aligned with live heading geometry and styles", () => {
+        const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+            callback(0);
+            return 0;
+        });
+        const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+        let resizeObserver: { trigger(): void } | undefined;
+        class FakeResizeObserver {
+            constructor(private readonly callback: ResizeObserverCallback) {
+                resizeObserver = {
+                    trigger: () => {
+                        this.callback([], this);
+                    },
+                };
+            }
+
+            observe(): void {
+                return undefined;
+            }
+
+            unobserve(): void {
+                return undefined;
+            }
+
+            disconnect(): void {
+                return undefined;
+            }
+        }
+        vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+        document.body.innerHTML =
+            '<div data-forma-sticky-boundary data-forma-sticky-kind="kanban">' +
+            '<div data-forma-sticky-rail><div class="forma-sticky-rail-track"><div class="forma-kanban-sticky-track">' +
+            '<div class="forma-kanban-sticky-cell"><h2 aria-hidden="true">Short</h2></div>' +
+            '<div class="forma-kanban-sticky-cell"><h2 aria-hidden="true">Wrapped</h2></div>' +
+            "</div></div></div>" +
+            '<div class="kanban" data-forma-sticky-owner>' +
+            '<section class="kanban-column"><h2>Short <span class="count">1</span></h2></section>' +
+            '<section class="kanban-column"><h2>Wrapped <span class="count">2</span></h2></section>' +
+            "</div></div>";
+        const boundary = document.querySelector<HTMLElement>("[data-forma-sticky-boundary]");
+        const columns = [...document.querySelectorAll<HTMLElement>(".kanban-column")];
+        const headings = columns.map((column) => column.querySelector<HTMLElement>("h2"));
+        const rail = document.querySelector<HTMLElement>("[data-forma-sticky-rail]");
+        const visualTrack = document.querySelector<HTMLElement>(".forma-kanban-sticky-track");
+        const visualCells = [...document.querySelectorAll<HTMLElement>(".forma-kanban-sticky-cell")];
+        const visualHeadings = visualCells.map((cell) => cell.querySelector<HTMLElement>("h2"));
+        if (
+            !boundary ||
+            headings.some((heading) => !heading) ||
+            !rail ||
+            !visualTrack ||
+            visualHeadings.some((heading) => !heading)
+        ) {
+            throw new Error("Kanban sticky resize fixture is incomplete.");
+        }
+        const sourceHeadings = headings as HTMLElement[];
+        const sourceRects = [
+            { top: -8, bottom: 22, height: 30, left: 0, right: 180, width: 180 },
+            { top: -8, bottom: 46, height: 54, left: 192, right: 392, width: 200 },
+        ];
+        const visualRects = [
+            { top: 0, bottom: 40, height: 40, left: 0, right: 180, width: 180 },
+            { top: 0, bottom: 70, height: 70, left: 192, right: 392, width: 200 },
+        ];
+        sourceHeadings.forEach((heading, index) => {
+            heading.style.cssText = "margin: 0 0 10px; padding: 3px 7px; line-height: 24px; overflow-wrap: anywhere;";
+            Object.defineProperty(heading, "getBoundingClientRect", {
+                configurable: true,
+                value: () => sourceRects[index],
+            });
+        });
+        columns.forEach((column, index) => {
+            Object.defineProperty(column, "getBoundingClientRect", {
+                configurable: true,
+                value: () => sourceRects[index],
+            });
+        });
+        visualCells.forEach((cell, index) => {
+            Object.defineProperty(cell, "getBoundingClientRect", {
+                configurable: true,
+                value: () => visualRects[index],
+            });
+        });
+        Object.defineProperty(boundary, "getBoundingClientRect", {
+            value: () => ({ top: -8, bottom: 200, height: 208 }),
+        });
+        Object.defineProperty(rail, "getBoundingClientRect", {
+            value: () => ({ top: 0, bottom: 70, height: 70 }),
+        });
+
+        try {
+            startStickyPreview();
+
+            expect(visualCells.map((cell) => cell.style.width)).toEqual(["180px", "200px"]);
+            expect(visualTrack.style.gap).toBe("12px");
+            expect(visualHeadings.map((heading) => heading?.style.marginBottom)).toEqual(["10px", "10px"]);
+            expect(visualHeadings.map((heading) => heading?.style.lineHeight)).toEqual(["24px", "24px"]);
+            expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("70px");
+            expect(rail.classList.contains("is-visible")).toBe(true);
+
+            sourceRects[0] = { top: -8, bottom: 42, height: 50, left: 0, right: 180, width: 180 };
+            visualRects[0] = { top: 0, bottom: 60, height: 60, left: 0, right: 180, width: 180 };
+            resizeObserver?.trigger();
+            expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("70px");
+            expect(visualHeadings[0]?.style.paddingLeft).toBe("7px");
+        } finally {
+            stopStickyPreview();
+            document.body.replaceChildren();
+            vi.unstubAllGlobals();
+            frame.mockRestore();
+            cancel.mockRestore();
+        }
+    });
+
     it("recalculates on descendant document scroll and removes the listener on cleanup", () => {
         const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
             callback(0);

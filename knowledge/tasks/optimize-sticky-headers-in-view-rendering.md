@@ -531,6 +531,22 @@ Ordinary native Markdown was measured separately rather than inferred from Forma
 
 All task-owned disposable VS Code processes were closed after the packaged-host proof. The implementation is ready for a scoped linear commit. The user deferred Kanban host validation, so this section records only automated Kanban coverage and does not claim a fresh Kanban native-host acceptance pass.
 
+## VS Code Native Preview Kanban Follow-up — 2026-07-26
+
+The bounded Kanban host slice was implemented on top of `37d92dec` without changing Table configuration, Table sticky behavior, renderer schemas, or adding a dependency. The native adapter in `extensions/vscode/src/sticky-preview.ts` now:
+
+- keeps the real `.kanban-column h2` elements as the semantic authority and leaves the visual rail `aria-hidden`, pointer-inert, and without focus targets;
+- copies live heading typography, spacing, wrapping, and theme presentation properties into the rail headings during remeasurement, including the semantic `margin-bottom` that was previously lost;
+- measures every visual cell after live style application and returns the maximum measured height to the existing boundary controller, so lower-boundary exit follows uneven wrapped headings rather than the first heading or a fixed height;
+- continues to measure column widths and board gap only during RAF-coalesced invalidation frames; ordinary vertical scroll frames only translate the rail from the board's current `scrollLeft`; and
+- retains the existing page-owned vertical scroll, board-owned horizontal scroll, square theme-tokenized rail, observer cleanup, and remount reconciliation contract.
+
+The test-first Kanban fixture covers uneven live heading boxes, per-column widths, gap, copied margin/line-height/padding, maximum rail height, live ResizeObserver invalidation, reveal, and cleanup. It passed the focused native sticky suite with 8 tests. The full VS Code package suite passed 25 files and 158 tests, including the 13 Node packaging tests. Type-check, icon validation, lint, production build, and `forma-0.1.23.vsix` packaging also passed.
+
+Repository gates passed with `mise run check` and `mise run test:rust`; the combined project run reported 60 Vitest files / 327 tests plus the repository Node tests, Rust workspace tests, Rust formatting/checks, Zed WASM check, package checks, package builds, and the existing WebApp chunk-size advisory only. Forma `config inspect --json`, `workspace health --json`, and `git diff --check` passed.
+
+The packaged VSIX was produced, but this checkout has no local `code` or `code-insiders` executable. The disposable VS Code smoke path would need to download a host runtime, so a real packaged native-host Kanban proof at wide/narrow widths, start/mid/max horizontal positions, Light/Dark themes, touch, and console cleanliness remains deferred. No unsupported host E2E claim is made; static fixture, automated, build, and package evidence are the residual validation boundary.
+
 ## Table Column Presentation Follow-up — 2026-07-26
 
 The user approved a Table-only configuration follow-up. Kanban remains unchanged and its separately observed visual-header-height concern is deferred.

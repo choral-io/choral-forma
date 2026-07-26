@@ -1,4 +1,4 @@
-type StickyAdapter = (remeasure: boolean) => void;
+type StickyAdapter = (remeasure: boolean) => number | undefined;
 
 type StickyController = { destroy(): void; measure(): void };
 
@@ -39,6 +39,51 @@ const tableHeaderPresentationProperties = [
     "padding-right",
     "padding-bottom",
     "padding-left",
+    "text-align",
+    "text-decoration-color",
+    "text-decoration-line",
+    "text-decoration-style",
+    "text-transform",
+    "vertical-align",
+    "white-space",
+    "word-break",
+] as const;
+
+const kanbanHeaderPresentationProperties = [
+    "background-color",
+    "background-image",
+    "border-top-color",
+    "border-top-style",
+    "border-top-width",
+    "border-right-color",
+    "border-right-style",
+    "border-right-width",
+    "border-bottom-color",
+    "border-bottom-style",
+    "border-bottom-width",
+    "border-left-color",
+    "border-left-style",
+    "border-left-width",
+    "color",
+    "font-family",
+    "font-size",
+    "font-stretch",
+    "font-style",
+    "font-variant",
+    "font-weight",
+    "letter-spacing",
+    "line-height",
+    "margin-block-end",
+    "margin-block-start",
+    "margin-bottom",
+    "margin-left",
+    "margin-right",
+    "margin-top",
+    "overflow-wrap",
+    "padding-bottom",
+    "padding-left",
+    "padding-right",
+    "padding-top",
     "text-align",
     "text-decoration-color",
     "text-decoration-line",
@@ -114,12 +159,11 @@ export function createPreviewStickyBoundaryController(
             if (destroyed) return;
             const shouldRemeasure = remeasurePending;
             remeasurePending = false;
-            sync(shouldRemeasure);
+            const syncedHeight = sync(shouldRemeasure);
             const sourceRect = source.getBoundingClientRect();
             const boundaryRect = boundary.getBoundingClientRect();
             const measuredRailHeight = rail.getBoundingClientRect().height;
-            const stickyHeight =
-                shouldRemeasure && sourceHeight > 0 ? sourceHeight : measuredRailHeight || sourceHeight;
+            const stickyHeight = shouldRemeasure ? (syncedHeight ?? sourceHeight) : sourceHeight || measuredRailHeight;
             const visible = shouldShowStickyRail(sourceRect.top, boundaryRect.bottom, stickyHeight);
             rail.classList.toggle("is-visible", visible);
             rail.style.setProperty("--forma-sticky-height", `${String(stickyHeight)}px`);
@@ -187,20 +231,45 @@ function createKanbanStickyAdapter(
     owner: HTMLElement,
 ): StickyAdapter | undefined {
     const cells = [...boundary.querySelectorAll<HTMLElement>(".kanban-column")];
+    const sourceHeadings = cells
+        .map((cell) => cell.querySelector<HTMLElement>("h2"))
+        .filter((heading): heading is HTMLElement => Boolean(heading));
     const visualTrack = rail.querySelector<HTMLElement>(".forma-kanban-sticky-track");
     const visualCells = [...rail.querySelectorAll<HTMLElement>(".forma-kanban-sticky-cell")];
-    if (!visualTrack) return undefined;
+    const visualHeadings = visualCells
+        .map((cell) => cell.querySelector<HTMLElement>("h2"))
+        .filter((heading): heading is HTMLElement => Boolean(heading));
+    if (!visualTrack || sourceHeadings.length !== cells.length || visualHeadings.length !== cells.length) {
+        return undefined;
+    }
     return (remeasure) => {
         visualTrack.style.transform = horizontalScrollTransform(owner.scrollLeft);
-        if (!remeasure) return;
+        if (!remeasure) return undefined;
         cells.forEach((cell, index) => {
             const visualCell = visualCells[index];
-            if (visualCell) visualCell.style.width = `${String(cell.getBoundingClientRect().width)}px`;
+            const visualHeading = visualHeadings[index];
+            const sourceHeading = sourceHeadings[index];
+            if (!visualCell || !visualHeading || !sourceHeading) return;
+            visualCell.style.width = `${String(cell.getBoundingClientRect().width)}px`;
+            copyComputedProperties(sourceHeading, visualHeading, kanbanHeaderPresentationProperties);
         });
         const first = cells[0];
         const second = cells[1];
         const gap = first && second ? second.getBoundingClientRect().left - first.getBoundingClientRect().right : 0;
         visualTrack.style.gap = `${String(Math.max(0, gap))}px`;
+        const heights = visualCells.map((cell, index) => {
+            const measuredHeight = cell.getBoundingClientRect().height;
+            if (measuredHeight > 0) return measuredHeight;
+            const sourceHeading = sourceHeadings[index];
+            if (!sourceHeading) return 0;
+            const styles = getComputedStyle(sourceHeading);
+            return (
+                sourceHeading.getBoundingClientRect().height +
+                Number.parseFloat(styles.marginTop || "0") +
+                Number.parseFloat(styles.marginBottom || "0")
+            );
+        });
+        return Math.max(0, ...heights);
     };
 }
 
