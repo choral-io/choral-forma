@@ -1,0 +1,330 @@
+// @vitest-environment jsdom
+
+import { describe, expect, it, vi } from "vitest";
+
+import {
+    createPreviewStickyBoundaryController,
+    horizontalScrollTransform,
+    observePreviewThemeChanges,
+    shouldShowStickyRail,
+    startStickyPreview,
+    stopStickyPreview,
+    syncTableHeaderPresentationStyles,
+} from "./sticky-preview.ts";
+
+describe("native preview sticky rail lifecycle", () => {
+    it("reveals at the source header crossing and hides after the live source exits", () => {
+        expect(shouldShowStickyRail(-0.5, 900, 48)).toBe(true);
+        expect(shouldShowStickyRail(0.5, 900, 48)).toBe(false);
+        expect(shouldShowStickyRail(-50, 900, 48)).toBe(true);
+        expect(shouldShowStickyRail(-0.5, 47, 48)).toBe(false);
+    });
+
+    it("uses one-way local horizontal scroll transforms", () => {
+        expect(horizontalScrollTransform(0)).toBe("translateX(0px)");
+        expect(horizontalScrollTransform(240)).toBe("translateX(-240px)");
+    });
+
+    it("mirrors table header presentation styles without copying layout controls", () => {
+        const sourceTable = document.createElement("table");
+        const sourceHead = document.createElement("thead");
+        const sourceRow = document.createElement("tr");
+        const sourceCell = document.createElement("th");
+        sourceTable.style.borderCollapse = "separate";
+        sourceCell.style.cssText = [
+            "border-bottom: 2px dashed rgb(12, 34, 56)",
+            "background-color: rgb(21, 22, 23)",
+            "color: rgb(230, 231, 232)",
+            "font-family: serif",
+            "font-size: 18px",
+            "font-weight: 600",
+            "line-height: 27px",
+            "padding: 7px 11px",
+            "white-space: normal",
+            "overflow-wrap: anywhere",
+            "word-break: break-word",
+            "text-align: right",
+            "vertical-align: middle",
+            "position: fixed",
+            "width: 999px",
+            "overflow: hidden",
+            "transform: translateX(90px)",
+        ].join(";");
+        sourceRow.append(sourceCell);
+        sourceHead.append(sourceRow);
+        sourceTable.append(sourceHead);
+
+        const visualTable = document.createElement("table");
+        const visualTrack = document.createElement("div");
+        const visualHead = document.createElement("thead");
+        const visualRow = document.createElement("tr");
+        const visualCell = document.createElement("th");
+        visualTable.style.tableLayout = "fixed";
+        visualTable.style.width = "420px";
+        visualTable.style.transform = "translateX(-120px)";
+        visualTrack.style.borderTop = "1px solid rgb(1, 2, 3)";
+        visualTrack.style.borderBottom = "1px solid rgb(4, 5, 6)";
+        visualTrack.style.overflow = "clip";
+        visualCell.style.position = "static";
+        visualCell.style.width = "180px";
+        visualCell.style.overflow = "visible";
+        visualRow.append(visualCell);
+        visualHead.append(visualRow);
+        visualTable.append(visualHead);
+
+        syncTableHeaderPresentationStyles(sourceTable, sourceHead, visualTable, visualHead, visualTrack);
+
+        expect(visualTable.style.borderCollapse).toBe("separate");
+        expect(visualTable.style.tableLayout).toBe("fixed");
+        expect(visualTable.style.width).toBe("420px");
+        expect(visualTable.style.transform).toBe("translateX(-120px)");
+        expect(visualCell.style.borderBottomStyle).toBe("dashed");
+        expect(visualCell.style.borderBottomWidth).toBe("2px");
+        expect(visualCell.style.borderBottomColor).toBe("rgb(12, 34, 56)");
+        expect(visualTrack.style.borderBottomStyle).toBe("dashed");
+        expect(visualTrack.style.borderBottomWidth).toBe("2px");
+        expect(visualTrack.style.borderBottomColor).toBe("rgb(12, 34, 56)");
+        expect(visualTrack.style.borderTopColor).toBe("rgb(1, 2, 3)");
+        expect(visualTrack.style.overflow).toBe("clip");
+        expect(visualCell.style.backgroundColor).toBe("rgb(21, 22, 23)");
+        expect(visualCell.style.color).toBe("rgb(230, 231, 232)");
+        expect(visualCell.style.fontSize).toBe("18px");
+        expect(visualCell.style.lineHeight).toBe("27px");
+        expect(visualCell.style.paddingTop).toBe("7px");
+        expect(visualCell.style.paddingRight).toBe("11px");
+        expect(visualCell.style.whiteSpace).toBe("normal");
+        expect(visualCell.style.overflowWrap).toBe("anywhere");
+        expect(visualCell.style.wordBreak).toBe("break-word");
+        expect(visualCell.style.textAlign).toBe("right");
+        expect(visualCell.style.verticalAlign).toBe("middle");
+        expect(visualCell.style.position).toBe("static");
+        expect(visualCell.style.width).toBe("180px");
+        expect(visualCell.style.overflow).toBe("visible");
+        expect(visualCell.style.transform).toBe("");
+    });
+
+    it("requests presentation resynchronization when host theme attributes change", async () => {
+        const resync = vi.fn();
+        const observer = observePreviewThemeChanges(resync);
+
+        document.body.classList.add("vscode-light");
+        await vi.waitFor(() => {
+            expect(resync).toHaveBeenCalledTimes(1);
+        });
+
+        document.documentElement.style.setProperty("--vscode-editor-background", "rgb(250, 250, 250)");
+        await vi.waitFor(() => {
+            expect(resync).toHaveBeenCalledTimes(2);
+        });
+
+        observer.disconnect();
+    });
+
+    it("owns one reusable observer and event-listener lifecycle", () => {
+        let resizeObserverInstances = 0;
+        let resizeObserverDisconnects = 0;
+        class FakeResizeObserver {
+            constructor() {
+                resizeObserverInstances += 1;
+            }
+
+            observe(): void {
+                return undefined;
+            }
+
+            unobserve(): void {
+                return undefined;
+            }
+
+            disconnect(): void {
+                resizeObserverDisconnects += 1;
+            }
+        }
+        vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+        const addWindowListener = vi.spyOn(window, "addEventListener");
+        const removeWindowListener = vi.spyOn(window, "removeEventListener");
+
+        startStickyPreview();
+        startStickyPreview();
+
+        expect(resizeObserverInstances).toBe(1);
+        expect(addWindowListener.mock.calls.filter(([type]) => type === "pagehide")).toHaveLength(1);
+
+        stopStickyPreview();
+
+        expect(resizeObserverDisconnects).toBe(1);
+        expect(removeWindowListener).toHaveBeenCalledWith("pagehide", stopStickyPreview);
+
+        startStickyPreview();
+        expect(resizeObserverInstances).toBe(2);
+        stopStickyPreview();
+        vi.unstubAllGlobals();
+    });
+
+    it("uses current wrapped header height after preview resize invalidation", () => {
+        const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+            callback(0);
+            return 0;
+        });
+        const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+        let resizeObserver: { observed: Set<Element>; trigger(): void } | undefined;
+        class FakeResizeObserver {
+            readonly observed = new Set<Element>();
+
+            constructor(private readonly callback: ResizeObserverCallback) {
+                resizeObserver = {
+                    observed: this.observed,
+                    trigger: () => {
+                        this.trigger();
+                    },
+                };
+            }
+
+            observe(target: Element): void {
+                this.observed.add(target);
+            }
+
+            unobserve(target: Element): void {
+                this.observed.delete(target);
+            }
+
+            disconnect(): void {
+                this.observed.clear();
+            }
+
+            trigger(): void {
+                this.callback([], this);
+            }
+        }
+        vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+        document.body.innerHTML =
+            '<div data-forma-sticky-boundary data-forma-sticky-kind="table">' +
+            '<div data-forma-sticky-rail><div class="forma-sticky-rail-track">' +
+            "<table><thead><tr><th>Wrapped heading</th></tr></thead></table>" +
+            "</div></div>" +
+            "<div data-forma-sticky-owner><table data-forma-sticky-source>" +
+            "<thead><tr><th>Wrapped heading</th></tr></thead><tbody><tr><td>Value</td></tr></tbody>" +
+            "</table></div></div>";
+        const boundary = document.querySelector<HTMLElement>("[data-forma-sticky-boundary]");
+        const sourceTable = document.querySelector<HTMLElement>("[data-forma-sticky-source]");
+        const sourceHead = sourceTable?.querySelector<HTMLElement>("thead");
+        const sourceCell = sourceHead?.querySelector<HTMLElement>("th");
+        const rail = document.querySelector<HTMLElement>("[data-forma-sticky-rail]");
+        if (!boundary || !sourceTable || !sourceHead || !sourceCell || !rail) {
+            throw new Error("Sticky resize fixture is incomplete.");
+        }
+        let sourceHeight = 32;
+        let boundaryBottom = 160;
+        Object.defineProperty(sourceHead, "getBoundingClientRect", {
+            value: () => ({ top: -12, bottom: -12 + sourceHeight, width: 280, height: sourceHeight }),
+        });
+        Object.defineProperty(sourceTable, "getBoundingClientRect", {
+            value: () => ({ top: -12, bottom: 400, width: 420, height: 412 }),
+        });
+        Object.defineProperty(sourceCell, "getBoundingClientRect", {
+            value: () => ({ top: -12, bottom: -12 + sourceHeight, width: 280, height: sourceHeight }),
+        });
+        Object.defineProperty(boundary, "getBoundingClientRect", {
+            value: () => ({ top: -12, bottom: boundaryBottom, width: 420, height: boundaryBottom + 12 }),
+        });
+        Object.defineProperty(rail, "getBoundingClientRect", {
+            value: () => {
+                const railHeight = Number.parseFloat(rail.style.getPropertyValue("--forma-sticky-height")) || 0;
+                return { top: 0, bottom: railHeight, width: 420, height: railHeight };
+            },
+        });
+
+        try {
+            startStickyPreview();
+            expect(resizeObserver?.observed.has(sourceHead)).toBe(true);
+            expect(resizeObserver?.observed.has(boundary)).toBe(true);
+            expect(rail.classList.contains("is-visible")).toBe(true);
+            expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("32px");
+
+            sourceHeight = 64;
+            resizeObserver?.trigger();
+            expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("64px");
+
+            boundaryBottom = 63;
+            resizeObserver?.trigger();
+            expect(rail.classList.contains("is-visible")).toBe(false);
+
+            boundaryBottom = 65;
+            resizeObserver?.trigger();
+            expect(rail.classList.contains("is-visible")).toBe(true);
+
+            sourceHeight = 32;
+            boundaryBottom = 33;
+            resizeObserver?.trigger();
+            expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("32px");
+            expect(rail.classList.contains("is-visible")).toBe(true);
+        } finally {
+            stopStickyPreview();
+            document.body.replaceChildren();
+            vi.unstubAllGlobals();
+            frame.mockRestore();
+            cancel.mockRestore();
+        }
+    });
+
+    it("recalculates on descendant document scroll and removes the listener on cleanup", () => {
+        const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+            callback(0);
+            return 0;
+        });
+        const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+        const boundary = document.createElement("div");
+        const source = document.createElement("thead");
+        const rail = document.createElement("div");
+        const owner = document.createElement("div");
+        const descendant = document.createElement("div");
+        const observe = vi.fn();
+        const unobserve = vi.fn();
+        const resizeObserver = { observe, unobserve } as unknown as ResizeObserver;
+        let sourceTop = 12;
+        let syncCount = 0;
+        Object.defineProperty(source, "getBoundingClientRect", {
+            value: () => ({ top: sourceTop, bottom: sourceTop + 48, height: 48 }),
+        });
+        Object.defineProperty(boundary, "getBoundingClientRect", {
+            value: () => ({ top: 0, bottom: 900, height: 900 }),
+        });
+        Object.defineProperty(rail, "getBoundingClientRect", {
+            value: () => ({ top: 0, bottom: 48, height: 48 }),
+        });
+        boundary.append(rail, owner);
+        owner.append(descendant);
+        document.body.append(boundary);
+        const controller = createPreviewStickyBoundaryController(
+            boundary,
+            source,
+            rail,
+            owner,
+            () => {
+                syncCount += 1;
+            },
+            resizeObserver,
+        );
+
+        expect(rail.classList.contains("is-visible")).toBe(false);
+        expect(observe).toHaveBeenCalledWith(source);
+        expect(observe).toHaveBeenCalledWith(boundary);
+        const beforeScroll = syncCount;
+        sourceTop = -12;
+        descendant.dispatchEvent(new Event("scroll", { bubbles: true }));
+        expect(syncCount).toBeGreaterThan(beforeScroll);
+        expect(rail.classList.contains("is-visible")).toBe(true);
+
+        controller.destroy();
+        const afterDestroy = syncCount;
+        sourceTop = 12;
+        descendant.dispatchEvent(new Event("scroll", { bubbles: true }));
+        expect(syncCount).toBe(afterDestroy);
+        expect(unobserve).toHaveBeenCalledWith(source);
+        expect(unobserve).toHaveBeenCalledWith(boundary);
+        expect(cancel).toHaveBeenCalled();
+        frame.mockRestore();
+        cancel.mockRestore();
+        boundary.remove();
+    });
+});

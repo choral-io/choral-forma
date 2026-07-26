@@ -148,10 +148,18 @@ describe("view projection rendering", () => {
         } satisfies ViewRenderResult;
 
         expect(renderViewProjectionHtml(table)).toContain("Delivery status");
+        const tableHtml = renderViewProjectionHtml(table);
+        expect(tableHtml).toContain('data-forma-sticky-kind="table"');
+        expect(tableHtml).toContain("data-forma-sticky-owner");
+        expect(tableHtml).toContain("data-forma-sticky-source");
+        expect(tableHtml).toContain('aria-hidden="true"');
         const kanbanHtml = renderViewProjectionHtml(kanban, { locale: "en-US", timeZone: "UTC" });
         expect(kanbanHtml).toContain("Doing");
         expect(kanbanHtml.match(/class="kanban-column"/g)).toHaveLength(3);
         expect(kanbanHtml).toContain('aria-label="Kanban board"');
+        expect(kanbanHtml).toContain('data-forma-sticky-kind="kanban"');
+        expect(kanbanHtml).toContain("data-forma-sticky-owner");
+        expect(kanbanHtml).toContain('aria-hidden="true"');
         const kanbanHref = /href="([^"]+)" data-href="[^"]+" data-open-source="tasks\/one\.md"/u.exec(kanbanHtml)?.[1];
         expect(kanbanHref).toBeDefined();
         expect(new URL(kanbanHref ?? "", "file:///workspace/.forma/views/board.md").pathname).toBe(

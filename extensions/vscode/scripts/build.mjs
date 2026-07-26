@@ -14,7 +14,7 @@ const extensionOptions = {
 
 const previewOptions = {
     bundle: true,
-    entryPoints: ["src/graph-preview.ts"],
+    entryPoints: ["src/preview-entry.ts"],
     format: "iife",
     minify: process.argv.includes("--production"),
     outfile: "dist/markdown-preview.js",

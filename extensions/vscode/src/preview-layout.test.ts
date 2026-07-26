@@ -42,4 +42,25 @@ describe("view preview layout contract", () => {
         expect(cells).toContain("overflow-wrap: anywhere");
         expect(cells).toContain("word-break: break-word");
     });
+
+    it("keeps sticky presentation rails outside overflow owners and theme-tokenized", () => {
+        const rail = rule(".forma-sticky-rail {");
+        const track = rule(".forma-sticky-rail-track {");
+        expect(rail).toContain("position: sticky");
+        expect(rail).toContain("pointer-events: none");
+        expect(track).toContain("overflow: clip");
+        expect(track).toContain("border: 1px solid var(--forma-border)");
+        expect(track).toContain("background: var(--vscode-editor-background)");
+        expect(track).toContain("border-radius: 0");
+        expect(track).toContain("box-shadow: 0 2px 8px var(--vscode-widget-shadow)");
+        expect(track).not.toContain("rgb(");
+    });
+
+    it("lets visual Table headers retain the semantic header wrapping contract", () => {
+        const visualCells = rule(".forma-sticky-rail th {");
+        const viewCells = rule(".forma-view th,\n.forma-view td {");
+        expect(visualCells).not.toContain("white-space: nowrap");
+        expect(viewCells).toContain("overflow-wrap: anywhere");
+        expect(css).not.toMatch(/\.forma-table-sticky-rail[^{]*\{[^}]*white-space:\s*nowrap/u);
+    });
 });

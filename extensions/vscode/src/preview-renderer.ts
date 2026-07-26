@@ -63,7 +63,8 @@ function renderTable(render: TableRenderOutput, sourcePath: string, options: Vie
             return `<tr>${cells}</tr>`;
         })
         .join("");
-    return `<div class="table-wrap"><table><thead><tr>${headings}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    const visualHeadings = render.columns.map((column) => `<th scope="col">${escapeHtml(column.label)}</th>`).join("");
+    return `<div class="forma-sticky-boundary forma-table-boundary" data-forma-sticky-boundary data-forma-sticky-kind="table"><div class="forma-sticky-rail forma-table-sticky-rail" data-forma-sticky-rail aria-hidden="true"><div class="forma-sticky-rail-track"><table aria-hidden="true"><thead><tr>${visualHeadings}</tr></thead></table></div></div><div class="table-wrap" data-forma-sticky-owner><table data-forma-sticky-source><thead><tr>${headings}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 function renderKanban(render: KanbanRenderOutput, sourcePath: string, options: ViewRenderOptions): string {
@@ -77,7 +78,13 @@ function renderKanban(render: KanbanRenderOutput, sourcePath: string, options: V
             return `<section class="kanban-column"><h2>${icon}${escapeHtml(column.label)} <span class="count">${String(column.items.length)}</span></h2>${items}</section>`;
         })
         .join("");
-    return `<div class="kanban" role="region" aria-label="Kanban board">${columns}</div>`;
+    const visualColumns = render.columns
+        .map(
+            (column) =>
+                `<div class="forma-kanban-sticky-cell"><h2 aria-hidden="true">${column.icon ? `<span aria-hidden="true">${escapeHtml(column.icon)}</span> ` : ""}${escapeHtml(column.label)} <span class="count">${String(column.items.length)}</span></h2></div>`,
+        )
+        .join("");
+    return `<div class="forma-sticky-boundary forma-kanban-boundary" data-forma-sticky-boundary data-forma-sticky-kind="kanban"><div class="forma-sticky-rail forma-kanban-sticky-rail" data-forma-sticky-rail aria-hidden="true"><div class="forma-sticky-rail-track"><div class="forma-kanban-sticky-track">${visualColumns}</div></div></div><div class="kanban" role="region" aria-label="Kanban board" data-forma-sticky-owner>${columns}</div></div>`;
 }
 
 function renderKanbanCard(

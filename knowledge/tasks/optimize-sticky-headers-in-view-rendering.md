@@ -49,7 +49,7 @@ Keep the structural context of long configured Views visible while users scroll,
 
 Status: `doing` as of 2026-07-26.
 
-The WebApp Table and Kanban slices are complete with the recorded production-browser, accessibility, focused-test, and project-gate evidence. The task remains open only for the separately gated VS Code native-preview evaluation; it must either produce host-native validation evidence or record a bounded host limitation and follow-up.
+The WebApp Table and Kanban slices are complete with the recorded production-browser, accessibility, focused-test, and project-gate evidence. The VS Code native-preview implementation and Table host gate are also complete. The user explicitly deferred the final VS Code Kanban host-validation pass, so the task remains open for that bounded gate rather than claiming full native-preview completion.
 
 ## Context
 
@@ -503,6 +503,33 @@ SPA navigation removed the active rail completely and remounted exactly one rail
 - the existing production chunk-size advisory remained unchanged.
 
 The Kanban slice is complete. The overall task remains open only for the separately gated VS Code native-preview evaluation; this result does not claim or implement VS Code parity.
+
+## VS Code Native Preview Implementation — 2026-07-26
+
+The maintainer approved the host-local seam. The extension now renders a presentation-only rail outside each projection's horizontal overflow owner while retaining the real semantic source headers as authority:
+
+- Table keeps its real `<table>`, `<thead>`, and `<th>` and adds a square `aria-hidden` rail with live cell-width/table-width measurement and one-way local `scrollLeft` translation.
+- Kanban keeps each real column `<h2>` and adds a square `aria-hidden` rail with live column-width/gap measurement and one-way board `scrollLeft` translation.
+- A feature-local preview lifecycle module owns reveal at the measured source-header crossing, projection-boundary hiding, RAF-coalesced scroll work, `ResizeObserver` invalidation, mutation/remount reconciliation, and cleanup. It is not shared with the WebApp controller and adds no dependency.
+- Rail surfaces use VS Code semantic variables for border, background, foreground, and shadow; rails are pointer-inert and contain no focusable descendants or copied ids.
+
+The native sticky lifecycle suite passes seven focused tests. The complete VS Code package suite passes 25 files / 156 tests plus 13 packaging tests; type-check, lint, production build, and VSIX packaging pass. The packaged extension is `choral-io.forma@0.1.23`; the final VSIX SHA-256 is `05319845c3ba25b7e8935848c5e7170916637e0c72cad69fd2a51bf0ef56e5da`, and its `dist/markdown-preview.js` SHA-256 is `b884cedfab96d2ec8f03270dc58db76d786d4f847f4df87574d82d6e14f92161`.
+
+### Packaged native-host Table evidence
+
+The exact packaged VSIX was installed into one isolated trusted profile under `/private/tmp`, loaded by a disposable VS Code app, and measured through that host's loopback-only CDP endpoint. The accepted two-column Table fixture retained the real semantic header and stable presentation:
+
+- in the normal two-pane layout, the source header and active visual rail both measured `77.6953125 px`; every cell left, width, and height delta was zero;
+- while the same rail remained active, a narrow multi-group layout measured source and rail at `279.28125 px`, then returning to the two-pane layout remeasured both to `77.6953125 px`, demonstrating live wrap/resize tracking without a fixed height model;
+- the source separator and visual track both computed to `1px solid rgba(255, 255, 255, 0.69)`;
+- the visual rail remained `aria-hidden`, `pointer-events: none`, and contained zero focusable descendants; the two real `<th>` elements remained authoritative; and
+- root horizontal overflow remained zero and the host runtime reported no exceptions.
+
+A temporary 32-column stress fixture was rejected because it made the preview visually unusable by forcing labels into extremely narrow cells; it changed no product CSS or renderer code. The stable two-column fixture was restored, and horizontal overflow was proved separately with a clean disposable 16-column View using short labels and the shipped `.table-wrap { overflow-x: auto }` contract. Its owner measured `188 / 483 px` client/scroll width. With the rail active at local `scrollLeft` start, midpoint, and maximum (`0 / 147.5 / 295 px`), the visual transform was `0 / -147.5 / -295 px` and all 16 cell left, width, and height deltas were zero. Root overflow remained zero throughout.
+
+Ordinary native Markdown was measured separately rather than inferred from Forma Views. A deliberately too-wide ordinary table rendered at `4819 px` inside a `292 px` Markdown body with no local `overflow-x: auto` owner; the native page root owned `4474 px` of horizontal overflow. Forma added no sticky boundary or scroller to that ordinary page. This preserves native behavior and excludes ordinary Markdown horizontal synchronization from this configured-View acceptance claim.
+
+All task-owned disposable VS Code processes were closed after the packaged-host proof. The implementation is ready for a scoped linear commit. The user deferred Kanban host validation, so this section records only automated Kanban coverage and does not claim a fresh Kanban native-host acceptance pass.
 
 ## Acceptance Criteria
 

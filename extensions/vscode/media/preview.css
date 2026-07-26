@@ -17,6 +17,41 @@
 .forma-view *::after {
     box-sizing: border-box;
 }
+.forma-sticky-boundary {
+    position: relative;
+}
+.forma-sticky-rail {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 3;
+    height: var(--forma-sticky-height, 0px);
+    margin-block-end: calc(-1 * var(--forma-sticky-height, 0px));
+    visibility: hidden;
+    pointer-events: none;
+}
+.forma-sticky-rail.is-visible {
+    visibility: visible;
+}
+.forma-sticky-rail-track {
+    width: 100%;
+    height: 100%;
+    overflow: clip;
+    border: 1px solid var(--forma-border);
+    border-radius: 0;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+    box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+}
+.forma-sticky-rail table {
+    margin: 0;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.forma-sticky-rail th {
+    border: 0;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+}
 .forma-view .source-link {
     color: var(--vscode-textLink-foreground);
     overflow-wrap: anywhere;
@@ -73,6 +108,24 @@
     overflow-x: auto;
     overscroll-behavior-inline: contain;
     padding-block: 0.25rem 1rem;
+}
+.forma-kanban-sticky-track {
+    display: flex;
+    width: max-content;
+    min-width: 100%;
+    transform: translateX(0);
+}
+.forma-kanban-sticky-cell {
+    flex: 0 0 auto;
+    min-width: var(--forma-kanban-column-min);
+    max-width: var(--forma-kanban-column-max);
+    padding: 0.65rem;
+    border-inline: 1px solid var(--forma-border);
+    background: var(--vscode-editor-background);
+}
+.forma-kanban-sticky-cell h2 {
+    margin: 0;
+    font-size: 1rem;
 }
 .forma-view .kanban-column {
     flex: 1 0 var(--forma-kanban-column-min);
