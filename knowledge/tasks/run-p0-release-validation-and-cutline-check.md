@@ -21,8 +21,7 @@ status: done
 readiness: ready
 sprint:
 
-blockedBy:
-    - "tasks/audit-p0-release-scope-and-roadmap"
+blockedBy: []
 relatedTo:
     - "tasks/implement-ci-release-baseline"
     - "tasks/fix-mvp-validation-cli-issues"
@@ -33,9 +32,11 @@ affectedArea: P0 release validation and cutline
 
 # Run P0 Release Validation And Cutline Check
 
+> Historical completion record. This task records fixed P0 candidates from June 2026 and is not current release guidance. Use [[guidelines/release-execution-and-verification]] and the current release record for a new release.
+
 ## Goal
 
-Validate the current P0 release cutline and record whether Choral Forma is ready to cut or publish a P0 release artifact.
+Validate the P0 release cutline at that milestone and record whether Choral Forma was ready to cut or publish a P0 release artifact.
 
 ## Sources
 
@@ -49,7 +50,7 @@ Validate the current P0 release cutline and record whether Choral Forma is ready
 
 ## Context
 
-The P0 feature baseline is complete enough to stop adding product surface area. The next release-risk reducer is a current-HEAD validation pass that ties existing focused evidence to an explicit release cutline.
+At that time, the P0 feature baseline was complete enough to stop adding product surface area. The next release-risk reducer was a current-HEAD validation pass that tied existing focused evidence to an explicit release cutline.
 
 ## In Scope
 

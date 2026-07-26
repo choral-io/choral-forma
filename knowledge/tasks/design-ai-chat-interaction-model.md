@@ -23,12 +23,9 @@ readiness: needs-refinement
 sprint:
 
 blockedBy:
-    - "tasks/implement-webapp-v2-dashboard-shell"
     - "tasks/design-reviewable-operation-proposal-flow"
 relatedTo:
     - "decisions/editor-extension-primary-product-surface"
-    - "decisions/webapp-primary-gui-client"
-    - "planning/webapp-primary-gui-roadmap"
     - "concepts/agent-assisted-knowledge-maintenance"
 
 reportedBy:
@@ -43,14 +40,13 @@ Design the WebApp AI Chat model for explaining, navigating, diagnosing, and prop
 
 ## Sources
 
-- [[decisions/webapp-primary-gui-client]]
-- [[planning/webapp-primary-gui-roadmap]]
+- [[decisions/editor-extension-primary-product-surface]]
 - [[concepts/agent-assisted-knowledge-maintenance]]
 - [[tasks/design-reviewable-operation-proposal-flow]]
 
 ## Context
 
-AI Chat is a natural fit for the primary WebApp GUI because it can see workspace state, diagnostics, references, views, and user-selected context. It also creates safety risk if suggestions are treated as direct writes. The first model should define Chat modes and boundaries before implementation.
+AI Chat could eventually explain workspace state, diagnostics, references, views, and user-selected context. It also creates safety risk if suggestions are treated as direct writes. The first model should define Chat modes and boundaries before implementation, but it remains deferred while editor extensions are the primary product surface.
 
 ## In Scope
 

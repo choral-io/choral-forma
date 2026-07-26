@@ -21,8 +21,7 @@ status: backlog
 readiness: needs-refinement
 sprint:
 
-blockedBy:
-    - "tasks/implement-reference-navigation-baseline"
+blockedBy: []
 relatedTo:
     - "planning/public-read-only-release-roadmap"
     - "tasks/implement-read-only-webapp"
@@ -53,6 +52,8 @@ Decide and implement the shared search capability behind Quick Open when it need
 Search is useful for efficiency, but it is not the first priority for a read-only bidirectional note application. The primary P1 loop should first make links, backlinks, graph data, and workspace health usable. Once that loop is in place, a lightweight quick switcher can make entry opening faster without introducing a full search subsystem.
 
 The current WebApp already has a Quick Open dialog in the sidebar. That implementation searches route, space, document, and view candidates already loaded in the dashboard read model. This is useful as a navigation affordance, but it is not a shared search operation and should not be described as full-text search.
+
+The original reference-navigation prerequisite is complete. The remaining readiness question is product scope: whether a shared `search.entries` operation is justified beyond the existing dashboard-local navigation affordance.
 
 For the first public release, Quick Open can remain dashboard-local if it is positioned only as route and entry navigation. If it becomes a public search feature, this task should introduce the shared `search.entries` operation.
 

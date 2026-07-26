@@ -23,15 +23,12 @@ readiness: needs-refinement
 sprint:
 
 blockedBy:
-    - "tasks/implement-webapp-v2-dashboard-shell"
     - "tasks/design-reviewable-forma-write-operations"
 relatedTo:
     - "decisions/editor-extension-primary-product-surface"
     - "tasks/design-reviewable-forma-write-operations"
     - "tasks/design-reviewable-knowledge-change-proposals"
     - "tasks/design-metadata-edit-deprecate-operations"
-    - "decisions/webapp-primary-gui-client"
-    - "planning/webapp-primary-gui-roadmap"
 
 reportedBy:
 affectedArea: Reviewable WebApp operations
@@ -47,15 +44,14 @@ This WebApp-specific interaction design is deferred while editor extensions are 
 
 ## Sources
 
-- [[decisions/webapp-primary-gui-client]]
-- [[planning/webapp-primary-gui-roadmap]]
+- [[decisions/editor-extension-primary-product-surface]]
 - [[tasks/design-reviewable-knowledge-change-proposals]]
 - [[tasks/design-metadata-edit-deprecate-operations]]
 - [[architecture/forma-p0-operation-api-spec]]
 
 ## Context
 
-The WebApp is becoming the primary GUI client, but repository Markdown remains the source of truth. Interactive UI features such as kanban drag-and-drop, predefined buttons, guided maintenance, and AI-suggested edits must not silently rewrite files. The product needs a reviewable operation proposal model before write-adjacent GUI workflows are implemented.
+The completed WebApp baseline remains a maintenance surface, while repository Markdown remains the source of truth. Any future write-adjacent GUI feature, including kanban drag-and-drop, predefined actions, guided maintenance, or AI-suggested edits, must not silently rewrite files. It must specialize a shared reviewable operation model rather than create a WebApp-only write boundary.
 
 ## In Scope
 
@@ -83,7 +79,7 @@ The WebApp is becoming the primary GUI client, but repository Markdown remains t
 
 ## Relationship Notes
 
-This task should be refined after the WebApp V2 dashboard shell establishes the primary GUI structure. It can absorb or coordinate with [[tasks/design-reviewable-knowledge-change-proposals]] when the product model is settled.
+This task remains deferred under [[decisions/editor-extension-primary-product-surface]]. Refine it only if an approved WebApp maintenance requirement needs a write-adjacent flow; it can then absorb or coordinate with [[tasks/design-reviewable-knowledge-change-proposals]] when the product model is settled.
 
 It should also follow [[tasks/design-reviewable-forma-write-operations]], because WebApp proposal states should specialize the shared operation contract rather than define a separate write boundary.
 

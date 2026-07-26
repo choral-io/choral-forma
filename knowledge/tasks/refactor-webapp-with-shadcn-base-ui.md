@@ -18,7 +18,7 @@ tags:
     - design-system
 
 effort: L
-status: backlog
+status: cancelled
 readiness: needs-refinement
 sprint:
 
@@ -36,7 +36,7 @@ affectedArea: WebApp UI foundation
 
 ## Goal
 
-Refactor the Forma WebApp UI foundation in P1 using shadcn/ui and Base UI.
+Historical P1 proposal to refactor the Forma WebApp UI foundation using shadcn/ui and Base UI. This scope is cancelled and is not a current delivery item.
 
 ## Sources
 
@@ -46,9 +46,7 @@ Refactor the Forma WebApp UI foundation in P1 using shadcn/ui and Base UI.
 
 ## Context
 
-The P0 WebApp established a local read-only browser interface for browsing, rendering, inspecting, and diagnosing Forma workspaces. Its current component structure and styling are intentionally lightweight. In P1, the WebApp should move toward a more durable UI foundation suitable for additional navigation, relationship, graph, editing-adjacent, or diagnostic workflows.
-
-The preferred direction is to use shadcn/ui together with Base UI rather than continuing to grow bespoke controls for common UI primitives.
+The P0 WebApp established a local read-only browser interface for browsing, rendering, inspecting, and diagnosing Forma workspaces. The later editor-extension decision moved the WebApp into maintenance mode, so this proposal does not establish a binding component-library direction.
 
 ## In Scope
 
@@ -80,7 +78,7 @@ The preferred direction is to use shadcn/ui together with Base UI rather than co
 
 This task follows the P0 read-only WebApp implementation. It should remain P1 because P0 can continue with the existing custom UI while product behavior and RPC surfaces stabilize.
 
-The WebApp is now in maintenance mode under [[decisions/editor-extension-primary-product-surface]]. This backlog record is retained for historical scope and possible maintenance needs, but it is not an active product-roadmap item. Reusable contracts or renderer code should be extracted only when the editor implementation proves a real shared boundary.
+The WebApp is now in maintenance mode under [[decisions/editor-extension-primary-product-surface]]. This cancelled record is retained for historical scope only. A future maintenance need must start as a focused task with a demonstrated behavior or accessibility gap; reusable contracts or renderer code should be extracted only when the editor implementation proves a real shared boundary.
 
 It may need to be split if dependency setup, component migration, and visual redesign become independently reviewable work streams.
 

@@ -9,7 +9,7 @@ priority: "P2"
 value: "M"
 module: "app"
 effort: "M"
-status: "doing"
+status: "reviewing"
 readiness: "ready"
 owners:
     - "members/tiscs"
@@ -47,9 +47,9 @@ Keep the structural context of long configured Views visible while users scroll,
 
 ## Current Delivery State
 
-Status: `doing` as of 2026-07-26.
+Status: `reviewing` as of 2026-07-26.
 
-The WebApp Table and Kanban slices and the VS Code native-preview Table and Kanban slices are complete with the recorded browser/host, accessibility, focused-test, packaging, and project-gate evidence. The final VS Code Kanban contract uses independent card-like visual cells inside an unpainted positioning rail and has user-approved Dark-theme host evidence. The task remains `doing` only for final branch review, user approval, and merge; touch input and a separate Light-theme packaged-host pass remain explicit residual validation.
+The WebApp Table and Kanban slices and the VS Code native-preview Table and Kanban slices are merged to `main` with recorded browser/host, accessibility, focused-test, packaging, and project-gate evidence. The final VS Code Kanban contract uses independent card-like visual cells inside an unpainted positioning rail and has user-approved Dark-theme host evidence. The task remains in review for touch input and a separate Light-theme packaged-host pass; those remain explicit residual validation rather than completed evidence.
 
 ## Context
 

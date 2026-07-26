@@ -21,8 +21,7 @@ status: cancelled
 readiness: needs-refinement
 sprint:
 
-blockedBy:
-    - "tasks/implement-reference-navigation-baseline"
+blockedBy: []
 relatedTo:
     - "decisions/editor-extension-primary-product-surface"
     - "design/editor-extension-mvp-design"
