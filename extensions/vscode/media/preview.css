@@ -116,9 +116,16 @@
 }
 .forma-kanban-sticky-track {
     display: flex;
+    align-items: flex-start;
     width: max-content;
     min-width: 100%;
     transform: translateX(0);
+}
+.forma-kanban-boundary .forma-sticky-rail-track {
+    border: 0;
+    box-shadow:
+        inset 0 0 0 1px var(--forma-border),
+        0 2px 8px var(--vscode-widget-shadow);
 }
 .forma-kanban-sticky-cell {
     flex: 0 0 auto;

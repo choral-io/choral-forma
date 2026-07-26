@@ -328,17 +328,20 @@ describe("native preview sticky rail lifecycle", () => {
             { top: -8, bottom: 46, height: 54, left: 192, right: 392, width: 200 },
         ];
         const visualRects = [
-            { top: 0, bottom: 40, height: 40, left: 0, right: 180, width: 180 },
-            { top: 0, bottom: 70, height: 70, left: 192, right: 392, width: 200 },
+            { top: 0, bottom: 52, height: 52, left: 0, right: 180, width: 180 },
+            { top: 0, bottom: 86, height: 86, left: 192, right: 392, width: 200 },
         ];
         sourceHeadings.forEach((heading, index) => {
-            heading.style.cssText = "margin: 0 0 10px; padding: 3px 7px; line-height: 24px; overflow-wrap: anywhere;";
+            heading.style.cssText =
+                "margin: 0 0 10px; padding: 3px 7px 8px; border-bottom: 2px solid rgb(120, 120, 120); line-height: 24px; overflow-wrap: anywhere;";
             Object.defineProperty(heading, "getBoundingClientRect", {
                 configurable: true,
                 value: () => sourceRects[index],
             });
         });
         columns.forEach((column, index) => {
+            column.style.cssText =
+                "border: 1px solid rgb(80, 80, 80); border-radius: 4px; background-color: rgb(30, 30, 30); padding: 10px 12px;";
             Object.defineProperty(column, "getBoundingClientRect", {
                 configurable: true,
                 value: () => sourceRects[index],
@@ -354,7 +357,10 @@ describe("native preview sticky rail lifecycle", () => {
             value: () => ({ top: -8, bottom: 200, height: 208 }),
         });
         Object.defineProperty(rail, "getBoundingClientRect", {
-            value: () => ({ top: 0, bottom: 70, height: 70 }),
+            value: () => {
+                const height = Number.parseFloat(rail.style.getPropertyValue("--forma-sticky-height")) || 0;
+                return { top: 0, bottom: height, height };
+            },
         });
 
         try {
@@ -364,13 +370,23 @@ describe("native preview sticky rail lifecycle", () => {
             expect(visualTrack.style.gap).toBe("12px");
             expect(visualHeadings.map((heading) => heading?.style.marginBottom)).toEqual(["10px", "10px"]);
             expect(visualHeadings.map((heading) => heading?.style.lineHeight)).toEqual(["24px", "24px"]);
-            expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("70px");
+            expect(visualHeadings.map((heading) => heading?.style.borderBottomWidth)).toEqual(["2px", "2px"]);
+            expect(visualCells.map((cell) => cell.style.borderRadius)).toEqual(["4px", "4px"]);
+            expect(visualCells.map((cell) => cell.style.backgroundColor)).toEqual([
+                "rgb(30, 30, 30)",
+                "rgb(30, 30, 30)",
+            ]);
+            expect(visualCells.map((cell) => cell.style.paddingLeft)).toEqual(["12px", "12px"]);
+            expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("86px");
             expect(rail.classList.contains("is-visible")).toBe(true);
+
+            document.querySelector<HTMLElement>("[data-forma-sticky-owner]")?.dispatchEvent(new Event("scroll"));
+            expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("86px");
 
             sourceRects[0] = { top: -8, bottom: 42, height: 50, left: 0, right: 180, width: 180 };
             visualRects[0] = { top: 0, bottom: 60, height: 60, left: 0, right: 180, width: 180 };
             resizeObserver?.trigger();
-            expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("70px");
+            expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("86px");
             expect(visualHeadings[0]?.style.paddingLeft).toBe("7px");
         } finally {
             stopStickyPreview();

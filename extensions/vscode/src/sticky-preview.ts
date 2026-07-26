@@ -94,6 +94,34 @@ const kanbanHeaderPresentationProperties = [
     "word-break",
 ] as const;
 
+const kanbanCellPresentationProperties = [
+    "background-color",
+    "background-image",
+    "border-top-color",
+    "border-top-style",
+    "border-top-width",
+    "border-right-color",
+    "border-right-style",
+    "border-right-width",
+    "border-bottom-color",
+    "border-bottom-style",
+    "border-bottom-width",
+    "border-left-color",
+    "border-left-style",
+    "border-left-width",
+    "border-radius",
+    "border-bottom-left-radius",
+    "border-bottom-right-radius",
+    "border-top-left-radius",
+    "border-top-right-radius",
+    "box-shadow",
+    "color",
+    "padding-bottom",
+    "padding-left",
+    "padding-right",
+    "padding-top",
+] as const;
+
 function copyComputedProperties(source: HTMLElement, target: HTMLElement, properties: readonly string[]): void {
     const styles = getComputedStyle(source);
     for (const property of properties) {
@@ -163,7 +191,7 @@ export function createPreviewStickyBoundaryController(
             const sourceRect = source.getBoundingClientRect();
             const boundaryRect = boundary.getBoundingClientRect();
             const measuredRailHeight = rail.getBoundingClientRect().height;
-            const stickyHeight = shouldRemeasure ? (syncedHeight ?? sourceHeight) : sourceHeight || measuredRailHeight;
+            const stickyHeight = shouldRemeasure ? (syncedHeight ?? sourceHeight) : measuredRailHeight || sourceHeight;
             const visible = shouldShowStickyRail(sourceRect.top, boundaryRect.bottom, stickyHeight);
             rail.classList.toggle("is-visible", visible);
             rail.style.setProperty("--forma-sticky-height", `${String(stickyHeight)}px`);
@@ -250,6 +278,8 @@ function createKanbanStickyAdapter(
             const visualHeading = visualHeadings[index];
             const sourceHeading = sourceHeadings[index];
             if (!visualCell || !visualHeading || !sourceHeading) return;
+            visualCell.style.height = "auto";
+            copyComputedProperties(cell, visualCell, kanbanCellPresentationProperties);
             visualCell.style.width = `${String(cell.getBoundingClientRect().width)}px`;
             copyComputedProperties(sourceHeading, visualHeading, kanbanHeaderPresentationProperties);
         });
@@ -258,16 +288,23 @@ function createKanbanStickyAdapter(
         const gap = first && second ? second.getBoundingClientRect().left - first.getBoundingClientRect().right : 0;
         visualTrack.style.gap = `${String(Math.max(0, gap))}px`;
         const heights = visualCells.map((cell, index) => {
+            const heading = visualHeadings[index];
+            if (!heading) return 0;
+            const cellStyles = getComputedStyle(cell);
+            const headingStyles = getComputedStyle(heading);
+            const headingRect = heading.getBoundingClientRect();
             const measuredHeight = cell.getBoundingClientRect().height;
-            if (measuredHeight > 0) return measuredHeight;
-            const sourceHeading = sourceHeadings[index];
-            if (!sourceHeading) return 0;
-            const styles = getComputedStyle(sourceHeading);
-            return (
-                sourceHeading.getBoundingClientRect().height +
-                Number.parseFloat(styles.marginTop || "0") +
-                Number.parseFloat(styles.marginBottom || "0")
-            );
+            const boxModelHeight =
+                headingRect.height +
+                Number.parseFloat(headingStyles.marginTop || "0") +
+                Number.parseFloat(headingStyles.marginBottom || "0") +
+                Number.parseFloat(cellStyles.paddingTop || "0") +
+                Number.parseFloat(cellStyles.paddingBottom || "0") +
+                Number.parseFloat(cellStyles.borderTopWidth || "0") +
+                Number.parseFloat(cellStyles.borderBottomWidth || "0");
+            const height = Math.max(measuredHeight, boxModelHeight);
+            cell.style.height = `${String(height)}px`;
+            return height;
         });
         return Math.max(0, ...heights);
     };

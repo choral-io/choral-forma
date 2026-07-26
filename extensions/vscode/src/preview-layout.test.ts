@@ -56,6 +56,11 @@ describe("view preview layout contract", () => {
         expect(track).not.toContain("rgb(");
     });
 
+    it("keeps Kanban visual cells at their natural per-column heights", () => {
+        const track = rule(".forma-kanban-sticky-track {");
+        expect(track).toContain("align-items: flex-start");
+    });
+
     it("lets visual Table headers retain the semantic header wrapping contract", () => {
         const visualCells = rule(".forma-sticky-rail th {");
         const viewCells = rule(".forma-view th,\n.forma-view td {");
