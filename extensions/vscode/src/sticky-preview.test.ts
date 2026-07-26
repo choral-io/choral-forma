@@ -267,7 +267,7 @@ describe("native preview sticky rail lifecycle", () => {
         }
     });
 
-    it("keeps the Kanban rail aligned with live heading geometry and styles", () => {
+    it("keeps uneven Kanban header cards aligned through resize and content mutation", async () => {
         const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
             callback(0);
             return 0;
@@ -342,7 +342,7 @@ describe("native preview sticky rail lifecycle", () => {
         });
         columns.forEach((column, index) => {
             column.style.cssText =
-                "border: 1px solid rgb(80, 80, 80); border-radius: 4px; background-color: rgb(30, 30, 30); padding: 10px 12px;";
+                "border: 1px solid rgb(80, 80, 80); border-radius: 4px; border-top-left-radius: 4px; border-top-right-radius: 4px; background-color: rgb(30, 30, 30); padding: 10px 12px;";
             Object.defineProperty(column, "getBoundingClientRect", {
                 configurable: true,
                 value: () => sourceRects[index],
@@ -417,17 +417,23 @@ describe("native preview sticky rail lifecycle", () => {
             expect(visualHeadings.map((heading) => heading?.style.lineHeight)).toEqual(["24px", "24px"]);
             expect(visualHeadings.map((heading) => heading?.style.borderBottomWidth)).toEqual(["2px", "2px"]);
             expect(visualCells.map((cell) => cell.style.borderBottomWidth)).toEqual(["0px", "0px"]);
-            expect(visualCells.map((cell) => cell.style.borderLeftWidth)).toEqual(["0px", "0px"]);
-            expect(visualCells.map((cell) => cell.style.borderRightWidth)).toEqual(["0px", "0px"]);
-            expect(visualCells.map((cell) => cell.style.borderRadius)).toEqual(["0px", "0px"]);
+            expect(visualCells.map((cell) => cell.style.borderTopWidth)).toEqual(["1px", "1px"]);
+            expect(visualCells.map((cell) => cell.style.borderLeftWidth)).toEqual(["1px", "1px"]);
+            expect(visualCells.map((cell) => cell.style.borderRightWidth)).toEqual(["1px", "1px"]);
+            expect(visualCells.map((cell) => cell.style.borderTopLeftRadius)).toEqual(["4px", "4px"]);
+            expect(visualCells.map((cell) => cell.style.borderTopRightRadius)).toEqual(["4px", "4px"]);
+            expect(visualCells.map((cell) => cell.style.borderBottomLeftRadius)).toEqual(["0px", "0px"]);
+            expect(visualCells.map((cell) => cell.style.borderBottomRightRadius)).toEqual(["0px", "0px"]);
+            expect(visualCells.map((cell) => cell.style.boxShadow)).toEqual(["none", "none"]);
             expect(visualCells.map((cell) => cell.style.backgroundColor)).toEqual([
                 "rgb(30, 30, 30)",
                 "rgb(30, 30, 30)",
             ]);
-            expect(visualCells.map((cell) => cell.style.paddingTop)).toEqual(["11px", "11px"]);
-            expect(visualCells.map((cell) => cell.style.paddingLeft)).toEqual(["13px", "13px"]);
-            expect(visualCells.map((cell) => cell.style.paddingRight)).toEqual(["13px", "13px"]);
+            expect(visualCells.map((cell) => cell.style.paddingTop)).toEqual(["10px", "10px"]);
+            expect(visualCells.map((cell) => cell.style.paddingLeft)).toEqual(["12px", "12px"]);
+            expect(visualCells.map((cell) => cell.style.paddingRight)).toEqual(["12px", "12px"]);
             expect(visualCells.map((cell) => cell.style.paddingBottom)).toEqual(["0px", "0px"]);
+            expect(visualCells.map((cell) => cell.style.height)).toEqual(["51px", "75px"]);
             expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("75px");
             expect(rail.classList.contains("is-visible")).toBe(true);
 
@@ -437,7 +443,21 @@ describe("native preview sticky rail lifecycle", () => {
             sourceRects[0] = { top: -8, bottom: 42, height: 50, left: 0, right: 180, width: 180 };
             resizeObserver?.trigger();
             expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("75px");
+            expect(visualCells.map((cell) => cell.style.height)).toEqual(["71px", "75px"]);
             expect(visualHeadings[0]?.style.paddingLeft).toBe("7px");
+
+            sourceRects[0] = { top: -8, bottom: 82, height: 90, left: 0, right: 180, width: 180 };
+            const mutatedSourceHeading = sourceHeadings[0];
+            const mutatedVisualHeading = visualHeadings[0];
+            if (!mutatedSourceHeading || !mutatedVisualHeading) {
+                throw new Error("Kanban sticky mutation fixture is incomplete.");
+            }
+            mutatedSourceHeading.textContent = "A much taller live heading";
+            mutatedVisualHeading.textContent = "A much taller live heading";
+            await vi.waitFor(() => {
+                expect(visualCells.map((cell) => cell.style.height)).toEqual(["111px", "75px"]);
+                expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("111px");
+            });
         } finally {
             stopStickyPreview();
             document.body.replaceChildren();

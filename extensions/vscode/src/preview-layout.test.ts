@@ -65,11 +65,11 @@ describe("view preview layout contract", () => {
         expect(cells).toContain("border: 0");
         expect(cells).toContain("border-radius: 0");
         expect(cells).not.toContain("border-inline");
-        expect(railTrack).toContain("inset 1px 0 0 var(--forma-border)");
-        expect(railTrack).toContain("inset -1px 0 0 var(--forma-border)");
-        expect(railTrack).toContain("inset 0 1px 0 var(--forma-border)");
-        expect(railTrack).not.toContain("inset 0 0 0 1px");
-        expect(railTrack).not.toContain("inset 0 -1px");
+        expect(railTrack).toContain("background: transparent");
+        expect(railTrack).toContain("border: 0");
+        expect(railTrack).toContain("box-shadow: none");
+        expect(railTrack).not.toContain("var(--vscode-widget-shadow)");
+        expect(railTrack).not.toContain("inset");
     });
 
     it("lets visual Table headers retain the semantic header wrapping contract", () => {

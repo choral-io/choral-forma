@@ -94,7 +94,20 @@ const kanbanHeaderPresentationProperties = [
     "word-break",
 ] as const;
 
-const kanbanCellSurfacePresentationProperties = ["background-color", "background-image", "color"] as const;
+const kanbanCellSurfacePresentationProperties = [
+    "background-color",
+    "background-image",
+    "border-top-color",
+    "border-top-style",
+    "border-top-width",
+    "border-right-color",
+    "border-right-style",
+    "border-right-width",
+    "border-left-color",
+    "border-left-style",
+    "border-left-width",
+    "color",
+] as const;
 
 function copyComputedProperties(source: HTMLElement, target: HTMLElement, properties: readonly string[]): void {
     const styles = getComputedStyle(source);
@@ -110,20 +123,19 @@ function computedPixels(styles: CSSStyleDeclaration, property: string): number {
 
 function syncKanbanHeadingRegionCell(sourceCell: HTMLElement, visualCell: HTMLElement): void {
     const styles = getComputedStyle(sourceCell);
-    copyComputedProperties(sourceCell, visualCell, kanbanCellSurfacePresentationProperties);
     visualCell.style.border = "0px";
     visualCell.style.borderRadius = "0px";
+    copyComputedProperties(sourceCell, visualCell, kanbanCellSurfacePresentationProperties);
+    const sourceRadius = styles.getPropertyValue("border-radius");
+    visualCell.style.borderTopLeftRadius = styles.getPropertyValue("border-top-left-radius") || sourceRadius;
+    visualCell.style.borderTopRightRadius = styles.getPropertyValue("border-top-right-radius") || sourceRadius;
+    visualCell.style.borderBottomLeftRadius = "0px";
+    visualCell.style.borderBottomRightRadius = "0px";
     visualCell.style.boxShadow = "none";
-    visualCell.style.paddingTop = `${String(
-        computedPixels(styles, "border-top-width") + computedPixels(styles, "padding-top"),
-    )}px`;
-    visualCell.style.paddingRight = `${String(
-        computedPixels(styles, "border-right-width") + computedPixels(styles, "padding-right"),
-    )}px`;
+    visualCell.style.paddingTop = `${String(computedPixels(styles, "padding-top"))}px`;
+    visualCell.style.paddingRight = `${String(computedPixels(styles, "padding-right"))}px`;
     visualCell.style.paddingBottom = "0px";
-    visualCell.style.paddingLeft = `${String(
-        computedPixels(styles, "border-left-width") + computedPixels(styles, "padding-left"),
-    )}px`;
+    visualCell.style.paddingLeft = `${String(computedPixels(styles, "padding-left"))}px`;
 }
 
 export function syncTableHeaderPresentationStyles(
@@ -307,6 +319,7 @@ class PreviewStickyLifecycle {
         this.measureControllers();
     });
     private readonly contentObserver = new MutationObserver(() => {
+        this.measureControllers();
         this.scheduleReconcile();
     });
     private readonly themeObserver = observePreviewThemeChanges(() => {

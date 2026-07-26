@@ -122,12 +122,9 @@
     transform: translateX(0);
 }
 .forma-kanban-boundary .forma-sticky-rail-track {
+    background: transparent;
     border: 0;
-    box-shadow:
-        inset 1px 0 0 var(--forma-border),
-        inset -1px 0 0 var(--forma-border),
-        inset 0 1px 0 var(--forma-border),
-        0 2px 8px var(--vscode-widget-shadow);
+    box-shadow: none;
 }
 .forma-kanban-sticky-cell {
     flex: 0 0 auto;

@@ -592,6 +592,31 @@ A disposable local-only fixture at `/private/tmp/forma-kanban-review-367520c/wor
 
 The Fixed4 review host remains open on the comparison fixture at the exact active Kanban threshold using isolated app `/private/tmp/forma-kanban-review-367520c/VSCode-KanbanReviewFixed4.app`, profile `/private/tmp/forma-kanban-review-367520c/user-data-fixed4`, extensions `/private/tmp/forma-kanban-review-367520c/extensions-fixed4`, and workspace `/private/tmp/forma-kanban-review-367520c/workspace`. Touch input and a separate Light-theme packaged-host pass remain outside this bounded correction. The final `mise run check`, Forma `check --json`, Forma `workspace health --json`, and `git diff --check` gates passed.
 
+### Independent-card rail and uneven-height follow-up
+
+The final manual review clarified that Kanban must not inherit Table's continuous header-row visual model. The remaining top line and lower shadow were painted by the generic `.forma-sticky-rail-track` surface and the Kanban track's row-wide inset/shadow override. At the same time, the prior heading-region correction flattened each visual cell's own top/side card edges and radii. That combination made the positioning host visible while suppressing the independent card-header contract.
+
+The bounded Kanban-only correction now keeps the rail track layout-only: it has a transparent background, zero border, and no shadow. Each visual cell independently copies the live source column's background, top/left/right borders, and top radii; it explicitly keeps zero bottom exterior border, zero bottom radii, and no shadow. The cloned `h2` still supplies the intentional internal heading separator, typography, wrapping, padding, and margin. The measured source and visual gaps remain true transparent gaps, so no line or surface connects horizontally adjacent columns. Table CSS, Table adapter code, Table configuration, and Table fixture behavior are unchanged.
+
+Uneven height remains per cell. The adapter measures each resulting heading region independently, assigns that cell's live height, and returns only the maximum as the rail lifecycle height. Child-list content reconciliation now remeasures existing controllers before boundary reconciliation, while resize continues through `ResizeObserver`; ordinary scroll frames still avoid full geometry/style measurement.
+
+The test-first run failed on the still-painted rail background/shadow and the missing per-cell top border, proving the reported contract before the correction. The focused two-file suite then passed 14 tests. The complete VS Code suite passed 25 files / 160 tests plus 13 packaging tests; type-check, icon validation, lint, production build, and VSIX packaging passed.
+
+The refreshed local-only comparison fixture at `/private/tmp/forma-kanban-review-367520c/workspace/sticky-comparison.md` includes the compact Table reference and one deliberately long middle Kanban heading between short siblings. In the fresh packaged Dark-theme host:
+
+- at the default `224px` column width, the visual cells measured `41.8828125 / 76.8828125 / 41.8828125px`, while the rail lifecycle height was the maximum `76.8890625px`;
+- at a constrained `168px` live column width, the cells measured `41.8828125 / 94.3828125 / 41.8828125px`, while the rail remeasured to `94.3890625px`;
+- replacing the long heading with short content remeasured every cell to `41.8828125px` and the rail to `41.8890625px`; restoring the original content restored the uneven maximum, and returning to the default width restored the original geometry;
+- the source and visual heading heights matched exactly at `22.6953125 / 57.6953125 / 22.6953125px` in the final default-width state;
+- the rail track computed to transparent with all four borders `0px none` and `box-shadow: none`;
+- each visual cell computed to `1px solid` top/left/right borders, `0px none` bottom border, `4px` top radii, `0px` bottom radii, and `box-shadow: none`;
+- every cloned heading retained its intentional `1px solid` separator; source and visual gaps both measured `10.5px`; and
+- the live resize/content-mutation proof reported no runtime errors.
+
+The exact packaged artifact is `/private/tmp/forma-kanban-review-uneven-fix6.vsix` with SHA-256 `ecd6fb9820bcf522f6c06e9f1c7e9ec0b87f7f5c6fbcd8938cb0f4db84a69316`. The final active-rail screenshot is `/private/tmp/forma-kanban-review-uneven-fix6.png`. The review host remains open using the disposable app `/private/tmp/forma-kanban-review-367520c/VSCode-KanbanReviewFixed4.app`, fresh profile `/private/tmp/forma-kanban-review-367520c/user-data-fixed6`, extensions `/private/tmp/forma-kanban-review-367520c/extensions-fixed6`, and workspace `/private/tmp/forma-kanban-review-367520c/workspace`.
+
+Touch input and a separate Light-theme packaged-host pass remain outside this bounded correction. Dark-theme computed style, uneven live geometry, resize, content mutation, runtime cleanliness, automated lifecycle coverage, build, and package evidence are complete for this follow-up.
+
 ## Table Column Presentation Follow-up — 2026-07-26
 
 The user approved a Table-only configuration follow-up. Kanban remains unchanged and its separately observed visual-header-height concern is deferred.
