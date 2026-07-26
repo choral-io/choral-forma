@@ -219,6 +219,10 @@ export interface DashboardGraphEdge {
 export interface DashboardViewColumn {
     field: string;
     label: string;
+    width?: string;
+    minWidth?: string;
+    maxWidth?: string;
+    overflow?: "wrap" | "truncate";
 }
 
 export type DashboardViewProjection =

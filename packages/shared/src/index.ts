@@ -260,7 +260,27 @@ export type ViewRenderItem = {
 export type ViewRenderColumn = {
     field: string;
     label: string;
+    width?: string;
+    minWidth?: string;
+    maxWidth?: string;
+    overflow?: "wrap" | "truncate";
 };
+
+const tableColumnLengthPattern = /^(?:0|[1-9]\d*)(?:\.\d+)?(px|rem|em)$/u;
+
+export function normalizedTableColumnLength(value: unknown): string | undefined {
+    if (typeof value === "number") {
+        return Number.isFinite(value) && value > 0 && value <= 4096 ? `${String(value)}px` : undefined;
+    }
+    if (typeof value !== "string") return undefined;
+    const match = tableColumnLengthPattern.exec(value);
+    if (!match) return undefined;
+    const unit = match[1];
+    if (!unit) return undefined;
+    const number = Number.parseFloat(value);
+    if (!Number.isFinite(number) || number <= 0 || number > 4096) return undefined;
+    return `${String(number)}${unit}`;
+}
 
 export type GraphRenderNode = {
     id: string;

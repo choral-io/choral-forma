@@ -781,6 +781,7 @@ fn discover_views(
         if required_string(&value, "kind").as_deref() != Some("view") {
             continue;
         }
+        crate::render::validate_table_column_presentation_value(&value, &relative, diagnostics);
         let surface = required_string(&value, "surface").unwrap_or_else(|| "page".to_string());
         let mode = required_string(&value, "view.mode").or_else(|| required_string(&value, "mode"));
         let mut space =

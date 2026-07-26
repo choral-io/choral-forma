@@ -42,6 +42,7 @@ import type {
     WorkspaceHealth,
 } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
+import { tableColumnStyle, tableColumnWraps } from "@/features/dashboard/table-column-presentation";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { WorkspaceDefaultContextPanel, WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
@@ -1867,7 +1868,15 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
                     <thead className="bg-base-200 text-base-content/60">
                         <tr className="border-base-300 border-b">
                             {projection.columns.map((column) => (
-                                <th className="font-medium whitespace-nowrap" key={column.field}>
+                                <th
+                                    className={cn(
+                                        "font-medium",
+                                        tableColumnWraps(column)
+                                            ? "wrap-break-word whitespace-normal"
+                                            : "whitespace-nowrap",
+                                    )}
+                                    key={column.field}
+                                >
                                     {column.label}
                                 </th>
                             ))}
@@ -1892,7 +1901,17 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
                         <thead className="bg-base-200 text-base-content/60" ref={headerRef}>
                             <tr className="border-base-300 border-b">
                                 {projection.columns.map((column) => (
-                                    <th className="font-medium whitespace-nowrap" key={column.field} scope="col">
+                                    <th
+                                        className={cn(
+                                            "font-medium",
+                                            tableColumnWraps(column)
+                                                ? "wrap-break-word whitespace-normal"
+                                                : "whitespace-nowrap",
+                                        )}
+                                        key={column.field}
+                                        scope="col"
+                                        style={tableColumnStyle(column)}
+                                    >
                                         {column.label}
                                     </th>
                                 ))}
@@ -1905,7 +1924,11 @@ function ViewTableProjection({ projection }: { projection: Extract<DashboardView
                                     key={item.path}
                                 >
                                     {projection.columns.map((column) => (
-                                        <td className="max-w-80 align-top" key={`${item.path}-${column.field}`}>
+                                        <td
+                                            className={cn("align-top", tableColumnStyle(column) ? null : "max-w-80")}
+                                            key={`${item.path}-${column.field}`}
+                                            style={tableColumnStyle(column)}
+                                        >
                                             <ViewProjectionCell column={column} item={item} />
                                         </td>
                                     ))}
@@ -1962,7 +1985,10 @@ function ViewProjectionCell({
                     const label = plainViewFieldValue(entry);
                     return (
                         <li
-                            className="text-base-content/70 max-w-72 truncate"
+                            className={cn(
+                                "text-base-content/70",
+                                tableColumnWraps(column) ? "wrap-break-word whitespace-normal" : "max-w-72 truncate",
+                            )}
                             key={`${label}-${String(index)}`}
                             title={label}
                         >
@@ -1976,7 +2002,13 @@ function ViewProjectionCell({
 
     const label = plainViewFieldValue(value);
     return (
-        <span className="text-base-content/70 block max-w-80 truncate" title={label}>
+        <span
+            className={cn(
+                "text-base-content/70 block",
+                tableColumnWraps(column) ? "wrap-break-word whitespace-normal" : "max-w-80 truncate",
+            )}
+            title={label}
+        >
             {label}
         </span>
     );

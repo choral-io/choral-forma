@@ -1,4 +1,11 @@
-import type { Diagnostic, ViewRenderItem, ViewRenderOutput, ViewRenderResult } from "@choral-forma/shared";
+import type {
+    Diagnostic,
+    ViewRenderColumn,
+    ViewRenderItem,
+    ViewRenderOutput,
+    ViewRenderResult,
+} from "@choral-forma/shared";
+import { normalizedTableColumnLength } from "@choral-forma/shared";
 
 import { relativePreviewHref } from "./preview-links.ts";
 
@@ -47,7 +54,9 @@ function renderProjection(
 
 function renderTable(render: TableRenderOutput, sourcePath: string, options: ViewRenderOptions): string {
     if (render.items.length === 0) return emptyState("No entries match this table.");
-    const headings = render.columns.map((column) => `<th scope="col">${escapeHtml(column.label)}</th>`).join("");
+    const headings = render.columns
+        .map((column) => `<th scope="col"${tableColumnPresentationAttributes(column)}>${escapeHtml(column.label)}</th>`)
+        .join("");
     const rows = render.items
         .map((item) => {
             const cells = render.columns
@@ -57,14 +66,40 @@ function renderTable(render: TableRenderOutput, sourcePath: string, options: Vie
                         index === 0
                             ? itemButton(item, firstNonEmpty(plainFieldValue(value), item.title, item.path), sourcePath)
                             : renderFieldValue(value, options);
-                    return `<td>${content}</td>`;
+                    return `<td${tableColumnPresentationAttributes(column)}>${content}</td>`;
                 })
                 .join("");
             return `<tr>${cells}</tr>`;
         })
         .join("");
-    const visualHeadings = render.columns.map((column) => `<th scope="col">${escapeHtml(column.label)}</th>`).join("");
+    const visualHeadings = render.columns
+        .map(
+            (column) =>
+                `<th scope="col"${tableColumnPresentationAttributes(column, false)}>${escapeHtml(column.label)}</th>`,
+        )
+        .join("");
     return `<div class="forma-sticky-boundary forma-table-boundary" data-forma-sticky-boundary data-forma-sticky-kind="table"><div class="forma-sticky-rail forma-table-sticky-rail" data-forma-sticky-rail aria-hidden="true"><div class="forma-sticky-rail-track"><table aria-hidden="true"><thead><tr>${visualHeadings}</tr></thead></table></div></div><div class="table-wrap" data-forma-sticky-owner><table data-forma-sticky-source><thead><tr>${headings}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+export function tableColumnPresentationAttributes(column: ViewRenderColumn, includeDimensions = true): string {
+    const width = normalizedTableColumnLength(column.width);
+    let minWidth = normalizedTableColumnLength(column.minWidth);
+    let maxWidth = normalizedTableColumnLength(column.maxWidth);
+    const comparableUnit = ["rem", "px", "em"].find((unit) => minWidth?.endsWith(unit) && maxWidth?.endsWith(unit));
+    if (comparableUnit && minWidth && maxWidth && Number.parseFloat(minWidth) > Number.parseFloat(maxWidth)) {
+        minWidth = undefined;
+        maxWidth = undefined;
+    }
+    const declarations = includeDimensions
+        ? [
+              width === undefined ? "" : `width:${width}`,
+              minWidth === undefined ? "" : `min-width:${minWidth}`,
+              maxWidth === undefined ? "" : `max-width:${maxWidth}`,
+          ].filter(Boolean)
+        : [];
+    const style = declarations.length > 0 ? ` style="${declarations.join(";")}"` : "";
+    const overflow = column.overflow === "truncate" ? ' data-forma-table-overflow="truncate"' : "";
+    return `${style}${overflow}`;
 }
 
 function renderKanban(render: KanbanRenderOutput, sourcePath: string, options: ViewRenderOptions): string {

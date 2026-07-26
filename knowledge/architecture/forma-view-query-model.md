@@ -54,9 +54,16 @@ source:
             - notes
 
 table:
+    defaults:
+        column:
+            width: 16rem
+            minWidth: 10rem
+            maxWidth: 24rem
+            overflow: wrap
     columns:
         - field: fields.title
           label: Title
+          overflow: truncate
         - field: fields.summary
           label: Summary
         - field: fields.createdAt
@@ -79,6 +86,11 @@ Rules from the current baseline:
 - Taxonomy filters use a map-to-list shape, even for one term.
 - Predicate and display field references use `field`, not `target`.
 - Table columns are objects so labels and future display options can be added without changing the column shape.
+- `table.defaults.column` may contain the same four presentation fields and is useful for concise equal-width Tables. `defaults` is the namespace for future default configuration; currently only `column` is defined. A valid field on a column overrides that default field; an absent or invalid column field inherits the valid default; an absent or invalid default falls back to the renderer's intrinsic behavior.
+- Table column `width`, `minWidth`, and `maxWidth` are optional positive length hints. A number means pixels; strings may use only `px`, `rem`, or `em`, including positive decimals, with a maximum numeric component of `4096`. Percentages, viewport units, `ch`, functions, variables, keywords, and arbitrary CSS are rejected. `ch` is deferred because its value is ambiguous for zh-Hans and variable fonts without a proven code/date-column requirement. When both bounds use the same unit, `minWidth` must not exceed `maxWidth`.
+- Table column `overflow` accepts only `wrap` or `truncate`. When it is absent, each renderer keeps its established automatic presentation; `wrap` explicitly permits multiline content and `truncate` requests a single-line ellipsis.
+- Invalid optional Table presentation hints produce a non-blocking `view.tableColumnPresentationInvalid` warning, are omitted from normalized render output, and must not generate HTML styles, classes, or data attributes.
+- Effective same-unit `minWidth` / `maxWidth` constraints are checked after merging a column with `table.defaults.column`; an inverted pair is warned and omitted without blocking the View.
 - Table and list sort stay view-level.
 - Kanban columns may define local sort because each column is a separate result group.
 - `sort.order` can define explicit enum order for fields such as priority.

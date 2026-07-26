@@ -170,6 +170,21 @@ pub struct ViewRenderItem {
 pub struct ViewRenderColumn {
     pub field: String,
     pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_width: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_width: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overflow: Option<TableColumnOverflow>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TableColumnOverflow {
+    Wrap,
+    Truncate,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -277,13 +292,40 @@ pub struct ViewSource {
 struct TableDefinition {
     #[serde(default)]
     columns: Vec<TableColumnDefinition>,
+    #[serde(default)]
+    defaults: TableDefaultsDefinition,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TableDefaultsDefinition {
+    #[serde(default)]
+    column: TableColumnPresentationDefinition,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TableColumnPresentationDefinition {
+    #[serde(default)]
+    width: Option<Value>,
+    #[serde(default)]
+    min_width: Option<Value>,
+    #[serde(default)]
+    max_width: Option<Value>,
+    #[serde(default)]
+    overflow: Option<Value>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 enum TableColumnDefinition {
     Field(String),
-    Object { field: String, label: String },
+    Object {
+        field: String,
+        label: String,
+        #[serde(flatten)]
+        presentation: TableColumnPresentationDefinition,
+    },
 }
 
 impl TableColumnDefinition {
@@ -294,14 +336,140 @@ impl TableColumnDefinition {
         }
     }
 
-    fn into_render_column(self) -> ViewRenderColumn {
+    fn presentation(&self) -> TableColumnPresentationDefinition {
+        match self {
+            Self::Field(_) => TableColumnPresentationDefinition::default(),
+            Self::Object { presentation, .. } => presentation.clone(),
+        }
+    }
+
+    fn into_render_column(self, defaults: &TableColumnPresentationDefinition) -> ViewRenderColumn {
+        let presentation = normalized_table_column_presentation(&self.presentation())
+            .with_fallback(normalized_table_column_presentation(defaults))
+            .without_inverted_bounds();
         match self {
             Self::Field(field) => ViewRenderColumn {
                 label: field.clone(),
                 field,
+                width: presentation.width,
+                min_width: presentation.min_width,
+                max_width: presentation.max_width,
+                overflow: presentation.overflow,
             },
-            Self::Object { field, label } => ViewRenderColumn { field, label },
+            Self::Object { field, label, .. } => ViewRenderColumn {
+                field,
+                label,
+                width: presentation.width,
+                min_width: presentation.min_width,
+                max_width: presentation.max_width,
+                overflow: presentation.overflow,
+            },
         }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct NormalizedTableColumnPresentation {
+    width: Option<String>,
+    min_width: Option<String>,
+    max_width: Option<String>,
+    overflow: Option<TableColumnOverflow>,
+}
+
+impl NormalizedTableColumnPresentation {
+    fn with_fallback(self, fallback: Self) -> Self {
+        Self {
+            width: self.width.or(fallback.width),
+            min_width: self.min_width.or(fallback.min_width),
+            max_width: self.max_width.or(fallback.max_width),
+            overflow: self.overflow.or(fallback.overflow),
+        }
+    }
+
+    fn without_inverted_bounds(mut self) -> Self {
+        if comparable_table_column_dimensions(self.min_width.as_ref(), self.max_width.as_ref())
+            .is_some_and(|(minimum, maximum)| minimum > maximum)
+        {
+            self.min_width = None;
+            self.max_width = None;
+        }
+        self
+    }
+}
+
+fn normalized_table_column_presentation(
+    presentation: &TableColumnPresentationDefinition,
+) -> NormalizedTableColumnPresentation {
+    NormalizedTableColumnPresentation {
+        width: normalized_table_column_dimension(presentation.width.as_ref()),
+        min_width: normalized_table_column_dimension(presentation.min_width.as_ref()),
+        max_width: normalized_table_column_dimension(presentation.max_width.as_ref()),
+        overflow: normalized_table_column_overflow(presentation.overflow.as_ref()),
+    }
+    .without_inverted_bounds()
+}
+
+fn normalized_table_column_dimension(value: Option<&Value>) -> Option<String> {
+    const MAX_TABLE_COLUMN_DIMENSION: f64 = 4096.0;
+    match value? {
+        Value::Number(number) => {
+            let number = number.as_f64()?;
+            (number > 0.0 && number <= MAX_TABLE_COLUMN_DIMENSION && number.is_finite())
+                .then(|| format!("{number}px"))
+        }
+        Value::String(value) => {
+            let (number, unit) = ["rem", "px", "em"]
+                .iter()
+                .find_map(|unit| value.strip_suffix(unit).map(|number| (number, *unit)))?;
+            let mut decimal_points = 0;
+            if number.is_empty()
+                || !number
+                    .chars()
+                    .next()
+                    .is_some_and(|character| character.is_ascii_digit())
+                || !number
+                    .chars()
+                    .last()
+                    .is_some_and(|character| character.is_ascii_digit())
+                || !number.chars().all(|character| {
+                    if character == '.' {
+                        decimal_points += 1;
+                        decimal_points == 1
+                    } else {
+                        character.is_ascii_digit()
+                    }
+                })
+            {
+                return None;
+            }
+            let number = number.parse::<f64>().ok()?;
+            (number > 0.0 && number <= MAX_TABLE_COLUMN_DIMENSION && number.is_finite())
+                .then(|| format!("{number}{unit}"))
+        }
+        _ => None,
+    }
+}
+
+fn comparable_table_column_dimensions(
+    minimum: Option<&String>,
+    maximum: Option<&String>,
+) -> Option<(f64, f64)> {
+    let minimum = minimum?;
+    let maximum = maximum?;
+    let unit = ["rem", "px", "em"]
+        .iter()
+        .find(|unit| minimum.ends_with(**unit) && maximum.ends_with(**unit))?;
+    Some((
+        minimum.strip_suffix(unit)?.parse().ok()?,
+        maximum.strip_suffix(unit)?.parse().ok()?,
+    ))
+}
+
+fn normalized_table_column_overflow(value: Option<&Value>) -> Option<TableColumnOverflow> {
+    match value?.as_str()? {
+        "wrap" => Some(TableColumnOverflow::Wrap),
+        "truncate" => Some(TableColumnOverflow::Truncate),
+        _ => None,
     }
 }
 
@@ -801,6 +969,157 @@ fn view_definition_is_valid(
     valid
 }
 
+fn validate_table_column_presentation(
+    table: &TableDefinition,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    validate_table_column_presentation_layer(
+        &table.defaults.column,
+        "table.defaults.column",
+        None,
+        path,
+        diagnostics,
+    );
+    let defaults = normalized_table_column_presentation(&table.defaults.column);
+    for (index, column) in table.columns.iter().enumerate() {
+        let presentation = column.presentation();
+        validate_table_column_presentation_layer(
+            &presentation,
+            "table.columns",
+            Some(index),
+            path,
+            diagnostics,
+        );
+        let effective =
+            normalized_table_column_presentation(&presentation).with_fallback(defaults.clone());
+        if comparable_table_column_dimensions(
+            effective.min_width.as_ref(),
+            effective.max_width.as_ref(),
+        )
+        .is_some_and(|(minimum, maximum)| minimum > maximum)
+        {
+            diagnostics.push(
+                Diagnostic::warning(
+                    "view.tableColumnPresentationInvalid",
+                    "Effective Table column `minWidth` and `maxWidth` are ignored because minWidth exceeds maxWidth.",
+                )
+                .with_path(path)
+                .with_location(DiagnosticLocation::Frontmatter {
+                    field: "table.columns".to_string(),
+                    index: Some(index),
+                })
+                .with_expected("effective minWidth less than or equal to maxWidth"),
+            );
+        }
+    }
+}
+
+fn validate_table_column_presentation_layer(
+    presentation: &TableColumnPresentationDefinition,
+    field_prefix: &str,
+    index: Option<usize>,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let scope = if index.is_some() {
+        "Table column"
+    } else {
+        "Table column default"
+    };
+    let TableColumnPresentationDefinition {
+        width,
+        min_width,
+        max_width,
+        overflow,
+    } = presentation;
+    for (field, value) in [
+        ("width", width),
+        ("minWidth", min_width),
+        ("maxWidth", max_width),
+    ] {
+        if value.is_some() && normalized_table_column_dimension(value.as_ref()).is_none() {
+            diagnostics.push(
+                    Diagnostic::warning(
+                        "view.tableColumnPresentationInvalid",
+                        format!(
+                            "{scope} `{field}` is ignored because it is not a supported positive CSS length."
+                        ),
+                    )
+                    .with_path(path)
+                    .with_location(DiagnosticLocation::Frontmatter {
+                        field: format!("{field_prefix}.{field}"),
+                        index,
+                    })
+                    .with_actual(
+                        value
+                            .as_ref()
+                            .map(|value| format!("{value:?}"))
+                            .unwrap_or_default(),
+                    )
+                    .with_expected(
+                        "positive number (pixels) or positive px, rem, or em length up to 4096",
+                    ),
+                );
+        }
+    }
+    if overflow.is_some() && normalized_table_column_overflow(overflow.as_ref()).is_none() {
+        diagnostics.push(
+            Diagnostic::warning(
+                "view.tableColumnPresentationInvalid",
+                format!("{scope} `overflow` is ignored because it is not supported."),
+            )
+            .with_path(path)
+            .with_location(DiagnosticLocation::Frontmatter {
+                field: format!("{field_prefix}.overflow"),
+                index,
+            })
+            .with_actual(
+                overflow
+                    .as_ref()
+                    .map(|value| format!("{value:?}"))
+                    .unwrap_or_default(),
+            )
+            .with_expected("wrap or truncate"),
+        );
+    }
+    let normalized_minimum = normalized_table_column_dimension(min_width.as_ref());
+    let normalized_maximum = normalized_table_column_dimension(max_width.as_ref());
+    if comparable_table_column_dimensions(normalized_minimum.as_ref(), normalized_maximum.as_ref())
+        .is_some_and(|(minimum, maximum)| minimum > maximum)
+    {
+        diagnostics.push(
+                Diagnostic::warning(
+                    "view.tableColumnPresentationInvalid",
+                    format!("{scope} `minWidth` and `maxWidth` are ignored because minWidth exceeds maxWidth."),
+                )
+                .with_path(path)
+                .with_location(DiagnosticLocation::Frontmatter {
+                    field: field_prefix.to_string(),
+                    index,
+                })
+                .with_expected("minWidth less than or equal to maxWidth"),
+            );
+    }
+}
+
+pub(crate) fn validate_table_column_presentation_value(
+    value: &Value,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(table) = value
+        .as_mapping()
+        .and_then(|mapping| mapping.get(Value::String("table".to_string())))
+        .cloned()
+    else {
+        return;
+    };
+    if let Ok(table) = serde_yml::from_value::<TableDefinition>(table) {
+        validate_table_column_presentation(&table, path, diagnostics);
+    }
+}
+
 fn view_source_is_valid(
     source: &ViewSource,
     path: &str,
@@ -949,15 +1268,15 @@ fn render_view_definition(
                 .collect(),
         }),
         "table" => {
-            let columns = definition
-                .table
-                .as_ref()
-                .map(|table| table.columns.clone())
-                .unwrap_or_default();
+            let table = definition.table.clone().unwrap_or(TableDefinition {
+                columns: Vec::new(),
+                defaults: TableDefaultsDefinition::default(),
+            });
+            let columns = table.columns;
             let render_columns = columns
                 .iter()
                 .cloned()
-                .map(TableColumnDefinition::into_render_column)
+                .map(|column| column.into_render_column(&table.defaults.column))
                 .collect();
             Some(ViewRenderOutput::Table {
                 columns: render_columns,
@@ -1721,9 +2040,10 @@ mod tests {
     use serde_yml::Value;
 
     use super::{
-        ReferenceIntent, ReferenceSource, RenderedHeading, ViewRenderOutput, render_file,
-        render_view,
+        ReferenceIntent, ReferenceSource, RenderedHeading, TableColumnOverflow, ViewRenderColumn,
+        ViewRenderOutput, normalized_table_column_dimension, render_file, render_view,
     };
+    use crate::OperationStatus;
     use crate::index::discover_workspace;
     use crate::operations::{OperationError, create_entry};
     use crate::path::FORMA_CONFIG_PATH;
@@ -2064,6 +2384,143 @@ mod tests {
         assert_eq!(items[0].fields["fields.title"], "Alpha Note");
 
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn normalizes_table_column_presentation_without_blocking_the_view() {
+        let root = fixture_root("table-column-presentation");
+        fs::create_dir_all(root.join(".forma/views")).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/views/column-presentation.md"),
+            "---\nkind: view\nmode: table\ntitle: Column presentation\ntable:\n  defaults:\n    column:\n      width: 16rem\n      minWidth: 8rem\n      maxWidth: 24rem\n      overflow: wrap\n  columns:\n    - field: fields.title\n      label: Valid\n      width: 240\n      maxWidth: 32em\n      overflow: truncate\n    - field: fields.summary\n      label: Invalid\n      width: calc(100vw)\n      minWidth: 30em\n      maxWidth: 20em\n      overflow: hidden\n    - field: fields.createdAt\n      label: Invalid units\n      width: 20ch\n      minWidth: 12pt\n      maxWidth: 50%\n      overflow: auto\n    - fields.status\n---\n\n# Column presentation\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "column-presentation", BTreeMap::new()).unwrap();
+        assert_eq!(result.status, OperationStatus::Warning);
+        assert_eq!(
+            result
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "view.tableColumnPresentationInvalid")
+                .count(),
+            7
+        );
+        let Some(ViewRenderOutput::Table { columns, .. }) = result.render else {
+            panic!("expected table render");
+        };
+        assert_eq!(
+            columns[0],
+            ViewRenderColumn {
+                field: "fields.title".to_string(),
+                label: "Valid".to_string(),
+                width: Some("240px".to_string()),
+                min_width: Some("8rem".to_string()),
+                max_width: Some("32em".to_string()),
+                overflow: Some(TableColumnOverflow::Truncate),
+            }
+        );
+        assert_eq!(
+            columns[1],
+            ViewRenderColumn {
+                field: "fields.summary".to_string(),
+                label: "Invalid".to_string(),
+                width: Some("16rem".to_string()),
+                min_width: Some("8rem".to_string()),
+                max_width: Some("24rem".to_string()),
+                overflow: Some(TableColumnOverflow::Wrap),
+            }
+        );
+        assert_eq!(
+            columns[2],
+            ViewRenderColumn {
+                field: "fields.createdAt".to_string(),
+                label: "Invalid units".to_string(),
+                width: Some("16rem".to_string()),
+                min_width: Some("8rem".to_string()),
+                max_width: Some("24rem".to_string()),
+                overflow: Some(TableColumnOverflow::Wrap),
+            }
+        );
+        assert_eq!(
+            columns[3],
+            ViewRenderColumn {
+                field: "fields.status".to_string(),
+                label: "fields.status".to_string(),
+                width: Some("16rem".to_string()),
+                min_width: Some("8rem".to_string()),
+                max_width: Some("24rem".to_string()),
+                overflow: Some(TableColumnOverflow::Wrap),
+            }
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn invalid_table_defaults_fall_back_to_intrinsic_presentation() {
+        let root = fixture_root("table-column-defaults");
+        fs::create_dir_all(root.join(".forma/views")).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/views/column-defaults.md"),
+            "---\nkind: view\nmode: table\ntitle: Column defaults\ntable:\n  defaults:\n    column:\n      width: calc(100vw)\n      minWidth: 8em\n      maxWidth: 20em\n      overflow: hidden\n  columns:\n    - field: fields.title\n      label: Conflicting override\n      minWidth: 30em\n    - fields.summary\n---\n\n# Column defaults\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "column-defaults", BTreeMap::new()).unwrap();
+        assert_eq!(result.status, OperationStatus::Warning);
+        assert_eq!(
+            result
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "view.tableColumnPresentationInvalid")
+                .count(),
+            3
+        );
+        let Some(ViewRenderOutput::Table { columns, .. }) = result.render else {
+            panic!("expected table render");
+        };
+        assert_eq!(columns[0].width, None);
+        assert_eq!(columns[0].min_width, None);
+        assert_eq!(columns[0].max_width, None);
+        assert_eq!(columns[0].overflow, None);
+        assert_eq!(columns[1].width, None);
+        assert_eq!(columns[1].min_width.as_deref(), Some("8em"));
+        assert_eq!(columns[1].max_width.as_deref(), Some("20em"));
+        assert_eq!(columns[1].overflow, None);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn bounds_table_column_dimensions_to_supported_units() {
+        let normalized = |source: &str| {
+            let value = serde_yml::from_str::<Value>(source).unwrap();
+            normalized_table_column_dimension(Some(&value))
+        };
+
+        assert_eq!(normalized("240"), Some("240px".to_string()));
+        assert_eq!(normalized("\"12.5px\""), Some("12.5px".to_string()));
+        assert_eq!(normalized("\"8rem\""), Some("8rem".to_string()));
+        assert_eq!(normalized("\"24em\""), Some("24em".to_string()));
+
+        for invalid in [
+            "0",
+            "-1",
+            "4097",
+            "\"20ch\"",
+            "\"12pt\"",
+            "\"50%\"",
+            "\"10vw\"",
+            "\"calc(100vw)\"",
+            "\"var(--column-width)\"",
+            "\"auto\"",
+            "\"1e2px\"",
+        ] {
+            assert_eq!(normalized(invalid), None, "{invalid} must be omitted");
+        }
     }
 
     #[test]

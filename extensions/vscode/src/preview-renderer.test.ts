@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ViewRenderResult } from "@choral-forma/shared";
 
-import { renderViewProjectionHtml } from "./preview-renderer.ts";
+import { renderViewProjectionHtml, tableColumnPresentationAttributes } from "./preview-renderer.ts";
 
 const workspace = { root: ".", name: "Preview fixture" };
 
@@ -172,5 +172,42 @@ describe("view projection rendering", () => {
         expect(kanbanHtml).toContain('<time datetime="2026-07-19T13:30:00Z"');
         expect(kanbanHtml).toContain(">Jul 19, 2026, 1:30 PM</time>");
         expect(kanbanHtml).not.toContain("2026-01-01T00:00:00Z");
+    });
+
+    it("renders only normalized Table column presentation hints", () => {
+        expect(
+            tableColumnPresentationAttributes({
+                field: "fields.title",
+                label: "Title",
+                width: "15rem",
+                minWidth: "10em",
+                maxWidth: "32em",
+                overflow: "truncate",
+            }),
+        ).toBe(' style="width:15rem;min-width:10em;max-width:32em" data-forma-table-overflow="truncate"');
+        expect(
+            tableColumnPresentationAttributes(
+                {
+                    field: "fields.title",
+                    label: "Title",
+                    width: "15rem",
+                    minWidth: "10em",
+                    maxWidth: "32em",
+                    overflow: "truncate",
+                },
+                false,
+            ),
+        ).toBe(' data-forma-table-overflow="truncate"');
+        expect(tableColumnPresentationAttributes({ field: "fields.title", label: "Title" })).toBe("");
+        expect(
+            tableColumnPresentationAttributes({
+                field: "fields.title",
+                label: "Title",
+                width: "calc(100vw)",
+                minWidth: "30em",
+                maxWidth: "20em",
+                overflow: "hidden" as "wrap",
+            }),
+        ).toBe("");
     });
 });

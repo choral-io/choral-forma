@@ -106,6 +106,43 @@ describe("RpcWorkspaceClient View rendering", () => {
         });
     });
 
+    it("preserves normalized Table column presentation", async () => {
+        stubRpc("", undefined, undefined, {
+            kind: "table",
+            columns: [
+                {
+                    field: "fields.title",
+                    label: "Title",
+                    width: "15rem",
+                    minWidth: "12em",
+                    maxWidth: "36em",
+                    overflow: "wrap",
+                },
+                { field: "fields.summary", label: "Summary" },
+            ],
+            items: [],
+        });
+
+        const client = new RpcWorkspaceClient("/rpc");
+
+        await expect(client.getViewRender(".forma/views/table")).resolves.toMatchObject({
+            projection: {
+                kind: "table",
+                columns: [
+                    {
+                        field: "fields.title",
+                        label: "Title",
+                        width: "15rem",
+                        minWidth: "12em",
+                        maxWidth: "36em",
+                        overflow: "wrap",
+                    },
+                    { field: "fields.summary", label: "Summary" },
+                ],
+            },
+        });
+    });
+
     it("preserves configured taxonomies without requiring spaces", async () => {
         stubRpc("", undefined, undefined, { kind: "table", columns: [], items: [] }, [
             {

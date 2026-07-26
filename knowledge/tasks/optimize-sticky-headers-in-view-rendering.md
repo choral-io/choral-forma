@@ -531,6 +531,39 @@ Ordinary native Markdown was measured separately rather than inferred from Forma
 
 All task-owned disposable VS Code processes were closed after the packaged-host proof. The implementation is ready for a scoped linear commit. The user deferred Kanban host validation, so this section records only automated Kanban coverage and does not claim a fresh Kanban native-host acceptance pass.
 
+## Table Column Presentation Follow-up — 2026-07-26
+
+The user approved a Table-only configuration follow-up. Kanban remains unchanged and its separately observed visual-header-height concern is deferred.
+
+The accepted normalized contract adds optional `width`, `minWidth`, `maxWidth`, and `overflow` fields to `table.columns[]`, plus the same four fields under `table.defaults.column`. `defaults` remains a namespace for future default configuration; currently only `column` is defined:
+
+- positive numeric dimensions mean CSS pixels;
+- positive decimal strings may use only `px`, `rem`, or `em`, with a maximum numeric component of `4096`;
+- `ch` is deferred because it is low-value and ambiguous for zh-Hans and variable fonts until a concrete code/date-column need is proven;
+- percentages, viewport units, `calc()`, `var()`, keywords, and arbitrary CSS are rejected;
+- `overflow` accepts only `wrap` or `truncate`;
+- a valid column field overrides the matching valid default; an absent or invalid column field inherits the default, while an absent or invalid default falls back to intrinsic renderer behavior;
+- absence preserves the renderer's established automatic presentation;
+- same-unit `minWidth` / `maxWidth` constraints are checked after layer merging, and an inverted effective pair is ignored as a pair;
+- invalid optional hints produce specific non-blocking warnings while the View continues to render; and
+- invalid or absent hints are omitted from normalized RPC output and generate no corresponding HTML inline style, class, or data attribute.
+
+The implementation must keep the semantic Table header authoritative, preserve projection-local `.table-wrap { overflow-x: auto }`, and let each sticky rail continue to derive live widths, wrapping, height, separator, theme, and boundary geometry from the real header. It must not add a generic style escape hatch or modify Kanban.
+
+Completion remains gated on focused config normalization and warning tests, WebApp normal/wide/narrow geometry at horizontal start/midpoint/maximum, a separately packaged VS Code host with the same matrix and source/visual style parity, and the applicable repository regression, security, build, and workspace checks.
+
+### Table Column Presentation Result
+
+The Table-only gates passed:
+
+- Core normalization accepts only the documented positive number / `px` / `rem` / `em` grammar, rejects the excluded units and CSS functions, merges `table.defaults.column` per field, and removes effective same-unit inverted bounds. Invalid values produce `view.tableColumnPresentationInvalid` warnings while both `forma check` and View rendering continue with invalid output omitted.
+- RPC and WebApp preserve only normalized options. The WebApp retained page-owned vertical scrolling and projection-local horizontal scrolling. At the narrow 390px proof the local owner measured `356 / 1036` client/scroll width with zero root overflow; semantic and visual header cells stayed at zero left/width delta at horizontal start, midpoint, and maximum. A live root-font change from 16px to 20px expanded the `rem` / `em` table and remeasured the active visual rail without stale geometry. Entry, lower-boundary exit, light/dark tokens, and semantic-only accessibility also passed.
+- A fresh packaged native VS Code Preview used `forma-0.1.23.vsix` with SHA-256 `7758544eb8c35ca61ee2cd3cf5bb0dddb3c2076a372be08213b807055819e4ce`. At a 396px Preview group, `.table-wrap` measured `290 / 840` client/scroll width and the active rail matched all four semantic cells with zero left/width/height delta at scrollLeft `0 / 275 / 550`; the document root remained `396 / 396`. In the same mounted Preview lifecycle, expanding to 1392px changed the real and visual header height together from `100.09375px` to `55.296875px`, with zero stale geometry. Entry, lower-boundary exit over later content, Dark → Light → Dark presentation resync, separator/wrap parity, aria-hidden/pointer-inert isolation, and a clean runtime console passed.
+- A reported solid-color disposable host was invalidated rather than treated as acceptance evidence. Its DOM and screenshot were still rendered when captured, so no renderer/compositor failure was established; a brand-new app/profile reproduced the full Preview normally and supplied the final evidence above.
+- `mise run check`, `mise run test:rust`, `mise run test:pnpm`, `mise run build:pnpm`, the focused extension suite, and VSIX packaging passed. The only build output note was the existing WebApp chunk-size advisory.
+
+Kanban product code was not changed. Its sticky-header follow-up remains separate, including the previously observed visual-header-height concern.
+
 ## Acceptance Criteria
 
 - A long Table keeps its column headers visible during vertical scrolling without losing horizontal scrolling or column alignment.

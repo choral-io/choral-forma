@@ -96,6 +96,11 @@
 .forma-view td {
     overflow-wrap: anywhere;
 }
+.forma-view [data-forma-table-overflow="truncate"] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .forma-view .kanban {
     position: relative;
     display: flex;
