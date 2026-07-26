@@ -19,7 +19,7 @@ skill:
     - promote product notes
   order: 40
 createdAt: "2026-06-29T00:00:00Z"
-updatedAt: "2026-06-29T00:00:00Z"
+updatedAt: "2026-07-26T00:00:00Z"
 ---
 
 # Content Authoring
@@ -53,4 +53,4 @@ Before multi-file edits, task status changes, release evidence changes, schema c
 
 Run `forma check --json` after edits. Run `forma workspace health --json` when links, relationship fields, space config, templates, or views changed.
 
-Use [[validation/markdown-rendering-showcase|Markdown Rendering Showcase]] when reviewing reader typography, links, local media, or overflow behavior.
+Use [[validation/rich-content-review-note|Rich Content Review Note]] as a copyable example of representative links, code, diagrams, formulae, tables, and local media.
