@@ -120,7 +120,8 @@ After verification succeeds:
 1. Record the exact candidate commit, main CI run, Release workflow run, GitHub Release URL, asset count, checked hashes, CLI version, VSIX identity, managed-install result, and untested platform boundaries in the release record.
 2. Change the release status to `released` only when the approved release criteria are satisfied.
 3. Move related tasks to `done` only when their acceptance criteria are supported by recorded evidence.
-4. Commit post-release evidence separately. This evidence commit does not change the immutable release tag.
-5. Run Forma checks and workspace health after evidence or task metadata changes.
+4. Add the released record to [[planning/forma-release-and-delivery-ledger]] in the same evidence change: update its `sources`, Release Chain, and current baseline as applicable. This is the maintained inbound reference for the immutable release record.
+5. Run Forma checks, workspace health, and `mise run release:record-check -- <tag>` after preparing the evidence change. The targeted record check fails if this release record still has `workspaceHealth.noBacklinks`; unrelated workspace warnings remain visible to the normal health gate.
+6. Commit post-release evidence separately. This evidence commit does not change the immutable release tag.
 
 Report checks not run and residual risks explicitly. Remote SSH, Dev Container, WSL, signing, or notarization remain unverified unless the release evidence names a completed test.

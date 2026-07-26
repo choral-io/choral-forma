@@ -71,6 +71,10 @@ run = "node scripts/check-release-version.mjs"
 description = "Verify a published Forma release and managed CLI installation"
 run = "node scripts/verify-release.mjs"
 
+[tasks."release:record-check"]
+description = "Check that a released Forma record has an internal backlink"
+run = "node scripts/release-record-check.mjs"
+
 [tasks.check]
 description = "Run all project checks"
 depends = ["check:pnpm", "test:pnpm", "check:rust", "check:zed", "test:rust"]

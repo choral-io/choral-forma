@@ -34,3 +34,5 @@ relatedMetrics: []
 ## Rollback Plan
 
 ## Post-Release Follow-Up
+
+- Add this released record to [[planning/forma-release-and-delivery-ledger]], then run `mise run release:record-check -- v<version>` before committing the post-release evidence.
