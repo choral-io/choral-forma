@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.24
+
+- Render supported Mermaid diagrams in the WebApp with a bounded Worker protocol, sanitization, accessible source fallbacks, and native zoom controls.
+- Keep configured Table and Kanban headers visible within their View-owned scroll surfaces, including variable-height Kanban columns and explicit Table column presentation.
+- Align the source, GitHub Release VSIX, and Marketplace display name as `Forma by Choral` while retaining the stable `choral-io.forma` identity.
+
 ## 0.1.23
 
 - Rebuild the read-only WebApp review surface on DaisyUI with responsive navigation, theme selection, and a streamlined Quick Open experience.

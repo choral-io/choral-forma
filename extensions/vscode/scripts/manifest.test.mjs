@@ -7,6 +7,7 @@ const manifest = JSON.parse(await readFile(new URL("../package.json", import.met
 test("keeps the public Marketplace identity in Preview", () => {
     assert.equal(manifest.publisher, "choral-io");
     assert.equal(manifest.name, "forma");
+    assert.equal(manifest.displayName, "Forma by Choral");
     assert.equal(manifest.preview, true);
 });
 

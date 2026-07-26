@@ -11,7 +11,7 @@ Development dependencies stay inside `extensions/vscode`:
 - `esbuild`: build-only bundler for the single CommonJS extension-host entrypoint; selected by the accepted architecture and removable if the repository adopts another extension bundler.
 - `@types/vscode`, `@types/node`, `@types/mocha`: compile-time contracts only. The VS Code type version is pinned to the declared minimum compatibility floor.
 - `@vscode/test-cli` and `@vscode/test-electron`: official VS Code Extension Host test path for the minimum and stable desktop versions; removable together if the project changes its official integration harness.
-- `@vscode/vsce`: official VSIX packaging tool, used only in local validation and CI; Marketplace publishing remains disabled.
+- `@vscode/vsce`: official VSIX packaging tool, used for local validation and CI packaging. Marketplace publication remains a separately authorized maintainer operation.
 - `mocha`: test-only runner required by the official Extension Host test CLI.
 
 The preview renderer deliberately uses escaped, dependency-free HTML generation instead of introducing a browser framework, Markdown runtime, or graph library. A later renderer project can replace that choice when requirements justify the added runtime cost.
