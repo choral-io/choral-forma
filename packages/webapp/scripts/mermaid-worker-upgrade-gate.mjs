@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import { createServer } from "vite";
 
+import { terminateChildProcess } from "./child-process.mjs";
+
 const webappRoot = fileURLToPath(new URL("..", import.meta.url));
 const profileDirectory = await mkdtemp(join(tmpdir(), "forma-mermaid-upgrade-"));
 const server = await createServer({
@@ -54,7 +56,7 @@ try {
     }
     process.stdout.write(`Mermaid Worker upgrade gate passed: ${JSON.stringify(result)}\n`);
 } finally {
-    chrome?.kill("SIGTERM");
+    await terminateChildProcess(chrome);
     await server.close();
     await rm(profileDirectory, { force: true, recursive: true });
 }
