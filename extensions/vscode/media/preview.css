@@ -131,8 +131,9 @@
     flex: 0 0 auto;
     min-width: var(--forma-kanban-column-min);
     max-width: var(--forma-kanban-column-max);
-    padding: 0.65rem;
-    border-inline: 1px solid var(--forma-border);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
     background: var(--vscode-editor-background);
 }
 .forma-kanban-sticky-cell h2 {

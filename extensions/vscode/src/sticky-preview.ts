@@ -94,39 +94,36 @@ const kanbanHeaderPresentationProperties = [
     "word-break",
 ] as const;
 
-const kanbanCellPresentationProperties = [
-    "background-color",
-    "background-image",
-    "border-top-color",
-    "border-top-style",
-    "border-top-width",
-    "border-right-color",
-    "border-right-style",
-    "border-right-width",
-    "border-bottom-color",
-    "border-bottom-style",
-    "border-bottom-width",
-    "border-left-color",
-    "border-left-style",
-    "border-left-width",
-    "border-radius",
-    "border-bottom-left-radius",
-    "border-bottom-right-radius",
-    "border-top-left-radius",
-    "border-top-right-radius",
-    "box-shadow",
-    "color",
-    "padding-bottom",
-    "padding-left",
-    "padding-right",
-    "padding-top",
-] as const;
+const kanbanCellSurfacePresentationProperties = ["background-color", "background-image", "color"] as const;
 
 function copyComputedProperties(source: HTMLElement, target: HTMLElement, properties: readonly string[]): void {
     const styles = getComputedStyle(source);
     for (const property of properties) {
         target.style.setProperty(property, styles.getPropertyValue(property));
     }
+}
+
+function computedPixels(styles: CSSStyleDeclaration, property: string): number {
+    const value = Number.parseFloat(styles.getPropertyValue(property));
+    return Number.isFinite(value) ? value : 0;
+}
+
+function syncKanbanHeadingRegionCell(sourceCell: HTMLElement, visualCell: HTMLElement): void {
+    const styles = getComputedStyle(sourceCell);
+    copyComputedProperties(sourceCell, visualCell, kanbanCellSurfacePresentationProperties);
+    visualCell.style.border = "0px";
+    visualCell.style.borderRadius = "0px";
+    visualCell.style.boxShadow = "none";
+    visualCell.style.paddingTop = `${String(
+        computedPixels(styles, "border-top-width") + computedPixels(styles, "padding-top"),
+    )}px`;
+    visualCell.style.paddingRight = `${String(
+        computedPixels(styles, "border-right-width") + computedPixels(styles, "padding-right"),
+    )}px`;
+    visualCell.style.paddingBottom = "0px";
+    visualCell.style.paddingLeft = `${String(
+        computedPixels(styles, "border-left-width") + computedPixels(styles, "padding-left"),
+    )}px`;
 }
 
 export function syncTableHeaderPresentationStyles(
@@ -279,7 +276,7 @@ function createKanbanStickyAdapter(
             const sourceHeading = sourceHeadings[index];
             if (!visualCell || !visualHeading || !sourceHeading) return;
             visualCell.style.height = "auto";
-            copyComputedProperties(cell, visualCell, kanbanCellPresentationProperties);
+            syncKanbanHeadingRegionCell(cell, visualCell);
             visualCell.style.width = `${String(cell.getBoundingClientRect().width)}px`;
             copyComputedProperties(sourceHeading, visualHeading, kanbanHeaderPresentationProperties);
         });
@@ -290,19 +287,13 @@ function createKanbanStickyAdapter(
         const heights = visualCells.map((cell, index) => {
             const heading = visualHeadings[index];
             if (!heading) return 0;
-            const cellStyles = getComputedStyle(cell);
             const headingStyles = getComputedStyle(heading);
+            const cellRect = cell.getBoundingClientRect();
             const headingRect = heading.getBoundingClientRect();
-            const measuredHeight = cell.getBoundingClientRect().height;
-            const boxModelHeight =
-                headingRect.height +
-                Number.parseFloat(headingStyles.marginTop || "0") +
-                Number.parseFloat(headingStyles.marginBottom || "0") +
-                Number.parseFloat(cellStyles.paddingTop || "0") +
-                Number.parseFloat(cellStyles.paddingBottom || "0") +
-                Number.parseFloat(cellStyles.borderTopWidth || "0") +
-                Number.parseFloat(cellStyles.borderBottomWidth || "0");
-            const height = Math.max(measuredHeight, boxModelHeight);
+            const height = Math.max(
+                0,
+                headingRect.bottom - cellRect.top + computedPixels(headingStyles, "margin-bottom"),
+            );
             cell.style.height = `${String(height)}px`;
             return height;
         });

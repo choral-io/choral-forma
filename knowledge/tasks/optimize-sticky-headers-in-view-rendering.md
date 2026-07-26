@@ -559,6 +559,27 @@ In the disposable packaged VS Code host, the corrected dark-theme Preview measur
 
 Residual host coverage is limited to the exercised packaged dark-theme desktop path; touch input and a separate Light-theme pass were not exercised in this bounded review. Automated responsive/style/cleanup coverage and the host computed-style/box-model probe provide the remaining evidence. The final repository `mise run check`, Forma check/health, and diff checks are the closing gates for this correction.
 
+### Heading-region-only follow-up
+
+The next manual review showed that the first parity correction over-copied the semantic `.kanban-column` container. Its full border, radius, four-sided padding, and background turned every presentation cell into a second card above the real card body. In the active host that produced four `1px` visual-cell borders, four `4px` radii, `9.1px` bottom padding, a `51.9921875px` cell/rail height, duplicated bottom edges, and side-border seams between columns.
+
+The final Kanban presentation contract is narrower:
+
+- the semantic `.kanban-column h2` remains authoritative and supplies the cloned heading's typography, wrapping, padding, margin, and separator;
+- the visual cell copies only the source card surface color and foreground;
+- its top/inline content inset is calculated live as the source card border plus source card padding, preserving exact heading placement without drawing the parent border;
+- visual cells have no exterior border, radius, shadow, or bottom padding;
+- each visual-cell height ends at the measured heading bottom plus its live bottom margin, matching the source heading-to-body transition without a fixed height; and
+- the square outer rail seam remains a Kanban track-level, non-layout-affecting inset shadow. Table code and Table presentation CSS remain untouched.
+
+The exact-symptom regression loop first failed on the copied `1px` bottom/inline borders and the CSS `border-inline` contract. After the correction, the focused 2-file suite passed 13 tests. The full VS Code suite passed 25 files / 159 tests plus 13 packaging tests; type-check, icon validation, lint, production build, and VSIX packaging passed. The packaged artifact used for final host review is `/private/tmp/forma-kanban-review-heading-region-fix4.vsix`.
+
+The fresh isolated packaged host confirmed both normal and active geometry. Source and visual headings matched at left `62.09375px`, width `203.8125px`, and height `22.6953125px`. Active visual cells measured `224px × 41.8828125px` with insets `10.1px 10.1px 0 10.1px`, zero borders, zero radii, and the source `rgb(32, 33, 34)` surface; the cloned heading retained its own `1px` bottom separator and `9.1px` bottom margin. Source and visual gaps both measured `10.5px`, the rail contained zero focusable descendants, and the page root had zero horizontal overflow.
+
+At board-local horizontal start, midpoint, and maximum (`0 / 471.5 / 943px`), visual transforms were `0 / -471.5 / -943px` and all seven source/visual heading left and width deltas were zero. The rail remained visible throughout. The final manual-review host remains open at horizontal start in `/private/tmp/forma-kanban-review-367520c/VSCode-KanbanReviewFixed4.app`, with isolated profile `/private/tmp/forma-kanban-review-367520c/user-data-fixed4`, extensions `/private/tmp/forma-kanban-review-367520c/extensions-fixed4`, and workspace `/private/tmp/forma-kanban-review-367520c/workspace`. The bundled extension installer hit the disposable environment's `EMFILE` watcher limit, so the already-packaged VSIX was unpacked into that new isolated extensions directory using the prior disposable registry shape; no normal VS Code profile or app state was touched.
+
+Touch input and a separate Light-theme packaged-host pass remain unexercised in this bounded visual repair. The final `mise run check`, Forma `check --json`, Forma `workspace health --json`, and `git diff --check` gates passed.
+
 ## Table Column Presentation Follow-up — 2026-07-26
 
 The user approved a Table-only configuration follow-up. Kanban remains unchanged and its separately observed visual-header-height concern is deferred.
