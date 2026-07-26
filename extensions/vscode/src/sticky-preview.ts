@@ -371,7 +371,7 @@ class PreviewStickyLifecycle {
         if (!rail || !owner) return undefined;
         const isKanban = boundary.dataset.formaStickyKind === "kanban";
         const source = isKanban
-            ? boundary.querySelector<HTMLElement>(".kanban-column h2")
+            ? boundary.querySelector<HTMLElement>(".kanban-column")
             : boundary.querySelector<HTMLElement>("[data-forma-sticky-source] thead");
         const adapter = isKanban
             ? createKanbanStickyAdapter(boundary, rail, owner)

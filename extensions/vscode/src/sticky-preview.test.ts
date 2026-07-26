@@ -447,6 +447,100 @@ describe("native preview sticky rail lifecycle", () => {
         }
     });
 
+    it("reveals the Kanban rail when the semantic column edge crosses before its inset heading", () => {
+        const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+            callback(0);
+            return 0;
+        });
+        const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+        class FakeResizeObserver {
+            observe(): void {
+                return undefined;
+            }
+
+            unobserve(): void {
+                return undefined;
+            }
+
+            disconnect(): void {
+                return undefined;
+            }
+        }
+        vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+        document.body.innerHTML =
+            '<div data-forma-sticky-boundary data-forma-sticky-kind="kanban">' +
+            '<div data-forma-sticky-rail><div class="forma-sticky-rail-track"><div class="forma-kanban-sticky-track">' +
+            '<div class="forma-kanban-sticky-cell"><h2 aria-hidden="true">Title</h2></div>' +
+            "</div></div></div>" +
+            '<div class="kanban" data-forma-sticky-owner>' +
+            '<section class="kanban-column"><h2>Title <span class="count">1</span></h2></section>' +
+            "</div></div>";
+        const boundary = document.querySelector<HTMLElement>("[data-forma-sticky-boundary]");
+        const column = document.querySelector<HTMLElement>(".kanban-column");
+        const heading = column?.querySelector<HTMLElement>("h2");
+        const rail = document.querySelector<HTMLElement>("[data-forma-sticky-rail]");
+        const visualCell = document.querySelector<HTMLElement>(".forma-kanban-sticky-cell");
+        const visualHeading = visualCell?.querySelector<HTMLElement>("h2");
+        if (!boundary || !column || !heading || !rail || !visualCell || !visualHeading) {
+            throw new Error("Kanban sticky threshold fixture is incomplete.");
+        }
+        let columnTop = 0.5;
+        column.style.cssText = "border: 1px solid; padding: 10px;";
+        heading.style.cssText = "margin: 0 0 10px; line-height: 30px;";
+        Object.defineProperty(column, "getBoundingClientRect", {
+            value: () => ({
+                top: columnTop,
+                bottom: columnTop + 200,
+                height: 200,
+                left: 0,
+                right: 180,
+                width: 180,
+            }),
+        });
+        Object.defineProperty(heading, "getBoundingClientRect", {
+            value: () => ({
+                top: columnTop + 11,
+                bottom: columnTop + 41,
+                height: 30,
+                left: 11,
+                right: 169,
+                width: 158,
+            }),
+        });
+        Object.defineProperty(visualCell, "getBoundingClientRect", {
+            value: () => ({ top: 0, bottom: 51, height: 51, left: 0, right: 180, width: 180 }),
+        });
+        Object.defineProperty(visualHeading, "getBoundingClientRect", {
+            value: () => ({ top: 11, bottom: 41, height: 30, left: 11, right: 169, width: 158 }),
+        });
+        Object.defineProperty(boundary, "getBoundingClientRect", {
+            value: () => ({ top: columnTop, bottom: 300, height: 300 - columnTop }),
+        });
+        Object.defineProperty(rail, "getBoundingClientRect", {
+            value: () => {
+                const height = Number.parseFloat(rail.style.getPropertyValue("--forma-sticky-height")) || 0;
+                return { top: 0, bottom: height, height };
+            },
+        });
+
+        try {
+            startStickyPreview();
+            expect(rail.classList.contains("is-visible")).toBe(false);
+
+            columnTop = -0.5;
+            document.dispatchEvent(new Event("scroll"));
+
+            expect(heading.getBoundingClientRect().top).toBe(10.5);
+            expect(rail.classList.contains("is-visible")).toBe(true);
+        } finally {
+            stopStickyPreview();
+            document.body.replaceChildren();
+            vi.unstubAllGlobals();
+            frame.mockRestore();
+            cancel.mockRestore();
+        }
+    });
+
     it("recalculates on descendant document scroll and removes the listener on cleanup", () => {
         const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
             callback(0);

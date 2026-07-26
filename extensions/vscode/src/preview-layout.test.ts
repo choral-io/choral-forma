@@ -59,11 +59,17 @@ describe("view preview layout contract", () => {
     it("keeps Kanban visual cells at their natural per-column heights", () => {
         const track = rule(".forma-kanban-sticky-track {");
         const cells = rule(".forma-kanban-sticky-cell {");
+        const railTrack = rule(".forma-kanban-boundary .forma-sticky-rail-track {");
         expect(track).toContain("align-items: flex-start");
         expect(cells).toContain("padding: 0");
         expect(cells).toContain("border: 0");
         expect(cells).toContain("border-radius: 0");
         expect(cells).not.toContain("border-inline");
+        expect(railTrack).toContain("inset 1px 0 0 var(--forma-border)");
+        expect(railTrack).toContain("inset -1px 0 0 var(--forma-border)");
+        expect(railTrack).toContain("inset 0 1px 0 var(--forma-border)");
+        expect(railTrack).not.toContain("inset 0 0 0 1px");
+        expect(railTrack).not.toContain("inset 0 -1px");
     });
 
     it("lets visual Table headers retain the semantic header wrapping contract", () => {

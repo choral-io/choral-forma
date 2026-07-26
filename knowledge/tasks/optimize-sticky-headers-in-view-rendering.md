@@ -580,6 +580,18 @@ At board-local horizontal start, midpoint, and maximum (`0 / 471.5 / 943px`), vi
 
 Touch input and a separate Light-theme packaged-host pass remain unexercised in this bounded visual repair. The final `mise run check`, Forma `check --json`, Forma `workspace health --json`, and `git diff --check` gates passed.
 
+### Container-edge reveal and top-only seam follow-up
+
+The next manual acceptance pass found two additional blocking defects. First, the Kanban controller used the inset semantic `h2` as its reveal source, so the column card could cross the sticky edge by approximately its border-plus-top-padding inset before the rail appeared. In the packaged host, the rail was still hidden at column top `-0.3046875px` while the heading text remained at `9.7890625px`; it appeared only at column top `-10.3046875px`, when the heading text reached `-0.2109375px`. Second, the Kanban track's four-sided `inset 0 0 0 1px` shadow still drew an exterior bottom line even though visual cells no longer had bottom borders.
+
+The bounded correction keeps the cloned `h2` as the heading geometry and style authority but uses the first semantic `.kanban-column` as the controller's vertical reveal source. The rail now enters when the column-card edge crosses the sticky offset, before its inset title text, while lower-boundary exit still consumes the live rail height returned by the Kanban adapter. The Kanban track seam now uses separate left, right, and top inset shadows; it has no bottom inset. The cloned heading retains its intentional separator. Table controller, adapter, and product CSS are unchanged.
+
+The exact-symptom focused loop first failed two assertions: the rail remained hidden with column top `-0.5px` and heading top `10.5px`, and the CSS still contained the four-sided inset shadow instead of top/inline-only seams. After the correction, the focused suite passed 2 files / 14 tests. The complete VS Code suite passed 25 files / 160 tests plus 13 packaging tests; type-check, icon validation, lint, production build, and VSIX packaging passed. The final packaged artifact is `/private/tmp/forma-kanban-review-trigger-fix5.vsix`.
+
+A disposable local-only fixture at `/private/tmp/forma-kanban-review-367520c/workspace/sticky-comparison.md` places a compact product-shaped Table directly above a product-shaped Kanban so their trigger timing can be compared without expanding the renderer or schema. In the refreshed packaged host, the Kanban rail was hidden at column top `0.4765625px`, then visible at column top `-0.5234375px` with rail top `0px` while the semantic heading text remained at `9.5703125px`. The visual cell bottom border measured `0px`; the intentional heading separator remained `1px solid`; the track computed only left, right, and top inset shadows; and the document root retained zero horizontal overflow.
+
+The Fixed4 review host remains open on the comparison fixture at the exact active Kanban threshold using isolated app `/private/tmp/forma-kanban-review-367520c/VSCode-KanbanReviewFixed4.app`, profile `/private/tmp/forma-kanban-review-367520c/user-data-fixed4`, extensions `/private/tmp/forma-kanban-review-367520c/extensions-fixed4`, and workspace `/private/tmp/forma-kanban-review-367520c/workspace`. Touch input and a separate Light-theme packaged-host pass remain outside this bounded correction. The final `mise run check`, Forma `check --json`, Forma `workspace health --json`, and `git diff --check` gates passed.
+
 ## Table Column Presentation Follow-up — 2026-07-26
 
 The user approved a Table-only configuration follow-up. Kanban remains unchanged and its separately observed visual-header-height concern is deferred.
