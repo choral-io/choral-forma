@@ -5,7 +5,7 @@ title: Forma v0.1.24
 summary: Public Preview update for resilient Mermaid reading, sticky Table and Kanban headers, and aligned editor package identity.
 scope: project
 type: release
-status: planned
+status: released
 version: v0.1.24
 date: 2026-07-26
 owners:
@@ -60,6 +60,16 @@ Required candidate evidence:
 8. `mise run release:verify -- v0.1.24` validates the published release, current-host CLI, VSIX identity, checksums, and managed-install path.
 9. Any Marketplace upload and clean-profile installation are performed only with separate maintainer authorization.
 
+Completed candidate and immutable GitHub publication evidence:
+
+- Candidate commit: `31a2bb559af0e43a381dcd832f614676ce2f38d7`.
+- `mise run version:check -- v0.1.24`, the complete local `CI=true mise run check` gate, Forma config and content checks, local VSIX packaging, and isolated packaged-VSIX activation passed before tagging. Workspace health reported one non-blocking no-backlink warning for this new release record.
+- [Main CI run 30204900999](https://github.com/choral-io/choral-forma/actions/runs/30204900999) passed Knowledge, Web, Rust, and VS Code Extension for the exact candidate commit before tagging.
+- Annotated tag `v0.1.24` has tag object `6f6714095e3408f167a9de7cf4a4745fdab943c0` and points to the exact candidate commit.
+- [Release workflow run 30205337876](https://github.com/choral-io/choral-forma/actions/runs/30205337876) passed its version gate, VS Code Extension build and smoke test, five platform builds, and GitHub Release publication for the exact candidate commit.
+- [GitHub Release v0.1.24](https://github.com/choral-io/choral-forma/releases/tag/v0.1.24) was published on 2026-07-26 as a regular, non-draft release with the exact expected 22 assets: the VSIX and checksum; standalone Linux arm64, Linux x64, macOS arm64, macOS x64, and Windows x64 binaries and checksums; and the five matching archives and checksums.
+- `mise run release:verify -- v0.1.24` passed. The verified macOS arm64 CLI reports `forma 0.1.24` with SHA-256 `4acb51a5185c9ebbe5da1f489839e9bbd35ee6956516f8e1b25f65cce9737827`; the VSIX reports `choral-io.forma@0.1.24`, engine `^1.110.0`, and SHA-256 `6d86cd997cf73177b61878e03f2ea640ae23f1346b407b4df5cba89e61776b86`. The production managed-install verification selected `forma-macos-arm64` and confirmed `forma 0.1.24`.
+
 ## Rollout Plan
 
 1. Commit the aligned `0.1.24` candidate without creating a tag or publishing external artifacts.
@@ -75,7 +85,7 @@ Required candidate evidence:
 - Existing Forma workspaces and Markdown content require no schema or content migration.
 - Users must update the CLI and editor extension together; mixed `0.1.23` and `0.1.24` components remain intentionally incompatible.
 - The stable Marketplace identity remains `choral-io.forma`; this candidate reconciles its source and GitHub Release VSIX display name to `Forma by Choral`.
-- Marketplace publication remains manually authorized. Automated publishing is intentionally deferred until publisher-managed credentials and an approval gate are configured.
+- Marketplace publication remains manually authorized. No `0.1.24` Marketplace upload or clean-profile Marketplace installation is claimed by this record. Automated publishing is intentionally deferred until publisher-managed credentials and an approval gate are configured.
 - Remote SSH, Dev Container, WSL, high-contrast, reduced-motion, long-running resource, and full-scale validation remain unverified unless post-release evidence names a completed test.
 
 ## Release Notes
