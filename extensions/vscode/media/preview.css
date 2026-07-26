@@ -121,7 +121,7 @@
     min-width: 100%;
     transform: translateX(0);
 }
-.forma-kanban-boundary .forma-sticky-rail-track {
+.forma-kanban-sticky-rail .forma-sticky-rail-track {
     background: transparent;
     border: 0;
     box-shadow: none;

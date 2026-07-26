@@ -25,6 +25,36 @@ describe("native preview sticky rail lifecycle", () => {
         expect(horizontalScrollTransform(240)).toBe("translateX(-240px)");
     });
 
+    it("falls back to the measured rail while a source is temporarily zero-height", () => {
+        const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+            callback(0);
+            return 0;
+        });
+        const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+        const boundary = document.createElement("div");
+        const source = document.createElement("thead");
+        const rail = document.createElement("div");
+        const owner = document.createElement("div");
+        Object.defineProperty(source, "getBoundingClientRect", {
+            value: () => ({ top: -1, bottom: -1, height: 0 }),
+        });
+        Object.defineProperty(boundary, "getBoundingClientRect", {
+            value: () => ({ top: -1, bottom: 100, height: 101 }),
+        });
+        Object.defineProperty(rail, "getBoundingClientRect", {
+            value: () => ({ top: 0, bottom: 42, height: 42 }),
+        });
+
+        const controller = createPreviewStickyBoundaryController(boundary, source, rail, owner, () => undefined);
+
+        expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("42px");
+        expect(rail.classList.contains("is-visible")).toBe(true);
+
+        controller.destroy();
+        frame.mockRestore();
+        cancel.mockRestore();
+    });
+
     it("mirrors table header presentation styles without copying layout controls", () => {
         const sourceTable = document.createElement("table");
         const sourceHead = document.createElement("thead");
@@ -310,6 +340,7 @@ describe("native preview sticky rail lifecycle", () => {
         const columns = [...document.querySelectorAll<HTMLElement>(".kanban-column")];
         const headings = columns.map((column) => column.querySelector<HTMLElement>("h2"));
         const rail = document.querySelector<HTMLElement>("[data-forma-sticky-rail]");
+        const owner = document.querySelector<HTMLElement>("[data-forma-sticky-owner]");
         const visualTrack = document.querySelector<HTMLElement>(".forma-kanban-sticky-track");
         const visualCells = [...document.querySelectorAll<HTMLElement>(".forma-kanban-sticky-cell")];
         const visualHeadings = visualCells.map((cell) => cell.querySelector<HTMLElement>("h2"));
@@ -317,6 +348,7 @@ describe("native preview sticky rail lifecycle", () => {
             !boundary ||
             headings.some((heading) => !heading) ||
             !rail ||
+            !owner ||
             !visualTrack ||
             visualHeadings.some((heading) => !heading)
         ) {
@@ -327,6 +359,8 @@ describe("native preview sticky rail lifecycle", () => {
             { top: -8, bottom: 22, height: 30, left: 0, right: 180, width: 180 },
             { top: -8, bottom: 46, height: 54, left: 192, right: 392, width: 200 },
         ];
+        const columnRectReads = [0, 0];
+        const visualHeadingRectReads = [0, 0];
         const sourceRectAt = (index: number) => {
             const sourceRect = sourceRects[index];
             if (!sourceRect) throw new Error(`Missing source rectangle at index ${String(index)}.`);
@@ -345,7 +379,10 @@ describe("native preview sticky rail lifecycle", () => {
                 "border: 1px solid rgb(80, 80, 80); border-radius: 4px; border-top-left-radius: 4px; border-top-right-radius: 4px; background-color: rgb(30, 30, 30); padding: 10px 12px;";
             Object.defineProperty(column, "getBoundingClientRect", {
                 configurable: true,
-                value: () => sourceRects[index],
+                value: () => {
+                    columnRectReads[index] = (columnRectReads[index] ?? 0) + 1;
+                    return sourceRects[index];
+                },
             });
         });
         visualCells.forEach((cell, index) => {
@@ -382,6 +419,7 @@ describe("native preview sticky rail lifecycle", () => {
             Object.defineProperty(heading, "getBoundingClientRect", {
                 configurable: true,
                 value: () => {
+                    visualHeadingRectReads[index] = (visualHeadingRectReads[index] ?? 0) + 1;
                     const cellStyles = getComputedStyle(visualCell);
                     const top =
                         Number.parseFloat(cellStyles.borderTopWidth || "0") +
@@ -437,8 +475,13 @@ describe("native preview sticky rail lifecycle", () => {
             expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("75px");
             expect(rail.classList.contains("is-visible")).toBe(true);
 
-            document.querySelector<HTMLElement>("[data-forma-sticky-owner]")?.dispatchEvent(new Event("scroll"));
+            const columnReadsBeforeScroll = [...columnRectReads];
+            const visualHeadingReadsBeforeScroll = [...visualHeadingRectReads];
+            owner.dispatchEvent(new Event("scroll"));
             expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("75px");
+            expect(columnRectReads[0]).toBeGreaterThan(columnReadsBeforeScroll[0] ?? 0);
+            expect(columnRectReads[1]).toBe(columnReadsBeforeScroll[1] ?? 0);
+            expect(visualHeadingRectReads).toEqual(visualHeadingReadsBeforeScroll);
 
             sourceRects[0] = { top: -8, bottom: 42, height: 50, left: 0, right: 180, width: 180 };
             resizeObserver?.trigger();
@@ -452,8 +495,13 @@ describe("native preview sticky rail lifecycle", () => {
             if (!mutatedSourceHeading || !mutatedVisualHeading) {
                 throw new Error("Kanban sticky mutation fixture is incomplete.");
             }
-            mutatedSourceHeading.textContent = "A much taller live heading";
-            mutatedVisualHeading.textContent = "A much taller live heading";
+            const mutatedSourceText = mutatedSourceHeading.firstChild;
+            const mutatedVisualText = mutatedVisualHeading.firstChild;
+            if (!(mutatedSourceText instanceof Text) || !(mutatedVisualText instanceof Text)) {
+                throw new Error("Kanban sticky character-data fixture is incomplete.");
+            }
+            mutatedSourceText.data = "A much taller live heading";
+            mutatedVisualText.data = "A much taller live heading";
             await vi.waitFor(() => {
                 expect(visualCells.map((cell) => cell.style.height)).toEqual(["111px", "75px"]);
                 expect(rail.style.getPropertyValue("--forma-sticky-height")).toBe("111px");

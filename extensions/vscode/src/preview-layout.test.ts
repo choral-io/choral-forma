@@ -59,7 +59,7 @@ describe("view preview layout contract", () => {
     it("keeps Kanban visual cells at their natural per-column heights", () => {
         const track = rule(".forma-kanban-sticky-track {");
         const cells = rule(".forma-kanban-sticky-cell {");
-        const railTrack = rule(".forma-kanban-boundary .forma-sticky-rail-track {");
+        const railTrack = rule(".forma-kanban-sticky-rail .forma-sticky-rail-track {");
         expect(track).toContain("align-items: flex-start");
         expect(cells).toContain("padding: 0");
         expect(cells).toContain("border: 0");

@@ -132,10 +132,10 @@ function syncKanbanHeadingRegionCell(sourceCell: HTMLElement, visualCell: HTMLEl
     visualCell.style.borderBottomLeftRadius = "0px";
     visualCell.style.borderBottomRightRadius = "0px";
     visualCell.style.boxShadow = "none";
-    visualCell.style.paddingTop = `${String(computedPixels(styles, "padding-top"))}px`;
-    visualCell.style.paddingRight = `${String(computedPixels(styles, "padding-right"))}px`;
+    visualCell.style.paddingTop = styles.paddingTop;
+    visualCell.style.paddingRight = styles.paddingRight;
     visualCell.style.paddingBottom = "0px";
-    visualCell.style.paddingLeft = `${String(computedPixels(styles, "padding-left"))}px`;
+    visualCell.style.paddingLeft = styles.paddingLeft;
 }
 
 export function syncTableHeaderPresentationStyles(
@@ -200,7 +200,9 @@ export function createPreviewStickyBoundaryController(
             const sourceRect = source.getBoundingClientRect();
             const boundaryRect = boundary.getBoundingClientRect();
             const measuredRailHeight = rail.getBoundingClientRect().height;
-            const stickyHeight = shouldRemeasure ? (syncedHeight ?? sourceHeight) : measuredRailHeight || sourceHeight;
+            const remeasuredHeight = syncedHeight ?? sourceHeight;
+            const stickyHeight =
+                shouldRemeasure && remeasuredHeight > 0 ? remeasuredHeight : measuredRailHeight || remeasuredHeight;
             const visible = shouldShowStickyRail(sourceRect.top, boundaryRect.bottom, stickyHeight);
             rail.classList.toggle("is-visible", visible);
             rail.style.setProperty("--forma-sticky-height", `${String(stickyHeight)}px`);
@@ -329,7 +331,7 @@ class PreviewStickyLifecycle {
 
     constructor() {
         this.reconcile();
-        this.contentObserver.observe(document.body, { childList: true, subtree: true });
+        this.contentObserver.observe(document.body, { childList: true, characterData: true, subtree: true });
         window.addEventListener("vscode.markdown.updateContent", this.updatePreviewContent);
         document.addEventListener("vscode.markdown.updateContent", this.updatePreviewContent);
         window.addEventListener("pagehide", stopStickyPreview, { once: true });
