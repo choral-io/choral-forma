@@ -42,6 +42,8 @@ schema:
                 type: entryRef
 display:
     order: 30
+    icon: circle-check
+    color: "#16A34A"
 description: Architectural, product, and process decisions as records.
 include:
     - "knowledge/decisions/**/*.md"

@@ -44,6 +44,8 @@ schema:
                 type: entryRef
 display:
     order: 85
+    icon: circle-check
+    color: "#059669"
 description: Reusable acceptance and validation cases.
 include:
     - "knowledge/test-cases/**/*.md"

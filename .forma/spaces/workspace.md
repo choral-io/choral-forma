@@ -39,6 +39,8 @@ schema:
 
 display:
     order: 100
+    icon: folder-tree
+    color: "#64748B"
 description: Shared member workspace entry pages.
 include:
     - "knowledge/workspace/*/index.md"

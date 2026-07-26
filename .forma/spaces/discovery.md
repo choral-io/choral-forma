@@ -30,6 +30,8 @@ schema:
                 type: entryRef
 display:
     order: 50
+    icon: book-open
+    color: "#0F766E"
 description: Discovery notes and feature exploration results.
 include:
     - "knowledge/discovery/**/*.md"

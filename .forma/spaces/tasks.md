@@ -66,6 +66,8 @@ schema:
             type: string
 display:
     order: 80
+    icon: list-checks
+    color: "#4F7CAC"
 description: Delivery tasks tracked as repository Markdown.
 guidelines:
     - knowledge/guidelines/forma-workspace-operations.md

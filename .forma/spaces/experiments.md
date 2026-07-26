@@ -50,6 +50,8 @@ schema:
                 type: release
 display:
     order: 57
+    icon: flask-conical
+    color: "#9333EA"
 description: Product and workflow experiments with metrics, guardrails, and decisions.
 include:
     - "knowledge/experiments/**/*.md"

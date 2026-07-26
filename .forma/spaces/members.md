@@ -30,6 +30,8 @@ schema:
                 type: string
 display:
     order: 90
+    icon: users
+    color: "#64748B"
 description: Shared member-facing workspace notes. Local-only member files remain ignored by Git.
 include:
     - "knowledge/members/**/*.md"

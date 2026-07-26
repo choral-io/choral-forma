@@ -34,6 +34,8 @@ schema:
                 type: member
 display:
     order: 70
+    icon: calendar
+    color: "#EA580C"
 description: Planning records and roadmaps.
 include:
     - "knowledge/planning/**/*.md"

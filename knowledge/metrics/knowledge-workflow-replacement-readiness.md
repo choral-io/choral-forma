@@ -19,6 +19,8 @@ target: "Ready when all required checks pass, the starter-kit pressure suite has
 reviewCadence: "Before internal release review and after major content workflow changes."
 relatedExperiments:
     - "experiments/starter-kit-agent-pressure-validation"
+relatedReleases:
+    - "releases/forma-v0.1.23"
 ---
 
 # Product Workflow Readiness
@@ -61,12 +63,13 @@ Passing diagnostics alone is not enough. The workflow must also be understandabl
 
 Status: `ready`
 
-As of 2026-06-23, the metric met its threshold for internal release review:
+As of 2026-07-26, the metric meets its threshold for the current Public Preview workflow:
 
 - repository `config inspect`, `check`, and `workspace health` pass;
 - starter-kit `config inspect`, `check`, `workspace health`, `list --space tasks`, and `inspect --space tasks` pass;
 - [[experiments/starter-kit-agent-pressure-validation]] records outcomes for all four contract cases and all six pressure cases;
 - the remaining productization gaps are explicitly deferred to reviewable write-operation work, minimal policy gates, and future validation automation.
+- [[planning/forma-release-and-delivery-ledger]] records the current release chain and active delivery cutline so historical release records and in-flight work remain reachable from maintained project knowledge.
 
 This `ready` status does not mean Forma has cloned the old `knowledge-workflow` skills. It means the current project can continue product R&D using Forma configuration, guidelines, diagnostics, and review evidence while intentionally leaving nonessential old workflow mechanics behind.
 
@@ -78,6 +81,7 @@ Review before the next internal release and after any significant change to Form
 
 - [[product/product-direction]]
 - [[architecture/forma-core-technical-direction]]
+- [[planning/forma-release-and-delivery-ledger]]
 
 ## Open Questions
 

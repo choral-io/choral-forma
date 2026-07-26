@@ -299,7 +299,7 @@ Do not combine the Page-model migration, Panel presentation, Graph behavior, and
 ## Execution Status 2026-07-18
 
 - Iterations 0-2 are complete for the first taxonomy and term `display.icon/color` cut: Core validation and diagnostics, RPC and CLI contracts, shared TypeScript definitions, example fixtures, and VS Code Forma Panel presentation are covered.
-- The VS Code icon implementation packages only the finite registry, caches generated color variants through Remote-safe storage URIs, bounds both memory and disk caches, and preserves diagnostic and high-contrast precedence.
+- The VS Code Forma Panel consumes the finite icon registry with diagnostic-first fallback behavior. Configured color is currently consumed by Graph projections; arbitrary TreeView color treatment remains intentionally deferred until a Host-safe presentation contract is selected.
 - The shared Graph runtime now derives theme roles from Host tokens, preserves the renderer, camera, and selection across theme changes, and uses themed hover and selected-node surfaces.
 - Selected-edge animation was removed from the current release after visual validation showed that it did not communicate reference direction clearly enough. Persistent static arrowheads and the selected-edge focus layer remain authoritative. The focus Canvas is synchronized with Sigma's CSS and DPR dimensions; future motion treatment is deferred to a dedicated interaction study.
 - Iteration 3 remains intentionally bounded because [[tasks/generalize-taxonomy-neutral-page-model]] is still `needs-refinement`. Graph nodes are not colored from the compatibility `space` field, and no taxonomy id is treated as primary.
@@ -345,8 +345,8 @@ Stop and revise the affected iteration when:
 
 - Equivalent taxonomies behave identically regardless of id.
 - Taxonomy and Term `display.icon/color` survive config, RPC, Explorer, and Host adapters.
-- VS Code Forma Panel and WebApp navigation show configured presentation with safe fallbacks.
-- Graph Views opt into an arbitrary configured taxonomy and display stable Term colors plus an accessible legend.
+- VS Code Forma Panel shows configured icons with safe fallbacks. WebApp navigation remains a future presentation consumer and does not yet render configured icon or color metadata.
+- Graph Views opt into an arbitrary configured taxonomy through `graph.presentation.nodes.colorBy.taxonomy` and display stable Term colors plus an accessible legend.
 - Selection and one-hop emphasis remain legible without replacing classification colors.
 - `mode: multiple`, unclassified, invalid metadata, theme, high-contrast, Remote, reload, and disposal behavior are covered.
 - Performance and package deltas are recorded against the same fixtures and candidate commit.

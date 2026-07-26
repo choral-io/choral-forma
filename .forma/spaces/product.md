@@ -30,6 +30,8 @@ schema:
                 type: entryRef
 display:
     order: 10
+    icon: rocket
+    color: "#2563EB"
 description: Product-level direction and product scope records.
 include:
     - "knowledge/product/**/*.md"

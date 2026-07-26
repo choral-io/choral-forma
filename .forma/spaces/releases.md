@@ -48,6 +48,8 @@ schema:
                 type: metric
 display:
     order: 95
+    icon: rocket
+    color: "#E11D48"
 description: Release scope, validation, rollout, and follow-up records.
 guidelines:
     - knowledge/guidelines/release-execution-and-verification.md

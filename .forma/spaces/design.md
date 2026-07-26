@@ -34,6 +34,8 @@ schema:
                 type: member
 display:
     order: 25
+    icon: panels-top-left
+    color: "#DB2777"
 description: Design artifacts, UX patterns, and implementation UI specs.
 include:
     - "knowledge/design/**/*.md"

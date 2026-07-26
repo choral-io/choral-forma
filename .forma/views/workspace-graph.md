@@ -6,6 +6,10 @@ mode: graph
 source:
     type: pages
 graph:
+    presentation:
+        nodes:
+            colorBy:
+                taxonomy: spaces
     edges:
         - source: body
           intent: link

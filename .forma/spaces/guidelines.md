@@ -30,6 +30,8 @@ schema:
                 type: entryRef
 display:
     order: 60
+    icon: book-open
+    color: "#475569"
 description: Team and repository guidelines.
 include:
     - "knowledge/guidelines/**/*.md"

@@ -34,6 +34,8 @@ schema:
                 type: member
 display:
     order: 20
+    icon: boxes
+    color: "#7C3AED"
 description: Core architecture and systems design records.
 include:
     - "knowledge/architecture/**/*.md"

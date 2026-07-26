@@ -46,6 +46,8 @@ schema:
                 type: release
 display:
     order: 55
+    icon: table-properties
+    color: "#0284C7"
 description: Product, quality, and delivery metric definitions.
 include:
     - "knowledge/metrics/**/*.md"

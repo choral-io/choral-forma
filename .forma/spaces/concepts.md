@@ -30,6 +30,8 @@ schema:
                 type: entryRef
 display:
     order: 40
+    icon: lightbulb
+    color: "#D97706"
 description: Shared concept glossary and abstractions.
 include:
     - "knowledge/concepts/**/*.md"

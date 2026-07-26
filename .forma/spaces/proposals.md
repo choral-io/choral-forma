@@ -44,6 +44,8 @@ schema:
                 type: entryRef
 display:
     order: 75
+    icon: lightbulb
+    color: "#CA8A04"
 description: Reviewable content, task, and decision proposals before canonical conversion.
 include:
     - "knowledge/proposals/**/*.md"

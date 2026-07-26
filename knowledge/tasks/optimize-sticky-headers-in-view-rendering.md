@@ -9,7 +9,7 @@ priority: "P2"
 value: "M"
 module: "app"
 effort: "M"
-status: "backlog"
+status: "doing"
 readiness: "ready"
 owners:
     - "members/tiscs"
@@ -44,6 +44,12 @@ Keep the structural context of long configured Views visible while users scroll,
 - [[guidelines/webapp-engineering-and-visual-validation]]
 - [[tasks/implement-webapp-v2-dashboard-shell]]
 - [[tasks/implement-vscode-view-preview]]
+
+## Current Delivery State
+
+Status: `doing` as of 2026-07-26.
+
+The WebApp Table and Kanban slices are complete with the recorded production-browser, accessibility, focused-test, and project-gate evidence. The task remains open only for the separately gated VS Code native-preview evaluation; it must either produce host-native validation evidence or record a bounded host limitation and follow-up.
 
 ## Context
 

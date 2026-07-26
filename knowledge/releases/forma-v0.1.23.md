@@ -18,10 +18,15 @@ tags:
     - vscode
     - zed
     - cli
-relatedTasks: []
-relatedTestCases: []
+relatedTasks:
+    - "tasks/implement-webapp-v2-dashboard-shell"
+    - "tasks/migrate-webapp-to-shared-graph-view"
+    - "tasks/implement-vscode-extension-mvp"
+relatedTestCases:
+    - "test-cases/forma-starter-kit"
 relatedExperiments: []
-relatedMetrics: []
+relatedMetrics:
+    - "metrics/knowledge-workflow-replacement-readiness"
 ---
 
 # Forma v0.1.23

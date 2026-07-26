@@ -6,6 +6,8 @@ title: Spaces
 mode: primary
 display:
     order: 30
+    icon: shapes
+    color: "#64748B"
 description: Primary content groups for the project workspace.
 ---
 

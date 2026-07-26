@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: product
 effort: M
-status: backlog
+status: ready
 readiness: ready
 owners:
     - "members/tiscs"
@@ -25,6 +25,9 @@ relatedTo:
     - "planning/forma-product-value-gap-roadmap"
     - "experiments/starter-kit-agent-pressure-validation"
     - "metrics/knowledge-workflow-replacement-readiness"
+    - "user-stories/external-team-evaluates-forma"
+    - "metrics/external-forma-value-evidence"
+    - "experiments/external-forma-value-validation-pilot"
 severity: ""
 sprint: ""
 reportedBy: ""
@@ -40,6 +43,15 @@ Define a small comparative pilot that can raise or lower confidence in Forma's v
 ## Observed Baseline
 
 Internal dogfooding and starter-kit pressure validation prove technical mechanics and Agent discoverability. They do not measure external setup cost, recurring use, time saved, errors prevented, or willingness to keep Forma in a real workflow.
+
+## Initial Case Corpus
+
+The first protocol uses two user-authorized published case narratives from the `choral-io/knowledge-research` repository as qualitative inputs, not as pre-counted pilot results:
+
+- [From knowledge-workflow to Forma](https://github.com/choral-io/knowledge-research/blob/main/publications/forma/from-knowledge-workflow-to-forma.md) identifies the cost of carrying software-engineering knowledge mechanics into content, sales, professional-service, and operations domains.
+- [From documents to knowledge assets](https://github.com/choral-io/knowledge-research/blob/main/publications/forma/from-documents-to-knowledge-assets.md) describes a professional-services trial in which structured records, evidence, review boundaries, and recurring maintenance improve reuse without delegating professional judgment to an Agent.
+
+The pilot must collect the same evidence in a comparable shape before treating either narrative as support for a product-value claim.
 
 ## In Scope
 

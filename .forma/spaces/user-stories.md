@@ -48,6 +48,8 @@ schema:
                 type: metric
 display:
     order: 45
+    icon: users
+    color: "#0891B2"
 description: User, actor, and workflow stories that connect product intent to delivery.
 include:
     - "knowledge/user-stories/**/*.md"
