@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import { useEffect, useRef, useState } from "react";
 
+import { isStaticRawHref, logicalHref, rootAwareHref } from "@/data/static-runtime";
 import type { DashboardEntry, DashboardEntryHeading } from "@/data/workspace-client";
 import type { MermaidRenderScope } from "@/lib/mermaid";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
@@ -259,10 +260,10 @@ export function postProcessMarkdownHtml(
             continue;
         }
 
-        const resolvedLink = resolveReaderLink(href, currentPath, entries);
+        const resolvedLink = resolveReaderLink(logicalHref(href), currentPath, entries);
         anchor.classList.add("link");
         anchor.dataset.linkKind = resolvedLink.kind;
-        anchor.setAttribute("href", resolvedLink.href);
+        anchor.setAttribute("href", rootAwareHref(resolvedLink.href));
 
         if (resolvedLink.opensInNewTab) {
             anchor.setAttribute("target", "_blank");
@@ -276,12 +277,12 @@ export function postProcessMarkdownHtml(
 
     for (const image of document.body.querySelectorAll("img[src]")) {
         const source = image.getAttribute("src");
-        if (!source || isExternalHref(source) || source.startsWith("#") || source.startsWith("/raw/")) {
+        if (!source || isExternalHref(source) || source.startsWith("#") || isStaticRawHref(source)) {
             continue;
         }
 
         const targetPath = normalizeWorkspaceHref(source, currentPath, entries);
-        image.setAttribute("src", `/raw/${encodeURI(targetPath.path)}`);
+        image.setAttribute("src", rootAwareHref(`/raw/${encodeURI(targetPath.path)}`));
     }
 
     for (const table of document.body.querySelectorAll("table")) {

@@ -23,7 +23,7 @@ export function WorkspaceSidebar({
 }: WorkspaceSidebarProps) {
     const { pathname } = useLocation();
     const browseIsActive =
-        pathname === "/taxonomies" ||
+        pathname === "/browse" ||
         pathname === "/pages" ||
         pathname.startsWith("/pages/") ||
         dashboard.taxonomies.some((taxonomy) => {
@@ -92,7 +92,7 @@ export function WorkspaceSidebar({
                         icon={FolderOpen}
                         label="Browse"
                         onNavigate={onNavigate}
-                        to="/taxonomies"
+                        to="/browse"
                     />
                     <SidebarLink
                         active={pathname === "/health"}

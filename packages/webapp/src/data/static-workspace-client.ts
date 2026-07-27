@@ -18,10 +18,6 @@ import type {
     WorkspaceHealth,
 } from "./workspace-client";
 
-declare global {
-    var __FORMA_STATIC_WORKSPACE__: { dataBaseUrl: string } | undefined;
-}
-
 type StaticStatus = "passed" | "warning" | "failed";
 
 type StaticDiagnostic = DashboardDiagnostic & { routePath?: string };
@@ -88,6 +84,7 @@ interface StaticEntryVariant {
     title?: string;
     omitLeadingTitle: boolean;
     summary?: string;
+    dataPath: string;
 }
 
 export interface StaticEntryData extends StaticEntrySummary {
@@ -97,6 +94,12 @@ export interface StaticEntryData extends StaticEntrySummary {
     outgoing: StaticReferenceEdge[];
     backlinks: StaticReferenceEdge[];
     diagnostics?: StaticDiagnostic[];
+}
+
+export interface StaticEntryVariantData extends StaticEntryVariant {
+    markdown: string;
+    html: string;
+    headings: { id: string; level: number; text: string }[];
 }
 
 interface StaticReferenceEdge {
@@ -120,6 +123,7 @@ interface StaticViewSummary {
 }
 
 export interface StaticViewData extends StaticViewSummary {
+    sourcePath: string;
     document?: {
         bodySource: string;
         mounts?: { startOffset: number; endOffset: number }[];
@@ -140,6 +144,7 @@ export class StaticWorkspaceClient implements WorkspaceClient {
     }
 
     async getDashboard(): Promise<WorkspaceDashboard> {
+        if (this.#dashboard) return this.#dashboard;
         const data = await this.readJson<StaticDashboardData>("dashboard.json");
         const entries = data.entries.map(mapEntrySummary);
         const diagnostics = data.diagnostics;
@@ -177,12 +182,41 @@ export class StaticWorkspaceClient implements WorkspaceClient {
     async getEntry(entryId: string): Promise<DashboardEntry> {
         const dashboard = this.#dashboard ?? (await this.getDashboard());
         const summary = dashboard.entries.find((entry) => entry.id === entryId);
-        if (!summary) {
+        if (summary) {
+            const data = await this.readJson<StaticEntryData>(`entries/${entryId}.json`);
+            return {
+                ...mapEntrySummary(data),
+                body: [
+                    {
+                        type: "markdown",
+                        markdown: data.markdown,
+                        outline: data.headings.filter(isDashboardHeading),
+                    },
+                ],
+                diagnostics: data.diagnostics ?? [],
+                relations: {
+                    outgoing: data.outgoing.map((edge) => mapReference(edge, dashboard.entries)),
+                    backlinks: data.backlinks.map((edge) => mapReference(edge, dashboard.entries)),
+                },
+            };
+        }
+        const canonical = dashboard.entries.find((entry) => entry.variants.some((variant) => variant.id === entryId));
+        const variant = canonical?.variants.find((variant) => variant.id === entryId);
+        if (!canonical || !variant) {
             throw new Error(`Static artifact entry was not listed: ${entryId}`);
         }
-        const data = await this.readJson<StaticEntryData>(`entries/${entryId}.json`);
+        const data = await this.readJson<StaticEntryVariantData>(`entries/${entryId}.json`);
+        const title = data.title?.trim();
         return {
-            ...mapEntrySummary(data),
+            ...canonical,
+            id: data.id,
+            kind: data.kind,
+            path: data.path,
+            routePath: data.routePath,
+            rawPath: data.path,
+            title: title === undefined || title === "" ? data.path : title,
+            omitLeadingTitle: data.omitLeadingTitle,
+            summary: data.summary ?? canonical.summary,
             body: [
                 {
                     type: "markdown",
@@ -190,11 +224,8 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                     outline: data.headings.filter(isDashboardHeading),
                 },
             ],
-            diagnostics: data.diagnostics ?? [],
-            relations: {
-                outgoing: data.outgoing.map((edge) => mapReference(edge, dashboard.entries)),
-                backlinks: data.backlinks.map((edge) => mapReference(edge, dashboard.entries)),
-            },
+            diagnostics: [],
+            relations: { outgoing: [], backlinks: [] },
         };
     }
 
@@ -245,6 +276,7 @@ function mapEntrySummary(entry: StaticEntrySummary): DashboardEntry {
         updatedLabel: "",
         status: mapStatus(entry.status),
         variants: entry.variants.map((variant) => ({
+            id: variant.id,
             language: variant.language,
             path: variant.path,
             routePath: variant.routePath,
@@ -317,11 +349,11 @@ function isDashboardHeading(heading: { id: string; level: number; text: string }
 function mapViewDocument(data: StaticViewData, viewId: string): DashboardViewRender["document"] {
     const source = data.document?.bodySource ?? "";
     const mount = data.document?.mounts?.[0];
-    if (!mount) return { beforeProjection: source, afterProjection: "", path: viewId };
+    if (!mount) return { beforeProjection: source, afterProjection: "", path: data.sourcePath || viewId };
     return {
         beforeProjection: source.slice(0, mount.startOffset),
         afterProjection: source.slice(mount.endOffset),
-        path: viewId,
+        path: data.sourcePath || viewId,
     };
 }
 

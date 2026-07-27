@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 
+import { readPreparedStaticEnhancement } from "@/data/static-enhancement";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
 import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
@@ -12,7 +13,9 @@ export const workspaceDrawerId = "workspace-navigation";
 const workspaceDesktopDrawerId = "workspace-sidebar";
 
 export function App() {
-    const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null);
+    const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(
+        () => readPreparedStaticEnhancement()?.dashboard ?? null,
+    );
     const [error, setError] = useState<string | null>(null);
     const [desktopDrawerInitiallyOpen] = useState(() => window.matchMedia("(min-width: 80rem)").matches);
     const navigationDialogRef = useRef<HTMLDialogElement>(null);
@@ -22,6 +25,7 @@ export function App() {
     const previousPathnameRef = useRef(pathname);
 
     useEffect(() => {
+        if (dashboard) return;
         let cancelled = false;
         workspaceClient
             .getDashboard()
@@ -38,7 +42,7 @@ export function App() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [dashboard]);
 
     useEffect(() => {
         if (navigationDialogRef.current?.open) {
@@ -121,7 +125,11 @@ export function App() {
     }
 
     return (
-        <div className="drawer lg:drawer-open h-svh min-w-0 overflow-hidden" data-workspace-shell>
+        <div
+            className="drawer lg:drawer-open h-svh min-w-0 overflow-hidden"
+            data-enhancement-ready
+            data-workspace-shell
+        >
             <input
                 className="drawer-toggle"
                 defaultChecked={desktopDrawerInitiallyOpen}

@@ -1,4 +1,5 @@
 import { RpcWorkspaceClient } from "./rpc-workspace-client";
+import { readStaticRuntimeConfig } from "./static-runtime";
 import { StaticWorkspaceClient } from "./static-workspace-client";
 import type { WorkspaceClient } from "./workspace-client";
 
@@ -10,14 +11,15 @@ const env = import.meta.env as {
 const rpcEndpoint = env.VITE_FORMA_RPC_ENDPOINT;
 
 function readStaticDataBaseUrl(): string {
-    const config = globalThis.__FORMA_STATIC_WORKSPACE__;
+    const config = readStaticRuntimeConfig();
     if (!config?.dataBaseUrl) {
         throw new Error("Static artifact configuration is missing its data base URL.");
     }
     return config.dataBaseUrl;
 }
 
-export const workspaceClient: WorkspaceClient =
-    __FORMA_WORKSPACE_CLIENT__ === "static"
-        ? new StaticWorkspaceClient(readStaticDataBaseUrl())
-        : new RpcWorkspaceClient(rpcEndpoint);
+export const isStaticWorkspaceClient = __FORMA_WORKSPACE_CLIENT__ === "static";
+
+export const workspaceClient: WorkspaceClient = isStaticWorkspaceClient
+    ? new StaticWorkspaceClient(readStaticDataBaseUrl())
+    : new RpcWorkspaceClient(rpcEndpoint);

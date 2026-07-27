@@ -28,6 +28,9 @@ import {
 } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
+import { readPreparedStaticEnhancement } from "@/data/static-enhancement";
+import { resolveDashboardEntryTarget } from "@/data/static-route-target";
+import { readStaticRuntimeConfig, rootAwareHref } from "@/data/static-runtime";
 import type {
     DashboardDiagnostic,
     DashboardEntry,
@@ -84,6 +87,19 @@ function useMermaidScope(key: string) {
 
 export function DashboardRoute() {
     const dashboard = useWorkspaceDashboard();
+    const preparedHome = readPreparedStaticEnhancement()?.entry;
+    const homeEntryId = readStaticRuntimeConfig()?.homeEntryId;
+    const homeEntry = dashboard.entries.find((entry) => entry.id === homeEntryId);
+
+    if (homeEntryId && homeEntry) {
+        return (
+            <EntryRouteContent
+                entryId={homeEntryId}
+                routePath="/"
+                summaryOverride={preparedHome?.routePath === "/" ? preparedHome.detail : homeEntry}
+            />
+        );
+    }
 
     return (
         <WorkspacePageShell
@@ -125,20 +141,38 @@ export function PagesRoute() {
 }
 
 export function EntryRoute() {
-    const dashboard = useWorkspaceDashboard();
     const params = useParams();
-    const routePath = `/pages/${params["*"] ?? ""}`;
+    return <EntryRouteContent routePath={`/pages/${params["*"] ?? ""}`} />;
+}
+
+function EntryRouteContent({
+    entryId: entryIdOverride,
+    routePath,
+    summaryOverride,
+}: {
+    entryId?: string;
+    routePath: string;
+    summaryOverride?: DashboardEntry;
+}) {
+    const dashboard = useWorkspaceDashboard();
     const outlineDialogId = useId();
     const outlineDialogRef = useRef<HTMLDialogElement>(null);
     const outlineTriggerRef = useRef<HTMLElement>(null);
-    const summaryEntry = dashboard.entries.find((item) => item.routePath === routePath);
+    const target = summaryOverride ? undefined : resolveDashboardEntryTarget(dashboard, routePath);
+    const summaryEntry = summaryOverride ?? target?.summary;
+    const entryId = entryIdOverride ?? target?.entryId;
+    const preparedEntry = readPreparedStaticEnhancement()?.entry;
     const [entryDetail, setEntryDetail] = useState<
         | {
               entry: DashboardEntry;
               routePath: string;
           }
         | undefined
-    >(undefined);
+    >(() =>
+        preparedEntry?.routePath === routePath
+            ? { entry: preparedEntry.detail, routePath: preparedEntry.routePath }
+            : undefined,
+    );
     const entry = entryDetail?.routePath === routePath ? entryDetail.entry : summaryEntry;
     const isEntryDetailLoading = entryDetail?.routePath !== routePath;
     const outline = entry ? getEntryOutline(entry.body) : [];
@@ -156,14 +190,14 @@ export function EntryRoute() {
     }
 
     useEffect(() => {
-        if (!summaryEntry) {
+        if (!summaryEntry || !entryId || entryDetail?.routePath === routePath) {
             return;
         }
 
         let cancelled = false;
         void prewarmMarkdownHighlighter();
         workspaceClient
-            .getEntry(summaryEntry.id)
+            .getEntry(entryId)
             .then((result) => {
                 if (!cancelled) {
                     setEntryDetail({ entry: result, routePath });
@@ -196,7 +230,7 @@ export function EntryRoute() {
         return () => {
             cancelled = true;
         };
-    }, [routePath, summaryEntry]);
+    }, [entryDetail?.routePath, entryId, routePath, summaryEntry]);
 
     useEffect(() => {
         const wideDesktopMedia = window.matchMedia("(min-width: 80rem)");
@@ -263,7 +297,7 @@ export function EntryRoute() {
                     </button>
                 ) : undefined
             }
-            title="Pages"
+            title={routePath === "/" ? "Home" : "Pages"}
             titleAs="div"
         >
             <EntryPage
@@ -280,6 +314,7 @@ export function EntryRoute() {
                         trigger?.focus();
                     });
                 }}
+                routePath={routePath}
             />
         </WorkspacePageShell>
     );
@@ -360,6 +395,7 @@ export function ViewRoute() {
     const viewId = params["*"];
     const view = dashboard.views.find((item) => item.id === viewId);
     const [renderRequestVersion, setRenderRequestVersion] = useState(0);
+    const preparedView = readPreparedStaticEnhancement()?.view;
     const [renderState, setRenderState] = useState<
         | {
               render: DashboardViewRender;
@@ -372,10 +408,15 @@ export function ViewRoute() {
               viewId: string;
           }
         | undefined
-    >(undefined);
+    >(() =>
+        preparedView && preparedView.viewId === viewId
+            ? { render: preparedView.render, status: "ready", viewId: preparedView.viewId }
+            : undefined,
+    );
+    const hasPreparedRender = renderState?.status === "ready" && renderState.viewId === viewId;
 
     useEffect(() => {
-        if (!viewId) {
+        if (!viewId || hasPreparedRender) {
             return;
         }
 
@@ -401,7 +442,7 @@ export function ViewRoute() {
         return () => {
             cancelled = true;
         };
-    }, [renderRequestVersion, viewId]);
+    }, [hasPreparedRender, renderRequestVersion, viewId]);
 
     if (!view) {
         return (
@@ -746,6 +787,7 @@ function EntryPage({
     outlineDialogId,
     outlineDialogRef,
     onOutlineDialogClose,
+    routePath,
 }: {
     entry: DashboardEntry;
     entries: DashboardEntry[];
@@ -754,6 +796,7 @@ function EntryPage({
     outlineDialogId: string;
     outlineDialogRef: RefObject<HTMLDialogElement | null>;
     onOutlineDialogClose: () => void;
+    routePath: string;
 }) {
     const diagnostics = getEntryDiagnostics(entry);
     const outlineTree = getEntryOutlineTree(outline);
@@ -851,7 +894,10 @@ function EntryPage({
                                         ) : null}
                                     </div>
                                     <div className={cn("mt-8 flex justify-end", hasOutline && "xl:hidden")}>
-                                        <a className="btn btn-ghost btn-sm" href={`${entry.routePath}#entry-top`}>
+                                        <a
+                                            className="btn btn-ghost btn-sm"
+                                            href={rootAwareHref(`${routePath}#entry-top`)}
+                                        >
                                             <ArrowUp aria-hidden="true" className="size-4" />
                                             Back to top
                                         </a>
@@ -880,11 +926,7 @@ function EntryPage({
                             <div className="skeleton h-3 w-4/5" />
                             <div className="skeleton h-3 w-11/12" />
                         </div>
-                        <EntryOutlineSection
-                            onNavigate={navigateOutline}
-                            routePath={entry.routePath}
-                            tree={outlineTree}
-                        />
+                        <EntryOutlineSection onNavigate={navigateOutline} routePath={routePath} tree={outlineTree} />
                     </aside>
                 ) : null}
             </div>
@@ -915,10 +957,10 @@ function EntryPage({
                             </button>
                         </header>
                         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
-                            <OutlineNav onNavigate={navigateOutline} routePath={entry.routePath} tree={outlineTree} />
+                            <OutlineNav onNavigate={navigateOutline} routePath={routePath} tree={outlineTree} />
                         </div>
                         <div className="shrink-0 p-2">
-                            <OutlineFooterNav onNavigate={navigateOutline} routePath={entry.routePath} />
+                            <OutlineFooterNav onNavigate={navigateOutline} routePath={routePath} />
                         </div>
                     </aside>
                     <form className="modal-backdrop" method="dialog">
@@ -1196,12 +1238,12 @@ function OutlineFooterItems({
     return (
         <>
             <li>
-                <a href={`${routePath}#document-details`} onClick={onNavigate}>
+                <a href={rootAwareHref(`${routePath}#document-details`)} onClick={onNavigate}>
                     <span data-link-kind="anchor">Document details</span>
                 </a>
             </li>
             <li>
-                <a href={`${routePath}#entry-top`} onClick={onNavigate}>
+                <a href={rootAwareHref(`${routePath}#entry-top`)} onClick={onNavigate}>
                     <span>Back to top</span>
                     <ArrowUp aria-hidden="true" className="size-3.5" />
                 </a>
@@ -1248,7 +1290,7 @@ function EntryOutlineLink({
         <a
             className="min-w-0"
             data-outline-link
-            href={`${routePath}#${item.id}`}
+            href={rootAwareHref(`${routePath}#${item.id}`)}
             onClick={onNavigate}
             title={item.text}
         >

@@ -2,11 +2,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { StaticWorkspaceClient, type StaticDashboardData } from "./static-workspace-client";
 
+const localizedVariant = {
+    id: "notes--one.zh-hans",
+    language: "zh-Hans",
+    path: "notes/one.zh-Hans.md",
+    routePath: "/pages/notes/one.zh-Hans",
+    title: "一",
+    omitLeadingTitle: false,
+    dataPath: "data/entries/notes--one.zh-hans.json",
+};
+
 const dashboard: StaticDashboardData = {
     schemaVersion: 1,
     generatorVersion: "test",
     status: "passed",
-    workspace: { name: "Static fixture", canonicalLanguage: "en", supportedLanguages: ["en"] },
+    workspace: { name: "Static fixture", canonicalLanguage: "en", supportedLanguages: ["en", "zh-Hans"] },
     spaces: [
         {
             id: "notes",
@@ -24,7 +34,7 @@ const dashboard: StaticDashboardData = {
             title: "One",
             omitLeadingTitle: false,
             status: "passed",
-            variants: [],
+            variants: [localizedVariant],
             dataPath: "data/entries/notes--one.json",
         },
     ],
@@ -58,9 +68,18 @@ describe("StaticWorkspaceClient", () => {
                     backlinks: [],
                 });
             }
+            if (path === "/preview/data/entries/notes--one.zh-hans.json") {
+                return json({
+                    ...localizedVariant,
+                    markdown: "# 一",
+                    html: '<h1 id="一">一</h1>',
+                    headings: [{ id: "段落", level: 2, text: "段落" }],
+                });
+            }
             if (path === "/preview/data/views/notes.json") {
                 return json({
                     ...dashboard.views[0],
+                    sourcePath: ".forma/views/notes.md",
                     document: { bodySource: "" },
                     projection: { kind: "list", items: [] },
                 });
@@ -72,9 +91,19 @@ describe("StaticWorkspaceClient", () => {
 
         await expect(client.getDashboard()).resolves.toMatchObject({ workspaceName: "Static fixture" });
         await expect(client.getEntry("notes--one")).resolves.toMatchObject({ title: "One" });
-        await expect(client.getViewRender("notes")).resolves.toMatchObject({ projection: { kind: "list" } });
+        await expect(client.getEntry("notes--one.zh-hans")).resolves.toMatchObject({
+            id: "notes--one.zh-hans",
+            path: "notes/one.zh-Hans.md",
+            routePath: "/pages/notes/one.zh-Hans",
+            title: "一",
+        });
+        await expect(client.getViewRender("notes")).resolves.toMatchObject({
+            document: { path: ".forma/views/notes.md" },
+            projection: { kind: "list" },
+        });
         expect(fetch).toHaveBeenCalledWith("/preview/data/dashboard.json");
         expect(fetch).toHaveBeenCalledWith("/preview/data/entries/notes--one.json");
+        expect(fetch).toHaveBeenCalledWith("/preview/data/entries/notes--one.zh-hans.json");
         expect(fetch).toHaveBeenCalledWith("/preview/data/views/notes.json");
     });
 

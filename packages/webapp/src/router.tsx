@@ -20,7 +20,7 @@ export const routes = (
             <Route index Component={DashboardRoute} />
             <Route path="pages" Component={PagesRoute} />
             <Route path="pages/*" Component={EntryRoute} />
-            <Route path="taxonomies" Component={TaxonomiesRoute} />
+            <Route path="browse" Component={TaxonomiesRoute} />
             <Route path="views" Component={ViewsRoute} />
             <Route path="views/*" Component={ViewRoute} />
             <Route path="health" Component={HealthRoute} />
