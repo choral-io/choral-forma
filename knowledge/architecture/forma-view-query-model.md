@@ -63,6 +63,8 @@ table:
     columns:
         - field: fields.title
           label: Title
+          link:
+              target: entry
           overflow: truncate
         - field: fields.summary
           label: Summary
@@ -89,6 +91,8 @@ Rules from the current baseline:
 - `table.defaults.column` may contain the same four presentation fields and is useful for concise equal-width Tables. `defaults` is the namespace for future default configuration; currently only `column` is defined. A valid field on a column overrides that default field; an absent or invalid column field inherits the valid default; an absent or invalid default falls back to the renderer's intrinsic behavior.
 - Table column `width`, `minWidth`, and `maxWidth` are optional positive length hints. A number means pixels; strings may use only `px`, `rem`, or `em`, including positive decimals, with a maximum numeric component of `4096`. Percentages, viewport units, `ch`, functions, variables, keywords, and arbitrary CSS are rejected. `ch` is deferred because its value is ambiguous for zh-Hans and variable fonts without a proven code/date-column requirement. When both bounds use the same unit, `minWidth` must not exceed `maxWidth`.
 - Table column `overflow` accepts only `wrap` or `truncate`. When it is absent, each renderer keeps its established automatic presentation; `wrap` explicitly permits multiline content and `truncate` requests a single-line ellipsis.
+- A Table column may declare `link.target: entry`. Its non-empty ordinary-value cells open the source Page for that row. `entry` is the only supported explicit target in this first cut, so View definitions do not depend on Host-specific route paths or title-field inference.
+- `view.render` keeps resolved schema references typed in every View mode: `value` carries an ordinary frontmatter value, `reference` carries one `{ path, title }` target, and `referenceList` carries ordered `{ path, title }` targets. Hosts render the latter two as target-title links without separately matching raw frontmatter values against a reference map. An unresolved field remains an ordinary `value`; workspace diagnostics remain the authority for its resolution failure.
 - Invalid optional Table presentation hints produce a non-blocking `view.tableColumnPresentationInvalid` warning, are omitted from normalized render output, and must not generate HTML styles, classes, or data attributes.
 - Effective same-unit `minWidth` / `maxWidth` constraints are checked after merging a column with `table.defaults.column`; an inverted pair is warned and omitted without blocking the View.
 - Table and list sort stay view-level.

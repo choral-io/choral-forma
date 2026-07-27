@@ -70,7 +70,11 @@ describe("RpcWorkspaceClient View rendering", () => {
                         {
                             path: "tasks/one.md",
                             title: "Fallback title",
-                            fields: { title: "One", summary: "Configured summary", priority: "P1" },
+                            fields: {
+                                title: { kind: "value", value: "One" },
+                                summary: { kind: "value", value: "Configured summary" },
+                                priority: { kind: "value", value: "P1" },
+                            },
                         },
                     ],
                 },
@@ -96,7 +100,11 @@ describe("RpcWorkspaceClient View rendering", () => {
                         items: [
                             {
                                 fields: { priority: "P1", summary: "Configured summary", title: "One" },
-                                rawFields: { priority: "P1", summary: "Configured summary", title: "One" },
+                                rawFields: {
+                                    priority: { kind: "value", value: "P1" },
+                                    summary: { kind: "value", value: "Configured summary" },
+                                    title: { kind: "value", value: "One" },
+                                },
                             },
                         ],
                     },

@@ -254,12 +254,25 @@ export type RenderedView = {
 export type ViewRenderItem = {
     path: string;
     title?: string;
-    fields?: Record<string, unknown>;
+    fields?: Record<string, ViewRenderFieldValue>;
 };
+
+export type ViewRenderReference = {
+    path: string;
+    title: string;
+};
+
+export type ViewRenderFieldValue =
+    | { kind: "value"; value: unknown }
+    | { kind: "reference"; reference: ViewRenderReference }
+    | { kind: "referenceList"; references: ViewRenderReference[] };
 
 export type ViewRenderColumn = {
     field: string;
     label: string;
+    link?: {
+        target: "entry";
+    };
     width?: string;
     minWidth?: string;
     maxWidth?: string;

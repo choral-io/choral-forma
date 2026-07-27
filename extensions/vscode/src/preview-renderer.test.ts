@@ -7,7 +7,7 @@ import { renderViewProjectionHtml, tableColumnPresentationAttributes } from "./p
 const workspace = { root: ".", name: "Preview fixture" };
 
 describe("view projection rendering", () => {
-    it("renders list links for the native Markdown preview", () => {
+    it("renders list links through the native Markdown preview", () => {
         const result = {
             schemaVersion: 1,
             operation: "view.render",
@@ -21,6 +21,7 @@ describe("view projection rendering", () => {
         const href = /href="([^"]+)" data-href="[^"]+" data-open-source="tasks\/one\.md"/u.exec(html)?.[1];
         expect(href).toBeDefined();
         expect(new URL(href ?? "", "file:///workspace/.forma/views/tasks.md").pathname).toBe("/workspace/tasks/one.md");
+        expect(html).not.toContain("vscode://");
         expect(html).toContain('data-open-source="tasks/one.md"');
     });
 
@@ -105,7 +106,13 @@ describe("view projection rendering", () => {
             render: {
                 kind: "table",
                 columns: [{ field: "fields.status", label: "Delivery status" }],
-                items: [{ path: "tasks/one.md", title: "One", fields: { "fields.status": "doing" } }],
+                items: [
+                    {
+                        path: "tasks/one.md",
+                        title: "One",
+                        fields: { "fields.status": { kind: "value", value: "doing" } },
+                    },
+                ],
             },
         } satisfies ViewRenderResult;
         const kanban = {
@@ -131,12 +138,12 @@ describe("view projection rendering", () => {
                                 path: "tasks/one.md",
                                 title: "Fallback title",
                                 fields: {
-                                    title: "One",
-                                    summary: "A concise task summary.",
-                                    priority: "P1",
-                                    dueDate: "2026-07-19",
-                                    updatedAt: "2026-07-19T13:30:00Z",
-                                    createdAt: "2026-01-01T00:00:00Z",
+                                    title: { kind: "value", value: "One" },
+                                    summary: { kind: "value", value: "A concise task summary." },
+                                    priority: { kind: "value", value: "P1" },
+                                    dueDate: { kind: "value", value: "2026-07-19" },
+                                    updatedAt: { kind: "value", value: "2026-07-19T13:30:00Z" },
+                                    createdAt: { kind: "value", value: "2026-01-01T00:00:00Z" },
                                 },
                             },
                         ],
@@ -165,6 +172,7 @@ describe("view projection rendering", () => {
         expect(new URL(kanbanHref ?? "", "file:///workspace/.forma/views/board.md").pathname).toBe(
             "/workspace/tasks/one.md",
         );
+        expect(kanbanHtml).not.toContain("vscode://");
         expect(kanbanHtml).toContain("A concise task summary.");
         expect(kanbanHtml).toContain("P1");
         expect(kanbanHtml).toContain('<time datetime="2026-07-19"');
@@ -172,6 +180,56 @@ describe("view projection rendering", () => {
         expect(kanbanHtml).toContain('<time datetime="2026-07-19T13:30:00Z"');
         expect(kanbanHtml).toContain(">Jul 19, 2026, 1:30 PM</time>");
         expect(kanbanHtml).not.toContain("2026-01-01T00:00:00Z");
+    });
+
+    it("renders reference fields as target-title links", () => {
+        const result = {
+            schemaVersion: 1,
+            operation: "view.render",
+            status: "passed",
+            workspace,
+            view: { id: "release-scope", path: ".forma/views/release-scope.md", surface: "page", mode: "table" },
+            render: {
+                kind: "table",
+                columns: [{ field: "fields.relatedTasks", label: "Tasks" }],
+                items: [
+                    {
+                        path: "releases/beta.md",
+                        fields: {
+                            "fields.relatedTasks": {
+                                kind: "referenceList",
+                                references: [{ path: "tasks/prepare.md", title: "Prepare release" }],
+                            },
+                        },
+                    },
+                ],
+            },
+        } satisfies ViewRenderResult;
+
+        const html = renderViewProjectionHtml(result);
+        expect(html).toContain("Prepare release");
+        const href = /href="([^"]+)" data-href="[^"]+" data-open-source="tasks\/prepare\.md"/u.exec(html)?.[1];
+        expect(href).toBeDefined();
+        expect(new URL(href ?? "", "file:///workspace/.forma/views/release-scope.md").pathname).toBe(
+            "/workspace/tasks/prepare.md",
+        );
+        expect(html).not.toContain("vscode://");
+        expect(html).toContain('data-open-source="tasks/prepare.md"');
+    });
+
+    it("uses ordinary relative links for source entries", () => {
+        const result = {
+            schemaVersion: 1,
+            operation: "view.render",
+            status: "passed",
+            workspace,
+            view: { id: "tasks", path: ".forma/views/tasks.md", surface: "page", mode: "list" },
+            render: { kind: "list", items: [{ path: "tasks/one.md", title: "One" }] },
+        } satisfies ViewRenderResult;
+
+        const html = renderViewProjectionHtml(result);
+        expect(html).toContain('href="../../tasks/one.md"');
+        expect(html).not.toContain("vscode://");
     });
 
     it("renders only normalized Table column presentation hints", () => {

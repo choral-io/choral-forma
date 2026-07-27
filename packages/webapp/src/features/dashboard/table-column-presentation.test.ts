@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { tableColumnStyle, tableColumnWraps } from "./table-column-presentation";
+import {
+    tableColumnEntryRoute,
+    tableColumnLinksToEntry,
+    tableColumnStyle,
+    tableColumnWraps,
+} from "./table-column-presentation";
 
 describe("Table column presentation", () => {
     it("emits only normalized dimensions", () => {
@@ -45,5 +50,22 @@ describe("Table column presentation", () => {
         expect(tableColumnWraps({ field: "fields.title", label: "Title", overflow: "wrap" })).toBe(true);
         expect(tableColumnWraps({ field: "fields.title", label: "Title", overflow: "truncate" })).toBe(false);
         expect(tableColumnWraps({ field: "fields.title", label: "Title" })).toBe(false);
+    });
+
+    it("links only columns that explicitly target the source entry", () => {
+        const item = {
+            entryId: "notes/alpha",
+            fields: { name: "Alpha" },
+            rawFields: { name: { kind: "value" as const, value: "Alpha" } },
+            path: "notes/alpha.md",
+            routePath: "/pages/alpha",
+            title: "Alpha",
+        };
+        const linkedColumn = { field: "fields.name", label: "Name", link: { target: "entry" } } as const;
+        expect(tableColumnLinksToEntry(linkedColumn)).toBe(true);
+        expect(tableColumnEntryRoute(linkedColumn, item)).toBe("/pages/alpha");
+        expect(tableColumnLinksToEntry({ field: "fields.name", label: "Name" })).toBe(false);
+        expect(tableColumnEntryRoute({ field: "fields.name", label: "Name" }, item)).toBeUndefined();
+        expect(tableColumnEntryRoute(linkedColumn, { ...item, routePath: undefined })).toBeUndefined();
     });
 });

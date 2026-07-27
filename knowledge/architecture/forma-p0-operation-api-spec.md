@@ -660,6 +660,8 @@ The source/query model is defined in [[architecture/forma-view-query-model]].
 
 Starter views should use `source.type: pages` plus `source.taxonomy` filters for taxonomy-scoped projections. Explicit query predicates should use `field` paths such as `fields.status`. P0 render support should cover `equals`, `in`, `contains`, and `exists`; unsupported fields or operators should return structured diagnostics.
 
+Every rendered field is a tagged value. Ordinary fields use `{"kind":"value","value":...}`. A resolved schema reference uses `{"kind":"reference","reference":{"path":"…","title":"…"}}`; a resolved reference list uses `{"kind":"referenceList","references":[…]}`. This lets every Host render target-title links without repeating reference resolution or matching a separate reference side channel. Resolution failures retain the ordinary value and are reported through workspace diagnostics.
+
 Params:
 
 ```json

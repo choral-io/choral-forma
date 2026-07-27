@@ -1,6 +1,7 @@
 import type {
     Diagnostic,
     ViewRenderColumn,
+    ViewRenderFieldValue,
     ViewRenderItem,
     ViewRenderOutput,
     ViewRenderResult,
@@ -60,12 +61,12 @@ function renderTable(render: TableRenderOutput, sourcePath: string, options: Vie
     const rows = render.items
         .map((item) => {
             const cells = render.columns
-                .map((column, index) => {
+                .map((column) => {
                     const value = rawFieldValue(item, column.field);
                     const content =
-                        index === 0
+                        !isReferenceFieldValue(value) && column.link?.target === "entry"
                             ? itemButton(item, firstNonEmpty(plainFieldValue(value), item.title, item.path), sourcePath)
-                            : renderFieldValue(value, options);
+                            : renderFieldValue(value, sourcePath, options);
                     return `<td${tableColumnPresentationAttributes(column)}>${content}</td>`;
                 })
                 .join("");
@@ -129,8 +130,8 @@ function renderKanbanCard(
     options: ViewRenderOptions,
 ): string {
     const title = firstNonEmpty(plainFieldValue(rawFieldValue(item, card.titleField)), item.title, item.path);
-    const subtitles = renderCardFields(item, card.subtitleFields ?? [], "card-subtitle", options);
-    const badges = renderCardFields(item, card.badgeFields ?? [], "badge", options);
+    const subtitles = renderCardFields(item, card.subtitleFields ?? [], "card-subtitle", sourcePath, options);
+    const badges = renderCardFields(item, card.badgeFields ?? [], "badge", sourcePath, options);
     return `<article class="card">${itemButton(item, title, sourcePath)}${subtitles ? `<div class="card-subtitles">${subtitles}</div>` : ""}${badges ? `<div class="badges">${badges}</div>` : ""}</article>`;
 }
 
@@ -138,13 +139,14 @@ function renderCardFields(
     item: ViewRenderItem,
     fields: readonly string[],
     className: string,
+    sourcePath: string,
     options: ViewRenderOptions,
 ): string {
     return fields
         .map((field) => {
             const value = rawFieldValue(item, field);
             if (value === undefined || value === null || plainFieldValue(value) === "") return "";
-            return `<span class="${className}"><span class="sr-only">${escapeHtml(fieldLabel(field))}: </span>${renderFieldValue(value, options)}</span>`;
+            return `<span class="${className}"><span class="sr-only">${escapeHtml(fieldLabel(field))}: </span>${renderFieldValue(value, sourcePath, options)}</span>`;
         })
         .join("");
 }
@@ -207,6 +209,12 @@ function rawFieldValue(item: ViewRenderItem, field: string): unknown {
 
 function plainFieldValue(value: unknown): string {
     if (value === undefined || value === null) return "";
+    if (isValueFieldValue(value)) return plainFieldValue(value.value);
+    if (isReferenceFieldValue(value)) {
+        return value.kind === "reference"
+            ? value.reference.title
+            : value.references.map((reference) => reference.title).join(", ");
+    }
     if (Array.isArray(value)) return value.map(plainFieldValue).filter(Boolean).join(", ");
     if (typeof value === "string") return value;
     if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
@@ -217,10 +225,34 @@ function firstNonEmpty(...values: Array<string | undefined>): string {
     return values.find((value) => value !== undefined && value.length > 0) ?? "";
 }
 
-function renderFieldValue(value: unknown, options: ViewRenderOptions): string {
-    if (Array.isArray(value)) return value.map((entry) => renderFieldValue(entry, options)).join(", ");
+function renderFieldValue(value: unknown, sourcePath: string, options: ViewRenderOptions): string {
+    if (isValueFieldValue(value)) return renderFieldValue(value.value, sourcePath, options);
+    if (isReferenceFieldValue(value)) {
+        if (value.kind === "reference") {
+            return sourceLink(value.reference.path, sourcePath, escapeHtml(value.reference.title));
+        }
+        return value.references
+            .map((reference) => sourceLink(reference.path, sourcePath, escapeHtml(reference.title)))
+            .join(", ");
+    }
+    if (Array.isArray(value)) return value.map((entry) => renderFieldValue(entry, sourcePath, options)).join(", ");
     if (typeof value === "string") return renderTemporalValue(value, options) ?? escapeHtml(value);
     return escapeHtml(plainFieldValue(value));
+}
+
+function isValueFieldValue(value: unknown): value is Extract<ViewRenderFieldValue, { kind: "value" }> {
+    return typeof value === "object" && value !== null && "kind" in value && value.kind === "value";
+}
+
+function isReferenceFieldValue(
+    value: unknown,
+): value is Extract<ViewRenderFieldValue, { kind: "reference" | "referenceList" }> {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        "kind" in value &&
+        (value.kind === "reference" || value.kind === "referenceList")
+    );
 }
 
 function renderTemporalValue(value: string, options: ViewRenderOptions): string | undefined {

@@ -15,6 +15,8 @@ table:
   columns:
     - field: fields.title
       label: Title
+      link:
+        target: entry
     - field: fields.summary
       label: Summary
     - field: fields.createdAt

@@ -15,6 +15,8 @@ table:
   columns:
     - field: fields.title
       label: Release
+      link:
+        target: entry
     - field: fields.status
       label: Status
     - field: fields.version

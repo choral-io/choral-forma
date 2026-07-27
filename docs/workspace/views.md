@@ -38,6 +38,8 @@ table:
     columns:
         - field: fields.title
           label: Title
+          link:
+              target: entry
         - field: fields.summary
           label: Summary
 ---
@@ -94,3 +96,9 @@ Add views after the underlying spaces and fields exist. Treat views as projectio
 Use `<!-- forma:content -->` when the rendered projection needs an explicit position in the Markdown body. When the marker is absent, clients append the projection to the end of the document. Multiple markers are invalid, and the legacy `<!-- forma-view -->` directive produces a migration diagnostic.
 
 Render configured views with `forma view render <view-id-or-path> --json`. Use this for lists, tables, kanban boards, and graphs instead of introducing workflow-specific read commands.
+
+For a Table column whose values should open the source Page for that row, declare `link.target: entry`. The current target set contains only `entry`.
+
+Fields resolved from schema-declared entry references render automatically as links to their target Pages. A scalar reference renders as its target title; a reference list renders one target-title link per item. Their target links take precedence over `link.target: entry`, so do not configure that option on reference columns.
+
+`view.render.items[].fields` is a tagged contract: ordinary values use `{ "kind": "value", "value": ... }`, one resolved reference uses `{ "kind": "reference", "reference": { "path", "title" } }`, and a resolved reference list uses `{ "kind": "referenceList", "references": [...] }`. Hosts must render reference targets from this structure rather than re-resolving frontmatter paths.

@@ -15,6 +15,8 @@ table:
     columns:
         - field: fields.title
           label: Sample Title
+          link:
+              target: entry
         - field: fields.summary
           label: Detailed Summary
         - field: fields.stage

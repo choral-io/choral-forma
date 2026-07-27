@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 
 import { normalizedTableColumnLength } from "@choral-forma/shared";
 
-import type { DashboardViewColumn } from "@/data/workspace-client";
+import type { DashboardViewColumn, DashboardViewProjectionItem } from "@/data/workspace-client";
 
 function comparableLengths(minimum: string | undefined, maximum: string | undefined): [number, number] | undefined {
     if (!minimum || !maximum) return undefined;
@@ -25,4 +25,15 @@ export function tableColumnStyle(column: DashboardViewColumn): CSSProperties | u
 
 export function tableColumnWraps(column: DashboardViewColumn): boolean {
     return column.overflow === "wrap";
+}
+
+export function tableColumnLinksToEntry(column: DashboardViewColumn): boolean {
+    return column.link?.target === "entry";
+}
+
+export function tableColumnEntryRoute(
+    column: DashboardViewColumn,
+    item: DashboardViewProjectionItem,
+): string | undefined {
+    return tableColumnLinksToEntry(column) ? item.routePath : undefined;
 }

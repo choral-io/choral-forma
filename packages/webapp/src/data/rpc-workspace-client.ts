@@ -5,6 +5,7 @@ import {
     type FileRenderResult,
     type OperationStatus,
     type ReferenceEdge,
+    type ViewRenderFieldValue,
     type ViewRenderItem,
     type ViewRenderOutput,
     type ViewRenderResult,
@@ -26,6 +27,7 @@ import type {
     DashboardSpace,
     DashboardTaxonomy,
     DashboardView,
+    DashboardViewFieldValue,
     DashboardViewProjection,
     DashboardViewProjectionItem,
     DashboardViewRender,
@@ -453,14 +455,33 @@ function mapViewProjectionItem(item: ViewRenderItem, entries: DashboardEntry[]):
         fields: Object.fromEntries(
             Object.entries(item.fields ?? {}).map(([key, value]) => [key, formatViewField(key, value)]),
         ),
-        rawFields: item.fields ?? {},
+        rawFields: Object.fromEntries(
+            Object.entries(item.fields ?? {}).map(([key, value]) => [key, mapViewField(value, entries)]),
+        ),
         path: item.path,
         title: item.title ?? entry?.title ?? item.path,
     };
 }
 
-function formatViewField(key: string, value: unknown): string {
-    const stringValue = stringifyViewField(value);
+function mapViewField(value: ViewRenderFieldValue, entries: DashboardEntry[]): DashboardViewFieldValue {
+    const mapReference = (reference: { path: string; title: string }) => ({
+        ...reference,
+        routePath: entries.find((entry) => entry.path === reference.path)?.routePath,
+    });
+
+    if (value.kind === "reference") {
+        return { kind: "reference", reference: mapReference(value.reference) };
+    }
+    if (value.kind === "referenceList") {
+        return { kind: "referenceList", references: value.references.map(mapReference) };
+    }
+    return value;
+}
+
+function formatViewField(key: string, value: ViewRenderFieldValue): string {
+    if (value.kind === "reference") return value.reference.title;
+    if (value.kind === "referenceList") return value.references.map((reference) => reference.title).join(", ");
+    const stringValue = stringifyViewField(value.value);
 
     if (!stringValue) {
         return stringValue;

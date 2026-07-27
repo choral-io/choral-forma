@@ -15,6 +15,8 @@ table:
     columns:
         - field: fields.title
           label: Case
+          link:
+              target: entry
         - field: fields.area
           label: Area
         - field: fields.priority

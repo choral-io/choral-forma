@@ -15,6 +15,8 @@ table:
   columns:
     - field: fields.name
       label: Name
+      link:
+        target: entry
     - field: fields.description
       label: Description
     - field: fields.responsibilities

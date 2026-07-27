@@ -162,7 +162,30 @@ pub struct ViewRenderItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default)]
-    pub fields: BTreeMap<String, Value>,
+    pub fields: BTreeMap<String, ViewRenderFieldValue>,
+}
+
+/// A rendered field preserves whether its value is an entry reference rather
+/// than flattening every frontmatter value into an untyped YAML value.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ViewRenderFieldValue {
+    Value {
+        value: Value,
+    },
+    Reference {
+        reference: ViewRenderReference,
+    },
+    ReferenceList {
+        references: Vec<ViewRenderReference>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewRenderReference {
+    pub path: String,
+    pub title: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -171,6 +194,8 @@ pub struct ViewRenderColumn {
     pub field: String,
     pub label: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub link: Option<TableColumnLink>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub width: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min_width: Option<String>,
@@ -178,6 +203,18 @@ pub struct ViewRenderColumn {
     pub max_width: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub overflow: Option<TableColumnOverflow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableColumnLink {
+    pub target: TableColumnLinkTarget,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TableColumnLinkTarget {
+    Entry,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -323,6 +360,8 @@ enum TableColumnDefinition {
     Object {
         field: String,
         label: String,
+        #[serde(default)]
+        link: Option<TableColumnLink>,
         #[serde(flatten)]
         presentation: TableColumnPresentationDefinition,
     },
@@ -343,14 +382,23 @@ impl TableColumnDefinition {
         }
     }
 
+    fn link(&self) -> Option<TableColumnLink> {
+        match self {
+            Self::Field(_) => None,
+            Self::Object { link, .. } => link.clone(),
+        }
+    }
+
     fn into_render_column(self, defaults: &TableColumnPresentationDefinition) -> ViewRenderColumn {
         let presentation = normalized_table_column_presentation(&self.presentation())
             .with_fallback(normalized_table_column_presentation(defaults))
             .without_inverted_bounds();
+        let link = self.link();
         match self {
             Self::Field(field) => ViewRenderColumn {
                 label: field.clone(),
                 field,
+                link,
                 width: presentation.width,
                 min_width: presentation.min_width,
                 max_width: presentation.max_width,
@@ -359,6 +407,7 @@ impl TableColumnDefinition {
             Self::Object { field, label, .. } => ViewRenderColumn {
                 field,
                 label,
+                link,
                 width: presentation.width,
                 min_width: presentation.min_width,
                 max_width: presentation.max_width,
@@ -630,6 +679,7 @@ struct RenderCandidate {
     kind: Option<String>,
     title: Option<String>,
     metadata: Value,
+    references: Vec<IndexReference>,
 }
 
 pub fn render_file(
@@ -1628,6 +1678,7 @@ impl RenderCandidate {
             kind: entry.kind.clone(),
             title: entry.title.clone(),
             metadata,
+            references: entry.refs.clone(),
         })
     }
 
@@ -1636,7 +1687,8 @@ impl RenderCandidate {
             .iter()
             .filter_map(|column| {
                 let field = column.field();
-                value_for_target(&self, field).map(|value| (field.to_string(), value))
+                value_for_target(&self, field)
+                    .map(|value| (field.to_string(), self.render_field_value(field, value)))
             })
             .collect();
         ViewRenderItem {
@@ -1647,10 +1699,17 @@ impl RenderCandidate {
     }
 
     fn into_all_fields_view_item(self) -> ViewRenderItem {
-        let fields = match self.metadata {
+        let fields = match &self.metadata {
             Value::Mapping(mapping) => mapping
-                .into_iter()
-                .filter_map(|(key, value)| key.as_str().map(|key| (key.to_string(), value)))
+                .iter()
+                .filter_map(|(key, value)| {
+                    key.as_str().map(|key| {
+                        (
+                            key.to_string(),
+                            self.render_field_value(&format!("fields.{key}"), value.clone()),
+                        )
+                    })
+                })
                 .collect(),
             _ => BTreeMap::new(),
         };
@@ -1658,6 +1717,44 @@ impl RenderCandidate {
             path: self.path,
             title: self.title,
             fields,
+        }
+    }
+}
+
+impl RenderCandidate {
+    fn render_field_value(&self, target: &str, value: Value) -> ViewRenderFieldValue {
+        let Some(field) = normalized_field_path(target) else {
+            return ViewRenderFieldValue::Value { value };
+        };
+        let references = self
+            .references
+            .iter()
+            .filter(|reference| {
+                reference.source == ReferenceSource::Frontmatter
+                    && reference.intent == ReferenceIntent::Reference
+                    && reference.field.as_deref() == Some(field)
+            })
+            .map(|reference| ViewRenderReference {
+                path: reference.target_path.clone(),
+                title: reference
+                    .resolved_title
+                    .clone()
+                    .or_else(|| reference.target_title.clone())
+                    .unwrap_or_else(|| reference.target_path.clone()),
+            })
+            .collect::<Vec<_>>();
+
+        if references.is_empty() {
+            ViewRenderFieldValue::Value { value }
+        } else if matches!(value, Value::Sequence(_)) {
+            ViewRenderFieldValue::ReferenceList { references }
+        } else {
+            ViewRenderFieldValue::Reference {
+                reference: references
+                    .into_iter()
+                    .next()
+                    .expect("references is not empty"),
+            }
         }
     }
 }
@@ -2040,8 +2137,9 @@ mod tests {
     use serde_yml::Value;
 
     use super::{
-        ReferenceIntent, ReferenceSource, RenderedHeading, TableColumnOverflow, ViewRenderColumn,
-        ViewRenderOutput, normalized_table_column_dimension, render_file, render_view,
+        ReferenceIntent, ReferenceSource, RenderedHeading, TableColumnLink, TableColumnLinkTarget,
+        TableColumnOverflow, ViewRenderColumn, ViewRenderFieldValue, ViewRenderOutput,
+        normalized_table_column_dimension, render_file, render_view,
     };
     use crate::OperationStatus;
     use crate::index::discover_workspace;
@@ -2381,7 +2479,38 @@ mod tests {
         };
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].path, "notes/alpha-note.md");
-        assert_eq!(items[0].fields["fields.title"], "Alpha Note");
+        assert_eq!(
+            items[0].fields["fields.title"],
+            ViewRenderFieldValue::Value {
+                value: Value::String("Alpha Note".to_string())
+            }
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn preserves_explicit_entry_links_on_table_columns() {
+        let root = fixture_root("table-column-entry-link");
+        fs::create_dir_all(root.join(".forma/views")).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/views/entry-link.md"),
+            "---\nkind: view\nmode: table\ntitle: Entry link\ntable:\n  columns:\n    - field: fields.summary\n      label: Summary\n      link:\n        target: entry\n    - field: fields.status\n      label: Status\n---\n\n# Entry link\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "entry-link", BTreeMap::new()).unwrap();
+        let Some(ViewRenderOutput::Table { columns, .. }) = result.render else {
+            panic!("expected table render");
+        };
+        assert_eq!(
+            columns[0].link,
+            Some(TableColumnLink {
+                target: TableColumnLinkTarget::Entry,
+            })
+        );
+        assert_eq!(columns[1].link, None);
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -2415,6 +2544,7 @@ mod tests {
             ViewRenderColumn {
                 field: "fields.title".to_string(),
                 label: "Valid".to_string(),
+                link: None,
                 width: Some("240px".to_string()),
                 min_width: Some("8rem".to_string()),
                 max_width: Some("32em".to_string()),
@@ -2426,6 +2556,7 @@ mod tests {
             ViewRenderColumn {
                 field: "fields.summary".to_string(),
                 label: "Invalid".to_string(),
+                link: None,
                 width: Some("16rem".to_string()),
                 min_width: Some("8rem".to_string()),
                 max_width: Some("24rem".to_string()),
@@ -2437,6 +2568,7 @@ mod tests {
             ViewRenderColumn {
                 field: "fields.createdAt".to_string(),
                 label: "Invalid units".to_string(),
+                link: None,
                 width: Some("16rem".to_string()),
                 min_width: Some("8rem".to_string()),
                 max_width: Some("24rem".to_string()),
@@ -2448,6 +2580,7 @@ mod tests {
             ViewRenderColumn {
                 field: "fields.status".to_string(),
                 label: "fields.status".to_string(),
+                link: None,
                 width: Some("16rem".to_string()),
                 min_width: Some("8rem".to_string()),
                 max_width: Some("24rem".to_string()),
@@ -2635,7 +2768,12 @@ mod tests {
             .find(|column| column.id == "doing")
             .expect("doing column should exist");
         assert_eq!(doing.items.len(), 1);
-        assert_eq!(doing.items[0].fields["title"], "Draft brief");
+        assert_eq!(
+            doing.items[0].fields["title"],
+            ViewRenderFieldValue::Value {
+                value: Value::String("Draft brief".to_string())
+            }
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -2677,7 +2815,12 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].path, "tasks/draft-brief.md");
         assert_eq!(items[0].title.as_deref(), Some("Draft brief"));
-        assert_eq!(items[0].fields["status"], "doing");
+        assert_eq!(
+            items[0].fields["status"],
+            ViewRenderFieldValue::Value {
+                value: Value::String("doing".to_string())
+            }
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -3043,7 +3186,12 @@ mod tests {
 
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].path, "tasks/draft-brief.md");
-        assert_eq!(items[0].fields["fields.title"], "Draft brief");
+        assert_eq!(
+            items[0].fields["fields.title"],
+            ViewRenderFieldValue::Value {
+                value: Value::String("Draft brief".to_string())
+            }
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

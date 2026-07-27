@@ -35,6 +35,7 @@ import type {
     DashboardEntryLink,
     DashboardTaxonomy,
     DashboardTaxonomyTerm,
+    DashboardViewFieldValue,
     DashboardViewProjection,
     DashboardViewProjectionItem,
     DashboardViewRender,
@@ -42,7 +43,11 @@ import type {
     WorkspaceHealth,
 } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
-import { tableColumnStyle, tableColumnWraps } from "@/features/dashboard/table-column-presentation";
+import {
+    tableColumnEntryRoute,
+    tableColumnStyle,
+    tableColumnWraps,
+} from "@/features/dashboard/table-column-presentation";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { WorkspaceDefaultContextPanel, WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
@@ -1978,39 +1983,89 @@ function ViewProjectionCell({
         return <span className="text-base-content/50">—</span>;
     }
 
-    if (Array.isArray(value)) {
-        return (
-            <ul className="space-y-1">
-                {value.map((entry, index) => {
-                    const label = plainViewFieldValue(entry);
-                    return (
-                        <li
-                            className={cn(
-                                "text-base-content/70",
-                                tableColumnWraps(column) ? "wrap-break-word whitespace-normal" : "max-w-72 truncate",
-                            )}
-                            key={`${label}-${String(index)}`}
-                            title={label}
-                        >
-                            {label}
-                        </li>
-                    );
-                })}
-            </ul>
-        );
+    if (isReferenceViewField(value)) {
+        return <ViewReferenceFieldContent column={column} value={value} />;
     }
 
-    const label = plainViewFieldValue(value);
-    return (
+    const rawValue = isValueViewField(value) ? value.value : value;
+    const routePath = tableColumnEntryRoute(column, item);
+    const textClassName = routePath ? "text-primary" : "text-base-content/70";
+    const content = Array.isArray(rawValue) ? (
+        <ul className="space-y-1">
+            {rawValue.map((entry, index) => {
+                const label = plainViewFieldValue(entry);
+                return (
+                    <li
+                        className={cn(
+                            textClassName,
+                            tableColumnWraps(column) ? "wrap-break-word whitespace-normal" : "max-w-72 truncate",
+                        )}
+                        key={`${label}-${String(index)}`}
+                        title={label}
+                    >
+                        {label}
+                    </li>
+                );
+            })}
+        </ul>
+    ) : (
         <span
             className={cn(
-                "text-base-content/70 block",
+                textClassName,
+                "block",
                 tableColumnWraps(column) ? "wrap-break-word whitespace-normal" : "max-w-80 truncate",
             )}
-            title={label}
+            title={plainViewFieldValue(rawValue)}
         >
-            {label}
+            {plainViewFieldValue(rawValue)}
         </span>
+    );
+
+    if (!routePath) return content;
+
+    return (
+        <Link
+            aria-label={`Open source entry ${item.title}`}
+            className="link link-primary link-hover block"
+            to={routePath}
+        >
+            {content}
+        </Link>
+    );
+}
+
+function ViewReferenceFieldContent({
+    column,
+    value,
+}: {
+    column: Extract<DashboardViewProjection, { kind: "table" }>["columns"][number];
+    value: Extract<DashboardViewFieldValue, { kind: "reference" | "referenceList" }>;
+}) {
+    const references = value.kind === "reference" ? [value.reference] : value.references;
+    const referenceLink = (reference: (typeof references)[number]) => {
+        const className = cn(
+            "link link-primary link-hover",
+            tableColumnWraps(column) ? "wrap-break-word whitespace-normal" : "block max-w-72 truncate",
+        );
+        return reference.routePath ? (
+            <Link className={className} key={reference.path} title={reference.title} to={reference.routePath}>
+                {reference.title}
+            </Link>
+        ) : (
+            <span className={className} key={reference.path} title={reference.title}>
+                {reference.title}
+            </span>
+        );
+    };
+
+    return value.kind === "reference" ? (
+        referenceLink(value.reference)
+    ) : (
+        <ul className="space-y-1">
+            {references.map((reference) => (
+                <li key={reference.path}>{referenceLink(reference)}</li>
+            ))}
+        </ul>
     );
 }
 
@@ -2211,10 +2266,31 @@ function formattedViewFieldValue(item: DashboardViewProjectionItem, field: strin
 
 function plainViewFieldValue(value: unknown): string {
     if (value === undefined || value === null) return "";
+    if (isValueViewField(value)) return plainViewFieldValue(value.value);
+    if (isReferenceViewField(value)) {
+        return value.kind === "reference"
+            ? value.reference.title
+            : value.references.map((reference) => reference.title).join(", ");
+    }
     if (Array.isArray(value)) return value.map(plainViewFieldValue).filter(Boolean).join(", ");
     if (typeof value === "string") return value;
     if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
     return JSON.stringify(value);
+}
+
+function isValueViewField(value: unknown): value is Extract<DashboardViewFieldValue, { kind: "value" }> {
+    return typeof value === "object" && value !== null && "kind" in value && value.kind === "value";
+}
+
+function isReferenceViewField(
+    value: unknown,
+): value is Extract<DashboardViewFieldValue, { kind: "reference" | "referenceList" }> {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        "kind" in value &&
+        (value.kind === "reference" || value.kind === "referenceList")
+    );
 }
 
 function viewFieldLabel(field: string): string {

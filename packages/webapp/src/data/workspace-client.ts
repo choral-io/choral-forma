@@ -174,10 +174,21 @@ export interface DashboardViewProjectionItem {
     entryId?: string;
     routePath?: string;
     fields: Record<string, string>;
-    rawFields: Record<string, unknown>;
+    rawFields: Record<string, DashboardViewFieldValue>;
     path: string;
     title: string;
 }
+
+export interface DashboardViewReference {
+    path: string;
+    routePath?: string;
+    title: string;
+}
+
+export type DashboardViewFieldValue =
+    | { kind: "value"; value: unknown }
+    | { kind: "reference"; reference: DashboardViewReference }
+    | { kind: "referenceList"; references: DashboardViewReference[] };
 
 export interface DashboardGraphNode {
     space: string;
@@ -219,6 +230,9 @@ export interface DashboardGraphEdge {
 export interface DashboardViewColumn {
     field: string;
     label: string;
+    link?: {
+        target: "entry";
+    };
     width?: string;
     minWidth?: string;
     maxWidth?: string;
