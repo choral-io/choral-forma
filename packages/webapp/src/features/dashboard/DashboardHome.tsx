@@ -30,7 +30,7 @@ import { Link, useOutletContext, useParams } from "react-router";
 
 import { readPreparedStaticEnhancement } from "@/data/static-enhancement";
 import { resolveDashboardEntryTarget } from "@/data/static-route-target";
-import { readStaticRuntimeConfig, rootAwareHref } from "@/data/static-runtime";
+import { logicalPathname, readStaticRuntimeConfig, rootAwareHref } from "@/data/static-runtime";
 import type {
     DashboardDiagnostic,
     DashboardEntry,
@@ -142,7 +142,7 @@ export function PagesRoute() {
 
 export function EntryRoute() {
     const params = useParams();
-    return <EntryRouteContent routePath={`/pages/${params["*"] ?? ""}`} />;
+    return <EntryRouteContent routePath={logicalPathname(`/pages/${params["*"] ?? ""}`)} />;
 }
 
 function EntryRouteContent({
@@ -392,7 +392,7 @@ export function ViewsRoute() {
 export function ViewRoute() {
     const dashboard = useWorkspaceDashboard();
     const params = useParams();
-    const viewId = params["*"];
+    const viewId = params["*"]?.replace(/\/+$/u, "");
     const view = dashboard.views.find((item) => item.id === viewId);
     const [renderRequestVersion, setRenderRequestVersion] = useState(0);
     const preparedView = readPreparedStaticEnhancement()?.view;
