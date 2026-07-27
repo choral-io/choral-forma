@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.25
+
+- Render `entryRef` and `entryRef` lists in Views as links named after their target entries, including Table, Kanban, and list projections.
+- Allow any configured Table column to link to its row entry with `link.target: entry`, without assuming a fixed title field.
+- Preserve native Markdown Preview link ownership in VS Code so View links replace the current Preview tab without custom URI authorization prompts.
+- Add a manually approved GitHub OIDC identity preflight for the future Visual Studio Marketplace publishing path; it verifies Azure sign-in only and does not publish.
+
 ## 0.1.24
 
 - Render supported Mermaid diagrams in the WebApp with a bounded Worker protocol, sanitization, accessible source fallbacks, and native zoom controls.

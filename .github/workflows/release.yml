@@ -15,6 +15,11 @@ on:
         required: true
         default: false
         type: boolean
+      verify_vscode_marketplace_identity:
+        description: "Verify the protected VS Code Marketplace OIDC identity without publishing"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   actions: read
@@ -46,6 +51,30 @@ jobs:
 
       - name: Validate tag and artifact versions
         run: node scripts/check-release-version.mjs "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+
+  verify-vscode-marketplace-identity:
+    name: Verify VS Code Marketplace identity
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_vscode_marketplace_identity
+    runs-on: ubuntu-24.04
+    environment: vscode-marketplace-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Confirm the federated Azure identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          az account show --query '{subscription:id, tenant:tenantId, identity:user.name}' --output json
+          echo "OIDC authentication succeeded. Marketplace publication is intentionally not attempted."
 
   build:
     name: Build ${{ matrix.asset }}

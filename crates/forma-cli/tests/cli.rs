@@ -1194,7 +1194,7 @@ readiness: ready
     assert!(stdout.contains(r#""path":".forma/views/work-board.md""#));
     assert!(stdout.contains(r#""kind":"kanban""#));
     assert!(stdout.contains(r#""path":"content/tasks/alpha.md""#));
-    assert!(stdout.contains(r#""readiness":"ready""#));
+    assert!(stdout.contains(r#""readiness":{"kind":"value","value":"ready"}"#));
 
     std::fs::remove_dir_all(root).unwrap();
 }

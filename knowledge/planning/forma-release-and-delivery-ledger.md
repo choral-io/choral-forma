@@ -25,6 +25,7 @@ sources:
     - "releases/forma-v0.1.22"
     - "releases/forma-v0.1.23"
     - "releases/forma-v0.1.24"
+    - "releases/forma-v0.1.25"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
     - "tasks/optimize-sticky-headers-in-view-rendering"
@@ -57,10 +58,12 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.22         | [[releases/forma-v0.1.22]]         | First Marketplace-ready Public Preview candidate. |
 | v0.1.23         | [[releases/forma-v0.1.23]]         | Previous released Public Preview record.          |
 | v0.1.24         | [[releases/forma-v0.1.24]]         | Current released Public Preview record.           |
+| v0.1.25         | [[releases/forma-v0.1.25]]         | Planned View navigation and reference candidate.  |
 
 ## Current Delivery Cutline
 
 - **Current released baseline:** [[releases/forma-v0.1.24]]. Its record contains the candidate, CI, GitHub Release, published-asset, and known-boundary evidence. Marketplace publication remains unverified.
+- **Current candidate:** [[releases/forma-v0.1.25]] is planned. Its entry-link contract, VSIX validation, main-CI, tag, GitHub Release, and Marketplace approval evidence remain open until recorded in that versioned release record.
 - **Active validation:** [[tasks/validate-shared-graph-view-cross-host-parity]] remains the active cross-Host Graph evidence boundary.
 - **Active delivery:** [[tasks/optimize-sticky-headers-in-view-rendering]] has completed the WebApp Table and Kanban slices; the remaining scope is the VS Code native-preview evaluation.
 - **Next product-value slices:** [[tasks/design-guided-knowledge-modeling-flow]] and [[tasks/define-external-product-value-validation]] are ready. Guided modeling remains the first adoption-path design; external validation defines the parallel comparative evidence gate and starts from the authorized case corpus.
