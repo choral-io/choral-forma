@@ -125,8 +125,19 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     std::fs::create_dir_all(&root).unwrap();
     copy_starter_workspace(&root);
     let entry = root.join("notes/static-site.md");
-    let source = "---\nkind: note\ntitle: Static Site\nsummary: Static artifact fixture.\n---\n\n# Static Site\n\nThe neutral homepage body is present.\n\n## Details\n\n![Diagram](../assets/diagram.svg)\n";
+    let source = "---\nkind: note\ntitle: Static Site\nsummary: Static artifact fixture.\n---\n\n# Static Site\n\nThe neutral homepage body is present.\n\n## Details\n\n![Diagram](../assets/diagram.svg)\n![Spaced Resource](<../assets/diagram space.svg>)\n![Unicode Resource](../assets/图.svg)\n![Percent Resource](../assets/100%.svg)\n\n[Spaced Page](<with space.md>)\n[Unicode Page](你好.md)\n[Percent Page](100%.md)\n";
     std::fs::write(&entry, source).unwrap();
+    for (path, title) in [
+        ("notes/with space.md", "With Space"),
+        ("notes/你好.md", "Unicode"),
+        ("notes/100%.md", "Literal Percent"),
+    ] {
+        std::fs::write(
+            root.join(path),
+            format!("---\nkind: note\ntitle: {title}\nsummary: {title} route fixture.\n---\n\n# {title}\n"),
+        )
+        .unwrap();
+    }
     std::fs::write(
         root.join("notes/static-site.zh-hans.md"),
         "---\nkind: note\ntitle: 静态站点\nsummary: 本地化静态页面。\n---\n\n# 静态站点\n\n本地化正文。\n",
@@ -137,6 +148,17 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
         "<svg xmlns=\"http://www.w3.org/2000/svg\"><title>Fixture diagram</title></svg>",
     )
     .unwrap();
+    for path in [
+        "assets/diagram space.svg",
+        "assets/图.svg",
+        "assets/100%.svg",
+    ] {
+        std::fs::write(
+            root.join(path),
+            format!("<svg xmlns=\"http://www.w3.org/2000/svg\"><title>{path}</title></svg>"),
+        )
+        .unwrap();
+    }
     std::fs::write(root.join("assets/decoy.svg"), "<svg/>").unwrap();
 
     let output = forma(&root)
@@ -157,14 +179,15 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
         .expect("forma site build should run");
     assert!(
         output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
     );
     let result: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(result["operation"], "site.build");
     assert_eq!(result["status"], "passed");
     assert!(result["counts"]["pages"].as_u64().unwrap() > 10);
-    assert_eq!(result["counts"]["copiedResources"], 2);
+    assert_eq!(result["counts"]["copiedResources"], 5);
     assert!(root.join("dist/site/index.html").is_file());
     assert!(
         root.join("dist/site/pages/notes/static-site/index.html")
@@ -183,6 +206,29 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(root.join("dist/site/sitemap.xml").is_file());
     assert!(root.join("dist/site/robots.txt").is_file());
     assert!(root.join("dist/site/raw/assets/diagram.svg").is_file());
+    assert!(
+        root.join("dist/site/raw/assets/diagram space.svg")
+            .is_file()
+    );
+    assert!(root.join("dist/site/raw/assets/图.svg").is_file());
+    assert!(root.join("dist/site/raw/assets/100%.svg").is_file());
+    for path in [
+        "assets/diagram space.svg",
+        "assets/图.svg",
+        "assets/100%.svg",
+    ] {
+        assert_eq!(
+            std::fs::read(root.join(path)).unwrap(),
+            std::fs::read(root.join("dist/site/raw").join(path)).unwrap(),
+            "{path}"
+        );
+    }
+    assert!(
+        root.join("dist/site/pages/notes/with space/index.html")
+            .is_file()
+    );
+    assert!(root.join("dist/site/pages/notes/你好/index.html").is_file());
+    assert!(root.join("dist/site/pages/notes/100%/index.html").is_file());
     assert!(root.join("dist/site/raw/assets/logo.svg").is_file());
     assert!(!root.join("dist/site/raw/assets/decoy.svg").exists());
     assert!(root.join("dist/site/data/dashboard.json").is_file());
@@ -200,6 +246,13 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(index.contains("The neutral homepage body is present."));
     assert!(index.contains(r#"href="https://example.test/preview/""#));
     assert!(index.contains(r#"src="/preview/raw/assets/diagram.svg""#));
+    assert!(index.contains(r#"src="/preview/raw/assets/diagram%20space.svg""#));
+    assert!(index.contains(r#"src="/preview/raw/assets/%E5%9B%BE.svg""#));
+    assert!(index.contains(r#"src="/preview/raw/assets/100%25.svg""#));
+    assert!(index.contains(r#"href="/preview/pages/notes/with%20space""#));
+    assert!(index.contains(r#"href="/preview/pages/notes/%E4%BD%A0%E5%A5%BD""#));
+    assert!(index.contains(r#"href="/preview/pages/notes/100%25""#));
+    assert!(index.contains(r#"<html lang="en">"#));
     let entry_html =
         std::fs::read_to_string(root.join("dist/site/pages/notes/static-site/index.html")).unwrap();
     assert!(entry_html.contains(r#"id="details""#));
@@ -208,6 +261,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
         std::fs::read_to_string(root.join("dist/site/pages/notes/static-site.zh-hans/index.html"))
             .unwrap();
     assert!(variant_html.contains("本地化正文"));
+    assert!(variant_html.contains(r#"<html lang="zh-Hans">"#));
     let table_html =
         std::fs::read_to_string(root.join("dist/site/views/notes/index.html")).unwrap();
     assert!(table_html.contains("<table"));
@@ -236,6 +290,9 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
         html_count as u64,
         result["counts"]["pages"].as_u64().unwrap()
     );
+    let mut page_titles = std::collections::BTreeSet::new();
+    let mut page_descriptions = std::collections::BTreeSet::new();
+    let mut page_canonicals = std::collections::BTreeSet::new();
     for path in &artifact_files {
         let contents = std::fs::read(path).unwrap();
         if let Ok(text) = std::str::from_utf8(&contents) {
@@ -246,6 +303,31 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
             );
             assert!(!text.contains("LOCAL_ONLY_SENTINEL"), "{}", path.display());
             assert!(!text.contains("/rpc"), "{}", path.display());
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "html")
+                && path.file_name().is_some_and(|name| name != "404.html")
+            {
+                let title = html_between(text, "<title>", "</title>").to_string();
+                let description =
+                    html_attribute(text, r#"<meta name="description" content=""#).to_string();
+                let canonical = html_attribute(text, r#"<link rel="canonical" href=""#).to_string();
+                assert!(
+                    page_titles.insert(title),
+                    "duplicate page title: {}",
+                    path.display()
+                );
+                assert!(
+                    page_descriptions.insert(description),
+                    "duplicate page description: {}",
+                    path.display()
+                );
+                assert!(
+                    page_canonicals.insert(canonical),
+                    "duplicate canonical URL: {}",
+                    path.display()
+                );
+            }
         }
     }
     let first_digest = tree_digest(&root.join("dist/site"));
@@ -1886,6 +1968,20 @@ fn collect_files(root: &Path) -> Vec<std::path::PathBuf> {
     }
     files.sort();
     files
+}
+
+fn html_between<'a>(html: &'a str, start: &str, end: &str) -> &'a str {
+    let value = html.split_once(start).unwrap().1;
+    value.split_once(end).unwrap().0
+}
+
+fn html_attribute<'a>(html: &'a str, prefix: &str) -> &'a str {
+    html.split_once(prefix)
+        .unwrap()
+        .1
+        .split_once('"')
+        .unwrap()
+        .0
 }
 
 fn tree_digest(root: &Path) -> u64 {

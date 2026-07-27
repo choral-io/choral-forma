@@ -217,7 +217,10 @@ fn write_artifact(
         });
         bytes += write_bytes(staging, &page.output_path, html.as_bytes())?;
     }
-    let not_found = not_found_page(&snapshot.workspace.name);
+    let not_found = not_found_page(
+        &snapshot.workspace.name,
+        &snapshot.workspace.canonical_language,
+    );
     let not_found_html = page_shell(PageShellOptions {
         base_url,
         embedded_index: &embedded_index,
@@ -363,25 +366,7 @@ fn validate_resource_source(
 }
 
 fn resource_output_path(path: &str) -> String {
-    format!(
-        "raw/{}",
-        path.split('/')
-            .map(percent_encode_segment)
-            .collect::<Vec<_>>()
-            .join("/")
-    )
-}
-
-fn percent_encode_segment(segment: &str) -> String {
-    let mut encoded = String::new();
-    for byte in segment.as_bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
-            encoded.push(char::from(*byte));
-        } else {
-            encoded.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    encoded
+    format!("raw/{path}")
 }
 
 fn write_json(value_root: &Path, relative: &str, value: &impl Serialize) -> Result<u64, String> {

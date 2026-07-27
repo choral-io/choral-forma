@@ -10,6 +10,7 @@ use forma_core::{
 pub(crate) struct StaticPage {
     pub canonical_route: String,
     pub description: String,
+    pub language: String,
     pub output_path: String,
     pub title: String,
     pub body: String,
@@ -20,6 +21,7 @@ pub(crate) fn render_pages(
     home_path: Option<&str>,
     root_path: &str,
 ) -> Result<Vec<StaticPage>, String> {
+    let canonical_language = validated_language_tag(&snapshot.workspace.canonical_language)?;
     let entries_by_id = snapshot
         .entries
         .iter()
@@ -27,32 +29,78 @@ pub(crate) fn render_pages(
         .collect::<BTreeMap<_, _>>();
     let mut pages = Vec::with_capacity(snapshot.routes.len() + 1);
     let home = home_path.and_then(|path| snapshot.entries.iter().find(|entry| entry.path == path));
-    pages.push(home_page(snapshot, home, root_path));
+    pages.push(home_page(snapshot, home, root_path, &canonical_language));
 
     for route in &snapshot.routes {
-        pages.push(route_page(snapshot, route, &entries_by_id, root_path)?);
+        pages.push(route_page(
+            snapshot,
+            route,
+            &entries_by_id,
+            root_path,
+            &canonical_language,
+        )?);
     }
+    disambiguate_metadata(&mut pages);
     pages.sort_by(|left, right| left.output_path.cmp(&right.output_path));
     Ok(pages)
+}
+
+fn disambiguate_metadata(pages: &mut [StaticPage]) {
+    let mut titles = std::collections::BTreeSet::new();
+    let mut descriptions = std::collections::BTreeSet::new();
+    for page in pages {
+        if !titles.insert(page.title.clone()) {
+            let base = page.title.clone();
+            let mut suffix = 1_usize;
+            loop {
+                let candidate = if suffix == 1 {
+                    format!("{base} · {}", page.canonical_route)
+                } else {
+                    format!("{base} · {} · {suffix}", page.canonical_route)
+                };
+                if titles.insert(candidate.clone()) {
+                    page.title = candidate;
+                    break;
+                }
+                suffix += 1;
+            }
+        }
+        if !descriptions.insert(page.description.clone()) {
+            let base = page.description.clone();
+            let mut suffix = 1_usize;
+            loop {
+                let candidate = if suffix == 1 {
+                    format!("{base} Route: {}.", page.canonical_route)
+                } else {
+                    format!("{base} Route: {} ({suffix}).", page.canonical_route)
+                };
+                if descriptions.insert(candidate.clone()) {
+                    page.description = candidate;
+                    break;
+                }
+                suffix += 1;
+            }
+        }
+    }
 }
 
 fn home_page(
     snapshot: &StaticSiteSnapshot,
     home: Option<&StaticSiteEntry>,
     root_path: &str,
+    canonical_language: &str,
 ) -> StaticPage {
     if let Some(entry) = home {
+        let entry_title = entry.title.as_deref().unwrap_or(&entry.path);
         return StaticPage {
             canonical_route: "/".to_string(),
-            description: entry
-                .summary
-                .clone()
-                .unwrap_or_else(|| snapshot.workspace.name.clone()),
+            description: format!(
+                "Homepage for {}, featuring {}.",
+                snapshot.workspace.name, entry_title
+            ),
+            language: canonical_language.to_string(),
             output_path: "index.html".to_string(),
-            title: entry
-                .title
-                .clone()
-                .unwrap_or_else(|| snapshot.workspace.name.clone()),
+            title: snapshot.workspace.name.clone(),
             body: entry_body(entry, "/", root_path),
         };
     }
@@ -60,6 +108,7 @@ fn home_page(
     StaticPage {
         canonical_route: "/".to_string(),
         description: "Browse this Markdown-backed workspace.".to_string(),
+        language: canonical_language.to_string(),
         output_path: "index.html".to_string(),
         title: snapshot.workspace.name.clone(),
         body: format!(
@@ -75,12 +124,14 @@ fn route_page(
     route: &StaticSiteRoute,
     entries_by_id: &BTreeMap<&str, &StaticSiteEntry>,
     root_path: &str,
+    canonical_language: &str,
 ) -> Result<StaticPage, String> {
     match route.kind {
         StaticSiteRouteKind::Entry => {
-            let (title, description, body) = entry_route_content(snapshot, route, root_path)
-                .ok_or_else(|| format!("static entry route has no entry: {}", route.path))?;
-            Ok(page(route, title, description, body))
+            let (title, description, body, language) =
+                entry_route_content(snapshot, route, root_path, canonical_language)?
+                    .ok_or_else(|| format!("static entry route has no entry: {}", route.path))?;
+            Ok(page(route, title, description, body, language))
         }
         StaticSiteRouteKind::View => {
             let view = snapshot
@@ -93,6 +144,7 @@ fn route_page(
                 view.title.clone().unwrap_or_else(|| view.id.clone()),
                 format!("{} workspace View.", view.mode),
                 view_body(view, entries_by_id, root_path),
+                canonical_language.to_string(),
             ))
         }
         StaticSiteRouteKind::Pages => Ok(page(
@@ -103,18 +155,21 @@ fn route_page(
                 "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Workspace</p><h1 class=\"text-3xl font-semibold\">Pages</h1></header>{}",
                 entry_list(snapshot.entries.iter(), root_path)
             ),
+            canonical_language.to_string(),
         )),
         StaticSiteRouteKind::Views => Ok(page(
             route,
             "Views".to_string(),
             "Configured workspace projections.".to_string(),
             view_list(&snapshot.views, root_path),
+            canonical_language.to_string(),
         )),
         StaticSiteRouteKind::Taxonomies => Ok(page(
             route,
             "Browse".to_string(),
             "Browse configured workspace taxonomies.".to_string(),
             taxonomy_list(&snapshot.taxonomies, root_path),
+            canonical_language.to_string(),
         )),
         StaticSiteRouteKind::Taxonomy => {
             let taxonomy = snapshot
@@ -130,6 +185,7 @@ fn route_page(
                     .clone()
                     .unwrap_or_else(|| "Configured workspace taxonomy.".to_string()),
                 taxonomy_body(taxonomy, root_path),
+                canonical_language.to_string(),
             ))
         }
         StaticSiteRouteKind::TaxonomyTerm => {
@@ -154,15 +210,23 @@ fn route_page(
                     .clone()
                     .unwrap_or_else(|| format!("Entries classified as {}.", term.title)),
                 term_body(term, entries_by_id, root_path),
+                canonical_language.to_string(),
             ))
         }
     }
 }
 
-fn page(route: &StaticSiteRoute, title: String, description: String, body: String) -> StaticPage {
+fn page(
+    route: &StaticSiteRoute,
+    title: String,
+    description: String,
+    body: String,
+    language: String,
+) -> StaticPage {
     StaticPage {
         canonical_route: route.path.clone(),
         description,
+        language,
         output_path: route.output_path.clone(),
         title,
         body,
@@ -173,20 +237,23 @@ fn entry_route_content(
     snapshot: &StaticSiteSnapshot,
     route: &StaticSiteRoute,
     root_path: &str,
-) -> Option<(String, String, String)> {
+    canonical_language: &str,
+) -> Result<Option<(String, String, String, String)>, String> {
     for entry in &snapshot.entries {
         if entry.id == route.id {
-            return Some((
+            return Ok(Some((
                 entry.title.clone().unwrap_or_else(|| entry.path.clone()),
                 entry
                     .summary
                     .clone()
                     .unwrap_or_else(|| "Published workspace entry.".to_string()),
                 entry_body(entry, &entry.route_path, root_path),
-            ));
+                canonical_language.to_string(),
+            )));
         }
         if let Some(variant) = entry.variants.iter().find(|variant| variant.id == route.id) {
-            return Some((
+            let language = validated_language_tag(&variant.language)?;
+            return Ok(Some((
                 variant
                     .title
                     .clone()
@@ -197,10 +264,11 @@ fn entry_route_content(
                     .or_else(|| entry.summary.clone())
                     .unwrap_or_else(|| "Published localized workspace entry.".to_string()),
                 variant_body(entry, variant),
-            ));
+                language,
+            )));
         }
     }
-    None
+    Ok(None)
 }
 
 fn entry_body(entry: &StaticSiteEntry, route_path: &str, root_path: &str) -> String {
@@ -568,7 +636,8 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
         .then_some("<meta name=\"robots\" content=\"noindex, nofollow\" />")
         .unwrap_or("");
     format!(
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script>window.__FORMA_STATIC_WORKSPACE__={config};</script></head><body><div id=\"root\"><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{pages_href}\">Pages</a><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Browse</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
+        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script>window.__FORMA_STATIC_WORKSPACE__={config};</script></head><body><div id=\"root\"><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{pages_href}\">Pages</a><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Browse</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
+        language = escape_attribute(&options.page.language),
         title_text = escape_html(&document_title),
         title_attribute = escape_attribute(&document_title),
         description = escape_attribute(&options.page.description),
@@ -578,10 +647,11 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
     )
 }
 
-pub(crate) fn not_found_page(workspace_name: &str) -> StaticPage {
+pub(crate) fn not_found_page(workspace_name: &str, language: &str) -> StaticPage {
     StaticPage {
         canonical_route: "/404.html".to_string(),
         description: "The requested static workspace route was not found.".to_string(),
+        language: language.to_string(),
         output_path: "404.html".to_string(),
         title: "Not found".to_string(),
         body: format!(
@@ -589,6 +659,32 @@ pub(crate) fn not_found_page(workspace_name: &str) -> StaticPage {
             escape_html(workspace_name)
         ),
     }
+}
+
+fn validated_language_tag(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    let mut segments = value.split('-');
+    let Some(primary) = segments.next() else {
+        return Err("static page language must be a valid language tag".to_string());
+    };
+    if primary.is_empty()
+        || primary.len() > 8
+        || !primary.bytes().all(|byte| byte.is_ascii_alphabetic())
+    {
+        return Err(format!(
+            "static page language is not a safe language tag: {value}"
+        ));
+    }
+    if segments.any(|segment| {
+        segment.is_empty()
+            || segment.len() > 8
+            || !segment.bytes().all(|byte| byte.is_ascii_alphanumeric())
+    }) {
+        return Err(format!(
+            "static page language is not a safe language tag: {value}"
+        ));
+    }
+    Ok(value.to_string())
 }
 
 fn embedded_head_assets(index: &str, root_path: &str) -> String {
@@ -683,6 +779,7 @@ pub(crate) fn sitemap_xml(base_url: &str, root_path: &str, pages: &[StaticPage])
 mod tests {
     use super::{
         PageShellOptions, StaticPage, escape_html, page_shell, public_href, root_embedded_url,
+        validated_language_tag,
     };
 
     #[test]
@@ -708,6 +805,7 @@ mod tests {
         let page = StaticPage {
             canonical_route: "/".to_string(),
             description: "\"><script>alert(1)</script>".to_string(),
+            language: "zh-Hans".to_string(),
             output_path: "index.html".to_string(),
             title: "Forma \"<unsafe>".to_string(),
             body: "<p>trusted body</p>".to_string(),
@@ -725,5 +823,15 @@ mod tests {
         assert!(!html.contains("<script>alert(1)</script>"));
         assert!(html.contains("Forma &quot;&lt;unsafe&gt;"));
         assert!(html.contains("&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"));
+        assert!(html.contains(r#"<html lang="zh-Hans">"#));
+    }
+
+    #[test]
+    fn static_page_languages_accept_safe_tags_and_reject_markup_or_paths() {
+        assert_eq!(validated_language_tag("en-US").unwrap(), "en-US");
+        assert_eq!(validated_language_tag("zh-Hans").unwrap(), "zh-Hans");
+        for language in ["", "en_US", "en\"><script>", "../en", "en--US"] {
+            assert!(validated_language_tag(language).is_err(), "{language}");
+        }
     }
 }

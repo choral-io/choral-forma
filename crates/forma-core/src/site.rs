@@ -855,7 +855,37 @@ fn route_output_path(route_path: &str) -> String {
     if path.is_empty() {
         "index.html".to_string()
     } else {
-        format!("{path}/index.html")
+        format!("{}/index.html", decode_public_path_once(path))
+    }
+}
+
+fn decode_public_path_once(path: &str) -> String {
+    let bytes = path.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%'
+            && let (Some(high), Some(low)) = (
+                bytes.get(index + 1).and_then(|byte| hex_value(*byte)),
+                bytes.get(index + 2).and_then(|byte| hex_value(*byte)),
+            )
+        {
+            decoded.push((high << 4) | low);
+            index += 3;
+            continue;
+        }
+        decoded.push(bytes[index]);
+        index += 1;
+    }
+    String::from_utf8(decoded).unwrap_or_else(|_| path.to_string())
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
     }
 }
 
@@ -1249,7 +1279,7 @@ fn resource_candidate(
     Some(StaticSiteResourceCandidate {
         path: path.to_string(),
         public_path: public_url(root_path, &format!("/raw/{encoded}")),
-        output_path: format!("raw/{encoded}"),
+        output_path: format!("raw/{path}"),
         media_type: media_type.to_string(),
         referenced_by: if workspace_presentation {
             Vec::new()
@@ -1690,6 +1720,93 @@ mod tests {
                 .unwrap()
                 .contains(r#"href="/preview/pages/content/guides/related#details""#)
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_decodes_public_urls_once_for_artifact_paths() {
+        let root = copy_fixture("site-snapshot-decoded-artifact-paths");
+        for (path, title) in [
+            ("content/guides/with space.md", "With Space"),
+            ("content/guides/你好.md", "Unicode"),
+            ("content/guides/100%.md", "Literal Percent"),
+        ] {
+            fs::write(
+                root.join(path),
+                format!(
+                    "---\ntitle: {title}\nsummary: Encoded route fixture.\nstatus: published\n---\n\n# {title}\n"
+                ),
+            )
+            .unwrap();
+        }
+        for path in [
+            "assets/diagram space.svg",
+            "assets/图.svg",
+            "assets/100%.svg",
+        ] {
+            fs::write(
+                root.join(path),
+                "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
+            )
+            .unwrap();
+        }
+        fs::write(
+            root.join("content/guides/intro.md"),
+            "---\ntitle: Intro\nsummary: Fixture introduction.\nstatus: published\n---\n\n# Intro\n\n![Space](<../../assets/diagram space.svg>)\n![Unicode](../../assets/图.svg)\n![Percent](../../assets/100%.svg)\n",
+        )
+        .unwrap();
+
+        let snapshot = build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
+        for (path, route_path, output_path) in [
+            (
+                "content/guides/with space.md",
+                "/pages/content/guides/with%20space",
+                "pages/content/guides/with space/index.html",
+            ),
+            (
+                "content/guides/你好.md",
+                "/pages/content/guides/%E4%BD%A0%E5%A5%BD",
+                "pages/content/guides/你好/index.html",
+            ),
+            (
+                "content/guides/100%.md",
+                "/pages/content/guides/100%25",
+                "pages/content/guides/100%/index.html",
+            ),
+        ] {
+            let entry = snapshot
+                .entries
+                .iter()
+                .find(|entry| entry.path == path)
+                .unwrap();
+            assert_eq!(entry.route_path, route_path);
+            assert_eq!(entry.output_path, output_path);
+        }
+        for (path, public_path, output_path) in [
+            (
+                "assets/diagram space.svg",
+                "/preview/raw/assets/diagram%20space.svg",
+                "raw/assets/diagram space.svg",
+            ),
+            (
+                "assets/图.svg",
+                "/preview/raw/assets/%E5%9B%BE.svg",
+                "raw/assets/图.svg",
+            ),
+            (
+                "assets/100%.svg",
+                "/preview/raw/assets/100%25.svg",
+                "raw/assets/100%.svg",
+            ),
+        ] {
+            let resource = snapshot
+                .resources
+                .iter()
+                .find(|resource| resource.path == path)
+                .unwrap();
+            assert_eq!(resource.public_path, public_path);
+            assert_eq!(resource.output_path, output_path);
+        }
         fs::remove_dir_all(root).unwrap();
     }
 
