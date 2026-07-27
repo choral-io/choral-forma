@@ -1,0 +1,35 @@
+name: Verify VS Code Marketplace Identity
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  resolve-profile:
+    name: Resolve Marketplace Profile User ID
+    runs-on: ubuntu-24.04
+    environment: vscode-marketplace-publish
+    steps:
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve the Marketplace profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          profile_id="$(az rest \\
+            --url https://app.vssps.visualstudio.com/_apis/profile/profiles/me \\
+            --resource 499b84ac-1321-427f-aa17-267ca6975798 \\
+            --query id \\
+            --output tsv)"
+          test -n "$profile_id"
+          echo "Marketplace Profile User ID: $profile_id"
+          echo "## Marketplace Profile User ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$profile_id\`" >> "$GITHUB_STEP_SUMMARY"
