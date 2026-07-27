@@ -24,10 +24,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          profile_id="$(az rest \\
-            --url https://app.vssps.visualstudio.com/_apis/profile/profiles/me \\
-            --resource 499b84ac-1321-427f-aa17-267ca6975798 \\
-            --query id \\
+          profile_id="$(az rest \
+            --url https://app.vssps.visualstudio.com/_apis/profile/profiles/me \
+            --resource 499b84ac-1321-427f-aa17-267ca6975798 \
+            --query id \
             --output tsv)"
           test -n "$profile_id"
           echo "Marketplace Profile User ID: $profile_id"
