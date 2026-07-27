@@ -622,6 +622,7 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
             )
         });
     let config = serde_json::json!({
+        "baseUrl": options.base_url,
         "dataBaseUrl": public_href(options.root_path, "/data"),
         "homeEntryId": options.home_entry_id,
         "rootPath": options.root_path,

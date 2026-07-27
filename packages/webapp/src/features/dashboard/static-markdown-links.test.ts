@@ -13,6 +13,7 @@ describe("static Markdown root paths", () => {
 
     it("keeps generated routes and raw resources under the configured root", () => {
         globalThis.__FORMA_STATIC_WORKSPACE__ = {
+            baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             rootPath: "/preview",
         };
@@ -43,6 +44,7 @@ describe("static Markdown root paths", () => {
 
     it("keeps a homepage entry fragment on the displayed homepage route", () => {
         globalThis.__FORMA_STATIC_WORKSPACE__ = {
+            baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             rootPath: "/preview",
         };

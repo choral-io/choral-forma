@@ -1,6 +1,7 @@
 declare global {
     var __FORMA_STATIC_WORKSPACE__:
         | {
+              baseUrl: string;
               dataBaseUrl: string;
               homeEntryId?: string;
               rootPath: string;

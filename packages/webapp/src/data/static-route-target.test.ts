@@ -70,6 +70,7 @@ describe("resolveDashboardEntryTarget", () => {
         ["/preview/pages/notes/100%25/", "/pages/notes/100%25", "notes--percent"],
     ])("matches an encoded direct load from %s", (pathname, routePath, entryId) => {
         globalThis.__FORMA_STATIC_WORKSPACE__ = {
+            baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             rootPath: "/preview",
         };

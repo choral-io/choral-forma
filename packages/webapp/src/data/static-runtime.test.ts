@@ -9,6 +9,7 @@ describe("static runtime URL helpers", () => {
 
     it("uses the generated root path as the router basename", () => {
         globalThis.__FORMA_STATIC_WORKSPACE__ = {
+            baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             homeEntryId: "notes--one",
             rootPath: "/preview",
@@ -25,6 +26,7 @@ describe("static runtime URL helpers", () => {
 
     it("does not rewrite external, protocol, fragment, or rootless targets", () => {
         globalThis.__FORMA_STATIC_WORKSPACE__ = {
+            baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             rootPath: "/preview",
         };

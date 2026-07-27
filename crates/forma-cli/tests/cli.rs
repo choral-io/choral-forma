@@ -242,6 +242,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     let index = std::fs::read_to_string(root.join("dist/site/index.html")).unwrap();
     assert!(index.contains("__FORMA_STATIC_WORKSPACE__"));
     assert!(index.contains(r#""dataBaseUrl":"/preview/data""#));
+    assert!(index.contains(r#""baseUrl":"https://example.test""#));
     assert!(index.contains(r#""rootPath":"/preview""#));
     assert!(index.contains("The neutral homepage body is present."));
     assert!(index.contains(r#"href="https://example.test/preview/""#));
@@ -979,6 +980,7 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(site_get_stdout.contains(".forma-site-artifact"));
     assert!(site_get_stdout.contains("Trusted-Author Publication Boundary"));
     assert!(site_get_stdout.contains("does not call Forma RPC"));
+    assert!(site_get_stdout.contains("named `local`"));
 
     std::fs::remove_dir_all(root).unwrap();
 }

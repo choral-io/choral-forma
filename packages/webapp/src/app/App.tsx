@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 
+import { syncStaticDocumentMetadata } from "@/data/static-document-metadata";
 import { readPreparedStaticEnhancement } from "@/data/static-enhancement";
+import { readStaticRuntimeConfig } from "@/data/static-runtime";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
 import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
@@ -55,6 +57,11 @@ export function App() {
             });
         }
     }, [pathname]);
+
+    useEffect(() => {
+        if (!dashboard || !readStaticRuntimeConfig()) return;
+        syncStaticDocumentMetadata(dashboard, pathname);
+    }, [dashboard, pathname]);
 
     useEffect(() => {
         const wideDesktopMedia = window.matchMedia("(min-width: 80rem)");

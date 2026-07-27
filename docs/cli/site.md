@@ -46,7 +46,7 @@ The artifact contains static HTML, hashed WebApp assets, dashboard and route dat
 
 The builder exports the shared workspace projection and configured routes, not a repository copy. In this open-source repository, shared project, release, member, task, and other `knowledge/` records are eligible to be public because the repository itself is public. The exclusions are local-only, private, or machine state: for example `knowledge/workspace/*/local/`, `.forma/local/`, credentials, caches, browser state, and build-machine metadata. `.gitignore` is not publication policy.
 
-Only resources referenced by exported content or declared workspace presentation are copied, under `raw/`. Forma rejects path traversal, symlinks, and non-regular resource files; it does not copy arbitrary workspace or repository files.
+Only resources referenced by exported content or declared workspace presentation are copied, under `raw/`. Forma rejects path traversal, symlinks, and non-regular resource files; it does not copy arbitrary workspace or repository files. Hidden path components and any directory component named `local` are reserved as non-public resource locations and are never copied, even when shared content links to them.
 
 ### Trusted-Author Publication Boundary
 

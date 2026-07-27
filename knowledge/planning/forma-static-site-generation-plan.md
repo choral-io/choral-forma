@@ -97,7 +97,7 @@ Baseline captured on 2026-07-27:
 | Artifact routes and HTML pages | 209 and 211 |
 | Resources copied and static assets | 0 and 67 |
 | Artifact bytes and files | 12,527,375 bytes and 470 files |
-| Tree digest | `830211ae263aff036c9b4e74659bbc5636af025f117d04139dec720e93d4c41e` |
+| Reproducibility | Repeated builds from the same source state were byte-identical; CI records the run-specific tree digest in the job summary |
 | Artifact scans | No absolute workspace path; no `/rpc` in runtime JS assets; no diagnostics or warnings |
 
 Relevant implementation seams already exist:

@@ -989,7 +989,13 @@ fn static_reference_href(
         .map_or((without_fragment, ""), |(path, query)| (path, query));
     let normalized = normalized_static_target(source_path, path)?;
 
-    if let Some((target_path, route)) = resolve_entry_route(&normalized, entry_routes_by_path) {
+    let resolved_entry = resolve_entry_route(&normalized, entry_routes_by_path).or_else(|| {
+        let workspace_style_target = path.trim_start_matches('/');
+        (workspace_style_target != normalized)
+            .then(|| resolve_entry_route(workspace_style_target, entry_routes_by_path))
+            .flatten()
+    });
+    if let Some((target_path, route)) = resolved_entry {
         let mut href = public_url(root_path, route);
         if !fragment.is_empty() {
             href.push('#');
@@ -1302,11 +1308,20 @@ fn resource_path_is_publishable(path: &str, config_paths: &BTreeSet<&str>) -> bo
         "node_modules",
         "target",
     ];
-    let mut components = path.split('/');
-    let Some(root) = components.next() else {
+    let components = path.split('/').collect::<Vec<_>>();
+    let Some(root) = components.first() else {
         return false;
     };
-    !root.starts_with('.') && !blocked_roots.contains(&root)
+    if components.iter().any(|component| {
+        component.is_empty()
+            || component.starts_with('.')
+            || component.eq_ignore_ascii_case("local")
+    }) {
+        return false;
+    }
+    !blocked_roots
+        .iter()
+        .any(|blocked| root.eq_ignore_ascii_case(blocked))
 }
 
 fn route_collision_diagnostics(
@@ -1575,7 +1590,19 @@ mod tests {
     #[test]
     fn site_snapshot_fixture_exports_references_views_and_resources() {
         let root = copy_fixture("site-snapshot-content");
+        fs::create_dir_all(root.join("content/guides/local")).unwrap();
+        fs::write(
+            root.join("content/guides/local/private.png"),
+            b"LOCAL_RESOURCE_SENTINEL",
+        )
+        .unwrap();
+        let intro_path = root.join("content/guides/intro.md");
+        let mut intro_source = fs::read_to_string(&intro_path).unwrap();
+        intro_source.push_str("\n![Private](local/private.png)\n");
+        fs::write(&intro_path, intro_source).unwrap();
+
         let snapshot = build_static_site_snapshot(&root).unwrap();
+        let snapshot_json = serde_json::to_string(&snapshot).unwrap();
         let intro = snapshot
             .entries
             .iter()
@@ -1605,6 +1632,9 @@ mod tests {
         assert_eq!(resource.path, "assets/diagram.svg");
         assert_eq!(resource.public_path, "/raw/assets/diagram.svg");
         assert_eq!(resource.referenced_by, vec!["/pages/content/guides/intro"]);
+        assert!(!snapshot_json.contains("LOCAL_RESOURCE_SENTINEL"));
+        assert!(!snapshot_json.contains("/raw/content/guides/local/private.png"));
+        assert!(intro.markdown.contains("![Private](local/private.png)"));
         assert_eq!(
             snapshot.taxonomies[0].terms[0].entry_ids,
             vec!["content--guides--intro", "content--guides--related"]
@@ -1647,7 +1677,7 @@ mod tests {
         let root = copy_fixture("site-snapshot-static-links");
         fs::write(
             root.join("content/guides/intro.md"),
-            "---\ntitle: Intro\nsummary: Fixture introduction.\nstatus: published\n---\n\n# Intro\n\n## Repeat\n\n[Related](related.md#Details)\n[Deep](related.md#深入)\n\n## Repeat\n\n![Diagram](../../assets/diagram.svg)\n\n[External](https://example.test/a)\n[Mail](mailto:test@example.test)\n[Fragment](#Repeat)\n[Missing](missing.md)\n",
+            "---\ntitle: Intro\nsummary: Fixture introduction.\nstatus: published\n---\n\n# Intro\n\n## Repeat\n\n[Related](related.md#Details)\n[Deep](related.md#深入)\n[[guides/related#Details|Workspace-style]]\n[[related|Bare]]\n\n## Repeat\n\n![Diagram](../../assets/diagram.svg)\n\n[External](https://example.test/a)\n[Mail](mailto:test@example.test)\n[Fragment](#Repeat)\n[Missing](missing.md)\n",
         )
         .unwrap();
         fs::write(
@@ -1688,6 +1718,16 @@ mod tests {
             intro
                 .markdown
                 .contains("[Deep](/preview/pages/content/guides/related#section)")
+        );
+        assert!(
+            intro
+                .markdown
+                .contains("[Workspace-style](</preview/pages/content/guides/related#details>)")
+        );
+        assert!(
+            intro
+                .markdown
+                .contains("[Bare](</preview/pages/content/guides/related>)")
         );
         let related = snapshot
             .entries
