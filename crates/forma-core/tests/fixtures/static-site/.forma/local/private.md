@@ -5,12 +5,12 @@ taxonomy: spaces
 id: private
 title: Private
 include:
-  - "local/**/*.md"
+    - "local/**/*.md"
 schema:
-  type: object
-  fields:
-    title:
-      type: string
+    type: object
+    fields:
+        title:
+            type: string
 ---
 
 # Private

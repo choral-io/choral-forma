@@ -6,19 +6,19 @@ id: guides
 title: Guides
 description: Public fixture guides.
 include:
-  - "content/guides/**/*.md"
+    - "content/guides/**/*.md"
 schema:
-  type: object
-  fields:
-    title:
-      type: string
-    summary:
-      type: string
-    status:
-      type: string
+    type: object
+    fields:
+        title:
+            type: string
+        summary:
+            type: string
+        status:
+            type: string
 conventions:
-  titleField: fields.title
-  summaryField: fields.summary
+    titleField: fields.title
+    summaryField: fields.summary
 ---
 
 # Guides

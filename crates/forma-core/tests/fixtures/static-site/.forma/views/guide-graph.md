@@ -4,15 +4,15 @@ kind: view
 mode: graph
 title: Guide Graph
 source:
-  type: pages
-  taxonomy:
-    spaces:
-      - guides
+    type: pages
+    taxonomy:
+        spaces:
+            - guides
 graph:
-  edges:
-    - source: body
-      intent: link
-      label: links to
+    edges:
+        - source: body
+          intent: link
+          label: links to
 ---
 
 # Guide Graph
