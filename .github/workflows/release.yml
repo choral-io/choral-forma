@@ -379,4 +379,5 @@ jobs:
           version="$(node -p "require('./extensions/vscode/package.json').version")"
           vsix_path="$(find dist-release -type f -name "forma-${version}.vsix" -print -quit)"
           test -n "$vsix_path"
+          vsix_path="$(realpath "$vsix_path")"
           pnpm --filter forma exec vsce publish --packagePath "$vsix_path" --azure-credential
