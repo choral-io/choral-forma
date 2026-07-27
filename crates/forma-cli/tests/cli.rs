@@ -222,6 +222,78 @@ fn site_build_rejects_workspace_root_as_output() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
+#[cfg(unix)]
+#[test]
+fn site_build_rejects_an_existing_output_symlink_without_touching_its_referent() {
+    use std::os::unix::fs::symlink;
+
+    let root = fixture_root("site-build-output-symlink");
+    let referent = fixture_root("site-build-output-symlink-referent");
+    std::fs::create_dir_all(root.join("dist")).unwrap();
+    std::fs::create_dir_all(&referent).unwrap();
+    std::fs::write(referent.join("sentinel.txt"), "must survive").unwrap();
+    copy_starter_workspace(&root);
+    symlink(&referent, root.join("dist/site")).unwrap();
+
+    let output = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--json",
+        ])
+        .output()
+        .expect("forma site build should run");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("symbolic link"));
+    assert_eq!(
+        std::fs::read_to_string(referent.join("sentinel.txt")).unwrap(),
+        "must survive"
+    );
+
+    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(referent).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn site_build_rejects_a_parent_symlink_without_touching_the_referent() {
+    use std::os::unix::fs::symlink;
+
+    let root = fixture_root("site-build-parent-symlink");
+    let referent = fixture_root("site-build-parent-symlink-referent");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::create_dir_all(&referent).unwrap();
+    std::fs::write(referent.join("sentinel.txt"), "must survive").unwrap();
+    copy_starter_workspace(&root);
+    symlink(&referent, root.join("dist")).unwrap();
+
+    let output = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--json",
+        ])
+        .output()
+        .expect("forma site build should run");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("traverse a symbolic link"));
+    assert_eq!(
+        std::fs::read_to_string(referent.join("sentinel.txt")).unwrap(),
+        "must survive"
+    );
+
+    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(referent).unwrap();
+}
+
 #[test]
 fn reference_resolve_json_prints_direct_operation_result() {
     let root = fixture_root("reference-resolve-json");

@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::ffi::OsStr;
 use std::fs;
+use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -97,21 +98,7 @@ pub(crate) fn build_site(
         }
     };
 
-    if output.target.exists() {
-        ensure_existing_target_is_safe(&output.target)?;
-        fs::remove_dir_all(&output.target).map_err(|error| {
-            format!(
-                "validated site output could not be replaced {}: {error}",
-                output.target.display()
-            )
-        })?;
-    }
-    fs::rename(&staging, &output.target).map_err(|error| {
-        format!(
-            "validated site staging directory could not be activated {}: {error}",
-            output.target.display()
-        )
-    })?;
+    activate_artifact(&staging, &output.target, &output.parent)?;
 
     let warnings = snapshot
         .diagnostics
@@ -282,7 +269,7 @@ fn validate_output(
         .ok_or_else(|| "site output path must have a parent directory".to_string())?
         .to_path_buf();
     ensure_existing_ancestors_are_not_symlinks(&parent)?;
-    if target.exists() {
+    if path_exists(&target)? {
         ensure_existing_target_is_safe(&target)?;
     }
     Ok(ValidatedOutput { target, parent })
@@ -329,15 +316,16 @@ fn ensure_existing_ancestors_are_not_symlinks(path: &Path) -> Result<(), String>
             continue;
         }
         current.push(component.as_os_str());
-        if !current.exists() {
-            break;
-        }
-        let metadata = fs::symlink_metadata(&current).map_err(|error| {
-            format!(
-                "site output path could not be inspected {}: {error}",
-                current.display()
-            )
-        })?;
+        let metadata = match fs::symlink_metadata(&current) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => break,
+            Err(error) => {
+                return Err(format!(
+                    "site output path could not be inspected {}: {error}",
+                    current.display()
+                ));
+            }
+        };
         if metadata.file_type().is_symlink() {
             return Err(format!(
                 "site output path must not traverse a symbolic link: {}",
@@ -376,6 +364,17 @@ fn ensure_existing_target_is_safe(target: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn path_exists(path: &Path) -> Result<bool, String> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(format!(
+            "site output path could not be inspected {}: {error}",
+            path.display()
+        )),
+    }
+}
+
 fn repository_root(workspace: &Path) -> Option<PathBuf> {
     workspace.ancestors().find_map(|candidate| {
         let git = candidate.join(".git");
@@ -388,14 +387,127 @@ fn repository_root(workspace: &Path) -> Option<PathBuf> {
 }
 
 fn staging_path(parent: &Path) -> Result<PathBuf, String> {
+    unique_sibling_path(parent, "staging")
+}
+
+fn backup_path(parent: &Path) -> Result<PathBuf, String> {
+    unique_sibling_path(parent, "backup")
+}
+
+fn unique_sibling_path(parent: &Path, kind: &str) -> Result<PathBuf, String> {
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|error| format!("site staging clock is unavailable: {error}"))?
         .as_nanos();
-    Ok(parent.join(format!(
-        ".forma-site-staging-{}-{nonce}",
-        std::process::id()
-    )))
+    for suffix in 0..100 {
+        let candidate = parent.join(format!(
+            ".forma-site-{kind}-{}-{nonce}-{suffix}",
+            std::process::id()
+        ));
+        match fs::symlink_metadata(&candidate) {
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(candidate),
+            Ok(_) => continue,
+            Err(error) => {
+                return Err(format!(
+                    "site {kind} sibling could not be inspected {}: {error}",
+                    candidate.display()
+                ));
+            }
+        }
+    }
+    Err(format!(
+        "site {kind} sibling could not be allocated under {}",
+        parent.display()
+    ))
+}
+
+fn activate_artifact(staging: &Path, target: &Path, parent: &Path) -> Result<(), String> {
+    activate_artifact_with(staging, target, parent, |from, to| fs::rename(from, to))
+}
+
+fn activate_artifact_with<F>(
+    staging: &Path,
+    target: &Path,
+    parent: &Path,
+    mut rename: F,
+) -> Result<(), String>
+where
+    F: FnMut(&Path, &Path) -> io::Result<()>,
+{
+    let backup = if path_exists(target)? {
+        ensure_existing_target_is_safe(target)?;
+        let backup = backup_path(parent)?;
+        rename(target, &backup).map_err(|error| {
+            format!(
+                "validated site output could not be moved to a recoverable backup {}: {error}",
+                target.display()
+            )
+        })?;
+        Some(backup)
+    } else {
+        None
+    };
+
+    match rename(staging, target) {
+        Ok(()) => {
+            if let Some(backup) = backup {
+                fs::remove_dir_all(&backup).map_err(|error| {
+                    format!(
+                        "site artifact activated at {}, but the previous artifact backup could not be removed {}: {error}",
+                        target.display(),
+                        backup.display()
+                    )
+                })?;
+            }
+            Ok(())
+        }
+        Err(activation_error) => {
+            let Some(backup) = backup else {
+                let cleanup = fs::remove_dir_all(staging).err();
+                return Err(activation_failure_message(
+                    target,
+                    &activation_error,
+                    None,
+                    cleanup.as_ref(),
+                ));
+            };
+            match rename(&backup, target) {
+                Ok(()) => {
+                    let cleanup = fs::remove_dir_all(staging).err();
+                    Err(activation_failure_message(
+                        target,
+                        &activation_error,
+                        Some(&backup),
+                        cleanup.as_ref(),
+                    ))
+                }
+                Err(restoration_error) => Err(format!(
+                    "site artifact activation failed at {}: {activation_error}; previous artifact backup {} could not be restored: {restoration_error}",
+                    target.display(),
+                    backup.display()
+                )),
+            }
+        }
+    }
+}
+
+fn activation_failure_message(
+    target: &Path,
+    activation_error: &io::Error,
+    restored_backup: Option<&Path>,
+    cleanup_error: Option<&io::Error>,
+) -> String {
+    let restoration = restored_backup.map_or_else(
+        || "no prior artifact existed".to_string(),
+        |backup| format!("previous artifact was restored from {}", backup.display()),
+    );
+    let cleanup = cleanup_error.map_or_else(String::new, |error| {
+        format!("; failed to remove staging artifact: {error}")
+    });
+    format!(
+        "site artifact activation failed at {}: {activation_error}; {restoration}{cleanup}",
+        target.display()
+    )
 }
 
 fn validate_home(
@@ -587,7 +699,11 @@ impl<'a> StaticViewSummary<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{data_path, safe_relative_path};
+    use std::fs;
+    use std::io;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::{activate_artifact_with, data_path, safe_relative_path};
 
     #[test]
     fn site_data_paths_keep_stable_nested_ids() {
@@ -597,5 +713,37 @@ mod tests {
         );
         assert!(data_path("data/entries", "../a").is_err());
         assert!(safe_relative_path("/absolute").is_err());
+    }
+
+    #[test]
+    fn activation_failure_restores_the_previous_artifact() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let parent = std::env::temp_dir().join(format!("forma-site-activation-{nonce}"));
+        let target = parent.join("site");
+        let staging = parent.join("staging");
+        fs::create_dir_all(&target).unwrap();
+        fs::create_dir_all(&staging).unwrap();
+        fs::write(target.join("old.txt"), "previous artifact").unwrap();
+        fs::write(staging.join("new.txt"), "new artifact").unwrap();
+
+        let error = activate_artifact_with(&staging, &target, &parent, |from, to| {
+            if from == staging && to == target {
+                return Err(io::Error::other("forced activation failure"));
+            }
+            fs::rename(from, to)
+        })
+        .unwrap_err();
+
+        assert!(error.contains("previous artifact was restored"));
+        assert_eq!(
+            fs::read_to_string(target.join("old.txt")).unwrap(),
+            "previous artifact"
+        );
+        assert!(!target.join("new.txt").exists());
+        assert!(!staging.exists());
+        fs::remove_dir_all(parent).unwrap();
     }
 }
