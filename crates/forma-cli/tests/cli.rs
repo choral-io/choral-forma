@@ -867,6 +867,7 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(list_stdout.contains(r#""id":"workspace.configuration""#));
     assert!(list_stdout.contains(r#""id":"workspace.first-slice-config""#));
     assert!(list_stdout.contains(r#""id":"cli.view""#));
+    assert!(list_stdout.contains(r#""id":"cli.site""#));
     assert!(list_stdout.contains(r#""id":"agents.forma-cli-core""#));
     assert!(list_stdout.contains(r#""id":"agents.workspace-example-accelerator""#));
 
@@ -961,6 +962,23 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(agent_get_stdout.contains("# Workspace Example Accelerator"));
     assert!(agent_get_stdout.contains("explicitly asks"));
     assert!(agent_get_stdout.contains("copy`, `adapt`, or `skip"));
+
+    let site_get = forma(&root)
+        .args(["docs", "get", "cli.site"])
+        .output()
+        .expect("forma docs get should run for site build docs");
+
+    assert!(
+        site_get.status.success(),
+        "{}",
+        String::from_utf8_lossy(&site_get.stderr)
+    );
+    assert!(site_get.stderr.is_empty());
+    let site_get_stdout = String::from_utf8_lossy(&site_get.stdout);
+    assert!(site_get_stdout.contains("# forma site build"));
+    assert!(site_get_stdout.contains(".forma-site-artifact"));
+    assert!(site_get_stdout.contains("Trusted-Author Publication Boundary"));
+    assert!(site_get_stdout.contains("does not call Forma RPC"));
 
     std::fs::remove_dir_all(root).unwrap();
 }

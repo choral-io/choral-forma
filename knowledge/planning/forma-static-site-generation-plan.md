@@ -84,21 +84,21 @@ The Choral Forma official site is the first dogfooding workspace, not a hard-cod
 - The final target is not a zero-JavaScript site. Browser enhancement remains available where it adds real value.
 - Astro or another general-purpose SSG should not be introduced in the first slice. Forma already owns workspace discovery, references, Markdown analysis, view projections, routing metadata, a semantic HTML output mode, and a reusable WebApp.
 
-## Current Verified Baseline
+## Current Verified Build Evidence
 
 Baseline captured on 2026-07-27:
 
-| Evidence                    | Current result             |
-| --------------------------- | -------------------------- |
-| `config inspect`            | Passed with no diagnostics |
-| `workspace health`          | Passed with no findings    |
-| Configured spaces           | 17                         |
-| Managed entries             | 185                        |
-| Configured views            | 2                          |
-| Configured taxonomies       | 1                          |
-| Localized entry variants    | 0                          |
-| Task entries                | 80                         |
-| Current WebApp build output | Approximately 4.8 MB       |
+| Evidence | Current result |
+| --- | --- |
+| `config inspect` and `workspace health` | Passed with no diagnostics or findings |
+| Dogfood command | `forma site build --out /private/tmp/forma-site-task-d-artifact --base-url https://forma.choral.io --home knowledge/product/choral-forma.md --json` |
+| Managed entries | 186 |
+| Configured spaces, taxonomies, and Views | 17, 1, and 2 |
+| Artifact routes and HTML pages | 209 and 211 |
+| Resources copied and static assets | 0 and 67 |
+| Artifact bytes and files | 12,527,375 bytes and 470 files |
+| Tree digest | `830211ae263aff036c9b4e74659bbc5636af025f117d04139dec720e93d4c41e` |
+| Artifact scans | No absolute workspace path; no `/rpc` in runtime JS assets; no diagnostics or warnings |
 
 Relevant implementation seams already exist:
 
@@ -111,13 +111,13 @@ Relevant implementation seams already exist:
 - `forma-cli` already embeds the built WebApp distribution for `forma serve`.
 - Vite already emits relative asset URLs through `base: "./"`.
 
-The missing capability is an explicit batch export and artifact-generation path. The project does not need a new Markdown model, second knowledge index, or second application UI.
+The batch export and artifact-generation path is implemented. It does not require a new Markdown model, second knowledge index, or second application UI.
 
 ## Output Contract
 
-### Proposed CLI
+### Implemented CLI
 
-The first productized command should be:
+The productized command is:
 
 ```sh
 forma site build \
@@ -126,7 +126,7 @@ forma site build \
   --home knowledge/product/choral-forma.md
 ```
 
-Proposed initial arguments:
+Implemented arguments:
 
 | Argument              | Behavior                                                      |
 | --------------------- | ------------------------------------------------------------- |
@@ -138,7 +138,7 @@ Proposed initial arguments:
 
 The first slice should prefer explicit CLI arguments over adding a new `.forma` site schema. A file-backed site definition can be proposed later if repeated use proves that title, navigation, metadata, theme, or multiple-target configuration needs a durable product model.
 
-### Proposed Artifact
+### Implemented Artifact
 
 ```text
 dist/site/
@@ -170,7 +170,7 @@ dist/site/
       index.html
 ```
 
-The exact filename encoding may change during implementation, but URLs and data identifiers must remain deterministic and derive from existing Forma route identities rather than absolute source paths.
+The artifact also contains `.forma-site-artifact`, which records Forma ownership and is required before a later build may replace the output directory. URLs and data identifiers are deterministic and derive from existing Forma route identities rather than absolute source paths.
 
 ### Static Hosting Semantics
 
@@ -456,15 +456,16 @@ Exit criteria:
 - source, installation, release, product, and documentation paths are discoverable from the homepage;
 - no duplicate site-only product copy becomes a competing source of truth.
 
-### Phase 5: Add CI And Production Deployment
+### Phase 5: CI Artifact And Production Deployment Gate
 
-Work:
+Completed CI artifact work:
 
-- add a dedicated site build workflow or a clearly isolated site job;
-- build from a clean checkout with locked dependencies;
-- run Forma check and workspace health before static generation;
-- build and inspect the static artifact;
-- upload the artifact for review;
+- the CI workflow has a dedicated static-site job using locked pnpm dependencies and a clean checkout;
+- it runs Forma config inspection, check, workspace health, static build, artifact probes, runtime-JS `/rpc` scan, absolute-path scan, and a repeated-build tree-digest check;
+- it uploads the reviewed artifact as `forma-static-site`, explicitly retaining the `.forma-site-artifact` ownership marker that the upload action otherwise excludes as a hidden file.
+
+Remaining separately approved production work:
+
 - deploy only the artifact built from the reviewed commit;
 - verify the production URL and representative routes from the same commit;
 - keep release publication and site deployment as separate gates unless a later decision intentionally couples them.
@@ -472,10 +473,10 @@ Work:
 Exit criteria:
 
 - CI fails on Forma errors, site-build errors, missing artifact files, or broken verification probes;
-- production deployment records the source commit;
-- homepage and representative direct routes return expected HTML;
-- deployment does not require a long-running Forma process;
-- DNS and hosting changes are reported as external state with explicit evidence.
+- production deployment must record the source commit;
+- homepage and representative direct routes must return expected HTML;
+- deployment must not require a long-running Forma process;
+- DNS and hosting changes remain external state requiring explicit evidence and approval.
 
 ### Phase 6: Productize And Close
 
@@ -666,14 +667,14 @@ Stop and re-plan instead of consuming contingency when the requested change beco
 - comments;
 - server-side search.
 
-The existing client-side Quick Open can provide initial search over the static dashboard data. A dedicated static search index should be added only if the 185-entry dogfood site demonstrates a measurable need.
+The existing client-side Quick Open can provide initial search over the static dashboard data. A dedicated static search index should be added only if the current 186-entry dogfood site demonstrates a measurable need.
 
 ## Definition Of Done
 
 The feature is complete when:
 
 - `forma site build` produces a deterministic static artifact from a neutral Forma workspace;
-- the Choral Forma workspace exports all 185 current managed entries and configured Views without a live server;
+- the Choral Forma workspace exports all current managed entries and configured Views without a live server;
 - every exported canonical route has standalone crawlable HTML;
 - entry content and ordinary navigation remain readable without JavaScript;
 - enhanced Markdown, Mermaid, math, Graph, themes, search, and client navigation work with JavaScript;
