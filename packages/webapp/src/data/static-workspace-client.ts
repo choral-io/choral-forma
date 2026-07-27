@@ -26,7 +26,7 @@ type StaticStatus = "passed" | "warning" | "failed";
 
 type StaticDiagnostic = DashboardDiagnostic & { routePath?: string };
 
-export type StaticDashboardData = {
+export interface StaticDashboardData {
     schemaVersion: number;
     generatorVersion: string;
     status: StaticStatus;
@@ -36,36 +36,36 @@ export type StaticDashboardData = {
         supportedLanguages: string[];
         logo?: { publicPath: string; alt: string };
     };
-    spaces: Array<{
+    spaces: {
         id: string;
         title: string;
         display?: DashboardSpace["display"];
         description?: string;
         entryIds: string[];
-    }>;
-    taxonomies: Array<{
+    }[];
+    taxonomies: {
         id: string;
         title: string;
         mode: string;
         display?: DashboardTaxonomy["display"];
         description?: string;
         routePath: string;
-        terms: Array<{
+        terms: {
             id: string;
             title: string;
             display?: DashboardTaxonomy["display"];
             description?: string;
             routePath: string;
             entryIds: string[];
-        }>;
-    }>;
+        }[];
+    }[];
     entries: StaticEntrySummary[];
     views: StaticViewSummary[];
     diagnostics: StaticDiagnostic[];
     summary: { errors: number; warnings: number; infos: number };
-};
+}
 
-type StaticEntrySummary = {
+interface StaticEntrySummary {
     id: string;
     path: string;
     routePath: string;
@@ -77,9 +77,9 @@ type StaticEntrySummary = {
     status: StaticStatus;
     variants: StaticEntryVariant[];
     dataPath: string;
-};
+}
 
-type StaticEntryVariant = {
+interface StaticEntryVariant {
     id: string;
     language: string;
     path: string;
@@ -88,27 +88,27 @@ type StaticEntryVariant = {
     title?: string;
     omitLeadingTitle: boolean;
     summary?: string;
-};
+}
 
-export type StaticEntryData = StaticEntrySummary & {
+export interface StaticEntryData extends StaticEntrySummary {
     markdown: string;
     html: string;
-    headings: Array<{ id: string; level: number; text: string }>;
+    headings: { id: string; level: number; text: string }[];
     outgoing: StaticReferenceEdge[];
     backlinks: StaticReferenceEdge[];
     diagnostics?: StaticDiagnostic[];
-};
+}
 
-type StaticReferenceEdge = {
+interface StaticReferenceEdge {
     targetPath?: string;
     targetRoutePath?: string;
     targetEntryId?: string;
     target?: string;
     label?: string;
     intent?: string;
-};
+}
 
-type StaticViewSummary = {
+interface StaticViewSummary {
     id: string;
     routePath: string;
     mode: string;
@@ -117,15 +117,15 @@ type StaticViewSummary = {
     space?: string;
     status: StaticStatus;
     dataPath: string;
-};
+}
 
-export type StaticViewData = StaticViewSummary & {
+export interface StaticViewData extends StaticViewSummary {
     document?: {
         bodySource: string;
-        mounts?: Array<{ startOffset: number; endOffset: number }>;
+        mounts?: { startOffset: number; endOffset: number }[];
     };
     projection?: unknown;
-};
+}
 
 type TableProjection = Extract<DashboardViewProjection, { kind: "table" }>;
 type KanbanProjection = Extract<DashboardViewProjection, { kind: "kanban" }>;
@@ -142,7 +142,7 @@ export class StaticWorkspaceClient implements WorkspaceClient {
     async getDashboard(): Promise<WorkspaceDashboard> {
         const data = await this.readJson<StaticDashboardData>("dashboard.json");
         const entries = data.entries.map(mapEntrySummary);
-        const diagnostics = data.diagnostics ?? [];
+        const diagnostics = data.diagnostics;
         const health: DashboardHealth = {
             status: mapStatus(data.status),
             diagnostics,
@@ -217,15 +217,15 @@ export class StaticWorkspaceClient implements WorkspaceClient {
         try {
             response = await fetch(path);
         } catch (reason) {
-            throw new Error(`Static artifact data missing: ${path} (${String(reason)})`);
+            throw new Error(`Static artifact data missing: ${path}`, { cause: reason });
         }
         if (!response.ok) {
-            throw new Error(`Static artifact data missing: ${path} (HTTP ${response.status})`);
+            throw new Error(`Static artifact data missing: ${path} (HTTP ${String(response.status)})`);
         }
         try {
             return (await response.json()) as T;
         } catch (reason) {
-            throw new Error(`Static artifact data is invalid: ${path} (${String(reason)})`);
+            throw new Error(`Static artifact data is invalid: ${path}`, { cause: reason });
         }
     }
 }
@@ -237,7 +237,7 @@ function mapEntrySummary(entry: StaticEntrySummary): DashboardEntry {
         path: entry.path,
         routePath: entry.routePath,
         rawPath: entry.path,
-        title: entry.title?.trim() || entry.path,
+        title: entry.title?.trim() ?? entry.path,
         omitLeadingTitle: entry.omitLeadingTitle,
         summary: entry.summary ?? "No summary provided.",
         space: entry.space,
@@ -325,20 +325,27 @@ function mapViewDocument(data: StaticViewData, viewId: string): DashboardViewRen
 }
 
 function mapViewProjection(value: unknown, entries: DashboardEntry[]): DashboardViewProjection {
-    const projection = value as { kind?: string; [key: string]: unknown } | undefined;
-    if (!projection || projection.kind === "list") {
-        return { kind: "list", items: mapViewItems((projection?.items as unknown[]) ?? [], entries) };
+    const projection = value as { kind?: string; [key: string]: unknown };
+    if (projection.kind === "list") {
+        const items = Array.isArray(projection.items) ? projection.items : [];
+        return { kind: "list", items: mapViewItems(items, entries) };
     }
     if (projection.kind === "table") {
+        const columns = Array.isArray(projection.columns) ? (projection.columns as TableProjection["columns"]) : [];
+        const items = Array.isArray(projection.items) ? projection.items : [];
         return {
             kind: "table",
-            columns: (projection.columns as TableProjection["columns"]) ?? [],
-            items: mapViewItems((projection.items as unknown[]) ?? [], entries),
+            columns,
+            items: mapViewItems(items, entries),
         };
     }
     if (projection.kind === "kanban") {
-        const columns =
-            (projection.columns as Array<{ id: string; label: string; icon?: string; items?: unknown[] }>) ?? [];
+        const columns = (Array.isArray(projection.columns) ? projection.columns : []) as {
+            id: string;
+            label: string;
+            icon?: string;
+            items?: unknown[];
+        }[];
         return {
             kind: "kanban",
             card: projection.card as KanbanProjection["card"],
@@ -348,9 +355,9 @@ function mapViewProjection(value: unknown, entries: DashboardEntry[]): Dashboard
     if (projection.kind === "graph") {
         return {
             kind: "graph",
-            nodes: (projection.nodes as GraphProjection["nodes"]) ?? [],
-            edges: (projection.edges as GraphProjection["edges"]) ?? [],
-            legend: (projection.legend as GraphProjection["legend"]) ?? [],
+            nodes: Array.isArray(projection.nodes) ? (projection.nodes as GraphProjection["nodes"]) : [],
+            edges: Array.isArray(projection.edges) ? (projection.edges as GraphProjection["edges"]) : [],
+            legend: Array.isArray(projection.legend) ? (projection.legend as GraphProjection["legend"]) : [],
         };
     }
     return { kind: "list", items: [] };

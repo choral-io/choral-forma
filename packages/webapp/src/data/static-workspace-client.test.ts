@@ -46,7 +46,7 @@ describe("StaticWorkspaceClient", () => {
     afterEach(() => vi.unstubAllGlobals());
 
     it("uses generated local data with an explicit artifact base", async () => {
-        const fetch = vi.fn(async (path: string) => {
+        const fetch = vi.fn((path: string) => {
             if (path === "/preview/data/dashboard.json") return json(dashboard);
             if (path === "/preview/data/entries/notes--one.json") {
                 return json({
@@ -81,7 +81,7 @@ describe("StaticWorkspaceClient", () => {
     it("reports missing artifact data without an RPC fallback", async () => {
         vi.stubGlobal(
             "fetch",
-            vi.fn(async (path: string) =>
+            vi.fn((path: string) =>
                 path === "/data/dashboard.json" ? json(dashboard) : new Response(null, { status: 404 }),
             ),
         );
@@ -94,12 +94,26 @@ describe("StaticWorkspaceClient", () => {
         );
         vi.stubGlobal(
             "fetch",
-            vi.fn(async () => new Response(null, { status: 404 })),
+            vi.fn(() => new Response(null, { status: 404 })),
         );
         const missingDashboardClient = new StaticWorkspaceClient("/data");
         await expect(missingDashboardClient.getDashboard()).rejects.toThrow(
             "Static artifact data missing: /data/dashboard.json (HTTP 404)",
         );
+    });
+
+    it("keeps fetch failures as the cause of a static-artifact diagnostic", async () => {
+        const cause = new TypeError("offline");
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() => Promise.reject(cause)),
+        );
+        const client = new StaticWorkspaceClient("/data");
+
+        await expect(client.getDashboard()).rejects.toMatchObject({
+            cause,
+            message: "Static artifact data missing: /data/dashboard.json",
+        });
     });
 });
 
