@@ -23,6 +23,7 @@ use include_dir::{Dir, include_dir};
 use serde_yml::Value;
 
 mod site;
+mod static_html;
 
 static WEBAPP_DIST: Dir<'_> = include_dir!("$OUT_DIR/webapp-dist");
 static STATIC_WEBAPP_DIST: Dir<'_> = include_dir!("$OUT_DIR/webapp-static-dist");
@@ -1160,14 +1161,21 @@ fn normalize_root_path(value: &str) -> Result<String, Box<dyn std::error::Error>
     if !value.starts_with('/') {
         return Err("root path must start with `/`".into());
     }
-    if value.contains('?') || value.contains('#') {
-        return Err("root path must not include a query string or fragment".into());
-    }
     let normalized = value.trim_end_matches('/');
     if normalized.is_empty() {
         return Ok("/".to_string());
     }
-    if safe_asset_path(normalized.trim_start_matches('/')).is_none() {
+    if normalized.starts_with("//")
+        || normalized.contains("//")
+        || normalized.split('/').skip(1).any(|segment| {
+            segment.is_empty()
+                || segment == "."
+                || segment == ".."
+                || !segment.bytes().all(|byte| {
+                    byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~')
+                })
+        })
+    {
         return Err("root path must be a safe absolute URL path".into());
     }
     Ok(normalized.to_string())
@@ -1244,10 +1252,29 @@ mod tests {
     use tower::ServiceExt;
 
     use super::{
-        inject_base_href, rpc_router, rpc_router_with_dispatcher,
+        inject_base_href, normalize_root_path, rpc_router, rpc_router_with_dispatcher,
         rpc_router_with_dispatcher_and_workspace, rpc_router_with_options,
         rpc_router_with_options_and_root_path, should_serve_spa_index,
     };
+
+    #[test]
+    fn root_path_accepts_only_normalized_url_segments() {
+        assert_eq!(normalize_root_path("").unwrap(), "/");
+        assert_eq!(normalize_root_path("/preview").unwrap(), "/preview");
+        assert_eq!(normalize_root_path("/docs/v1/").unwrap(), "/docs/v1");
+        for invalid in [
+            "preview",
+            "//evil.test",
+            "/a//b",
+            "/a/../b",
+            "/%2e%2e",
+            "/a b",
+            "/a\\b",
+            "/a\nb",
+        ] {
+            assert!(normalize_root_path(invalid).is_err(), "{invalid}");
+        }
+    }
 
     #[test]
     fn spa_index_supports_direct_taxonomy_and_term_routes() {

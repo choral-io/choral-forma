@@ -5,14 +5,20 @@ use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use axum::http::Uri;
 use forma_core::{
     DiagnosticSeverity, OperationStatus, StaticSiteDiagnostic, StaticSiteEntry, StaticSiteSnapshot,
-    StaticSiteView, build_static_site_snapshot,
+    StaticSiteView, build_static_site_snapshot_with_root_path,
 };
 use include_dir::Dir;
 use serde::Serialize;
 
+use crate::static_html::{
+    PageShellOptions, not_found_page, page_shell, public_href, render_pages, sitemap_xml,
+};
+
 const OPERATION: &str = "site.build";
+const ARTIFACT_MARKER: &str = ".forma-site-artifact";
 
 #[derive(Debug, Clone)]
 pub(crate) struct SiteBuildOptions {
@@ -56,6 +62,14 @@ struct ValidatedOutput {
     parent: PathBuf,
 }
 
+#[derive(Debug)]
+struct ArtifactWrite {
+    assets: usize,
+    bytes: u64,
+    copied_resources: usize,
+    pages: usize,
+}
+
 pub(crate) fn build_site(
     workspace: &Path,
     options: SiteBuildOptions,
@@ -63,8 +77,11 @@ pub(crate) fn build_site(
 ) -> Result<SiteBuildResult, String> {
     let workspace = fs::canonicalize(workspace)
         .map_err(|error| format!("site workspace could not be resolved: {error}"))?;
-    let snapshot = build_static_site_snapshot(&workspace)
+    let snapshot = build_static_site_snapshot_with_root_path(&workspace, &options.root_path)
         .map_err(|error| format!("site snapshot could not be built: {error}"))?;
+    if snapshot.status == OperationStatus::Failed {
+        return Err("site snapshot contains errors and cannot be published".to_string());
+    }
     let base_url = normalize_base_url(&options.base_url)?;
     let output = validate_output(&workspace, &options.out, &snapshot)?;
     let home = validate_home(options.home.as_deref(), &snapshot)?;
@@ -89,8 +106,10 @@ pub(crate) fn build_site(
         static_webapp,
         &options.root_path,
         &base_url,
+        home.as_deref(),
+        &workspace,
     );
-    let (assets, bytes) = match write {
+    let write = match write {
         Ok(value) => value,
         Err(error) => {
             let _ = fs::remove_dir_all(&staging);
@@ -116,13 +135,13 @@ pub(crate) fn build_site(
         counts: SiteBuildCounts {
             routes: snapshot.summary.routes,
             // Phase 2 deliberately emits only the generic client shell. Crawlable route pages arrive in Phase 3.
-            pages: 1,
+            pages: write.pages,
             views: snapshot.summary.views,
             resources: snapshot.summary.resources,
-            copied_resources: 0,
-            assets,
+            copied_resources: write.copied_resources,
+            assets: write.assets,
             warnings,
-            bytes,
+            bytes: write.bytes,
         },
         diagnostics: snapshot.diagnostics,
     })
@@ -134,7 +153,9 @@ fn write_artifact(
     static_webapp: &Dir<'_>,
     root_path: &str,
     base_url: &str,
-) -> Result<(usize, u64), String> {
+    home_path: Option<&str>,
+    workspace: &Path,
+) -> Result<ArtifactWrite, String> {
     let mut bytes = 0_u64;
     let mut asset_count = 0_usize;
     let data = StaticDashboardData::from_snapshot(snapshot)?;
@@ -143,6 +164,10 @@ fn write_artifact(
     for entry in &snapshot.entries {
         let path = data_path("data/entries", &entry.id)?;
         bytes += write_json(staging, &path, entry)?;
+        for variant in &entry.variants {
+            let path = data_path("data/entries", &variant.id)?;
+            bytes += write_json(staging, &path, variant)?;
+        }
     }
     for view in &snapshot.views {
         let path = data_path("data/views", &view.id)?;
@@ -151,16 +176,85 @@ fn write_artifact(
 
     let mut files = collect_embedded_files(static_webapp);
     files.sort_by(|left, right| left.0.cmp(&right.0));
+    let mut embedded_index = None;
     for (path, contents) in files {
-        let contents = if path == "index.html" {
-            inject_static_config(contents, root_path, base_url)?.into_bytes()
-        } else {
-            contents.to_vec()
-        };
+        if path == "index.html" {
+            embedded_index = Some(
+                std::str::from_utf8(contents)
+                    .map_err(|error| format!("embedded static WebApp index is not UTF-8: {error}"))?
+                    .to_string(),
+            );
+            continue;
+        }
+        let contents = root_embedded_asset(contents, &path, root_path);
         bytes += write_bytes(staging, &path, &contents)?;
         asset_count += 1;
     }
-    Ok((asset_count, bytes))
+    let embedded_index = embedded_index.unwrap_or_default();
+    let copied_resources = copy_resources(workspace, staging, snapshot, &mut bytes)?;
+    let pages = render_pages(snapshot, home_path, root_path)?;
+    let home_entry_id = home_path.and_then(|path| {
+        snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == path)
+            .map(|entry| entry.id.as_str())
+    });
+    for page in &pages {
+        let html = page_shell(PageShellOptions {
+            base_url,
+            embedded_index: &embedded_index,
+            home_entry_id,
+            noindex: false,
+            page,
+            root_path,
+            workspace_name: &snapshot.workspace.name,
+            workspace_logo: snapshot
+                .workspace
+                .logo
+                .as_ref()
+                .map(|logo| (logo.public_path.as_str(), logo.alt.as_str())),
+        });
+        bytes += write_bytes(staging, &page.output_path, html.as_bytes())?;
+    }
+    let not_found = not_found_page(&snapshot.workspace.name);
+    let not_found_html = page_shell(PageShellOptions {
+        base_url,
+        embedded_index: &embedded_index,
+        home_entry_id,
+        noindex: true,
+        page: &not_found,
+        root_path,
+        workspace_name: &snapshot.workspace.name,
+        workspace_logo: snapshot
+            .workspace
+            .logo
+            .as_ref()
+            .map(|logo| (logo.public_path.as_str(), logo.alt.as_str())),
+    });
+    bytes += write_bytes(staging, &not_found.output_path, not_found_html.as_bytes())?;
+    bytes += write_bytes(
+        staging,
+        "sitemap.xml",
+        sitemap_xml(base_url, root_path, &pages).as_bytes(),
+    )?;
+    let sitemap_url = format!("{base_url}{}", public_href(root_path, "/sitemap.xml"));
+    bytes += write_bytes(
+        staging,
+        "robots.txt",
+        format!(
+            "User-agent: *\nAllow: {}\nSitemap: {sitemap_url}\n",
+            public_href(root_path, "/")
+        )
+        .as_bytes(),
+    )?;
+    bytes += write_bytes(staging, ARTIFACT_MARKER, b"forma-static-site-v1\n")?;
+    Ok(ArtifactWrite {
+        assets: asset_count,
+        bytes,
+        copied_resources,
+        pages: pages.len() + 1,
+    })
 }
 
 fn collect_embedded_files<'a>(directory: &'a Dir<'a>) -> Vec<(String, &'a [u8])> {
@@ -174,28 +268,120 @@ fn collect_embedded_files<'a>(directory: &'a Dir<'a>) -> Vec<(String, &'a [u8])>
     files
 }
 
-fn inject_static_config(html: &[u8], root_path: &str, _base_url: &str) -> Result<String, String> {
-    let html = std::str::from_utf8(html)
-        .map_err(|error| format!("embedded static WebApp index is not UTF-8: {error}"))?;
-    let data_base_url = if root_path == "/" {
-        "/data".to_string()
-    } else {
-        format!("{root_path}/data")
-    };
-    let config = serde_json::json!({ "dataBaseUrl": data_base_url });
-    let script = format!(
-        r#"<script>window.__FORMA_STATIC_WORKSPACE__={};</script>"#,
-        config
-    );
-    if let Some(index) = html.find("</head>") {
-        let mut output = String::with_capacity(html.len() + script.len());
-        output.push_str(&html[..index]);
-        output.push_str(&script);
-        output.push_str(&html[index..]);
-        Ok(output)
-    } else {
-        Ok(format!("{script}{html}"))
+fn root_embedded_asset(contents: &[u8], path: &str, root_path: &str) -> Vec<u8> {
+    if !path.ends_with(".css") || root_path == "/" {
+        return contents.to_vec();
     }
+    let Ok(css) = std::str::from_utf8(contents) else {
+        return contents.to_vec();
+    };
+    css.replace("/forma-icon", &format!("{root_path}/forma-icon"))
+        .into_bytes()
+}
+
+fn copy_resources(
+    workspace: &Path,
+    staging: &Path,
+    snapshot: &StaticSiteSnapshot,
+    bytes: &mut u64,
+) -> Result<usize, String> {
+    let mut outputs = BTreeSet::new();
+    for resource in &snapshot.resources {
+        if resource.referenced_by.is_empty() && !resource.workspace_presentation {
+            return Err(format!(
+                "site resource was not declared by exported content: {}",
+                resource.path
+            ));
+        }
+        let source_relative = safe_relative_path(&resource.path)?;
+        let expected_output = resource_output_path(&resource.path);
+        if resource.output_path != expected_output {
+            return Err(format!(
+                "site resource output does not match its declared path: {}",
+                resource.path
+            ));
+        }
+        if !outputs.insert(expected_output.to_ascii_lowercase()) {
+            return Err(format!(
+                "site resources collide on a case-insensitive output path: {}",
+                expected_output
+            ));
+        }
+        let source = workspace.join(&source_relative);
+        validate_resource_source(workspace, &source, &resource.path)?;
+        let contents = fs::read(&source).map_err(|error| {
+            format!("site resource could not be read {}: {error}", resource.path)
+        })?;
+        *bytes += write_bytes(staging, &expected_output, &contents)?;
+    }
+    Ok(snapshot.resources.len())
+}
+
+fn validate_resource_source(
+    workspace: &Path,
+    source: &Path,
+    display_path: &str,
+) -> Result<(), String> {
+    let relative = source
+        .strip_prefix(workspace)
+        .map_err(|_| format!("site resource escapes the workspace: {display_path}"))?;
+    let mut current = workspace.to_path_buf();
+    for (index, component) in relative.components().enumerate() {
+        let Component::Normal(segment) = component else {
+            return Err(format!("site resource path is not safe: {display_path}"));
+        };
+        current.push(segment);
+        let metadata = fs::symlink_metadata(&current).map_err(|error| {
+            format!("site resource could not be inspected {display_path}: {error}")
+        })?;
+        if metadata.file_type().is_symlink() {
+            return Err(format!(
+                "site resource must not traverse a symbolic link: {display_path}"
+            ));
+        }
+        let is_leaf = index + 1 == relative.components().count();
+        if is_leaf {
+            if !metadata.is_file() {
+                return Err(format!(
+                    "site resource must be a regular file: {display_path}"
+                ));
+            }
+        } else if !metadata.is_dir() {
+            return Err(format!(
+                "site resource parent must be a directory: {display_path}"
+            ));
+        }
+    }
+    let canonical = fs::canonicalize(source)
+        .map_err(|error| format!("site resource could not be resolved {display_path}: {error}"))?;
+    if canonical == workspace || !canonical.starts_with(workspace) {
+        return Err(format!(
+            "site resource resolves outside the workspace: {display_path}"
+        ));
+    }
+    Ok(())
+}
+
+fn resource_output_path(path: &str) -> String {
+    format!(
+        "raw/{}",
+        path.split('/')
+            .map(percent_encode_segment)
+            .collect::<Vec<_>>()
+            .join("/")
+    )
+}
+
+fn percent_encode_segment(segment: &str) -> String {
+    let mut encoded = String::new();
+    for byte in segment.as_bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(*byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
 }
 
 fn write_json(value_root: &Path, relative: &str, value: &impl Serialize) -> Result<u64, String> {
@@ -256,8 +442,17 @@ fn validate_output(
     {
         return Err("site output path must not be the repository root or an ancestor".to_string());
     }
+    for protected in [".git", ".forma", ".agents", ".worktrees"] {
+        let protected = workspace.join(protected);
+        if target == protected || target.starts_with(&protected) {
+            return Err(format!(
+                "site output path must not be inside protected workspace state: {}",
+                protected.display()
+            ));
+        }
+    }
     for source in source_paths(workspace, snapshot) {
-        if source.starts_with(&target) || target == source {
+        if source.starts_with(&target) || target.starts_with(&source) {
             return Err(format!(
                 "site output path overlaps a workspace source: {}",
                 source.display()
@@ -271,6 +466,12 @@ fn validate_output(
     ensure_existing_ancestors_are_not_symlinks(&parent)?;
     if path_exists(&target)? {
         ensure_existing_target_is_safe(&target)?;
+        if !target.join(ARTIFACT_MARKER).is_file() {
+            return Err(format!(
+                "existing site output is not owned by Forma (missing {ARTIFACT_MARKER}): {}",
+                target.display()
+            ));
+        }
     }
     Ok(ValidatedOutput { target, parent })
 }
@@ -528,19 +729,45 @@ fn validate_home(
 }
 
 fn normalize_base_url(value: &str) -> Result<String, String> {
-    let value = value.trim().trim_end_matches('/');
-    if !(value.starts_with("https://") || value.starts_with("http://")) {
-        return Err("site base URL must start with http:// or https://".to_string());
+    let value = value.trim();
+    if value.contains('#') || value.chars().any(char::is_control) {
+        return Err("site base URL must not contain a fragment or control characters".to_string());
     }
-    if value.contains('?')
-        || value.contains('#')
-        || value.split("//").nth(1).is_none_or(str::is_empty)
-    {
+    let uri = value
+        .parse::<Uri>()
+        .map_err(|_| "site base URL must be a valid HTTP(S) origin".to_string())?;
+    let scheme = uri
+        .scheme_str()
+        .filter(|scheme| matches!(*scheme, "http" | "https"))
+        .ok_or_else(|| "site base URL must use http or https".to_string())?;
+    let authority = uri
+        .authority()
+        .filter(|authority| !authority.host().is_empty() && !authority.as_str().contains('@'))
+        .ok_or_else(|| "site base URL must include a host without user information".to_string())?;
+    if !valid_authority_port(authority.as_str()) {
+        return Err("site base URL port must be numeric".to_string());
+    }
+    if uri.query().is_some() || !matches!(uri.path(), "" | "/") {
         return Err(
-            "site base URL must be an origin without a query string or fragment".to_string(),
+            "site base URL must be an origin without a path, query string, or fragment".to_string(),
         );
     }
-    Ok(value.to_string())
+    Ok(format!("{scheme}://{authority}"))
+}
+
+fn valid_authority_port(authority: &str) -> bool {
+    if let Some(rest) = authority.strip_prefix('[') {
+        let Some((_, suffix)) = rest.split_once(']') else {
+            return false;
+        };
+        return suffix.is_empty()
+            || suffix
+                .strip_prefix(':')
+                .is_some_and(|port| port.parse::<u16>().is_ok());
+    }
+    authority.rsplit_once(':').map_or(true, |(_, port)| {
+        !port.is_empty() && port.parse::<u16>().is_ok()
+    })
 }
 
 fn data_path(prefix: &str, id: &str) -> Result<String, String> {
@@ -614,7 +841,21 @@ struct StaticEntrySummary<'a> {
     omit_leading_title: bool,
     summary: &'a Option<String>,
     status: OperationStatus,
-    variants: &'a [forma_core::StaticSiteEntryVariant],
+    variants: Vec<StaticVariantSummary<'a>>,
+    data_path: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StaticVariantSummary<'a> {
+    id: &'a str,
+    language: &'a str,
+    path: &'a str,
+    route_path: &'a str,
+    kind: &'a Option<String>,
+    title: &'a Option<String>,
+    omit_leading_title: bool,
+    summary: &'a Option<String>,
     data_path: String,
 }
 
@@ -676,7 +917,23 @@ impl<'a> StaticEntrySummary<'a> {
             omit_leading_title: entry.omit_leading_title,
             summary: &entry.summary,
             status: entry.status,
-            variants: &entry.variants,
+            variants: entry
+                .variants
+                .iter()
+                .map(|variant| {
+                    Ok(StaticVariantSummary {
+                        id: &variant.id,
+                        language: &variant.language,
+                        path: &variant.path,
+                        route_path: &variant.route_path,
+                        kind: &variant.kind,
+                        title: &variant.title,
+                        omit_leading_title: variant.omit_leading_title,
+                        summary: &variant.summary,
+                        data_path: data_path("data/entries", &variant.id)?,
+                    })
+                })
+                .collect::<Result<Vec<_>, String>>()?,
             data_path: data_path("data/entries", &entry.id)?,
         })
     }
@@ -703,7 +960,7 @@ mod tests {
     use std::io;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{activate_artifact_with, data_path, safe_relative_path};
+    use super::{activate_artifact_with, data_path, normalize_base_url, safe_relative_path};
 
     #[test]
     fn site_data_paths_keep_stable_nested_ids() {
@@ -713,6 +970,32 @@ mod tests {
         );
         assert!(data_path("data/entries", "../a").is_err());
         assert!(safe_relative_path("/absolute").is_err());
+    }
+
+    #[test]
+    fn site_base_url_requires_a_true_http_origin() {
+        assert_eq!(
+            normalize_base_url("https://example.test/").unwrap(),
+            "https://example.test"
+        );
+        assert_eq!(
+            normalize_base_url("http://localhost:4173").unwrap(),
+            "http://localhost:4173"
+        );
+        assert_eq!(
+            normalize_base_url("https://[::1]:4173").unwrap(),
+            "https://[::1]:4173"
+        );
+        for invalid in [
+            "javascript:alert(1)",
+            "https://user@example.test",
+            "https://example.test/path",
+            "https://example.test?query=1",
+            "https://example.test/#fragment",
+            "https://example.test:bad",
+        ] {
+            assert!(normalize_base_url(invalid).is_err(), "{invalid}");
+        }
     }
 
     #[test]
