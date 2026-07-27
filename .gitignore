@@ -15,6 +15,7 @@ node_modules/
 .vscode-test/
 packages/*/.tmp/
 packages/*/dist/
+packages/*/dist-static/
 extensions/*/.tmp/
 extensions/*/dist/
 dist-release/

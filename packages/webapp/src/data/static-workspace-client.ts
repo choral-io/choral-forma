@@ -231,13 +231,14 @@ export class StaticWorkspaceClient implements WorkspaceClient {
 }
 
 function mapEntrySummary(entry: StaticEntrySummary): DashboardEntry {
+    const title = entry.title?.trim();
     return {
         id: entry.id,
         kind: entry.kind,
         path: entry.path,
         routePath: entry.routePath,
         rawPath: entry.path,
-        title: entry.title?.trim() ?? entry.path,
+        title: title === "" ? entry.path : (title ?? entry.path),
         omitLeadingTitle: entry.omitLeadingTitle,
         summary: entry.summary ?? "No summary provided.",
         space: entry.space,
@@ -325,7 +326,10 @@ function mapViewDocument(data: StaticViewData, viewId: string): DashboardViewRen
 }
 
 function mapViewProjection(value: unknown, entries: DashboardEntry[]): DashboardViewProjection {
-    const projection = value as { kind?: string; [key: string]: unknown };
+    const projection = readProjection(value);
+    if (!projection) {
+        return { kind: "list", items: [] };
+    }
     if (projection.kind === "list") {
         const items = Array.isArray(projection.items) ? projection.items : [];
         return { kind: "list", items: mapViewItems(items, entries) };
@@ -361,6 +365,13 @@ function mapViewProjection(value: unknown, entries: DashboardEntry[]): Dashboard
         };
     }
     return { kind: "list", items: [] };
+}
+
+function readProjection(value: unknown): { kind?: string; [key: string]: unknown } | undefined {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return undefined;
+    }
+    return value as { kind?: string; [key: string]: unknown };
 }
 
 function mapViewItems(items: unknown[], entries: DashboardEntry[]): DashboardViewProjectionItem[] {

@@ -115,6 +115,48 @@ describe("StaticWorkspaceClient", () => {
             message: "Static artifact data missing: /data/dashboard.json",
         });
     });
+
+    it("falls back to an empty list when View projection data is absent", async () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((path: string) => {
+                if (path === "/data/dashboard.json") return json(dashboard);
+                if (path === "/data/views/notes.json")
+                    return json({ ...dashboard.views[0], document: { bodySource: "" } });
+                return new Response(null, { status: 404 });
+            }),
+        );
+        const client = new StaticWorkspaceClient("/data");
+
+        await expect(client.getViewRender("notes")).resolves.toMatchObject({
+            projection: { items: [], kind: "list" },
+        });
+    });
+
+    it("uses the entry path when a static entry title is blank", async () => {
+        const blankTitleEntry = { ...dashboard.entries[0], title: "   " };
+        const blankTitleDashboard = { ...dashboard, entries: [blankTitleEntry] };
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((path: string) => {
+                if (path === "/data/dashboard.json") return json(blankTitleDashboard);
+                if (path === "/data/entries/notes--one.json") {
+                    return json({
+                        ...blankTitleEntry,
+                        markdown: "# One",
+                        html: "<h1>One</h1>",
+                        headings: [],
+                        outgoing: [],
+                        backlinks: [],
+                    });
+                }
+                return new Response(null, { status: 404 });
+            }),
+        );
+        const client = new StaticWorkspaceClient("/data");
+
+        await expect(client.getEntry("notes--one")).resolves.toMatchObject({ title: "notes/one.md" });
+    });
 });
 
 function json(value: unknown): Response {
