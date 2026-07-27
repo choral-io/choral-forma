@@ -37,7 +37,7 @@ Publish the coordinated Public Preview update after [[releases/forma-v0.1.24]]. 
 - Render those links in the WebApp and VS Code View projections while retaining native Markdown Preview ownership for VS Code source navigation.
 - Update the project examples, validation fixtures, View documentation, and renderer contract documentation for entry links and reference fields.
 - Refresh the coordinated workspace tooling dependencies.
-- Add a manually approved `vscode-marketplace-publish` OIDC identity preflight. It validates GitHub-to-Azure authentication only; it does not publish an extension to Marketplace.
+- Add a protected `vscode-marketplace-publish` OIDC path: its manual preflight validates GitHub-to-Azure authentication, while an approved formal release publishes the already smoke-tested VSIX to Marketplace.
 
 ## Validation Plan
 
@@ -47,13 +47,13 @@ Publish the coordinated Public Preview update after [[releases/forma-v0.1.24]]. 
 4. `forma-0.1.25.vsix` packages and passes the isolated smoke test with the matching `forma 0.1.25` development CLI.
 5. The manually dispatched Marketplace identity preflight is approved through `vscode-marketplace-publish` and confirms Azure OIDC authentication without invoking `vsce publish`.
 6. The complete candidate is pushed and main CI passes for its exact commit before any tag decision.
-7. An annotated `v0.1.25` tag, GitHub Release publication, and Marketplace publication each require separate maintainer approval.
+7. An annotated `v0.1.25` tag, GitHub Release publication, and Marketplace publication require explicit maintainer approval; the approved tag workflow uses `vsce publish --azure-credential` against the packaged VSIX.
 
 ## Migration Or Operations Notes
 
 - Existing Forma workspaces and Markdown content require no migration.
 - `view.render` is a coordinated Core/RPC contract change: editor extensions and the CLI must be updated together to `0.1.25`.
-- The Marketplace preflight uses a protected environment and GitHub OIDC. It does not introduce a stored Marketplace PAT or authorize automatic Marketplace publication.
+- The Marketplace path uses a protected environment and GitHub OIDC. It does not introduce a stored Marketplace PAT; the tag-triggered publication is protected by the `vscode-marketplace-publish` environment approval gate.
 
 ## Release Notes
 

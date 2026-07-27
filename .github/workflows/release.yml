@@ -15,6 +15,11 @@ on:
         required: true
         default: false
         type: boolean
+      publish_vscode_marketplace:
+        description: "Publish the packaged VSIX to Visual Studio Marketplace"
+        required: true
+        default: false
+        type: boolean
       verify_vscode_marketplace_identity:
         description: "Verify the protected VS Code Marketplace OIDC identity without publishing"
         required: true
@@ -278,7 +283,7 @@ jobs:
     name: Publish GitHub Release
     needs: [build, extension]
     runs-on: ubuntu-24.04
-    if: github.event_name == 'push' || inputs.publish
+    if: (github.event_name == 'push' || inputs.publish) && !inputs.verify_vscode_marketplace_identity
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -324,3 +329,54 @@ jobs:
           else
             gh release create "$RELEASE_TAG" upload/* --generate-notes "${prerelease_flags[@]}"
           fi
+
+  publish-vscode-marketplace:
+    name: Publish VS Code Marketplace extension
+    needs: [validate, extension]
+    if: (github.event_name == 'push' || (inputs.publish && inputs.publish_vscode_marketplace)) && !inputs.verify_vscode_marketplace_identity
+    runs-on: ubuntu-24.04
+    environment: vscode-marketplace-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download packaged VSIX
+        uses: actions/download-artifact@v8
+        with:
+          name: forma-vscode
+          path: dist-release
+
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Publish packaged VSIX
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p \"require('./extensions/vscode/package.json').version\")"
+          vsix_path="dist-release/forma-${version}.vsix"
+          test -f "$vsix_path"
+          pnpm --filter forma exec vsce publish --packagePath "$vsix_path" --azure-credential
