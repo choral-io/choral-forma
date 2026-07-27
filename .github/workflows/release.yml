@@ -67,13 +67,12 @@ jobs:
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true
 
       - name: Confirm the federated Azure identity
         shell: bash
         run: |
           set -euo pipefail
-          az account show --query '{subscription:id, tenant:tenantId, identity:user.name}' --output json
           echo "OIDC authentication succeeded. Marketplace publication is intentionally not attempted."
 
   build:
