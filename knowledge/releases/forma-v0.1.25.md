@@ -5,7 +5,7 @@ title: Forma v0.1.25
 summary: Public Preview update for View entry links, resolved reference presentation, and Marketplace OIDC preflight.
 scope: project
 type: release
-status: planned
+status: released
 version: v0.1.25
 date: 2026-07-27
 owners:
@@ -58,6 +58,15 @@ Publish the coordinated Public Preview update after [[releases/forma-v0.1.24]]. 
 ## Release Notes
 
 > Forma `v0.1.25` makes Views easier to navigate: configured Table columns can open their entries directly, and reference fields show the titles people recognize instead of raw paths.
+
+## Release Evidence
+
+- Immutable tag: `v0.1.25` at candidate commit `f36da633393771de1fa4f55f85bd4670d8b7ea29`.
+- Candidate main CI: [run 30247714573](https://github.com/choral-io/choral-forma/actions/runs/30247714573) passed for that exact commit.
+- Final GitHub Release and Marketplace publication: [run 30249952232](https://github.com/choral-io/choral-forma/actions/runs/30249952232) passed. Its workflow used the immutable `v0.1.25` source and the protected OIDC environment; the Marketplace job published the smoke-tested VSIX.
+- Published release: [Forma v0.1.25](https://github.com/choral-io/choral-forma/releases/tag/v0.1.25) is non-draft, non-prerelease, and has the expected 22 assets.
+- `mise run release:verify -- v0.1.25` passed on macOS ARM64: `forma-macos-arm64` reports `forma 0.1.25` with SHA-256 `b68031c0c9d3de0d1c5a59f7a9c2da77db6ef7e49b0010db1c291f26327c771b`; `choral-io.forma@0.1.25` reports engine `^1.110.0` with SHA-256 `2288fb9e22ae53dd19d7d2bfafc5666146c79e97f74064b095682ff4b8df1122`; managed install also executed `forma 0.1.25`.
+- Remote SSH, Dev Container, WSL, signing, and notarization remain untested.
 
 ## Rollback Plan
 
