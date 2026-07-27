@@ -26,11 +26,11 @@ import {
     type ReactNode,
     type RefObject,
 } from "react";
-import { Link, useOutletContext, useParams } from "react-router";
+import { Link, useLocation, useOutletContext, useParams } from "react-router";
 
 import { readPreparedStaticEnhancement } from "@/data/static-enhancement";
-import { resolveDashboardEntryTarget } from "@/data/static-route-target";
-import { logicalPathname, readStaticRuntimeConfig, rootAwareHref } from "@/data/static-runtime";
+import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "@/data/static-route-target";
+import { readStaticRuntimeConfig, rootAwareHref } from "@/data/static-runtime";
 import type {
     DashboardDiagnostic,
     DashboardEntry,
@@ -141,8 +141,8 @@ export function PagesRoute() {
 }
 
 export function EntryRoute() {
-    const params = useParams();
-    return <EntryRouteContent routePath={logicalPathname(`/pages/${params["*"] ?? ""}`)} />;
+    const location = useLocation();
+    return <EntryRouteContent routePath={canonicalRoutePathFromLocation(location.pathname)} />;
 }
 
 function EntryRouteContent({
@@ -867,6 +867,7 @@ function EntryPage({
                                 <EntryReader
                                     blocks={entry.body}
                                     currentPath={entry.path}
+                                    currentRoutePath={routePath}
                                     entries={entries}
                                     key={entry.path}
                                     omitLeadingTitle={entry.omitLeadingTitle}
@@ -975,12 +976,14 @@ function EntryPage({
 function EntryReader({
     blocks,
     currentPath,
+    currentRoutePath,
     entries,
     omitLeadingTitle,
     outline,
 }: {
     blocks: DashboardEntryBlock[];
     currentPath: string;
+    currentRoutePath: string;
     entries: DashboardEntry[];
     omitLeadingTitle: boolean;
     outline: EntryOutlineItem[];
@@ -997,6 +1000,7 @@ function EntryReader({
                         <EntryBlockView
                             block={block}
                             currentPath={currentPath}
+                            currentRoutePath={currentRoutePath}
                             entries={entries}
                             headingId={headingId}
                             mermaidScope={mermaidScope}
@@ -1013,6 +1017,7 @@ function EntryReader({
 function EntryBlockView({
     block,
     currentPath,
+    currentRoutePath,
     entries,
     headingId,
     mermaidScope,
@@ -1020,6 +1025,7 @@ function EntryBlockView({
 }: {
     block: DashboardEntryBlock;
     currentPath: string;
+    currentRoutePath: string;
     entries: DashboardEntry[];
     headingId?: string;
     mermaidScope: ReturnType<typeof createMermaidRenderScope>;
@@ -1029,6 +1035,7 @@ function EntryBlockView({
         return (
             <MarkdownReader
                 currentPath={currentPath}
+                currentRoutePath={currentRoutePath}
                 entries={entries}
                 headings={block.outline}
                 markdown={block.markdown}

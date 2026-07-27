@@ -40,4 +40,29 @@ describe("static Markdown root paths", () => {
         expect(html).toContain('src="/preview/raw/notes/existing.png"');
         expect(html).toContain('src="/preview/raw/notes/relative.png"');
     });
+
+    it("keeps a homepage entry fragment on the displayed homepage route", () => {
+        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+            dataBaseUrl: "/preview/data",
+            rootPath: "/preview",
+        };
+        const entries = [
+            {
+                path: "notes/home.md",
+                routePath: "/pages/notes/home",
+            },
+        ];
+
+        const html = postProcessMarkdownHtml(
+            '<a href="#details">Details</a>',
+            [],
+            "notes/home.md",
+            entries as DashboardEntry[],
+            false,
+            "/",
+        );
+
+        expect(html).toContain('href="/preview/#details"');
+        expect(html).not.toContain("/pages/notes/home#details");
+    });
 });

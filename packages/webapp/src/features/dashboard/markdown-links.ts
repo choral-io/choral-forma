@@ -11,12 +11,21 @@ export interface ResolvedReaderLink {
     opensInNewTab: boolean;
 }
 
-export function resolveReaderLink(href: string, currentPath: string, entries: ReaderLinkEntry[]): ResolvedReaderLink {
+export function resolveReaderLink(
+    href: string,
+    currentPath: string,
+    entries: ReaderLinkEntry[],
+    currentRoutePath?: string,
+): ResolvedReaderLink {
     if (href.startsWith("#")) {
         const currentEntry = entries.find((entry) => entry.path === currentPath);
 
         return {
-            href: currentEntry ? `${currentEntry.routePath}${href}` : href,
+            href: currentRoutePath
+                ? `${currentRoutePath}${href}`
+                : currentEntry
+                  ? `${currentEntry.routePath}${href}`
+                  : href,
             kind: "anchor",
             opensInNewTab: false,
         };

@@ -23,6 +23,14 @@ describe("resolveReaderLink", () => {
         });
     });
 
+    it("keeps homepage entry anchors on the displayed homepage route", () => {
+        expect(resolveReaderLink("#verification", currentPath, entries, "/")).toEqual({
+            href: "/#verification",
+            kind: "anchor",
+            opensInNewTab: false,
+        });
+    });
+
     it("resolves relative workspace links to internal Entry routes", () => {
         expect(resolveReaderLink("../product/atlas-notes.md#scope", currentPath, entries)).toEqual({
             href: "/pages/product/atlas-notes#scope",
