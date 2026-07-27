@@ -2558,7 +2558,7 @@ mod tests {
     }
 
     #[test]
-    fn committed_summary_index_uses_explicitly_included_config() {
+    fn shared_summary_index_ignores_local_override_config() {
         let root = fixture_root("included-config");
         write_workspace(&root);
         write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
@@ -2571,7 +2571,7 @@ mod tests {
 
         let discovery = discover_workspace(&root).unwrap();
 
-        assert_eq!(discovery.index.workspace.name, "Explicitly Included");
+        assert_eq!(discovery.index.workspace.name, "Acme Workspace");
         fs::remove_dir_all(root).unwrap();
     }
 

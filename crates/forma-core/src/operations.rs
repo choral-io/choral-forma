@@ -2409,7 +2409,7 @@ fn semantic_reference_candidates(source: &IndexEntry, raw_target: &str) -> Vec<S
     matches
 }
 
-fn normalized_relative_target(source_path: &str, target: &str) -> Option<String> {
+pub(crate) fn normalized_relative_target(source_path: &str, target: &str) -> Option<String> {
     let mut segments = source_path
         .rsplit_once('/')
         .map(|(parent, _)| parent.split('/').collect::<Vec<_>>())
@@ -2638,7 +2638,7 @@ fn build_workspace_health_result(
     }
 }
 
-fn unique_references_by_target<'a>(
+pub(crate) fn unique_references_by_target<'a>(
     references: impl IntoIterator<Item = &'a IndexReference>,
 ) -> Vec<&'a IndexReference> {
     let mut seen = BTreeSet::new();
@@ -2684,7 +2684,7 @@ fn status_for_paths<'a>(
     DiagnosticSummary::from_diagnostics(&relevant).status()
 }
 
-fn document_id_for_path(path: &str) -> String {
+pub(crate) fn document_id_for_path(path: &str) -> String {
     let without_extension = path.strip_suffix(".md").unwrap_or(path);
     let id = without_extension
         .split('/')
@@ -2699,7 +2699,7 @@ fn document_id_for_path(path: &str) -> String {
     }
 }
 
-fn entry_route_path_for_path(path: &str) -> String {
+pub(crate) fn entry_route_path_for_path(path: &str) -> String {
     let without_extension = path.strip_suffix(".md").unwrap_or(path);
     let page_path = without_extension
         .strip_suffix("/index")
@@ -2718,7 +2718,7 @@ fn file_modified_at(root: &Path, path: &str) -> Option<DateTime<Utc>> {
     Some(modified.into())
 }
 
-fn reference_edge(
+pub(crate) fn reference_edge(
     source_entry: &IndexEntry,
     reference: &IndexReference,
     entries: &[IndexEntry],
@@ -2744,7 +2744,7 @@ fn reference_edge(
     }
 }
 
-fn reference_edge_sort_key(
+pub(crate) fn reference_edge_sort_key(
     edge: &ReferenceEdge,
 ) -> (String, String, ReferenceIntent, ReferenceSource) {
     (
@@ -2800,7 +2800,7 @@ fn is_reference_problem_diagnostic(diagnostic: &Diagnostic) -> bool {
     )
 }
 
-fn read_operation_diagnostics(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
+pub(crate) fn read_operation_diagnostics(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
     diagnostics
         .into_iter()
         .map(|mut diagnostic| {
@@ -5040,8 +5040,8 @@ conventions:
     }
 
     #[test]
-    fn files_list_does_not_treat_forma_local_as_intrinsically_private() {
-        let root = fixture_root("files-list-forma-local-public");
+    fn files_list_excludes_forma_local_override_sources() {
+        let root = fixture_root("files-list-forma-local-private");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/local")).unwrap();
@@ -5054,7 +5054,7 @@ conventions:
         let result = list_files(&root).unwrap();
 
         assert!(
-            result
+            !result
                 .files
                 .iter()
                 .any(|file| file.path == ".forma/local/profile.md")

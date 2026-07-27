@@ -8,6 +8,7 @@ pub mod operations;
 pub mod path;
 pub mod render;
 pub mod schema;
+pub mod site;
 
 pub use config::{
     ConfigError, FormaWorkspace, LoadMode, SpaceDefinition, TaxonomyTermDefinition,
@@ -60,6 +61,13 @@ pub use schema::{
     PlaceholderContext, RenderedTemplate, ResolvedCreateInputs, RuntimeValues, SchemaNode,
     TemplateValueResolver, Transform, render_placeholder_template, resolve_create_inputs,
     resolve_runtime_values, validate_schema_value, validate_space_schemas,
+};
+pub use site::{
+    STATIC_SITE_SNAPSHOT_SCHEMA_VERSION, StaticSiteDiagnostic, StaticSiteEntry,
+    StaticSiteEntryVariant, StaticSiteResourceCandidate, StaticSiteRoute, StaticSiteRouteKind,
+    StaticSiteSnapshot, StaticSiteSnapshotSummary, StaticSiteSpace, StaticSiteTaxonomy,
+    StaticSiteTaxonomyTerm, StaticSiteView, StaticSiteWorkspace, StaticSiteWorkspaceLogo,
+    build_static_site_snapshot,
 };
 
 /// Returns the current Forma core crate version.
