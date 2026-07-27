@@ -19,7 +19,7 @@ use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
 use crate::operations::{
     OperationError, ReferenceEdge, WorkspaceSnapshot, document_id_for_path,
     normalized_relative_target, read_operation_diagnostics, reference_edge,
-    reference_edge_sort_key, unique_references_by_target,
+    reference_edge_sort_key, reference_edge_with_target, unique_references_by_target,
 };
 use crate::path::WorkspacePath;
 use crate::render::{
@@ -259,6 +259,7 @@ fn build_static_site_snapshot_from_loaded(
     let mut routes = support_routes();
     let mut route_sources = BTreeMap::<String, Option<String>>::new();
     let mut entries = Vec::new();
+    let mut backlinks_by_target = collect_backlinks_by_target(&discovery.index.entries);
 
     for entry in &discovery.index.entries {
         let route_path = entry_route_path(&entry.path);
@@ -284,23 +285,7 @@ fn build_static_site_snapshot_from_loaded(
             .into_iter()
             .map(|reference| reference_edge(entry, reference, &discovery.index.entries))
             .collect::<Vec<_>>();
-        let mut backlinks = discovery
-            .index
-            .entries
-            .iter()
-            .filter(|candidate| candidate.path != entry.path)
-            .flat_map(|candidate| {
-                unique_references_by_target(
-                    candidate
-                        .refs
-                        .iter()
-                        .filter(|reference| reference.target_path == entry.path),
-                )
-                .into_iter()
-                .map(|reference| reference_edge(candidate, reference, &discovery.index.entries))
-            })
-            .collect::<Vec<_>>();
-        backlinks.sort_by_key(reference_edge_sort_key);
+        let backlinks = backlinks_by_target.remove(&entry.path).unwrap_or_default();
 
         let mut variants = Vec::new();
         for variant in &entry.variants {
@@ -504,6 +489,33 @@ fn build_static_site_snapshot_from_loaded(
         summary,
         diagnostics: static_diagnostics,
     })
+}
+
+fn collect_backlinks_by_target(entries: &[IndexEntry]) -> BTreeMap<String, Vec<ReferenceEdge>> {
+    let entries_by_path = entries
+        .iter()
+        .map(|entry| (entry.path.as_str(), entry))
+        .collect::<BTreeMap<_, _>>();
+    let mut backlinks = BTreeMap::<String, Vec<ReferenceEdge>>::new();
+
+    for source in entries {
+        for reference in unique_references_by_target(source.refs.iter()) {
+            if reference.target_path == source.path {
+                continue;
+            }
+            let Some(target) = entries_by_path.get(reference.target_path.as_str()) else {
+                continue;
+            };
+            backlinks
+                .entry(reference.target_path.clone())
+                .or_default()
+                .push(reference_edge_with_target(source, reference, Some(*target)));
+        }
+    }
+    for edges in backlinks.values_mut() {
+        edges.sort_by_key(reference_edge_sort_key);
+    }
+    backlinks
 }
 
 fn read_document(root: &Path, path: &str) -> Result<FormaMarkdownDocument, OperationError> {
@@ -1052,8 +1064,10 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{StaticSiteRouteKind, build_static_site_snapshot};
-    use crate::{OperationStatus, ReferenceIntent, ReferenceSource, ViewRenderOutput};
+    use super::{StaticSiteRouteKind, build_static_site_snapshot, collect_backlinks_by_target};
+    use crate::{
+        OperationStatus, ReferenceIntent, ReferenceSource, ViewRenderOutput, WorkspaceSnapshot,
+    };
 
     #[test]
     fn site_snapshot_fixture_is_deterministic_and_preserves_contract() {
@@ -1181,6 +1195,49 @@ mod tests {
                 && diagnostic.route_path.as_deref() == Some("/pages/content/guides/intro")
                 && diagnostic.actual.as_deref() == Some("missing-guide")
         }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn backlink_collector_inverts_deduplicated_references_by_target() {
+        let root = copy_fixture("site-snapshot-backlink-map");
+        fs::write(
+            root.join("content/guides/third.md"),
+            "---\ntitle: Third\nsummary: Third fixture guide.\nstatus: published\n---\n\n# Third\n\n[Related first](related.md)\n[Related duplicate](related.md#details)\n[Intro](intro.md)\n[Self](third.md)\n",
+        )
+        .unwrap();
+        let source = WorkspaceSnapshot::load(&root).unwrap();
+        let mut entries = source.discovery().index.entries.clone();
+        entries.reverse();
+
+        let backlinks = collect_backlinks_by_target(&entries);
+
+        assert_eq!(
+            backlinks.keys().map(String::as_str).collect::<Vec<_>>(),
+            vec!["content/guides/intro.md", "content/guides/related.md"]
+        );
+        assert_eq!(
+            backlinks["content/guides/intro.md"]
+                .iter()
+                .map(|edge| edge.source_path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["content/guides/third.md"]
+        );
+        assert_eq!(
+            backlinks["content/guides/related.md"]
+                .iter()
+                .map(|edge| edge.source_path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["content/guides/intro.md", "content/guides/third.md"]
+        );
+        assert_eq!(
+            backlinks["content/guides/related.md"]
+                .iter()
+                .filter(|edge| edge.source_path == "content/guides/third.md")
+                .count(),
+            1
+        );
+        assert!(!backlinks.contains_key("content/guides/third.md"));
         fs::remove_dir_all(root).unwrap();
     }
 

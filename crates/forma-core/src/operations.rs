@@ -2726,6 +2726,14 @@ pub(crate) fn reference_edge(
     let target_entry = entries
         .iter()
         .find(|entry| entry.path == reference.target_path);
+    reference_edge_with_target(source_entry, reference, target_entry)
+}
+
+pub(crate) fn reference_edge_with_target(
+    source_entry: &IndexEntry,
+    reference: &IndexReference,
+    target_entry: Option<&IndexEntry>,
+) -> ReferenceEdge {
     ReferenceEdge {
         source_path: source_entry.path.clone(),
         source_title: source_entry.title.clone(),
