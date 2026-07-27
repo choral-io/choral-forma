@@ -78,6 +78,7 @@ jobs:
   build:
     name: Build ${{ matrix.asset }}
     needs: validate
+    if: github.event_name != 'workflow_dispatch' || !inputs.verify_vscode_marketplace_identity
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -199,6 +200,7 @@ jobs:
   extension:
     name: Build VS Code extension
     needs: validate
+    if: github.event_name != 'workflow_dispatch' || !inputs.verify_vscode_marketplace_identity
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
