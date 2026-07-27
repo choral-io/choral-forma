@@ -15,6 +15,102 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  site:
+    name: Static site
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Setup Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build static WebApp and Forma CLI
+        run: |
+          pnpm --filter @choral-forma/webapp build
+          cargo build --locked --bin forma
+
+      - name: Check workspace and build static artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          forma="${GITHUB_WORKSPACE}/target/debug/forma"
+          "${forma}" config inspect --json
+          "${forma}" check --json
+          "${forma}" workspace health --json
+          "${forma}" site build \
+            --out dist/site \
+            --base-url https://forma.choral.io \
+            --home knowledge/product/choral-forma.md \
+            --json > "${RUNNER_TEMP}/site-build.json"
+
+      - name: Verify static artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          site="${GITHUB_WORKSPACE}/dist/site"
+          result="${RUNNER_TEMP}/site-build.json"
+          for file in index.html 404.html sitemap.xml robots.txt .forma-site-artifact data/dashboard.json; do
+            test -f "${site}/${file}"
+          done
+          node --input-type=module - "${result}" <<'NODE'
+          import { readFileSync } from "node:fs";
+
+          const result = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          if (result.operation !== "site.build" || result.status !== "passed") {
+            throw new Error(`unexpected site build result: ${JSON.stringify(result)}`);
+          }
+          for (const field of ["routes", "pages", "assets", "bytes"]) {
+            if (!(result.counts?.[field] > 0)) throw new Error(`site build count ${field} was not positive`);
+          }
+          if (result.counts.warnings !== 0) throw new Error(`site build emitted warnings: ${result.counts.warnings}`);
+          console.log(JSON.stringify(result.counts));
+          NODE
+          if find "${site}/assets" -type f \( -name '*.js' -o -name '*.mjs' \) -exec grep -F -l '/rpc' {} + | grep -q .; then
+            echo "static runtime assets must not contain an RPC endpoint" >&2
+            exit 1
+          fi
+          if grep -R -F -l "${GITHUB_WORKSPACE}" "${site}"; then
+            echo "static artifact contains an absolute workspace path" >&2
+            exit 1
+          fi
+          digest() {
+            (cd "${site}" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')
+          }
+          first_digest="$(digest)"
+          "${GITHUB_WORKSPACE}/target/debug/forma" site build \
+            --out dist/site \
+            --base-url https://forma.choral.io \
+            --home knowledge/product/choral-forma.md \
+            --json > "${RUNNER_TEMP}/site-build-repeat.json"
+          test "${first_digest}" = "$(digest)"
+          echo "treeDigest=${first_digest}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "artifactFiles=$(find "${site}" -type f | wc -l | tr -d ' ')" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload static site artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: forma-static-site
+          path: dist/site
+          if-no-files-found: error
+          include-hidden-files: true
+
   knowledge:
     name: Knowledge
     runs-on: ubuntu-24.04
