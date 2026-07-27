@@ -376,7 +376,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="$(node -p \"require('./extensions/vscode/package.json').version\")"
+          version="$(node -p "require('./extensions/vscode/package.json').version")"
           vsix_path="dist-release/forma-${version}.vsix"
           test -f "$vsix_path"
           pnpm --filter forma exec vsce publish --packagePath "$vsix_path" --azure-credential
