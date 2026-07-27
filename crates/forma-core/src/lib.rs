@@ -67,7 +67,7 @@ pub use site::{
     StaticSiteEntryVariant, StaticSiteResourceCandidate, StaticSiteRoute, StaticSiteRouteKind,
     StaticSiteSnapshot, StaticSiteSnapshotSummary, StaticSiteSpace, StaticSiteTaxonomy,
     StaticSiteTaxonomyTerm, StaticSiteView, StaticSiteWorkspace, StaticSiteWorkspaceLogo,
-    build_static_site_snapshot,
+    build_static_site_snapshot, build_static_site_snapshot_with_root_path,
 };
 
 /// Returns the current Forma core crate version.

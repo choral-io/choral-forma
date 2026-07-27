@@ -15,7 +15,10 @@ use crate::index::{
     Discovery, IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource,
     discover_loaded_workspace,
 };
-use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax};
+use crate::markdown::{
+    FormaHeading, FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax,
+    all_markdown_headings,
+};
 use crate::operations::{
     OperationError, WorkspaceSummary, diagnostic_sort_key, diagnostics_for_workspace_path,
 };
@@ -1995,13 +1998,24 @@ fn value_at_path<'a>(value: &'a Value, field: &str) -> Option<&'a Value> {
 
 pub(crate) fn render_markdown_html(document: &FormaMarkdownDocument) -> String {
     let markdown = markdown_with_reference_fallbacks(document);
-    to_html_with_options(&markdown, &Options::gfm()).expect("normal Markdown renders to HTML")
+    render_markdown_source_html(&markdown)
+}
+
+pub(crate) fn render_markdown_source_html(markdown: &str) -> String {
+    to_html_with_options(markdown, &Options::gfm()).expect("normal Markdown renders to HTML")
 }
 
 pub(crate) fn render_headings(document: &FormaMarkdownDocument) -> Vec<RenderedHeading> {
+    rendered_headings(&document.headings)
+}
+
+pub(crate) fn render_all_headings(document: &FormaMarkdownDocument) -> Vec<RenderedHeading> {
+    rendered_headings(&all_markdown_headings(&document.body))
+}
+
+fn rendered_headings(headings: &[FormaHeading]) -> Vec<RenderedHeading> {
     let mut seen = BTreeMap::<String, usize>::new();
-    document
-        .headings
+    headings
         .iter()
         .map(|heading| {
             let base_id = slugify_heading(&heading.text);
@@ -2022,7 +2036,7 @@ pub(crate) fn render_headings(document: &FormaMarkdownDocument) -> Vec<RenderedH
         .collect()
 }
 
-fn slugify_heading(text: &str) -> String {
+pub(crate) fn slugify_heading(text: &str) -> String {
     let slug = text
         .trim()
         .to_ascii_lowercase()

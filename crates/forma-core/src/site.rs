@@ -23,8 +23,8 @@ use crate::operations::{
 };
 use crate::path::WorkspacePath;
 use crate::render::{
-    RenderedHeading, ViewRenderDocument, ViewRenderOutput, markdown_with_reference_fallbacks,
-    render_headings, render_indexed_view_from_loaded, render_markdown_html,
+    RenderedHeading, ViewRenderDocument, ViewRenderOutput, render_all_headings,
+    render_indexed_view_from_loaded, render_markdown_source_html, slugify_heading,
 };
 use crate::{media_type_for_workspace_path, version};
 
@@ -176,6 +176,7 @@ pub struct StaticSiteEntryVariant {
 #[serde(rename_all = "camelCase")]
 pub struct StaticSiteView {
     pub id: String,
+    pub source_path: String,
     pub route_path: String,
     pub output_path: String,
     pub mode: String,
@@ -187,6 +188,10 @@ pub struct StaticSiteView {
     pub space: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub document: Option<ViewRenderDocument>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub html: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub headings: Vec<RenderedHeading>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub projection: Option<ViewRenderOutput>,
     pub status: OperationStatus,
@@ -240,12 +245,27 @@ pub struct StaticSiteSnapshotSummary {
 pub fn build_static_site_snapshot(
     root: impl AsRef<Path>,
 ) -> Result<StaticSiteSnapshot, OperationError> {
+    build_static_site_snapshot_with_root_path(root, "/")
+}
+
+/// Builds a static snapshot whose browser-facing Markdown, HTML, and resource
+/// URLs are rooted beneath the deployment path.
+pub fn build_static_site_snapshot_with_root_path(
+    root: impl AsRef<Path>,
+    root_path: &str,
+) -> Result<StaticSiteSnapshot, OperationError> {
+    if !valid_static_root_path(root_path) {
+        return Err(OperationError::InvalidInput(
+            "static site root path".to_string(),
+        ));
+    }
     let source = WorkspaceSnapshot::load(root)?;
-    build_static_site_snapshot_from_loaded(&source)
+    build_static_site_snapshot_from_loaded(&source, root_path)
 }
 
 fn build_static_site_snapshot_from_loaded(
     source: &WorkspaceSnapshot,
+    root_path: &str,
 ) -> Result<StaticSiteSnapshot, OperationError> {
     let workspace = source.workspace();
     let discovery = source.discovery();
@@ -260,6 +280,26 @@ fn build_static_site_snapshot_from_loaded(
     let mut route_sources = BTreeMap::<String, Option<String>>::new();
     let mut entries = Vec::new();
     let mut backlinks_by_target = collect_backlinks_by_target(&discovery.index.entries);
+    let entry_routes_by_path = discovery
+        .index
+        .entries
+        .iter()
+        .flat_map(|entry| {
+            std::iter::once((entry.path.clone(), entry_route_path(&entry.path))).chain(
+                entry
+                    .variants
+                    .iter()
+                    .map(|variant| (variant.path.clone(), entry_route_path(&variant.path))),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let entry_headings_by_path = entry_routes_by_path
+        .keys()
+        .map(|path| {
+            read_document(workspace.root.as_path(), path)
+                .map(|document| (path.clone(), render_all_headings(&document)))
+        })
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
 
     for entry in &discovery.index.entries {
         let route_path = entry_route_path(&entry.path);
@@ -279,7 +319,18 @@ fn build_static_site_snapshot_from_loaded(
             &entry.path,
             &route_path,
             &document,
+            root_path,
         );
+        let markdown = static_markdown(
+            &document,
+            &entry.path,
+            &entry_routes_by_path,
+            &entry_headings_by_path,
+            &config_paths,
+            root_path,
+        );
+        let headings = render_all_headings(&document);
+        let html = render_static_markdown_html(&markdown, &headings, entry.omit_leading_title);
 
         let outgoing = unique_references_by_target(entry.refs.iter())
             .into_iter()
@@ -294,6 +345,9 @@ fn build_static_site_snapshot_from_loaded(
                 &config_paths,
                 &mut resources,
                 variant,
+                &entry_routes_by_path,
+                &entry_headings_by_path,
+                root_path,
             )?;
             merge_diagnostics(&mut diagnostics, variant_diagnostics);
             routes.push(route_for_entry(
@@ -322,9 +376,9 @@ fn build_static_site_snapshot_from_loaded(
             title: entry.title.clone(),
             omit_leading_title: entry.omit_leading_title,
             summary: entry.summary.clone(),
-            markdown: markdown_with_reference_fallbacks(&document),
-            html: render_markdown_html(&document),
-            headings: render_headings(&document),
+            markdown,
+            html,
+            headings,
             outgoing,
             backlinks,
             variants,
@@ -341,6 +395,25 @@ fn build_static_site_snapshot_from_loaded(
         view_source_routes.insert(view.path.clone(), route_path.clone());
         let rendered =
             render_indexed_view_from_loaded(workspace, discovery, &view.id, BTreeMap::new())?;
+        let view_document = read_document(workspace.root.as_path(), &view.path)?;
+        collect_document_resources(
+            &mut resources,
+            &config_paths,
+            &view.path,
+            &route_path,
+            &view_document,
+            root_path,
+        );
+        let view_markdown = static_markdown(
+            &view_document,
+            &view.path,
+            &entry_routes_by_path,
+            &entry_headings_by_path,
+            &config_paths,
+            root_path,
+        );
+        let view_headings = render_all_headings(&view_document);
+        let view_html = render_static_markdown_html(&view_markdown, &view_headings, true);
         merge_diagnostics(
             &mut diagnostics,
             read_operation_diagnostics(rendered.diagnostics),
@@ -354,6 +427,7 @@ fn build_static_site_snapshot_from_loaded(
         route_sources.insert(route_path.to_ascii_lowercase(), None);
         views.push(StaticSiteView {
             id,
+            source_path: view.path.clone(),
             route_path: route_path.clone(),
             output_path: route_output_path(&route_path),
             mode: view.mode.clone(),
@@ -361,6 +435,8 @@ fn build_static_site_snapshot_from_loaded(
             display: view.display.clone(),
             space: view.space.clone(),
             document: rendered.document,
+            html: Some(view_html),
+            headings: view_headings,
             projection: rendered.render,
             status: OperationStatus::Passed,
         });
@@ -375,7 +451,7 @@ fn build_static_site_snapshot_from_loaded(
     let spaces = static_spaces(workspace, &discovery.index.entries);
 
     if let Some(logo) = &workspace.config.workspace.logo
-        && let Some(candidate) = resource_candidate(&logo.path, ".", true, &config_paths)
+        && let Some(candidate) = resource_candidate(&logo.path, ".", true, &config_paths, root_path)
     {
         resources
             .entry(candidate.path.clone())
@@ -531,6 +607,9 @@ fn render_variant(
     config_paths: &BTreeSet<&str>,
     resources: &mut BTreeMap<String, StaticSiteResourceCandidate>,
     variant: &IndexEntryVariant,
+    entry_routes_by_path: &BTreeMap<String, String>,
+    entry_headings_by_path: &BTreeMap<String, Vec<RenderedHeading>>,
+    root_path: &str,
 ) -> Result<(StaticSiteEntryVariant, Vec<Diagnostic>), OperationError> {
     let document = read_document(root, &variant.path)?;
     let diagnostics = document
@@ -546,7 +625,18 @@ fn render_variant(
         &variant.path,
         &route_path,
         &document,
+        root_path,
     );
+    let markdown = static_markdown(
+        &document,
+        &variant.path,
+        entry_routes_by_path,
+        entry_headings_by_path,
+        config_paths,
+        root_path,
+    );
+    let headings = render_all_headings(&document);
+    let html = render_static_markdown_html(&markdown, &headings, variant.omit_leading_title);
     Ok((
         StaticSiteEntryVariant {
             id: document_id_for_path(&variant.path),
@@ -558,9 +648,9 @@ fn render_variant(
             title: variant.title.clone(),
             omit_leading_title: variant.omit_leading_title,
             summary: variant.summary.clone(),
-            markdown: markdown_with_reference_fallbacks(&document),
-            html: render_markdown_html(&document),
-            headings: render_headings(&document),
+            markdown,
+            html,
+            headings,
         },
         diagnostics,
     ))
@@ -684,7 +774,7 @@ fn support_routes() -> Vec<StaticSiteRoute> {
     [
         (StaticSiteRouteKind::Pages, "pages", "/pages"),
         (StaticSiteRouteKind::Views, "views", "/views"),
-        (StaticSiteRouteKind::Taxonomies, "taxonomies", "/taxonomies"),
+        (StaticSiteRouteKind::Taxonomies, "browse", "/browse"),
     ]
     .into_iter()
     .map(|(kind, id, path)| StaticSiteRoute {
@@ -769,12 +859,329 @@ fn route_output_path(route_path: &str) -> String {
     }
 }
 
+fn static_markdown(
+    document: &FormaMarkdownDocument,
+    source_path: &str,
+    entry_routes_by_path: &BTreeMap<String, String>,
+    entry_headings_by_path: &BTreeMap<String, Vec<RenderedHeading>>,
+    config_paths: &BTreeSet<&str>,
+    root_path: &str,
+) -> String {
+    let mut output = document.body.clone();
+    let mut replacements = document
+        .references
+        .iter()
+        .filter_map(|reference| {
+            let href = static_reference_href(
+                &reference.target,
+                source_path,
+                entry_routes_by_path,
+                entry_headings_by_path,
+                config_paths,
+                root_path,
+            );
+            match reference.syntax {
+                crate::markdown::FormaReferenceSyntax::Wikilink
+                | crate::markdown::FormaReferenceSyntax::ObsidianEmbed => {
+                    let span = reference.span?;
+                    let href =
+                        href.unwrap_or_else(|| unresolved_reference_fallback(&reference.target));
+                    let label = markdown_label(
+                        reference
+                            .label
+                            .as_deref()
+                            .unwrap_or(reference.target.as_str()),
+                    );
+                    let prefix = (matches!(
+                        reference.syntax,
+                        crate::markdown::FormaReferenceSyntax::ObsidianEmbed
+                    ) && href.contains("/raw/"))
+                    .then_some("!")
+                    .unwrap_or("");
+                    Some((
+                        span.start_byte,
+                        span.end_byte,
+                        format!("{prefix}[{label}](<{href}>)"),
+                    ))
+                }
+                crate::markdown::FormaReferenceSyntax::MarkdownLink
+                | crate::markdown::FormaReferenceSyntax::MarkdownImage => {
+                    let span = reference.target_span.or(reference.fragment_span)?;
+                    let start = reference
+                        .target_span
+                        .map_or(span.start_byte, |target| target.start_byte);
+                    let end = reference
+                        .fragment_span
+                        .map_or(span.end_byte, |fragment| fragment.end_byte);
+                    href.map(|href| (start, end, href))
+                }
+                crate::markdown::FormaReferenceSyntax::FormaCommentDirective => None,
+            }
+        })
+        .collect::<Vec<_>>();
+    replacements.sort_by_key(|(start, end, _)| (*start, *end));
+    replacements.dedup_by(|left, right| left.0 == right.0 && left.1 == right.1);
+
+    for (start, end, replacement) in replacements.into_iter().rev() {
+        if start <= end && end <= output.len() {
+            output.replace_range(start..end, &replacement);
+        }
+    }
+    output
+}
+
+fn static_reference_href(
+    raw_target: &str,
+    source_path: &str,
+    entry_routes_by_path: &BTreeMap<String, String>,
+    entry_headings_by_path: &BTreeMap<String, Vec<RenderedHeading>>,
+    config_paths: &BTreeSet<&str>,
+    root_path: &str,
+) -> Option<String> {
+    let target = raw_target.trim();
+    if target.is_empty()
+        || target
+            .chars()
+            .any(|character| character.is_control() || character == '>')
+    {
+        return None;
+    }
+    if let Some(fragment) = target.strip_prefix('#') {
+        return resolve_heading_fragment(fragment, entry_headings_by_path.get(source_path))
+            .map(|fragment| format!("#{fragment}"));
+    }
+    if is_external_target(target) {
+        return None;
+    }
+    let (without_fragment, fragment) = target.split_once('#').unwrap_or((target, ""));
+    let (path, query) = without_fragment
+        .split_once('?')
+        .map_or((without_fragment, ""), |(path, query)| (path, query));
+    let normalized = normalized_static_target(source_path, path)?;
+
+    if let Some((target_path, route)) = resolve_entry_route(&normalized, entry_routes_by_path) {
+        let mut href = public_url(root_path, route);
+        if !fragment.is_empty() {
+            href.push('#');
+            href.push_str(
+                &resolve_heading_fragment(fragment, entry_headings_by_path.get(target_path))
+                    .unwrap_or_else(|| slugify_heading(fragment)),
+            );
+        }
+        return Some(href);
+    }
+
+    let candidate = resource_candidate(&normalized, ".", false, config_paths, root_path)?;
+    let mut href = candidate.public_path;
+    if !query.is_empty() {
+        href.push('?');
+        href.push_str(&encode_url_suffix(query));
+    }
+    if !fragment.is_empty() {
+        href.push('#');
+        href.push_str(&encode_url_suffix(fragment));
+    }
+    Some(href)
+}
+
+fn normalized_static_target(source_path: &str, target: &str) -> Option<String> {
+    let workspace_absolute = target.starts_with('/');
+    let target = target.trim_start_matches('/');
+    if target.is_empty() {
+        return Some(source_path.to_string());
+    }
+    if workspace_absolute {
+        return WorkspacePath::parse_config(target)
+            .ok()
+            .map(|path| path.as_str().to_string());
+    }
+    normalized_relative_target(source_path, target).or_else(|| {
+        WorkspacePath::parse_config(target)
+            .ok()
+            .map(|path| path.as_str().to_string())
+    })
+}
+
+fn resolve_entry_route<'a>(
+    normalized: &str,
+    entry_routes_by_path: &'a BTreeMap<String, String>,
+) -> Option<(&'a String, &'a String)> {
+    for candidate in [
+        normalized.to_string(),
+        format!("{normalized}.md"),
+        format!("{normalized}.mdx"),
+        format!("{normalized}/index.md"),
+        format!("{normalized}/index.mdx"),
+    ] {
+        if let Some((path, route)) = entry_routes_by_path.get_key_value(&candidate) {
+            return Some((path, route));
+        }
+    }
+
+    let suffixes = [
+        format!("/{normalized}"),
+        format!("/{normalized}.md"),
+        format!("/{normalized}.mdx"),
+    ];
+    let matches = entry_routes_by_path
+        .iter()
+        .filter(|(path, _)| suffixes.iter().any(|suffix| path.ends_with(suffix)))
+        .map(|(path, route)| (path, route))
+        .collect::<Vec<_>>();
+    (matches.len() == 1).then(|| matches[0])
+}
+
+fn resolve_heading_fragment(
+    fragment: &str,
+    headings: Option<&Vec<RenderedHeading>>,
+) -> Option<String> {
+    let fragment = fragment.trim();
+    if fragment.is_empty() {
+        return None;
+    }
+    let normalized = slugify_heading(fragment);
+    headings
+        .into_iter()
+        .flatten()
+        .find(|heading| {
+            heading.id.eq_ignore_ascii_case(fragment)
+                || heading.text.trim().eq_ignore_ascii_case(fragment)
+        })
+        .map(|heading| heading.id.clone())
+        .or(Some(normalized))
+}
+
+fn markdown_label(value: &str) -> String {
+    value.replace('\\', "\\\\").replace(']', "\\]")
+}
+
+fn unresolved_reference_fallback(target: &str) -> String {
+    if is_external_target(target) {
+        return target.to_string();
+    }
+    let (path, fragment) = target.split_once('#').unwrap_or((target, ""));
+    let mut path = path.trim_start_matches('/').to_string();
+    if !path.ends_with(".md") && !path.ends_with(".mdx") {
+        path.push_str(".md");
+    }
+    if fragment.is_empty() {
+        format!("./{path}")
+    } else {
+        format!("./{path}#{}", slugify_heading(fragment))
+    }
+}
+
+fn is_external_target(target: &str) -> bool {
+    target.starts_with("//")
+        || target.split_once(':').is_some_and(|(scheme, _)| {
+            !scheme.is_empty()
+                && scheme.bytes().enumerate().all(|(index, byte)| {
+                    if index == 0 {
+                        byte.is_ascii_alphabetic()
+                    } else {
+                        byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'-' | b'.')
+                    }
+                })
+        })
+}
+
+fn encode_url_suffix(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~' | b'=' | b'&') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
+fn public_url(root_path: &str, logical_path: &str) -> String {
+    if root_path == "/" {
+        logical_path.to_string()
+    } else {
+        format!("{root_path}{logical_path}")
+    }
+}
+
+fn valid_static_root_path(root_path: &str) -> bool {
+    if root_path == "/" {
+        return true;
+    }
+    if !root_path.starts_with('/')
+        || root_path.ends_with('/')
+        || root_path.starts_with("//")
+        || root_path.contains("//")
+    {
+        return false;
+    }
+    root_path.split('/').skip(1).all(|segment| {
+        !segment.is_empty()
+            && segment != "."
+            && segment != ".."
+            && segment.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~')
+            })
+    })
+}
+
+fn render_static_markdown_html(
+    markdown: &str,
+    headings: &[RenderedHeading],
+    omit_leading_title: bool,
+) -> String {
+    let mut html = render_markdown_source_html(markdown);
+    if omit_leading_title
+        && let Some(rest) = html.strip_prefix("<h1>")
+        && let Some(end) = rest.find("</h1>")
+    {
+        html = rest[end + "</h1>".len()..]
+            .strip_prefix('\n')
+            .unwrap_or(&rest[end + "</h1>".len()..])
+            .to_string();
+    }
+
+    let rendered_headings = headings
+        .iter()
+        .enumerate()
+        .filter(|(index, heading)| !(omit_leading_title && *index == 0 && heading.level == 1))
+        .map(|(_, heading)| heading)
+        .collect::<Vec<_>>();
+    let mut output = String::with_capacity(html.len() + headings.len() * 24);
+    let mut cursor = 0;
+    let mut heading_index = 0;
+    while let Some(relative) = html[cursor..].find("<h") {
+        let start = cursor + relative;
+        output.push_str(&html[cursor..start]);
+        let tag = html.as_bytes().get(start + 2).copied();
+        let opening = html.as_bytes().get(start + 3).copied();
+        if matches!(tag, Some(b'1'..=b'6')) && opening == Some(b'>') {
+            if let Some(heading) = rendered_headings.get(heading_index) {
+                output.push_str(&format!(
+                    "<h{} id=\"{}\">",
+                    char::from(tag.unwrap_or_default()),
+                    heading.id
+                ));
+                heading_index += 1;
+                cursor = start + 4;
+                continue;
+            }
+        }
+        output.push_str("<h");
+        cursor = start + 2;
+    }
+    output.push_str(&html[cursor..]);
+    output
+}
+
 fn collect_document_resources(
     resources: &mut BTreeMap<String, StaticSiteResourceCandidate>,
     config_paths: &BTreeSet<&str>,
     source_path: &str,
     source_route: &str,
     document: &FormaMarkdownDocument,
+    root_path: &str,
 ) {
     for reference in &document.references {
         if !matches!(
@@ -786,7 +1193,9 @@ fn collect_document_resources(
         let Some(path) = normalized_resource_path(source_path, &reference.target) else {
             continue;
         };
-        let Some(candidate) = resource_candidate(&path, source_route, false, config_paths) else {
+        let Some(candidate) =
+            resource_candidate(&path, source_route, false, config_paths, root_path)
+        else {
             continue;
         };
         resources
@@ -804,19 +1213,16 @@ fn collect_document_resources(
 fn normalized_resource_path(source_path: &str, target: &str) -> Option<String> {
     let target = target.trim();
     if target.is_empty()
-        || target.starts_with('/')
         || target.starts_with('~')
         || target.starts_with('#')
         || target.starts_with("//")
-        || target.contains("://")
-        || target.starts_with("mailto:")
-        || target.starts_with("data:")
+        || is_external_target(target)
     {
         return None;
     }
     let end = target.find(['?', '#']).unwrap_or(target.len());
     let target = &target[..end];
-    let normalized = normalized_relative_target(source_path, target)?;
+    let normalized = normalized_static_target(source_path, target)?;
     WorkspacePath::parse_config(&normalized)
         .ok()
         .map(|path| path.as_str().to_string())
@@ -827,6 +1233,7 @@ fn resource_candidate(
     source_route: &str,
     workspace_presentation: bool,
     config_paths: &BTreeSet<&str>,
+    root_path: &str,
 ) -> Option<StaticSiteResourceCandidate> {
     if !resource_path_is_publishable(path, config_paths) {
         return None;
@@ -841,7 +1248,7 @@ fn resource_candidate(
     let encoded = encode_path(path);
     Some(StaticSiteResourceCandidate {
         path: path.to_string(),
-        public_path: format!("/raw/{encoded}"),
+        public_path: public_url(root_path, &format!("/raw/{encoded}")),
         output_path: format!("raw/{encoded}"),
         media_type: media_type.to_string(),
         referenced_by: if workspace_presentation {
@@ -1064,7 +1471,10 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{StaticSiteRouteKind, build_static_site_snapshot, collect_backlinks_by_target};
+    use super::{
+        StaticSiteRouteKind, build_static_site_snapshot, build_static_site_snapshot_with_root_path,
+        collect_backlinks_by_target,
+    };
     use crate::{
         OperationStatus, ReferenceIntent, ReferenceSource, ViewRenderOutput, WorkspaceSnapshot,
     };
@@ -1108,8 +1518,8 @@ mod tests {
             (StaticSiteRouteKind::Views, "/views", "views/index.html"),
             (
                 StaticSiteRouteKind::Taxonomies,
-                "/taxonomies",
-                "taxonomies/index.html",
+                "/browse",
+                "browse/index.html",
             ),
             (
                 StaticSiteRouteKind::Taxonomy,
@@ -1128,7 +1538,6 @@ mod tests {
         }
         assert!(!first_json.contains(root.to_string_lossy().as_ref()));
         assert!(!first_json.contains("LOCAL_ONLY_SENTINEL"));
-        assert!(!first_json.contains(".forma/"));
         assert!(!first_json.contains("runtime"));
         fs::remove_dir_all(root).unwrap();
     }
@@ -1148,9 +1557,13 @@ mod tests {
             .find(|entry| entry.path == "content/guides/related.md")
             .unwrap();
 
-        assert!(intro.markdown.contains("[Related](related.md)"));
-        assert!(intro.html.contains("<h2>Overview</h2>"));
-        assert_eq!(intro.headings[0].id, "overview");
+        assert!(
+            intro
+                .markdown
+                .contains("[Related](/pages/content/guides/related)")
+        );
+        assert!(intro.html.contains(r#"<h2 id="overview">Overview</h2>"#));
+        assert_eq!(intro.headings[1].id, "overview");
         assert_eq!(intro.outgoing.len(), 1);
         assert_eq!(intro.outgoing[0].target_path, "content/guides/related.md");
         assert_eq!(intro.outgoing[0].intent, ReferenceIntent::Link);
@@ -1177,6 +1590,7 @@ mod tests {
             .iter()
             .find(|view| view.id == "guide-graph")
             .unwrap();
+        assert_eq!(table.source_path, ".forma/views/guide-table.md");
         assert!(matches!(
             table.projection,
             Some(ViewRenderOutput::Table { ref items, .. }) if items.len() == 2
@@ -1195,6 +1609,99 @@ mod tests {
                 && diagnostic.route_path.as_deref() == Some("/pages/content/guides/intro")
                 && diagnostic.actual.as_deref() == Some("missing-guide")
         }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_rewrites_static_links_resources_and_duplicate_heading_ids() {
+        let root = copy_fixture("site-snapshot-static-links");
+        fs::write(
+            root.join("content/guides/intro.md"),
+            "---\ntitle: Intro\nsummary: Fixture introduction.\nstatus: published\n---\n\n# Intro\n\n## Repeat\n\n[Related](related.md#Details)\n[Deep](related.md#深入)\n\n## Repeat\n\n![Diagram](../../assets/diagram.svg)\n\n[External](https://example.test/a)\n[Mail](mailto:test@example.test)\n[Fragment](#Repeat)\n[Missing](missing.md)\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("content/guides/related.md"),
+            "---\ntitle: Related\nsummary: Related fixture guide.\nstatus: published\n---\n\n# Related\n\n## Details\n\n#### 深入\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/guide-table.md"),
+            "---\nschemaVersion: 1\nkind: view\nmode: table\ntitle: Guide Table\nsource:\n  type: pages\n  taxonomy:\n    spaces: [guides]\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n---\n\n# Guide Table\n\n[Related](../../content/guides/related.md#Details)\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let snapshot = build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
+        let intro = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/intro.md")
+            .unwrap();
+
+        assert_eq!(
+            intro
+                .headings
+                .iter()
+                .map(|heading| heading.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["intro", "repeat", "repeat-2"]
+        );
+        assert!(intro.html.contains(r#"<h2 id="repeat">Repeat</h2>"#));
+        assert!(intro.html.contains(r#"<h2 id="repeat-2">Repeat</h2>"#));
+        assert!(
+            intro
+                .markdown
+                .contains("[Related](/preview/pages/content/guides/related#details)")
+        );
+        assert!(!intro.markdown.contains("#details#Details"));
+        assert!(
+            intro
+                .markdown
+                .contains("[Deep](/preview/pages/content/guides/related#section)")
+        );
+        let related = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/related.md")
+            .unwrap();
+        assert!(related.html.contains(r#"<h4 id="section">深入</h4>"#));
+        assert!(
+            intro
+                .markdown
+                .contains("](/preview/raw/assets/diagram.svg)")
+        );
+        assert!(intro.markdown.contains("](https://example.test/a)"));
+        assert!(intro.markdown.contains("](mailto:test@example.test)"));
+        assert!(intro.markdown.contains("](#repeat)"), "{}", intro.markdown);
+        assert!(intro.markdown.contains("](missing.md)"));
+        assert_eq!(
+            snapshot.resources[0].public_path,
+            "/preview/raw/assets/diagram.svg"
+        );
+        let table = snapshot
+            .views
+            .iter()
+            .find(|view| view.id == "guide-table")
+            .unwrap();
+        assert!(
+            table
+                .html
+                .as_deref()
+                .unwrap()
+                .contains(r#"href="/preview/pages/content/guides/related#details""#)
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_rejects_unsafe_root_paths() {
+        let root = copy_fixture("site-snapshot-root-path");
+        for root_path in ["//evil.test", "/a//b", "/%2e%2e", "/a/", "/a b"] {
+            assert!(
+                build_static_site_snapshot_with_root_path(&root, root_path).is_err(),
+                "{root_path}"
+            );
+        }
         fs::remove_dir_all(root).unwrap();
     }
 
