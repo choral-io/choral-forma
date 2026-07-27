@@ -189,6 +189,18 @@ test("runs packaged VSIX smoke tests under a virtual display", () => {
     }
 });
 
+test("publishes the Marketplace VSIX only after release verification", () => {
+    const releaseWorkflow = workflows[1];
+    assert.match(
+        releaseWorkflow,
+        /verify-published-release:\n    name: Verify published release\n    needs: publish[\s\S]*?Verify published CLI and VSIX compatibility[\s\S]*?node scripts\/verify-release\.mjs/u,
+    );
+    assert.match(
+        releaseWorkflow,
+        /publish-vscode-marketplace:\n    name: Publish VS Code Marketplace extension\n    needs: verify-published-release/u,
+    );
+});
+
 test("publishes standalone editor-managed binaries alongside release archives", () => {
     const releaseWorkflow = workflows[1];
     const expectedRows = [
