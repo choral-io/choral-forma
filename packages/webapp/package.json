@@ -7,7 +7,7 @@
     "dev": "vite",
     "generate:link-icon-font": "node scripts/generate-link-icon-font.mjs",
     "lint": "eslint . --cache --cache-location node_modules/.tmp/.eslintcache",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && VITE_FORMA_WORKSPACE_CLIENT=static vite build --outDir dist-static",
     "check": "tsc --noEmit",
     "preview": "vite preview",
     "test:mermaid-worker-upgrade": "node scripts/mermaid-worker-upgrade-gate.mjs"

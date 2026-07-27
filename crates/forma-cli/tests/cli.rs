@@ -113,8 +113,113 @@ fn help_exposes_generic_commands_without_task_specific_helpers() {
     assert!(stdout.contains("list"));
     assert!(stdout.contains("inspect"));
     assert!(stdout.contains("reference"));
+    assert!(stdout.contains("site"));
     assert!(!stdout.contains("tasks"));
     assert!(!stdout.contains("board"));
+}
+
+#[test]
+fn site_build_writes_deterministic_static_data_without_mutating_sources() {
+    let root = fixture_root("site-build-artifact");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+    let entry = root.join("notes/static-site.md");
+    let source = "---\nkind: note\ntitle: Static Site\nsummary: Static artifact fixture.\n---\n\n# Static Site\n";
+    std::fs::write(&entry, source).unwrap();
+
+    let output = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--home",
+            "notes/static-site.md",
+            "--json",
+        ])
+        .output()
+        .expect("forma site build should run");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["operation"], "site.build");
+    assert_eq!(result["status"], "passed");
+    assert_eq!(result["counts"]["pages"], 1);
+    assert!(root.join("dist/site/index.html").is_file());
+    assert!(root.join("dist/site/data/dashboard.json").is_file());
+    assert!(
+        root.join("dist/site/data/entries/notes--static-site.json")
+            .is_file()
+    );
+    let dashboard = std::fs::read_to_string(root.join("dist/site/data/dashboard.json")).unwrap();
+    assert!(!dashboard.contains(root.to_string_lossy().as_ref()));
+    assert!(!dashboard.contains("/rpc"));
+    let index = std::fs::read_to_string(root.join("dist/site/index.html")).unwrap();
+    assert!(index.contains("__FORMA_STATIC_WORKSPACE__"));
+    assert!(index.contains(r#""dataBaseUrl":"/data""#));
+    assert_eq!(std::fs::read_to_string(&entry).unwrap(), source);
+
+    std::fs::write(root.join("dist/site/stale.txt"), "stale").unwrap();
+    let second = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--json",
+        ])
+        .output()
+        .expect("second forma site build should run");
+    assert!(
+        second.status.success(),
+        "{}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert!(!root.join("dist/site/stale.txt").exists());
+    assert_eq!(
+        std::fs::read_to_string(root.join("dist/site/data/dashboard.json")).unwrap(),
+        dashboard
+    );
+    assert_eq!(std::fs::read_to_string(&entry).unwrap(), source);
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn site_build_rejects_workspace_root_as_output() {
+    let root = fixture_root("site-build-unsafe-output");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+    let output = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            ".",
+            "--base-url",
+            "https://example.test",
+            "--json",
+        ])
+        .output()
+        .expect("forma site build should run");
+    assert!(!output.status.success());
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["diagnostics"][0]["code"], "site.buildFailed");
+    assert!(
+        result["diagnostics"][0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("workspace root")
+    );
+    assert!(root.join(FORMA_CONFIG_PATH).is_file());
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

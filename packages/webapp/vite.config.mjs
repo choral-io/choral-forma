@@ -4,9 +4,13 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 const formaRpcProxyTarget = process.env.FORMA_RPC_PROXY_TARGET;
+const workspaceClient = process.env.VITE_FORMA_WORKSPACE_CLIENT === "static" ? "static" : "rpc";
 
 export default defineConfig({
     base: "./",
+    define: {
+        __FORMA_WORKSPACE_CLIENT__: JSON.stringify(workspaceClient),
+    },
     resolve: {
         alias: {
             "@": fileURLToPath(new URL("./src", import.meta.url)),

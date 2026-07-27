@@ -22,7 +22,10 @@ use forma_rpc::{
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
 
+mod site;
+
 static WEBAPP_DIST: Dir<'_> = include_dir!("$OUT_DIR/webapp-dist");
+static STATIC_WEBAPP_DIST: Dir<'_> = include_dir!("$OUT_DIR/webapp-static-dist");
 
 #[derive(Debug, Clone)]
 struct AppState {
@@ -103,6 +106,10 @@ enum Command {
     Skills {
         #[command(subcommand)]
         command: SkillsCommand,
+    },
+    Site {
+        #[command(subcommand)]
+        command: SiteCommand,
     },
     /// Run the Forma language server over stdio.
     Lsp,
@@ -221,6 +228,22 @@ enum SkillsCommand {
         id: String,
         #[arg(long)]
         full: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum SiteCommand {
+    Build {
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long)]
+        base_url: String,
+        #[arg(long)]
+        home: Option<String>,
+        #[arg(long, default_value = "/")]
+        root_path: String,
         #[arg(long)]
         json: bool,
     },
@@ -427,6 +450,34 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 Ok(())
             }
         },
+        Some(Command::Site { command }) => match command {
+            SiteCommand::Build {
+                out,
+                base_url,
+                home,
+                root_path,
+                json,
+            } => {
+                let root_path = normalize_root_path(&root_path)?;
+                match site::build_site(
+                    &workspace,
+                    site::SiteBuildOptions {
+                        out,
+                        base_url,
+                        home,
+                        root_path,
+                    },
+                    &STATIC_WEBAPP_DIST,
+                ) {
+                    Ok(result) => print_site_build_result(&result, json),
+                    Err(error) => {
+                        print_site_build_failure(&error, json);
+                        std::process::exit(1);
+                    }
+                }
+                Ok(())
+            }
+        },
         Some(Command::Lsp) => Ok(forma_lsp::run(workspace)?),
         Some(Command::Serve {
             bind,
@@ -444,6 +495,58 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             )
             .await
         }
+    }
+}
+
+fn print_site_build_result(result: &site::SiteBuildResult, json: bool) {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string(result).expect("site result is serializable")
+        );
+        return;
+    }
+    let status = match result.status {
+        forma_core::OperationStatus::Passed => "passed",
+        forma_core::OperationStatus::Warning => "warning",
+        forma_core::OperationStatus::Failed => "failed",
+    };
+    println!("site build {status}");
+    println!("output {}", result.output);
+    println!("routes {}", result.counts.routes);
+    println!("assets {}", result.counts.assets);
+    for diagnostic in &result.diagnostics {
+        let diagnostic = forma_core::Diagnostic {
+            severity: diagnostic.severity,
+            code: diagnostic.code.clone(),
+            message: diagnostic.message.clone(),
+            path: diagnostic.path.clone(),
+            location: diagnostic.location.clone(),
+            actual: diagnostic.actual.clone(),
+            expected: diagnostic.expected.clone(),
+        };
+        print_diagnostic(&diagnostic);
+    }
+}
+
+fn print_site_build_failure(error: &str, json: bool) {
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "operation": "site.build",
+                "status": "failed",
+                "summary": { "errors": 1, "warnings": 0, "infos": 0 },
+                "diagnostics": [{
+                    "severity": "error",
+                    "code": "site.buildFailed",
+                    "message": error,
+                }],
+            })
+        );
+    } else {
+        eprintln!("error site.buildFailed: {error}");
     }
 }
 
