@@ -15,7 +15,7 @@ const [gitignore, packageJsonSource, pnpmWorkspace, workflow, wranglerSource] = 
 const packageJson = JSON.parse(packageJsonSource);
 const wrangler = JSON.parse(wranglerSource.replace(/,\s*([}\]])/gu, "$1"));
 
-test("configures an asset-only Cloudflare Worker without a production route", () => {
+test("configures an asset-only Cloudflare Worker with one production custom domain", () => {
     assert.equal(wrangler.name, "choral-forma-site");
     assert.equal(wrangler.compatibility_date, "2026-07-28");
     assert.equal(wrangler.workers_dev, true);
@@ -26,7 +26,12 @@ test("configures an asset-only Cloudflare Worker without a production route", ()
         html_handling: "drop-trailing-slash",
     });
     assert.equal("main" in wrangler, false);
-    assert.equal("routes" in wrangler, false);
+    assert.deepEqual(wrangler.routes, [
+        {
+            pattern: "forma.choral.io",
+            custom_domain: true,
+        },
+    ]);
     assert.equal("kv_namespaces" in wrangler, false);
     assert.equal("images" in wrangler, false);
 });
