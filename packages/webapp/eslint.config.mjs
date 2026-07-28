@@ -10,7 +10,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import ts from "typescript-eslint";
 
 export default defineConfig(
-    { ignores: ["dist", "node_modules", "*.config.mjs"] },
+    { ignores: ["dist", "dist-static", "node_modules", "*.config.mjs"] },
     {
         settings: {
             "better-tailwindcss": {

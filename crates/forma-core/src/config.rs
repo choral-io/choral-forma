@@ -370,7 +370,10 @@ pub fn load_workspace(
     let mut config_source_patterns = base_config_file.imports.clone();
     config_source_patterns.sort();
     config_source_patterns.dedup();
-    let imported_config_paths = included_markdown_config_paths(root, &base_config_file.imports);
+    let imported_config_paths = included_markdown_config_paths(root, &base_config_file.imports)
+        .into_iter()
+        .filter(|path| mode.includes_config_path(path))
+        .collect::<Vec<_>>();
     for public_path in &imported_config_paths {
         let mut local_value =
             read_markdown_frontmatter_value(&root.join(public_path), public_path)?;
@@ -660,7 +663,7 @@ fn set_config_value_display(value: &mut Value, display: &DisplayOptions) {
 
 pub fn config_source_paths(
     root: impl AsRef<Path>,
-    _mode: LoadMode,
+    mode: LoadMode,
 ) -> Result<Vec<ConfigSourcePath>, ConfigError> {
     let root = root.as_ref();
     let mut sources = vec![ConfigSourcePath {
@@ -669,7 +672,10 @@ pub fn config_source_paths(
     }];
     let config_file: ConfigFile =
         read_markdown_frontmatter(&root.join(FORMA_CONFIG_PATH), FORMA_CONFIG_PATH)?;
-    for path in included_markdown_config_paths(root, &config_file.imports) {
+    for path in included_markdown_config_paths(root, &config_file.imports)
+        .into_iter()
+        .filter(|path| mode.includes_config_path(path))
+    {
         sources.push(ConfigSourcePath {
             present: root.join(&path).exists(),
             path,
@@ -678,6 +684,13 @@ pub fn config_source_paths(
     sources.sort_by(|a, b| a.path.cmp(&b.path));
     sources.dedup_by(|a, b| a.path == b.path);
     Ok(sources)
+}
+
+impl LoadMode {
+    fn includes_config_path(self, path: &str) -> bool {
+        self == Self::WithLocalOverrides
+            || !(path == ".forma/local" || path.starts_with(".forma/local/"))
+    }
 }
 
 pub fn config_source_patterns(root: impl AsRef<Path>) -> Result<Vec<String>, ConfigError> {
@@ -1591,7 +1604,7 @@ mod tests {
     }
 
     #[test]
-    fn reports_duplicate_named_types_from_markdown_local_includes() {
+    fn reports_duplicate_named_types_from_markdown_local_overrides() {
         let root = fixture_root("duplicate-local-markdown-named-ref-types");
         write_root_config(
             &root,
@@ -1608,8 +1621,15 @@ mod tests {
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: People\ninclude:\n  - people/**/*.md\n---\n\n# People\n",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let shared = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
 
+        assert!(
+            !shared
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "config.type.duplicate")
+        );
         assert!(
             workspace
                 .diagnostics
@@ -1840,7 +1860,7 @@ mod tests {
     }
 
     #[test]
-    fn included_config_files_are_loaded_in_all_modes() {
+    fn local_override_config_is_loaded_only_in_effective_mode() {
         let root = fixture_root("included-config-files");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
@@ -1857,9 +1877,9 @@ mod tests {
         let shared = load_workspace(&root, LoadMode::SharedOnly).unwrap();
         let effective = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
 
-        assert_eq!(shared.config.workspace.timezone, "Europe/Paris");
+        assert_eq!(shared.config.workspace.timezone, "UTC");
         assert_eq!(effective.config.workspace.timezone, "Europe/Paris");
-        assert!(shared.config.runtime.values.contains_key("currentUserId"));
+        assert!(!shared.config.runtime.values.contains_key("currentUserId"));
         assert!(
             effective
                 .config
@@ -1919,7 +1939,7 @@ mod tests {
     }
 
     #[test]
-    fn included_local_named_files_are_not_special() {
+    fn shared_only_excludes_local_override_imports() {
         let root = fixture_root("local-name-not-special");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
@@ -1934,8 +1954,10 @@ mod tests {
         .unwrap();
 
         let shared = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let effective = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
 
-        assert_eq!(shared.config.workspace.timezone, "Europe/Paris");
+        assert_eq!(shared.config.workspace.timezone, "UTC");
+        assert_eq!(effective.config.workspace.timezone, "Europe/Paris");
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1960,8 +1982,14 @@ mod tests {
         let effective = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
         let sources = super::config_source_paths(&root, LoadMode::WithLocalOverrides).unwrap();
 
-        assert_eq!(shared.config.workspace.timezone, "Europe/Paris");
+        assert_eq!(shared.config.workspace.timezone, "UTC");
         assert_eq!(effective.config.workspace.timezone, "Europe/Paris");
+        assert!(
+            !super::config_source_paths(&root, LoadMode::SharedOnly)
+                .unwrap()
+                .iter()
+                .any(|source| source.path == ".forma/local/profile.md")
+        );
         assert!(
             sources
                 .iter()

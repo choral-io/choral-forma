@@ -79,6 +79,10 @@ The first selected task is guided modeling. External validation is a parallel gu
 - Separate editor and CLI release trains before a protocol/capability window is proven across two published releases.
 - Arbitrary migration plugins or executable workspace hooks.
 
+## Related Delivery Plans
+
+[[planning/forma-static-site-generation-plan]] defines a separate static-publishing and official-site dogfooding slice. It does not change the prioritized product-value gaps or select a delivery task until implementation is approved.
+
 ## Roadmap Review Rule
 
 Each task should update this roadmap only when its observed capability, dependency, or acceptance evidence changes. A completed design does not count as delivered product value until its implementation and validation evidence exist.

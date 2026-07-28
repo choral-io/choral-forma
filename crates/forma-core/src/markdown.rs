@@ -421,6 +421,36 @@ fn collect_markdown_structure(
     }
 }
 
+pub(crate) fn all_markdown_headings(body: &str) -> Vec<FormaHeading> {
+    let Ok(ast) = to_mdast(body, &ParseOptions::gfm()) else {
+        return Vec::new();
+    };
+    let mut headings = Vec::new();
+    collect_all_headings(&ast, &mut headings);
+    headings
+}
+
+fn collect_all_headings(node: &mdast::Node, headings: &mut Vec<FormaHeading>) {
+    if let mdast::Node::Heading(heading) = node {
+        let text = plain_text(&heading.children);
+        if !text.trim().is_empty() {
+            headings.push(FormaHeading {
+                level: heading.depth,
+                text,
+                span: heading
+                    .position
+                    .as_ref()
+                    .map(SourceSpan::from_markdown_position),
+            });
+        }
+    }
+    if let Some(children) = node.children() {
+        for child in children {
+            collect_all_headings(child, headings);
+        }
+    }
+}
+
 fn markdown_resource_span(
     body: &str,
     resource_span: Option<SourceSpan>,

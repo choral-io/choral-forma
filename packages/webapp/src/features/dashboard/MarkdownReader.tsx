@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import { useEffect, useRef, useState } from "react";
 
+import { isStaticRawHref, logicalHref, rootAwareHref } from "@/data/static-runtime";
 import type { DashboardEntry, DashboardEntryHeading } from "@/data/workspace-client";
 import type { MermaidRenderScope } from "@/lib/mermaid";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
@@ -15,6 +16,7 @@ import {
 
 export interface MarkdownReaderProps {
     currentPath: string;
+    currentRoutePath?: string;
     entries: DashboardEntry[];
     headings: DashboardEntryHeading[];
     markdown: string;
@@ -24,6 +26,7 @@ export interface MarkdownReaderProps {
 
 interface MarkdownRenderState {
     currentPath: string;
+    currentRoutePath?: string;
     entries: DashboardEntry[];
     error?: string;
     headings: DashboardEntryHeading[];
@@ -35,6 +38,7 @@ interface MarkdownRenderState {
 
 export function MarkdownReader({
     currentPath,
+    currentRoutePath,
     entries,
     headings,
     markdown,
@@ -46,6 +50,7 @@ export function MarkdownReader({
     const [retryKey, setRetryKey] = useState(0);
     const isCurrentRender =
         renderState?.currentPath === currentPath &&
+        renderState.currentRoutePath === currentRoutePath &&
         renderState.entries === entries &&
         renderState.headings === headings &&
         renderState.markdown === markdown &&
@@ -63,9 +68,17 @@ export function MarkdownReader({
 
                 setRenderState({
                     currentPath,
+                    currentRoutePath,
                     entries,
                     headings,
-                    html: postProcessMarkdownHtml(rendered, headings, currentPath, entries, omitLeadingTitle),
+                    html: postProcessMarkdownHtml(
+                        rendered,
+                        headings,
+                        currentPath,
+                        entries,
+                        omitLeadingTitle,
+                        currentRoutePath,
+                    ),
                     markdown,
                     omitLeadingTitle,
                     status: "ready",
@@ -76,6 +89,7 @@ export function MarkdownReader({
                 if (!cancelled) {
                     setRenderState({
                         currentPath,
+                        currentRoutePath,
                         entries,
                         error: error instanceof Error ? error.message : "Unknown rendering error",
                         headings,
@@ -90,7 +104,7 @@ export function MarkdownReader({
             cancelled = true;
             abortController.abort();
         };
-    }, [currentPath, entries, headings, markdown, mermaidScope, omitLeadingTitle, retryKey]);
+    }, [currentPath, currentRoutePath, entries, headings, markdown, mermaidScope, omitLeadingTitle, retryKey]);
 
     useEffect(() => {
         if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) return;
@@ -237,6 +251,7 @@ export function postProcessMarkdownHtml(
     currentPath: string,
     entries: DashboardEntry[],
     omitLeadingTitle: boolean,
+    currentRoutePath?: string,
 ) {
     const parser = new DOMParser();
     const document = parser.parseFromString(html, "text/html");
@@ -259,10 +274,10 @@ export function postProcessMarkdownHtml(
             continue;
         }
 
-        const resolvedLink = resolveReaderLink(href, currentPath, entries);
+        const resolvedLink = resolveReaderLink(logicalHref(href), currentPath, entries, currentRoutePath);
         anchor.classList.add("link");
         anchor.dataset.linkKind = resolvedLink.kind;
-        anchor.setAttribute("href", resolvedLink.href);
+        anchor.setAttribute("href", rootAwareHref(resolvedLink.href));
 
         if (resolvedLink.opensInNewTab) {
             anchor.setAttribute("target", "_blank");
@@ -276,12 +291,12 @@ export function postProcessMarkdownHtml(
 
     for (const image of document.body.querySelectorAll("img[src]")) {
         const source = image.getAttribute("src");
-        if (!source || isExternalHref(source) || source.startsWith("#") || source.startsWith("/raw/")) {
+        if (!source || isExternalHref(source) || source.startsWith("#") || isStaticRawHref(source)) {
             continue;
         }
 
         const targetPath = normalizeWorkspaceHref(source, currentPath, entries);
-        image.setAttribute("src", `/raw/${encodeURI(targetPath.path)}`);
+        image.setAttribute("src", rootAwareHref(`/raw/${encodeURI(targetPath.path)}`));
     }
 
     for (const table of document.body.querySelectorAll("table")) {

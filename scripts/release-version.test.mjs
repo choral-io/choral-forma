@@ -183,10 +183,40 @@ test("checks the Zed extension WebAssembly target in CI", () => {
     );
 });
 
+test("builds and retains the static-site artifact in CI without deployment", () => {
+    const ciWorkflow = workflows[0];
+    assert.match(
+        ciWorkflow,
+        /site:\n    name: Static site[\s\S]*?pnpm --filter @choral-forma\/webapp build\n          cargo build --locked --bin forma/u,
+    );
+    assert.match(
+        ciWorkflow,
+        /Check workspace and build static artifact[\s\S]*?"\$\{forma\}" config inspect --json[\s\S]*?"\$\{forma\}" check --json[\s\S]*?"\$\{forma\}" workspace health --json[\s\S]*?"\$\{forma\}" site build/u,
+    );
+    assert.match(
+        ciWorkflow,
+        /name: forma-static-site[\s\S]*?path: dist\/site[\s\S]*?if-no-files-found: error[\s\S]*?include-hidden-files: true/u,
+    );
+    assert.match(ciWorkflow, /\.forma-site-artifact/u);
+    assert.doesNotMatch(ciWorkflow, /deploy-pages|deploy|environment:|id-token:/u);
+});
+
 test("runs packaged VSIX smoke tests under a virtual display", () => {
     for (const workflow of workflows) {
         assert.match(workflow, /Smoke test packaged VSIX[\s\S]*?run: xvfb-run -a pnpm --filter forma smoke:vsix/u);
     }
+});
+
+test("publishes the Marketplace VSIX only after release verification", () => {
+    const releaseWorkflow = workflows[1];
+    assert.match(
+        releaseWorkflow,
+        /verify-published-release:\n    name: Verify published release\n    needs: publish[\s\S]*?Verify published CLI and VSIX compatibility[\s\S]*?node scripts\/verify-release\.mjs/u,
+    );
+    assert.match(
+        releaseWorkflow,
+        /publish-vscode-marketplace:\n    name: Publish VS Code Marketplace extension\n    needs: verify-published-release/u,
+    );
 });
 
 test("publishes standalone editor-managed binaries alongside release archives", () => {

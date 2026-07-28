@@ -8,14 +8,17 @@ use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
 use crate::config::{
-    DisplayOptions, LoadMode, WorkspaceConfig, config_source_paths, load_workspace,
+    DisplayOptions, FormaWorkspace, LoadMode, WorkspaceConfig, config_source_paths, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::index::{
-    IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource,
+    Discovery, IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource,
     discover_loaded_workspace,
 };
-use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax};
+use crate::markdown::{
+    FormaHeading, FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax,
+    all_markdown_headings,
+};
 use crate::operations::{
     OperationError, WorkspaceSummary, diagnostic_sort_key, diagnostics_for_workspace_path,
 };
@@ -798,6 +801,26 @@ pub fn render_view(
 ) -> Result<ViewRenderResult, OperationError> {
     let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
     let discovery = discover_loaded_workspace(&workspace);
+    render_view_from_loaded(&workspace, &discovery, view, params, true)
+}
+
+pub(crate) fn render_indexed_view_from_loaded(
+    workspace: &FormaWorkspace,
+    discovery: &Discovery,
+    view: &str,
+    params: BTreeMap<String, Value>,
+) -> Result<ViewRenderResult, OperationError> {
+    render_view_from_loaded(workspace, discovery, view, params, false)
+}
+
+fn render_view_from_loaded(
+    workspace: &FormaWorkspace,
+    discovery: &Discovery,
+    view: &str,
+    params: BTreeMap<String, Value>,
+    allow_unindexed: bool,
+) -> Result<ViewRenderResult, OperationError> {
+    let root = &workspace.root;
     let index_view = discovery.index.views.iter().find(|candidate| {
         candidate.id == view
             || candidate.path == view
@@ -806,17 +829,18 @@ pub fn render_view(
     });
     let view_path = if let Some(index_view) = index_view {
         index_view.path.clone()
+    } else if allow_unindexed {
+        included_view_config_path(root, view)?
     } else {
-        included_view_config_path(root.as_ref(), view)?
+        return Err(OperationError::ViewNotFound(view.to_string()));
     };
 
-    let mut diagnostics = discovery.diagnostics;
-    let source = fs::read_to_string(root.as_ref().join(&view_path)).map_err(|source| {
-        OperationError::Io {
+    let mut diagnostics = discovery.diagnostics.clone();
+    let source =
+        fs::read_to_string(root.join(&view_path)).map_err(|source| OperationError::Io {
             path: view_path.clone(),
             source,
-        }
-    })?;
+        })?;
     let document = FormaMarkdownDocument::parse(&source);
     diagnostics.extend(
         document
@@ -868,7 +892,7 @@ pub fn render_view(
     let render = view_definition.as_ref().and_then(|definition| {
         if definition_is_valid {
             render_view_definition(
-                root.as_ref(),
+                root,
                 definition,
                 &workspace.config,
                 &discovery.index.entries,
@@ -898,7 +922,7 @@ pub fn render_view(
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
-            name: workspace.config.workspace.name,
+            name: workspace.config.workspace.name.clone(),
             logo: None,
         },
         view: view_definition
@@ -1972,15 +1996,26 @@ fn value_at_path<'a>(value: &'a Value, field: &str) -> Option<&'a Value> {
     Some(current)
 }
 
-fn render_markdown_html(document: &FormaMarkdownDocument) -> String {
+pub(crate) fn render_markdown_html(document: &FormaMarkdownDocument) -> String {
     let markdown = markdown_with_reference_fallbacks(document);
-    to_html_with_options(&markdown, &Options::gfm()).expect("normal Markdown renders to HTML")
+    render_markdown_source_html(&markdown)
 }
 
-fn render_headings(document: &FormaMarkdownDocument) -> Vec<RenderedHeading> {
+pub(crate) fn render_markdown_source_html(markdown: &str) -> String {
+    to_html_with_options(markdown, &Options::gfm()).expect("normal Markdown renders to HTML")
+}
+
+pub(crate) fn render_headings(document: &FormaMarkdownDocument) -> Vec<RenderedHeading> {
+    rendered_headings(&document.headings)
+}
+
+pub(crate) fn render_all_headings(document: &FormaMarkdownDocument) -> Vec<RenderedHeading> {
+    rendered_headings(&all_markdown_headings(&document.body))
+}
+
+fn rendered_headings(headings: &[FormaHeading]) -> Vec<RenderedHeading> {
     let mut seen = BTreeMap::<String, usize>::new();
-    document
-        .headings
+    headings
         .iter()
         .map(|heading| {
             let base_id = slugify_heading(&heading.text);
@@ -2001,7 +2036,7 @@ fn render_headings(document: &FormaMarkdownDocument) -> Vec<RenderedHeading> {
         .collect()
 }
 
-fn slugify_heading(text: &str) -> String {
+pub(crate) fn slugify_heading(text: &str) -> String {
     let slug = text
         .trim()
         .to_ascii_lowercase()
@@ -2026,7 +2061,7 @@ fn slugify_heading(text: &str) -> String {
     }
 }
 
-fn markdown_with_reference_fallbacks(document: &FormaMarkdownDocument) -> String {
+pub(crate) fn markdown_with_reference_fallbacks(document: &FormaMarkdownDocument) -> String {
     let mut output = document.body.clone();
     let mut replacements = document
         .references

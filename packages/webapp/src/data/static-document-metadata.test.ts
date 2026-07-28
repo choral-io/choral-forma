@@ -1,0 +1,106 @@
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it } from "vitest";
+
+import { resolveStaticDocumentMetadata, syncStaticDocumentMetadata } from "./static-document-metadata";
+import type { WorkspaceDashboard } from "./workspace-client";
+
+const dashboard = {
+    workspaceName: "Forma",
+    entries: [
+        {
+            id: "notes--home",
+            path: "notes/home.md",
+            routePath: "/pages/notes/home",
+            title: "Home",
+            summary: "Home summary.",
+            variants: [],
+        },
+        {
+            id: "notes--encoded",
+            path: "notes/with space.md",
+            routePath: "/pages/notes/with%20space",
+            title: "Encoded",
+            summary: "Encoded summary.",
+            variants: [],
+        },
+    ],
+    taxonomies: [],
+    views: [
+        {
+            id: "notes",
+            title: "Notes",
+            description: "",
+            kind: "table",
+        },
+    ],
+} as unknown as WorkspaceDashboard;
+
+describe("static document metadata", () => {
+    afterEach(() => {
+        globalThis.__FORMA_STATIC_WORKSPACE__ = undefined;
+        document.head.innerHTML = "";
+    });
+
+    it("resolves homepage, encoded entry, and View metadata from local dashboard data", () => {
+        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+            baseUrl: "https://example.test",
+            dataBaseUrl: "/preview/data",
+            homeEntryId: "notes--home",
+            rootPath: "/preview",
+        };
+
+        expect(resolveStaticDocumentMetadata(dashboard, "/preview/")).toEqual({
+            canonicalPath: "/",
+            description: "Homepage for Forma, featuring Home.",
+            title: "Forma",
+        });
+        expect(resolveStaticDocumentMetadata(dashboard, "/preview/pages/notes/with%20space/")).toEqual({
+            canonicalPath: "/pages/notes/with%20space",
+            description: "Encoded summary.",
+            title: "Encoded",
+        });
+        expect(resolveStaticDocumentMetadata(dashboard, "/preview/views/notes")).toEqual({
+            canonicalPath: "/views/notes",
+            description: "table workspace View.",
+            title: "Notes",
+        });
+    });
+
+    it("synchronizes the static document head after client navigation", () => {
+        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+            baseUrl: "https://example.test",
+            dataBaseUrl: "/preview/data",
+            rootPath: "/preview",
+        };
+        document.head.innerHTML = `
+            <title>Forma</title>
+            <meta name="description" content="old">
+            <link rel="canonical" href="https://example.test/preview/">
+            <meta property="og:title" content="old">
+            <meta property="og:description" content="old">
+            <meta property="og:url" content="https://example.test/preview/">
+            <meta name="twitter:title" content="old">
+            <meta name="twitter:description" content="old">
+        `;
+
+        syncStaticDocumentMetadata(dashboard, "/preview/pages/notes/with%20space");
+
+        expect(document.title).toBe("Encoded · Forma");
+        expect(document.querySelector('meta[name="description"]')?.getAttribute("content")).toBe("Encoded summary.");
+        expect(document.querySelector('link[rel="canonical"]')?.getAttribute("href")).toBe(
+            "https://example.test/preview/pages/notes/with%20space",
+        );
+        expect(document.querySelector('meta[property="og:title"]')?.getAttribute("content")).toBe("Encoded · Forma");
+
+        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+            baseUrl: "https://example.test",
+            dataBaseUrl: "/data",
+            rootPath: "/",
+        };
+        syncStaticDocumentMetadata(dashboard, "//evil.example");
+        expect(document.querySelector('link[rel="canonical"]')?.getAttribute("href")).toBe(
+            "https://example.test//evil.example",
+        );
+    });
+});

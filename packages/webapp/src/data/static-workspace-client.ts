@@ -1,0 +1,443 @@
+import { formatRelativeDateTime } from "@/lib/date-time";
+
+import type {
+    DashboardDiagnostic,
+    DashboardEntry,
+    DashboardEntryHeading,
+    DashboardEntryLink,
+    DashboardHealth,
+    DashboardSpace,
+    DashboardTaxonomy,
+    DashboardView,
+    DashboardViewFieldValue,
+    DashboardViewProjection,
+    DashboardViewProjectionItem,
+    DashboardViewRender,
+    WorkspaceClient,
+    WorkspaceDashboard,
+    WorkspaceHealth,
+} from "./workspace-client";
+
+type StaticStatus = "passed" | "warning" | "failed";
+
+type StaticDiagnostic = DashboardDiagnostic & { routePath?: string };
+
+export interface StaticDashboardData {
+    schemaVersion: number;
+    generatorVersion: string;
+    status: StaticStatus;
+    workspace: {
+        name: string;
+        canonicalLanguage: string;
+        supportedLanguages: string[];
+        logo?: { publicPath: string; alt: string };
+    };
+    spaces: {
+        id: string;
+        title: string;
+        display?: DashboardSpace["display"];
+        description?: string;
+        entryIds: string[];
+    }[];
+    taxonomies: {
+        id: string;
+        title: string;
+        mode: string;
+        display?: DashboardTaxonomy["display"];
+        description?: string;
+        routePath: string;
+        terms: {
+            id: string;
+            title: string;
+            display?: DashboardTaxonomy["display"];
+            description?: string;
+            routePath: string;
+            entryIds: string[];
+        }[];
+    }[];
+    entries: StaticEntrySummary[];
+    views: StaticViewSummary[];
+    diagnostics: StaticDiagnostic[];
+    summary: { errors: number; warnings: number; infos: number };
+}
+
+interface StaticEntrySummary {
+    id: string;
+    path: string;
+    routePath: string;
+    space: string;
+    kind?: string;
+    title?: string;
+    omitLeadingTitle: boolean;
+    summary?: string;
+    status: StaticStatus;
+    variants: StaticEntryVariant[];
+    dataPath: string;
+}
+
+interface StaticEntryVariant {
+    id: string;
+    language: string;
+    path: string;
+    routePath: string;
+    kind?: string;
+    title?: string;
+    omitLeadingTitle: boolean;
+    summary?: string;
+    dataPath: string;
+}
+
+export interface StaticEntryData extends StaticEntrySummary {
+    markdown: string;
+    html: string;
+    headings: { id: string; level: number; text: string }[];
+    outgoing: StaticReferenceEdge[];
+    backlinks: StaticReferenceEdge[];
+    diagnostics?: StaticDiagnostic[];
+}
+
+export interface StaticEntryVariantData extends StaticEntryVariant {
+    markdown: string;
+    html: string;
+    headings: { id: string; level: number; text: string }[];
+}
+
+interface StaticReferenceEdge {
+    targetPath?: string;
+    targetRoutePath?: string;
+    targetEntryId?: string;
+    target?: string;
+    label?: string;
+    intent?: string;
+}
+
+interface StaticViewSummary {
+    id: string;
+    routePath: string;
+    mode: string;
+    title?: string;
+    display?: DashboardView["display"];
+    space?: string;
+    status: StaticStatus;
+    dataPath: string;
+}
+
+export interface StaticViewData extends StaticViewSummary {
+    sourcePath: string;
+    document?: {
+        bodySource: string;
+        mounts?: { startOffset: number; endOffset: number }[];
+    };
+    projection?: unknown;
+}
+
+type TableProjection = Extract<DashboardViewProjection, { kind: "table" }>;
+type KanbanProjection = Extract<DashboardViewProjection, { kind: "kanban" }>;
+type GraphProjection = Extract<DashboardViewProjection, { kind: "graph" }>;
+
+export class StaticWorkspaceClient implements WorkspaceClient {
+    #dashboard: WorkspaceDashboard | undefined;
+    private readonly dataBaseUrl: string;
+
+    constructor(dataBaseUrl: string) {
+        this.dataBaseUrl = dataBaseUrl;
+    }
+
+    async getDashboard(): Promise<WorkspaceDashboard> {
+        if (this.#dashboard) return this.#dashboard;
+        const data = await this.readJson<StaticDashboardData>("dashboard.json");
+        const entries = data.entries.map(mapEntrySummary);
+        const diagnostics = data.diagnostics;
+        const health: DashboardHealth = {
+            status: mapStatus(data.status),
+            diagnostics,
+            findings: [],
+        };
+
+        this.#dashboard = {
+            workspaceName: data.workspace.name,
+            workspaceLogo: data.workspace.logo
+                ? { url: data.workspace.logo.publicPath, alt: data.workspace.logo.alt }
+                : undefined,
+            tagline: "Markdown-backed workspace content.",
+            status: maxHealth(mapStatus(data.status), health.status),
+            spaces: data.spaces.map((space) => mapSpace(space, entries)),
+            taxonomies: data.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entries)),
+            entries,
+            diagnostics,
+            health,
+            views: data.views.map((view) => ({
+                id: view.id,
+                path: view.id,
+                title: view.title ?? view.id,
+                display: view.display,
+                description: "Configured workspace View.",
+                kind: mapViewKind(view.mode),
+                space: view.space,
+            })),
+        };
+        return this.#dashboard;
+    }
+
+    async getEntry(entryId: string): Promise<DashboardEntry> {
+        const dashboard = this.#dashboard ?? (await this.getDashboard());
+        const summary = dashboard.entries.find((entry) => entry.id === entryId);
+        if (summary) {
+            const data = await this.readJson<StaticEntryData>(`entries/${entryId}.json`);
+            return {
+                ...mapEntrySummary(data),
+                body: [
+                    {
+                        type: "markdown",
+                        markdown: data.markdown,
+                        outline: data.headings.filter(isDashboardHeading),
+                    },
+                ],
+                diagnostics: data.diagnostics ?? [],
+                relations: {
+                    outgoing: data.outgoing.map((edge) => mapReference(edge, dashboard.entries)),
+                    backlinks: data.backlinks.map((edge) => mapReference(edge, dashboard.entries)),
+                },
+            };
+        }
+        const canonical = dashboard.entries.find((entry) => entry.variants.some((variant) => variant.id === entryId));
+        const variant = canonical?.variants.find((variant) => variant.id === entryId);
+        if (!canonical || !variant) {
+            throw new Error(`Static artifact entry was not listed: ${entryId}`);
+        }
+        const data = await this.readJson<StaticEntryVariantData>(`entries/${entryId}.json`);
+        const title = data.title?.trim();
+        return {
+            ...canonical,
+            id: data.id,
+            kind: data.kind,
+            path: data.path,
+            routePath: data.routePath,
+            rawPath: data.path,
+            title: title === undefined || title === "" ? data.path : title,
+            omitLeadingTitle: data.omitLeadingTitle,
+            summary: data.summary ?? canonical.summary,
+            body: [
+                {
+                    type: "markdown",
+                    markdown: data.markdown,
+                    outline: data.headings.filter(isDashboardHeading),
+                },
+            ],
+            diagnostics: [],
+            relations: { outgoing: [], backlinks: [] },
+        };
+    }
+
+    async getViewRender(viewId: string): Promise<DashboardViewRender> {
+        const dashboard = this.#dashboard ?? (await this.getDashboard());
+        const summary = dashboard.views.find((view) => view.id === viewId);
+        if (!summary) {
+            throw new Error(`Static artifact View was not listed: ${viewId}`);
+        }
+        const data = await this.readJson<StaticViewData>(`views/${viewId}.json`);
+        return {
+            document: mapViewDocument(data, viewId),
+            projection: mapViewProjection(data.projection, dashboard.entries),
+        };
+    }
+
+    private async readJson<T>(relativePath: string): Promise<T> {
+        const path = `${this.dataBaseUrl.replace(/\/$/, "")}/${relativePath}`;
+        let response: Response;
+        try {
+            response = await fetch(path);
+        } catch (reason) {
+            throw new Error(`Static artifact data missing: ${path}`, { cause: reason });
+        }
+        if (!response.ok) {
+            throw new Error(`Static artifact data missing: ${path} (HTTP ${String(response.status)})`);
+        }
+        try {
+            return (await response.json()) as T;
+        } catch (reason) {
+            throw new Error(`Static artifact data is invalid: ${path}`, { cause: reason });
+        }
+    }
+}
+
+function mapEntrySummary(entry: StaticEntrySummary): DashboardEntry {
+    const title = entry.title?.trim();
+    return {
+        id: entry.id,
+        kind: entry.kind,
+        path: entry.path,
+        routePath: entry.routePath,
+        rawPath: entry.path,
+        title: title === "" ? entry.path : (title ?? entry.path),
+        omitLeadingTitle: entry.omitLeadingTitle,
+        summary: entry.summary ?? "No summary provided.",
+        space: entry.space,
+        updatedLabel: "",
+        status: mapStatus(entry.status),
+        variants: entry.variants.map((variant) => ({
+            id: variant.id,
+            language: variant.language,
+            path: variant.path,
+            routePath: variant.routePath,
+            rawPath: variant.path,
+            kind: variant.kind,
+            title: variant.title,
+            omitLeadingTitle: variant.omitLeadingTitle,
+            summary: variant.summary,
+        })),
+        body: [{ type: "paragraph", text: entry.summary ?? "No summary provided." }],
+        diagnostics: [],
+        relations: { outgoing: [], backlinks: [] },
+    };
+}
+
+function mapSpace(space: StaticDashboardData["spaces"][number], entries: DashboardEntry[]): DashboardSpace {
+    const matchingEntries = entries.filter((entry) => space.entryIds.includes(entry.id));
+    const updatedAt = matchingEntries.map((entry) => entry.updatedAt).find(Boolean);
+    return {
+        id: space.id,
+        title: space.title,
+        display: space.display,
+        description: space.description ?? "Configured workspace space.",
+        entryCount: space.entryIds.length,
+        path: space.id,
+        status: "healthy",
+        updatedAt,
+        updatedLabel: formatRelativeDateTime(updatedAt),
+    };
+}
+
+function mapTaxonomy(
+    taxonomy: StaticDashboardData["taxonomies"][number],
+    entries: DashboardEntry[],
+): DashboardTaxonomy {
+    return {
+        id: taxonomy.id,
+        title: taxonomy.title,
+        mode: taxonomy.mode,
+        display: taxonomy.display,
+        description: taxonomy.description ?? "Configured workspace classification.",
+        terms: taxonomy.terms.map((term) => ({
+            id: term.id,
+            title: term.title,
+            display: term.display,
+            description: term.description ?? "Configured classification term.",
+            entryCount: term.entryIds.length,
+            entries: entries.filter((entry) => term.entryIds.includes(entry.id)),
+            status: "healthy",
+        })),
+    };
+}
+
+function mapReference(edge: StaticReferenceEdge, entries: DashboardEntry[]): DashboardEntryLink {
+    const targetPath = edge.targetPath ?? edge.target ?? "";
+    const target = entries.find((entry) => entry.path === targetPath);
+    return {
+        kind: edge.targetRoutePath || target ? "internal" : "unresolved",
+        label: edge.label ?? targetPath,
+        targetEntryId: edge.targetEntryId ?? target?.id,
+        targetRoutePath: edge.targetRoutePath ?? target?.routePath,
+        targetPath,
+    };
+}
+
+function isDashboardHeading(heading: { id: string; level: number; text: string }): heading is DashboardEntryHeading {
+    return heading.level === 2 || heading.level === 3;
+}
+
+function mapViewDocument(data: StaticViewData, viewId: string): DashboardViewRender["document"] {
+    const source = data.document?.bodySource ?? "";
+    const mount = data.document?.mounts?.[0];
+    if (!mount) return { beforeProjection: source, afterProjection: "", path: data.sourcePath || viewId };
+    return {
+        beforeProjection: source.slice(0, mount.startOffset),
+        afterProjection: source.slice(mount.endOffset),
+        path: data.sourcePath || viewId,
+    };
+}
+
+function mapViewProjection(value: unknown, entries: DashboardEntry[]): DashboardViewProjection {
+    const projection = readProjection(value);
+    if (!projection) {
+        return { kind: "list", items: [] };
+    }
+    if (projection.kind === "list") {
+        const items = Array.isArray(projection.items) ? projection.items : [];
+        return { kind: "list", items: mapViewItems(items, entries) };
+    }
+    if (projection.kind === "table") {
+        const columns = Array.isArray(projection.columns) ? (projection.columns as TableProjection["columns"]) : [];
+        const items = Array.isArray(projection.items) ? projection.items : [];
+        return {
+            kind: "table",
+            columns,
+            items: mapViewItems(items, entries),
+        };
+    }
+    if (projection.kind === "kanban") {
+        const columns = (Array.isArray(projection.columns) ? projection.columns : []) as {
+            id: string;
+            label: string;
+            icon?: string;
+            items?: unknown[];
+        }[];
+        return {
+            kind: "kanban",
+            card: projection.card as KanbanProjection["card"],
+            columns: columns.map((column) => ({ ...column, items: mapViewItems(column.items ?? [], entries) })),
+        };
+    }
+    if (projection.kind === "graph") {
+        return {
+            kind: "graph",
+            nodes: Array.isArray(projection.nodes) ? (projection.nodes as GraphProjection["nodes"]) : [],
+            edges: Array.isArray(projection.edges) ? (projection.edges as GraphProjection["edges"]) : [],
+            legend: Array.isArray(projection.legend) ? (projection.legend as GraphProjection["legend"]) : [],
+        };
+    }
+    return { kind: "list", items: [] };
+}
+
+function readProjection(value: unknown): { kind?: string; [key: string]: unknown } | undefined {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return undefined;
+    }
+    return value as { kind?: string; [key: string]: unknown };
+}
+
+function mapViewItems(items: unknown[], entries: DashboardEntry[]): DashboardViewProjectionItem[] {
+    return items.map((item) => {
+        const value = item as { path: string; title?: string; fields?: Record<string, DashboardViewFieldValue> };
+        const entry = entries.find((candidate) => candidate.path === value.path);
+        const rawFields = value.fields ?? {};
+        return {
+            entryId: entry?.id,
+            routePath: entry?.routePath,
+            fields: Object.fromEntries(Object.entries(rawFields).map(([key, field]) => [key, formatField(field)])),
+            rawFields,
+            path: value.path,
+            title: value.title ?? entry?.title ?? value.path,
+        };
+    });
+}
+
+function formatField(field: DashboardViewFieldValue): string {
+    if (field.kind === "reference") return field.reference.title;
+    if (field.kind === "referenceList") return field.references.map((reference) => reference.title).join(", ");
+    return typeof field.value === "string" ? field.value : JSON.stringify(field.value);
+}
+
+function mapStatus(status: StaticStatus): WorkspaceHealth {
+    return status === "passed" ? "healthy" : status;
+}
+
+function maxHealth(left: WorkspaceHealth, right: WorkspaceHealth): WorkspaceHealth {
+    if (left === "failed" || right === "failed") return "failed";
+    if (left === "warning" || right === "warning") return "warning";
+    return "healthy";
+}
+
+function mapViewKind(kind: string): DashboardView["kind"] {
+    return kind === "table" || kind === "kanban" || kind === "graph" || kind === "list" ? kind : "list";
+}

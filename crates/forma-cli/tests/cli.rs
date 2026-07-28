@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{hash::Hash, hash::Hasher};
 
 use forma_core::FORMA_CONFIG_PATH;
 use serde_json::Value;
@@ -113,8 +114,511 @@ fn help_exposes_generic_commands_without_task_specific_helpers() {
     assert!(stdout.contains("list"));
     assert!(stdout.contains("inspect"));
     assert!(stdout.contains("reference"));
+    assert!(stdout.contains("site"));
     assert!(!stdout.contains("tasks"));
     assert!(!stdout.contains("board"));
+}
+
+#[test]
+fn site_build_writes_deterministic_static_data_without_mutating_sources() {
+    let root = fixture_root("site-build-artifact");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+    let entry = root.join("notes/static-site.md");
+    let source = "---\nkind: note\ntitle: Static Site\nsummary: Static artifact fixture.\n---\n\n# Static Site\n\nThe neutral homepage body is present.\n\n## Details\n\n![Diagram](../assets/diagram.svg)\n![Spaced Resource](<../assets/diagram space.svg>)\n![Unicode Resource](../assets/图.svg)\n![Percent Resource](../assets/100%.svg)\n\n[Spaced Page](<with space.md>)\n[Unicode Page](你好.md)\n[Percent Page](100%.md)\n";
+    std::fs::write(&entry, source).unwrap();
+    for (path, title) in [
+        ("notes/with space.md", "With Space"),
+        ("notes/你好.md", "Unicode"),
+        ("notes/100%.md", "Literal Percent"),
+    ] {
+        std::fs::write(
+            root.join(path),
+            format!("---\nkind: note\ntitle: {title}\nsummary: {title} route fixture.\n---\n\n# {title}\n"),
+        )
+        .unwrap();
+    }
+    std::fs::write(
+        root.join("notes/static-site.zh-hans.md"),
+        "---\nkind: note\ntitle: 静态站点\nsummary: 本地化静态页面。\n---\n\n# 静态站点\n\n本地化正文。\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("assets/diagram.svg"),
+        "<svg xmlns=\"http://www.w3.org/2000/svg\"><title>Fixture diagram</title></svg>",
+    )
+    .unwrap();
+    for path in [
+        "assets/diagram space.svg",
+        "assets/图.svg",
+        "assets/100%.svg",
+    ] {
+        std::fs::write(
+            root.join(path),
+            format!("<svg xmlns=\"http://www.w3.org/2000/svg\"><title>{path}</title></svg>"),
+        )
+        .unwrap();
+    }
+    std::fs::write(root.join("assets/decoy.svg"), "<svg/>").unwrap();
+
+    let output = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--home",
+            "notes/static-site.md",
+            "--root-path",
+            "/preview",
+            "--json",
+        ])
+        .output()
+        .expect("forma site build should run");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["operation"], "site.build");
+    assert_eq!(result["status"], "passed");
+    assert!(result["counts"]["pages"].as_u64().unwrap() > 10);
+    assert_eq!(result["counts"]["copiedResources"], 5);
+    assert!(root.join("dist/site/index.html").is_file());
+    assert!(
+        root.join("dist/site/pages/notes/static-site/index.html")
+            .is_file()
+    );
+    assert!(
+        root.join("dist/site/pages/notes/static-site.zh-hans/index.html")
+            .is_file()
+    );
+    assert!(root.join("dist/site/pages/index.html").is_file());
+    assert!(root.join("dist/site/views/index.html").is_file());
+    assert!(root.join("dist/site/views/notes/index.html").is_file());
+    assert!(root.join("dist/site/browse/index.html").is_file());
+    assert!(root.join("dist/site/spaces/notes/index.html").is_file());
+    assert!(root.join("dist/site/404.html").is_file());
+    assert!(root.join("dist/site/sitemap.xml").is_file());
+    assert!(root.join("dist/site/robots.txt").is_file());
+    assert!(root.join("dist/site/raw/assets/diagram.svg").is_file());
+    assert!(
+        root.join("dist/site/raw/assets/diagram space.svg")
+            .is_file()
+    );
+    assert!(root.join("dist/site/raw/assets/图.svg").is_file());
+    assert!(root.join("dist/site/raw/assets/100%.svg").is_file());
+    for path in [
+        "assets/diagram space.svg",
+        "assets/图.svg",
+        "assets/100%.svg",
+    ] {
+        assert_eq!(
+            std::fs::read(root.join(path)).unwrap(),
+            std::fs::read(root.join("dist/site/raw").join(path)).unwrap(),
+            "{path}"
+        );
+    }
+    assert!(
+        root.join("dist/site/pages/notes/with space/index.html")
+            .is_file()
+    );
+    assert!(root.join("dist/site/pages/notes/你好/index.html").is_file());
+    assert!(root.join("dist/site/pages/notes/100%/index.html").is_file());
+    assert!(root.join("dist/site/raw/assets/logo.svg").is_file());
+    assert!(!root.join("dist/site/raw/assets/decoy.svg").exists());
+    assert!(root.join("dist/site/data/dashboard.json").is_file());
+    assert!(
+        root.join("dist/site/data/entries/notes--static-site.json")
+            .is_file()
+    );
+    let dashboard = std::fs::read_to_string(root.join("dist/site/data/dashboard.json")).unwrap();
+    assert!(!dashboard.contains(root.to_string_lossy().as_ref()));
+    assert!(!dashboard.contains("/rpc"));
+    let index = std::fs::read_to_string(root.join("dist/site/index.html")).unwrap();
+    assert!(index.contains("__FORMA_STATIC_WORKSPACE__"));
+    assert!(index.contains(r#""dataBaseUrl":"/preview/data""#));
+    assert!(index.contains(r#""baseUrl":"https://example.test""#));
+    assert!(index.contains(r#""rootPath":"/preview""#));
+    assert!(index.contains("The neutral homepage body is present."));
+    assert!(index.contains(r#"href="https://example.test/preview/""#));
+    assert!(index.contains(r#"src="/preview/raw/assets/diagram.svg""#));
+    assert!(index.contains(r#"src="/preview/raw/assets/diagram%20space.svg""#));
+    assert!(index.contains(r#"src="/preview/raw/assets/%E5%9B%BE.svg""#));
+    assert!(index.contains(r#"src="/preview/raw/assets/100%25.svg""#));
+    assert!(index.contains(r#"href="/preview/pages/notes/with%20space""#));
+    assert!(index.contains(r#"href="/preview/pages/notes/%E4%BD%A0%E5%A5%BD""#));
+    assert!(index.contains(r#"href="/preview/pages/notes/100%25""#));
+    assert!(index.contains(r#"<html lang="en">"#));
+    let entry_html =
+        std::fs::read_to_string(root.join("dist/site/pages/notes/static-site/index.html")).unwrap();
+    assert!(entry_html.contains(r#"id="details""#));
+    assert!(entry_html.contains("The neutral homepage body is present."));
+    let variant_html =
+        std::fs::read_to_string(root.join("dist/site/pages/notes/static-site.zh-hans/index.html"))
+            .unwrap();
+    assert!(variant_html.contains("本地化正文"));
+    assert!(variant_html.contains(r#"<html lang="zh-Hans">"#));
+    let table_html =
+        std::fs::read_to_string(root.join("dist/site/views/notes/index.html")).unwrap();
+    assert!(table_html.contains("<table"));
+    let kanban_html =
+        std::fs::read_to_string(root.join("dist/site/views/tasks/index.html")).unwrap();
+    assert!(kanban_html.contains(r#"aria-label="View projection""#));
+    let graph_html =
+        std::fs::read_to_string(root.join("dist/site/views/graph/index.html")).unwrap();
+    assert!(graph_html.contains(">Nodes</h2>"));
+    let sitemap = std::fs::read_to_string(root.join("dist/site/sitemap.xml")).unwrap();
+    assert!(sitemap.contains("https://example.test/preview/pages/notes/static-site"));
+    assert!(sitemap.contains("https://example.test/preview/browse"));
+    let robots = std::fs::read_to_string(root.join("dist/site/robots.txt")).unwrap();
+    assert!(robots.contains("Sitemap: https://example.test/preview/sitemap.xml"));
+    let not_found = std::fs::read_to_string(root.join("dist/site/404.html")).unwrap();
+    assert!(not_found.contains(r#"name="robots" content="noindex, nofollow""#));
+    let artifact_files = collect_files(&root.join("dist/site"));
+    let html_count = artifact_files
+        .iter()
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "html")
+        })
+        .count();
+    assert_eq!(
+        html_count as u64,
+        result["counts"]["pages"].as_u64().unwrap()
+    );
+    let mut page_titles = std::collections::BTreeSet::new();
+    let mut page_descriptions = std::collections::BTreeSet::new();
+    let mut page_canonicals = std::collections::BTreeSet::new();
+    for path in &artifact_files {
+        let contents = std::fs::read(path).unwrap();
+        if let Ok(text) = std::str::from_utf8(&contents) {
+            assert!(
+                !text.contains(root.to_string_lossy().as_ref()),
+                "{}",
+                path.display()
+            );
+            assert!(!text.contains("LOCAL_ONLY_SENTINEL"), "{}", path.display());
+            assert!(!text.contains("/rpc"), "{}", path.display());
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "html")
+                && path.file_name().is_some_and(|name| name != "404.html")
+            {
+                let title = html_between(text, "<title>", "</title>").to_string();
+                let description =
+                    html_attribute(text, r#"<meta name="description" content=""#).to_string();
+                let canonical = html_attribute(text, r#"<link rel="canonical" href=""#).to_string();
+                assert!(
+                    page_titles.insert(title),
+                    "duplicate page title: {}",
+                    path.display()
+                );
+                assert!(
+                    page_descriptions.insert(description),
+                    "duplicate page description: {}",
+                    path.display()
+                );
+                assert!(
+                    page_canonicals.insert(canonical),
+                    "duplicate canonical URL: {}",
+                    path.display()
+                );
+            }
+        }
+    }
+    let first_digest = tree_digest(&root.join("dist/site"));
+    assert_eq!(std::fs::read_to_string(&entry).unwrap(), source);
+
+    std::fs::write(root.join("dist/site/stale.txt"), "stale").unwrap();
+    let second = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--home",
+            "notes/static-site.md",
+            "--root-path",
+            "/preview",
+            "--json",
+        ])
+        .output()
+        .expect("second forma site build should run");
+    assert!(
+        second.status.success(),
+        "{}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert!(!root.join("dist/site/stale.txt").exists());
+    assert_eq!(
+        std::fs::read_to_string(root.join("dist/site/data/dashboard.json")).unwrap(),
+        dashboard
+    );
+    assert_eq!(tree_digest(&root.join("dist/site")), first_digest);
+    assert_eq!(std::fs::read_to_string(&entry).unwrap(), source);
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn site_build_rejects_workspace_root_as_output() {
+    let root = fixture_root("site-build-unsafe-output");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+    let output = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            ".",
+            "--base-url",
+            "https://example.test",
+            "--json",
+        ])
+        .output()
+        .expect("forma site build should run");
+    assert!(!output.status.success());
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["diagnostics"][0]["code"], "site.buildFailed");
+    assert!(
+        result["diagnostics"][0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("workspace root")
+    );
+    assert!(root.join(FORMA_CONFIG_PATH).is_file());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn site_build_rejects_protected_or_unowned_output_directories() {
+    let root = fixture_root("site-build-protected-output");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+
+    let protected = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            ".forma/site",
+            "--base-url",
+            "https://example.test",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(!protected.status.success());
+    assert!(String::from_utf8_lossy(&protected.stdout).contains("protected workspace state"));
+
+    std::fs::create_dir_all(root.join("dist/site")).unwrap();
+    std::fs::write(root.join("dist/site/sentinel.txt"), "unowned").unwrap();
+    let unowned = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(!unowned.status.success());
+    assert!(String::from_utf8_lossy(&unowned.stdout).contains("not owned by Forma"));
+    assert_eq!(
+        std::fs::read_to_string(root.join("dist/site/sentinel.txt")).unwrap(),
+        "unowned"
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn site_build_rejects_an_existing_output_symlink_without_touching_its_referent() {
+    use std::os::unix::fs::symlink;
+
+    let root = fixture_root("site-build-output-symlink");
+    let referent = fixture_root("site-build-output-symlink-referent");
+    std::fs::create_dir_all(root.join("dist")).unwrap();
+    std::fs::create_dir_all(&referent).unwrap();
+    std::fs::write(referent.join("sentinel.txt"), "must survive").unwrap();
+    copy_starter_workspace(&root);
+    symlink(&referent, root.join("dist/site")).unwrap();
+
+    let output = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--json",
+        ])
+        .output()
+        .expect("forma site build should run");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("symbolic link"));
+    assert_eq!(
+        std::fs::read_to_string(referent.join("sentinel.txt")).unwrap(),
+        "must survive"
+    );
+
+    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(referent).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn site_build_rejects_a_parent_symlink_without_touching_the_referent() {
+    use std::os::unix::fs::symlink;
+
+    let root = fixture_root("site-build-parent-symlink");
+    let referent = fixture_root("site-build-parent-symlink-referent");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::create_dir_all(&referent).unwrap();
+    std::fs::write(referent.join("sentinel.txt"), "must survive").unwrap();
+    copy_starter_workspace(&root);
+    symlink(&referent, root.join("dist")).unwrap();
+
+    let output = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--json",
+        ])
+        .output()
+        .expect("forma site build should run");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("traverse a symbolic link"));
+    assert_eq!(
+        std::fs::read_to_string(referent.join("sentinel.txt")).unwrap(),
+        "must survive"
+    );
+
+    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(referent).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn site_build_rejects_unsafe_referenced_resources_and_preserves_prior_artifact() {
+    use std::os::unix::fs::symlink;
+
+    let root = fixture_root("site-resource-safety");
+    let outside = fixture_root("site-resource-safety-outside");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::create_dir_all(&outside).unwrap();
+    copy_starter_workspace(&root);
+    let entry = root.join("notes/resource.md");
+    std::fs::write(
+        root.join("assets/candidate.svg"),
+        "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
+    )
+    .unwrap();
+    std::fs::write(
+        &entry,
+        "---\ntitle: Resource\nsummary: Resource fixture.\n---\n\n# Resource\n\n![Candidate](../assets/candidate.svg)\n",
+    )
+    .unwrap();
+    let first = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let output_root = root.join("dist/site");
+    std::fs::write(output_root.join("sentinel.txt"), "prior artifact").unwrap();
+    let index_before = std::fs::read(output_root.join("index.html")).unwrap();
+
+    let assert_rejected = |target: &str| {
+        std::fs::write(
+            &entry,
+            format!(
+                "---\ntitle: Resource\nsummary: Resource fixture.\n---\n\n# Resource\n\n![Candidate]({target})\n"
+            ),
+        )
+        .unwrap();
+        let result = forma(&root)
+            .args([
+                "site",
+                "build",
+                "--out",
+                "dist/site",
+                "--base-url",
+                "https://example.test",
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            !result.status.success(),
+            "unsafe resource unexpectedly published: {target}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(output_root.join("sentinel.txt")).unwrap(),
+            "prior artifact"
+        );
+        assert_eq!(
+            std::fs::read(output_root.join("index.html")).unwrap(),
+            index_before
+        );
+        assert!(std::fs::read_dir(root.join("dist")).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".forma-site-")
+        }));
+    };
+
+    assert_rejected("../assets/missing.svg");
+
+    std::fs::create_dir(root.join("assets/directory.svg")).unwrap();
+    assert_rejected("../assets/directory.svg");
+
+    symlink(
+        root.join("assets/candidate.svg"),
+        root.join("assets/leaf.svg"),
+    )
+    .unwrap();
+    assert_rejected("../assets/leaf.svg");
+
+    std::fs::write(outside.join("outside.svg"), "<svg/>").unwrap();
+    symlink(&outside, root.join("linked-assets")).unwrap();
+    assert_rejected("../linked-assets/outside.svg");
+
+    let fifo = root.join("assets/pipe.svg");
+    let mkfifo = Command::new("mkfifo").arg(&fifo).status().unwrap();
+    assert!(mkfifo.success());
+    assert_rejected("../assets/pipe.svg");
+
+    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(outside).unwrap();
 }
 
 #[test]
@@ -364,6 +868,7 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(list_stdout.contains(r#""id":"workspace.configuration""#));
     assert!(list_stdout.contains(r#""id":"workspace.first-slice-config""#));
     assert!(list_stdout.contains(r#""id":"cli.view""#));
+    assert!(list_stdout.contains(r#""id":"cli.site""#));
     assert!(list_stdout.contains(r#""id":"agents.forma-cli-core""#));
     assert!(list_stdout.contains(r#""id":"agents.workspace-example-accelerator""#));
 
@@ -458,6 +963,24 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(agent_get_stdout.contains("# Workspace Example Accelerator"));
     assert!(agent_get_stdout.contains("explicitly asks"));
     assert!(agent_get_stdout.contains("copy`, `adapt`, or `skip"));
+
+    let site_get = forma(&root)
+        .args(["docs", "get", "cli.site"])
+        .output()
+        .expect("forma docs get should run for site build docs");
+
+    assert!(
+        site_get.status.success(),
+        "{}",
+        String::from_utf8_lossy(&site_get.stderr)
+    );
+    assert!(site_get.stderr.is_empty());
+    let site_get_stdout = String::from_utf8_lossy(&site_get.stdout);
+    assert!(site_get_stdout.contains("# forma site build"));
+    assert!(site_get_stdout.contains(".forma-site-artifact"));
+    assert!(site_get_stdout.contains("Trusted-Author Publication Boundary"));
+    assert!(site_get_stdout.contains("does not call Forma RPC"));
+    assert!(site_get_stdout.contains("named `local`"));
 
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -1447,4 +1970,45 @@ fn fixture_root(name: &str) -> std::path::PathBuf {
         .unwrap()
         .as_nanos();
     std::env::temp_dir().join(format!("forma-cli-{name}-{unique}"))
+}
+
+fn collect_files(root: &Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(directory) = pending.pop() {
+        for entry in std::fs::read_dir(directory).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.is_dir() {
+                pending.push(path);
+            } else {
+                files.push(path);
+            }
+        }
+    }
+    files.sort();
+    files
+}
+
+fn html_between<'a>(html: &'a str, start: &str, end: &str) -> &'a str {
+    let value = html.split_once(start).unwrap().1;
+    value.split_once(end).unwrap().0
+}
+
+fn html_attribute<'a>(html: &'a str, prefix: &str) -> &'a str {
+    html.split_once(prefix)
+        .unwrap()
+        .1
+        .split_once('"')
+        .unwrap()
+        .0
+}
+
+fn tree_digest(root: &Path) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for path in collect_files(root) {
+        path.strip_prefix(root).unwrap().hash(&mut hasher);
+        std::fs::read(path).unwrap().hash(&mut hasher);
+    }
+    hasher.finish()
 }

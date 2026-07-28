@@ -18,6 +18,17 @@ export function normalizeWorkspaceHref(href: string, currentPath: string, entrie
         };
     }
 
+    if (!directPath.includes("/")) {
+        const basenameMatches = entries.filter((entry) => entry.path.split("/").at(-1) === directPath);
+        const [basenameMatch] = basenameMatches;
+        if (basenameMatch && basenameMatches.length === 1) {
+            return {
+                hash,
+                path: basenameMatch.path,
+            };
+        }
+    }
+
     const pathSegments = pathPart.startsWith("/") ? [] : currentPath.split("/").slice(0, -1);
 
     for (const segment of pathPart.split("/")) {

@@ -22,7 +22,11 @@ use forma_rpc::{
 use include_dir::{Dir, include_dir};
 use serde_yml::Value;
 
+mod site;
+mod static_html;
+
 static WEBAPP_DIST: Dir<'_> = include_dir!("$OUT_DIR/webapp-dist");
+static STATIC_WEBAPP_DIST: Dir<'_> = include_dir!("$OUT_DIR/webapp-static-dist");
 
 #[derive(Debug, Clone)]
 struct AppState {
@@ -103,6 +107,10 @@ enum Command {
     Skills {
         #[command(subcommand)]
         command: SkillsCommand,
+    },
+    Site {
+        #[command(subcommand)]
+        command: SiteCommand,
     },
     /// Run the Forma language server over stdio.
     Lsp,
@@ -221,6 +229,22 @@ enum SkillsCommand {
         id: String,
         #[arg(long)]
         full: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum SiteCommand {
+    Build {
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long)]
+        base_url: String,
+        #[arg(long)]
+        home: Option<String>,
+        #[arg(long, default_value = "/")]
+        root_path: String,
         #[arg(long)]
         json: bool,
     },
@@ -427,6 +451,34 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 Ok(())
             }
         },
+        Some(Command::Site { command }) => match command {
+            SiteCommand::Build {
+                out,
+                base_url,
+                home,
+                root_path,
+                json,
+            } => {
+                let root_path = normalize_root_path(&root_path)?;
+                match site::build_site(
+                    &workspace,
+                    site::SiteBuildOptions {
+                        out,
+                        base_url,
+                        home,
+                        root_path,
+                    },
+                    &STATIC_WEBAPP_DIST,
+                ) {
+                    Ok(result) => print_site_build_result(&result, json),
+                    Err(error) => {
+                        print_site_build_failure(&error, json);
+                        std::process::exit(1);
+                    }
+                }
+                Ok(())
+            }
+        },
         Some(Command::Lsp) => Ok(forma_lsp::run(workspace)?),
         Some(Command::Serve {
             bind,
@@ -444,6 +496,58 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             )
             .await
         }
+    }
+}
+
+fn print_site_build_result(result: &site::SiteBuildResult, json: bool) {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string(result).expect("site result is serializable")
+        );
+        return;
+    }
+    let status = match result.status {
+        forma_core::OperationStatus::Passed => "passed",
+        forma_core::OperationStatus::Warning => "warning",
+        forma_core::OperationStatus::Failed => "failed",
+    };
+    println!("site build {status}");
+    println!("output {}", result.output);
+    println!("routes {}", result.counts.routes);
+    println!("assets {}", result.counts.assets);
+    for diagnostic in &result.diagnostics {
+        let diagnostic = forma_core::Diagnostic {
+            severity: diagnostic.severity,
+            code: diagnostic.code.clone(),
+            message: diagnostic.message.clone(),
+            path: diagnostic.path.clone(),
+            location: diagnostic.location.clone(),
+            actual: diagnostic.actual.clone(),
+            expected: diagnostic.expected.clone(),
+        };
+        print_diagnostic(&diagnostic);
+    }
+}
+
+fn print_site_build_failure(error: &str, json: bool) {
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "operation": "site.build",
+                "status": "failed",
+                "summary": { "errors": 1, "warnings": 0, "infos": 0 },
+                "diagnostics": [{
+                    "severity": "error",
+                    "code": "site.buildFailed",
+                    "message": error,
+                }],
+            })
+        );
+    } else {
+        eprintln!("error site.buildFailed: {error}");
     }
 }
 
@@ -1057,14 +1161,21 @@ fn normalize_root_path(value: &str) -> Result<String, Box<dyn std::error::Error>
     if !value.starts_with('/') {
         return Err("root path must start with `/`".into());
     }
-    if value.contains('?') || value.contains('#') {
-        return Err("root path must not include a query string or fragment".into());
-    }
     let normalized = value.trim_end_matches('/');
     if normalized.is_empty() {
         return Ok("/".to_string());
     }
-    if safe_asset_path(normalized.trim_start_matches('/')).is_none() {
+    if normalized.starts_with("//")
+        || normalized.contains("//")
+        || normalized.split('/').skip(1).any(|segment| {
+            segment.is_empty()
+                || segment == "."
+                || segment == ".."
+                || !segment.bytes().all(|byte| {
+                    byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~')
+                })
+        })
+    {
         return Err("root path must be a safe absolute URL path".into());
     }
     Ok(normalized.to_string())
@@ -1141,10 +1252,29 @@ mod tests {
     use tower::ServiceExt;
 
     use super::{
-        inject_base_href, rpc_router, rpc_router_with_dispatcher,
+        inject_base_href, normalize_root_path, rpc_router, rpc_router_with_dispatcher,
         rpc_router_with_dispatcher_and_workspace, rpc_router_with_options,
         rpc_router_with_options_and_root_path, should_serve_spa_index,
     };
+
+    #[test]
+    fn root_path_accepts_only_normalized_url_segments() {
+        assert_eq!(normalize_root_path("").unwrap(), "/");
+        assert_eq!(normalize_root_path("/preview").unwrap(), "/preview");
+        assert_eq!(normalize_root_path("/docs/v1/").unwrap(), "/docs/v1");
+        for invalid in [
+            "preview",
+            "//evil.test",
+            "/a//b",
+            "/a/../b",
+            "/%2e%2e",
+            "/a b",
+            "/a\\b",
+            "/a\nb",
+        ] {
+            assert!(normalize_root_path(invalid).is_err(), "{invalid}");
+        }
+    }
 
     #[test]
     fn spa_index_supports_direct_taxonomy_and_term_routes() {

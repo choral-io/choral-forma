@@ -12,3 +12,7 @@ export function taxonomyRoutePath(taxonomyId: string) {
 export function taxonomyTermRoutePath(taxonomyId: string, termId: string) {
     return `${taxonomyRoutePath(taxonomyId)}/${encodeURIComponent(termId)}`;
 }
+
+export function legacyWorkspaceRouteRedirect(pathname: string) {
+    return pathname.replace(/\/+$/u, "") === "/taxonomies" ? "/browse" : undefined;
+}

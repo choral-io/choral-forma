@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "./workspace-routes";
+import {
+    legacyWorkspaceRouteRedirect,
+    taxonomyRoutePath,
+    taxonomyTermRoutePath,
+    viewRoutePath,
+} from "./workspace-routes";
 
 describe("workspace route paths", () => {
     it("keeps configured view path segments while encoding each segment", () => {
@@ -10,5 +15,11 @@ describe("workspace route paths", () => {
     it("encodes configured taxonomy and term identifiers", () => {
         expect(taxonomyRoutePath("work areas")).toBe("/work%20areas");
         expect(taxonomyTermRoutePath("work areas", "release/readiness")).toBe("/work%20areas/release%2Freadiness");
+    });
+
+    it("redirects the legacy taxonomies route to browse", () => {
+        expect(legacyWorkspaceRouteRedirect("/taxonomies")).toBe("/browse");
+        expect(legacyWorkspaceRouteRedirect("/taxonomies/")).toBe("/browse");
+        expect(legacyWorkspaceRouteRedirect("/browse")).toBeUndefined();
     });
 });

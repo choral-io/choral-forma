@@ -20,6 +20,7 @@ export interface DashboardEntry {
 }
 
 export interface DashboardEntryVariant {
+    id?: string;
     language: string;
     path: string;
     routePath: string;
