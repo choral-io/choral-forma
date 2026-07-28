@@ -455,7 +455,7 @@ Exit criteria:
 - source, installation, release, product, and documentation paths are discoverable from the homepage;
 - no duplicate site-only product copy becomes a competing source of truth.
 
-### Phase 5: Cloudflare Deployment Path Ready; Production Publication Pending
+### Phase 5: Cloudflare Production Publication Complete
 
 Completed CI artifact work:
 
@@ -468,17 +468,25 @@ Completed deployment-path work:
 - Cloudflare Workers Static Assets is the selected host for the official site;
 - the repository pins Wrangler and declares an asset-only Worker whose input is `dist/site`;
 - the Worker drops trailing slashes to match Forma-generated links, sitemap locations, and canonical URLs;
-- the Worker config deliberately has no server entrypoint, runtime binding, or production route;
+- the Worker config deliberately has no server entrypoint or runtime binding and declares `forma.choral.io` as its only Custom Domain;
 - an independent `workflow_dispatch` workflow requires a successful main-branch CI run ID and its full source commit SHA;
 - the deployment workflow validates the CI run, checks out that exact commit, downloads the same `forma-static-site` artifact, and uses the `forma.choral.io` GitHub Environment as the approval boundary;
 - production credentials remain GitHub Environment secrets and are not present in repository files.
 
-Remaining separately approved production work:
+Completed production evidence:
 
-- create and protect the `forma.choral.io` GitHub Environment and add scoped `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` secrets;
-- approve whether the `forma.choral.io` custom-domain binding is managed in Cloudflare or added later as a reviewed Wrangler route;
-- manually run the deployment workflow for a successful reviewed main-branch CI run;
-- verify the production URL and representative routes from the same commit;
+- source commit `cf6bd1575d95b623c609a35deba9f922896e4171` was rebuilt with 209 routes, 211 pages, and zero warnings;
+- the first Worker deployment produced version `6d574412-51ce-475c-86de-73c89b922c1b` and passed repeated `workers.dev` route probes;
+- the Custom Domain deployment produced version `56128d56-3828-4d6c-b998-688657c7c3ee`;
+- the Workers Domains API confirmed `forma.choral.io` is attached to `choral-forma-site` in production with an issued certificate;
+- Cloudflare authoritative DNS returned public IPv4 and IPv6 records for `forma.choral.io`;
+- direct production probes passed for the homepage, Browse, Pages, Views, a representative entry, `sitemap.xml`, `robots.txt`, custom 404 behavior, TLS, and trailing-slash normalization.
+
+Remaining deployment-automation work:
+
+- create and protect the `forma.choral.io` GitHub Environment;
+- add scoped `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` Environment secrets with Workers Scripts and Workers Routes edit access;
+- run the manual deployment workflow from a successful reviewed main-branch CI artifact;
 - keep release publication and site deployment as separate gates unless a later decision intentionally couples them.
 
 Exit criteria:
@@ -699,17 +707,16 @@ The existing client-side Quick Open can provide initial search over the static d
 - Focused tests and the full required local repository gate passed.
 - The CI workflow performs a clean-checkout build, verification probes, deterministic digest reporting, and artifact upload without deploying.
 - The Cloudflare config is asset-only, and the manual deployment workflow accepts only the named artifact from a successful main-branch CI run at the recorded commit.
+- `forma.choral.io` is attached to `choral-forma-site` as a Cloudflare Custom Domain and passed production route, TLS, 404, and canonical-URL probes.
 - Product documentation explains the command, hosting model, static HTML behavior, publication boundary, and enhancement boundary.
 - Remaining limitations are explicit rather than hidden incomplete work.
 
-### Remaining Integration And Production Gates
+### Remaining Integration And Automation Gates
 
 - Push the branch, open and review a pull request, and merge through the normal repository workflow.
 - Confirm the hosted CI workflow passes on the exact reviewed commit.
 - Configure the protected GitHub Environment and scoped Cloudflare credentials without coupling site deployment to the Forma binary release process.
-- Approve and apply the `forma.choral.io` custom-domain and DNS changes separately.
-- Deploy the recorded artifact and verify `forma.choral.io`, representative deep routes, `sitemap.xml`, `robots.txt`, `404.html`, metadata, referenced assets, and source-commit evidence.
-- Record production validation in durable release or deployment evidence.
+- Exercise the manual deployment workflow using the reviewed CI artifact and verify that its recorded commit matches production.
 
 Exact token, cost, and active-minute telemetry was not available to the coordinator, so this record does not fabricate an exact AI Coding duration. The implementation completed within the planned AI-assisted delivery approach; future runs should capture tool-provided usage telemetry when a precise cost comparison is required.
 
