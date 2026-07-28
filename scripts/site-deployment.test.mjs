@@ -18,8 +18,8 @@ const wrangler = JSON.parse(wranglerSource.replace(/,\s*([}\]])/gu, "$1"));
 test("configures an asset-only Cloudflare Worker with one production custom domain", () => {
     assert.equal(wrangler.name, "choral-forma-site");
     assert.equal(wrangler.compatibility_date, "2026-07-28");
-    assert.equal(wrangler.workers_dev, true);
-    assert.equal(wrangler.preview_urls, true);
+    assert.equal(wrangler.workers_dev, false);
+    assert.equal(wrangler.preview_urls, false);
     assert.deepEqual(wrangler.assets, {
         directory: "./dist/site",
         not_found_handling: "404-page",

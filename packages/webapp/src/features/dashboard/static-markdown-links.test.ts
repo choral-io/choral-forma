@@ -2,21 +2,22 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { clearStaticRuntimeConfig, setStaticRuntimeConfig } from "@/data/static-runtime.test-support";
 import type { DashboardEntry } from "@/data/workspace-client";
 
 import { postProcessMarkdownHtml } from "./MarkdownReader";
 
 describe("static Markdown root paths", () => {
     afterEach(() => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = undefined;
+        clearStaticRuntimeConfig();
     });
 
     it("keeps generated routes and raw resources under the configured root", () => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+        setStaticRuntimeConfig({
             baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             rootPath: "/preview",
-        };
+        });
         const entries = [
             {
                 path: "notes/two.md",
@@ -43,11 +44,11 @@ describe("static Markdown root paths", () => {
     });
 
     it("keeps a homepage entry fragment on the displayed homepage route", () => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+        setStaticRuntimeConfig({
             baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             rootPath: "/preview",
-        };
+        });
         const entries = [
             {
                 path: "notes/home.md",

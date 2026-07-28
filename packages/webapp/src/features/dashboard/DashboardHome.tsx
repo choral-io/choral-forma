@@ -873,37 +873,41 @@ function EntryPage({
                                     omitLeadingTitle={entry.omitLeadingTitle}
                                     outline={outline}
                                 />
-                                <section
-                                    className="border-base-300 scroll-m-8 border-t pt-8 group-has-data-reader-loading/entry:hidden"
+                                <details
+                                    className="collapse-arrow border-base-300 collapse scroll-m-8 border-t group-has-data-reader-loading/entry:hidden"
                                     id="document-details"
                                 >
-                                    <div>
-                                        <h2 className="text-lg font-semibold">Document details</h2>
-                                        <p className="text-base-content/60 mt-1 text-sm/6">
+                                    <summary className="collapse-title min-h-0 px-0 py-8">
+                                        <span aria-level={2} className="block text-lg font-semibold" role="heading">
+                                            Document details
+                                        </span>
+                                        <span className="text-base-content/60 mt-1 block text-sm/6">
                                             References and checks associated with this entry.
-                                        </p>
+                                        </span>
+                                    </summary>
+                                    <div className="collapse-content px-0 pb-8">
+                                        <div className="flex flex-col gap-8">
+                                            <EntryReferencesSection entry={entry} />
+                                            {diagnostics.length > 0 ? (
+                                                <DiagnosticsPanel
+                                                    description="Page-level checks from the current read model."
+                                                    diagnostics={diagnostics}
+                                                    emptyLabel="No page diagnostics found."
+                                                    title="Diagnostics"
+                                                />
+                                            ) : null}
+                                        </div>
+                                        <div className={cn("mt-8 flex justify-end", hasOutline && "xl:hidden")}>
+                                            <a
+                                                className="btn btn-ghost btn-sm"
+                                                href={rootAwareHref(`${routePath}#entry-top`)}
+                                            >
+                                                <ArrowUp aria-hidden="true" className="size-4" />
+                                                Back to top
+                                            </a>
+                                        </div>
                                     </div>
-                                    <div className="mt-6 flex flex-col gap-8">
-                                        <EntryReferencesSection entry={entry} />
-                                        {diagnostics.length > 0 ? (
-                                            <DiagnosticsPanel
-                                                description="Page-level checks from the current read model."
-                                                diagnostics={diagnostics}
-                                                emptyLabel="No page diagnostics found."
-                                                title="Diagnostics"
-                                            />
-                                        ) : null}
-                                    </div>
-                                    <div className={cn("mt-8 flex justify-end", hasOutline && "xl:hidden")}>
-                                        <a
-                                            className="btn btn-ghost btn-sm"
-                                            href={rootAwareHref(`${routePath}#entry-top`)}
-                                        >
-                                            <ArrowUp aria-hidden="true" className="size-4" />
-                                            Back to top
-                                        </a>
-                                    </div>
-                                </section>
+                                </details>
                             </>
                         )}
                     </div>

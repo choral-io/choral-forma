@@ -162,6 +162,60 @@ describe("StaticWorkspaceClient", () => {
         });
     });
 
+    it("keeps an empty Kanban list field empty instead of rendering JSON brackets", async () => {
+        const kanbanView = { ...dashboard.views[0], mode: "kanban" };
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((path: string) => {
+                if (path === "/data/dashboard.json") return json({ ...dashboard, views: [kanbanView] });
+                if (path === "/data/views/notes.json") {
+                    return json({
+                        ...kanbanView,
+                        document: { bodySource: "" },
+                        projection: {
+                            kind: "kanban",
+                            card: {
+                                titleField: "fields.title",
+                                subtitleFields: ["fields.assignees"],
+                                badgeFields: [],
+                            },
+                            columns: [
+                                {
+                                    id: "backlog",
+                                    label: "Backlog",
+                                    items: [
+                                        {
+                                            path: "notes/one.md",
+                                            title: "One",
+                                            fields: {
+                                                "fields.assignees": { kind: "value", value: [] },
+                                                "fields.empty": { kind: "value", value: null },
+                                                "fields.labels": { kind: "value", value: ["static", "site"] },
+                                                "fields.title": { kind: "value", value: "One" },
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    });
+                }
+                return new Response(null, { status: 404 });
+            }),
+        );
+        const client = new StaticWorkspaceClient("/data");
+
+        const render = await client.getViewRender("notes");
+        if (render.projection.kind !== "kanban") throw new Error("expected Kanban projection");
+        const firstColumn = render.projection.columns[0];
+        const firstItem = firstColumn?.items[0];
+        if (!firstItem) throw new Error("expected Kanban card");
+        const fields = firstItem.fields;
+        expect(fields["fields.assignees"]).toBe("");
+        expect(fields["fields.empty"]).toBe("");
+        expect(fields["fields.labels"]).toBe("static, site");
+    });
+
     it("uses the entry path when a static entry title is blank", async () => {
         const blankTitleEntry = { ...dashboard.entries[0], title: "   " };
         const blankTitleDashboard = { ...dashboard, entries: [blankTitleEntry] };

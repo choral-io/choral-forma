@@ -1,0 +1,10 @@
+[
+  { "value": null, "display": "" },
+  { "value": "Galen", "display": "Galen" },
+  { "value": true, "display": "true" },
+  { "value": 12, "display": "12" },
+  { "value": [], "display": "" },
+  { "value": ["Galen", "Alice"], "display": "Galen, Alice" },
+  { "value": ["Galen", [], null, true, 3], "display": "Galen, true, 3" },
+  { "value": { "role": "editor" }, "display": "{\"role\":\"editor\"}" }
+]

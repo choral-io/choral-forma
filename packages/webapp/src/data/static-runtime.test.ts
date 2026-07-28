@@ -1,19 +1,45 @@
+// @vitest-environment jsdom
+
 import { afterEach, describe, expect, it } from "vitest";
 
-import { isStaticRawHref, logicalHref, logicalPathname, rootAwareHref, staticRouterBasename } from "./static-runtime";
+import {
+    isStaticRawHref,
+    logicalHref,
+    logicalPathname,
+    parseStaticRuntimeConfig,
+    readStaticRuntimeConfig,
+    rootAwareHref,
+    staticRouterBasename,
+} from "./static-runtime";
+import { clearStaticRuntimeConfig, setStaticRuntimeConfig } from "./static-runtime.test-support";
 
 describe("static runtime URL helpers", () => {
     afterEach(() => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = undefined;
+        clearStaticRuntimeConfig();
+    });
+
+    it("parses the generated inert JSON configuration", () => {
+        expect(
+            parseStaticRuntimeConfig(
+                '{"baseUrl":"https://example.test","dataBaseUrl":"/preview/data","rootPath":"/preview"}',
+            ),
+        ).toEqual({
+            baseUrl: "https://example.test",
+            dataBaseUrl: "/preview/data",
+            rootPath: "/preview",
+        });
+        expect(parseStaticRuntimeConfig('{"baseUrl":true}')).toBeUndefined();
+        expect(parseStaticRuntimeConfig("not JSON")).toBeUndefined();
+        expect(readStaticRuntimeConfig()).toBeUndefined();
     });
 
     it("uses the generated root path as the router basename", () => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+        setStaticRuntimeConfig({
             baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             homeEntryId: "notes--one",
             rootPath: "/preview",
-        };
+        });
 
         expect(staticRouterBasename()).toBe("/preview");
         expect(rootAwareHref("/pages/notes/one#scope")).toBe("/preview/pages/notes/one#scope");
@@ -25,11 +51,11 @@ describe("static runtime URL helpers", () => {
     });
 
     it("does not rewrite external, protocol, fragment, or rootless targets", () => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+        setStaticRuntimeConfig({
             baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             rootPath: "/preview",
-        };
+        });
 
         expect(rootAwareHref("https://example.com/docs")).toBe("https://example.com/docs");
         expect(rootAwareHref("mailto:team@example.com")).toBe("mailto:team@example.com");

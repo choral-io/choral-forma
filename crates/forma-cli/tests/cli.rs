@@ -205,6 +205,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(root.join("dist/site/404.html").is_file());
     assert!(root.join("dist/site/sitemap.xml").is_file());
     assert!(root.join("dist/site/robots.txt").is_file());
+    assert!(root.join("dist/site/_headers").is_file());
     assert!(root.join("dist/site/raw/assets/diagram.svg").is_file());
     assert!(
         root.join("dist/site/raw/assets/diagram space.svg")
@@ -240,7 +241,8 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(!dashboard.contains(root.to_string_lossy().as_ref()));
     assert!(!dashboard.contains("/rpc"));
     let index = std::fs::read_to_string(root.join("dist/site/index.html")).unwrap();
-    assert!(index.contains("__FORMA_STATIC_WORKSPACE__"));
+    assert!(index.contains(r#"<script id="forma-static-workspace" type="application/json">"#));
+    assert!(!index.contains("window.__FORMA_STATIC_WORKSPACE__"));
     assert!(index.contains(r#""dataBaseUrl":"/preview/data""#));
     assert!(index.contains(r#""baseUrl":"https://example.test""#));
     assert!(index.contains(r#""rootPath":"/preview""#));
@@ -254,6 +256,10 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(index.contains(r#"href="/preview/pages/notes/%E4%BD%A0%E5%A5%BD""#));
     assert!(index.contains(r#"href="/preview/pages/notes/100%25""#));
     assert!(index.contains(r#"<html lang="en">"#));
+    let headers = std::fs::read_to_string(root.join("dist/site/_headers")).unwrap();
+    assert!(headers.contains("Content-Security-Policy: default-src 'self'"));
+    assert!(headers.contains("script-src 'self'"));
+    assert!(!headers.contains("script-src 'self' 'unsafe-inline'"));
     let entry_html =
         std::fs::read_to_string(root.join("dist/site/pages/notes/static-site/index.html")).unwrap();
     assert!(entry_html.contains(r#"id="details""#));

@@ -19,6 +19,14 @@ use crate::static_html::{
 
 const OPERATION: &str = "site.build";
 const ARTIFACT_MARKER: &str = ".forma-site-artifact";
+const CLOUDFLARE_STATIC_ASSET_HEADERS: &str = r#"/*
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+"#;
 
 #[derive(Debug, Clone)]
 pub(crate) struct SiteBuildOptions {
@@ -250,6 +258,11 @@ fn write_artifact(
             public_href(root_path, "/")
         )
         .as_bytes(),
+    )?;
+    bytes += write_bytes(
+        staging,
+        "_headers",
+        CLOUDFLARE_STATIC_ASSET_HEADERS.as_bytes(),
     )?;
     bytes += write_bytes(staging, ARTIFACT_MARKER, b"forma-static-site-v1\n")?;
     Ok(ArtifactWrite {

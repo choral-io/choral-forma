@@ -1,5 +1,6 @@
 import { formatRelativeDateTime } from "@/lib/date-time";
 
+import { stringifyStaticFieldValue } from "./static-field-value";
 import type {
     DashboardDiagnostic,
     DashboardEntry,
@@ -425,7 +426,7 @@ function mapViewItems(items: unknown[], entries: DashboardEntry[]): DashboardVie
 function formatField(field: DashboardViewFieldValue): string {
     if (field.kind === "reference") return field.reference.title;
     if (field.kind === "referenceList") return field.references.map((reference) => reference.title).join(", ");
-    return typeof field.value === "string" ? field.value : JSON.stringify(field.value);
+    return stringifyStaticFieldValue(field.value);
 }
 
 function mapStatus(status: StaticStatus): WorkspaceHealth {

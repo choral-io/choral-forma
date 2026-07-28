@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { resolveStaticDocumentMetadata, syncStaticDocumentMetadata } from "./static-document-metadata";
+import { clearStaticRuntimeConfig, setStaticRuntimeConfig } from "./static-runtime.test-support";
 import type { WorkspaceDashboard } from "./workspace-client";
 
 const dashboard = {
@@ -38,17 +39,17 @@ const dashboard = {
 
 describe("static document metadata", () => {
     afterEach(() => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = undefined;
+        clearStaticRuntimeConfig();
         document.head.innerHTML = "";
     });
 
     it("resolves homepage, encoded entry, and View metadata from local dashboard data", () => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+        setStaticRuntimeConfig({
             baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             homeEntryId: "notes--home",
             rootPath: "/preview",
-        };
+        });
 
         expect(resolveStaticDocumentMetadata(dashboard, "/preview/")).toEqual({
             canonicalPath: "/",
@@ -68,11 +69,6 @@ describe("static document metadata", () => {
     });
 
     it("synchronizes the static document head after client navigation", () => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = {
-            baseUrl: "https://example.test",
-            dataBaseUrl: "/preview/data",
-            rootPath: "/preview",
-        };
         document.head.innerHTML = `
             <title>Forma</title>
             <meta name="description" content="old">
@@ -83,6 +79,11 @@ describe("static document metadata", () => {
             <meta name="twitter:title" content="old">
             <meta name="twitter:description" content="old">
         `;
+        setStaticRuntimeConfig({
+            baseUrl: "https://example.test",
+            dataBaseUrl: "/preview/data",
+            rootPath: "/preview",
+        });
 
         syncStaticDocumentMetadata(dashboard, "/preview/pages/notes/with%20space");
 
@@ -93,11 +94,11 @@ describe("static document metadata", () => {
         );
         expect(document.querySelector('meta[property="og:title"]')?.getAttribute("content")).toBe("Encoded · Forma");
 
-        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+        setStaticRuntimeConfig({
             baseUrl: "https://example.test",
             dataBaseUrl: "/data",
             rootPath: "/",
-        };
+        });
         syncStaticDocumentMetadata(dashboard, "//evil.example");
         expect(document.querySelector('link[rel="canonical"]')?.getAttribute("href")).toBe(
             "https://example.test//evil.example",

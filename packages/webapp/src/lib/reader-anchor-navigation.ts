@@ -8,8 +8,17 @@ export function scrollReaderAnchor(anchor: HTMLAnchorElement) {
     if (!targetId) return false;
 
     const target = document.getElementById(targetId);
-    const scrollContainer = target?.closest<HTMLElement>("main");
-    if (!target || !scrollContainer || scrollContainer.scrollHeight <= scrollContainer.clientHeight) {
+    if (!target || !scrollReaderTarget(target)) return false;
+
+    if (window.location.hash !== anchor.hash) {
+        window.history.pushState(window.history.state, "", anchor.href);
+    }
+    return true;
+}
+
+function scrollReaderTarget(target: HTMLElement) {
+    const scrollContainer = target.closest<HTMLElement>("main");
+    if (!scrollContainer || scrollContainer.scrollHeight <= scrollContainer.clientHeight) {
         return false;
     }
 
@@ -17,10 +26,6 @@ export function scrollReaderAnchor(anchor: HTMLAnchorElement) {
     const containerTop = scrollContainer.getBoundingClientRect().top;
     const top = Math.max(0, scrollContainer.scrollTop + targetTop - containerTop);
     scrollContainer.scrollTo({ behavior: "auto", top });
-
-    if (window.location.hash !== anchor.hash) {
-        window.history.pushState(window.history.state, "", anchor.href);
-    }
     return true;
 }
 

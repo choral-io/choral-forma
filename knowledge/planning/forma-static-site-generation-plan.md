@@ -28,17 +28,17 @@ sources:
 
 ## Status And Authorization Boundary
 
-Implementation was explicitly approved and completed on branch `codex/forma-static-site` through commit `a576c12`. The product implementation, local verification, product documentation, and CI artifact-verification workflow are complete.
+Implementation was explicitly approved, completed on `codex/forma-static-site`, and merged through [PR #8](https://github.com/choral-io/choral-forma/pull/8) at `7eec5d8535d88d116b10e31c1a1cdbfedeaca164`. The product implementation, local and hosted verification, product documentation, CI artifact-verification workflow, and Cloudflare production publication are complete.
 
 Current status:
 
 - static-site product implementation: complete;
-- local repository and browser verification: complete;
-- CI workflow definition and artifact upload path: complete;
-- branch push, pull request, merge, and hosted CI run: pending their normal integration workflow;
-- DNS, deployment credentials, production deployment to `forma.choral.io`, and a Forma release: not authorized by the implementation approval and still pending separate approval.
+- local repository, browser, and production HTTP verification: complete;
+- CI artifact upload and exact-source deployment path: complete;
+- protected `forma.choral.io` Environment, scoped Cloudflare credentials, Custom Domain, and first production publication: complete;
+- Forma binary release: intentionally separate from site publication and not implied by a site update.
 
-This document now serves as both the accepted implementation record and the remaining production-rollout plan. It does not authorize future task-board moves, `.forma` configuration changes, dependency additions, release actions, or deployment actions beyond the completed implementation scope.
+This document is the accepted implementation and operating record. It does not authorize unrelated task-board moves, `.forma` configuration changes, dependency additions, or Forma binary-release actions.
 
 ## Objective
 
@@ -482,12 +482,15 @@ Completed production evidence:
 - Cloudflare authoritative DNS returned public IPv4 and IPv6 records for `forma.choral.io`;
 - direct production probes passed for the homepage, Browse, Pages, Views, a representative entry, `sitemap.xml`, `robots.txt`, custom 404 behavior, TLS, and trailing-slash normalization.
 
-Remaining deployment-automation work:
+#### Steady-State Publication And Rollback Runbook
 
-- create and protect the `forma.choral.io` GitHub Environment;
-- add scoped `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` Environment secrets with Workers Scripts and Workers Routes edit access;
-- run the manual deployment workflow from a successful reviewed main-branch CI artifact;
-- keep release publication and site deployment as separate gates unless a later decision intentionally couples them.
+1. Merge reviewed content or implementation to `main` and wait for its `CI` run to conclude successfully.
+2. Record that run's ID and full source SHA. Dispatch **Deploy static site** from `main`, passing those exact values; the workflow rejects any non-main, failed, or SHA-mismatched run.
+3. Approve the `forma.choral.io` GitHub Environment when the deployment job waits for review. Production secrets are released only after that approval.
+4. Verify the homepage, a representative direct content route, `404.html` behavior, `sitemap.xml`, and trailing-slash normalization. Record the deployed source commit in the workflow summary or the relevant release evidence.
+5. To roll back, dispatch the same workflow with a retained, successful earlier `main` CI run and its matching SHA. Do not rebuild a different artifact or retag a Forma release to roll back the website. Retain the prior CI artifact until the replacement has passed production verification.
+
+The Worker intentionally has no `workers.dev` or generated preview URL. Pull-request CI builds and verifies the artifact but does not deploy it or receive production Cloudflare credentials. Any future untrusted-content preview requires a separate no-credentials origin plus SVG sanitization or rasterization; it is not an extension of this production workflow.
 
 Exit criteria:
 
@@ -711,12 +714,12 @@ The existing client-side Quick Open can provide initial search over the static d
 - Product documentation explains the command, hosting model, static HTML behavior, publication boundary, and enhancement boundary.
 - Remaining limitations are explicit rather than hidden incomplete work.
 
-### Remaining Integration And Automation Gates
+### Completed Integration And Operating Gates
 
-- Push the branch, open and review a pull request, and merge through the normal repository workflow.
-- Confirm the hosted CI workflow passes on the exact reviewed commit.
-- Configure the protected GitHub Environment and scoped Cloudflare credentials without coupling site deployment to the Forma binary release process.
-- Exercise the manual deployment workflow using the reviewed CI artifact and verify that its recorded commit matches production.
+- PR #8 was reviewed and merged to `main` at `7eec5d8535d88d116b10e31c1a1cdbfedeaca164`.
+- Hosted CI produced and verified the static artifact for the reviewed main-branch source.
+- The protected GitHub Environment holds the scoped Cloudflare credentials and remains the production approval boundary.
+- The manual deployment workflow has published the exact reviewed artifact to `forma.choral.io`; the operating and rollback procedure above preserves that same-commit boundary for future updates.
 
 Exact token, cost, and active-minute telemetry was not available to the coordinator, so this record does not fabricate an exact AI Coding duration. The implementation completed within the planned AI-assisted delivery approach; future runs should capture tool-provided usage telemetry when a precise cost comparison is required.
 

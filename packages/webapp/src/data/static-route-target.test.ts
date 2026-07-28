@@ -1,6 +1,9 @@
+// @vitest-environment jsdom
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "./static-route-target";
+import { clearStaticRuntimeConfig, setStaticRuntimeConfig } from "./static-runtime.test-support";
 import type { WorkspaceDashboard } from "./workspace-client";
 
 const canonical = {
@@ -34,7 +37,7 @@ const dashboard = { entries: [canonical] } as unknown as WorkspaceDashboard;
 
 describe("resolveDashboardEntryTarget", () => {
     afterEach(() => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = undefined;
+        clearStaticRuntimeConfig();
     });
 
     it("matches canonical entry routes", () => {
@@ -69,11 +72,11 @@ describe("resolveDashboardEntryTarget", () => {
         ["/preview/pages/notes/100%25", "/pages/notes/100%25", "notes--percent"],
         ["/preview/pages/notes/100%25/", "/pages/notes/100%25", "notes--percent"],
     ])("matches an encoded direct load from %s", (pathname, routePath, entryId) => {
-        globalThis.__FORMA_STATIC_WORKSPACE__ = {
+        setStaticRuntimeConfig({
             baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
             rootPath: "/preview",
-        };
+        });
         const encodedEntries = [
             {
                 ...canonical,

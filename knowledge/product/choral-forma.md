@@ -11,6 +11,22 @@ tags:
 
 # Choral Forma
 
+> A files-first workspace for turning everyday Markdown into durable, shared context for people and AI Agents.
+
+## A Short Introduction
+
+Choral Forma helps a team keep product, research, decisions, and operating knowledge in the repository where that work already happens. Instead of importing documents into a proprietary knowledge store, it works directly with ordinary Markdown and explicit workspace configuration.
+
+The result is a knowledge base that remains readable in any editor, reviewable through normal Git workflows, and structured enough for people and Agents to navigate with confidence. Forma treats files as the source of truth while adding the capabilities that a folder of notes usually lacks: clear content groups, schemas, links, diagnostics, and useful views.
+
+## What It Brings To Markdown
+
+- **A durable source of truth:** keep content as versioned Markdown files rather than opaque application data.
+- **Explicit structure:** define spaces, schemas, semantic types, templates, and views that match the way a workspace actually works.
+- **Connected, maintainable context:** resolve links, surface relationships, and use health checks to find missing, stale, or inconsistent knowledge.
+- **Multiple ways to work:** use the CLI, read-only WebApp, or editor integrations without making any one interface the owner of the content.
+- **A reliable foundation for Agents:** give Agents stable paths, declared structure, and reviewable changes instead of asking them to infer context from an unstructured file tree.
+
 ## Goal
 
 Choral Forma explores a lightweight, editor-independent team knowledge application that treats repository Markdown as the source of truth.

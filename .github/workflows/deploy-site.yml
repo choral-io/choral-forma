@@ -83,7 +83,7 @@ jobs:
           SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           set -euo pipefail
-          for file in index.html 404.html sitemap.xml robots.txt .forma-site-artifact data/dashboard.json; do
+          for file in index.html 404.html sitemap.xml robots.txt _headers .forma-site-artifact data/dashboard.json; do
             test -f "dist/site/${file}"
           done
           echo "sourceCommit=${SOURCE_SHA}" >> "${GITHUB_STEP_SUMMARY}"

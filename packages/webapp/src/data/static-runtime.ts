@@ -1,16 +1,41 @@
-declare global {
-    var __FORMA_STATIC_WORKSPACE__:
-        | {
-              baseUrl: string;
-              dataBaseUrl: string;
-              homeEntryId?: string;
-              rootPath: string;
-          }
-        | undefined;
+export interface StaticRuntimeConfig {
+    baseUrl: string;
+    dataBaseUrl: string;
+    homeEntryId?: string;
+    rootPath: string;
+}
+
+export const staticRuntimeConfigId = "forma-static-workspace";
+
+function isStaticRuntimeConfig(value: unknown): value is StaticRuntimeConfig {
+    if (typeof value !== "object" || value === null) return false;
+    const config = value as Record<string, unknown>;
+    return (
+        typeof config.baseUrl === "string" &&
+        typeof config.dataBaseUrl === "string" &&
+        typeof config.rootPath === "string" &&
+        (config.homeEntryId === undefined || typeof config.homeEntryId === "string")
+    );
+}
+
+export function parseStaticRuntimeConfig(value: string): StaticRuntimeConfig | undefined {
+    try {
+        const parsed: unknown = JSON.parse(value);
+        return isStaticRuntimeConfig(parsed) ? parsed : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function readStaticRuntimeConfigDocument(): StaticRuntimeConfig | undefined {
+    if (typeof document === "undefined") return undefined;
+    const element = document.getElementById(staticRuntimeConfigId);
+    if (!(element instanceof HTMLScriptElement) || element.type !== "application/json") return undefined;
+    return parseStaticRuntimeConfig(element.textContent);
 }
 
 export function readStaticRuntimeConfig() {
-    return globalThis.__FORMA_STATIC_WORKSPACE__;
+    return readStaticRuntimeConfigDocument();
 }
 
 export function staticRouterBasename() {

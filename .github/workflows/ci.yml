@@ -66,7 +66,7 @@ jobs:
           set -euo pipefail
           site="${GITHUB_WORKSPACE}/dist/site"
           result="${RUNNER_TEMP}/site-build.json"
-          for file in index.html 404.html sitemap.xml robots.txt .forma-site-artifact data/dashboard.json; do
+          for file in index.html 404.html sitemap.xml robots.txt _headers .forma-site-artifact data/dashboard.json; do
             test -f "${site}/${file}"
           done
           node --input-type=module - "${result}" <<'NODE'
@@ -90,6 +90,38 @@ jobs:
             echo "static artifact contains an absolute workspace path" >&2
             exit 1
           fi
+          if grep -R -F -l 'window.__FORMA_STATIC_WORKSPACE__' "${site}"; then
+            echo "static artifact must not contain an executable inline workspace configuration" >&2
+            exit 1
+          fi
+          node --input-type=module - "${site}" <<'NODE'
+          import { readFileSync, readdirSync, statSync } from "node:fs";
+          import { join } from "node:path";
+
+          const root = process.argv[2];
+          const stack = [root];
+          while (stack.length > 0) {
+            const directory = stack.pop();
+            for (const name of readdirSync(directory)) {
+              const path = join(directory, name);
+              if (statSync(path).isDirectory()) {
+                stack.push(path);
+                continue;
+              }
+              if (!path.endsWith(".html")) continue;
+              const html = readFileSync(path, "utf8");
+              for (const match of html.matchAll(/<script\b([^>]*)>/giu)) {
+                const attributes = match[1];
+                if (/\btype\s*=\s*["']application\/json["']/iu.test(attributes)) continue;
+                if (!/\bsrc\s*=/iu.test(attributes)) {
+                  throw new Error(`static artifact contains an executable inline script: ${path}`);
+                }
+              }
+            }
+          }
+          NODE
+          grep -F "Content-Security-Policy: default-src 'self'" "${site}/_headers"
+          grep -F "script-src 'self'" "${site}/_headers"
           digest() {
             (cd "${site}" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')
           }

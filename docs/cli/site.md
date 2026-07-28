@@ -40,7 +40,7 @@ forma site build \
 
 The output directory is disposable and owned by Forma. A new output is written through a staging directory. An existing output can be replaced only when it contains the `.forma-site-artifact` marker, preventing accidental replacement of an unrelated directory. A successful build replaces the complete artifact tree, including stale files. If staging fails, the previous artifact remains untouched; if activation fails after the old artifact was moved aside, Forma attempts to restore it. After a successful activation, no automatic rollback copy is retained: host operators should retain the prior artifact or rebuild from a known source commit for rollback.
 
-The artifact contains static HTML, hashed WebApp assets, dashboard and route data, copied referenced resources under `raw/`, and hosting support files. It needs no SPA fallback rule, long-running Forma process, database, or `/rpc` endpoint. Deployment, DNS, custom-domain changes, provider credentials, and production publication are separate approval gates; producing or uploading a CI artifact does not publish a site.
+The artifact contains static HTML, hashed WebApp assets, dashboard and route data, copied referenced resources under `raw/`, and hosting support files. It needs no SPA fallback rule, long-running Forma process, database, or `/rpc` endpoint. Its `_headers` file provides a strict Cloudflare Static Assets baseline, including a CSP that permits same-origin scripts but no executable inline script. Hosts that do not recognize `_headers` ignore it; configure equivalent headers there. Deployment, DNS, custom-domain changes, provider credentials, and production publication are separate approval gates; producing or uploading a CI artifact does not publish a site.
 
 ## Publication And Resource Boundary
 
@@ -50,7 +50,7 @@ Only resources referenced by exported content or declared workspace presentation
 
 ### Trusted-Author Publication Boundary
 
-Referenced SVG files are currently copied as bytes after path-safety checks. They are not sanitized. Therefore the official site is limited to artifacts published by trusted maintainers. An untrusted pull-request preview must not be deployed to the production origin or receive production credentials.
+Referenced SVG files are currently copied as bytes after path-safety checks. They are not sanitized. The official Cloudflare Worker disables `workers.dev` and generated preview URLs, serves only the reviewed Custom Domain, and applies a restrictive response-header baseline. This reduces exposure, but it does not turn untrusted SVG or untrusted workspace content into an accepted input class. The site remains limited to artifacts published by trusted maintainers. An untrusted pull-request preview must not be deployed to the production origin or receive production credentials.
 
 Before accepting untrusted authors, add a security boundary such as SVG sanitization or rasterization, or place active assets on an independent no-credentials origin, together with an appropriate CSP and `Content-Disposition` policy. Do not treat static hosting alone as a safe boundary for active same-origin resources.
 

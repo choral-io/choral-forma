@@ -544,13 +544,7 @@ fn field_html(
     root_path: &str,
 ) -> String {
     match value {
-        Some(ViewRenderFieldValue::Value { value }) => {
-            let value = value
-                .as_str()
-                .map(ToOwned::to_owned)
-                .unwrap_or_else(|| serde_json::to_string(value).unwrap_or_default());
-            escape_html(&value)
-        }
+        Some(ViewRenderFieldValue::Value { value }) => escape_html(&display_value(value)),
         Some(ViewRenderFieldValue::Reference { reference }) => {
             reference_html(&reference.path, &reference.title, entries_by_id, root_path)
         }
@@ -562,6 +556,22 @@ fn field_html(
             .collect::<Vec<_>>()
             .join(", "),
         None => String::new(),
+    }
+}
+
+fn display_value(value: &serde_yml::Value) -> String {
+    match value {
+        serde_yml::Value::Null => String::new(),
+        serde_yml::Value::String(value) => value.clone(),
+        serde_yml::Value::Number(value) => value.to_string(),
+        serde_yml::Value::Bool(value) => value.to_string(),
+        serde_yml::Value::Sequence(values) => values
+            .iter()
+            .map(display_value)
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>()
+            .join(", "),
+        value => serde_json::to_string(value).unwrap_or_default(),
     }
 }
 
@@ -637,7 +647,7 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
         .then_some("<meta name=\"robots\" content=\"noindex, nofollow\" />")
         .unwrap_or("");
     format!(
-        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script>window.__FORMA_STATIC_WORKSPACE__={config};</script></head><body><div id=\"root\"><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{pages_href}\">Pages</a><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Browse</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
+        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script id=\"forma-static-workspace\" type=\"application/json\">{config}</script></head><body><div id=\"root\"><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{pages_href}\">Pages</a><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Browse</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
         language = escape_attribute(&options.page.language),
         title_text = escape_html(&document_title),
         title_attribute = escape_attribute(&document_title),
@@ -779,9 +789,17 @@ pub(crate) fn sitemap_xml(base_url: &str, root_path: &str, pages: &[StaticPage])
 #[cfg(test)]
 mod tests {
     use super::{
-        PageShellOptions, StaticPage, escape_html, page_shell, public_href, root_embedded_url,
-        validated_language_tag,
+        PageShellOptions, StaticPage, display_value, escape_html, page_shell, public_href,
+        root_embedded_url, validated_language_tag,
     };
+    use serde::Deserialize;
+    use serde_yml::Value;
+
+    #[derive(Deserialize)]
+    struct StaticFieldDisplayFixture {
+        display: String,
+        value: Value,
+    }
 
     #[test]
     fn static_html_helpers_escape_and_root_urls() {
@@ -799,6 +817,18 @@ mod tests {
             ),
             r#"<script type="module" src="/preview/assets/app.js"></script>"#
         );
+    }
+
+    #[test]
+    fn static_html_field_values_match_the_static_field_display_fixture() {
+        let fixtures: Vec<StaticFieldDisplayFixture> = serde_json::from_str(include_str!(
+            "../../../fixtures/forma-validation/samples/projections/static-field-display.json"
+        ))
+        .unwrap();
+
+        for fixture in fixtures {
+            assert_eq!(display_value(&fixture.value), fixture.display);
+        }
     }
 
     #[test]
@@ -825,6 +855,9 @@ mod tests {
         assert!(html.contains("Forma &quot;&lt;unsafe&gt;"));
         assert!(html.contains("&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"));
         assert!(html.contains(r#"<html lang="zh-Hans">"#));
+        assert!(html.contains(r#"<script id="forma-static-workspace" type="application/json">"#));
+        assert!(!html.contains("window.__FORMA_STATIC_WORKSPACE__"));
+        assert!(html.contains(r#""dataBaseUrl":"/data""#));
     }
 
     #[test]
