@@ -476,6 +476,8 @@ export type WorkspaceDashboardResult = BaseOperationResult & {
     workspace: WorkspaceSummary;
     home: {
         path: string;
+        title?: string;
+        omitLeadingTitle: boolean;
         markdown: string;
         headings: Array<{ id: string; level: number; text: string }>;
     };

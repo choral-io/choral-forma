@@ -20,7 +20,13 @@ const dashboard: StaticDashboardData = {
         name: "Static fixture",
         canonicalLanguage: "en",
         supportedLanguages: ["en", "zh-Hans"],
-        home: { path: ".forma.md", markdown: "# Static fixture", headings: [] },
+        home: {
+            path: ".forma.md",
+            title: "Static fixture",
+            omitLeadingTitle: true,
+            markdown: "# Static fixture",
+            headings: [{ id: "static-fixture", level: 1, text: "Static fixture" }],
+        },
     },
     spaces: [
         {
@@ -94,7 +100,10 @@ describe("StaticWorkspaceClient", () => {
         vi.stubGlobal("fetch", fetch);
         const client = new StaticWorkspaceClient("/preview/data");
 
-        await expect(client.getDashboard()).resolves.toMatchObject({ workspaceName: "Static fixture" });
+        await expect(client.getDashboard()).resolves.toMatchObject({
+            workspaceName: "Static fixture",
+            home: { title: "Static fixture", omitLeadingTitle: true, headings: [] },
+        });
         await expect(client.getEntry("notes--one")).resolves.toMatchObject({ title: "One" });
         await expect(client.getEntry("notes--one.zh-hans")).resolves.toMatchObject({
             id: "notes--one.zh-hans",

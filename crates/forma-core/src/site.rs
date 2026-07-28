@@ -15,7 +15,7 @@ use crate::diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
 };
 use crate::index::{IndexEntry, IndexEntryVariant, IndexView};
-use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent};
+use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, resolve_markdown_title};
 use crate::operations::{
     OperationError, ReferenceEdge, WorkspaceSnapshot, document_id_for_path,
     normalized_relative_target, read_operation_diagnostics, reference_edge,
@@ -67,6 +67,8 @@ pub struct StaticSiteWorkspace {
 #[serde(rename_all = "camelCase")]
 pub struct StaticSiteWorkspaceHome {
     pub path: String,
+    pub title: Option<String>,
+    pub omit_leading_title: bool,
     pub markdown: String,
     pub html: String,
     pub headings: Vec<RenderedHeading>,
@@ -315,6 +317,8 @@ fn build_static_site_snapshot_from_loaded(
         })
         .collect::<Result<BTreeMap<_, _>, _>>()?;
     let workspace_home_document = read_document(workspace.root.as_path(), FORMA_CONFIG_PATH)?;
+    let (workspace_home_title, workspace_home_omit_leading_title) =
+        resolve_markdown_title(None, &workspace_home_document);
     merge_diagnostics(
         &mut diagnostics,
         workspace_home_document
@@ -603,6 +607,8 @@ fn build_static_site_snapshot_from_loaded(
             supported_languages: workspace.config.workspace.supported_languages.clone(),
             home: StaticSiteWorkspaceHome {
                 path: FORMA_CONFIG_PATH.to_string(),
+                title: workspace_home_title,
+                omit_leading_title: workspace_home_omit_leading_title,
                 markdown: workspace_home_markdown,
                 html: workspace_home_html,
                 headings: workspace_home_headings,

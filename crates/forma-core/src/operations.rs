@@ -258,6 +258,8 @@ pub struct WorkspaceDashboardResult {
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceHomeDocument {
     pub path: String,
+    pub title: Option<String>,
+    pub omit_leading_title: bool,
     pub markdown: String,
     pub headings: Vec<RenderedHeading>,
 }
@@ -1291,8 +1293,11 @@ fn workspace_home_document(root: &Path) -> Result<WorkspaceHomeDocument, Operati
             source,
         })?;
     let document = FormaMarkdownDocument::parse(&source);
+    let (title, omit_leading_title) = resolve_markdown_title(None, &document);
     Ok(WorkspaceHomeDocument {
         path: FORMA_CONFIG_PATH.to_string(),
+        title,
+        omit_leading_title,
         // Keep the root document on the same Markdown contract as entries
         // returned by `file.render --format markdown`: wikilinks and embeds
         // first become ordinary Markdown links, then the reader resolves them
@@ -4317,6 +4322,8 @@ schema:
         assert!(ids.contains(&"notes--shared"));
         assert!(ids.contains(&"tasks--shared"));
         assert_eq!(result.home.path, ".forma.md");
+        assert_eq!(result.home.title.as_deref(), Some("Forma Workspace"));
+        assert!(result.home.omit_leading_title);
         assert!(!result.home.markdown.trim().is_empty());
         assert!(
             result

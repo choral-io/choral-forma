@@ -792,6 +792,9 @@ struct StaticWorkspace<'a> {
 #[serde(rename_all = "camelCase")]
 struct StaticWorkspaceHome<'a> {
     path: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<&'a str>,
+    omit_leading_title: bool,
     markdown: &'a str,
     headings: &'a [forma_core::RenderedHeading],
 }
@@ -858,6 +861,8 @@ impl<'a> StaticDashboardData<'a> {
                 supported_languages: &snapshot.workspace.supported_languages,
                 home: StaticWorkspaceHome {
                     path: &snapshot.workspace.home.path,
+                    title: snapshot.workspace.home.title.as_deref(),
+                    omit_leading_title: snapshot.workspace.home.omit_leading_title,
                     markdown: &snapshot.workspace.home.markdown,
                     headings: &snapshot.workspace.home.headings,
                 },

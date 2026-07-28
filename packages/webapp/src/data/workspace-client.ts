@@ -78,6 +78,8 @@ export interface DashboardEntryHeading {
 
 export interface WorkspaceHomeDocument {
     path: string;
+    title?: string;
+    omitLeadingTitle: boolean;
     markdown: string;
     headings: DashboardEntryHeading[];
 }

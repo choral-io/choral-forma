@@ -92,7 +92,7 @@ export function DashboardRoute() {
         <WorkspacePageShell
             description={`${dashboard.tagline.replace(/[.!?。！？]\s*$/u, "")} • Read-only`}
             eyebrow="Workspace"
-            title={dashboard.workspaceName}
+            title={dashboard.home.title ?? dashboard.workspaceName}
         >
             <WorkspaceHomePage dashboard={dashboard} />
         </WorkspacePageShell>
@@ -113,6 +113,7 @@ function WorkspaceHomePage({ dashboard }: { dashboard: WorkspaceDashboard }) {
                     headings={home.headings}
                     markdown={home.markdown}
                     mermaidScope={mermaidScope}
+                    omitLeadingTitle={home.omitLeadingTitle}
                 />
             </article>
             <section

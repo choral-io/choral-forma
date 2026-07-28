@@ -186,6 +186,11 @@ describe("RpcWorkspaceClient View rendering", () => {
         const dashboard = await client.getDashboard();
 
         expect(dashboard.spaces).toEqual([]);
+        expect(dashboard.home).toMatchObject({
+            title: "Example",
+            omitLeadingTitle: true,
+            headings: [],
+        });
         expect(dashboard.taxonomies).toMatchObject([
             {
                 id: "topics",
@@ -327,7 +332,13 @@ function rpcResult(
             status: "passed",
             summary: { errors: 0, warnings: 0, infos: 0 },
             workspace: { root: ".", name: "Example" },
-            home: { path: ".forma.md", markdown: "# Example", headings: [] },
+            home: {
+                path: ".forma.md",
+                title: "Example",
+                omitLeadingTitle: true,
+                markdown: "# Example",
+                headings: [{ id: "example", level: 1, text: "Example" }],
+            },
             taxonomies,
             spaces: [],
             entries,

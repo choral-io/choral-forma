@@ -33,6 +33,8 @@ export interface StaticDashboardData {
         supportedLanguages: string[];
         home: {
             path: string;
+            title?: string;
+            omitLeadingTitle: boolean;
             markdown: string;
             headings: { id: string; level: number; text: string }[];
         };
@@ -168,6 +170,8 @@ export class StaticWorkspaceClient implements WorkspaceClient {
             tagline: "Markdown-backed workspace content.",
             home: {
                 path: data.workspace.home.path,
+                title: data.workspace.home.title,
+                omitLeadingTitle: data.workspace.home.omitLeadingTitle,
                 markdown: data.workspace.home.markdown,
                 headings: data.workspace.home.headings.filter(isDashboardHeading),
             },

@@ -121,6 +121,8 @@ function mapWorkspaceDashboard(
         tagline: "Markdown-backed workspace content.",
         home: {
             path: result.home.path,
+            title: result.home.title,
+            omitLeadingTitle: result.home.omitLeadingTitle,
             markdown: result.home.markdown,
             headings: result.home.headings.filter(isReaderHeading),
         },
