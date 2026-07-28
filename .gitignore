@@ -10,6 +10,7 @@ lerna-debug.log*
 .local/
 .playwright-cli/
 .pnpm-store/
+.wrangler/
 target/
 node_modules/
 .vscode-test/

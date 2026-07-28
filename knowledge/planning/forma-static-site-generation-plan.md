@@ -467,6 +467,7 @@ Completed deployment-path work:
 
 - Cloudflare Workers Static Assets is the selected host for the official site;
 - the repository pins Wrangler and declares an asset-only Worker whose input is `dist/site`;
+- the Worker drops trailing slashes to match Forma-generated links, sitemap locations, and canonical URLs;
 - the Worker config deliberately has no server entrypoint, runtime binding, or production route;
 - an independent `workflow_dispatch` workflow requires a successful main-branch CI run ID and its full source commit SHA;
 - the deployment workflow validates the CI run, checks out that exact commit, downloads the same `forma-static-site` artifact, and uses the `forma.choral.io` GitHub Environment as the approval boundary;

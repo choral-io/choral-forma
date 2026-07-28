@@ -23,7 +23,7 @@ test("configures an asset-only Cloudflare Worker without a production route", ()
     assert.deepEqual(wrangler.assets, {
         directory: "./dist/site",
         not_found_handling: "404-page",
-        html_handling: "auto-trailing-slash",
+        html_handling: "drop-trailing-slash",
     });
     assert.equal("main" in wrangler, false);
     assert.equal("routes" in wrangler, false);
@@ -37,6 +37,7 @@ test("pins Wrangler and keeps its platform binary installation explicit", () => 
     assert.equal(packageJson.scripts["site:deploy:dry-run"], "wrangler deploy --dry-run");
     assert.match(pnpmWorkspace, /^  workerd: true$/mu);
     assert.match(gitignore, /^\/dist\/$/mu);
+    assert.match(gitignore, /^\.wrangler\/$/mu);
 });
 
 test("keeps production deployment manual, serialized, and approval-gated", () => {
