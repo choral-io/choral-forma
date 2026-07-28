@@ -28,26 +28,23 @@ sources:
 
 ## Status And Authorization Boundary
 
-This document is an implementation plan. It records the proposed product boundary, delivery sequence, AI Coding budget, verification gates, and deployment path.
+Implementation was explicitly approved and completed on branch `codex/forma-static-site` through commit `a576c12`. The product implementation, local verification, product documentation, and CI artifact-verification workflow are complete.
 
-It does not by itself authorize:
+Current status:
 
-- implementation changes;
-- task creation or task-board moves;
-- `.forma` schema or configuration changes;
-- dependency additions;
-- DNS changes;
-- deployment credential changes;
-- production deployment to `forma.choral.io`;
-- a Forma release.
+- static-site product implementation: complete;
+- local repository and browser verification: complete;
+- CI workflow definition and artifact upload path: complete;
+- branch push, pull request, merge, and hosted CI run: pending their normal integration workflow;
+- DNS, deployment credentials, production deployment to `forma.choral.io`, and a Forma release: not authorized by the implementation approval and still pending separate approval.
 
-Each of those actions remains subject to its normal review and approval boundary.
+This document now serves as both the accepted implementation record and the remaining production-rollout plan. It does not authorize future task-board moves, `.forma` configuration changes, dependency additions, release actions, or deployment actions beyond the completed implementation scope.
 
 ## Objective
 
-Add a static-site build target to Forma and use the Choral Forma repository's own Forma-managed workspace as the canonical content source for `https://forma.choral.io`.
+The static-site build target has been added to Forma. The remaining objective is to publish the reviewed artifact to `https://forma.choral.io`, using the Choral Forma repository's own Forma-managed workspace as its canonical content source.
 
-The final output should be a statically hosted multi-page site with optional client-side enhancement:
+The implemented output is a statically hosted multi-page site with optional client-side enhancement:
 
 - every exported entry has a standalone HTML route;
 - titles, summaries, navigation, and entry bodies are present in generated HTML;
@@ -61,7 +58,7 @@ This is a static publishing target for the shared Forma capability layer. It doe
 
 ## Product Position
 
-The feature should make this relationship explicit:
+The feature makes this relationship explicit:
 
 ```text
 repository Markdown + Forma configuration
@@ -82,25 +79,27 @@ The Choral Forma official site is the first dogfooding workspace, not a hard-cod
 - The generated artifact is disposable and must never become a round-trip source of truth.
 - The final target is not a single-shell SPA. It is a multi-page static site with one crawlable HTML output per public route.
 - The final target is not a zero-JavaScript site. Browser enhancement remains available where it adds real value.
-- Astro or another general-purpose SSG should not be introduced in the first slice. Forma already owns workspace discovery, references, Markdown analysis, view projections, routing metadata, a semantic HTML output mode, and a reusable WebApp.
+- Astro or another general-purpose SSG was not introduced in the first slice. Forma already owns workspace discovery, references, Markdown analysis, view projections, routing metadata, a semantic HTML output mode, and a reusable WebApp.
 
 ## Current Verified Build Evidence
 
-Baseline captured on 2026-07-27:
+Evidence refreshed on 2026-07-28 from commit `a576c12`:
 
 | Evidence | Current result |
 | --- | --- |
 | `config inspect` and `workspace health` | Passed with no diagnostics or findings |
-| Dogfood command | `forma site build --out /private/tmp/forma-site-task-d-artifact --base-url https://forma.choral.io --home knowledge/product/choral-forma.md --json` |
+| Dogfood command | `forma site build --out <temporary-output> --base-url https://forma.choral.io --home knowledge/product/choral-forma.md --json` |
 | Managed entries | 186 |
 | Configured spaces, taxonomies, and Views | 17, 1, and 2 |
 | Artifact routes and HTML pages | 209 and 211 |
 | Resources copied and static assets | 0 and 67 |
-| Artifact bytes and files | 12,527,375 bytes and 470 files |
+| Artifact bytes and files | 12,562,805 bytes and 470 files |
 | Reproducibility | Repeated builds from the same source state were byte-identical; CI records the run-specific tree digest in the job summary |
 | Artifact scans | No absolute workspace path; no `/rpc` in runtime JS assets; no diagnostics or warnings |
+| Internal-link validation | 3,079 internal links checked with no broken relative or absolute artifact target |
+| Browser validation | Direct static routes, client navigation, Quick Open, metadata updates, encoded paths, and no-JavaScript entry reading passed with no failed request or Forma RPC request |
 
-Relevant implementation seams already exist:
+The implementation reused these existing seams:
 
 - `forma-core` supports `file.render` with `markdown`, `html`, and `source` output modes.
 - HTML output is semantic GFM HTML generated from the same parsed document and reference-fallback pipeline.
@@ -136,7 +135,7 @@ Implemented arguments:
 | `--root-path <path>`  | Optional deployment subpath; defaults to `/`                  |
 | `--json`              | Emit a structured build result and diagnostics                |
 
-The first slice should prefer explicit CLI arguments over adding a new `.forma` site schema. A file-backed site definition can be proposed later if repeated use proves that title, navigation, metadata, theme, or multiple-target configuration needs a durable product model.
+The first slice uses explicit CLI arguments rather than adding a new `.forma` site schema. A file-backed site definition can be proposed later if repeated use proves that title, navigation, metadata, theme, or multiple-target configuration needs a durable product model.
 
 ### Implemented Artifact
 
@@ -174,7 +173,7 @@ The artifact also contains `.forma-site-artifact`, which records Forma ownership
 
 ### Static Hosting Semantics
 
-The artifact must:
+The artifact:
 
 - work when served by a generic static file server;
 - support direct loading of every generated route;
@@ -187,7 +186,7 @@ The artifact must:
 
 ## Publication Boundary
 
-The site builder should use Forma's shared workspace load path and configured managed entries:
+The site builder uses Forma's shared workspace load path and configured managed entries:
 
 ```text
 LoadMode::SharedOnly
@@ -196,7 +195,7 @@ LoadMode::SharedOnly
 -> generated site artifact
 ```
 
-The first slice should not infer publication semantics from `.gitignore`. It should also not copy the entire repository or expose the existing raw-file server behavior.
+The first slice does not infer publication semantics from `.gitignore`, copy the entire repository, or expose the existing raw-file server behavior.
 
 Rules:
 
@@ -232,7 +231,7 @@ The browser WebApp may then replace or enhance that baseline with the existing r
 - document outline and context;
 - Quick Open and client-side search.
 
-The implementation must avoid a visible blank or skeleton-only first render. If React enhancement replaces the static body, it should preserve the title, scroll target, entry identity, and route without a content flash that materially degrades reading.
+The implementation avoids a visible blank or skeleton-only first render. When React enhancement replaces the static body, it preserves the title, scroll target, entry identity, and route without a content flash that materially degrades reading.
 
 ### Views
 
@@ -247,7 +246,7 @@ The structured `view.render` result remains canonical. Static templates must not
 
 ### Homepage
 
-The dogfood build should use `knowledge/product/choral-forma.md` as the initial landing-page body and compose it with configured workspace navigation.
+The dogfood build uses `knowledge/product/choral-forma.md` as the initial landing-page body and composes it with configured workspace navigation.
 
 This is a deployment choice for the Choral Forma project, not a built-in assumption that future workspaces have a `product` space or `knowledge/product/choral-forma.md` entry.
 
@@ -360,13 +359,13 @@ If the work reaches 26 active AI Coding hours without satisfying the Definition 
 
 ## Delivery Phases
 
-### Phase 0: Freeze The Contract
+### Phase 0: Freeze The Contract — Complete
 
 Work:
 
 - create a compact static-site fixture with entries, references, one image, one taxonomy, one table View, one Graph View, and one unresolved-link diagnostic;
 - record the expected output tree and stable routes;
-- confirm the proposed CLI argument names;
+- finalize the implemented CLI argument names;
 - define the JSON build result;
 - define which diagnostics fail the build and which remain warnings;
 - record the existing current-workspace page and View counts as scale evidence.
@@ -377,7 +376,7 @@ Exit criteria:
 - the fixture covers direct routes, resources, references, and Views;
 - no `.forma` schema change or new dependency is required for the first slice.
 
-### Phase 1: Build One Static Snapshot
+### Phase 1: Build One Static Snapshot — Complete
 
 Work:
 
@@ -392,11 +391,11 @@ Work:
 Exit criteria:
 
 - the fixture snapshot is stable across two builds;
-- this repository's 185 entries and 2 Views export successfully;
+- this repository's 186 entries and 2 Views export successfully;
 - local-only files and absolute paths do not appear in serialized output;
 - build diagnostics identify the source route or entry involved.
 
-### Phase 2: Generate A Serverless Static Artifact
+### Phase 2: Generate A Serverless Static Artifact — Complete
 
 Work:
 
@@ -416,7 +415,7 @@ Exit criteria:
 - a missing static data file produces a clear error;
 - the source workspace remains unchanged.
 
-### Phase 3: Generate Multi-Page HTML
+### Phase 3: Generate Multi-Page HTML — Complete
 
 Work:
 
@@ -436,7 +435,7 @@ Exit criteria:
 - internal links, heading fragments, images, and configured logo assets resolve;
 - no SPA redirect rule is required for a generated route.
 
-### Phase 4: Add Official-Site Metadata And Composition
+### Phase 4: Add Official-Site Metadata And Composition — Complete
 
 Work:
 
@@ -456,7 +455,7 @@ Exit criteria:
 - source, installation, release, product, and documentation paths are discoverable from the homepage;
 - no duplicate site-only product copy becomes a competing source of truth.
 
-### Phase 5: CI Artifact And Production Deployment Gate
+### Phase 5: CI Artifact Complete; Production Deployment Pending
 
 Completed CI artifact work:
 
@@ -478,7 +477,7 @@ Exit criteria:
 - deployment must not require a long-running Forma process;
 - DNS and hosting changes remain external state requiring explicit evidence and approval.
 
-### Phase 6: Productize And Close
+### Phase 6: Productize And Close — Complete
 
 Work:
 
@@ -596,15 +595,17 @@ Check:
 
 ## Commit And Review Checkpoints
 
-Keep implementation reviewable around capability boundaries:
+The implementation remained reviewable around capability boundaries:
 
-1. `feat: add static workspace site snapshot`
-2. `feat: build static Forma site artifacts`
-3. `feat: render crawlable static site routes`
-4. `docs: document Forma static site builds`
-5. `ci: deploy the Forma official site`
-
-The exact split may change to preserve compilable commits, but dependency, generated-output, documentation, and deployment changes should not be mixed into one opaque commit.
+| Checkpoint | Status | Evidence |
+| --- | --- | --- |
+| Static workspace snapshot | Complete | `dce7fac`, followed by backlink and fixture corrections |
+| Deterministic static artifact builder | Complete | `cd634e7`, followed by activation, lint, and fallback corrections |
+| Crawlable static routes and browser enhancement | Complete | `6556a22` through `50c091a` |
+| Product documentation | Complete | `62458be` |
+| CI artifact verification | Complete | `1da7790` |
+| Final publication, link, and metadata hardening | Complete | `a576c12` |
+| Production deployment | Pending separate approval | No deployment commit, DNS change, or production action has been performed |
 
 Do not commit generated site output unless a later hosting decision explicitly requires repository-published artifacts. Prefer CI artifacts and deployment-provider storage.
 
@@ -669,26 +670,35 @@ Stop and re-plan instead of consuming contingency when the requested change beco
 
 The existing client-side Quick Open can provide initial search over the static dashboard data. A dedicated static search index should be added only if the current 186-entry dogfood site demonstrates a measurable need.
 
-## Definition Of Done
+## Completion Status
 
-The feature is complete when:
+### Completed Product Definition Of Done
 
-- `forma site build` produces a deterministic static artifact from a neutral Forma workspace;
-- the Choral Forma workspace exports all current managed entries and configured Views without a live server;
-- every exported canonical route has standalone crawlable HTML;
-- entry content and ordinary navigation remain readable without JavaScript;
-- enhanced Markdown, Mermaid, math, Graph, themes, search, and client navigation work with JavaScript;
-- no browser request reaches `/rpc`;
-- referenced resources resolve from the artifact;
-- local-only files, absolute paths, credentials, caches, and arbitrary repository files are absent;
-- homepage content is sourced from managed Forma knowledge;
-- metadata, sitemap, robots, and 404 outputs are present and verified;
-- focused tests and required repository gates pass;
-- a clean CI checkout produces and verifies the artifact;
-- `forma.choral.io` serves the reviewed artifact from the recorded source commit;
-- documentation explains the command, hosting model, static HTML behavior, and enhancement boundary;
-- actual active AI Coding time is reported against the 20-hour target and 26-hour re-plan ceiling;
-- remaining limitations are explicit follow-up candidates rather than hidden incomplete work.
+- `forma site build` produces a deterministic static artifact from a neutral Forma workspace.
+- The Choral Forma workspace exports all current managed entries and configured Views without a live server.
+- Every exported canonical route has standalone crawlable HTML.
+- Entry content and ordinary navigation remain readable without JavaScript.
+- Enhanced Markdown, Mermaid, math, Graph, themes, Quick Open, and client navigation work with JavaScript.
+- No browser request reaches `/rpc`.
+- Referenced public resources resolve from the artifact.
+- Local-only files, absolute paths, credentials, caches, and arbitrary repository files are absent.
+- Homepage content is sourced from managed Forma knowledge.
+- Metadata, sitemap, robots, and 404 outputs are present and verified.
+- Focused tests and the full required local repository gate passed.
+- The CI workflow performs a clean-checkout build, verification probes, deterministic digest reporting, and artifact upload without deploying.
+- Product documentation explains the command, hosting model, static HTML behavior, publication boundary, and enhancement boundary.
+- Remaining limitations are explicit rather than hidden incomplete work.
+
+### Remaining Integration And Production Gates
+
+- Push the branch, open and review a pull request, and merge through the normal repository workflow.
+- Confirm the hosted CI workflow passes on the exact reviewed commit.
+- Select and configure the production static host without coupling the site to the Forma binary release process.
+- Approve and apply deployment credentials and DNS changes separately.
+- Deploy the recorded artifact and verify `forma.choral.io`, representative deep routes, `sitemap.xml`, `robots.txt`, `404.html`, metadata, referenced assets, and source-commit evidence.
+- Record production validation in durable release or deployment evidence.
+
+Exact token, cost, and active-minute telemetry was not available to the coordinator, so this record does not fabricate an exact AI Coding duration. The implementation completed within the planned AI-assisted delivery approach; future runs should capture tool-provided usage telemetry when a precise cost comparison is required.
 
 ## Related Content
 
