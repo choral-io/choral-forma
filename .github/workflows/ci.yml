@@ -189,6 +189,12 @@ jobs:
       - name: Check web packages
         run: pnpm check
 
+      - name: Lint web packages
+        run: pnpm lint
+
+      - name: Run web and workflow tests
+        run: pnpm test
+
       - name: Build web packages
         run: pnpm build
 

@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       publish:
-        description: "Create or update the GitHub Release after building artifacts"
+        description: "Create the GitHub Release after building artifacts"
         required: true
         default: false
         type: boolean
@@ -28,7 +28,7 @@ on:
 
 permissions:
   actions: read
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -56,6 +56,25 @@ jobs:
 
       - name: Validate tag and artifact versions
         run: node scripts/check-release-version.mjs "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+
+      - name: Verify successful main CI for the exact release candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+        run: |
+          set -euo pipefail
+          source_sha="$(git rev-parse "${RELEASE_REF}^{commit}")"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${source_sha}&event=push&status=completed&per_page=100" \
+            | jq -e --arg source_sha "${source_sha}" '
+                .workflow_runs[]
+                | select(
+                    .name == "CI"
+                    and .head_branch == "main"
+                    and .head_sha == $source_sha
+                    and .conclusion == "success"
+                  )
+              ' >/dev/null
 
   verify-vscode-marketplace-identity:
     name: Verify VS Code Marketplace identity
@@ -284,6 +303,9 @@ jobs:
     needs: [build, extension]
     runs-on: ubuntu-24.04
     if: (github.event_name == 'push' || inputs.publish) && !inputs.verify_vscode_marketplace_identity
+    permissions:
+      actions: read
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -311,7 +333,7 @@ jobs:
           find release-assets -maxdepth 3 -type f -exec cp {} upload/ \;
           ls -la upload
 
-      - name: Create or update GitHub Release
+      - name: Create GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -322,13 +344,10 @@ jobs:
             prerelease_flags+=(--prerelease)
           fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            if [ "${#prerelease_flags[@]}" -gt 0 ]; then
-              gh release edit "$RELEASE_TAG" "${prerelease_flags[@]}"
-            fi
-            gh release upload "$RELEASE_TAG" upload/* --clobber
-          else
-            gh release create "$RELEASE_TAG" upload/* --generate-notes "${prerelease_flags[@]}"
+            echo "refusing to overwrite existing release: ${RELEASE_TAG}" >&2
+            exit 1
           fi
+          gh release create "$RELEASE_TAG" upload/* --generate-notes "${prerelease_flags[@]}"
 
   verify-published-release:
     name: Verify published release

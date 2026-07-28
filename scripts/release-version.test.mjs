@@ -183,6 +183,21 @@ test("checks the Zed extension WebAssembly target in CI", () => {
     );
 });
 
+test("runs root lint and test gates in CI", () => {
+    assert.match(
+        workflows[0],
+        /Check web packages[\s\S]*?pnpm check[\s\S]*?Lint web packages[\s\S]*?pnpm lint[\s\S]*?Run web and workflow tests[\s\S]*?pnpm test/u,
+    );
+});
+
+test("requires successful main CI for the exact release candidate", () => {
+    const releaseWorkflow = workflows[1];
+    assert.match(
+        releaseWorkflow,
+        /Verify successful main CI for the exact release candidate[\s\S]*?head_sha=\$\{source_sha\}&event=push&status=completed[\s\S]*?\.name == "CI"[\s\S]*?\.head_branch == "main"[\s\S]*?\.head_sha == \$source_sha[\s\S]*?\.conclusion == "success"/u,
+    );
+});
+
 test("builds and retains the static-site artifact in CI without deployment", () => {
     const ciWorkflow = workflows[0];
     assert.match(
@@ -217,6 +232,20 @@ test("publishes the Marketplace VSIX only after release verification", () => {
         releaseWorkflow,
         /publish-vscode-marketplace:\n    name: Publish VS Code Marketplace extension\n    needs: verify-published-release/u,
     );
+});
+
+test("keeps release assets immutable and grants write access only to publishing", () => {
+    const releaseWorkflow = workflows[1];
+    assert.match(releaseWorkflow, /permissions:\n  actions: read\n  contents: read/u);
+    assert.match(
+        releaseWorkflow,
+        /publish:\n    name: Publish GitHub Release[\s\S]*?permissions:\n      actions: read\n      contents: write/u,
+    );
+    assert.match(
+        releaseWorkflow,
+        /if gh release view "\$RELEASE_TAG" >\/dev\/null 2>&1; then[\s\S]*?refusing to overwrite existing release[\s\S]*?exit 1/u,
+    );
+    assert.doesNotMatch(releaseWorkflow, /gh release (?:edit|upload).*--clobber/u);
 });
 
 test("publishes standalone editor-managed binaries alongside release archives", () => {

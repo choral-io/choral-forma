@@ -45,24 +45,39 @@ test("pins Wrangler and keeps its platform binary installation explicit", () => 
     assert.match(gitignore, /^\.wrangler\/$/mu);
 });
 
-test("keeps production deployment manual, serialized, and approval-gated", () => {
-    assert.match(workflow, /^on:\n  workflow_dispatch:/mu);
+test("automatically deploys successful main CI artifacts while retaining manual rollback", () => {
+    assert.match(workflow, /^on:\n  workflow_run:\n    workflows: \["CI"\]\n    types: \[completed\]/mu);
+    assert.match(workflow, /^  workflow_dispatch:\n    inputs:\n      ci_run_id:/mu);
     assert.doesNotMatch(workflow, /^\s+(?:push|pull_request|schedule):/mu);
     assert.match(workflow, /^  cancel-in-progress: false$/mu);
-    assert.match(workflow, /^    if: github\.ref == 'refs\/heads\/main'$/mu);
+    assert.match(
+        workflow,
+        /github\.event_name == 'workflow_run'[\s\S]*?github\.event\.workflow_run\.conclusion == 'success'[\s\S]*?github\.event\.workflow_run\.head_branch == 'main'[\s\S]*?github\.event\.workflow_run\.event == 'push'/u,
+    );
+    assert.match(workflow, /github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/u);
     assert.match(workflow, /environment:\n      name: forma\.choral\.io\n      url: https:\/\/forma\.choral\.io/u);
     assert.match(workflow, /^  actions: read$/mu);
     assert.match(workflow, /^  contents: read$/mu);
 });
 
 test("deploys only the named artifact from a successful main CI run at the exact source commit", () => {
-    assert.match(workflow, /ci_run_id:[\s\S]*?required: true[\s\S]*?source_sha:[\s\S]*?required: true/u);
+    assert.match(
+        workflow,
+        /CI_RUN_ID: \$\{\{ github\.event_name == 'workflow_run' && github\.event\.workflow_run\.id \|\| inputs\.ci_run_id \}\}/u,
+    );
+    assert.match(
+        workflow,
+        /SOURCE_SHA: \$\{\{ github\.event_name == 'workflow_run' && github\.event\.workflow_run\.head_sha \|\| inputs\.source_sha \}\}/u,
+    );
     assert.match(workflow, /actions\/runs\/\$\{CI_RUN_ID\}/u);
     assert.match(workflow, /test "\$\(jq -r '\.name'[\s\S]*?= "CI"/u);
     assert.match(workflow, /test "\$\(jq -r '\.head_branch'[\s\S]*?= "main"/u);
     assert.match(workflow, /test "\$\(jq -r '\.head_sha'[\s\S]*?= "\$\{SOURCE_SHA\}"/u);
     assert.match(workflow, /test "\$\(jq -r '\.conclusion'[\s\S]*?= "success"/u);
-    assert.match(workflow, /uses: actions\/checkout@v7[\s\S]*?ref: \$\{\{ inputs\.source_sha \}\}/u);
+    assert.match(
+        workflow,
+        /uses: actions\/checkout@v7[\s\S]*?ref: \$\{\{ github\.event_name == 'workflow_run' && github\.event\.workflow_run\.head_sha \|\| inputs\.source_sha \}\}/u,
+    );
     assert.match(
         workflow,
         /gh run download "\$\{CI_RUN_ID\}"[\s\S]*?--name forma-static-site[\s\S]*?--dir dist\/site/u,

@@ -467,7 +467,7 @@ Completed deployment-path work:
 - the repository pins Wrangler and declares an asset-only Worker whose input is `dist/site`;
 - the Worker drops trailing slashes to match Forma-generated links, sitemap locations, and canonical URLs;
 - the Worker config deliberately has no server entrypoint or runtime binding and declares `forma.choral.io` as its only Custom Domain;
-- an independent `workflow_dispatch` workflow requires a successful main-branch CI run ID and its full source commit SHA;
+- the deployment workflow automatically starts when a `CI` workflow triggered by a `main` push succeeds; it retains a manual `workflow_dispatch` path for rollback to a retained, successful CI artifact;
 - the deployment workflow validates the CI run, checks out that exact commit, downloads the same `forma-static-site` artifact, and uses the `forma.choral.io` GitHub Environment as the approval boundary;
 - production credentials remain GitHub Environment secrets and are not present in repository files.
 
@@ -483,7 +483,7 @@ Completed production evidence:
 #### Steady-State Publication And Rollback Runbook
 
 1. Merge reviewed content or implementation to `main` and wait for its `CI` run to conclude successfully.
-2. Record that run's ID and full source SHA. Dispatch **Deploy static site** from `main`, passing those exact values; the workflow rejects any non-main, failed, or SHA-mismatched run.
+2. A successful push-triggered `CI` run automatically starts **Deploy static site** with that run's ID and full source SHA. The workflow rejects any non-main, failed, or SHA-mismatched run.
 3. Approve the `forma.choral.io` GitHub Environment when the deployment job waits for review. Production secrets are released only after that approval.
 4. Verify the homepage, a representative direct content route, `404.html` behavior, `sitemap.xml`, and trailing-slash normalization. Record the deployed source commit in the workflow summary or the relevant release evidence.
 5. To roll back, dispatch the same workflow with a retained, successful earlier `main` CI run and its matching SHA. Do not rebuild a different artifact or retag a Forma release to roll back the website. Retain the prior CI artifact until the replacement has passed production verification.
@@ -707,7 +707,7 @@ The existing client-side Quick Open can provide initial search over the static d
 - Metadata, sitemap, robots, and 404 outputs are present and verified.
 - Focused tests and the full required local repository gate passed.
 - The CI workflow performs a clean-checkout build, verification probes, deterministic digest reporting, and artifact upload without deploying.
-- The Cloudflare config is asset-only, and the manual deployment workflow accepts only the named artifact from a successful main-branch CI run at the recorded commit.
+- The Cloudflare config is asset-only, and the automatic deployment workflow accepts only the named artifact from a successful main-branch CI run at the recorded commit; a protected manual dispatch remains available only for artifact-based rollback.
 - `forma.choral.io` is attached to `choral-forma-site` as a Cloudflare Custom Domain and passed production route, TLS, 404, and canonical-URL probes.
 - Product documentation explains the command, hosting model, static HTML behavior, publication boundary, and enhancement boundary.
 - Remaining limitations are explicit rather than hidden incomplete work.
@@ -717,7 +717,7 @@ The existing client-side Quick Open can provide initial search over the static d
 - PR #8 was reviewed and merged to `main` at `7eec5d8535d88d116b10e31c1a1cdbfedeaca164`.
 - Hosted CI produced and verified the static artifact for the reviewed main-branch source.
 - The protected GitHub Environment holds the scoped Cloudflare credentials and remains the production approval boundary.
-- The manual deployment workflow has published the exact reviewed artifact to `forma.choral.io`; the operating and rollback procedure above preserves that same-commit boundary for future updates.
+- The initial manual deployment workflow published the exact reviewed artifact to `forma.choral.io`; subsequent successful `main` CI runs automatically deploy the same reviewed artifact while the operating and rollback procedure preserves that same-commit boundary.
 
 Exact token, cost, and active-minute telemetry was not available to the coordinator, so this record does not fabricate an exact AI Coding duration. The implementation completed within the planned AI-assisted delivery approach; future runs should capture tool-provided usage telemetry when a precise cost comparison is required.
 
