@@ -37,7 +37,6 @@ describe("static runtime URL helpers", () => {
         setStaticRuntimeConfig({
             baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
-            homeEntryId: "notes--one",
             rootPath: "/preview",
         });
 

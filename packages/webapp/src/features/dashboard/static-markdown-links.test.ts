@@ -68,4 +68,25 @@ describe("static Markdown root paths", () => {
         expect(html).toContain('href="/preview/#details"');
         expect(html).not.toContain("/pages/notes/home#details");
     });
+
+    it("resolves entry-style links from the workspace root document", () => {
+        const entries = [
+            {
+                path: "notes/two.md",
+                routePath: "/pages/notes/two",
+            },
+        ];
+
+        const html = postProcessMarkdownHtml(
+            '<a href="./notes/two.md">Two</a>',
+            [],
+            ".forma.md",
+            entries as DashboardEntry[],
+            false,
+            "/",
+        );
+
+        expect(html).toContain('href="/pages/notes/two"');
+        expect(html).toContain('data-link-kind="internal"');
+    });
 });

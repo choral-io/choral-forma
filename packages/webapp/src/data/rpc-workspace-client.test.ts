@@ -327,6 +327,7 @@ function rpcResult(
             status: "passed",
             summary: { errors: 0, warnings: 0, infos: 0 },
             workspace: { root: ".", name: "Example" },
+            home: { path: ".forma.md", markdown: "# Example", headings: [] },
             taxonomies,
             spaces: [],
             entries,

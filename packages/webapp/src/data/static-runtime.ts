@@ -1,7 +1,6 @@
 export interface StaticRuntimeConfig {
     baseUrl: string;
     dataBaseUrl: string;
-    homeEntryId?: string;
     rootPath: string;
 }
 
@@ -13,8 +12,7 @@ function isStaticRuntimeConfig(value: unknown): value is StaticRuntimeConfig {
     return (
         typeof config.baseUrl === "string" &&
         typeof config.dataBaseUrl === "string" &&
-        typeof config.rootPath === "string" &&
-        (config.homeEntryId === undefined || typeof config.homeEntryId === "string")
+        typeof config.rootPath === "string"
     );
 }
 

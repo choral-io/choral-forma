@@ -241,8 +241,6 @@ enum SiteCommand {
         out: PathBuf,
         #[arg(long)]
         base_url: String,
-        #[arg(long)]
-        home: Option<String>,
         #[arg(long, default_value = "/")]
         root_path: String,
         #[arg(long)]
@@ -455,7 +453,6 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             SiteCommand::Build {
                 out,
                 base_url,
-                home,
                 root_path,
                 json,
             } => {
@@ -465,7 +462,6 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                     site::SiteBuildOptions {
                         out,
                         base_url,
-                        home,
                         root_path,
                     },
                     &STATIC_WEBAPP_DIST,

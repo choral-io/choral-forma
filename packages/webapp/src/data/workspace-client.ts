@@ -76,6 +76,12 @@ export interface DashboardEntryHeading {
     text: string;
 }
 
+export interface WorkspaceHomeDocument {
+    path: string;
+    markdown: string;
+    headings: DashboardEntryHeading[];
+}
+
 export interface DashboardEntryLink {
     kind: "external" | "internal" | "unresolved";
     label: string;
@@ -287,6 +293,7 @@ export interface WorkspaceDashboard {
         alt: string;
     };
     tagline: string;
+    home: WorkspaceHomeDocument;
     status: WorkspaceHealth;
     taxonomies: DashboardTaxonomy[];
     spaces: DashboardSpace[];

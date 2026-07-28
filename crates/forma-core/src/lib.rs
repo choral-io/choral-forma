@@ -41,12 +41,12 @@ pub use operations::{
     ResolvedReferenceTarget, SkillDetail, SkillSource, SkillSummary, SkillsGetResult,
     SkillsListResult, WorkspaceDashboardResult, WorkspaceExplorerEntriesResult,
     WorkspaceExplorerResult, WorkspaceFile, WorkspaceFileFeature, WorkspaceFileKind,
-    WorkspaceLogoSummary, WorkspaceSession, WorkspaceSnapshot, WorkspaceSummary, create_entry,
-    detect_environment_timezone, init_workspace, inspect_config, inspect_entry_by_path,
-    inspect_entry_by_space, is_public_workspace_path_allowed, is_raw_workspace_path_allowed,
-    list_file_references, list_files, list_space, media_type_for_workspace_path,
-    operation_error_diagnostic, resolve_reference, skills_get, skills_list, workspace_dashboard,
-    workspace_explorer, workspace_explorer_entries,
+    WorkspaceHomeDocument, WorkspaceLogoSummary, WorkspaceSession, WorkspaceSnapshot,
+    WorkspaceSummary, create_entry, detect_environment_timezone, init_workspace, inspect_config,
+    inspect_entry_by_path, inspect_entry_by_space, is_public_workspace_path_allowed,
+    is_raw_workspace_path_allowed, list_file_references, list_files, list_space,
+    media_type_for_workspace_path, operation_error_diagnostic, resolve_reference, skills_get,
+    skills_list, workspace_dashboard, workspace_explorer, workspace_explorer_entries,
 };
 pub use path::{
     FORMA_CONFIG_PATH, PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,

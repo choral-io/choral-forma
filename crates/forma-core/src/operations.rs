@@ -22,6 +22,7 @@ use crate::index::{
 };
 use crate::markdown::{FormaMarkdownDocument, resolve_markdown_title};
 use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath, glob_scan_root};
+use crate::render::{RenderedHeading, markdown_with_reference_fallbacks, render_all_headings};
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
 };
@@ -240,12 +241,25 @@ pub struct WorkspaceDashboardResult {
     pub operation: String,
     pub status: OperationStatus,
     pub workspace: WorkspaceSummary,
+    pub home: WorkspaceHomeDocument,
     pub taxonomies: Vec<DashboardTaxonomy>,
     pub spaces: Vec<DashboardSpace>,
     pub entries: Vec<DashboardEntrySummary>,
     pub views: Vec<DashboardViewSummary>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+/// Read-only content from the workspace root document (`.forma.md`).
+///
+/// Its frontmatter remains configuration; only its Markdown body is exposed as
+/// the root reader page. It is intentionally not a managed workspace entry.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceHomeDocument {
+    pub path: String,
+    pub markdown: String,
+    pub headings: Vec<RenderedHeading>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1249,6 +1263,7 @@ pub fn workspace_dashboard(
     entries.sort_by(|left, right| left.path.cmp(&right.path));
 
     let views = dashboard_view_summaries(&discovery.index.views);
+    let home = workspace_home_document(root.as_ref())?;
 
     Ok(WorkspaceDashboardResult {
         schema_version: 1,
@@ -1259,12 +1274,31 @@ pub fn workspace_dashboard(
             name: workspace.config.workspace.name.clone(),
             logo: workspace_logo_summary(root.as_ref(), &workspace.config.workspace),
         },
+        home,
         taxonomies,
         spaces,
         entries,
         views,
         summary,
         diagnostics,
+    })
+}
+
+fn workspace_home_document(root: &Path) -> Result<WorkspaceHomeDocument, OperationError> {
+    let source =
+        fs::read_to_string(root.join(FORMA_CONFIG_PATH)).map_err(|source| OperationError::Io {
+            path: FORMA_CONFIG_PATH.to_string(),
+            source,
+        })?;
+    let document = FormaMarkdownDocument::parse(&source);
+    Ok(WorkspaceHomeDocument {
+        path: FORMA_CONFIG_PATH.to_string(),
+        // Keep the root document on the same Markdown contract as entries
+        // returned by `file.render --format markdown`: wikilinks and embeds
+        // first become ordinary Markdown links, then the reader resolves them
+        // to workspace routes.
+        markdown: markdown_with_reference_fallbacks(&document),
+        headings: render_all_headings(&document),
     })
 }
 
@@ -4266,6 +4300,12 @@ schema:
             "---\nkind: task\ntitle: Task Shared\nsummary: \"\"\nstatus: todo\nreadiness: ready\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n\n# Task Shared\n",
         )
         .unwrap();
+        let config = fs::read_to_string(root.join(".forma.md")).unwrap();
+        fs::write(
+            root.join(".forma.md"),
+            format!("{config}\n\n[[notes/shared|Shared note]]\n"),
+        )
+        .unwrap();
 
         let result = workspace_dashboard(&root).unwrap();
         let ids = result
@@ -4276,6 +4316,14 @@ schema:
 
         assert!(ids.contains(&"notes--shared"));
         assert!(ids.contains(&"tasks--shared"));
+        assert_eq!(result.home.path, ".forma.md");
+        assert!(!result.home.markdown.trim().is_empty());
+        assert!(
+            result
+                .home
+                .markdown
+                .contains("[Shared note](<./notes/shared.md>)")
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

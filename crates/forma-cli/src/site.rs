@@ -32,7 +32,6 @@ const CLOUDFLARE_STATIC_ASSET_HEADERS: &str = r#"/*
 pub(crate) struct SiteBuildOptions {
     pub out: PathBuf,
     pub base_url: String,
-    pub home: Option<String>,
     pub root_path: String,
 }
 
@@ -45,8 +44,6 @@ pub(crate) struct SiteBuildResult {
     pub output: String,
     pub base_url: String,
     pub root_path: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub home: Option<String>,
     pub counts: SiteBuildCounts,
     pub diagnostics: Vec<StaticSiteDiagnostic>,
 }
@@ -92,7 +89,6 @@ pub(crate) fn build_site(
     }
     let base_url = normalize_base_url(&options.base_url)?;
     let output = validate_output(&workspace, &options.out, &snapshot)?;
-    let home = validate_home(options.home.as_deref(), &snapshot)?;
     let staging = staging_path(&output.parent)?;
 
     fs::create_dir_all(&output.parent).map_err(|error| {
@@ -114,7 +110,6 @@ pub(crate) fn build_site(
         static_webapp,
         &options.root_path,
         &base_url,
-        home.as_deref(),
         &workspace,
     );
     let write = match write {
@@ -139,7 +134,6 @@ pub(crate) fn build_site(
         output: output.target.to_string_lossy().to_string(),
         base_url,
         root_path: options.root_path,
-        home,
         counts: SiteBuildCounts {
             routes: snapshot.summary.routes,
             // Phase 2 deliberately emits only the generic client shell. Crawlable route pages arrive in Phase 3.
@@ -161,7 +155,6 @@ fn write_artifact(
     static_webapp: &Dir<'_>,
     root_path: &str,
     base_url: &str,
-    home_path: Option<&str>,
     workspace: &Path,
 ) -> Result<ArtifactWrite, String> {
     let mut bytes = 0_u64;
@@ -200,19 +193,11 @@ fn write_artifact(
     }
     let embedded_index = embedded_index.unwrap_or_default();
     let copied_resources = copy_resources(workspace, staging, snapshot, &mut bytes)?;
-    let pages = render_pages(snapshot, home_path, root_path)?;
-    let home_entry_id = home_path.and_then(|path| {
-        snapshot
-            .entries
-            .iter()
-            .find(|entry| entry.path == path)
-            .map(|entry| entry.id.as_str())
-    });
+    let pages = render_pages(snapshot, root_path)?;
     for page in &pages {
         let html = page_shell(PageShellOptions {
             base_url,
             embedded_index: &embedded_index,
-            home_entry_id,
             noindex: false,
             page,
             root_path,
@@ -232,7 +217,6 @@ fn write_artifact(
     let not_found_html = page_shell(PageShellOptions {
         base_url,
         embedded_index: &embedded_index,
-        home_entry_id,
         noindex: true,
         page: &not_found,
         root_path,
@@ -709,23 +693,6 @@ fn activation_failure_message(
     )
 }
 
-fn validate_home(
-    home: Option<&str>,
-    snapshot: &StaticSiteSnapshot,
-) -> Result<Option<String>, String> {
-    let Some(home) = home else { return Ok(None) };
-    let home = home.trim();
-    if home.is_empty() {
-        return Err("site home path must not be empty".to_string());
-    }
-    if snapshot.entries.iter().any(|entry| entry.path == home) {
-        return Ok(Some(home.to_string()));
-    }
-    Err(format!(
-        "site home entry is not a managed workspace entry: {home}"
-    ))
-}
-
 fn normalize_base_url(value: &str) -> Result<String, String> {
     let value = value.trim();
     if value.contains('#') || value.chars().any(char::is_control) {
@@ -816,8 +783,17 @@ struct StaticWorkspace<'a> {
     name: &'a str,
     canonical_language: &'a str,
     supported_languages: &'a [String],
+    home: StaticWorkspaceHome<'a>,
     #[serde(skip_serializing_if = "Option::is_none")]
     logo: Option<StaticLogo<'a>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StaticWorkspaceHome<'a> {
+    path: &'a str,
+    markdown: &'a str,
+    headings: &'a [forma_core::RenderedHeading],
 }
 
 #[derive(Debug, Serialize)]
@@ -880,6 +856,11 @@ impl<'a> StaticDashboardData<'a> {
                 name: &snapshot.workspace.name,
                 canonical_language: &snapshot.workspace.canonical_language,
                 supported_languages: &snapshot.workspace.supported_languages,
+                home: StaticWorkspaceHome {
+                    path: &snapshot.workspace.home.path,
+                    markdown: &snapshot.workspace.home.markdown,
+                    headings: &snapshot.workspace.home.headings,
+                },
                 logo: snapshot.workspace.logo.as_ref().map(|logo| StaticLogo {
                     public_path: &logo.public_path,
                     alt: &logo.alt,

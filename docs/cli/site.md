@@ -27,14 +27,13 @@ The initial HTML contains readable entry bodies and ordinary links. JavaScript i
 forma site build \
   --out <directory> \
   --base-url <http-or-https-origin> \
-  [--home <managed-entry-path>] \
   [--root-path <deployment-subpath>] \
   [--json]
 ```
 
 `--out` and `--base-url` are required. `--base-url` is an HTTP(S) origin only: it cannot contain a path, query, fragment, or user information. `--root-path` defaults to `/`; use it when hosting beneath a path, for example `--base-url https://example.test --root-path /preview`. Forma combines the origin and root path for canonical URLs, `sitemap.xml`, static resource URLs, and browser routing.
 
-`--home` is optional and must name a managed workspace entry, such as `guides/overview.md`. Its body becomes the root page body; the entry's normal generated route remains available. `--json` emits a structured `site.build` result with output location, normalized URL settings, diagnostics, and route, page, View, resource, asset, warning, and byte counts.
+The root page always renders the Markdown body of `.forma.md`. Its frontmatter remains workspace configuration, while its body is the read-only workspace introduction. This makes the root document the same source for local and static readers; it is not a managed entry and cannot be replaced by a build flag. `--json` emits a structured `site.build` result with output location, normalized URL settings, diagnostics, and route, page, View, resource, asset, warning, and byte counts.
 
 ## Artifact Ownership And Hosting
 

@@ -16,7 +16,12 @@ const dashboard: StaticDashboardData = {
     schemaVersion: 1,
     generatorVersion: "test",
     status: "passed",
-    workspace: { name: "Static fixture", canonicalLanguage: "en", supportedLanguages: ["en", "zh-Hans"] },
+    workspace: {
+        name: "Static fixture",
+        canonicalLanguage: "en",
+        supportedLanguages: ["en", "zh-Hans"],
+        home: { path: ".forma.md", markdown: "# Static fixture", headings: [] },
+    },
     spaces: [
         {
             id: "notes",

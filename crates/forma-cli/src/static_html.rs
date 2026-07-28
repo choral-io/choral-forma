@@ -18,7 +18,6 @@ pub(crate) struct StaticPage {
 
 pub(crate) fn render_pages(
     snapshot: &StaticSiteSnapshot,
-    home_path: Option<&str>,
     root_path: &str,
 ) -> Result<Vec<StaticPage>, String> {
     let canonical_language = validated_language_tag(&snapshot.workspace.canonical_language)?;
@@ -28,8 +27,7 @@ pub(crate) fn render_pages(
         .map(|entry| (entry.id.as_str(), entry))
         .collect::<BTreeMap<_, _>>();
     let mut pages = Vec::with_capacity(snapshot.routes.len() + 1);
-    let home = home_path.and_then(|path| snapshot.entries.iter().find(|entry| entry.path == path));
-    pages.push(home_page(snapshot, home, root_path, &canonical_language));
+    pages.push(home_page(snapshot, root_path, &canonical_language));
 
     for route in &snapshot.routes {
         pages.push(route_page(
@@ -86,37 +84,32 @@ fn disambiguate_metadata(pages: &mut [StaticPage]) {
 
 fn home_page(
     snapshot: &StaticSiteSnapshot,
-    home: Option<&StaticSiteEntry>,
     root_path: &str,
     canonical_language: &str,
 ) -> StaticPage {
-    if let Some(entry) = home {
-        let entry_title = entry.title.as_deref().unwrap_or(&entry.path);
-        return StaticPage {
-            canonical_route: "/".to_string(),
-            description: format!(
-                "Homepage for {}, featuring {}.",
-                snapshot.workspace.name, entry_title
-            ),
-            language: canonical_language.to_string(),
-            output_path: "index.html".to_string(),
-            title: snapshot.workspace.name.clone(),
-            body: entry_body(entry, "/", root_path),
-        };
-    }
-
     StaticPage {
         canonical_route: "/".to_string(),
-        description: "Browse this Markdown-backed workspace.".to_string(),
+        description: format!("Workspace home for {}.", snapshot.workspace.name),
         language: canonical_language.to_string(),
         output_path: "index.html".to_string(),
         title: snapshot.workspace.name.clone(),
-        body: format!(
+        body: workspace_home_body(snapshot, root_path),
+    }
+}
+
+fn workspace_home_body(snapshot: &StaticSiteSnapshot, root_path: &str) -> String {
+    let home = &snapshot.workspace.home;
+    if home.html.trim().is_empty() {
+        return format!(
             "<header class=\"flex flex-col gap-3\"><p class=\"text-base-content/60 text-sm\">Workspace</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60\">Browse this Markdown-backed workspace.</p></header>{}",
             escape_html(&snapshot.workspace.name),
             entry_list(snapshot.entries.iter(), root_path),
-        ),
+        );
     }
+    format!(
+        "<article class=\"flex min-w-0 flex-col gap-5\" data-workspace-home data-reader=\"markdown\">{}</article>",
+        home.html,
+    )
 }
 
 fn route_page(
@@ -599,7 +592,6 @@ fn reference_html(
 pub(crate) struct PageShellOptions<'a> {
     pub base_url: &'a str,
     pub embedded_index: &'a str,
-    pub home_entry_id: Option<&'a str>,
     pub noindex: bool,
     pub page: &'a StaticPage,
     pub root_path: &'a str,
@@ -634,7 +626,6 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
     let config = serde_json::json!({
         "baseUrl": options.base_url,
         "dataBaseUrl": public_href(options.root_path, "/data"),
-        "homeEntryId": options.home_entry_id,
         "rootPath": options.root_path,
     })
     .to_string()
@@ -844,7 +835,6 @@ mod tests {
         let html = page_shell(PageShellOptions {
             base_url: "https://example.test",
             embedded_index: "",
-            home_entry_id: None,
             noindex: false,
             page: &page,
             root_path: "/",

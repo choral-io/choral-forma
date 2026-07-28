@@ -31,6 +31,11 @@ export interface StaticDashboardData {
         name: string;
         canonicalLanguage: string;
         supportedLanguages: string[];
+        home: {
+            path: string;
+            markdown: string;
+            headings: { id: string; level: number; text: string }[];
+        };
         logo?: { publicPath: string; alt: string };
     };
     spaces: {
@@ -161,6 +166,11 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                 ? { url: data.workspace.logo.publicPath, alt: data.workspace.logo.alt }
                 : undefined,
             tagline: "Markdown-backed workspace content.",
+            home: {
+                path: data.workspace.home.path,
+                markdown: data.workspace.home.markdown,
+                headings: data.workspace.home.headings.filter(isDashboardHeading),
+            },
             status: maxHealth(mapStatus(data.status), health.status),
             spaces: data.spaces.map((space) => mapSpace(space, entries)),
             taxonomies: data.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entries)),

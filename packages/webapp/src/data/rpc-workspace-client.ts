@@ -119,6 +119,11 @@ function mapWorkspaceDashboard(
         workspaceName: result.workspace.name,
         workspaceLogo: result.workspace.logo,
         tagline: "Markdown-backed workspace content.",
+        home: {
+            path: result.home.path,
+            markdown: result.home.markdown,
+            headings: result.home.headings.filter(isReaderHeading),
+        },
         status: maxHealth(mapStatus(result.status), health.status),
         taxonomies: result.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entries)),
         spaces: result.spaces.map((space) => mapSpace(space, entries)),
@@ -127,6 +132,14 @@ function mapWorkspaceDashboard(
         health,
         views: result.views.map(mapView),
     };
+}
+
+function isReaderHeading(heading: {
+    id: string;
+    level: number;
+    text: string;
+}): heading is { id: string; level: 2 | 3; text: string } {
+    return heading.level === 2 || heading.level === 3;
 }
 
 function mapTaxonomy(

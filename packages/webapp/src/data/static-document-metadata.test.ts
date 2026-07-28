@@ -47,13 +47,12 @@ describe("static document metadata", () => {
         setStaticRuntimeConfig({
             baseUrl: "https://example.test",
             dataBaseUrl: "/preview/data",
-            homeEntryId: "notes--home",
             rootPath: "/preview",
         });
 
         expect(resolveStaticDocumentMetadata(dashboard, "/preview/")).toEqual({
             canonicalPath: "/",
-            description: "Homepage for Forma, featuring Home.",
+            description: "Workspace home for Forma.",
             title: "Forma",
         });
         expect(resolveStaticDocumentMetadata(dashboard, "/preview/pages/notes/with%20space/")).toEqual({

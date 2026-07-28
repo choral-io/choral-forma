@@ -88,7 +88,7 @@ Evidence refreshed on 2026-07-28 from commit `a576c12`:
 | Evidence | Current result |
 | --- | --- |
 | `config inspect` and `workspace health` | Passed with no diagnostics or findings |
-| Dogfood command | `forma site build --out <temporary-output> --base-url https://forma.choral.io --home knowledge/product/choral-forma.md --json` |
+| Dogfood command | `forma site build --out <temporary-output> --base-url https://forma.choral.io --json` |
 | Managed entries | 186 |
 | Configured spaces, taxonomies, and Views | 17, 1, and 2 |
 | Artifact routes and HTML pages | 209 and 211 |
@@ -121,19 +121,17 @@ The productized command is:
 ```sh
 forma site build \
   --out dist/site \
-  --base-url https://forma.choral.io \
-  --home knowledge/product/choral-forma.md
+  --base-url https://forma.choral.io
 ```
 
 Implemented arguments:
 
-| Argument              | Behavior                                                      |
-| --------------------- | ------------------------------------------------------------- |
-| `--out <path>`        | Required output directory for the disposable artifact         |
-| `--base-url <url>`    | Canonical origin used for absolute metadata and sitemap URLs  |
-| `--home <entry-path>` | Optional managed entry used as the official landing-page body |
-| `--root-path <path>`  | Optional deployment subpath; defaults to `/`                  |
-| `--json`              | Emit a structured build result and diagnostics                |
+| Argument             | Behavior                                                     |
+| -------------------- | ------------------------------------------------------------ |
+| `--out <path>`       | Required output directory for the disposable artifact        |
+| `--base-url <url>`   | Canonical origin used for absolute metadata and sitemap URLs |
+| `--root-path <path>` | Optional deployment subpath; defaults to `/`                 |
+| `--json`             | Emit a structured build result and diagnostics               |
 
 The first slice uses explicit CLI arguments rather than adding a new `.forma` site schema. A file-backed site definition can be proposed later if repeated use proves that title, navigation, metadata, theme, or multiple-target configuration needs a durable product model.
 
@@ -246,9 +244,9 @@ The structured `view.render` result remains canonical. Static templates must not
 
 ### Homepage
 
-The dogfood build uses `knowledge/product/choral-forma.md` as the initial landing-page body and composes it with configured workspace navigation.
+The root page renders the Markdown body of `.forma.md` and composes it with configured workspace navigation. Its frontmatter remains configuration; its body is the workspace introduction.
 
-This is a deployment choice for the Choral Forma project, not a built-in assumption that future workspaces have a `product` space or `knowledge/product/choral-forma.md` entry.
+This is a built-in workspace convention, not a deployment-specific reference to a `product` space or any project entry.
 
 The homepage should:
 
@@ -439,7 +437,7 @@ Exit criteria:
 
 Work:
 
-- use the configured `--home` entry as the homepage body;
+- use the `.forma.md` body as the homepage body;
 - generate page titles and descriptions from workspace and entry summaries;
 - generate canonical, Open Graph, and Twitter metadata;
 - generate `sitemap.xml` from exported canonical routes;

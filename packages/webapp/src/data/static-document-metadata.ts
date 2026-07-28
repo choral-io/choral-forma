@@ -11,14 +11,10 @@ export interface StaticDocumentMetadata {
 
 export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pathname: string): StaticDocumentMetadata {
     const canonicalPath = logicalPathname(pathname);
-    const homeEntryId = readStaticRuntimeConfig()?.homeEntryId;
     if (canonicalPath === "/") {
-        const homeEntry = dashboard.entries.find((entry) => entry.id === homeEntryId);
         return {
             canonicalPath,
-            description: homeEntry
-                ? `Homepage for ${dashboard.workspaceName}, featuring ${homeEntry.title}.`
-                : "Browse this Markdown-backed workspace.",
+            description: `Workspace home for ${dashboard.workspaceName}.`,
             title: dashboard.workspaceName,
         };
     }

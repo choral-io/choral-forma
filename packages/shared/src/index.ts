@@ -474,6 +474,11 @@ export type DashboardViewSummary = {
 export type WorkspaceDashboardResult = BaseOperationResult & {
     operation: "workspace.dashboard";
     workspace: WorkspaceSummary;
+    home: {
+        path: string;
+        markdown: string;
+        headings: Array<{ id: string; level: number; text: string }>;
+    };
     taxonomies: DashboardTaxonomy[];
     spaces: DashboardSpace[];
     entries: DashboardEntrySummary[];

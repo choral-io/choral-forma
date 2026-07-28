@@ -120,6 +120,18 @@ fn help_exposes_generic_commands_without_task_specific_helpers() {
 }
 
 #[test]
+fn site_build_help_has_no_configurable_home_entry() {
+    let output = Command::new(env!("CARGO_BIN_EXE_forma"))
+        .args(["site", "build", "--help"])
+        .output()
+        .expect("forma site build --help should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!stdout.contains("--home"));
+}
+
+#[test]
 fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     let root = fixture_root("site-build-artifact");
     std::fs::create_dir_all(&root).unwrap();
@@ -127,6 +139,9 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     let entry = root.join("notes/static-site.md");
     let source = "---\nkind: note\ntitle: Static Site\nsummary: Static artifact fixture.\n---\n\n# Static Site\n\nThe neutral homepage body is present.\n\n## Details\n\n![Diagram](../assets/diagram.svg)\n![Spaced Resource](<../assets/diagram space.svg>)\n![Unicode Resource](../assets/图.svg)\n![Percent Resource](../assets/100%.svg)\n\n[Spaced Page](<with space.md>)\n[Unicode Page](你好.md)\n[Percent Page](100%.md)\n";
     std::fs::write(&entry, source).unwrap();
+    let mut workspace_source = std::fs::read_to_string(root.join(".forma.md")).unwrap();
+    workspace_source.push_str("\n# Static Workspace Home\n\nThe workspace root body is present.\n\n![Diagram](assets/diagram.svg)\n![Spaced Resource](<assets/diagram space.svg>)\n![Unicode Resource](assets/图.svg)\n![Percent Resource](assets/100%.svg)\n\n[Spaced Page](<notes/with space.md>)\n[Unicode Page](notes/你好.md)\n[Percent Page](notes/100%.md)\n");
+    std::fs::write(root.join(".forma.md"), workspace_source).unwrap();
     for (path, title) in [
         ("notes/with space.md", "With Space"),
         ("notes/你好.md", "Unicode"),
@@ -169,8 +184,6 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
             "dist/site",
             "--base-url",
             "https://example.test",
-            "--home",
-            "notes/static-site.md",
             "--root-path",
             "/preview",
             "--json",
@@ -246,7 +259,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(index.contains(r#""dataBaseUrl":"/preview/data""#));
     assert!(index.contains(r#""baseUrl":"https://example.test""#));
     assert!(index.contains(r#""rootPath":"/preview""#));
-    assert!(index.contains("The neutral homepage body is present."));
+    assert!(index.contains("The workspace root body is present."));
     assert!(index.contains(r#"href="https://example.test/preview/""#));
     assert!(index.contains(r#"src="/preview/raw/assets/diagram.svg""#));
     assert!(index.contains(r#"src="/preview/raw/assets/diagram%20space.svg""#));
@@ -349,8 +362,6 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
             "dist/site",
             "--base-url",
             "https://example.test",
-            "--home",
-            "notes/static-site.md",
             "--root-path",
             "/preview",
             "--json",

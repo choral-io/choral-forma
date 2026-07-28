@@ -21,7 +21,7 @@ use crate::operations::{
     normalized_relative_target, read_operation_diagnostics, reference_edge,
     reference_edge_sort_key, reference_edge_with_target, unique_references_by_target,
 };
-use crate::path::WorkspacePath;
+use crate::path::{FORMA_CONFIG_PATH, WorkspacePath};
 use crate::render::{
     RenderedHeading, ViewRenderDocument, ViewRenderOutput, render_all_headings,
     render_indexed_view_from_loaded, render_markdown_source_html, slugify_heading,
@@ -48,14 +48,28 @@ pub struct StaticSiteSnapshot {
     pub diagnostics: Vec<StaticSiteDiagnostic>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StaticSiteWorkspace {
     pub name: String,
     pub canonical_language: String,
     pub supported_languages: Vec<String>,
+    pub home: StaticSiteWorkspaceHome,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logo: Option<StaticSiteWorkspaceLogo>,
+}
+
+/// The Markdown body of the workspace root document (`.forma.md`).
+///
+/// This is deliberately separate from managed entries: the root document
+/// describes the workspace and remains the stable source for its root route.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StaticSiteWorkspaceHome {
+    pub path: String,
+    pub markdown: String,
+    pub html: String,
+    pub headings: Vec<RenderedHeading>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -293,13 +307,46 @@ fn build_static_site_snapshot_from_loaded(
             )
         })
         .collect::<BTreeMap<_, _>>();
-    let entry_headings_by_path = entry_routes_by_path
+    let mut entry_headings_by_path = entry_routes_by_path
         .keys()
         .map(|path| {
             read_document(workspace.root.as_path(), path)
                 .map(|document| (path.clone(), render_all_headings(&document)))
         })
         .collect::<Result<BTreeMap<_, _>, _>>()?;
+    let workspace_home_document = read_document(workspace.root.as_path(), FORMA_CONFIG_PATH)?;
+    merge_diagnostics(
+        &mut diagnostics,
+        workspace_home_document
+            .diagnostics
+            .iter()
+            .cloned()
+            .map(|diagnostic| diagnostic.with_path(FORMA_CONFIG_PATH.to_string()))
+            .collect(),
+    );
+    let workspace_home_headings = render_all_headings(&workspace_home_document);
+    entry_headings_by_path.insert(
+        FORMA_CONFIG_PATH.to_string(),
+        workspace_home_headings.clone(),
+    );
+    collect_document_resources(
+        &mut resources,
+        &config_paths,
+        FORMA_CONFIG_PATH,
+        "/",
+        &workspace_home_document,
+        root_path,
+    );
+    let workspace_home_markdown = static_markdown(
+        &workspace_home_document,
+        FORMA_CONFIG_PATH,
+        &entry_routes_by_path,
+        &entry_headings_by_path,
+        &config_paths,
+        root_path,
+    );
+    let workspace_home_html =
+        render_static_markdown_html(&workspace_home_markdown, &workspace_home_headings, false);
 
     for entry in &discovery.index.entries {
         let route_path = entry_route_path(&entry.path);
@@ -554,6 +601,12 @@ fn build_static_site_snapshot_from_loaded(
             name: workspace.config.workspace.name.clone(),
             canonical_language: workspace.config.workspace.canonical_language.clone(),
             supported_languages: workspace.config.workspace.supported_languages.clone(),
+            home: StaticSiteWorkspaceHome {
+                path: FORMA_CONFIG_PATH.to_string(),
+                markdown: workspace_home_markdown,
+                html: workspace_home_html,
+                headings: workspace_home_headings,
+            },
             logo,
         },
         routes,
@@ -1535,6 +1588,9 @@ mod tests {
         assert_eq!(first_json, second_json);
         assert_eq!(first.schema_version, 1);
         assert_eq!(first.status, OperationStatus::Warning);
+        assert_eq!(first.workspace.home.path, ".forma.md");
+        assert!(!first.workspace.home.markdown.trim().is_empty());
+        assert!(!first.workspace.home.html.trim().is_empty());
         assert_eq!(first.summary.entries, 2);
         assert_eq!(first.summary.views, 2);
         assert_eq!(first.summary.resources, 1);

@@ -870,6 +870,7 @@ impl From<forma_core::WorkspaceDashboardResult> for OperationResult {
     fn from(result: forma_core::WorkspaceDashboardResult) -> Self {
         let mut data = BTreeMap::new();
         data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("home".to_string(), json!(result.home));
         data.insert("taxonomies".to_string(), json!(result.taxonomies));
         data.insert("spaces".to_string(), json!(result.spaces));
         data.insert("entries".to_string(), json!(result.entries));

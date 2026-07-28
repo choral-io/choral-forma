@@ -30,7 +30,7 @@ import { Link, useLocation, useOutletContext, useParams } from "react-router";
 
 import { readPreparedStaticEnhancement } from "@/data/static-enhancement";
 import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "@/data/static-route-target";
-import { readStaticRuntimeConfig, rootAwareHref } from "@/data/static-runtime";
+import { rootAwareHref } from "@/data/static-runtime";
 import type {
     DashboardDiagnostic,
     DashboardEntry,
@@ -87,19 +87,6 @@ function useMermaidScope(key: string) {
 
 export function DashboardRoute() {
     const dashboard = useWorkspaceDashboard();
-    const preparedHome = readPreparedStaticEnhancement()?.entry;
-    const homeEntryId = readStaticRuntimeConfig()?.homeEntryId;
-    const homeEntry = dashboard.entries.find((entry) => entry.id === homeEntryId);
-
-    if (homeEntryId && homeEntry) {
-        return (
-            <EntryRouteContent
-                entryId={homeEntryId}
-                routePath="/"
-                summaryOverride={preparedHome?.routePath === "/" ? preparedHome.detail : homeEntry}
-            />
-        );
-    }
 
     return (
         <WorkspacePageShell
@@ -107,8 +94,34 @@ export function DashboardRoute() {
             eyebrow="Workspace"
             title={dashboard.workspaceName}
         >
-            <DashboardPage dashboard={dashboard} />
+            <WorkspaceHomePage dashboard={dashboard} />
         </WorkspacePageShell>
+    );
+}
+
+function WorkspaceHomePage({ dashboard }: { dashboard: WorkspaceDashboard }) {
+    const mermaidScope = useMermaidScope("workspace-home");
+    const home = dashboard.home;
+
+    return (
+        <>
+            <article className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-5" data-workspace-home>
+                <MarkdownReader
+                    currentPath={home.path}
+                    currentRoutePath="/"
+                    entries={dashboard.entries}
+                    headings={home.headings}
+                    markdown={home.markdown}
+                    mermaidScope={mermaidScope}
+                />
+            </article>
+            <section
+                className="border-base-300 mx-auto mt-12 w-full max-w-6xl border-t pt-10"
+                aria-label="Workspace overview"
+            >
+                <DashboardPage dashboard={dashboard} />
+            </section>
+        </>
     );
 }
 
