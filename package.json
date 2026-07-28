@@ -17,7 +17,9 @@
     "build": "pnpm --recursive --if-present build",
     "test": "vitest run extensions/vscode/src packages/graph-view/src packages/shared/src packages/webapp/src && node --test scripts/*.test.mjs",
     "check": "node scripts/check-release-version.mjs && pnpm --recursive --if-present check && prettier --check . --cache",
-    "format": "prettier --write . --cache"
+    "format": "prettier --write . --cache",
+    "site:deploy": "wrangler deploy",
+    "site:deploy:dry-run": "wrangler deploy --dry-run"
   },
   "devDependencies": {
     "@eslint/js": "~10.0.1",
@@ -30,6 +32,7 @@
     "prettier-plugin-tailwindcss": "~0.8.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "~8.65.0",
-    "vitest": "~4.1.10"
+    "vitest": "~4.1.10",
+    "wrangler": "~4.114.0"
   }
 }
