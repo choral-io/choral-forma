@@ -54,6 +54,8 @@ Agent workflow should be config-driven:
 7. Apply the relevant guideline procedure.
 8. Report any guideline gap instead of inventing hidden rules.
 
+When code or documentation interprets workspace concepts, identifiers, paths, classifications, or publication boundaries, follow [[guidelines/forma-product-model-and-configuration-fidelity]] before treating a repository example as a Forma contract.
+
 ## Write Boundary
 
 - Do not write shared project content, task metadata, `.forma` config, or repository operating state without explicit user approval.

@@ -71,10 +71,10 @@ The Choral Forma official site is the first dogfooding workspace, not a hard-cod
 
 ## Confirmed Direction
 
-- The default official-site projection includes all shared entries managed by the current Forma workspace.
+- The default official-site projection includes all entries managed by the current effective Forma workspace.
 - Public project, architecture, decision, planning, task, release, test, and member records are valid official-site content for this open-source project.
 - Information hierarchy controls prominence; it is not a confidentiality allowlist.
-- Local-only and machine-local state must not enter the artifact.
+- Machine-local state, caches, credentials, and other material outside configured workspace inputs must not enter the artifact. A configured path is not excluded merely because its directory is named `local` or ignored by Git.
 - The source workspace remains editable and maintainable through ordinary Markdown, CLI, and editor workflows.
 - The generated artifact is disposable and must never become a round-trip source of truth.
 - The final target is not a single-shell SPA. It is a multi-page static site with one crawlable HTML output per public route.
@@ -179,28 +179,29 @@ The artifact:
 - preserve ordinary browser navigation without requiring an SPA fallback rule;
 - keep client-side navigation as an enhancement, not a hosting requirement;
 - avoid embedding absolute host filesystem paths;
-- avoid embedding runtime identity, local overrides, ignored local files, diagnostics that are not intentionally presented, or build-machine metadata;
+- avoid embedding runtime identity, credentials, caches, diagnostics that are not intentionally presented, or build-machine metadata;
 - produce the same content and stable filenames from the same source commit and tool version, excluding explicitly documented hash changes from WebApp assets.
 
 ## Publication Boundary
 
-The site builder uses Forma's shared workspace load path and configured managed entries:
+The site builder uses Forma's single effective workspace and configured managed entries:
 
 ```text
-LoadMode::SharedOnly
+validated .forma.md imports
+-> effective workspace
 -> configured managed entries
--> referenced public resources
+-> referenced publishable resources
 -> generated site artifact
 ```
 
-The first slice does not infer publication semantics from `.gitignore`, copy the entire repository, or expose the existing raw-file server behavior.
+Every valid configured import participates in the effective workspace. The first slice does not infer publication semantics from `.gitignore` or path names, copy the entire repository, or expose the existing raw-file server behavior.
 
 Rules:
 
-- Export all entries returned by the shared workspace projection.
+- Export all entries returned by the effective workspace projection.
 - Export all configured taxonomy and View routes that can be rendered successfully.
 - Copy only workspace resources intentionally referenced by exported content or configured workspace presentation.
-- Do not copy `.forma.md`, `.forma/` configuration nodes, `.agents/`, skills, Git data, build output, local workspaces, caches, or arbitrary ignored files.
+- Do not copy configuration-source documents, `.agents/`, skills, Git data, build output, caches, or arbitrary unreferenced repository files. A resource under a directory named `local` remains eligible when exported content references it and it passes the ordinary resource-safety policy.
 - Do not make an allowlist of Product, Architecture, or other project-specific spaces part of the generic feature.
 - Treat future `exclude`, `draft`, or `noindex` behavior as a separate product decision. Do not invent built-in publication fields from this repository's current metadata.
 
@@ -379,7 +380,7 @@ Exit criteria:
 Work:
 
 - introduce a reusable Core site-snapshot module;
-- load shared workspace state once;
+- load effective workspace state once;
 - reuse discovery, index, reference, and View rendering results;
 - render entry Markdown and semantic HTML without repeated workspace discovery;
 - collect referenced resources without copying arbitrary files;
@@ -390,7 +391,7 @@ Exit criteria:
 
 - the fixture snapshot is stable across two builds;
 - this repository's 186 entries and 2 Views export successfully;
-- local-only files and absolute paths do not appear in serialized output;
+- files outside configured workspace inputs and absolute paths do not appear in serialized output;
 - build diagnostics identify the source route or entry involved.
 
 ### Phase 2: Generate A Serverless Static Artifact — Complete
@@ -528,7 +529,7 @@ Exit criteria:
 - route ids and output paths are normalized and collision-checked;
 - unsafe output directories are rejected;
 - repeated build behavior is defined and tested;
-- shared-only loading excludes machine-local state;
+- effective-workspace loading includes every valid configured import, while machine-local state outside configured inputs remains excluded;
 - entry, reference, taxonomy, View, and resource counts are reported;
 - build errors include structured diagnostics;
 - generated output contains no absolute workspace paths;
@@ -639,7 +640,7 @@ Do not commit generated site output unless a later hosting decision explicitly r
 | Rich browser renderer differs from Core HTML | Content flash or duplicate DOM | Define one enhancement boundary and validate before/after DOM |
 | `/raw/...` assumes a live server | Broken images and workspace logo | Collect, copy, rewrite, and verify referenced resources |
 | Browser router assumes SPA fallback | Direct routes fail on static hosts | Generate route directories with their own `index.html` |
-| Site generator copies ignored or local files | Machine-local data enters artifact | Use shared managed entries and referenced-resource collection, not repository copy |
+| Site generator copies arbitrary repository files | Machine-local or unrelated data enters artifact | Use effective-workspace managed entries and referenced-resource collection, not a repository copy |
 | All public records dominate navigation | Official site feels like an internal dashboard | Use hierarchy, homepage composition, labels, taxonomy ordering, and search rather than content hiding |
 | Graph cannot be represented without JavaScript | Empty no-JavaScript View page | Generate a semantic node/link summary and hydrate the interactive Graph |
 | New SSG dependency duplicates Forma semantics | Larger maintenance surface | Use Core HTML, existing WebApp assets, and small templates; do not add Astro in P0 |
@@ -702,7 +703,7 @@ The existing client-side Quick Open can provide initial search over the static d
 - Enhanced Markdown, Mermaid, math, Graph, themes, Quick Open, and client navigation work with JavaScript.
 - No browser request reaches `/rpc`.
 - Referenced public resources resolve from the artifact.
-- Local-only files, absolute paths, credentials, caches, and arbitrary repository files are absent.
+- Files outside configured workspace inputs, absolute paths, credentials, caches, and arbitrary unreferenced repository files are absent.
 - Homepage content is sourced from managed Forma knowledge.
 - Metadata, sitemap, robots, and 404 outputs are present and verified.
 - Focused tests and the full required local repository gate passed.

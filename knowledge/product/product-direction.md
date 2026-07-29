@@ -464,32 +464,22 @@ Some process definitions should be stored as structured knowledge. Humans and Ag
 
 This should be treated as a product concept: process knowledge can define expected inputs, states, checks, transitions, review points, and outputs. It is not application code, but it should be executable enough for people and Agents to coordinate consistent work.
 
-### Shared And Personal Boundaries
+### Collaboration And Personal Workflow Boundaries
 
-The product must distinguish shared team knowledge, shared personal knowledge, and local personal knowledge.
+Human and Agent workflows need to distinguish durable team facts from personal drafts, scratchpads, execution plans, preferences, and runtime state. This is a collaboration and promotion concern in P0, not a built-in content visibility scope.
 
-Shared team knowledge is committed to the repository and represents team-level facts, structures, processes, decisions, or work context.
+Repositories may use Git tracking, review guidance, ownership metadata, and explicit user context to decide what becomes durable team knowledge. Forma still treats every configured input as part of one effective workspace; it does not infer privacy or visibility from those workflow conventions.
 
-Shared personal knowledge is also committed to the repository, but remains owned by or associated with a person. It can include public working style, public research summaries, handoffs, responsibility notes, or personal context that the team and Agents may safely use.
+Promotion of personal working material into durable repository content should remain explicit and reviewable. A future product-level visibility model requires its own configuration, authorization, publication, and migration contract.
 
-Local personal knowledge is not committed to the repository. It is for private drafts, local execution plans, scratchpads, local preferences, and Agent runtime state.
+### Effective Configuration And Personal Workflow State
 
-Personal content can be promoted into shared personal or shared team content when it becomes useful beyond the local workspace. Shared content can also be converted or split into personal working material when a person needs a local execution plan, draft, scratchpad, or private context.
+P0 has one effective workspace configuration. `.forma.md` is the entry point, and every valid explicitly configured import participates in the same merge regardless of its directory name or Git tracking state. Forma does not assign shared, personal, private, or publication scope from `.gitignore` or a path such as `.forma/local/`.
 
-The product should make these transitions explicit and reviewable.
-
-### Team And Local Configuration
-
-The product should support team shared configuration and local personal configuration in P0. Shared personal configuration has product value, but it should remain a P1 or later capability until there are enough durable personal preferences to justify the extra configuration layer.
-
-Team shared configuration is committed to the repository and defines workspace meaning: spaces, semantic types, schemas, templates, shared views, and baseline health checks. Team-level changes should be made directly in the shared base configuration; the MVP should not include shared team overrides.
-
-Local personal configuration is not committed to the repository. It can store temporary or sensitive preferences such as machine-local paths, private Agent preferences, local scratch locations, UI state, secrets, or private connection details.
-
-The P0 merge order should be:
+The P0 resolution order is:
 
 ```text
-team shared config -> local personal overrides -> runtime values
+.forma.md + validated configured imports -> effective configuration -> runtime values
 ```
 
 Runtime values are not written back into configuration files. They are available for interpolation, effective configuration inspection, health checks, and view or template rendering.
@@ -509,11 +499,11 @@ Recommended target layout:
 assets/
 ```
 
-Local overrides are optional and should be selected through explicit configuration entry points rather than inferred from SCM ignore rules. The MVP does not need to create a dedicated local runtime directory; a workspace or host application can introduce one later for caches, locks, local indexes, or GUI state, but those paths should not become product facts.
+Repository workflows may keep personal drafts or machine-specific files uncommitted, and a workspace or host application may use ignored paths for caches, locks, local indexes, or GUI state. That workflow boundary is not a Forma runtime privacy boundary. Secrets, credentials, and material that must remain private should stay outside configured workspace inputs.
 
-The core P0 rule is: team shared config defines workspace meaning; local personal config defines private or temporary preference.
+P0 does not define a separate local-override scope. Future profile or configuration-layer support requires an explicit product contract for selection, precedence, visibility, publication, and migration rather than a special directory convention.
 
-Future shared profile configuration can use committed profile fragments when the product has enough non-sensitive profile preferences to justify it. Shared profiles should not be selected automatically by a built-in user or member identity mechanism. They are committed configuration fragments that a local personal override can explicitly load by workspace-relative path.
+Future profile configuration can use explicitly imported configuration fragments when the product has enough durable profile preferences to justify it. Profiles should not be selected automatically by a built-in user or member identity mechanism.
 
 A workspace may place shared profile fragments at any explicitly referenced workspace-relative path, for example:
 
@@ -521,17 +511,17 @@ A workspace may place shared profile fragments at any explicitly referenced work
 config/profiles/<profile-name>.md
 ```
 
-This example is not a built-in Forma path. If profiles are introduced, local personal config would choose whether to load one or more shared profiles. The effective merge order should stay explicit:
+This example is not a built-in Forma path. If profiles are introduced, their selection and merge order must stay explicit:
 
 ```text
-team shared config -> selected shared profiles -> local personal overrides -> runtime values
+base configuration -> explicitly selected profiles -> runtime values
 ```
 
 The profile path is the selection dimension. A workspace may choose to relate profiles to entries in a `members`, `people`, `agents`, or other user-defined space, but Forma should not require or infer that relation from the path.
 
-Strict team enforcement is not an initial requirement. The more important need is a clear merge model and Agent-friendly CLI or skills that can explain the effective configuration, show where each value came from, and check workspace health, configuration consistency, schema validity, and local override effects.
+Strict team enforcement is not an initial requirement. The more important need is a clear merge model and Agent-friendly CLI or skills that can explain the effective configuration, show where each value came from, and check workspace health, configuration consistency, and schema validity.
 
-MVP override semantics should remain simple and explainable:
+MVP import-merge semantics should remain simple and explainable:
 
 ```text
 object: deep merge
@@ -556,7 +546,7 @@ Markdown config nodes under .forma/views/ own saved projection definitions.
 Navigation configuration owns sidebar and prominent route/page/view groups.
 ```
 
-The effective configuration should be inspectable instead of hidden. CLI and Agent-facing interfaces should be able to show the merged configuration, explain which source produced a specific value, and check for merge conflicts, invalid types, circular references, local-only leakage, and values that depend on the current machine.
+The effective configuration should be inspectable instead of hidden. CLI and Agent-facing interfaces should be able to show the merged configuration, explain which source produced a specific value, and check for merge conflicts, invalid types, circular references, unsafe paths, and values that depend on the current machine.
 
 The product should avoid writing an effective configuration file as a durable source of truth. If caching becomes necessary, caches should live under project-ignored paths and remain uncommitted.
 
@@ -567,7 +557,7 @@ Forma should separate knowledge constraints into distinct layers:
 - `schema` describes document structure, field types, required fields, enum values, semantic references, and create defaults.
 - `guidelines` are ordinary Markdown knowledge documents referenced by workspace configuration, taxonomy terms, views, or future operation profiles. They explain collaboration conventions, write boundaries, review expectations, project-specific operating rules, and lightweight Human/Agent procedure checklists.
 - `policies` are future machine-readable constraints for write operations and workflow transitions, such as task status transitions or review gates.
-- `invariants` are workspace-wide consistency checks, such as resolved references, unique space membership, canonical/localized variant consistency, safe config paths, and local-only path exclusion.
+- `invariants` are workspace-wide consistency checks, such as resolved references, unique space membership, canonical/localized variant consistency, and safe config paths. Any future visibility or publication exclusion must be explicitly configured rather than inferred from path names.
 - `operations` are the CLI/RPC/WebApp actions that read, propose, validate, apply, and audit changes using schema, policies, invariants, and guidelines.
 
 Guidelines should be introduced before a full policy engine because they replace the soft procedural constraints that were previously carried by Agent skills. Policies should be added only when a writable operation needs machine-enforced preconditions.
@@ -878,7 +868,7 @@ MVP placeholders can include:
 - `{{ runtime.values.currentUserId }}`
 - `{{ config.<dotted.path> }}`
 
-Configuration references should resolve against the effective config after team shared config and local personal overrides are merged. The resolver must detect circular references and report them clearly instead of silently producing partial values.
+Configuration references should resolve against the effective configuration after `.forma.md` and its validated configured imports are merged. The resolver must detect circular references and report them clearly instead of silently producing partial values.
 
 Runtime values should be explicit definitions under `runtime.values.*`. In configuration files, `runtime.values.<name>` defines how to resolve the value. In templates, view params, and resolved contexts, `runtime.values.<name>` reads the resolved value.
 
@@ -909,7 +899,7 @@ runtime:
             transform: slugify
 ```
 
-Local overrides can replace runtime value definitions with the same shape:
+An explicitly imported configuration fragment can replace a runtime value definition with the same shape:
 
 ```yaml
 runtime:
@@ -922,7 +912,7 @@ runtime:
 
 P0 should not include a separate `memberIdResolver` concept. Current-user identity should instead be modeled as `runtime.values.currentUserId`, a normal runtime value whose provider can normalize environment data into a user id. Member-like or user-like behavior should be derived from spaces, semantic types, and runtime values rather than hard-coded resolver names.
 
-The resolver chain should remain explicit and inspectable. CLI and Agent tools should report which runtime value definition produced a value, which definition source won after overrides, and why a value is unresolved.
+The resolver chain should remain explicit and inspectable. CLI and Agent tools should report which runtime value definition produced a value, which configured source won during the effective-config merge, and why a value is unresolved.
 
 Template files can use runtime placeholders when creating new entries. Committed knowledge entries should generally store resolved concrete values rather than dynamic placeholders as durable facts.
 
@@ -1179,7 +1169,7 @@ Direct filesystem edits should remain allowed. `forma check` should detect broke
 
 The first public release should not use a committed summary index. The local server and read operations scan source files and configuration, then keep the read model in memory.
 
-The MVP should not include a committed summary index or a local full index. A persistent index, SQLite backend, watcher, or vector index can be introduced later only after a fresh design if workspace size, GUI latency, local overrides, or semantic search make them necessary.
+The MVP should not include a committed summary index or a user-visible local full index. A persistent index, SQLite backend, watcher, or vector index can be introduced later only after a fresh design if workspace size, GUI latency, configuration scale, or semantic search make them necessary.
 
 The read model is derived runtime state, not a knowledge store:
 
@@ -1189,7 +1179,7 @@ read model supports discovery, graph traversal, and context selection
 read model can always be rebuilt in memory
 ```
 
-Runtime read-model projections should not contain absolute paths, local override results, private local files, runtime identity, user behavior traces, full frontmatter, full Markdown bodies, diagnostics, check summaries, health state, effective config, rendered HTML, or rendered view results.
+Runtime read-model projections should not contain absolute paths, host cache state, credentials, runtime identity, user behavior traces, full frontmatter, full Markdown bodies, diagnostics, check summaries, health state, effective config, rendered HTML, or rendered view results. Configured workspace entries are not excluded merely because their path is ignored by Git or contains a component named `local`.
 
 Recommended shape:
 
@@ -1252,7 +1242,7 @@ Recommended shape:
 }
 ```
 
-By default, serve/check operations should full-scan shared source files and shared configuration into memory. P0 does not need true incremental indexing. P0 should not expose persistent `index rebuild` or `index check` behavior.
+By default, serve/check operations should scan configured source files and effective configuration into memory. P0 does not need a user-visible persistent `index rebuild` or `index check` behavior.
 
 Diagnostics are runtime results that belong to `forma check`, `forma serve`, or shared RPC responses; they should not be persisted as a separate diagnostics result file. Effective configuration belongs to `forma config inspect`; view results belong to view rendering.
 
@@ -1332,7 +1322,6 @@ view.*
 template.*
 create.*
 index.*
-privacy.*
 ```
 
 ### Editing And Reading Surfaces
@@ -1364,13 +1353,13 @@ The user-facing experience should not require users to understand Git branches, 
 - Structured views over files without requiring custom executable scripts.
 - Forma-native YAML Schema DSL as the initial user-visible object constraint format.
 - Explicit promotion and splitting between personal and shared content.
-- Three knowledge visibility scopes: shared team, shared personal, and local personal.
-- P0 configuration scopes: team shared and local personal.
+- Future explicit knowledge visibility scopes, if product evidence justifies them; P0 does not infer them from paths or Git state.
+- One P0 effective configuration assembled from `.forma.md` and validated configured imports.
 - Guidance for non-software users around repository operations that would otherwise require Git knowledge.
 - Optional date-based workflows such as daily, weekly, or monthly reports where they fit a user's workspace.
 - Limited `{{ ... }}` runtime interpolation for configuration and templates.
 - Create inputs with explicit field binding, operation-level defaults, dependency-graph resolution, and a small `slugify` transform.
-- Runtime in-memory read model rebuilt from source files and shared configuration.
+- Runtime in-memory read model rebuilt from configured source files and effective configuration.
 - P0 CLI for config inspection, workspace checks, entry inspection, space listing, entry creation, and read-only local GUI serving.
 
 ## Out Of Scope
@@ -1385,8 +1374,7 @@ The user-facing experience should not require users to understand Git branches, 
 - Publishing systems in the initial product direction.
 - Assuming the current repository's `knowledge/` layout is the default or only future workspace structure.
 - Assuming all users understand Git concepts.
-- Shared team overrides in the MVP. Team-level configuration changes should edit the shared base config directly.
-- Shared personal overrides in P0. They remain a P1 or later capability.
+- Additional configuration scopes or override layers in the MVP. P0 has one effective configuration assembled from `.forma.md` and validated configured imports.
 - Agent-only product capabilities. Agent and Skill flows should not be the only way to create, inspect, validate, or maintain knowledge structures.
 - Local full index, SQLite index backend, filesystem watcher, or vector index in P0.
 - Heavy archive, merge, provenance, or recycle-bin workflows in the MVP.
@@ -1403,5 +1391,5 @@ The user-facing experience should not require users to understand Git branches, 
 - What exact CLI, JSON result, and future skill interfaces are needed for Agents to check workspace health?
 - What conflict and pull request workflows can be made understandable for non-software users?
 - How should structured content artifacts such as JSONL event logs and SQLite projections participate in repository-backed workspaces without turning derived databases into hidden source-of-truth stores? See [[product/structured-artifacts-and-source-facts]].
-- Which future shared personal configuration fields are safe to commit, and when is that extra layer justified?
+- What evidence would justify future explicit configuration or visibility scopes, and what authorization and publication contract would they require?
 - Which runtime values should be available in P0, and how should custom runtime value providers be configured safely later?

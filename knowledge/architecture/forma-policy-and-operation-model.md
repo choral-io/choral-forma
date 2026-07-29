@@ -44,7 +44,7 @@ The first likely policy domain is task workflow:
 
 ### Invariants
 
-Invariants are workspace-wide consistency checks. Examples include resolved references, unique space membership, canonical language variants, local-only path exclusion, safe config paths, and graph relation field validity.
+Invariants are workspace-wide consistency checks. Examples include resolved references, unique space membership, canonical language variants, safe config paths, and graph relation field validity. A future visibility or publication exclusion can become an invariant only when it is explicitly declared; Forma does not infer one from a path name or Git state.
 
 ### Operations
 

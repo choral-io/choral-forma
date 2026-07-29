@@ -182,7 +182,7 @@ Migration validation should not treat these as blockers by default:
 
 ### Phase 2: Space And Schema Runtime Support
 
-- Load user-authored space schemas from `.forma/spaces/*.md`.
+- Load user-authored space schemas from imported term config nodes; this repository currently places them under `.forma/spaces/*.md`.
 - Validate relationship fields through schema-declared reference types.
 - Let graph field edges use schema-backed references for task and member relationships.
 

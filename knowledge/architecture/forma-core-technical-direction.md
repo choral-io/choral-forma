@@ -232,7 +232,7 @@ P0 should distinguish source files from runtime diagnostic results.
 
 Default P0 behavior has no persisted index artifact. `forma serve` scans source files at startup and keeps a read model in memory. This keeps the first public release simple and avoids stale indexes.
 
-Persistent local configuration is optional, ignored by project rules, and loaded only through explicit `.forma.md` import patterns. Forma should not assume a built-in local configuration directory.
+Configuration fragments that a repository workflow keeps local are optional and loaded only through explicit `.forma.md` import patterns. They participate in the same effective configuration as every other import; Forma should not assume a built-in local configuration directory, precedence layer, or privacy scope.
 
 Future local implementation caches, optional and ignored:
 

@@ -66,6 +66,7 @@ Load only the narrower workspace-projected skill needed for the current request.
 - Use [[guidelines/task-selection]] when the user asks about next tasks, readiness, task metadata, delivery state, board moves, implementation, or review.
 - Use [[guidelines/workspace-audit-and-reporting]] when the user asks for workspace status, health, schema consistency, stale content, task metadata issues, or a report.
 - Use [[guidelines/local-worklist-and-execution]] when the user asks to manage member-local work, logs, drafts, or execution notes.
+- Use [[guidelines/forma-product-model-and-configuration-fidelity]] when a request changes or interprets Forma concepts, configuration, reserved identifiers, path behavior, classification, or publication boundaries.
 - Use project-specific guidelines such as [[guidelines/dependency-governance]] only when their topic appears in the task or inspected target.
 
 ### Stop Rules

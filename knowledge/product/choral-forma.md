@@ -53,7 +53,7 @@ The application should support editor-independent workflows through Forma's buil
 - Markdown-first knowledge workspaces.
 - Thin configurable spaces, semantic types, schemas, templates, and views.
 - Lightweight navigation across user-defined knowledge entries.
-- Agent-assisted maintenance that respects repository workflow rules and local privacy boundaries.
+- Agent-assisted maintenance that respects repository workflow and content-promotion boundaries.
 
 ## Out Of Scope
 

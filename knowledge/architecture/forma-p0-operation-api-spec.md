@@ -88,7 +88,7 @@ Every CLI JSON result must be:
 
 - A single valid JSON object.
 - Stable enough for scripts, Agents, tests, and the WebApp shared types.
-- Free of absolute host paths, platform-specific path separators, mtimes, hashes, runtime-local cache paths, private local files, and user behavior traces.
+- Free of absolute host paths, platform-specific path separators, mtimes, hashes, host cache paths, credentials, secrets, and user behavior traces.
 - Versioned with top-level `schemaVersion`.
 
 Recommended top-level shape:
@@ -309,7 +309,7 @@ Operations that evaluate workspace health include:
 }
 ```
 
-All public paths are workspace-relative POSIX paths. Absolute paths are internal implementation details and must not appear in CLI JSON, RPC results, committed index files, diagnostics, or configuration references.
+All API-facing paths are workspace-relative POSIX paths. Here, API-facing describes representation rather than publication scope. Absolute paths are internal implementation details and must not appear in CLI JSON, RPC results, committed index files, diagnostics, or configuration references.
 
 ## Operation Result Outlines
 
@@ -509,7 +509,7 @@ Result outline:
 
 ### Files List
 
-`files.list` returns display-safe workspace files for the WebApp file navigation mode. It must not expose absolute paths, `.git`, build artifacts, dependency directories, or local-only Forma files.
+`files.list` returns display-safe files from the effective workspace for the WebApp file navigation mode. It must not expose absolute paths, paths outside the workspace boundary, symlink targets, `.git`, build artifacts, or dependency directories. A configured file is not excluded merely because its path is ignored by Git or contains a component named `local`.
 
 Params:
 
@@ -818,7 +818,7 @@ POST /rpc
 
 The Rust CLI package should remain buildable from a clean checkout even when ignored WebApp `dist` assets have not been generated. Development and release tasks should build the WebApp before packaging `forma serve`; a fallback static page may be embedded only to keep Rust checks usable when assets are absent.
 
-P0 supports an explicit external WebApp asset directory override, such as `forma serve --webapp-dir <dir>`, for development debugging and issue verification. When present, that directory provides static assets instead of the embedded WebApp assets. The override is serve-time only, must not be stored in shared workspace configuration, and must not change RPC behavior or workspace permissions. Broader custom distribution and white-label packaging remain P1 concerns.
+P0 supports an explicit external WebApp asset directory override, such as `forma serve --webapp-dir <dir>`, for development debugging and issue verification. When present, that directory provides static assets instead of the embedded WebApp assets. The override is serve-time only, must not be stored in workspace configuration, and must not change RPC behavior or workspace permissions. Broader custom distribution and white-label packaging remain P1 concerns.
 
 P0 also supports explicit RPC CORS origins for Vite dev server workflows, such as `forma serve --cors-origin http://localhost:5173`. CORS must be disabled by default, must reject wildcard origins, and should apply only to `/rpc`. Development WebApp builds may use `VITE_FORMA_RPC_URL` to call the configured Forma RPC URL across origins.
 
@@ -826,14 +826,14 @@ The WebApp should use `POST /rpc` for workspace overview, space listing, file na
 
 Future convenience endpoints for static assets, health, or development-mode frontend integration must not bypass the shared dispatcher for product operations.
 
-## Path And Privacy Rules
+## Path And Visibility Rules
 
 - Public paths use workspace-relative POSIX strings.
 - Absolute paths and `..` traversal are rejected in operation params unless the command explicitly accepts the workspace root.
 - Windows-style CLI path separators may be accepted and normalized.
 - Path identity remains case-sensitive.
 - Diagnostics may suggest case-correct candidates but must not silently resolve references case-insensitively.
-- Public results must not include local-only cache paths, private local files, local override values that are not needed to explain effective config, or user behavior traces.
+- Public results must not include host cache paths, credentials, secrets, or user behavior traces. Any future content-visibility or publication scope must be explicitly configured; path names and `.gitignore` do not create one.
 
 ## Related Decisions
 

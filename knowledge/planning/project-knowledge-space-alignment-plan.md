@@ -61,7 +61,7 @@ The current guidelines also need to reflect the evidence flow used by the produc
 
 - Do not move product knowledge outside `knowledge/`.
 - Do not make `docs/` the canonical product knowledge workspace.
-- Do not treat `.forma/local/` as a knowledge-content location; it is only for local Forma configuration or machine-specific overrides.
+- Do not treat `.forma/local/` as a built-in knowledge-content or privacy boundary. It is only an optional configured path; users must manage repository inclusion and exclusion explicitly.
 - Do not delete `planning/` or `proposals/`; they are useful for this project even though they are not part of the minimal product R&D example.
 - Do not mechanically rename files before `.forma` config, types, templates, and references are ready.
 

@@ -33,6 +33,7 @@ sources:
     - "design/webapp-review-surface-design"
     - "design/webapp-review-surface-validation-2026-07-22"
     - "planning/daisyui-webapp-foundation-rewrite-plan"
+    - "guidelines/forma-product-model-and-configuration-fidelity"
 ---
 
 # WebApp Engineering And Visual Validation
@@ -162,6 +163,7 @@ Use a manual stacking value only when the required layering relationship remains
 
 ### Configuration And Product Fidelity
 
+- Follow [[guidelines/forma-product-model-and-configuration-fidelity]] for the cross-surface distinction between product contracts, configured concepts, repository conventions, and implementation details.
 - Consume Forma data through shared operations and package boundaries; do not reproduce Core semantics in React.
 - Do not infer built-in product concepts from one example workspace.
 - Treat taxonomy names, Table columns, Kanban columns, card fields, and classification colors as configuration-driven unless the contract explicitly says otherwise.

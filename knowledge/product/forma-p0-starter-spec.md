@@ -25,7 +25,7 @@ This starter specification stays aligned with [Product direction](product-direct
 The starter baseline is import-driven and Markdown-first:
 
 - `.forma.md` is the single committed configuration entry point.
-- `.forma/` is a conventional support directory for imported spaces, templates, views, and local-only overrides. It is not a hidden workspace root or persistent store.
+- `.forma/` is a conventional support directory for imported spaces, templates, views, and other configuration fragments. It is not a hidden workspace root, persistent store, or visibility boundary.
 - Markdown under content directories remains the source of truth.
 - No committed persistent index is part of the starter.
 - `workspace.root` is not part of the config model and must not be generated.
@@ -143,8 +143,8 @@ The starter should expose:
 
 The generated workspace can stay empty when initialization returns. The committed example workspace remains the richer demo and smoke-validation baseline.
 
-## Local-Only Boundary
+## Workflow And Visibility Boundary
 
-Forma should not infer local-only status from `.gitignore`, `.forma/local/`, or any other path convention. Starter-local personal configuration should be introduced through an explicit configuration entry or future CLI option rather than hidden path semantics.
+Forma should not infer local-only status from `.gitignore`, `.forma/local/`, or any other path convention. An explicitly imported personal configuration fragment participates in the same effective workspace and receives no privacy guarantee from its name or Git state. Repository workflows may keep such files uncommitted, while any future scoped configuration entry point requires a separate product contract.
 
 No starter behavior should depend on `.forma/` being treated as a privileged root or hidden database.

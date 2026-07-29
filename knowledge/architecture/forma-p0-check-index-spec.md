@@ -46,7 +46,7 @@ Pipeline phases:
 
 1. Load the `.forma.md` configuration entry from the selected workspace directory.
 2. Load optional imported configuration files when `.forma.md` references them.
-3. Normalize all public paths to workspace-relative POSIX-style paths.
+3. Normalize all workspace paths to workspace-relative POSIX-style paths.
 4. Discover candidate source files from configured page sources, taxonomy source rules, view definitions, and navigation/dashboard references.
 5. Split Markdown frontmatter and body.
 6. Parse configuration and entry YAML frontmatter.
@@ -56,7 +56,7 @@ Pipeline phases:
 10. Validate configuration, taxonomy membership, frontmatter schemas, view definitions, workspace view sources, and normalized-entry query targets.
 11. Resolve references.
 12. Build the in-memory read-model projection from successfully resolved discovery facts.
-13. Build runtime diagnostics from configuration, parsing, schema, membership, references, view, template, create, runtime, and privacy checks.
+13. Build runtime diagnostics from configuration, parsing, schema, membership, references, view, template, create, and runtime checks.
 14. Project the operation result for CLI JSON, human CLI output, local HTTP RPC, or WebApp consumption.
 
 Read-model-producing operations use phases 1 through 12 and exclude diagnostics from persisted artifacts by default. Check-producing operations use the same discovery and parse facts, then return diagnostics from phase 13.
@@ -65,9 +65,9 @@ View source and query validation follows [[architecture/forma-view-query-model]]
 
 ## In-Memory Read Model
 
-P0 rebuilds the read model in memory by scanning source files and configuration. Repository Markdown and `.forma.md`-imported configuration are the only shared source of truth for discovery facts.
+P0 rebuilds the read model in memory by scanning configured source files and effective configuration. Repository Markdown and `.forma.md`-imported configuration are the source of truth for discovery facts.
 
-The read model includes deterministic, shared discovery facts:
+The read model includes deterministic discovery facts from the effective workspace:
 
 - Workspace summary.
 - Space summaries.
@@ -78,8 +78,8 @@ The read model includes deterministic, shared discovery facts:
 The read model must not persist:
 
 - Diagnostics, check summaries, last check status, or health state.
-- Effective configuration or local override results.
-- Runtime identity, local paths, private local files, or user behavior traces.
+- Effective configuration.
+- Runtime identity, host cache paths, credentials, secrets, or user behavior traces.
 - Absolute paths or platform-specific path separators.
 - Full frontmatter, full Markdown bodies, rendered HTML, or rendered view results.
 - Unresolved or ambiguous references.
@@ -270,7 +270,6 @@ P0 diagnostic code families:
 - `template.*`
 - `create.*`
 - `index.*`
-- `privacy.*`
 
 Initial concrete codes should use the narrowest stable family available, for example:
 
@@ -285,7 +284,7 @@ Initial concrete codes should use the narrowest stable family available, for exa
 - `entryRef.case-mismatch`
 - `resource.description.missingTarget`
 - `view.invalid`
-- `privacy.local-leak`
+- `config.pathBoundary`
 
 Codes are public Script, Agent, and GUI contract. Rename a code only with an explicit compatibility decision.
 
@@ -347,7 +346,7 @@ All JSON output should be stable and schema-versioned where it represents a publ
 Behavior:
 
 - Read-only.
-- Runs diagnostics over shared configuration, space membership, schemas, entries, references, views, templates where relevant, and privacy boundaries.
+- Runs diagnostics over effective configuration, workspace path boundaries, space membership, schemas, entries, references, views, and templates where relevant.
 - Does not write repairs, caches, local results, or a persistent index.
 - Returns zero for `passed` and `warning`; returns non-zero for `failed`.
 
@@ -409,7 +408,7 @@ Future caches, if needed for check speed, parsing speed, diagnostics, rendering,
 Future cache rules:
 
 - Local-only and ignored by git.
-- Rebuildable from source files, shared configuration, and optional local overrides.
+- Rebuildable from configured source files and effective configuration.
 - Never treated as product facts or public Script, Agent, CLI, or RPC interfaces.
 - Never required for correctness.
 - Never committed.

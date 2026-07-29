@@ -75,11 +75,13 @@ imports:
 This file is the Forma workspace entry point.
 ```
 
+Every matching import contributes to the same effective configuration. The `.forma/local/*.md` line is only an example of a repository-managed configuration fragment: `local` has no built-in precedence, ownership, privacy, or publication meaning, and the import may be removed or replaced with any valid workspace-relative pattern.
+
 Runtime values define named values that templates and create defaults can read with `{{ runtime.values.<name> }}`. They are explicit config, not hidden identity or environment assumptions. Supported provider kinds are:
 
 | kind | Fields | Use |
 | --- | --- | --- |
-| `const` | `value`, optional `required`, `transform` | Explicit configured value, often in an included local config file. |
+| `const` | `value`, optional `required`, `transform` | Explicit configured value, optionally supplied by an imported configuration fragment. |
 | `gitConfig` | `key`, optional `required`, `transform` | Read a value from Git config, such as `user.name` or `user.email`. |
 | `currentDate` | none | Current date in `YYYY-MM-DD`, resolved with `workspace.timezone`. |
 | `currentDateTime` | none | Current datetime in RFC3339, resolved with `workspace.timezone`. |
@@ -102,7 +104,7 @@ runtime:
             transform: slugify
 ```
 
-Use `currentUserId` only when the workspace workflow needs a current user value, for example to default an owner or author field. It is not built in; it is a normal runtime value name. It can be resolved from Git config as above, or overridden by an explicitly included local config file:
+Use `currentUserId` only when the workspace workflow needs a current user value, for example to default an owner or author field. It is not built in; it is a normal runtime value name. It can be resolved from Git config as above, or defined by an explicitly imported configuration fragment under the ordinary effective-config rules:
 
 ```yaml
 runtime:

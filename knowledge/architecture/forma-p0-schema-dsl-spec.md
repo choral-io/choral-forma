@@ -237,14 +237,14 @@ P0 runtime value provider kinds:
 
 `transform` is allowed on runtime value providers. If a required runtime value cannot be resolved, operations that only need a warning should continue with a `runtime.value.unresolved` warning. Operations that require the value to complete must fail with a diagnostic.
 
-Local overrides use the same configuration shape, but Forma should not infer them from SCM ignore rules. Shared and personal configuration should be selected by explicit configuration entry points or future CLI options such as `--config`, with later sources overriding earlier sources. P0 does not need a separate allow/deny override policy for runtime values.
+P0 merges `.forma.md` and every valid explicitly configured import into one effective configuration. Forma does not infer shared, personal, private, or local scope from SCM ignore rules or directory names. A future additional configuration entry point or scoped layer would require an explicit precedence, visibility, publication, and migration contract; it is not part of the P0 Schema DSL.
 
 ## Placeholders
 
 P0 supports simple `{{ path.to.value }}` placeholders only in Forma-controlled surfaces:
 
 - Configuration values that explicitly allow placeholders.
-- Templates under `.forma/spaces/templates/`.
+- Templates referenced by configured `create.template` paths, such as the recommended `.forma/spaces/templates/` example layout.
 - View parameters and future embedded-view arguments.
 
 P0 placeholders do not support expressions, arithmetic, conditions, loops, includes, functions, default operators, filters, or arbitrary code execution. Ordinary Markdown body text is inert unless it appears inside a Forma-controlled template or explicit Forma directive surface.

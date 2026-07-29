@@ -114,7 +114,7 @@ Use TypeScript, React, and Vite for the P0 WebApp. Keep frontend code in a root 
 
 P0 should distinguish repository source files from runtime diagnostic results. The first public implementation does not use a committed discovery index.
 
-Optional local configuration should be selected through explicit configuration entry points, not inferred from project ignore rules or built-in Forma path conventions.
+Every valid configured import participates in one effective workspace configuration. Forma does not infer local, private, shared, or publication scope from project ignore rules or built-in path conventions. Any future scoped configuration layer requires a separate explicit contract.
 
 Future local caches, if needed, should use project-ignored paths:
 
@@ -122,7 +122,7 @@ Future local caches, if needed, should use project-ignored paths:
 <project-ignored cache path>
 ```
 
-The read model is rebuilt in memory from Markdown files and shared configuration. It contains resolved structure, not health state. Runtime projections can include workspace summary, spaces, views, entries, and successfully resolved references. They must not persist diagnostics, check summaries, last check status, health summaries, effective config, runtime values, rendered views, local paths, private local files, full frontmatter, full Markdown bodies, or user behavior traces.
+The read model is rebuilt in memory from configured Markdown files and effective configuration. It contains resolved structure, not health state. Runtime projections can include workspace summary, spaces, views, entries, and successfully resolved references. They must not persist diagnostics, check summaries, last check status, health summaries, effective config, runtime values, rendered views, absolute or host cache paths, credentials, secrets, full frontmatter, full Markdown bodies, or user behavior traces.
 
 Diagnostics are runtime results. They are recomputed by `forma check`, `forma serve`, or the shared RPC dispatcher. They should not enter source files and should not be persisted as local result files. Future implementation caches may accelerate diagnostic computation, but caches must be local-only, rebuildable, and invisible as product facts.
 
@@ -184,7 +184,7 @@ Build inputs:
 - `rust-toolchain.toml` to pin the Rust toolchain.
 - `mise` tasks as the project-level entrypoint for check, test, format, and build commands.
 
-Release builds should serve built WebApp static assets from the Rust binary or release package. The preferred release mode is embedded assets so `forma serve` does not require a separate frontend runtime or asset directory. Development mode may serve local `packages/webapp/dist` assets or proxy a Vite dev server. P0 may add a user-specified WebApp asset directory override for development debugging and issue verification. That override should remain a serve-time option rather than shared workspace configuration so knowledge repositories stay portable. Broader custom distribution and white-label packaging remain P1 concerns. P0 may also add explicit `/rpc` CORS origins for Vite dev server workflows. This should remain disabled by default, reject wildcard origins, and keep RPC permissions unchanged.
+Release builds should serve built WebApp static assets from the Rust binary or release package. The preferred release mode is embedded assets so `forma serve` does not require a separate frontend runtime or asset directory. Development mode may serve local `packages/webapp/dist` assets or proxy a Vite dev server. P0 may add a user-specified WebApp asset directory override for development debugging and issue verification. That override should remain a serve-time option rather than workspace configuration so knowledge repositories stay portable. Broader custom distribution and white-label packaging remain P1 concerns. P0 may also add explicit `/rpc` CORS origins for Vite dev server workflows. This should remain disabled by default, reject wildcard origins, and keep RPC permissions unchanged.
 
 P0 distribution should use:
 

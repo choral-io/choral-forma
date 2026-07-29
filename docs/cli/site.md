@@ -43,9 +43,9 @@ The artifact contains static HTML, hashed WebApp assets, dashboard and route dat
 
 ## Publication And Resource Boundary
 
-The builder exports the shared workspace projection and configured routes, not a repository copy. In this open-source repository, shared project, release, member, task, and other `knowledge/` records are eligible to be public because the repository itself is public. The exclusions are local-only, private, or machine state: for example `knowledge/workspace/*/local/`, `.forma/local/`, credentials, caches, browser state, and build-machine metadata. `.gitignore` is not publication policy.
+The builder exports the effective workspace projection and configured routes, not a repository copy. Every valid configured import participates, including paths whose directory happens to be named `local`; Forma does not assign privacy or publication semantics to path names or `.gitignore`. In this open-source repository, project, release, member, task, and other configured workspace records are eligible to be public because the repository itself is public. Authors who need to keep material out of an artifact must leave it outside the configured workspace inputs.
 
-Only resources referenced by exported content or declared workspace presentation are copied, under `raw/`. Forma rejects path traversal, symlinks, and non-regular resource files; it does not copy arbitrary workspace or repository files. Hidden path components and any directory component named `local` are reserved as non-public resource locations and are never copied, even when shared content links to them.
+Only resources referenced by exported content or declared workspace presentation are copied, under `raw/`. Forma rejects path traversal, symlinks, non-regular resource files, hidden path components, and configuration-source documents; it does not copy arbitrary workspace or repository files. A directory component named `local` is an ordinary path component and is copied when referenced by exported content.
 
 ### Trusted-Author Publication Boundary
 
