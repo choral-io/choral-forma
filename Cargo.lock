@@ -194,9 +194,9 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "camino"
-version = "1.2.4"
+version = "1.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f2d30e4173c4026932d51d31d6b0613b1fd3014bf3f9f8943d4ba139c437ba0"
+checksum = "bb1307f12aa967b5a58416e87b3653360e0fd614a016b6e970db08fecbb1b80d"
 
 [[package]]
 name = "cc"
@@ -314,13 +314,13 @@ checksum = "61803da095bee82a81bb1a452ecc25d3b2f1416d1897eb86430c6159ef717c17"
 
 [[package]]
 name = "displaydoc"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ac70aa55017e108007fbaf5aa0f54b021c98f92ff8af59d42eda9da96e3dd4f"
+checksum = "c6232dd377dcc64799954cbd3a9bb882e9cdc1308ccd87b1c098f1fb2eaf82a8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -381,7 +381,7 @@ dependencies = [
 
 [[package]]
 name = "forma-cli"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "axum",
  "clap",
@@ -398,7 +398,7 @@ dependencies = [
 
 [[package]]
 name = "forma-core"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "camino",
  "chrono",
@@ -413,7 +413,7 @@ dependencies = [
 
 [[package]]
 name = "forma-lsp"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "forma-core",
  "lsp-server",
@@ -426,7 +426,7 @@ dependencies = [
 
 [[package]]
 name = "forma-rpc"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "forma-core",
  "serde",
@@ -437,7 +437,7 @@ dependencies = [
 
 [[package]]
 name = "forma-zed-extension"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "zed_extension_api",
 ]

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.26
+
+- Ship the coordinated Forma CLI with resolved configuration summaries, non-writing create previews, workspace path explanations, and embedded Agent Skills.
+- Reuse loaded workspace state and cached read operations so repeated document, Explorer, and Preview requests avoid unnecessary parsing and indexing.
+- Align workspace home rendering with normal managed entries, including document titles, summaries, metadata, and Markdown content.
+- Harden Agent Skill projection, source references, invalid-guideline isolation, Markdown section boundaries, and CLI output behavior.
+- Refresh the compatible icon and component dependencies and regenerate the bundled WebApp link-icon font.
+
 ## 0.1.25
 
 - Render `entryRef` and `entryRef` lists in Views as links named after their target entries, including Table, Kanban, and list projections.
