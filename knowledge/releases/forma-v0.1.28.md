@@ -5,7 +5,7 @@ title: "Forma v0.1.28"
 summary: "Corrective release for cross-platform canonical-doc parsing and stable release gates."
 scope: project
 type: release
-status: planned
+status: released
 version: "v0.1.28"
 date: 2026-07-29
 owners:
@@ -62,11 +62,20 @@ Publish the complete [[releases/forma-v0.1.26]] feature cutline through a new im
 
 > Forma `v0.1.28` publishes the full static-site, runtime-performance, resolved-workspace, and Agent Skill update with release gates hardened against Windows line endings and transient shared-runner scheduling pauses.
 
+## Release Evidence
+
+- Immutable tag: `v0.1.28` at candidate commit `3bf6bb43d164677c1cf2f795bc9416a298a08a61`.
+- Candidate main CI: [run 30441907347](https://github.com/choral-io/choral-forma/actions/runs/30441907347) passed for that exact commit, including the Windows release build.
+- Final GitHub Release, published-release verification, and Marketplace publication: [run 30442370720](https://github.com/choral-io/choral-forma/actions/runs/30442370720) passed. The Marketplace job published the smoke-tested VSIX through GitHub OIDC.
+- Published release: [Forma v0.1.28](https://github.com/choral-io/choral-forma/releases/tag/v0.1.28) is non-draft, non-prerelease, and has the expected 22 assets.
+- `mise run release:verify -- v0.1.28` passed on macOS ARM64: `forma-macos-arm64` reports `forma 0.1.28` with SHA-256 `82db77ad1b0497f038a1451823fc7d0fd458a93cfaa1b8a555653b29d1c12723`; `choral-io.forma@0.1.28` reports engine `^1.110.0` with SHA-256 `be2886cfc173f8464acab73577f80b2aeef0c78caec0ff114d2028e28b209389`; managed install also executed `forma 0.1.28`.
+- The Release workflow's Linux Extension Host and packaged-VSIX smoke passed. A separate local attempt to launch VS Code from Codex aborted in macOS application registration before extension loading, so it is recorded as a local GUI-launch boundary rather than product evidence.
+- Remote SSH, Dev Container, WSL, signing, and notarization remain untested.
+
 ## Rollback Plan
 
 Do not move or overwrite `v0.1.26`, `v0.1.27`, `v0.1.28`, Marketplace versions, or verified release assets. If publication or post-release verification finds another blocker, publish a higher coordinated version after remediation.
 
 ## Post-Release Follow-Up
 
-- Add this released record to [[planning/forma-release-and-delivery-ledger]], then run `mise run release:record-check -- v0.1.28` before committing the post-release evidence.
 - Continue the planned WebApp code-splitting work for the largest generated chunks.
