@@ -478,6 +478,7 @@ export type WorkspaceDashboardResult = BaseOperationResult & {
         path: string;
         title?: string;
         omitLeadingTitle: boolean;
+        updatedAt?: string;
         markdown: string;
         headings: Array<{ id: string; level: number; text: string }>;
     };

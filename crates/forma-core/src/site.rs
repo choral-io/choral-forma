@@ -59,10 +59,10 @@ pub struct StaticSiteWorkspace {
     pub logo: Option<StaticSiteWorkspaceLogo>,
 }
 
-/// The Markdown body of the workspace root document (`.forma.md`).
+/// The Markdown body and reader metadata for the workspace root entry (`.forma.md`).
 ///
-/// This is deliberately separate from managed entries: the root document
-/// describes the workspace and remains the stable source for its root route.
+/// The root entry has no configured Space, but remains the stable source for
+/// the workspace root route.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StaticSiteWorkspaceHome {
@@ -257,7 +257,7 @@ pub struct StaticSiteSnapshotSummary {
     pub diagnostics: DiagnosticSummary,
 }
 
-/// Builds one static snapshot from one shared-only workspace load and discovery.
+/// Builds one static snapshot from the workspace's effective configuration and discovery.
 pub fn build_static_site_snapshot(
     root: impl AsRef<Path>,
 ) -> Result<StaticSiteSnapshot, OperationError> {
@@ -349,8 +349,11 @@ fn build_static_site_snapshot_from_loaded(
         &config_paths,
         root_path,
     );
-    let workspace_home_html =
-        render_static_markdown_html(&workspace_home_markdown, &workspace_home_headings, false);
+    let workspace_home_html = render_static_markdown_html(
+        &workspace_home_markdown,
+        &workspace_home_headings,
+        workspace_home_omit_leading_title,
+    );
 
     for entry in &discovery.index.entries {
         let route_path = entry_route_path(&entry.path);
@@ -981,12 +984,15 @@ fn static_markdown(
                             .as_deref()
                             .unwrap_or(reference.target.as_str()),
                     );
-                    let prefix = (matches!(
+                    let prefix = if matches!(
                         reference.syntax,
                         crate::markdown::FormaReferenceSyntax::ObsidianEmbed
-                    ) && href.contains("/raw/"))
-                    .then_some("!")
-                    .unwrap_or("");
+                    ) && href.contains("/raw/")
+                    {
+                        "!"
+                    } else {
+                        ""
+                    };
                     Some((
                         span.start_byte,
                         span.end_byte,
@@ -1121,7 +1127,6 @@ fn resolve_entry_route<'a>(
     let matches = entry_routes_by_path
         .iter()
         .filter(|(path, _)| suffixes.iter().any(|suffix| path.ends_with(suffix)))
-        .map(|(path, route)| (path, route))
         .collect::<Vec<_>>();
     (matches.len() == 1).then(|| matches[0])
 }
@@ -1251,17 +1256,18 @@ fn render_static_markdown_html(
         output.push_str(&html[cursor..start]);
         let tag = html.as_bytes().get(start + 2).copied();
         let opening = html.as_bytes().get(start + 3).copied();
-        if matches!(tag, Some(b'1'..=b'6')) && opening == Some(b'>') {
-            if let Some(heading) = rendered_headings.get(heading_index) {
-                output.push_str(&format!(
-                    "<h{} id=\"{}\">",
-                    char::from(tag.unwrap_or_default()),
-                    heading.id
-                ));
-                heading_index += 1;
-                cursor = start + 4;
-                continue;
-            }
+        if matches!(tag, Some(b'1'..=b'6'))
+            && opening == Some(b'>')
+            && let Some(heading) = rendered_headings.get(heading_index)
+        {
+            output.push_str(&format!(
+                "<h{} id=\"{}\">",
+                char::from(tag.unwrap_or_default()),
+                heading.id
+            ));
+            heading_index += 1;
+            cursor = start + 4;
+            continue;
         }
         output.push_str("<h");
         cursor = start + 2;
@@ -1371,11 +1377,10 @@ fn resource_path_is_publishable(path: &str, config_paths: &BTreeSet<&str>) -> bo
     let Some(root) = components.first() else {
         return false;
     };
-    if components.iter().any(|component| {
-        component.is_empty()
-            || component.starts_with('.')
-            || component.eq_ignore_ascii_case("local")
-    }) {
+    if components
+        .iter()
+        .any(|component| component.is_empty() || component.starts_with('.'))
+    {
         return false;
     }
     !blocked_roots
@@ -1597,18 +1602,23 @@ mod tests {
         assert_eq!(first.workspace.home.path, ".forma.md");
         assert!(!first.workspace.home.markdown.trim().is_empty());
         assert!(!first.workspace.home.html.trim().is_empty());
-        assert_eq!(first.summary.entries, 2);
+        assert!(!first.workspace.home.html.contains("<h1"));
+        assert_eq!(first.summary.entries, 3);
         assert_eq!(first.summary.views, 2);
         assert_eq!(first.summary.resources, 1);
         assert_eq!(first.summary.taxonomies, 1);
-        assert_eq!(first.summary.taxonomy_terms, 1);
+        assert_eq!(first.summary.taxonomy_terms, 2);
         assert_eq!(
             first
                 .entries
                 .iter()
                 .map(|entry| entry.path.as_str())
                 .collect::<Vec<_>>(),
-            vec!["content/guides/intro.md", "content/guides/related.md"]
+            vec![
+                "content/guides/intro.md",
+                "content/guides/related.md",
+                "local/private-draft.md",
+            ]
         );
         assert!(first.routes.iter().any(|route| {
             route.kind == StaticSiteRouteKind::Entry
@@ -1644,8 +1654,24 @@ mod tests {
             }));
         }
         assert!(!first_json.contains(root.to_string_lossy().as_ref()));
-        assert!(!first_json.contains("LOCAL_ONLY_SENTINEL"));
+        assert!(first_json.contains("LOCAL_NAMED_DIRECTORY_SENTINEL"));
         assert!(!first_json.contains("runtime"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_does_not_depend_on_workspace_home_mtime() {
+        let root = copy_fixture("site-snapshot-contract");
+        let first = build_static_site_snapshot(&root).unwrap();
+        let home_path = root.join(".forma.md");
+        let source = fs::read_to_string(&home_path).unwrap();
+        fs::write(&home_path, source).unwrap();
+        let second = build_static_site_snapshot(&root).unwrap();
+
+        assert_eq!(
+            serde_json::to_string_pretty(&first).unwrap(),
+            serde_json::to_string_pretty(&second).unwrap()
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1654,13 +1680,13 @@ mod tests {
         let root = copy_fixture("site-snapshot-content");
         fs::create_dir_all(root.join("content/guides/local")).unwrap();
         fs::write(
-            root.join("content/guides/local/private.png"),
-            b"LOCAL_RESOURCE_SENTINEL",
+            root.join("content/guides/local/diagram.png"),
+            b"LOCAL_NAMED_RESOURCE_SENTINEL",
         )
         .unwrap();
         let intro_path = root.join("content/guides/intro.md");
         let mut intro_source = fs::read_to_string(&intro_path).unwrap();
-        intro_source.push_str("\n![Private](local/private.png)\n");
+        intro_source.push_str("\n![Local named resource](local/diagram.png)\n");
         fs::write(&intro_path, intro_source).unwrap();
 
         let snapshot = build_static_site_snapshot(&root).unwrap();
@@ -1690,13 +1716,33 @@ mod tests {
         assert_eq!(related.backlinks.len(), 1);
         assert_eq!(related.backlinks[0].source_path, "content/guides/intro.md");
 
-        let resource = &snapshot.resources[0];
-        assert_eq!(resource.path, "assets/diagram.svg");
+        let resource = snapshot
+            .resources
+            .iter()
+            .find(|resource| resource.path == "assets/diagram.svg")
+            .unwrap();
         assert_eq!(resource.public_path, "/raw/assets/diagram.svg");
         assert_eq!(resource.referenced_by, vec!["/pages/content/guides/intro"]);
-        assert!(!snapshot_json.contains("LOCAL_RESOURCE_SENTINEL"));
-        assert!(!snapshot_json.contains("/raw/content/guides/local/private.png"));
-        assert!(intro.markdown.contains("![Private](local/private.png)"));
+        let local_named_resource = snapshot
+            .resources
+            .iter()
+            .find(|resource| resource.path == "content/guides/local/diagram.png")
+            .unwrap();
+        assert_eq!(
+            local_named_resource.public_path,
+            "/raw/content/guides/local/diagram.png"
+        );
+        assert_eq!(
+            local_named_resource.referenced_by,
+            vec!["/pages/content/guides/intro"]
+        );
+        assert!(!snapshot_json.contains("LOCAL_NAMED_RESOURCE_SENTINEL"));
+        assert!(snapshot_json.contains("/raw/content/guides/local/diagram.png"));
+        assert!(
+            intro
+                .markdown
+                .contains("![Local named resource](/raw/content/guides/local/diagram.png)")
+        );
         assert_eq!(
             snapshot.taxonomies[0].terms[0].entry_ids,
             vec!["content--guides--intro", "content--guides--related"]
@@ -1968,15 +2014,39 @@ mod tests {
     }
 
     #[test]
-    fn site_snapshot_shared_only_excludes_imported_local_configuration() {
+    fn site_snapshot_includes_entries_under_local_named_directories() {
         let root = copy_fixture("site-snapshot-local");
         let snapshot = build_static_site_snapshot(&root).unwrap();
         let json = serde_json::to_string(&snapshot).unwrap();
 
-        assert_eq!(snapshot.summary.entries, 2);
-        assert!(!json.contains("private-draft"));
-        assert!(!json.contains("Private"));
-        assert!(!json.contains("LOCAL_ONLY_SENTINEL"));
+        assert_eq!(snapshot.summary.entries, 3);
+        assert!(json.contains("local/private-draft"));
+        assert!(json.contains("Local Notes"));
+        assert!(json.contains("LOCAL_NAMED_DIRECTORY_SENTINEL"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_excludes_imported_configuration_sources_from_static_content() {
+        let root = copy_fixture("site-snapshot-local");
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(
+            root.join(".forma/local/profile.md"),
+            "---\nworkspace:\n  timezone: Europe/Paris\n---\n\n# CONFIG_SOURCE_SENTINEL\n",
+        )
+        .unwrap();
+
+        let snapshot = build_static_site_snapshot(&root).unwrap();
+        let json = serde_json::to_string(&snapshot).unwrap();
+
+        assert_eq!(snapshot.summary.entries, 3);
+        assert!(
+            snapshot
+                .entries
+                .iter()
+                .all(|entry| entry.path != ".forma/local/profile.md")
+        );
+        assert!(!json.contains("CONFIG_SOURCE_SENTINEL"));
         fs::remove_dir_all(root).unwrap();
     }
 

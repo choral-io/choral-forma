@@ -4,15 +4,11 @@ import {
     ArrowUp,
     Check,
     ChevronRight,
-    Columns3,
     Copy,
     FileText,
     Layers3,
-    List,
     ListTree,
-    Network,
     RefreshCw,
-    Table2,
     X,
 } from "lucide-react";
 import {
@@ -86,44 +82,7 @@ function useMermaidScope(key: string) {
 }
 
 export function DashboardRoute() {
-    const dashboard = useWorkspaceDashboard();
-
-    return (
-        <WorkspacePageShell
-            description={`${dashboard.tagline.replace(/[.!?。！？]\s*$/u, "")} • Read-only`}
-            eyebrow="Workspace"
-            title={dashboard.home.title ?? dashboard.workspaceName}
-        >
-            <WorkspaceHomePage dashboard={dashboard} />
-        </WorkspacePageShell>
-    );
-}
-
-function WorkspaceHomePage({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    const mermaidScope = useMermaidScope("workspace-home");
-    const home = dashboard.home;
-
-    return (
-        <>
-            <article className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-5" data-workspace-home>
-                <MarkdownReader
-                    currentPath={home.path}
-                    currentRoutePath="/"
-                    entries={dashboard.entries}
-                    headings={home.headings}
-                    markdown={home.markdown}
-                    mermaidScope={mermaidScope}
-                    omitLeadingTitle={home.omitLeadingTitle}
-                />
-            </article>
-            <section
-                className="border-base-300 mx-auto mt-12 w-full max-w-6xl border-t pt-10"
-                aria-label="Workspace overview"
-            >
-                <DashboardPage dashboard={dashboard} />
-            </section>
-        </>
-    );
+    return <EntryRouteContent routePath="/" />;
 }
 
 export function HealthRoute() {
@@ -208,8 +167,8 @@ function EntryRouteContent({
             return;
         }
 
-        let cancelled = false;
         void prewarmMarkdownHighlighter();
+        let cancelled = false;
         workspaceClient
             .getEntry(entryId)
             .then((result) => {
@@ -538,121 +497,6 @@ function WorkspacePageShell({
         >
             {children}
         </WorkspaceRouteFrame>
-    );
-}
-
-function DashboardPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    const recentEntries = [...dashboard.entries]
-        .sort((left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""))
-        .slice(0, 5);
-    const healthFindings = dashboard.health.findings;
-
-    return (
-        <div className="flex flex-col gap-12">
-            <section>
-                <div>
-                    <h2 className="text-lg font-semibold">Configured views</h2>
-                    <p className="text-base-content/60 mt-1 text-sm/6">
-                        Start with a configured projection to review the workspace from a useful angle.
-                    </p>
-                </div>
-                {dashboard.views.length > 0 ? (
-                    <nav aria-label="Configured views" className="mt-4">
-                        <div className="divide-base-300 divide-y">
-                            {dashboard.views.map((view) => (
-                                <Link
-                                    className="hover:bg-base-200/50 focus-visible:ring-base-content/30 grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none focus-visible:ring-2"
-                                    key={view.id}
-                                    to={viewRoutePath(view.id)}
-                                >
-                                    <span className="bg-base-200 text-base-content/60 flex size-10 items-center justify-center rounded-md">
-                                        {view.kind === "kanban" ? (
-                                            <Columns3 aria-hidden="true" />
-                                        ) : view.kind === "table" ? (
-                                            <Table2 aria-hidden="true" />
-                                        ) : view.kind === "graph" ? (
-                                            <Network aria-hidden="true" />
-                                        ) : (
-                                            <List aria-hidden="true" />
-                                        )}
-                                    </span>
-                                    <span className="min-w-0">
-                                        <span className="block font-medium">{view.title}</span>
-                                        <span className="text-base-content/60 mt-1 block truncate text-sm">
-                                            {view.description}
-                                        </span>
-                                    </span>
-                                    <ChevronRight aria-hidden="true" className="text-base-content/60" />
-                                </Link>
-                            ))}
-                        </div>
-                    </nav>
-                ) : (
-                    <p className="text-base-content/60 mt-4 text-sm">No configured views are available.</p>
-                )}
-                <Link className="link mt-4 inline-flex items-center gap-2 text-sm" to="/views">
-                    View all configured views
-                    <ArrowRight aria-hidden="true" className="size-4" />
-                </Link>
-            </section>
-
-            <div className={healthFindings.length > 0 ? "grid gap-10 lg:grid-cols-[minmax(0,1fr)_24rem]" : undefined}>
-                <section>
-                    <h2 className="text-lg font-semibold">Recently updated</h2>
-                    <p className="text-base-content/60 mt-1 text-sm/6">Latest changes across workspace content.</p>
-                    {recentEntries.length > 0 ? (
-                        <nav aria-label="Recently updated content" className="mt-4">
-                            <div className="divide-base-300 divide-y">
-                                {recentEntries.map((entry) => (
-                                    <Link
-                                        className="hover:bg-base-200/50 focus-visible:ring-base-content/30 grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 outline-none focus-visible:ring-2"
-                                        key={entry.path}
-                                        to={entry.routePath}
-                                    >
-                                        <FileText aria-hidden="true" className="text-base-content/60 size-5" />
-                                        <span className="min-w-0">
-                                            <span className="block truncate text-sm font-medium">{entry.title}</span>
-                                            <code className="text-base-content/60 mt-0.5 block truncate text-xs">
-                                                {entry.path}
-                                            </code>
-                                        </span>
-                                        <span
-                                            className="text-base-content/60 text-xs whitespace-nowrap"
-                                            title={formatAbsoluteDateTime(entry.updatedAt)}
-                                        >
-                                            {entry.updatedLabel}
-                                        </span>
-                                    </Link>
-                                ))}
-                            </div>
-                        </nav>
-                    ) : (
-                        <p className="text-base-content/60 mt-4 text-sm">No recently updated content was found.</p>
-                    )}
-                </section>
-
-                {healthFindings.length > 0 ? (
-                    <section>
-                        <h2 className="text-lg font-semibold">Workspace health</h2>
-                        <p className="text-base-content/60 mt-1 text-sm/6">Actionable findings that need attention.</p>
-                        <div className="alert alert-outline mt-4 items-start">
-                            <AlertTriangle aria-hidden="true" className="mt-0.5" />
-                            <div>
-                                <h3 className="font-semibold">
-                                    {healthFindings.length} {healthFindings.length === 1 ? "finding" : "findings"} need
-                                    attention
-                                </h3>
-                                <p className="text-base-content/60 mt-1 text-sm/6">{healthFindings[0]?.message}</p>
-                                <Link className="link mt-3 inline-flex items-center gap-2 text-sm" to="/health">
-                                    Open health details
-                                    <ArrowRight aria-hidden="true" className="size-4" />
-                                </Link>
-                            </div>
-                        </div>
-                    </section>
-                ) : null}
-            </div>
-        </div>
     );
 }
 

@@ -186,10 +186,13 @@ describe("RpcWorkspaceClient View rendering", () => {
         const dashboard = await client.getDashboard();
 
         expect(dashboard.spaces).toEqual([]);
-        expect(dashboard.home).toMatchObject({
+        expect(dashboard.entries[0]).toMatchObject({
+            id: "workspace-root",
+            path: ".forma.md",
+            routePath: "/",
             title: "Example",
             omitLeadingTitle: true,
-            headings: [],
+            body: [{ type: "markdown", outline: [] }],
         });
         expect(dashboard.taxonomies).toMatchObject([
             {
@@ -271,8 +274,8 @@ describe("RpcWorkspaceClient View rendering", () => {
         const client = new RpcWorkspaceClient("/rpc");
         const dashboard = await client.getDashboard();
 
-        expect(dashboard.entries[0]?.title).toBe("notes/untitled.md");
-        expect(dashboard.entries[1]?.title).toBe("Titled entry");
+        expect(dashboard.entries.find((entry) => entry.path === "notes/untitled.md")?.title).toBe("notes/untitled.md");
+        expect(dashboard.entries.find((entry) => entry.path === "notes/titled.md")?.title).toBe("Titled entry");
     });
 });
 

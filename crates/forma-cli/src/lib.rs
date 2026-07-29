@@ -1,6 +1,11 @@
+use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 use std::path::{Component, Path as FsPath, PathBuf};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use axum::Router;
 use axum::body::Bytes;
@@ -20,6 +25,7 @@ use forma_rpc::{
     WorkspaceExplorerRequest, WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
+use serde_json::Value as JsonValue;
 use serde_yml::Value;
 
 mod site;
@@ -28,9 +34,282 @@ mod static_html;
 static WEBAPP_DIST: Dir<'_> = include_dir!("$OUT_DIR/webapp-dist");
 static STATIC_WEBAPP_DIST: Dir<'_> = include_dir!("$OUT_DIR/webapp-static-dist");
 
+const RPC_CACHE_VALIDATION_INTERVAL: Duration = Duration::from_millis(200);
+const RPC_CACHE_MAX_RESPONSES: usize = 128;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct RpcCacheKey {
+    method: String,
+    params: String,
+}
+
+#[derive(Debug)]
+struct CacheableRpcRequest {
+    id: JsonValue,
+    key: RpcCacheKey,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RpcCacheLease {
+    generation: u64,
+}
+
+#[derive(Debug, Default)]
+struct RpcResponseCache {
+    generation: u64,
+    responses: HashMap<RpcCacheKey, JsonValue>,
+}
+
+#[derive(Debug, Default)]
+struct RpcCacheValidation {
+    fingerprint: Option<u64>,
+    last_validated: Option<Instant>,
+    watch_set: Option<WorkspaceWatchSet>,
+}
+
+#[derive(Debug, Default)]
+struct RpcCacheRuntime {
+    responses: Mutex<RpcResponseCache>,
+    validation: Mutex<RpcCacheValidation>,
+}
+
+#[derive(Debug)]
+struct WorkspaceWatchSet {
+    scan_plan: Arc<forma_core::WorkspaceScanPlan>,
+}
+
+impl RpcResponseCache {
+    fn lease(&self) -> RpcCacheLease {
+        RpcCacheLease {
+            generation: self.generation,
+        }
+    }
+
+    fn lookup(&self, request: &CacheableRpcRequest) -> Option<String> {
+        let response = self.responses.get(&request.key)?.clone();
+        response_with_rpc_id(response, request.id.clone())
+    }
+
+    fn store(
+        &mut self,
+        lease: RpcCacheLease,
+        request: CacheableRpcRequest,
+        response: JsonValue,
+    ) -> bool {
+        if lease.generation != self.generation || response.get("result").is_none() {
+            return false;
+        }
+        if self.responses.len() >= RPC_CACHE_MAX_RESPONSES {
+            self.responses.clear();
+        }
+        self.responses.insert(request.key, response);
+        true
+    }
+
+    fn invalidate(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+        self.responses.clear();
+    }
+}
+
+impl RpcCacheValidation {
+    fn refresh(&mut self, workspace_root: &FsPath) -> bool {
+        if self
+            .last_validated
+            .is_some_and(|last_validated| last_validated.elapsed() < RPC_CACHE_VALIDATION_INTERVAL)
+        {
+            return false;
+        }
+        self.last_validated = Some(Instant::now());
+
+        if self.watch_set.is_none() {
+            let watch_set = workspace_watch_set(workspace_root);
+            let Ok(fingerprint) = workspace_fingerprint(workspace_root, &watch_set) else {
+                self.fingerprint = None;
+                self.watch_set = Some(watch_set);
+                return true;
+            };
+            self.fingerprint = Some(fingerprint);
+            self.watch_set = Some(watch_set);
+            return false;
+        }
+
+        let watch_set = self
+            .watch_set
+            .as_ref()
+            .expect("watch set was checked above");
+        let Ok(fingerprint) = workspace_fingerprint(workspace_root, watch_set) else {
+            self.fingerprint = None;
+            return true;
+        };
+        if self.fingerprint != Some(fingerprint) {
+            let watch_set = workspace_watch_set(workspace_root);
+            let Ok(fingerprint) = workspace_fingerprint(workspace_root, &watch_set) else {
+                self.fingerprint = None;
+                self.watch_set = Some(watch_set);
+                return true;
+            };
+            self.fingerprint = Some(fingerprint);
+            self.watch_set = Some(watch_set);
+            return true;
+        }
+        false
+    }
+
+    fn invalidate(&mut self) {
+        self.last_validated = None;
+    }
+}
+
+impl RpcCacheRuntime {
+    fn start_request(
+        &self,
+        workspace_root: &FsPath,
+        request: &CacheableRpcRequest,
+    ) -> Option<(RpcCacheLease, Option<String>)> {
+        self.refresh(workspace_root);
+        let cache = self.responses.lock().ok()?;
+        Some((cache.lease(), cache.lookup(request)))
+    }
+
+    fn store(
+        &self,
+        lease: RpcCacheLease,
+        request: CacheableRpcRequest,
+        response: JsonValue,
+    ) -> bool {
+        self.responses
+            .lock()
+            .is_ok_and(|mut cache| cache.store(lease, request, response))
+    }
+
+    fn refresh(&self, workspace_root: &FsPath) {
+        let Ok(mut validation) = self.validation.lock() else {
+            self.invalidate_responses();
+            return;
+        };
+        if validation.refresh(workspace_root) {
+            self.invalidate_responses();
+        }
+    }
+
+    fn invalidate(&self) {
+        self.invalidate_responses();
+        if let Ok(mut validation) = self.validation.lock() {
+            validation.invalidate();
+        }
+    }
+
+    fn invalidate_responses(&self) {
+        if let Ok(mut cache) = self.responses.lock() {
+            cache.invalidate();
+        }
+    }
+}
+
+fn cacheable_rpc_request(body: &[u8]) -> Option<CacheableRpcRequest> {
+    let request = serde_json::from_slice::<JsonValue>(body).ok()?;
+    let object = request.as_object()?;
+    let id = object.get("id")?.clone();
+    let method = object.get("method")?.as_str()?;
+    if method == "file.render"
+        && object
+            .get("params")
+            .and_then(JsonValue::as_object)
+            .and_then(|params| params.get("format"))
+            .and_then(JsonValue::as_str)
+            == Some("source")
+    {
+        return None;
+    }
+    if !matches!(
+        method,
+        "workspace.dashboard"
+            | "workspace.explorer"
+            | "workspace.explorerEntries"
+            | "workspace.health"
+            | "view.render"
+            | "file.render"
+            | "file.references"
+    ) {
+        return None;
+    }
+
+    Some(CacheableRpcRequest {
+        id,
+        key: RpcCacheKey {
+            method: method.to_string(),
+            params: serde_json::to_string(object.get("params").unwrap_or(&JsonValue::Null)).ok()?,
+        },
+    })
+}
+
+fn is_mutating_rpc_request(body: &[u8]) -> bool {
+    serde_json::from_slice::<JsonValue>(body)
+        .ok()
+        .and_then(|request| request.get("method")?.as_str().map(str::to_string))
+        .is_some_and(|method| matches!(method.as_str(), "create" | "init"))
+}
+
+fn complete_rpc_request(
+    rpc_cache: &RpcCacheRuntime,
+    body: &[u8],
+    cacheable_request: Option<CacheableRpcRequest>,
+    cache_lease: Option<RpcCacheLease>,
+    response: JsonValue,
+) -> String {
+    let response_text = response.to_string();
+    if is_mutating_rpc_request(body) {
+        rpc_cache.invalidate();
+    } else if let (Some(request), Some(lease)) = (cacheable_request, cache_lease) {
+        rpc_cache.store(lease, request, response);
+    }
+    response_text
+}
+
+fn response_with_rpc_id(mut response: JsonValue, id: JsonValue) -> Option<String> {
+    response.as_object_mut()?.insert("id".to_string(), id);
+    Some(response.to_string())
+}
+
+fn workspace_watch_set(root: &FsPath) -> WorkspaceWatchSet {
+    let scan_plan = forma_core::WorkspaceSnapshot::load(root)
+        .map(|snapshot| snapshot.scan_plan())
+        .unwrap_or_else(|_| Arc::new(forma_core::WorkspaceScanPlan::bootstrap(root)));
+    WorkspaceWatchSet { scan_plan }
+}
+
+fn workspace_fingerprint(root: &FsPath, watch_set: &WorkspaceWatchSet) -> std::io::Result<u64> {
+    let mut hasher = DefaultHasher::new();
+    for path in watch_set.scan_plan.watch_patterns().matching_files()? {
+        fingerprint_workspace_file(root, &path, &mut hasher)?;
+    }
+    Ok(hasher.finish())
+}
+
+fn fingerprint_workspace_file(
+    root: &FsPath,
+    path: &FsPath,
+    hasher: &mut DefaultHasher,
+) -> std::io::Result<()> {
+    let metadata = fs::metadata(path)?;
+    let relative = path.strip_prefix(root).unwrap_or(path);
+    let relative = relative.to_string_lossy().replace('\\', "/");
+    relative.hash(hasher);
+    metadata.len().hash(hasher);
+    let modified = metadata
+        .modified()?
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    modified.as_secs().hash(hasher);
+    modified.subsec_nanos().hash(hasher);
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 struct AppState {
     dispatcher: Dispatcher,
+    rpc_cache: Arc<RpcCacheRuntime>,
     workspace_root: PathBuf,
     webapp_dir: Option<PathBuf>,
     cors_origins: Vec<String>,
@@ -818,20 +1097,21 @@ fn rpc_router_with_dispatcher_and_workspace(
     workspace_root: PathBuf,
     root_path: String,
 ) -> Result<Router, Box<dyn std::error::Error>> {
-    if let Some(webapp_dir) = &webapp_dir {
-        if !webapp_dir.is_dir() {
-            return Err(format!(
-                "webapp asset directory does not exist or is not a directory: {}",
-                webapp_dir.display()
-            )
-            .into());
-        }
+    if let Some(webapp_dir) = &webapp_dir
+        && !webapp_dir.is_dir()
+    {
+        return Err(format!(
+            "webapp asset directory does not exist or is not a directory: {}",
+            webapp_dir.display()
+        )
+        .into());
     }
     let cors_origins = validate_cors_origins(cors_origins)?;
     let root_path = normalize_root_path(&root_path)?;
 
     let state = AppState {
         dispatcher,
+        rpc_cache: Arc::new(RpcCacheRuntime::default()),
         workspace_root,
         webapp_dir,
         cors_origins,
@@ -913,8 +1193,38 @@ async fn serve_workspace_file(
 }
 
 async fn rpc_handler(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
-    let mut response =
-        (StatusCode::OK, state.dispatcher.handle_json_rpc_text(&body)).into_response();
+    let dispatcher = state.dispatcher.clone();
+    let rpc_cache = state.rpc_cache.clone();
+    let workspace_root = state.workspace_root.clone();
+    let body = body.to_vec();
+    let result = tokio::task::spawn_blocking(move || {
+        let cacheable_request = cacheable_rpc_request(&body);
+        let (cache_lease, cached_response) = cacheable_request
+            .as_ref()
+            .and_then(|request| rpc_cache.start_request(&workspace_root, request))
+            .map(|(lease, response)| (Some(lease), response))
+            .unwrap_or((None, None));
+        if let Some(response) = cached_response {
+            return response;
+        }
+
+        let response = dispatcher.handle_json_rpc(&body);
+        complete_rpc_request(&rpc_cache, &body, cacheable_request, cache_lease, response)
+    })
+    .await
+    .unwrap_or_else(|error| {
+        serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": null,
+            "error": {
+                "code": -32603,
+                "message": "Internal error.",
+                "data": { "code": "operation.failed", "detail": error.to_string() },
+            },
+        })
+        .to_string()
+    });
+    let mut response = (StatusCode::OK, result).into_response();
     response
         .headers_mut()
         .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -1240,17 +1550,22 @@ impl StatusLabel for forma_rpc::OperationResult {
 mod tests {
     use std::fs;
     use std::path::Path;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::sync::{Arc, Barrier};
+    use std::thread;
+    use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-    use axum::body::{Body, to_bytes};
-    use axum::http::{Method, Request, StatusCode, header};
+    use axum::body::{Body, Bytes, to_bytes};
+    use axum::http::{HeaderMap, Method, Request, StatusCode, header};
     use forma_rpc::Dispatcher;
+    use serde_json::json;
     use tower::ServiceExt;
 
     use super::{
-        inject_base_href, normalize_root_path, rpc_router, rpc_router_with_dispatcher,
-        rpc_router_with_dispatcher_and_workspace, rpc_router_with_options,
-        rpc_router_with_options_and_root_path, should_serve_spa_index,
+        AppState, RpcCacheRuntime, cacheable_rpc_request, complete_rpc_request, inject_base_href,
+        is_mutating_rpc_request, normalize_root_path, response_with_rpc_id, rpc_handler,
+        rpc_router, rpc_router_with_dispatcher, rpc_router_with_dispatcher_and_workspace,
+        rpc_router_with_options, rpc_router_with_options_and_root_path, should_serve_spa_index,
+        workspace_fingerprint, workspace_watch_set,
     };
 
     #[test]
@@ -1292,6 +1607,408 @@ mod tests {
                 "expected asset route: {path}"
             );
         }
+    }
+
+    #[test]
+    fn rpc_cache_key_ignores_json_rpc_request_ids() {
+        let first = cacheable_rpc_request(
+            br#"{"jsonrpc":"2.0","id":"first","method":"file.render","params":{"path":"notes/one.md","format":"markdown"}}"#,
+        )
+        .unwrap();
+        let second = cacheable_rpc_request(
+            br#"{"jsonrpc":"2.0","id":"second","method":"file.render","params":{"path":"notes/one.md","format":"markdown"}}"#,
+        )
+        .unwrap();
+
+        assert_eq!(first.key, second.key);
+        assert_ne!(first.id, second.id);
+        assert!(
+            cacheable_rpc_request(br#"{"jsonrpc":"2.0","id":"3","method":"create","params":{}}"#)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn file_render_source_requests_are_not_cached() {
+        assert!(
+            cacheable_rpc_request(
+                br#"{"jsonrpc":"2.0","id":"1","method":"file.render","params":{"path":"notes/one.md","format":"source"}}"#,
+            )
+            .is_none()
+        );
+        assert!(
+            cacheable_rpc_request(
+                br#"{"jsonrpc":"2.0","id":"2","method":"file.render","params":{"path":"notes/one.md","format":"markdown"}}"#,
+            )
+            .is_some()
+        );
+    }
+
+    #[test]
+    fn mutating_rpc_requests_are_classified_explicitly() {
+        for method in ["create", "init"] {
+            let body = format!(r#"{{"jsonrpc":"2.0","id":"1","method":"{method}","params":{{}}}}"#);
+            assert!(is_mutating_rpc_request(body.as_bytes()), "{method}");
+        }
+        assert!(!is_mutating_rpc_request(
+            br#"{"jsonrpc":"2.0","id":"1","method":"workspace.dashboard","params":{}}"#
+        ));
+    }
+
+    #[test]
+    fn stale_in_flight_response_is_rejected_after_generation_changes() {
+        let runtime = Arc::new(RpcCacheRuntime::default());
+        let stale_request = cacheable_rpc_request(
+            br#"{"jsonrpc":"2.0","id":"stale","method":"workspace.dashboard","params":{}}"#,
+        )
+        .unwrap();
+        let stale_lease = runtime.responses.lock().unwrap().lease();
+        let stale_started = Arc::new(Barrier::new(2));
+        let allow_stale_store = Arc::new(Barrier::new(2));
+
+        let stale_runtime = runtime.clone();
+        let stale_started_worker = stale_started.clone();
+        let allow_stale_store_worker = allow_stale_store.clone();
+        let stale_store = thread::spawn(move || {
+            stale_started_worker.wait();
+            allow_stale_store_worker.wait();
+            stale_runtime.store(
+                stale_lease,
+                stale_request,
+                json!({
+                    "jsonrpc": "2.0",
+                    "id": "stale",
+                    "result": { "version": "stale" },
+                }),
+            )
+        });
+
+        stale_started.wait();
+        runtime.invalidate();
+        let fresh_request = cacheable_rpc_request(
+            br#"{"jsonrpc":"2.0","id":"fresh","method":"workspace.dashboard","params":{}}"#,
+        )
+        .unwrap();
+        let fresh_lease = runtime.responses.lock().unwrap().lease();
+        assert!(runtime.store(
+            fresh_lease,
+            fresh_request,
+            json!({
+                "jsonrpc": "2.0",
+                "id": "fresh",
+                "result": { "version": "fresh" },
+            }),
+        ));
+        allow_stale_store.wait();
+        assert!(!stale_store.join().unwrap());
+
+        let lookup = cacheable_rpc_request(
+            br#"{"jsonrpc":"2.0","id":"lookup","method":"workspace.dashboard","params":{}}"#,
+        )
+        .unwrap();
+        let response = runtime.responses.lock().unwrap().lookup(&lookup).unwrap();
+        let response = serde_json::from_str::<serde_json::Value>(&response).unwrap();
+        assert_eq!(response["id"], "lookup");
+        assert_eq!(response["result"]["version"], "fresh");
+    }
+
+    #[test]
+    fn mutation_completion_immediately_invalidates_cached_responses() {
+        let runtime = RpcCacheRuntime::default();
+        let cached_request = cacheable_rpc_request(
+            br#"{"jsonrpc":"2.0","id":"cached","method":"workspace.dashboard","params":{}}"#,
+        )
+        .unwrap();
+        let lease = runtime.responses.lock().unwrap().lease();
+        assert!(runtime.store(
+            lease,
+            cached_request,
+            json!({
+                "jsonrpc": "2.0",
+                "id": "cached",
+                "result": { "version": "before-mutation" },
+            }),
+        ));
+        let generation_before = runtime.responses.lock().unwrap().generation;
+        runtime.validation.lock().unwrap().last_validated = Some(Instant::now());
+
+        complete_rpc_request(
+            &runtime,
+            br#"{"jsonrpc":"2.0","id":"create","method":"create","params":{}}"#,
+            None,
+            None,
+            json!({
+                "jsonrpc": "2.0",
+                "id": "create",
+                "result": { "status": "passed" },
+            }),
+        );
+
+        let cache = runtime.responses.lock().unwrap();
+        assert_eq!(cache.generation, generation_before + 1);
+        assert!(cache.responses.is_empty());
+        drop(cache);
+        assert!(runtime.validation.lock().unwrap().last_validated.is_none());
+    }
+
+    #[test]
+    fn cold_validation_establishes_a_baseline_without_invalidating_responses() {
+        let root = fixture_root("workspace-cache-cold-baseline");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join(".forma.md"), "# Forma\n").unwrap();
+        let runtime = RpcCacheRuntime::default();
+        let cached_request = cacheable_rpc_request(
+            br#"{"jsonrpc":"2.0","id":"cached","method":"workspace.dashboard","params":{}}"#,
+        )
+        .unwrap();
+        let lease = runtime.responses.lock().unwrap().lease();
+        assert!(runtime.store(
+            lease,
+            cached_request,
+            json!({
+                "jsonrpc": "2.0",
+                "id": "cached",
+                "result": { "version": "baseline" },
+            }),
+        ));
+
+        let lookup = cacheable_rpc_request(
+            br#"{"jsonrpc":"2.0","id":"lookup","method":"workspace.dashboard","params":{}}"#,
+        )
+        .unwrap();
+        let (lease_after_validation, response) = runtime.start_request(&root, &lookup).unwrap();
+
+        assert_eq!(lease_after_validation.generation, lease.generation);
+        assert!(response.is_some());
+        assert!(runtime.validation.lock().unwrap().fingerprint.is_some());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rpc_handler_reuses_cached_responses_and_preserves_request_ids() {
+        let root = fixture_root("rpc-cache-handler-hit");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        let rpc_cache = Arc::new(RpcCacheRuntime::default());
+        let state = AppState {
+            dispatcher: Dispatcher::new(&root),
+            rpc_cache: rpc_cache.clone(),
+            workspace_root: root.clone(),
+            webapp_dir: None,
+            cors_origins: Vec::new(),
+            root_path: "/".to_string(),
+        };
+
+        let first = rpc_handler(
+            axum::extract::State(state.clone()),
+            HeaderMap::new(),
+            Bytes::from_static(
+                br#"{"jsonrpc":"2.0","id":"first","method":"workspace.dashboard","params":{}}"#,
+            ),
+        )
+        .await;
+        let first = response_json(first).await;
+        assert_eq!(first["id"], "first");
+        assert!(first.get("result").is_some());
+        assert_eq!(rpc_cache.responses.lock().unwrap().responses.len(), 1);
+
+        fs::remove_dir_all(&root).unwrap();
+        rpc_cache.validation.lock().unwrap().last_validated = Some(Instant::now());
+        let second = rpc_handler(
+            axum::extract::State(state),
+            HeaderMap::new(),
+            Bytes::from_static(
+                br#"{"jsonrpc":"2.0","id":"second","method":"workspace.dashboard","params":{}}"#,
+            ),
+        )
+        .await;
+        let second = response_json(second).await;
+        assert_eq!(second["id"], "second");
+        assert!(second.get("result").is_some());
+    }
+
+    #[tokio::test]
+    async fn rpc_handler_invalidates_cached_responses_after_external_changes() {
+        let root = fixture_root("rpc-cache-handler-invalidation");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        let rpc_cache = Arc::new(RpcCacheRuntime::default());
+        let state = AppState {
+            dispatcher: Dispatcher::new(&root),
+            rpc_cache: rpc_cache.clone(),
+            workspace_root: root.clone(),
+            webapp_dir: None,
+            cors_origins: Vec::new(),
+            root_path: "/".to_string(),
+        };
+        let request = Bytes::from_static(
+            br#"{"jsonrpc":"2.0","id":"first","method":"workspace.dashboard","params":{}}"#,
+        );
+
+        let first = response_json(
+            rpc_handler(
+                axum::extract::State(state.clone()),
+                HeaderMap::new(),
+                request,
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(
+            first["result"]["workspace"]["name"],
+            "Choral Forma Getting Started Workspace"
+        );
+        let generation = rpc_cache.responses.lock().unwrap().generation;
+
+        let config_path = root.join(".forma.md");
+        let config = fs::read_to_string(&config_path).unwrap().replace(
+            "Choral Forma Getting Started Workspace",
+            "Externally Updated Workspace",
+        );
+        fs::write(config_path, config).unwrap();
+        rpc_cache.validation.lock().unwrap().last_validated = None;
+
+        let second = response_json(
+            rpc_handler(
+                axum::extract::State(state),
+                HeaderMap::new(),
+                Bytes::from_static(
+                    br#"{"jsonrpc":"2.0","id":"second","method":"workspace.dashboard","params":{}}"#,
+                ),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(
+            second["result"]["workspace"]["name"],
+            "Externally Updated Workspace"
+        );
+        assert_eq!(
+            rpc_cache.responses.lock().unwrap().generation,
+            generation + 1
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn cached_rpc_response_keeps_the_callers_request_id() {
+        let response = response_with_rpc_id(
+            json!({ "jsonrpc": "2.0", "id": "first", "result": { "ok": true } }),
+            json!("second"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&response).unwrap()["id"],
+            "second"
+        );
+    }
+
+    #[test]
+    fn workspace_fingerprint_changes_when_workspace_content_changes() {
+        let root = fixture_root("workspace-cache-fingerprint");
+        fs::create_dir_all(&root).unwrap();
+        write_watch_config(&root, &["note.md"]);
+        fs::write(root.join("note.md"), "# First\n").unwrap();
+        let watch_set = workspace_watch_set(&root);
+        let first = workspace_fingerprint(&root, &watch_set).unwrap();
+
+        fs::write(root.join("note.md"), "# Second content\n").unwrap();
+        let second = workspace_fingerprint(&root, &watch_set).unwrap();
+
+        assert_ne!(first, second);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_fingerprint_includes_explicit_local_named_imports() {
+        let root = fixture_root("workspace-cache-explicit-local-named-import-fingerprint");
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
+        write_watch_config(&root, &[".forma/local/profile.md"]);
+        fs::write(root.join(".forma/local/profile.md"), "# First\n").unwrap();
+        let watch_set = workspace_watch_set(&root);
+        let first = workspace_fingerprint(&root, &watch_set).unwrap();
+
+        fs::write(root.join(".forma/local/profile.md"), "# Second content\n").unwrap();
+        let second = workspace_fingerprint(&root, &watch_set).unwrap();
+
+        assert_ne!(first, second);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_fingerprint_ignores_unconfigured_directories() {
+        let root = fixture_root("workspace-cache-unconfigured-directory");
+        fs::create_dir_all(root.join("knowledge")).unwrap();
+        fs::create_dir_all(root.join(".worktrees/other")).unwrap();
+        write_watch_config(&root, &["knowledge/**/*.md"]);
+        fs::write(root.join("knowledge/entry.md"), "# Entry\n").unwrap();
+        fs::write(root.join(".worktrees/other/entry.md"), "# First\n").unwrap();
+        let watch_set = workspace_watch_set(&root);
+        let first = workspace_fingerprint(&root, &watch_set).unwrap();
+
+        fs::write(root.join(".worktrees/other/entry.md"), "# Second content\n").unwrap();
+        let second = workspace_fingerprint(&root, &watch_set).unwrap();
+
+        assert_eq!(first, second);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_fingerprint_includes_configured_worktree_content() {
+        let root = fixture_root("workspace-cache-configured-worktree");
+        fs::create_dir_all(root.join(".worktrees/other")).unwrap();
+        write_watch_config(&root, &[".worktrees/**/*.md"]);
+        fs::write(root.join(".worktrees/other/entry.md"), "# First\n").unwrap();
+        let watch_set = workspace_watch_set(&root);
+        let first = workspace_fingerprint(&root, &watch_set).unwrap();
+
+        fs::write(root.join(".worktrees/other/entry.md"), "# Second content\n").unwrap();
+        let second = workspace_fingerprint(&root, &watch_set).unwrap();
+
+        assert_ne!(first, second);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn bootstrap_watch_set_ignores_invalid_import_patterns() {
+        let root = fixture_root("workspace-cache-invalid-import-fallback");
+        let outside = fixture_root("workspace-cache-invalid-import-fallback-outside");
+        fs::create_dir_all(root.join("notes")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        write_watch_config(&root, &["../outside/**/*.md", "notes/**/*.md"]);
+        fs::write(root.join("notes/entry.md"), "# First\n").unwrap();
+        fs::write(outside.join("entry.md"), "# Outside\n").unwrap();
+        let watch_set = workspace_watch_set(&root);
+        let first = workspace_fingerprint(&root, &watch_set).unwrap();
+
+        fs::write(outside.join("entry.md"), "# Changed outside\n").unwrap();
+        assert_eq!(first, workspace_fingerprint(&root, &watch_set).unwrap());
+
+        fs::write(root.join("notes/entry.md"), "# Changed inside\n").unwrap();
+        assert_ne!(first, workspace_fingerprint(&root, &watch_set).unwrap());
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
+    fn write_watch_config(root: &Path, imports: &[&str]) {
+        let imports = imports
+            .iter()
+            .map(|pattern| format!("  - {pattern:?}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(
+            root.join(".forma.md"),
+            format!("---\nimports:\n{imports}\n---\n\n# Forma\n"),
+        )
+        .unwrap();
+    }
+
+    async fn response_json(response: axum::response::Response) -> serde_json::Value {
+        let body = to_bytes(response.into_body(), 8 * 1024 * 1024)
+            .await
+            .unwrap();
+        serde_json::from_slice(&body).unwrap()
     }
 
     fn copy_starter_workspace(root: &Path) {
@@ -1713,6 +2430,7 @@ mod tests {
         assert_eq!(config_response.status(), StatusCode::NOT_FOUND);
 
         let asset_response = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .uri("/forma/raw/.forma/assets/logo.svg")
@@ -1723,16 +2441,33 @@ mod tests {
             .unwrap();
         assert_eq!(asset_response.status(), StatusCode::OK);
 
+        fs::write(root.join(".forma.md"), "---\nworkspace: [\n---\n").unwrap();
+        let invalid_config_response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/forma/raw/.forma/assets/logo.svg")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invalid_config_response.status(), StatusCode::NOT_FOUND);
+
         fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]
-    async fn rpc_router_serves_raw_forma_local_workspace_files() {
+    async fn rpc_router_serves_local_named_resources_but_rejects_imported_config_sources() {
         let root = fixture_root("raw-route-forma-local");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(root.join(".forma/local/secret.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+        fs::write(
+            root.join(".forma/local/profile.md"),
+            "---\nworkspace:\n  timezone: Europe/Paris\n---\n",
+        )
+        .unwrap();
 
         let app = rpc_router_with_dispatcher_and_workspace(
             None,
@@ -1743,7 +2478,8 @@ mod tests {
         )
         .unwrap();
 
-        let response = app
+        let resource_response = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .uri("/forma/raw/.forma/local/secret.png")
@@ -1752,7 +2488,18 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(resource_response.status(), StatusCode::OK);
+
+        let config_response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/forma/raw/.forma/local/profile.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(config_response.status(), StatusCode::NOT_FOUND);
 
         fs::remove_dir_all(root).unwrap();
     }

@@ -1,17 +1,17 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use globset::{Glob, GlobSetBuilder};
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 use thiserror::Error;
 
+use crate::boundary::{WorkspaceBoundary, WorkspaceBoundaryError};
 use crate::config::{
-    ConfigError, ConfigSourcePath, FormaWorkspace, LoadMode, SpaceDefinition,
-    TaxonomyTermDefinition, WorkspaceConfig, WorkspaceSettings, config_source_paths,
-    load_workspace,
+    ConfigError, ConfigSourcePath, FormaWorkspace, SpaceDefinition, WorkspaceConfig,
+    WorkspaceSettings, config_source_paths, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::docs::embedded_doc;
@@ -21,8 +21,9 @@ use crate::index::{
     config_error_diagnostic, discover_loaded_workspace, title_for_entry,
 };
 use crate::markdown::{FormaMarkdownDocument, resolve_markdown_title};
-use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath, glob_scan_root};
+use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
 use crate::render::{RenderedHeading, markdown_with_reference_fallbacks, render_all_headings};
+use crate::scan::WorkspaceScanPlan;
 use crate::schema::{
     PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
 };
@@ -250,16 +251,18 @@ pub struct WorkspaceDashboardResult {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Read-only content from the workspace root document (`.forma.md`).
+/// Read-only content and reader metadata from the workspace root entry (`.forma.md`).
 ///
-/// Its frontmatter remains configuration; only its Markdown body is exposed as
-/// the root reader page. It is intentionally not a managed workspace entry.
+/// Its frontmatter remains configuration; its Markdown body is exposed on the
+/// root route without assigning the entry to a configured Space.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceHomeDocument {
     pub path: String,
     pub title: Option<String>,
     pub omit_leading_title: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
     pub markdown: String,
     pub headings: Vec<RenderedHeading>,
 }
@@ -582,8 +585,7 @@ pub struct ReferenceEdge {
 pub struct WorkspaceSnapshot {
     workspace: FormaWorkspace,
     discovery: Discovery,
-    content_matcher: globset::GlobSet,
-    control_matcher: globset::GlobSet,
+    scan_plan: Arc<WorkspaceScanPlan>,
     configuration_paths: BTreeSet<String>,
     control_paths: BTreeSet<String>,
     view_paths: BTreeSet<String>,
@@ -699,6 +701,8 @@ pub enum OperationError {
     InvalidInput(String),
     #[error("invalid workspace path: {0}")]
     InvalidPath(#[from] PathError),
+    #[error("workspace boundary rejected the path: {0}")]
+    Boundary(#[from] WorkspaceBoundaryError),
     #[error("configuration path is not inspectable: {0}")]
     ConfigPathNotInspectable(String),
     #[error("entry was not found")]
@@ -724,7 +728,8 @@ pub fn create_entry(
     space_id: &str,
     provided: BTreeMap<String, Value>,
 ) -> Result<CreateResult, OperationError> {
-    let workspace = load_workspace(root.as_ref(), LoadMode::WithLocalOverrides)?;
+    let workspace = load_workspace(root.as_ref())?;
+    let boundary = WorkspaceBoundary::new(root.as_ref())?;
     let space = workspace
         .config
         .spaces
@@ -766,17 +771,12 @@ pub fn create_entry(
     };
     let rendered_path = WorkspacePath::parse_config(format!("{directory}/{filename}"))?;
     let public_path = rendered_path.as_str().to_string();
-    if root.as_ref().join(&public_path).exists() {
-        return Err(OperationError::PathConflict(public_path));
-    }
 
     let template_path = WorkspacePath::parse_config(&space.template)?;
-    let template_source =
-        fs::read_to_string(root.as_ref().join(template_path.as_str())).map_err(|source| {
-            OperationError::Io {
-                path: template_path.as_str().to_string(),
-                source,
-            }
+    let template_source = fs::read_to_string(boundary.resolve_existing_file(&template_path)?)
+        .map_err(|source| OperationError::Io {
+            path: template_path.as_str().to_string(),
+            source,
         })?;
     let rendered = render_placeholder_template(&template_source, &context);
     diagnostics.extend(rendered.diagnostics);
@@ -784,16 +784,12 @@ pub fn create_entry(
         return Err(OperationError::InvalidInput("template".to_string()));
     };
 
-    if let Some(parent) = root.as_ref().join(&public_path).parent() {
-        fs::create_dir_all(parent).map_err(|source| OperationError::Io {
-            path: directory.clone(),
-            source,
-        })?;
+    if let Err(error) = boundary.write_new_file(&rendered_path, rendered) {
+        if matches!(error, WorkspaceBoundaryError::AlreadyExists { .. }) {
+            return Err(OperationError::PathConflict(public_path));
+        }
+        return Err(error.into());
     }
-    fs::write(root.as_ref().join(&public_path), rendered).map_err(|source| OperationError::Io {
-        path: public_path.clone(),
-        source,
-    })?;
 
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
 
@@ -921,7 +917,7 @@ pub fn skills_list(root: impl AsRef<Path>) -> Result<SkillsListResult, Operation
     let mut diagnostics = Vec::new();
     let mut config = None;
 
-    match load_workspace(root, LoadMode::SharedOnly) {
+    match load_workspace(root) {
         Ok(workspace) => {
             let (workspace_skills, workspace_diagnostics) =
                 collect_workspace_skills(root, &workspace.config, false);
@@ -969,7 +965,7 @@ pub fn skills_get(
     let mut config = None;
 
     if skills.iter().any(|skill| skill.id == id) {
-        if let Ok(workspace) = load_workspace(root, LoadMode::SharedOnly) {
+        if let Ok(workspace) = load_workspace(root) {
             let (workspace_skills, workspace_diagnostics) =
                 collect_workspace_skills(root, &workspace.config, full);
             config = Some(workspace.config);
@@ -977,7 +973,7 @@ pub fn skills_get(
             diagnostics.extend(workspace_diagnostics);
         }
     } else {
-        match load_workspace(root, LoadMode::SharedOnly) {
+        match load_workspace(root) {
             Ok(workspace) => {
                 let (workspace_skills, workspace_diagnostics) =
                     collect_workspace_skills(root, &workspace.config, full);
@@ -1024,7 +1020,7 @@ pub fn inspect_entry_by_path(
     path: &str,
 ) -> Result<InspectResult, OperationError> {
     let path = normalize_entry_path(path)?;
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     let discovery = discover_loaded_workspace(&workspace);
     inspect_entry(&workspace, discovery, &path)
 }
@@ -1034,14 +1030,14 @@ pub fn inspect_entry_by_space(
     space: &str,
     entry: &str,
 ) -> Result<InspectResult, OperationError> {
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     let discovery = discover_loaded_workspace(&workspace);
     let path = resolve_space_entry_path(&discovery.index.entries, space, entry)?;
     inspect_entry(&workspace, discovery, &path)
 }
 
 pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, OperationError> {
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     let space = workspace
         .config
         .spaces
@@ -1095,7 +1091,7 @@ pub fn inspect_config(
     root: impl AsRef<Path>,
     path: Option<&str>,
 ) -> Result<ConfigInspectResult, OperationError> {
-    let workspace = load_workspace(root.as_ref(), LoadMode::WithLocalOverrides)?;
+    let workspace = load_workspace(root.as_ref())?;
     let path = path
         .map(|path| validate_config_inspect_path(path, &workspace.config_sources))
         .transpose()?;
@@ -1135,7 +1131,7 @@ pub fn inspect_config(
 }
 
 pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationError> {
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     let discovery = discover_loaded_workspace(&workspace);
     let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     diagnostics.sort_by_key(|diagnostic| {
@@ -1146,8 +1142,7 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
         )
     });
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
-    let config_paths = workspace_config_paths(&workspace);
-    let mut files = collect_workspace_files(root.as_ref(), &workspace.config, &config_paths);
+    let mut files = collect_workspace_files(&workspace);
     let template_paths = workspace
         .config
         .spaces
@@ -1201,7 +1196,7 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
 pub fn workspace_dashboard(
     root: impl AsRef<Path>,
 ) -> Result<WorkspaceDashboardResult, OperationError> {
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     let discovery = discover_loaded_workspace(&workspace);
     let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     diagnostics.sort_by_key(|diagnostic| {
@@ -1244,10 +1239,11 @@ pub fn workspace_dashboard(
         .collect::<Vec<_>>();
 
     let config_paths = workspace_config_paths(&workspace);
-    let workspace_files = collect_workspace_files(root.as_ref(), &workspace.config, &config_paths);
+    let workspace_files = collect_workspace_files(&workspace);
     let taxonomies = dashboard_taxonomies(
         root.as_ref(),
         &workspace.config,
+        &workspace.scan_plan,
         &workspace_files,
         &config_paths,
         &entries,
@@ -1264,7 +1260,7 @@ pub fn workspace_dashboard(
     }
     entries.sort_by(|left, right| left.path.cmp(&right.path));
 
-    let views = dashboard_view_summaries(&discovery.index.views);
+    let views = dashboard_view_summaries(&discovery.index.views, &workspace.config);
     let home = workspace_home_document(root.as_ref())?;
 
     Ok(WorkspaceDashboardResult {
@@ -1298,6 +1294,7 @@ fn workspace_home_document(root: &Path) -> Result<WorkspaceHomeDocument, Operati
         path: FORMA_CONFIG_PATH.to_string(),
         title,
         omit_leading_title,
+        updated_at: file_modified_at(root, FORMA_CONFIG_PATH),
         // Keep the root document on the same Markdown contract as entries
         // returned by `file.render --format markdown`: wikilinks and embeds
         // first become ordinary Markdown links, then the reader resolves them
@@ -1310,7 +1307,7 @@ fn workspace_home_document(root: &Path) -> Result<WorkspaceHomeDocument, Operati
 pub fn workspace_explorer(
     root: impl AsRef<Path>,
 ) -> Result<WorkspaceExplorerResult, OperationError> {
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     let discovery = discover_loaded_workspace(&workspace);
     let mut all_diagnostics = read_operation_diagnostics(discovery.diagnostics);
     all_diagnostics.sort_by_key(diagnostic_sort_key);
@@ -1321,14 +1318,15 @@ pub fn workspace_explorer(
         .collect::<Vec<_>>();
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
     let config_paths = workspace_config_paths(&workspace);
-    let workspace_files = collect_workspace_files(root.as_ref(), &workspace.config, &config_paths);
+    let workspace_files = collect_workspace_files(&workspace);
     let taxonomies = explorer_taxonomies(
         &workspace.config,
+        &workspace.scan_plan,
         &workspace_files,
         &config_paths,
         &all_diagnostics,
     );
-    let views = dashboard_view_summaries(&discovery.index.views);
+    let views = dashboard_view_summaries(&discovery.index.views, &workspace.config);
 
     Ok(WorkspaceExplorerResult {
         schema_version: 1,
@@ -1360,8 +1358,8 @@ pub fn workspace_explorer_entries(
         .unwrap_or("0")
         .parse::<usize>()
         .map_err(|_| OperationError::InvalidInput("cursor".to_string()))?;
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
-    let term = workspace
+    let workspace = load_workspace(root.as_ref())?;
+    workspace
         .config
         .terms
         .get(taxonomy_id)
@@ -1369,18 +1367,23 @@ pub fn workspace_explorer_entries(
         .ok_or_else(|| OperationError::InvalidInput("taxonomy term".to_string()))?;
     let discovery = discover_loaded_workspace(&workspace);
     let config_paths = workspace_config_paths(&workspace);
-    let workspace_files = collect_workspace_files(root.as_ref(), &workspace.config, &config_paths);
+    let workspace_files = collect_workspace_files(&workspace);
     let indexed_entries = discovery
         .index
         .entries
         .iter()
         .map(|entry| (entry.path.as_str(), entry))
         .collect::<BTreeMap<_, _>>();
-    let title_space = (taxonomy_id == "spaces")
-        .then(|| workspace.config.spaces.get(term_id))
-        .flatten();
+    let title_space = workspace
+        .config
+        .space_for_taxonomy_term(taxonomy_id, term_id);
     let all_diagnostics = read_operation_diagnostics(discovery.diagnostics);
-    let mut entries = taxonomy_term_files(term, &workspace_files, &config_paths)
+    let term_patterns = workspace
+        .scan_plan
+        .taxonomy_term_patterns()
+        .get(taxonomy_id)
+        .and_then(|terms| terms.get(term_id));
+    let mut entries = taxonomy_term_files(term_patterns, &workspace_files, &config_paths)
         .into_iter()
         .map(|file| {
             indexed_entries
@@ -1389,7 +1392,6 @@ pub fn workspace_explorer_entries(
                 .unwrap_or_else(|| {
                     dashboard_entry_summary_from_file(
                         root.as_ref(),
-                        taxonomy_id,
                         term_id,
                         file,
                         title_space,
@@ -1441,6 +1443,7 @@ pub fn workspace_explorer_entries(
 
 fn explorer_taxonomies(
     config: &WorkspaceConfig,
+    scan_plan: &WorkspaceScanPlan,
     files: &[WorkspaceFile],
     config_paths: &BTreeSet<String>,
     diagnostics: &[Diagnostic],
@@ -1455,7 +1458,11 @@ fn explorer_taxonomies(
                 .into_iter()
                 .flat_map(|terms| terms.iter())
                 .map(|(term_id, term)| {
-                    let paths = taxonomy_term_files(term, files, config_paths)
+                    let term_patterns = scan_plan
+                        .taxonomy_term_patterns()
+                        .get(taxonomy_id)
+                        .and_then(|terms| terms.get(term_id));
+                    let paths = taxonomy_term_files(term_patterns, files, config_paths)
                         .into_iter()
                         .map(|file| file.path.as_str())
                         .collect::<Vec<_>>();
@@ -1498,7 +1505,10 @@ fn explorer_taxonomies(
     taxonomies
 }
 
-fn dashboard_view_summaries(views: &[crate::index::IndexView]) -> Vec<DashboardViewSummary> {
+fn dashboard_view_summaries(
+    views: &[crate::index::IndexView],
+    config: &WorkspaceConfig,
+) -> Vec<DashboardViewSummary> {
     views
         .iter()
         .map(|view| DashboardViewSummary {
@@ -1507,7 +1517,10 @@ fn dashboard_view_summaries(views: &[crate::index::IndexView]) -> Vec<DashboardV
             kind: view.mode.clone(),
             title: view.title.clone(),
             display: view.display.clone(),
-            space: view.space.clone().or_else(|| view_taxonomy_space(view)),
+            space: view
+                .space
+                .clone()
+                .or_else(|| view_taxonomy_space(view, config)),
         })
         .collect()
 }
@@ -1515,6 +1528,7 @@ fn dashboard_view_summaries(views: &[crate::index::IndexView]) -> Vec<DashboardV
 fn dashboard_taxonomies(
     root: &Path,
     config: &WorkspaceConfig,
+    scan_plan: &WorkspaceScanPlan,
     files: &[WorkspaceFile],
     config_paths: &BTreeSet<String>,
     indexed_entries: &[DashboardEntrySummary],
@@ -1532,12 +1546,12 @@ fn dashboard_taxonomies(
                 .map(|(term_id, term)| {
                     let entries = dashboard_term_entries(
                         root,
-                        taxonomy_id,
                         term_id,
-                        term,
-                        (taxonomy_id == "spaces")
-                            .then(|| config.spaces.get(term_id))
-                            .flatten(),
+                        scan_plan
+                            .taxonomy_term_patterns()
+                            .get(taxonomy_id)
+                            .and_then(|terms| terms.get(term_id)),
+                        config.space_for_taxonomy_term(taxonomy_id, term_id),
                         files,
                         config_paths,
                         indexed_entries,
@@ -1575,16 +1589,15 @@ fn dashboard_taxonomies(
 #[allow(clippy::too_many_arguments)]
 fn dashboard_term_entries(
     root: &Path,
-    taxonomy_id: &str,
     term_id: &str,
-    term: &TaxonomyTermDefinition,
+    term_patterns: Option<&crate::scan::WorkspacePatternSet>,
     title_space: Option<&SpaceDefinition>,
     files: &[WorkspaceFile],
     config_paths: &BTreeSet<String>,
     indexed_entries: &[DashboardEntrySummary],
     diagnostics: &[Diagnostic],
 ) -> Vec<DashboardEntrySummary> {
-    let mut entries = taxonomy_term_files(term, files, config_paths)
+    let mut entries = taxonomy_term_files(term_patterns, files, config_paths)
         .into_iter()
         .map(|file| {
             indexed_entries
@@ -1592,14 +1605,7 @@ fn dashboard_term_entries(
                 .find(|entry| entry.path == file.path)
                 .cloned()
                 .unwrap_or_else(|| {
-                    dashboard_entry_summary_from_file(
-                        root,
-                        taxonomy_id,
-                        term_id,
-                        file,
-                        title_space,
-                        diagnostics,
-                    )
+                    dashboard_entry_summary_from_file(root, term_id, file, title_space, diagnostics)
                 })
         })
         .collect::<Vec<_>>();
@@ -1614,22 +1620,11 @@ fn dashboard_term_entries(
 }
 
 fn taxonomy_term_files<'a>(
-    term: &TaxonomyTermDefinition,
+    patterns: Option<&crate::scan::WorkspacePatternSet>,
     files: &'a [WorkspaceFile],
     config_paths: &BTreeSet<String>,
 ) -> Vec<&'a WorkspaceFile> {
-    let mut builder = GlobSetBuilder::new();
-    let mut pattern_count = 0;
-    for pattern in &term.include_patterns {
-        if let Ok(glob) = Glob::new(pattern) {
-            builder.add(glob);
-            pattern_count += 1;
-        }
-    }
-    if pattern_count == 0 {
-        return Vec::new();
-    }
-    let Ok(matcher) = builder.build() else {
+    let Some(matcher) = patterns.filter(|patterns| !patterns.patterns().is_empty()) else {
         return Vec::new();
     };
     files
@@ -1679,7 +1674,6 @@ fn dashboard_entry_summary(
 
 fn dashboard_entry_summary_from_file(
     root: &Path,
-    taxonomy_id: &str,
     term_id: &str,
     file: &WorkspaceFile,
     title_space: Option<&SpaceDefinition>,
@@ -1705,7 +1699,7 @@ fn dashboard_entry_summary_from_file(
         path: file.path.clone(),
         route_path: entry_route_path_for_path(&file.path),
         raw_path: entry_raw_path_for_path(&file.path),
-        space: (taxonomy_id == "spaces").then(|| term_id.to_string()),
+        space: title_space.map(|_| term_id.to_string()),
         kind: file
             .frontmatter
             .as_ref()
@@ -1754,9 +1748,20 @@ fn taxonomy_term_sort_key(term: &DashboardTaxonomyTerm) -> (bool, i64, String, S
     )
 }
 
-fn view_taxonomy_space(view: &crate::index::IndexView) -> Option<String> {
-    let terms = view.source.as_ref()?.taxonomy.get("spaces")?;
-    (terms.len() == 1).then(|| terms[0].clone())
+fn view_taxonomy_space(view: &crate::index::IndexView, config: &WorkspaceConfig) -> Option<String> {
+    view.source
+        .as_ref()?
+        .taxonomy
+        .iter()
+        .find_map(|(taxonomy_id, terms)| {
+            if terms.len() != 1 {
+                return None;
+            }
+            let term_id = &terms[0];
+            config
+                .space_for_taxonomy_term(taxonomy_id, term_id)
+                .map(|_| term_id.clone())
+        })
 }
 
 fn workspace_logo_summary(
@@ -1787,7 +1792,7 @@ pub fn list_file_references(
     path: &str,
 ) -> Result<FileReferencesResult, OperationError> {
     let path = normalize_entry_path(path)?;
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     let discovery = discover_loaded_workspace(&workspace);
     let index_entry = discovery
         .index
@@ -1842,33 +1847,11 @@ pub fn list_file_references(
     })
 }
 
-fn build_glob_matcher<'a>(patterns: impl IntoIterator<Item = &'a str>) -> globset::GlobSet {
-    let mut builder = GlobSetBuilder::new();
-    for pattern in patterns {
-        if let Ok(glob) = Glob::new(pattern) {
-            builder.add(glob);
-        }
-    }
-    builder
-        .build()
-        .expect("valid Forma glob patterns should build a matcher")
-}
-
 impl WorkspaceSnapshot {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, OperationError> {
-        let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+        let workspace = load_workspace(root.as_ref())?;
         let discovery = discover_loaded_workspace(&workspace);
-        let content_matcher = build_glob_matcher(
-            workspace
-                .config
-                .taxonomies
-                .keys()
-                .filter_map(|taxonomy| workspace.config.terms.get(taxonomy))
-                .flat_map(BTreeMap::values)
-                .flat_map(|term| term.include_patterns.iter().map(String::as_str)),
-        );
-        let control_matcher =
-            build_glob_matcher(workspace.config_source_patterns.iter().map(String::as_str));
+        let scan_plan = Arc::clone(&workspace.scan_plan);
         let configuration_paths = workspace
             .config_sources
             .iter()
@@ -1891,8 +1874,7 @@ impl WorkspaceSnapshot {
         Ok(Self {
             workspace,
             discovery,
-            content_matcher,
-            control_matcher,
+            scan_plan,
             configuration_paths,
             control_paths,
             view_paths,
@@ -1924,10 +1906,11 @@ impl WorkspaceSnapshot {
         if self.view_paths.contains(&source_path) {
             return Ok(ManagedDocumentKind::View);
         }
-        if self.content_matcher.is_match(&source_path) {
+        if self.scan_plan.taxonomy_patterns().is_match(&source_path) {
             return Ok(ManagedDocumentKind::Content);
         }
-        if self.control_paths.contains(&source_path) || self.control_matcher.is_match(&source_path)
+        if self.control_paths.contains(&source_path)
+            || self.scan_plan.config_patterns().is_match(&source_path)
         {
             return Ok(ManagedDocumentKind::Control);
         }
@@ -1938,23 +1921,15 @@ impl WorkspaceSnapshot {
         let source_path = WorkspacePath::parse_cli(source_path)?.as_str().to_string();
         Ok(self.view_paths.contains(&source_path)
             || self.configuration_paths.contains(&source_path)
-            || self.control_matcher.is_match(&source_path))
+            || self.scan_plan.config_patterns().is_match(&source_path))
     }
 
     pub fn watch_patterns(&self) -> Vec<String> {
-        let mut patterns = BTreeSet::from([FORMA_CONFIG_PATH.to_string()]);
-        patterns.extend(self.workspace.config_source_patterns.iter().cloned());
-        patterns.extend(
-            self.workspace
-                .config
-                .taxonomies
-                .keys()
-                .filter_map(|taxonomy| self.workspace.config.terms.get(taxonomy))
-                .flat_map(BTreeMap::values)
-                .flat_map(|term| term.include_patterns.iter().cloned()),
-        );
-        patterns.extend(self.view_paths.iter().cloned());
-        patterns.into_iter().collect()
+        self.scan_plan.watch_patterns().patterns().to_vec()
+    }
+
+    pub fn scan_plan(&self) -> Arc<WorkspaceScanPlan> {
+        Arc::clone(&self.scan_plan)
     }
 
     pub fn analyze_document(&self, source_path: &str, source: &str) -> DocumentAnalysis {
@@ -2559,7 +2534,7 @@ fn heading_slug(value: &str) -> String {
 }
 
 pub fn workspace_health(root: impl AsRef<Path>) -> Result<WorkspaceHealthResult, OperationError> {
-    let workspace = match load_workspace(root.as_ref(), LoadMode::SharedOnly) {
+    let workspace = match load_workspace(root.as_ref()) {
         Ok(workspace) => workspace,
         Err(error) => {
             return Ok(workspace_health_failure_result(
@@ -2716,7 +2691,7 @@ fn status_for_paths<'a>(
             diagnostic
                 .path
                 .as_deref()
-                .is_some_and(|path| paths.iter().any(|candidate| path == *candidate))
+                .is_some_and(|path| paths.contains(&path))
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -3111,133 +3086,38 @@ fn inspect_config_value(
     })
 }
 
-fn collect_workspace_files(
-    root: &Path,
-    config: &WorkspaceConfig,
-    config_paths: &BTreeSet<String>,
-) -> Vec<WorkspaceFile> {
-    let mut patterns = config
-        .spaces
-        .values()
-        .flat_map(|space| {
-            if space.include_patterns.is_empty() {
-                std::slice::from_ref(&space.include).iter()
-            } else {
-                space.include_patterns.iter()
-            }
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    patterns.extend(
-        config
-            .terms
-            .values()
-            .flat_map(BTreeMap::values)
-            .flat_map(|term| term.include_patterns.iter().cloned()),
-    );
-
-    let mut matcher_builder = GlobSetBuilder::new();
-    let mut scan_roots = Vec::new();
-    for pattern in &patterns {
-        if let Ok(glob) = Glob::new(pattern) {
-            matcher_builder.add(glob);
-            scan_roots.push(glob_scan_root(root, pattern));
-        }
-    }
-    let matcher = matcher_builder.build().ok();
-    scan_roots.sort();
-    scan_roots.dedup();
-    let mut minimal_roots = Vec::<PathBuf>::new();
-    for candidate in scan_roots {
-        if minimal_roots
-            .iter()
-            .any(|existing| candidate.starts_with(existing))
-        {
-            continue;
-        }
-        minimal_roots.retain(|existing| !existing.starts_with(&candidate));
-        minimal_roots.push(candidate);
-    }
-
+fn collect_workspace_files(workspace: &FormaWorkspace) -> Vec<WorkspaceFile> {
+    let root = &workspace.root;
     let mut files = BTreeMap::<String, WorkspaceFile>::new();
-    if let Some(matcher) = matcher.as_ref() {
-        for scan_root in minimal_roots {
-            collect_workspace_files_inner(root, &scan_root, matcher, &mut files);
+    if let Ok(paths) = workspace.scan_plan.content_patterns().matching_files() {
+        for path in paths {
+            if let Some(file) = workspace_file_from_path(root, path) {
+                files.insert(file.path.clone(), file);
+            }
         }
     }
 
-    let mut known_paths = config_paths.clone();
-    known_paths.extend(
-        config
-            .spaces
-            .values()
-            .filter_map(|space| WorkspacePath::parse_config(&space.template).ok())
-            .map(|path| path.as_str().to_string()),
-    );
-    if let Some(logo) = &config.workspace.logo {
-        known_paths.insert(logo.path.clone());
-    }
+    let known_paths = workspace
+        .scan_plan
+        .control_paths()
+        .iter()
+        .chain(workspace.scan_plan.resource_paths())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let boundary = WorkspaceBoundary::new(root).ok();
     for path in known_paths {
+        let workspace_path = WorkspacePath::parse_config(&path).ok();
         let candidate = root.join(&path);
-        if candidate.is_file()
+        if boundary
+            .as_ref()
+            .zip(workspace_path.as_ref())
+            .is_some_and(|(boundary, path)| boundary.resolve_existing_file(path).is_ok())
             && let Some(file) = workspace_file_from_path(root, candidate)
         {
             files.insert(file.path.clone(), file);
         }
     }
     files.into_values().collect()
-}
-
-fn collect_workspace_files_inner(
-    root: &Path,
-    path: &Path,
-    matcher: &globset::GlobSet,
-    files: &mut BTreeMap<String, WorkspaceFile>,
-) {
-    if path.is_file() {
-        if let Some(file) = workspace_file_from_path(root, path.to_path_buf())
-            && matcher.is_match(&file.path)
-        {
-            files.insert(file.path.clone(), file);
-        }
-        return;
-    }
-
-    let dir = path;
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        let Ok(file_type) = entry.file_type() else {
-            continue;
-        };
-        if file_type.is_dir() {
-            if should_skip_file_dir(name, &path) {
-                continue;
-            }
-            collect_workspace_files_inner(root, &path, matcher, files);
-        } else if should_skip_workspace_file(name, &path) {
-            continue;
-        } else if file_type.is_file()
-            && let Some(file) = workspace_file_from_path(root, path)
-            && matcher.is_match(&file.path)
-        {
-            files.insert(file.path.clone(), file);
-        }
-    }
-}
-
-fn should_skip_file_dir(name: &str, path: &Path) -> bool {
-    let _ = path;
-    matches!(name, ".git" | "target" | "node_modules")
-}
-
-fn should_skip_workspace_file(_name: &str, _path: &Path) -> bool {
-    false
 }
 
 fn workspace_file_from_path(root: &Path, path: PathBuf) -> Option<WorkspaceFile> {
@@ -3294,16 +3174,15 @@ pub fn is_raw_workspace_path_allowed(path: &str) -> bool {
 
 pub fn is_public_workspace_path_allowed(root: impl AsRef<Path>, path: &str) -> bool {
     let root = root.as_ref();
-    let lowercase_path = path.to_ascii_lowercase();
-    is_raw_workspace_path_allowed(path)
-        && !is_config_source_path(root, path)
-        && !is_config_source_path(root, &lowercase_path)
-}
-
-fn is_config_source_path(root: &Path, path: &str) -> bool {
-    config_source_paths(root, LoadMode::SharedOnly)
-        .map(|sources| sources.into_iter().any(|source| source.path == path))
-        .unwrap_or(false)
+    if !is_raw_workspace_path_allowed(path) {
+        return false;
+    }
+    let Ok(sources) = config_source_paths(root) else {
+        return false;
+    };
+    !sources
+        .iter()
+        .any(|source| source.path.eq_ignore_ascii_case(path))
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -3619,7 +3498,7 @@ fn skill_value_from_frontmatter(frontmatter: &Value) -> Option<Value> {
     let Value::Mapping(mapping) = frontmatter else {
         return None;
     };
-    mapping.get(&Value::String("skill".to_string())).cloned()
+    mapping.get(Value::String("skill".to_string())).cloned()
 }
 
 fn duplicate_skill_id_diagnostics(skills: &[SkillDetail]) -> Vec<Diagnostic> {
@@ -3763,6 +3642,11 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
             "Workspace-relative path parameter is invalid.",
         )
         .with_actual(error.to_string()),
+        OperationError::Boundary(error) => Diagnostic::error(
+            "path.boundaryViolation",
+            "Workspace path violates the filesystem boundary.",
+        )
+        .with_actual(error.to_string()),
         OperationError::ConfigPathNotInspectable(path) => Diagnostic::error(
             "config.pathNotInspectable",
             "Configuration inspect path must reference a known configuration source.",
@@ -3809,7 +3693,8 @@ mod tests {
         skills_get, skills_list, workspace_dashboard, workspace_explorer,
         workspace_explorer_entries, workspace_file_from_path, workspace_health,
     };
-    use crate::config::{LoadMode, load_workspace};
+    use crate::boundary::WorkspaceBoundaryError;
+    use crate::config::load_workspace;
     use crate::{Diagnostic, IndexEntry, OperationStatus, ReferenceIntent, WorkspaceFileKind};
 
     const FIXTURE_VIEWS_DIR: &str = ".forma/views";
@@ -4476,11 +4361,10 @@ imports:
         )
         .unwrap();
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
         let file = workspace_file_from_path(&root, entry_path).unwrap();
         let summary = dashboard_entry_summary_from_file(
             &root,
-            "spaces",
             "notes",
             &file,
             workspace.config.spaces.get("notes"),
@@ -4968,6 +4852,76 @@ conventions:
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn create_entry_rejects_template_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        let root = fixture_root("create-template-symlink");
+        let outside = fixture_root("create-template-symlink-outside");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        copy_starter_workspace(&root);
+        let template = root.join(".forma/spaces/templates/note.md");
+        fs::remove_file(&template).unwrap();
+        fs::write(outside.join("note.md"), "# Outside template\n").unwrap();
+        symlink(outside.join("note.md"), &template).unwrap();
+
+        let error = create_entry(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Unsafe Template".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            OperationError::InvalidInput(field) if field == "create inputs"
+        ));
+        assert!(!root.join("notes/unsafe-template.md").exists());
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn create_entry_rejects_symlinked_output_parent() {
+        use std::os::unix::fs::symlink;
+
+        let root = fixture_root("create-output-symlink");
+        let outside = fixture_root("create-output-symlink-outside");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        copy_starter_workspace(&root);
+        fs::remove_dir_all(root.join("notes")).unwrap();
+        symlink(&outside, root.join("notes")).unwrap();
+
+        let error = create_entry(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Unsafe Output".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            OperationError::Boundary(WorkspaceBoundaryError::Symlink { .. })
+        ));
+        assert!(!outside.join("unsafe-output.md").exists());
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
     #[test]
     fn files_list_returns_workspace_files_with_neutral_kinds() {
         let root = fixture_root("workspace-file-kinds");
@@ -5102,9 +5056,51 @@ conventions:
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[cfg(unix)]
     #[test]
-    fn files_list_excludes_forma_local_override_sources() {
-        let root = fixture_root("files-list-forma-local-private");
+    fn files_list_does_not_follow_template_or_logo_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        let root = fixture_root("files-list-symlink-known-paths");
+        let outside = fixture_root("files-list-symlink-known-paths-outside");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        copy_starter_workspace(&root);
+
+        fs::create_dir_all(root.join("assets")).unwrap();
+        fs::write(outside.join("logo.svg"), "<svg></svg>").unwrap();
+        let logo = root.join("assets/logo.svg");
+        if fs::symlink_metadata(&logo).is_ok() {
+            fs::remove_file(&logo).unwrap();
+        }
+        symlink(outside.join("logo.svg"), &logo).unwrap();
+
+        let template = root.join(".forma/spaces/templates/note.md");
+        fs::remove_file(&template).unwrap();
+        fs::write(
+            outside.join("note.md"),
+            "---\ntitle: Outside Template\n---\n",
+        )
+        .unwrap();
+        symlink(outside.join("note.md"), &template).unwrap();
+
+        let result = list_files(&root).unwrap();
+
+        assert!(
+            result
+                .files
+                .iter()
+                .all(|file| file.path != "assets/logo.svg"
+                    && file.path != ".forma/spaces/templates/note.md")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[test]
+    fn files_list_includes_explicit_config_sources_regardless_of_directory_name() {
+        let root = fixture_root("files-list-forma-local-import");
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/local")).unwrap();
@@ -5116,12 +5112,12 @@ conventions:
 
         let result = list_files(&root).unwrap();
 
-        assert!(
-            !result
-                .files
-                .iter()
-                .any(|file| file.path == ".forma/local/profile.md")
-        );
+        let imported_config = result
+            .files
+            .iter()
+            .find(|file| file.path == ".forma/local/profile.md")
+            .expect("explicitly imported config source should be listed");
+        assert_eq!(imported_config.kind, WorkspaceFileKind::Markdown);
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -5161,7 +5157,13 @@ conventions:
         fs::create_dir_all(&root).unwrap();
         copy_starter_workspace(&root);
         fs::create_dir_all(root.join(".forma/assets")).unwrap();
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
         fs::write(root.join(".forma/assets/logo.svg"), "<svg></svg>").unwrap();
+        fs::write(
+            root.join(".forma/local/profile.md"),
+            "---\nworkspace:\n  timezone: Europe/Paris\n---\n",
+        )
+        .unwrap();
 
         assert!(is_public_workspace_path_allowed(
             &root,
@@ -5171,6 +5173,27 @@ conventions:
         assert!(!is_public_workspace_path_allowed(
             &root,
             ".forma/views/notes.md"
+        ));
+        assert!(!is_public_workspace_path_allowed(
+            &root,
+            ".forma/local/profile.md"
+        ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn public_workspace_paths_fail_closed_when_config_cannot_be_loaded() {
+        let root = fixture_root("public-path-invalid-config");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::create_dir_all(root.join(".forma/assets")).unwrap();
+        fs::write(root.join(".forma/assets/logo.svg"), "<svg></svg>").unwrap();
+        fs::write(root.join(".forma.md"), "---\nworkspace: [\n---\n").unwrap();
+
+        assert!(!is_public_workspace_path_allowed(
+            &root,
+            ".forma/assets/logo.svg"
         ));
 
         fs::remove_dir_all(root).unwrap();
@@ -5605,6 +5628,7 @@ conventions:
         let watch_patterns = snapshot.watch_patterns();
         assert!(watch_patterns.contains(&".forma.md".to_string()));
         assert!(watch_patterns.contains(&".forma/categories/*.md".to_string()));
+        assert!(watch_patterns.contains(&".forma/spaces/templates/task.md".to_string()));
         assert!(watch_patterns.contains(&"topics/**/*.md".to_string()));
         fs::remove_dir_all(root).unwrap();
     }

@@ -1,14 +1,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(test)]
+use std::path::PathBuf;
 
-use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
 use crate::config::{
-    ConfigError, ConfigSourcePath, DisplayOptions, FormaWorkspace, LoadMode, WorkspaceConfig,
-    load_workspace,
+    ConfigError, ConfigSourcePath, DisplayOptions, FormaWorkspace, WorkspaceConfig, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::document::{
@@ -17,7 +17,7 @@ use crate::document::{
 };
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, resolve_markdown_title};
 use crate::operations::workspace_skill_diagnostics;
-use crate::path::{FORMA_CONFIG_PATH, WorkspacePath, glob_scan_root};
+use crate::path::WorkspacePath;
 use crate::schema::{parse_space_schema, validate_schema_value};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -207,7 +207,7 @@ struct PathIndex {
 }
 
 pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigError> {
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     Ok(discover_loaded_workspace(&workspace))
 }
 
@@ -216,7 +216,7 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
     let config = &workspace.config;
     let mut diagnostics = workspace.diagnostics.clone();
 
-    let mut entries = discover_entries(root, config, &workspace.config_sources, &mut diagnostics);
+    let mut entries = discover_entries(workspace, &mut diagnostics);
     let path_index = PathIndex::from_entries(&entries);
     let mut index_entries = Vec::new();
 
@@ -301,7 +301,7 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
 
     let mut views = discover_views(root, config, &workspace.config_sources, &mut diagnostics);
     views.sort_by(|left, right| view_sort_key(left).cmp(&view_sort_key(right)));
-    diagnostics.extend(resource_description_diagnostics(root, config));
+    diagnostics.extend(resource_description_diagnostics(workspace));
     let resolved_titles = index_entries
         .iter()
         .filter_map(|entry| entry.title.clone().map(|title| (entry.path.clone(), title)))
@@ -331,7 +331,7 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
 
 pub fn check_workspace(root: impl AsRef<Path>) -> CheckResult {
     let root = root.as_ref();
-    let mut diagnostics = match load_workspace(root, LoadMode::SharedOnly) {
+    let mut diagnostics = match load_workspace(root) {
         Ok(workspace) => {
             let discovery = discover_loaded_workspace(&workspace);
             let mut diagnostics = discovery.diagnostics;
@@ -366,23 +366,28 @@ fn check_result(operation: &str, diagnostics: Vec<Diagnostic>) -> CheckResult {
 }
 
 fn discover_entries(
-    root: &Path,
-    config: &WorkspaceConfig,
-    config_sources: &[ConfigSourcePath],
+    workspace: &FormaWorkspace,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<CandidateEntry> {
-    let markdown_files = collect_included_markdown_files(root, config);
+    let root = &workspace.root;
+    let config = &workspace.config;
+    let markdown_files = workspace
+        .scan_plan
+        .content_patterns()
+        .matching_files_with_extensions(&["md", "mdx"])
+        .unwrap_or_default();
     let markdown_paths = markdown_files
         .iter()
         .filter_map(|path| workspace_relative_path(root, path))
         .collect::<BTreeSet<_>>();
-    let config_source_paths = config_sources
+    let config_source_paths = workspace
+        .config_sources
         .iter()
         .map(|source| source.path.clone())
         .collect::<BTreeSet<_>>();
     let supported_language_suffixes = supported_language_suffixes(config);
-    let matchers = build_space_matchers(config);
-    let taxonomy_matchers = build_taxonomy_matchers(config, diagnostics);
+    let matchers = build_space_matchers(&workspace.scan_plan);
+    let taxonomy_matchers = build_taxonomy_matchers(&workspace.scan_plan);
     let mut entries = Vec::new();
     let mut variants_by_canonical = BTreeMap::<String, Vec<CandidateVariant>>::new();
 
@@ -502,47 +507,16 @@ fn discover_entries(
 }
 
 fn build_taxonomy_matchers(
-    config: &WorkspaceConfig,
-    diagnostics: &mut Vec<Diagnostic>,
-) -> BTreeMap<String, Vec<(String, GlobSet)>> {
-    config
-        .terms
+    scan_plan: &crate::scan::WorkspaceScanPlan,
+) -> BTreeMap<String, Vec<(String, &crate::scan::WorkspacePatternSet)>> {
+    scan_plan
+        .taxonomy_term_patterns()
         .iter()
         .map(|(taxonomy_id, terms)| {
             let matchers = terms
                 .iter()
-                .filter_map(|(term_id, term)| {
-                    let mut builder = GlobSetBuilder::new();
-                    let mut has_valid_pattern = false;
-                    for pattern in &term.include_patterns {
-                        match Glob::new(pattern) {
-                            Ok(glob) => {
-                                builder.add(glob);
-                                has_valid_pattern = true;
-                            }
-                            Err(error) => diagnostics.push(
-                                Diagnostic::error(
-                                    "config.globInvalid",
-                                    "Taxonomy term include glob is invalid.",
-                                )
-                                .with_path(FORMA_CONFIG_PATH)
-                                .with_location(DiagnosticLocation::Config {
-                                    field: format!(
-                                        "taxonomies.{taxonomy_id}.terms.{term_id}.include"
-                                    ),
-                                })
-                                .with_actual(error.to_string()),
-                            ),
-                        }
-                    }
-                    if !has_valid_pattern {
-                        return None;
-                    }
-                    builder
-                        .build()
-                        .ok()
-                        .map(|matcher| (term_id.clone(), matcher))
-                })
+                .filter(|(_, patterns)| !patterns.patterns().is_empty())
+                .map(|(term_id, patterns)| (term_id.clone(), patterns))
                 .collect();
             (taxonomy_id.clone(), matchers)
         })
@@ -552,7 +526,7 @@ fn build_taxonomy_matchers(
 fn taxonomy_memberships(
     path: &str,
     config: &WorkspaceConfig,
-    matchers: &BTreeMap<String, Vec<(String, GlobSet)>>,
+    matchers: &BTreeMap<String, Vec<(String, &crate::scan::WorkspacePatternSet)>>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> BTreeMap<String, Vec<String>> {
     let mut memberships = BTreeMap::new();
@@ -612,9 +586,7 @@ fn language_variant_canonical_path(
     path: &str,
     language_suffixes: &[LanguageSuffix],
 ) -> Option<(String, String)> {
-    let Some(stem) = path.strip_suffix(".md") else {
-        return None;
-    };
+    let stem = path.strip_suffix(".md")?;
     let (directory, filename_stem) = stem.rsplit_once('/').unwrap_or(("", stem));
     for language in language_suffixes {
         let suffix = format!(".{}", language.suffix);
@@ -634,117 +606,15 @@ fn language_variant_canonical_path(
     None
 }
 
-fn build_space_matchers(config: &WorkspaceConfig) -> Vec<(String, GlobSet)> {
-    let mut matchers = Vec::new();
-    for (space_id, space) in &config.spaces {
-        let mut builder = GlobSetBuilder::new();
-        let include_patterns = if space.include_patterns.is_empty() {
-            std::slice::from_ref(&space.include)
-        } else {
-            space.include_patterns.as_slice()
-        };
-        let mut has_valid_pattern = false;
-        for include in include_patterns {
-            match Glob::new(include) {
-                Ok(glob) => {
-                    builder.add(glob);
-                    has_valid_pattern = true;
-                }
-                Err(_) => continue,
-            }
-        }
-        if has_valid_pattern && let Ok(set) = builder.build() {
-            matchers.push((space_id.clone(), set));
-        }
-    }
-    matchers
-}
-
-fn collect_included_markdown_files(root: &Path, config: &WorkspaceConfig) -> Vec<PathBuf> {
-    let mut scan_roots = Vec::new();
-    let mut matcher_builder = GlobSetBuilder::new();
-    let mut has_valid_pattern = false;
-    for space in config.spaces.values() {
-        let patterns = if space.include_patterns.is_empty() {
-            std::slice::from_ref(&space.include)
-        } else {
-            space.include_patterns.as_slice()
-        };
-        for pattern in patterns {
-            if let Ok(glob) = Glob::new(pattern) {
-                matcher_builder.add(glob);
-                has_valid_pattern = true;
-                scan_roots.push(glob_scan_root(root, pattern));
-            }
-        }
-    }
-    let Ok(matcher) = matcher_builder.build() else {
-        return Vec::new();
-    };
-    if !has_valid_pattern {
-        return Vec::new();
-    }
-    scan_roots.sort();
-    scan_roots.dedup();
-
-    let mut minimal_roots = Vec::<PathBuf>::new();
-    for candidate in scan_roots {
-        if minimal_roots
-            .iter()
-            .any(|existing| candidate.starts_with(existing))
-        {
-            continue;
-        }
-        minimal_roots.retain(|existing| !existing.starts_with(&candidate));
-        minimal_roots.push(candidate);
-    }
-
-    let mut files = BTreeSet::new();
-    for scan_root in minimal_roots {
-        collect_markdown_files_inner(root, &scan_root, &mut files);
-    }
-    files
-        .into_iter()
-        .filter(|path| {
-            workspace_relative_path(root, path).is_some_and(|relative| matcher.is_match(relative))
-        })
+fn build_space_matchers(
+    scan_plan: &crate::scan::WorkspaceScanPlan,
+) -> Vec<(String, &crate::scan::WorkspacePatternSet)> {
+    scan_plan
+        .space_patterns()
+        .iter()
+        .filter(|(_, patterns)| !patterns.patterns().is_empty())
+        .map(|(space_id, patterns)| (space_id.clone(), patterns))
         .collect()
-}
-
-fn collect_markdown_files_inner(root: &Path, path: &Path, files: &mut BTreeSet<PathBuf>) {
-    if path.is_file() {
-        if path.extension().and_then(|extension| extension.to_str()) == Some("md")
-            && path.starts_with(root)
-        {
-            files.insert(path.to_path_buf());
-        }
-        return;
-    }
-
-    let dir = path;
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        let Ok(file_type) = entry.file_type() else {
-            continue;
-        };
-        if file_type.is_dir() {
-            if matches!(name, ".git" | "target" | "node_modules") {
-                continue;
-            }
-            collect_markdown_files_inner(root, &path, files);
-        } else if file_type.is_file()
-            && path.extension().and_then(|extension| extension.to_str()) == Some("md")
-            && path.starts_with(root)
-        {
-            files.insert(path);
-        }
-    }
 }
 
 fn discover_views(
@@ -788,7 +658,9 @@ fn discover_views(
             required_string(&value, "view.space").or_else(|| required_string(&value, "space"));
         let source = parse_view_source(&value);
         if space.is_none() {
-            space = source.as_ref().and_then(source_taxonomy_space);
+            space = source
+                .as_ref()
+                .and_then(|source| source_taxonomy_space(source, config));
         }
         let title =
             optional_string(&value, "view.title").or_else(|| optional_string(&value, "title"));
@@ -844,9 +716,15 @@ fn view_sort_key(view: &IndexView) -> (bool, i64, &str, &str, &str) {
     )
 }
 
-fn resource_description_diagnostics(root: &Path, config: &WorkspaceConfig) -> Vec<Diagnostic> {
+fn resource_description_diagnostics(workspace: &FormaWorkspace) -> Vec<Diagnostic> {
+    let root = &workspace.root;
     let mut diagnostics = Vec::new();
-    for path in collect_included_markdown_files(root, config) {
+    for path in workspace
+        .scan_plan
+        .content_patterns()
+        .matching_files_with_extensions(&["md", "mdx"])
+        .unwrap_or_default()
+    {
         let Some(description_path) = workspace_relative_path(root, &path) else {
             continue;
         };
@@ -1193,7 +1071,7 @@ impl PathIndex {
 
     fn resolve_candidates(&self, candidates: Vec<String>, space: Option<&str>) -> ResolveResult {
         for candidate in &candidates {
-            if self.path_allowed(&candidate, space) {
+            if self.path_allowed(candidate, space) {
                 return ResolveResult::Resolved(candidate.clone());
             }
         }
@@ -1363,9 +1241,16 @@ fn parse_view_source(value: &Value) -> Option<IndexViewSource> {
     })
 }
 
-fn source_taxonomy_space(source: &IndexViewSource) -> Option<String> {
-    let terms = source.taxonomy.get("spaces")?;
-    (terms.len() == 1).then(|| terms[0].clone())
+fn source_taxonomy_space(source: &IndexViewSource, config: &WorkspaceConfig) -> Option<String> {
+    source.taxonomy.iter().find_map(|(taxonomy_id, terms)| {
+        if terms.len() != 1 {
+            return None;
+        }
+        let term_id = &terms[0];
+        config
+            .space_for_taxonomy_term(taxonomy_id, term_id)
+            .map(|_| term_id.clone())
+    })
 }
 
 fn taxonomy_filter(value: &Value) -> BTreeMap<String, Vec<String>> {
@@ -1582,9 +1467,13 @@ mod tests {
             "outside/ignored.md",
             "---\nkind: note\ntitle: Ignored\n---\n",
         );
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
-        let paths = collect_included_markdown_files(&root, &workspace.config)
+        let paths = workspace
+            .scan_plan
+            .content_patterns()
+            .matching_files_with_extensions(&["md", "mdx"])
+            .unwrap()
             .iter()
             .filter_map(|path| workspace_relative_path(&root, path))
             .collect::<Vec<_>>();
@@ -1598,7 +1487,7 @@ mod tests {
     fn loaded_workspace_discovery_reuses_the_loaded_configuration() {
         let root = fixture_root("loaded-workspace-discovery");
         write_workspace(&root);
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
         let config_path = root.join(FORMA_CONFIG_PATH);
         let changed = fs::read_to_string(&config_path)
             .unwrap()
@@ -2558,7 +2447,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_summary_index_ignores_local_override_config() {
+    fn summary_index_uses_all_explicit_config_imports() {
         let root = fixture_root("included-config");
         write_workspace(&root);
         write_entry(&root, "notes/a.md", "---\nkind: note\ntitle: A\n---\n");
@@ -2571,7 +2460,7 @@ mod tests {
 
         let discovery = discover_workspace(&root).unwrap();
 
-        assert_eq!(discovery.index.workspace.name, "Acme Workspace");
+        assert_eq!(discovery.index.workspace.name, "Explicitly Included");
         fs::remove_dir_all(root).unwrap();
     }
 

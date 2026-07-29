@@ -1,9 +1,11 @@
 import DOMPurify from "dompurify";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 
 import { isStaticRawHref, logicalHref, rootAwareHref } from "@/data/static-runtime";
 import type { DashboardEntry, DashboardEntryHeading } from "@/data/workspace-client";
 import type { MermaidRenderScope } from "@/lib/mermaid";
+import { scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 
 import { resolveReaderLink } from "./markdown-links";
@@ -13,6 +15,7 @@ import {
     createProjectionStickyBoundaryController,
     projectionStickyHeaderClassName,
 } from "./projection-sticky-boundary";
+import { resolveReaderLinkNavigation } from "./reader-link-navigation";
 
 export interface MarkdownReaderProps {
     currentPath: string;
@@ -45,6 +48,7 @@ export function MarkdownReader({
     mermaidScope,
     omitLeadingTitle = false,
 }: MarkdownReaderProps) {
+    const navigate = useNavigate();
     const readerRef = useRef<HTMLDivElement>(null);
     const [renderState, setRenderState] = useState<MarkdownRenderState>();
     const [retryKey, setRetryKey] = useState(0);
@@ -119,6 +123,34 @@ export function MarkdownReader({
         return enhanceMermaidDiagrams(readerRef.current);
     }, [isCurrentRender, renderState?.html, renderState?.status]);
 
+    function navigateReaderLink(event: React.MouseEvent<HTMLDivElement>) {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return;
+        }
+
+        const target = event.target;
+        if (!(target instanceof Element)) {
+            return;
+        }
+        const anchor = target.closest<HTMLAnchorElement>("a[href]");
+        if (!anchor || !readerRef.current?.contains(anchor)) {
+            return;
+        }
+        const navigation = resolveReaderLinkNavigation(anchor);
+        if (!navigation) {
+            return;
+        }
+        if (navigation.samePageFragment) {
+            if (scrollReaderAnchor(anchor)) {
+                event.preventDefault();
+            }
+            return;
+        }
+
+        event.preventDefault();
+        void navigate(navigation.href);
+    }
+
     if (!isCurrentRender) {
         return (
             <div
@@ -162,6 +194,7 @@ export function MarkdownReader({
     return (
         <div
             data-reader="markdown"
+            onClick={navigateReaderLink}
             ref={readerRef}
             // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
             dangerouslySetInnerHTML={{ __html: renderState.html ?? "" }}

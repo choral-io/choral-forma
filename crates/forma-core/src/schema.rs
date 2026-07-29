@@ -829,24 +829,24 @@ fn validate_schema_node(
             validate_named_schema_type(config, name, path, field, diagnostics);
         }
         SchemaNode::EntryRef { target, .. } => {
-            if let Some(target) = target {
-                if !matches!(
+            if let Some(target) = target
+                && !matches!(
                     config.types.get(target),
                     Some(SemanticType::EntryRef { .. })
-                ) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "schema.entryRef.invalid",
-                            format!(
-                                "Entry reference target `{target}` is not an entryRef semantic type."
-                            ),
-                        )
-                        .with_path(path)
-                        .with_location(DiagnosticLocation::Config {
-                            field: field.to_string(),
-                        }),
-                    );
-                }
+                )
+            {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "schema.entryRef.invalid",
+                        format!(
+                            "Entry reference target `{target}` is not an entryRef semantic type."
+                        ),
+                    )
+                    .with_path(path)
+                    .with_location(DiagnosticLocation::Config {
+                        field: field.to_string(),
+                    }),
+                );
             }
         }
         SchemaNode::List { items, .. } => {
@@ -966,23 +966,23 @@ fn validate_value_node(
         }
         SchemaNode::EntryRef { target, .. } => {
             validate_reference_value(value, path.clone(), field, diagnostics);
-            if let Some(target) = target {
-                if !matches!(
+            if let Some(target) = target
+                && !matches!(
                     config.types.get(target),
                     Some(SemanticType::EntryRef { .. })
-                ) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "schema.entryRef.invalid",
-                            format!(
-                                "Entry reference target `{target}` is not an entryRef semantic type."
-                            ),
-                        )
-                        .with_path(path)
-                        .with_location(frontmatter_field_location(field))
-                        .with_expected(format!("entryRef semantic type `{target}`")),
-                    );
-                }
+                )
+            {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "schema.entryRef.invalid",
+                        format!(
+                            "Entry reference target `{target}` is not an entryRef semantic type."
+                        ),
+                    )
+                    .with_path(path)
+                    .with_location(frontmatter_field_location(field))
+                    .with_expected(format!("entryRef semantic type `{target}`")),
+                );
             }
         }
         SchemaNode::List { items, .. } => {
@@ -1320,6 +1320,7 @@ mod tests {
                     schema,
                 },
             )]),
+            space_term_keys: BTreeSet::from([("spaces".to_string(), "tasks".to_string())]),
         }
     }
 

@@ -11,14 +11,6 @@ export interface StaticDocumentMetadata {
 
 export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pathname: string): StaticDocumentMetadata {
     const canonicalPath = logicalPathname(pathname);
-    if (canonicalPath === "/") {
-        return {
-            canonicalPath,
-            description: `Workspace home for ${dashboard.workspaceName}.`,
-            title: dashboard.workspaceName,
-        };
-    }
-
     const entry = resolveDashboardEntryTarget(dashboard, canonicalRoutePathFromLocation(pathname))?.summary;
     if (entry) {
         return {

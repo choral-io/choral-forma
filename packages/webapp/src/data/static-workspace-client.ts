@@ -35,6 +35,7 @@ export interface StaticDashboardData {
             path: string;
             title?: string;
             omitLeadingTitle: boolean;
+            updatedAt?: string;
             markdown: string;
             headings: { id: string; level: number; text: string }[];
         };
@@ -154,7 +155,10 @@ export class StaticWorkspaceClient implements WorkspaceClient {
     async getDashboard(): Promise<WorkspaceDashboard> {
         if (this.#dashboard) return this.#dashboard;
         const data = await this.readJson<StaticDashboardData>("dashboard.json");
-        const entries = data.entries.map(mapEntrySummary);
+        const entries = [
+            mapWorkspaceRootEntry(data.workspace.home, data.workspace.name),
+            ...data.entries.map(mapEntrySummary),
+        ];
         const diagnostics = data.diagnostics;
         const health: DashboardHealth = {
             status: mapStatus(data.status),
@@ -168,13 +172,6 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                 ? { url: data.workspace.logo.publicPath, alt: data.workspace.logo.alt }
                 : undefined,
             tagline: "Markdown-backed workspace content.",
-            home: {
-                path: data.workspace.home.path,
-                title: data.workspace.home.title,
-                omitLeadingTitle: data.workspace.home.omitLeadingTitle,
-                markdown: data.workspace.home.markdown,
-                headings: data.workspace.home.headings.filter(isDashboardHeading),
-            },
             status: maxHealth(mapStatus(data.status), health.status),
             spaces: data.spaces.map((space) => mapSpace(space, entries)),
             taxonomies: data.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entries)),
@@ -197,6 +194,7 @@ export class StaticWorkspaceClient implements WorkspaceClient {
     async getEntry(entryId: string): Promise<DashboardEntry> {
         const dashboard = this.#dashboard ?? (await this.getDashboard());
         const summary = dashboard.entries.find((entry) => entry.id === entryId);
+        if (summary?.id === "workspace-root") return summary;
         if (summary) {
             const data = await this.readJson<StaticEntryData>(`entries/${entryId}.json`);
             return {
@@ -274,6 +272,35 @@ export class StaticWorkspaceClient implements WorkspaceClient {
             throw new Error(`Static artifact data is invalid: ${path}`, { cause: reason });
         }
     }
+}
+
+function mapWorkspaceRootEntry(home: StaticDashboardData["workspace"]["home"], workspaceName: string): DashboardEntry {
+    let homeTitle = home.title?.trim();
+    if (homeTitle === undefined || homeTitle.length === 0) {
+        homeTitle = workspaceName;
+    }
+    return {
+        id: "workspace-root",
+        path: home.path,
+        routePath: "/",
+        title: homeTitle,
+        omitLeadingTitle: home.omitLeadingTitle,
+        summary: "Markdown-backed workspace content.",
+        space: "",
+        updatedAt: home.updatedAt,
+        updatedLabel: formatRelativeDateTime(home.updatedAt),
+        status: "healthy",
+        variants: [],
+        body: [
+            {
+                type: "markdown",
+                markdown: home.markdown,
+                outline: home.headings.filter(isDashboardHeading),
+            },
+        ],
+        diagnostics: [],
+        relations: { outgoing: [], backlinks: [] },
+    };
 }
 
 function mapEntrySummary(entry: StaticEntrySummary): DashboardEntry {

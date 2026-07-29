@@ -1,12 +1,13 @@
 use std::fmt;
 use std::path::{Component, Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
+use globset::{Glob, GlobMatcher};
+use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 
 pub const FORMA_CONFIG_PATH: &str = ".forma.md";
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
 pub struct WorkspacePath(String);
 
@@ -33,6 +34,66 @@ impl fmt::Display for WorkspacePath {
     }
 }
 
+impl<'de> Deserialize<'de> for WorkspacePath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::parse_config(value).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceGlob {
+    pattern: WorkspacePath,
+    literal_prefix: Option<WorkspacePath>,
+}
+
+impl WorkspaceGlob {
+    pub fn parse_config(value: impl AsRef<str>) -> Result<Self, PathError> {
+        let pattern = WorkspacePath::parse_config(value)?;
+        Glob::new(pattern.as_str()).map_err(|error| PathError::InvalidGlob(error.to_string()))?;
+
+        let prefix = pattern
+            .as_str()
+            .split('/')
+            .take_while(|segment| !contains_glob_meta(segment))
+            .collect::<Vec<_>>()
+            .join("/");
+        let literal_prefix = if prefix.is_empty() {
+            None
+        } else {
+            Some(WorkspacePath::parse_config(prefix)?)
+        };
+
+        Ok(Self {
+            pattern,
+            literal_prefix,
+        })
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.pattern.as_str()
+    }
+
+    pub fn literal_prefix(&self) -> Option<&WorkspacePath> {
+        self.literal_prefix.as_ref()
+    }
+
+    pub fn matcher(&self) -> GlobMatcher {
+        Glob::new(self.as_str())
+            .expect("WorkspaceGlob validates its glob pattern when constructed")
+            .compile_matcher()
+    }
+
+    pub fn scan_root(&self, root: &Path) -> PathBuf {
+        self.literal_prefix
+            .as_ref()
+            .map_or_else(|| root.to_path_buf(), |prefix| root.join(prefix.as_str()))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum PathError {
     #[error("path is empty")]
@@ -49,6 +110,8 @@ pub enum PathError {
     Backslash,
     #[error("path segment is invalid: {0}")]
     InvalidSegment(String),
+    #[error("glob pattern is invalid: {0}")]
+    InvalidGlob(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,23 +122,6 @@ enum SeparatorPolicy {
 
 pub fn normalize_cli_path(value: &str) -> String {
     value.replace('\\', "/")
-}
-
-pub(crate) fn glob_scan_root(root: &Path, pattern: &str) -> PathBuf {
-    let mut prefix = PathBuf::new();
-    for component in pattern.split('/') {
-        if component.is_empty() || component == "." {
-            continue;
-        }
-        if component
-            .chars()
-            .any(|character| matches!(character, '*' | '?' | '[' | ']' | '{' | '}'))
-        {
-            break;
-        }
-        prefix.push(component);
-    }
-    root.join(prefix)
 }
 
 pub fn slugify_path_segment(value: &str) -> Result<String, PathError> {
@@ -179,12 +225,18 @@ fn has_windows_drive_prefix(value: &str) -> bool {
     bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic()
 }
 
+fn contains_glob_meta(segment: &str) -> bool {
+    segment
+        .chars()
+        .any(|character| matches!(character, '*' | '?' | '[' | ']' | '{' | '}'))
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
     use super::{
-        PathError, WorkspacePath, glob_scan_root, normalize_cli_path, slugify_path_segment,
+        PathError, WorkspaceGlob, WorkspacePath, normalize_cli_path, slugify_path_segment,
     };
 
     #[test]
@@ -210,17 +262,69 @@ mod tests {
     #[test]
     fn glob_scan_roots_stop_before_the_first_dynamic_component() {
         let root = Path::new("/workspace");
+        let scan_root = |pattern| {
+            WorkspaceGlob::parse_config(pattern)
+                .unwrap()
+                .scan_root(root)
+        };
 
         assert_eq!(
-            glob_scan_root(root, "knowledge/tasks/**/*.md"),
+            scan_root("knowledge/tasks/**/*.md"),
             root.join("knowledge/tasks")
         );
         assert_eq!(
-            glob_scan_root(root, "knowledge/workspace/*/index.md"),
+            scan_root("knowledge/workspace/*/index.md"),
             root.join("knowledge/workspace")
         );
-        assert_eq!(glob_scan_root(root, "**/*.md"), root);
-        assert_eq!(glob_scan_root(root, "README.md"), root.join("README.md"));
+        assert_eq!(scan_root("**/*.md"), root.to_path_buf());
+        assert_eq!(scan_root("README.md"), root.join("README.md"));
+    }
+
+    #[test]
+    fn glob_scan_roots_reject_paths_outside_the_workspace() {
+        for pattern in [
+            "../notes/**/*.md",
+            "/notes/**/*.md",
+            "~/notes/**/*.md",
+            "C:/notes/**/*.md",
+            r"notes\**\*.md",
+        ] {
+            assert!(WorkspaceGlob::parse_config(pattern).is_err(), "{pattern}");
+        }
+    }
+
+    #[test]
+    fn workspace_globs_validate_syntax_and_expose_literal_prefixes() {
+        let pattern = WorkspaceGlob::parse_config("knowledge/tasks/**/*.md").unwrap();
+        assert_eq!(pattern.as_str(), "knowledge/tasks/**/*.md");
+        assert_eq!(
+            pattern.literal_prefix().map(WorkspacePath::as_str),
+            Some("knowledge/tasks")
+        );
+        assert!(
+            pattern
+                .matcher()
+                .is_match("knowledge/tasks/open/example.md")
+        );
+
+        let pattern = WorkspaceGlob::parse_config("**/*.md").unwrap();
+        assert_eq!(pattern.literal_prefix(), None);
+        assert!(matches!(
+            WorkspaceGlob::parse_config("knowledge/[invalid.md"),
+            Err(PathError::InvalidGlob(_))
+        ));
+    }
+
+    #[test]
+    fn workspace_path_deserialization_uses_persisted_path_rules() {
+        assert_eq!(
+            serde_json::from_str::<WorkspacePath>(r#""notes/example.md""#)
+                .unwrap()
+                .as_str(),
+            "notes/example.md"
+        );
+        assert!(serde_json::from_str::<WorkspacePath>(r#""../outside.md""#).is_err());
+        assert!(serde_json::from_str::<WorkspacePath>(r#""notes\\outside.md""#).is_err());
     }
 
     #[test]

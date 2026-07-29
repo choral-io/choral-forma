@@ -730,9 +730,9 @@ fn valid_authority_port(authority: &str) -> bool {
                 .strip_prefix(':')
                 .is_some_and(|port| port.parse::<u16>().is_ok());
     }
-    authority.rsplit_once(':').map_or(true, |(_, port)| {
-        !port.is_empty() && port.parse::<u16>().is_ok()
-    })
+    authority
+        .rsplit_once(':')
+        .is_none_or(|(_, port)| !port.is_empty() && port.parse::<u16>().is_ok())
 }
 
 fn data_path(prefix: &str, id: &str) -> Result<String, String> {

@@ -1,3 +1,4 @@
+pub mod boundary;
 pub mod config;
 pub mod diagnostics;
 pub mod docs;
@@ -7,12 +8,14 @@ pub mod markdown;
 pub mod operations;
 pub mod path;
 pub mod render;
+pub mod scan;
 pub mod schema;
 pub mod site;
 
+pub use boundary::{PreparedWorkspaceFile, WorkspaceBoundary, WorkspaceBoundaryError};
 pub use config::{
-    ConfigError, FormaWorkspace, LoadMode, SpaceDefinition, TaxonomyTermDefinition,
-    WorkspaceConfig, load_workspace,
+    ConfigError, FormaWorkspace, SpaceDefinition, TaxonomyTermDefinition, WorkspaceConfig,
+    load_workspace,
 };
 pub use diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
@@ -49,7 +52,8 @@ pub use operations::{
     skills_list, workspace_dashboard, workspace_explorer, workspace_explorer_entries,
 };
 pub use path::{
-    FORMA_CONFIG_PATH, PathError, WorkspacePath, normalize_cli_path, slugify_path_segment,
+    FORMA_CONFIG_PATH, PathError, WorkspaceGlob, WorkspacePath, normalize_cli_path,
+    slugify_path_segment,
 };
 pub use render::{
     FileRenderOutput, FileRenderResult, GraphRenderEdge, GraphRenderLegendItem, GraphRenderNode,
@@ -57,6 +61,7 @@ pub use render::{
     RenderedHeading, RenderedView, ViewContentMount, ViewRenderDocument, ViewRenderItem,
     ViewRenderOutput, ViewRenderResult, render_file, render_view,
 };
+pub use scan::{WorkspacePatternSet, WorkspaceScanPlan};
 pub use schema::{
     PlaceholderContext, RenderedTemplate, ResolvedCreateInputs, RuntimeValues, SchemaNode,
     TemplateValueResolver, Transform, render_placeholder_template, resolve_create_inputs,

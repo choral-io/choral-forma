@@ -89,10 +89,15 @@ fn home_page(
 ) -> StaticPage {
     StaticPage {
         canonical_route: "/".to_string(),
-        description: format!("Workspace home for {}.", snapshot.workspace.name),
+        description: "Markdown-backed workspace content.".to_string(),
         language: canonical_language.to_string(),
         output_path: "index.html".to_string(),
-        title: snapshot.workspace.name.clone(),
+        title: snapshot
+            .workspace
+            .home
+            .title
+            .clone()
+            .unwrap_or_else(|| snapshot.workspace.name.clone()),
         body: workspace_home_body(snapshot, root_path),
     }
 }
@@ -101,14 +106,15 @@ fn workspace_home_body(snapshot: &StaticSiteSnapshot, root_path: &str) -> String
     let home = &snapshot.workspace.home;
     if home.html.trim().is_empty() {
         return format!(
-            "<header class=\"flex flex-col gap-3\"><p class=\"text-base-content/60 text-sm\">Workspace</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60\">Browse this Markdown-backed workspace.</p></header>{}",
-            escape_html(&snapshot.workspace.name),
+            "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"workspace-root\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">.forma.md</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60 text-sm/6\">Markdown-backed workspace content.</p></header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div></article>",
+            escape_html(home.title.as_deref().unwrap_or(&snapshot.workspace.name)),
             entry_list(snapshot.entries.iter(), root_path),
         );
     }
     format!(
-        "<article class=\"flex min-w-0 flex-col gap-5\" data-workspace-home data-reader=\"markdown\">{}</article>",
-        home.html,
+        "<article class=\"flex min-w-0 flex-col gap-6\" data-static-entry-id=\"workspace-root\"><header class=\"flex flex-col gap-3\" id=\"entry-top\"><p class=\"text-base-content/60 text-sm\">.forma.md</p><h1 class=\"text-3xl font-semibold\">{}</h1><p class=\"text-base-content/60 text-sm/6\">Markdown-backed workspace content.</p></header><div class=\"flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div></article>",
+        escape_html(home.title.as_deref().unwrap_or(&snapshot.workspace.name)),
+        rewrite_home_fragments(&home.html, "/", root_path),
     )
 }
 
@@ -633,10 +639,11 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
     .replace('\u{2028}', "\\u2028")
     .replace('\u{2029}', "\\u2029");
     let assets = embedded_head_assets(options.embedded_index, options.root_path);
-    let robots = options
-        .noindex
-        .then_some("<meta name=\"robots\" content=\"noindex, nofollow\" />")
-        .unwrap_or("");
+    let robots = if options.noindex {
+        "<meta name=\"robots\" content=\"noindex, nofollow\" />"
+    } else {
+        ""
+    };
     format!(
         "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script id=\"forma-static-workspace\" type=\"application/json\">{config}</script></head><body><div id=\"root\"><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{pages_href}\">Pages</a><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Browse</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
         language = escape_attribute(&options.page.language),

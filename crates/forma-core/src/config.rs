@@ -2,23 +2,20 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
-use globset::{Glob, GlobSetBuilder};
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 use thiserror::Error;
 
+use crate::boundary::{WorkspaceBoundary, WorkspaceBoundaryError};
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::markdown::FormaMarkdownDocument;
-use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath, glob_scan_root};
+use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspaceGlob, WorkspacePath};
+use crate::scan::WorkspaceScanPlan;
 use crate::schema::validate_space_schemas;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LoadMode {
-    SharedOnly,
-    WithLocalOverrides,
-}
+const SPACE_PROJECTION_TAXONOMY_ID: &str = "spaces";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FormaWorkspace {
@@ -27,6 +24,7 @@ pub struct FormaWorkspace {
     pub config_sources: Vec<ConfigSourcePath>,
     pub config_source_patterns: Vec<String>,
     pub diagnostics: Vec<Diagnostic>,
+    pub scan_plan: Arc<WorkspaceScanPlan>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,6 +52,33 @@ pub struct WorkspaceConfig {
     pub types: BTreeMap<String, SemanticType>,
     #[serde(default)]
     pub spaces: BTreeMap<String, SpaceDefinition>,
+    #[serde(skip)]
+    pub(crate) space_term_keys: BTreeSet<(String, String)>,
+}
+
+impl WorkspaceConfig {
+    pub(crate) fn space_for_taxonomy_term(
+        &self,
+        taxonomy_id: &str,
+        term_id: &str,
+    ) -> Option<&SpaceDefinition> {
+        let is_configured_space =
+            self.space_term_keys
+                .iter()
+                .any(|(configured_taxonomy, configured_term)| {
+                    configured_taxonomy == taxonomy_id && configured_term == term_id
+                });
+        if !is_configured_space {
+            return None;
+        }
+        self.spaces.get(term_id)
+    }
+
+    pub(crate) fn space_term_keys(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.space_term_keys
+            .iter()
+            .map(|(taxonomy_id, term_id)| (taxonomy_id.as_str(), term_id.as_str()))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -348,12 +373,9 @@ struct TermCreateDefinition {
     inputs: BTreeMap<String, CreateInput>,
 }
 
-pub fn load_workspace(
-    root: impl AsRef<Path>,
-    mode: LoadMode,
-) -> Result<FormaWorkspace, ConfigError> {
+pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigError> {
     let root = root.as_ref();
-    let config_path = root.join(FORMA_CONFIG_PATH);
+    let config_path = resolve_config_file(root, FORMA_CONFIG_PATH)?;
 
     let mut config_value = read_markdown_frontmatter_value(&config_path, FORMA_CONFIG_PATH)?;
     let mut diagnostics = Vec::new();
@@ -367,16 +389,13 @@ pub fn load_workspace(
             source,
         })?;
     reject_legacy_root_include(&base_config_file, FORMA_CONFIG_PATH)?;
-    let mut config_source_patterns = base_config_file.imports.clone();
-    config_source_patterns.sort();
-    config_source_patterns.dedup();
-    let imported_config_paths = included_markdown_config_paths(root, &base_config_file.imports)
-        .into_iter()
-        .filter(|path| mode.includes_config_path(path))
-        .collect::<Vec<_>>();
+    let bootstrap_scan_plan =
+        WorkspaceScanPlan::from_imports(root, &base_config_file.imports, &mut diagnostics);
+    let config_source_patterns = bootstrap_scan_plan.config_patterns().patterns().to_vec();
+    let imported_config_paths = included_markdown_config_paths(root, &bootstrap_scan_plan);
     for public_path in &imported_config_paths {
-        let mut local_value =
-            read_markdown_frontmatter_value(&root.join(public_path), public_path)?;
+        let imported_path = resolve_config_file(root, public_path)?;
+        let mut local_value = read_markdown_frontmatter_value(&imported_path, public_path)?;
         if config_node_kind(&local_value).is_some() {
             continue;
         }
@@ -392,8 +411,8 @@ pub fn load_workspace(
         })?;
     reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
 
-    let (taxonomies, terms, spaces, space_sources, node_diagnostics) =
-        load_config_nodes(root, &imported_config_paths, mode, &mut types)?;
+    let (taxonomies, terms, spaces, space_term_keys, space_sources, node_diagnostics) =
+        load_config_nodes(root, &imported_config_paths, &mut types)?;
     diagnostics.extend(node_diagnostics);
 
     let mut config = WorkspaceConfig {
@@ -406,6 +425,7 @@ pub fn load_workspace(
         terms,
         types,
         spaces,
+        space_term_keys,
     };
     resolve_type_sources(&mut config, &space_sources, &mut diagnostics);
     diagnostics.extend(validate_config_paths(root, &config));
@@ -413,18 +433,25 @@ pub fn load_workspace(
 
     let mut config_sources = vec![ConfigSourcePath {
         path: FORMA_CONFIG_PATH.to_string(),
-        present: config_path.is_file(),
+        present: true,
     }];
     config_sources.extend(
         imported_config_paths
             .into_iter()
             .map(|path| ConfigSourcePath {
-                present: root.join(&path).is_file(),
+                present: true,
                 path,
             }),
     );
     config_sources.sort_by(|left, right| left.path.cmp(&right.path));
     config_sources.dedup_by(|left, right| left.path == right.path);
+
+    let scan_plan = WorkspaceScanPlan::resolve(
+        bootstrap_scan_plan,
+        &config,
+        config_sources.iter().map(|source| source.path.clone()),
+    );
+    diagnostics.extend(scan_plan.diagnostics().iter().cloned());
 
     Ok(FormaWorkspace {
         root: root.to_path_buf(),
@@ -432,6 +459,7 @@ pub fn load_workspace(
         config_sources,
         config_source_patterns,
         diagnostics,
+        scan_plan,
     })
 }
 
@@ -444,36 +472,39 @@ fn reject_legacy_root_include(config_file: &ConfigFile, path: &str) -> Result<()
     Ok(())
 }
 
+type LoadedConfigNodes = (
+    BTreeMap<String, Value>,
+    BTreeMap<String, BTreeMap<String, TaxonomyTermDefinition>>,
+    BTreeMap<String, SpaceDefinition>,
+    BTreeSet<(String, String)>,
+    BTreeMap<String, String>,
+    Vec<Diagnostic>,
+);
+
 fn load_config_nodes(
     root: &Path,
     imported_config_paths: &[String],
-    _mode: LoadMode,
     types: &mut BTreeMap<String, SemanticType>,
-) -> Result<
-    (
-        BTreeMap<String, Value>,
-        BTreeMap<String, BTreeMap<String, TaxonomyTermDefinition>>,
-        BTreeMap<String, SpaceDefinition>,
-        BTreeMap<String, String>,
-        Vec<Diagnostic>,
-    ),
-    ConfigError,
-> {
+) -> Result<LoadedConfigNodes, ConfigError> {
     let mut taxonomies = BTreeMap::new();
     let mut terms = BTreeMap::<String, BTreeMap<String, TaxonomyTermDefinition>>::new();
     let mut spaces = BTreeMap::new();
+    let mut space_term_keys = BTreeSet::new();
     let mut space_sources = BTreeMap::new();
     let mut diagnostics = Vec::new();
     let mut referenced_taxonomies = Vec::new();
+    let mut parsed_nodes = Vec::new();
 
     for public_path in imported_config_paths {
         let source =
-            fs::read_to_string(root.join(public_path)).map_err(|source| ConfigError::Read {
-                path: public_path.clone(),
-                source,
+            fs::read_to_string(resolve_config_file(root, public_path)?).map_err(|source| {
+                ConfigError::Read {
+                    path: public_path.clone(),
+                    source,
+                }
             })?;
         let document = crate::markdown::FormaMarkdownDocument::parse(&source);
-        let Some(mut frontmatter) = document.frontmatter.value else {
+        let Some(frontmatter) = document.frontmatter.value else {
             continue;
         };
         let node: ConfigNode =
@@ -481,7 +512,17 @@ fn load_config_nodes(
                 path: public_path.clone(),
                 source,
             })?;
+        parsed_nodes.push((public_path.clone(), frontmatter, node));
+    }
 
+    let referenced_template_paths = parsed_nodes
+        .iter()
+        .filter_map(|(_, _, node)| node.create.as_ref())
+        .filter_map(|create| WorkspacePath::parse_config(&create.template).ok())
+        .map(|path| path.as_str().to_string())
+        .collect::<BTreeSet<_>>();
+
+    for (public_path, mut frontmatter, node) in parsed_nodes {
         let has_top_level_types = !node.types.is_empty();
         let has_explicit_type_kind = node.kind.as_deref() == Some("types");
         if has_explicit_type_kind || has_top_level_types {
@@ -503,7 +544,7 @@ fn load_config_nodes(
         }
         if let Some(kind) = node.kind.as_deref()
             && frontmatter.get("schemaVersion").is_some()
-            && !public_path.contains("/templates/")
+            && !referenced_template_paths.contains(&public_path)
             && !matches!(kind, "term" | "types" | "view")
         {
             diagnostics.push(
@@ -548,7 +589,9 @@ fn load_config_nodes(
                 include_patterns: node.include.clone(),
             },
         );
-        if taxonomy != "spaces" {
+        // Keep the current P0 space projection adapter in the config owner.
+        // Consumers use `space_term_keys` and do not infer this relationship.
+        if taxonomy != SPACE_PROJECTION_TAXONOMY_ID {
             continue;
         }
         let Some(include) = node.include.first().cloned() else {
@@ -559,6 +602,7 @@ fn load_config_nodes(
             .clone()
             .unwrap_or_else(|| starter_term_schema(&term_id));
         add_space_source_aliases(&mut space_sources, &public_path, &term_id);
+        space_term_keys.insert((taxonomy, term_id.clone()));
         spaces.insert(
             term_id,
             SpaceDefinition {
@@ -602,7 +646,14 @@ fn load_config_nodes(
         }
     }
 
-    Ok((taxonomies, terms, spaces, space_sources, diagnostics))
+    Ok((
+        taxonomies,
+        terms,
+        spaces,
+        space_term_keys,
+        space_sources,
+        diagnostics,
+    ))
 }
 
 fn validate_display_options(
@@ -661,23 +712,18 @@ fn set_config_value_display(value: &mut Value, display: &DisplayOptions) {
     }
 }
 
-pub fn config_source_paths(
-    root: impl AsRef<Path>,
-    mode: LoadMode,
-) -> Result<Vec<ConfigSourcePath>, ConfigError> {
+pub fn config_source_paths(root: impl AsRef<Path>) -> Result<Vec<ConfigSourcePath>, ConfigError> {
     let root = root.as_ref();
+    let config_path = resolve_config_file(root, FORMA_CONFIG_PATH)?;
     let mut sources = vec![ConfigSourcePath {
         path: FORMA_CONFIG_PATH.to_string(),
-        present: root.join(FORMA_CONFIG_PATH).exists(),
+        present: true,
     }];
-    let config_file: ConfigFile =
-        read_markdown_frontmatter(&root.join(FORMA_CONFIG_PATH), FORMA_CONFIG_PATH)?;
-    for path in included_markdown_config_paths(root, &config_file.imports)
-        .into_iter()
-        .filter(|path| mode.includes_config_path(path))
-    {
+    let config_file: ConfigFile = read_markdown_frontmatter(&config_path, FORMA_CONFIG_PATH)?;
+    let plan = WorkspaceScanPlan::from_imports(root, &config_file.imports, &mut Vec::new());
+    for path in included_markdown_config_paths(root, &plan) {
         sources.push(ConfigSourcePath {
-            present: root.join(&path).exists(),
+            present: true,
             path,
         });
     }
@@ -686,22 +732,13 @@ pub fn config_source_paths(
     Ok(sources)
 }
 
-impl LoadMode {
-    fn includes_config_path(self, path: &str) -> bool {
-        self == Self::WithLocalOverrides
-            || !(path == ".forma/local" || path.starts_with(".forma/local/"))
-    }
-}
-
 pub fn config_source_patterns(root: impl AsRef<Path>) -> Result<Vec<String>, ConfigError> {
     let root = root.as_ref();
-    let config_file: ConfigFile =
-        read_markdown_frontmatter(&root.join(FORMA_CONFIG_PATH), FORMA_CONFIG_PATH)?;
+    let config_path = resolve_config_file(root, FORMA_CONFIG_PATH)?;
+    let config_file: ConfigFile = read_markdown_frontmatter(&config_path, FORMA_CONFIG_PATH)?;
     reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
-    let mut patterns = config_file.imports;
-    patterns.sort();
-    patterns.dedup();
-    Ok(patterns)
+    let plan = WorkspaceScanPlan::from_imports(root, &config_file.imports, &mut Vec::new());
+    Ok(plan.config_patterns().patterns().to_vec())
 }
 
 fn view_id_from_config_path(path: &str) -> String {
@@ -818,108 +855,38 @@ fn starter_term_schema(_space_id: &str) -> Value {
     serde_yml::from_str(schema).expect("built-in starter term schema is valid YAML")
 }
 
-fn included_markdown_config_paths(root: &Path, include: &[String]) -> Vec<String> {
-    included_config_paths(root, include, &["md", "mdx"])
+fn included_markdown_config_paths(root: &Path, plan: &WorkspaceScanPlan) -> Vec<String> {
+    plan.config_patterns()
+        .matching_files_with_extensions(&["md", "mdx"])
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|path| {
+            path.strip_prefix(root)
+                .ok()
+                .map(|path| path.to_string_lossy().replace('\\', "/"))
+        })
+        .collect()
+}
+
+fn resolve_config_file(root: &Path, public_path: &str) -> Result<PathBuf, ConfigError> {
+    let workspace_path = WorkspacePath::parse_config(public_path)
+        .map_err(|error| config_boundary_read_error(public_path, error.to_string()))?;
+    let boundary = WorkspaceBoundary::new(root)
+        .map_err(|error| config_boundary_read_error(public_path, error.to_string()))?;
+    boundary
+        .resolve_existing_file(&workspace_path)
+        .map_err(|error| config_boundary_read_error(public_path, error.to_string()))
+}
+
+fn config_boundary_read_error(path: &str, detail: String) -> ConfigError {
+    ConfigError::Read {
+        path: path.to_string(),
+        source: std::io::Error::new(ErrorKind::PermissionDenied, detail),
+    }
 }
 
 fn config_node_kind(value: &Value) -> Option<&str> {
     value.get("kind").and_then(|kind| kind.as_str())
-}
-
-fn included_config_paths(root: &Path, include: &[String], extensions: &[&str]) -> Vec<String> {
-    let mut builder = GlobSetBuilder::new();
-    let mut scan_roots = Vec::new();
-    for pattern in include {
-        if let Ok(glob) = Glob::new(pattern) {
-            builder.add(glob);
-            scan_roots.push(glob_scan_root(root, pattern));
-        }
-    }
-    let Ok(globs) = builder.build() else {
-        return Vec::new();
-    };
-
-    let mut paths = Vec::new();
-    scan_roots.sort();
-    scan_roots.dedup();
-    let mut minimal_roots = Vec::<PathBuf>::new();
-    for candidate in scan_roots {
-        if minimal_roots
-            .iter()
-            .any(|existing| candidate.starts_with(existing))
-        {
-            continue;
-        }
-        minimal_roots.retain(|existing| !existing.starts_with(&candidate));
-        minimal_roots.push(candidate);
-    }
-    for scan_root in minimal_roots {
-        collect_included_files(root, &scan_root, &globs, extensions, &mut paths);
-    }
-    paths.sort();
-    paths.dedup();
-    paths
-}
-
-fn collect_included_files(
-    root: &Path,
-    dir: &Path,
-    globs: &globset::GlobSet,
-    extensions: &[&str],
-    paths: &mut Vec<String>,
-) {
-    if dir.is_file() {
-        if dir
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .is_some_and(|extension| {
-                extensions
-                    .iter()
-                    .any(|allowed| extension.eq_ignore_ascii_case(allowed))
-            })
-            && let Some(relative) = dir.strip_prefix(root).ok().and_then(|path| path.to_str())
-        {
-            let relative = relative.replace('\\', "/");
-            if globs.is_match(&relative) {
-                paths.push(relative);
-            }
-        }
-        return;
-    }
-
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        let Ok(file_type) = entry.file_type() else {
-            continue;
-        };
-        if file_type.is_dir() {
-            if matches!(name, ".git" | "target" | "node_modules") {
-                continue;
-            }
-            collect_included_files(root, &path, globs, extensions, paths);
-        } else if file_type.is_file()
-            && path
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| {
-                    extensions
-                        .iter()
-                        .any(|allowed| extension.eq_ignore_ascii_case(allowed))
-                })
-            && let Some(relative) = path.strip_prefix(root).ok().and_then(|path| path.to_str())
-        {
-            let relative = relative.replace('\\', "/");
-            if globs.is_match(&relative) {
-                paths.push(relative);
-            }
-        }
-    }
 }
 
 fn read_markdown_frontmatter<T: for<'de> Deserialize<'de>>(
@@ -1016,14 +983,20 @@ fn validate_config_paths(root: &Path, config: &WorkspaceConfig) -> Vec<Diagnosti
     }
 
     for (space_id, space) in &config.spaces {
-        for include in &space.include_patterns {
-            push_path_diagnostic(
-                &mut diagnostics,
-                space_id,
-                "include",
-                include,
-                WorkspacePath::parse_config(include),
-            );
+        for (index, include) in space.include_patterns.iter().enumerate() {
+            if let Err(error) = WorkspaceGlob::parse_config(include) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "config.globInvalid",
+                        format!("Space `{space_id}` has an invalid include glob: {error}."),
+                    )
+                    .with_path(FORMA_CONFIG_PATH)
+                    .with_location(DiagnosticLocation::Config {
+                        field: format!("spaces.{space_id}.include[{index}]"),
+                    })
+                    .with_actual(include.clone()),
+                );
+            }
         }
         if let Some(create) = &space.create {
             push_path_diagnostic(
@@ -1140,21 +1113,7 @@ fn push_guideline_file_diagnostic(
     value: &str,
     path: &WorkspacePath,
 ) {
-    let absolute_path = root.join(path.as_str());
-    match fs::metadata(&absolute_path) {
-        Ok(metadata) if !metadata.is_file() => {
-            diagnostics.push(
-                Diagnostic::error(
-                    "config.guidelineNotFile",
-                    "Configured guideline path does not point to a file.",
-                )
-                .with_path(FORMA_CONFIG_PATH)
-                .with_location(DiagnosticLocation::Config {
-                    field: field.to_string(),
-                })
-                .with_actual(value.to_string()),
-            );
-        }
+    match resolve_configured_file(root, path) {
         Ok(_) if !is_markdown_path(path.as_str()) => {
             diagnostics.push(
                 Diagnostic::error(
@@ -1170,7 +1129,20 @@ fn push_guideline_file_diagnostic(
             );
         }
         Ok(_) => {}
-        Err(error) if error.kind() == ErrorKind::NotFound => {
+        Err(WorkspaceBoundaryError::NotRegularFile { .. }) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    "config.guidelineNotFile",
+                    "Configured guideline path does not point to a file.",
+                )
+                .with_path(FORMA_CONFIG_PATH)
+                .with_location(DiagnosticLocation::Config {
+                    field: field.to_string(),
+                })
+                .with_actual(value.to_string()),
+            );
+        }
+        Err(WorkspaceBoundaryError::NotFound { .. }) => {
             diagnostics.push(
                 Diagnostic::error(
                     "config.guidelineMissing",
@@ -1182,6 +1154,10 @@ fn push_guideline_file_diagnostic(
                 })
                 .with_actual(value.to_string()),
             );
+        }
+        Err(WorkspaceBoundaryError::Symlink { .. })
+        | Err(WorkspaceBoundaryError::OutsideWorkspace { .. }) => {
+            diagnostics.push(configured_path_boundary_diagnostic(field, value));
         }
         Err(error) => {
             diagnostics.push(
@@ -1224,7 +1200,7 @@ fn push_required_markdown_file_diagnostic(
         value,
         path,
     );
-    if root.join(path.as_str()).is_file() && !is_markdown_path(path.as_str()) {
+    if resolve_configured_file(root, path).is_ok() && !is_markdown_path(path.as_str()) {
         diagnostics.push(
             Diagnostic::error(not_markdown_code, not_markdown_message)
                 .with_path(FORMA_CONFIG_PATH)
@@ -1249,8 +1225,9 @@ fn push_required_file_diagnostic(
     value: &str,
     path: &WorkspacePath,
 ) {
-    match fs::metadata(root.join(path.as_str())) {
-        Ok(metadata) if !metadata.is_file() => {
+    match resolve_configured_file(root, path) {
+        Ok(_) => {}
+        Err(WorkspaceBoundaryError::NotRegularFile { .. }) => {
             diagnostics.push(
                 Diagnostic::error(not_file_code, not_file_message)
                     .with_path(FORMA_CONFIG_PATH)
@@ -1260,8 +1237,7 @@ fn push_required_file_diagnostic(
                     .with_actual(value.to_string()),
             );
         }
-        Ok(_) => {}
-        Err(error) if error.kind() == ErrorKind::NotFound => {
+        Err(WorkspaceBoundaryError::NotFound { .. }) => {
             diagnostics.push(
                 Diagnostic::error(missing_code, missing_message)
                     .with_path(FORMA_CONFIG_PATH)
@@ -1270,6 +1246,10 @@ fn push_required_file_diagnostic(
                     })
                     .with_actual(value.to_string()),
             );
+        }
+        Err(WorkspaceBoundaryError::Symlink { .. })
+        | Err(WorkspaceBoundaryError::OutsideWorkspace { .. }) => {
+            diagnostics.push(configured_path_boundary_diagnostic(field, value));
         }
         Err(error) => {
             diagnostics.push(
@@ -1285,6 +1265,25 @@ fn push_required_file_diagnostic(
             );
         }
     }
+}
+
+fn resolve_configured_file(
+    root: &Path,
+    path: &WorkspacePath,
+) -> Result<PathBuf, WorkspaceBoundaryError> {
+    WorkspaceBoundary::new(root)?.resolve_existing_file(path)
+}
+
+fn configured_path_boundary_diagnostic(field: &str, value: &str) -> Diagnostic {
+    Diagnostic::error(
+        "config.pathBoundary",
+        "Configured path crosses the workspace filesystem boundary.",
+    )
+    .with_path(FORMA_CONFIG_PATH)
+    .with_location(DiagnosticLocation::Config {
+        field: field.to_string(),
+    })
+    .with_actual(value.to_string())
 }
 
 fn is_markdown_path(path: &str) -> bool {
@@ -1324,7 +1323,7 @@ mod tests {
 
     use serde_yml::Value;
 
-    use super::{LoadMode, load_workspace};
+    use super::load_workspace;
     use crate::path::FORMA_CONFIG_PATH;
 
     #[test]
@@ -1333,7 +1332,7 @@ mod tests {
             .join("../..")
             .join("examples/getting-started-workspace");
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert_eq!(
             workspace.config.workspace.name,
@@ -1368,7 +1367,7 @@ mod tests {
         let root = fixture_root("starter-style-config");
         write_minimal_config(&root, "Asia/Shanghai", "notes/**/*.md");
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert_eq!(workspace.config.workspace.name, "Acme Workspace");
         assert_eq!(workspace.config.workspace.timezone, "Asia/Shanghai");
@@ -1397,7 +1396,7 @@ mod tests {
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: areas\ntitle: Tasks\ndisplay:\n  order: 20\n  icon: list-checks\n  color: \"#4f7cac\"\ninclude:\n  - tasks/**/*.md\n---\n",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(workspace.diagnostics.is_empty());
         assert_eq!(
@@ -1441,7 +1440,7 @@ mod tests {
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Guides\ndisplay:\n  icon: unknown-icon\n  color: \"#fff\"\ninclude:\n  - guides/**/*.md\n---\n",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert_eq!(
             workspace
@@ -1487,7 +1486,7 @@ mod tests {
         );
         write_spaces_taxonomy(&root);
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(workspace.diagnostics.is_empty());
         assert_eq!(
@@ -1511,7 +1510,7 @@ mod tests {
             "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ntypes:\n  person:\n    kind: ref\n    source: .forma/spaces/people\n",
         );
 
-        assert!(load_workspace(&root, LoadMode::SharedOnly).is_err());
+        assert!(load_workspace(&root).is_err());
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1530,7 +1529,7 @@ mod tests {
         );
         write_spaces_taxonomy(&root);
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(workspace.diagnostics.is_empty());
         assert_eq!(workspace.config.types["person"].space(), Some("people"));
@@ -1557,7 +1556,7 @@ mod tests {
         );
         write_spaces_taxonomy(&root);
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(workspace.diagnostics.is_empty());
         assert_eq!(
@@ -1591,7 +1590,7 @@ mod tests {
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: People\ninclude:\n  - people/**/*.md\n---\n\n# People\n",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(
             workspace
@@ -1604,7 +1603,7 @@ mod tests {
     }
 
     #[test]
-    fn reports_duplicate_named_types_from_markdown_local_overrides() {
+    fn reports_duplicate_named_types_from_explicit_markdown_imports() {
         let root = fixture_root("duplicate-local-markdown-named-ref-types");
         write_root_config(
             &root,
@@ -1621,15 +1620,8 @@ mod tests {
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: People\ninclude:\n  - people/**/*.md\n---\n\n# People\n",
         );
 
-        let shared = load_workspace(&root, LoadMode::SharedOnly).unwrap();
-        let workspace = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
-        assert!(
-            !shared
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "config.type.duplicate")
-        );
         assert!(
             workspace
                 .diagnostics
@@ -1654,7 +1646,7 @@ mod tests {
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\n---\n\n# Notes\n",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(
             workspace
@@ -1680,7 +1672,7 @@ mod tests {
             "---\nschemaVersion: 1\nkind: space\nid: notes\ntitle: Notes\ninclude:\n  - notes/**/*.md\ntemplate: .forma/spaces/templates/note.md\n---\n\n# Notes\n",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(
             workspace
@@ -1690,6 +1682,110 @@ mod tests {
                     && diagnostic.path.as_deref() == Some(".forma/spaces/notes.md"))
         );
         assert!(workspace.config.spaces.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn recognizes_imported_templates_by_configured_reference_outside_template_directories() {
+        let root = fixture_root("referenced-template-outside-template-directory");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md\n  - blueprints/*.md\n",
+        );
+        write_spaces_taxonomy(&root);
+        write_config_node(
+            &root,
+            ".forma/spaces/notes.md",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\ncreate:\n  directory: notes\n  filename: \"{{ input.slug }}.md\"\n  template: blueprints/note.md\n---\n\n# Notes\n",
+        );
+        write_config_node(
+            &root,
+            "blueprints/note.md",
+            "---\nschemaVersion: 1\nkind: note\n---\n\n# {{ input.title }}\n",
+        );
+
+        let workspace = load_workspace(&root).unwrap();
+
+        assert!(
+            workspace
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.code != "config.unknownNodeKind")
+        );
+        assert_eq!(
+            workspace.config.spaces["notes"].template,
+            "blueprints/note.md"
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_unreferenced_unknown_nodes_even_inside_template_directories() {
+        let root = fixture_root("unreferenced-node-inside-template-directory");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/templates/*.md\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/templates/orphan.md",
+            "---\nschemaVersion: 1\nkind: note\n---\n\n# Orphan\n",
+        );
+
+        let workspace = load_workspace(&root).unwrap();
+
+        assert!(workspace.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "config.unknownNodeKind"
+                && diagnostic.path.as_deref() == Some(".forma/templates/orphan.md")
+        }));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn space_projection_keeps_its_configured_taxonomy_relationship() {
+        let root = fixture_root("space-projection-taxonomy-relationship");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - config/*.md\n",
+        );
+        write_config_node(
+            &root,
+            "config/spaces.md",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\ntitle: Spaces\n---\n",
+        );
+        write_config_node(
+            &root,
+            "config/topics.md",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: topics\ntitle: Topics\n---\n",
+        );
+        write_config_node(
+            &root,
+            "config/space-notes.md",
+            "---\nschemaVersion: 1\nkind: term\nid: notes\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\n---\n",
+        );
+        write_config_node(
+            &root,
+            "config/topic-notes.md",
+            "---\nschemaVersion: 1\nkind: term\nid: notes\ntaxonomy: topics\ntitle: Notes Topic\ninclude:\n  - tagged-notes/**/*.md\n---\n",
+        );
+
+        let workspace = load_workspace(&root).unwrap();
+
+        assert!(
+            workspace
+                .config
+                .space_for_taxonomy_term("spaces", "notes")
+                .is_some()
+        );
+        assert!(
+            workspace
+                .config
+                .space_for_taxonomy_term("topics", "notes")
+                .is_none()
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1707,7 +1803,7 @@ mod tests {
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: People\ninclude:\n  - people/**/*.md\n---\n\n# People\n",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert_eq!(workspace.config.types["person"].space(), None);
         assert_eq!(workspace.config.types["missing"].space(), None);
@@ -1732,7 +1828,7 @@ mod tests {
             "notes/**/*.md\n  - product/**/*.md\n  - decisions/**/*.md",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert_eq!(workspace.config.spaces["notes"].include, "notes/**/*.md");
         assert_eq!(
@@ -1768,7 +1864,7 @@ mod tests {
         .unwrap();
         write_spaces_taxonomy(&root);
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert_eq!(workspace.config.guidelines.len(), 1);
         assert_eq!(
@@ -1793,7 +1889,7 @@ mod tests {
             "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/missing.md\n",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert_eq!(workspace.diagnostics.len(), 1);
         assert_eq!(workspace.diagnostics[0].code, "config.guidelineMissing");
@@ -1816,7 +1912,7 @@ mod tests {
             "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  root: .\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n",
         );
 
-        let error = load_workspace(&root, LoadMode::SharedOnly).unwrap_err();
+        let error = load_workspace(&root).unwrap_err();
 
         assert!(matches!(error, super::ConfigError::Parse { .. }));
         assert!(error.to_string().contains("unknown field `root`"));
@@ -1845,7 +1941,7 @@ mod tests {
         .unwrap();
         write_spaces_taxonomy(&root);
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert_eq!(workspace.diagnostics.len(), 1);
         assert_eq!(workspace.diagnostics[0].code, "config.guidelineNotMarkdown");
@@ -1860,7 +1956,7 @@ mod tests {
     }
 
     #[test]
-    fn local_override_config_is_loaded_only_in_effective_mode() {
+    fn explicit_import_is_loaded_into_the_effective_workspace() {
         let root = fixture_root("included-config-files");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
@@ -1874,14 +1970,11 @@ mod tests {
         )
         .unwrap();
 
-        let shared = load_workspace(&root, LoadMode::SharedOnly).unwrap();
-        let effective = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
-        assert_eq!(shared.config.workspace.timezone, "UTC");
-        assert_eq!(effective.config.workspace.timezone, "Europe/Paris");
-        assert!(!shared.config.runtime.values.contains_key("currentUserId"));
+        assert_eq!(workspace.config.workspace.timezone, "Europe/Paris");
         assert!(
-            effective
+            workspace
                 .config
                 .runtime
                 .values
@@ -1911,11 +2004,81 @@ mod tests {
         )
         .unwrap();
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(workspace.config.spaces.contains_key("notes"));
 
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn invalid_import_globs_are_diagnosed_and_never_scanned() {
+        let root = fixture_root("invalid-import-globs");
+        let outside = fixture_root("invalid-import-globs-outside");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(
+            outside.join("profile.md"),
+            "---\nworkspace:\n  timezone: Europe/Paris\n---\n",
+        )
+        .unwrap();
+        let outside_name = outside.file_name().unwrap().to_string_lossy();
+        write_config(
+            &root,
+            format!(
+                "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \"../{outside_name}/*.md\"\n  - \".forma/[broken.md\"\n"
+            ),
+        );
+
+        let workspace = load_workspace(&root).unwrap();
+
+        assert_eq!(workspace.config.workspace.timezone, "UTC");
+        assert!(workspace.config_source_patterns.is_empty());
+        assert_eq!(
+            workspace
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "config.globInvalid")
+                .count(),
+            2
+        );
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn imported_config_file_symlinks_are_not_followed() {
+        use std::os::unix::fs::symlink;
+
+        let root = fixture_root("symlink-import");
+        let outside = fixture_root("symlink-import-outside");
+        fs::create_dir_all(root.join(".forma")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - \".forma/profile.md\"\n",
+        );
+        fs::write(
+            outside.join("profile.md"),
+            "---\nworkspace:\n  timezone: Europe/Paris\n---\n",
+        )
+        .unwrap();
+        symlink(outside.join("profile.md"), root.join(".forma/profile.md")).unwrap();
+
+        let workspace = load_workspace(&root).unwrap();
+
+        assert_eq!(workspace.config.workspace.timezone, "UTC");
+        assert!(
+            workspace
+                .config_sources
+                .iter()
+                .all(|source| source.path != ".forma/profile.md")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
     }
 
     #[test]
@@ -1927,7 +2090,7 @@ mod tests {
             "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ninclude:\n  - \".forma/spaces/*.md\"\n",
         );
 
-        let error = load_workspace(&root, LoadMode::SharedOnly).unwrap_err();
+        let error = load_workspace(&root).unwrap_err();
 
         assert!(matches!(
             error,
@@ -1939,7 +2102,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_only_excludes_local_override_imports() {
+    fn local_directory_name_has_no_loading_semantics() {
         let root = fixture_root("local-name-not-special");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
         write_config(
@@ -1953,11 +2116,9 @@ mod tests {
         )
         .unwrap();
 
-        let shared = load_workspace(&root, LoadMode::SharedOnly).unwrap();
-        let effective = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
-        assert_eq!(shared.config.workspace.timezone, "UTC");
-        assert_eq!(effective.config.workspace.timezone, "Europe/Paris");
+        assert_eq!(workspace.config.workspace.timezone, "Europe/Paris");
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1978,18 +2139,10 @@ mod tests {
         )
         .unwrap();
 
-        let shared = load_workspace(&root, LoadMode::SharedOnly).unwrap();
-        let effective = load_workspace(&root, LoadMode::WithLocalOverrides).unwrap();
-        let sources = super::config_source_paths(&root, LoadMode::WithLocalOverrides).unwrap();
+        let workspace = load_workspace(&root).unwrap();
+        let sources = super::config_source_paths(&root).unwrap();
 
-        assert_eq!(shared.config.workspace.timezone, "UTC");
-        assert_eq!(effective.config.workspace.timezone, "Europe/Paris");
-        assert!(
-            !super::config_source_paths(&root, LoadMode::SharedOnly)
-                .unwrap()
-                .iter()
-                .any(|source| source.path == ".forma/local/profile.md")
-        );
+        assert_eq!(workspace.config.workspace.timezone, "Europe/Paris");
         assert!(
             sources
                 .iter()
@@ -2008,7 +2161,7 @@ mod tests {
             "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\n  logo:\n    path: assets/logo.svg\n",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(
             workspace
@@ -2029,7 +2182,7 @@ mod tests {
             "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\ndashboard:\n  title: Dashboard\n  sections:\n    - id: recent\n      title: Recent\n      source:\n        type: view\n        view: .forma/views/recent.md\n",
         );
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(
             workspace
@@ -2055,7 +2208,7 @@ mod tests {
         )
         .unwrap();
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert!(
             workspace
@@ -2077,7 +2230,7 @@ mod tests {
         )
         .unwrap();
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         let expected_schema: Value = serde_yml::from_str(
             "type: object\nfields:\n  kind:\n    type: const\n    value: note\n    required: true\n  title:\n    type: string\n    required: true\n",
@@ -2101,7 +2254,7 @@ mod tests {
             );
         fs::write(space_path, space).unwrap();
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
         let conventions = &workspace.config.spaces["notes"].conventions;
 
         assert_eq!(
@@ -2121,7 +2274,7 @@ mod tests {
         let root = fixture_root("space-schema-fallback");
         write_minimal_config(&root, "UTC", "notes/**/*.md");
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         let expected_schema: Value =
             serde_yml::from_str("type: object\nfields:\n  kind:\n    type: string\n").unwrap();
@@ -2135,10 +2288,10 @@ mod tests {
         let root = fixture_root("invalid-paths");
         write_minimal_config(&root, "UTC", "../notes/**/*.md");
 
-        let workspace = load_workspace(&root, LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(&root).unwrap();
 
         assert_eq!(workspace.diagnostics.len(), 1);
-        assert_eq!(workspace.diagnostics[0].code, "config.pathInvalid");
+        assert_eq!(workspace.diagnostics[0].code, "config.globInvalid");
         assert_eq!(
             workspace.diagnostics[0].path.as_deref(),
             Some(FORMA_CONFIG_PATH)

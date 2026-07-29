@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
 use crate::config::{
-    DisplayOptions, FormaWorkspace, LoadMode, WorkspaceConfig, config_source_paths, load_workspace,
+    DisplayOptions, FormaWorkspace, WorkspaceConfig, config_source_paths, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::index::{
@@ -366,7 +366,7 @@ enum TableColumnDefinition {
         #[serde(default)]
         link: Option<TableColumnLink>,
         #[serde(flatten)]
-        presentation: TableColumnPresentationDefinition,
+        presentation: Box<TableColumnPresentationDefinition>,
     },
 }
 
@@ -381,7 +381,7 @@ impl TableColumnDefinition {
     fn presentation(&self) -> TableColumnPresentationDefinition {
         match self {
             Self::Field(_) => TableColumnPresentationDefinition::default(),
-            Self::Object { presentation, .. } => presentation.clone(),
+            Self::Object { presentation, .. } => (**presentation).clone(),
         }
     }
 
@@ -698,7 +698,7 @@ pub fn render_file(
     }
 
     let path = normalize_markdown_path(path)?;
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     let discovery = discover_loaded_workspace(&workspace);
     let index_entry = discovery
         .index
@@ -762,7 +762,7 @@ fn render_source_file(
             path: path.clone(),
             source,
         })?;
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     let summary = DiagnosticSummary::default();
 
     Ok(FileRenderResult {
@@ -799,7 +799,7 @@ pub fn render_view(
     view: &str,
     params: BTreeMap<String, Value>,
 ) -> Result<ViewRenderResult, OperationError> {
-    let workspace = load_workspace(root.as_ref(), LoadMode::SharedOnly)?;
+    let workspace = load_workspace(root.as_ref())?;
     let discovery = discover_loaded_workspace(&workspace);
     render_view_from_loaded(&workspace, &discovery, view, params, true)
 }
@@ -2115,7 +2115,7 @@ fn normalize_markdown_path(path: &str) -> Result<String, OperationError> {
 fn included_view_config_path(root: &Path, view: &str) -> Result<String, OperationError> {
     let view = view.strip_suffix(".md").unwrap_or(view);
     let view = view.strip_suffix(".mdx").unwrap_or(view);
-    let sources = config_source_paths(root, LoadMode::SharedOnly)?;
+    let sources = config_source_paths(root)?;
     let mut matches = Vec::new();
     for path in sources
         .into_iter()

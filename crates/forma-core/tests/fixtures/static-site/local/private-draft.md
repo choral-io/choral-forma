@@ -1,7 +1,7 @@
 ---
-title: Private Draft
+title: Local Notes
 ---
 
-# LOCAL_ONLY_SENTINEL
+# LOCAL_NAMED_DIRECTORY_SENTINEL
 
-This local-only fixture must never enter a shared static snapshot.
+This fixture verifies that a directory named `local` is an ordinary configured content path.

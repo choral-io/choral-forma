@@ -61,6 +61,10 @@ export class RpcWorkspaceClient implements WorkspaceClient {
             throw new Error(`Entry not found: ${entryId}`);
         }
 
+        if (entry.id === "workspace-root") {
+            return entry;
+        }
+
         const [renderResult, referencesResult] = await Promise.all([
             this.#rpc.renderFile(entry.path),
             this.#rpc.listFileReferences(entry.path),
@@ -111,7 +115,7 @@ function mapWorkspaceDashboard(
     result: WorkspaceDashboardResult,
     healthResult: WorkspaceHealthResult,
 ): WorkspaceDashboard {
-    const entries = result.entries.map(mapEntry);
+    const entries = [mapWorkspaceRootEntry(result.home, result.workspace.name), ...result.entries.map(mapEntry)];
     const health = mapDashboardHealth(healthResult, entries);
     const diagnostics = mergeDiagnostics(result.diagnostics, healthResult.diagnostics);
 
@@ -119,13 +123,6 @@ function mapWorkspaceDashboard(
         workspaceName: result.workspace.name,
         workspaceLogo: result.workspace.logo,
         tagline: "Markdown-backed workspace content.",
-        home: {
-            path: result.home.path,
-            title: result.home.title,
-            omitLeadingTitle: result.home.omitLeadingTitle,
-            markdown: result.home.markdown,
-            headings: result.home.headings.filter(isReaderHeading),
-        },
         status: maxHealth(mapStatus(result.status), health.status),
         taxonomies: result.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entries)),
         spaces: result.spaces.map((space) => mapSpace(space, entries)),
@@ -133,6 +130,31 @@ function mapWorkspaceDashboard(
         diagnostics,
         health,
         views: result.views.map(mapView),
+    };
+}
+
+function mapWorkspaceRootEntry(home: WorkspaceDashboardResult["home"], workspaceName: string): DashboardEntry {
+    return {
+        id: "workspace-root",
+        path: home.path,
+        routePath: "/",
+        title: nonBlankText(home.title) ?? workspaceName,
+        omitLeadingTitle: home.omitLeadingTitle,
+        summary: "Markdown-backed workspace content.",
+        space: "",
+        updatedAt: home.updatedAt,
+        updatedLabel: formatRelativeDateTime(home.updatedAt),
+        status: "healthy",
+        variants: [],
+        body: [
+            {
+                type: "markdown",
+                markdown: home.markdown,
+                outline: home.headings.filter(isReaderHeading),
+            },
+        ],
+        diagnostics: [],
+        relations: { outgoing: [], backlinks: [] },
     };
 }
 

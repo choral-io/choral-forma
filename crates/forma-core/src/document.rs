@@ -1,4 +1,3 @@
-use globset::Glob;
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
@@ -82,7 +81,7 @@ pub fn analyze_document_references(
     let body_offset = source.len().saturating_sub(document.body.len());
     let mut references = body_references(source, body_offset, &document);
 
-    if let Some(space) = matched_space(&workspace.config, source_path, &mut diagnostics)
+    if let Some(space) = matched_space(workspace, source_path, &mut diagnostics)
         && let Ok(schema) = parse_space_schema(space)
         && let (Some(raw), Some(value)) = (
             document.frontmatter.raw.as_deref(),
@@ -253,21 +252,14 @@ fn frontmatter_references(
 }
 
 fn matched_space<'a>(
-    config: &'a WorkspaceConfig,
+    workspace: &'a FormaWorkspace,
     source_path: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<&'a SpaceDefinition> {
     let mut matches = Vec::new();
-    for (space_id, space) in &config.spaces {
-        let patterns = if space.include_patterns.is_empty() {
-            std::slice::from_ref(&space.include)
-        } else {
-            space.include_patterns.as_slice()
-        };
-        if patterns
-            .iter()
-            .filter_map(|pattern| Glob::new(pattern).ok())
-            .any(|pattern| pattern.compile_matcher().is_match(source_path))
+    for (space_id, patterns) in workspace.scan_plan.space_patterns() {
+        if patterns.is_match(source_path)
+            && let Some(space) = workspace.config.spaces.get(space_id)
         {
             matches.push((space_id, space));
         }
@@ -610,13 +602,13 @@ fn line_column(source: &str, offset: usize) -> (usize, usize) {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::{LoadMode, ReferenceSource, load_workspace};
+    use crate::{ReferenceSource, load_workspace};
 
     use super::{DocumentReferenceSyntax, analyze_document_references};
 
     #[test]
     fn analyzes_body_and_schema_declared_frontmatter_references_with_exact_ranges() {
-        let workspace = load_workspace(fixture_root(), LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(fixture_root()).unwrap();
         let source = "---\ntitle: Navigation test\nsummary: members/sam-rivera\nowners:\n  - members/sam-rivera\n  - \"members/mira-chen\"\n---\nSee [[members/sam-rivera|Sam]], [Mira](../members/mira-chen.md#Profile), and ![[members/sam-rivera#Avatar]].\n";
 
         let analysis = analyze_document_references(&workspace, "tasks/navigation-test.md", source);
@@ -695,7 +687,7 @@ mod tests {
 
     #[test]
     fn propagates_frontmatter_and_body_role_spans_with_crlf_unicode_and_emoji() {
-        let workspace = load_workspace(fixture_root(), LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(fixture_root()).unwrap();
         let source = "---\r\ntitle: Navigation test\r\nowners:\r\n  - members/目标#Profile\r\n---\r\nSee ![[members/目标#章节|  😀 标题  ]].\r\n";
 
         let analysis = analyze_document_references(&workspace, "tasks/navigation-test.md", source);
@@ -746,7 +738,7 @@ mod tests {
 
     #[test]
     fn does_not_treat_an_ordinary_string_field_as_a_reference() {
-        let workspace = load_workspace(fixture_root(), LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(fixture_root()).unwrap();
         let source = "---\ntitle: Navigation test\nsummary: members/sam-rivera\nowners:\n  - members/sam-rivera\n---\n";
 
         let analysis = analyze_document_references(&workspace, "tasks/navigation-test.md", source);
@@ -757,7 +749,7 @@ mod tests {
 
     #[test]
     fn skips_comments_that_repeat_a_frontmatter_reference_value() {
-        let workspace = load_workspace(fixture_root(), LoadMode::SharedOnly).unwrap();
+        let workspace = load_workspace(fixture_root()).unwrap();
         let source = "---\ntitle: Navigation test\nowners: # members/sam-rivera is the primary owner\n  - members/sam-rivera\n---\n";
 
         let analysis = analyze_document_references(&workspace, "tasks/navigation-test.md", source);
@@ -773,7 +765,7 @@ mod tests {
 
     #[test]
     fn maps_nested_repeated_frontmatter_values_in_crlf_documents() {
-        let mut workspace = load_workspace(fixture_root(), LoadMode::SharedOnly).unwrap();
+        let mut workspace = load_workspace(fixture_root()).unwrap();
         workspace.config.spaces.get_mut("tasks").unwrap().schema = serde_yml::from_str(
             "type: object\nfields:\n  fields:\n    type: object\n    fields:\n      owners:\n        type: list\n        items:\n          type: member\n",
         )

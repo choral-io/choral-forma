@@ -5,7 +5,7 @@ export interface DashboardEntry {
     kind?: string;
     path: string;
     routePath: string;
-    rawPath: string;
+    rawPath?: string;
     title: string;
     omitLeadingTitle: boolean;
     summary: string;
@@ -74,14 +74,6 @@ export interface DashboardEntryHeading {
     id: string;
     level: 2 | 3;
     text: string;
-}
-
-export interface WorkspaceHomeDocument {
-    path: string;
-    title?: string;
-    omitLeadingTitle: boolean;
-    markdown: string;
-    headings: DashboardEntryHeading[];
 }
 
 export interface DashboardEntryLink {
@@ -295,7 +287,6 @@ export interface WorkspaceDashboard {
         alt: string;
     };
     tagline: string;
-    home: WorkspaceHomeDocument;
     status: WorkspaceHealth;
     taxonomies: DashboardTaxonomy[];
     spaces: DashboardSpace[];

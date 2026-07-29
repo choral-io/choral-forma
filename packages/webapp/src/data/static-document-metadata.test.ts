@@ -10,6 +10,14 @@ const dashboard = {
     workspaceName: "Forma",
     entries: [
         {
+            id: "workspace-root",
+            path: ".forma.md",
+            routePath: "/",
+            title: "Forma",
+            summary: "Markdown-backed workspace content.",
+            variants: [],
+        },
+        {
             id: "notes--home",
             path: "notes/home.md",
             routePath: "/pages/notes/home",
@@ -52,7 +60,7 @@ describe("static document metadata", () => {
 
         expect(resolveStaticDocumentMetadata(dashboard, "/preview/")).toEqual({
             canonicalPath: "/",
-            description: "Workspace home for Forma.",
+            description: "Markdown-backed workspace content.",
             title: "Forma",
         });
         expect(resolveStaticDocumentMetadata(dashboard, "/preview/pages/notes/with%20space/")).toEqual({

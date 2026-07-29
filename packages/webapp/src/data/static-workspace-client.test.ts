@@ -100,9 +100,13 @@ describe("StaticWorkspaceClient", () => {
         vi.stubGlobal("fetch", fetch);
         const client = new StaticWorkspaceClient("/preview/data");
 
-        await expect(client.getDashboard()).resolves.toMatchObject({
-            workspaceName: "Static fixture",
-            home: { title: "Static fixture", omitLeadingTitle: true, headings: [] },
+        const loadedDashboard = await client.getDashboard();
+        expect(loadedDashboard.workspaceName).toBe("Static fixture");
+        expect(loadedDashboard.entries.find((entry) => entry.path === ".forma.md")).toMatchObject({
+            id: "workspace-root",
+            routePath: "/",
+            title: "Static fixture",
+            omitLeadingTitle: true,
         });
         await expect(client.getEntry("notes--one")).resolves.toMatchObject({ title: "One" });
         await expect(client.getEntry("notes--one.zh-hans")).resolves.toMatchObject({
