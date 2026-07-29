@@ -96,7 +96,7 @@ The static site remains independent from version publication: a successful `main
 7. GitHub Release contains exactly the candidate artifacts and no rebuild.
 8. Published-release verification passes before Marketplace publication.
 9. A partial publication can resume only with matching source and manifest evidence.
-10. Complete local repository and Forma gates pass, followed by a successful non-publishing or rejected-promotion rehearsal before the next version release.
+10. Complete local repository and Forma gates pass. Before the next version is promoted, its exact-source CI and assembled candidate must pass and be reviewed at the protected production gate.
 
 ## Non-Goals
 
