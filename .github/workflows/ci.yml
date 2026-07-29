@@ -338,10 +338,9 @@ jobs:
     permissions:
       actions: read
       contents: read
-    uses: ./.github/workflows/release-build.yml
+    uses: ./.github/workflows/release-cli-build.yml
     with:
       source_sha: ${{ github.sha }}
-      build_extension: false
       targets_json: >-
         [
           {"asset":"windows-x64","os":"windows-2025","target":"x86_64-pc-windows-msvc","binary":"forma.exe","managed_binary":"forma-windows-x64.exe","archive":"zip"}

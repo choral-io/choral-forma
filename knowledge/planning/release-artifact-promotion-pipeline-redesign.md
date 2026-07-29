@@ -50,7 +50,8 @@ The static site remains independent from version publication: a successful `main
 
 ### Release Build
 
-- Provide one reusable implementation for the supported CLI target matrix and VSIX candidate.
+- Keep CLI and VSIX candidate builds in separate reusable workflows so callers request only the artifact family they need.
+- Use the CLI workflow for the supported target matrix and the VSIX workflow for the extension candidate.
 - Keep build jobs read-only.
 - Execute each native CLI before upload where the runner can run the target.
 - Generate archives, standalone managed binaries, and sibling SHA-256 files.

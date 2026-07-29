@@ -125,13 +125,12 @@ jobs:
           test "$(jq -r '.object.type' <<< "${tag_object}")" = "commit"
           test "$(jq -r '.object.sha' <<< "${tag_object}")" = "${SOURCE_SHA}"
 
-  build-candidate:
-    name: Build immutable candidate artifacts
+  build-cli-candidate:
+    name: Build CLI candidate artifacts
     needs: validate
-    uses: ./.github/workflows/release-build.yml
+    uses: ./.github/workflows/release-cli-build.yml
     with:
       source_sha: ${{ needs.validate.outputs.source_sha }}
-      build_extension: true
       targets_json: >-
         [
           {"asset":"linux-arm64","os":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu","binary":"forma","managed_binary":"forma-linux-arm64","archive":"tar.gz"},
@@ -141,9 +140,16 @@ jobs:
           {"asset":"windows-x64","os":"windows-2025","target":"x86_64-pc-windows-msvc","binary":"forma.exe","managed_binary":"forma-windows-x64.exe","archive":"zip"}
         ]
 
+  build-vscode-candidate:
+    name: Build VS Code candidate artifact
+    needs: validate
+    uses: ./.github/workflows/release-vscode-build.yml
+    with:
+      source_sha: ${{ needs.validate.outputs.source_sha }}
+
   assemble-candidate:
     name: Assemble source-bound candidate
-    needs: [validate, build-candidate]
+    needs: [validate, build-cli-candidate, build-vscode-candidate]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout exact source

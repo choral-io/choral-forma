@@ -88,10 +88,11 @@ export function secretReferences(value) {
     return [...references].sort();
 }
 
-export function releaseContractFailures({ release, releaseBuild }) {
+export function releaseContractFailures({ release, releaseCliBuild, releaseVscodeBuild }) {
     const failures = [];
     const releaseJobs = workflowJobs(release);
-    const buildJobs = workflowJobs(releaseBuild);
+    const cliBuildJobs = workflowJobs(releaseCliBuild);
+    const vscodeBuildJobs = workflowJobs(releaseVscodeBuild);
 
     if (workflowInputNames(release).join(",") !== "version") {
         failures.push("release workflow_dispatch must expose only the version input");
@@ -100,18 +101,32 @@ export function releaseContractFailures({ release, releaseBuild }) {
     if (!hasTrigger(release, "workflow_dispatch")) {
         failures.push("release must be manually dispatched");
     }
-    if (!hasTrigger(releaseBuild, "workflow_call")) {
-        failures.push("release-build must be a reusable workflow_call workflow");
+    if (!hasTrigger(releaseCliBuild, "workflow_call")) {
+        failures.push("release-cli-build must be a reusable workflow_call workflow");
+    }
+    if (!hasTrigger(releaseVscodeBuild, "workflow_call")) {
+        failures.push("release-vscode-build must be a reusable workflow_call workflow");
     }
 
-    const builderJobs = jobsUsing(release, "./.github/workflows/release-build.yml");
-    if (builderJobs.length !== 1) failures.push("release must call the reusable builder exactly once");
+    const cliBuilderJobs = jobsUsing(release, "./.github/workflows/release-cli-build.yml");
+    const vscodeBuilderJobs = jobsUsing(release, "./.github/workflows/release-vscode-build.yml");
+    if (cliBuilderJobs.length !== 1) failures.push("release must call the reusable CLI builder exactly once");
+    if (vscodeBuilderJobs.length !== 1) failures.push("release must call the reusable VS Code builder exactly once");
 
     const assemble = releaseJobs["assemble-candidate"];
     const promote = releaseJobs.promote;
     const verify = releaseJobs["verify-published-release"];
     const marketplace = releaseJobs["publish-vscode-marketplace"];
-    if (!isRecord(assemble)) failures.push("release must assemble a candidate");
+    if (!isRecord(assemble)) {
+        failures.push("release must assemble a candidate");
+    } else {
+        if (!dependsOn(assemble, "build-cli-candidate")) {
+            failures.push("candidate assembly must depend on the CLI builder");
+        }
+        if (!dependsOn(assemble, "build-vscode-candidate")) {
+            failures.push("candidate assembly must depend on the VS Code builder");
+        }
+    }
     if (!isRecord(promote)) {
         failures.push("release must contain a promote job");
     } else {
@@ -144,12 +159,17 @@ export function releaseContractFailures({ release, releaseBuild }) {
         }
     }
 
-    for (const [id, jobDefinition] of Object.entries({ ...releaseJobs, ...buildJobs })) {
+    const readOnlyJobs = [
+        ...Object.entries(releaseJobs).map(([id, definition]) => [id, release, definition]),
+        ...Object.entries(cliBuildJobs).map(([id, definition]) => [`cli:${id}`, releaseCliBuild, definition]),
+        ...Object.entries(vscodeBuildJobs).map(([id, definition]) => [`vscode:${id}`, releaseVscodeBuild, definition]),
+    ];
+    for (const [id, workflow, jobDefinition] of readOnlyJobs) {
         if (id === "promote" || id === "publish-vscode-marketplace") continue;
-        if (!isReadOnly(id in releaseJobs ? release : releaseBuild, jobDefinition)) {
+        if (!isReadOnly(workflow, jobDefinition)) {
             failures.push(`${id} must retain read-only permissions before publication`);
         }
-        if (permission(id in releaseJobs ? release : releaseBuild, jobDefinition, "id-token") === "write") {
+        if (permission(workflow, jobDefinition, "id-token") === "write") {
             failures.push(`${id} must not have id-token: write`);
         }
     }

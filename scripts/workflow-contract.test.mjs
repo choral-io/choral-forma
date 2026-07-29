@@ -53,10 +53,12 @@ on:
       version:
         type: string
 jobs:
-  build-candidate:
-    uses: ./.github/workflows/release-build.yml
+  build-cli-candidate:
+    uses: ./.github/workflows/release-cli-build.yml
+  build-vscode-candidate:
+    uses: ./.github/workflows/release-vscode-build.yml
   assemble-candidate:
-    needs: build-candidate
+    needs: [build-cli-candidate, build-vscode-candidate]
     permissions:
       contents: read
   promote:
@@ -78,7 +80,7 @@ jobs:
 `,
         "release fixture",
     );
-    const build = parseWorkflow(
+    const cliBuild = parseWorkflow(
         `
 on:
   workflow_call:
@@ -87,9 +89,27 @@ jobs:
     permissions:
       contents: read
 `,
-        "release-build fixture",
+        "release-cli-build fixture",
     );
-    assert.deepEqual(releaseContractFailures({ release, releaseBuild: build }), []);
+    const vscodeBuild = parseWorkflow(
+        `
+on:
+  workflow_call:
+jobs:
+  build:
+    permissions:
+      contents: read
+`,
+        "release-vscode-build fixture",
+    );
+    assert.deepEqual(
+        releaseContractFailures({
+            release,
+            releaseCliBuild: cliBuild,
+            releaseVscodeBuild: vscodeBuild,
+        }),
+        [],
+    );
 });
 
 test("accepts a main-only automatic site deployment fixture", () => {
@@ -149,10 +169,12 @@ on:
     inputs:
       version: {}
 jobs:
-  build-candidate:
-    uses: ./.github/workflows/release-build.yml
+  build-cli-candidate:
+    uses: ./.github/workflows/release-cli-build.yml
+  build-vscode-candidate:
+    uses: ./.github/workflows/release-vscode-build.yml
   assemble-candidate:
-    needs: build-candidate
+    needs: [build-cli-candidate, build-vscode-candidate]
   promote:
     needs: assemble-candidate
     environment: release-production
@@ -169,38 +191,45 @@ jobs:
 `,
         "unsafe release fixture",
     );
-    const build = parseWorkflow("on:\n  workflow_call:\njobs: {}\n", "release-build fixture");
+    const cliBuild = parseWorkflow("on:\n  workflow_call:\njobs: {}\n", "release-cli-build fixture");
+    const vscodeBuild = parseWorkflow("on:\n  workflow_call:\njobs: {}\n", "release-vscode-build fixture");
     assert.ok(
-        releaseContractFailures({ release, releaseBuild: build }).includes(
-            "Marketplace publication must not rebuild or package the VSIX",
-        ),
+        releaseContractFailures({
+            release,
+            releaseCliBuild: cliBuild,
+            releaseVscodeBuild: vscodeBuild,
+        }).includes("Marketplace publication must not rebuild or package the VSIX"),
     );
 });
 
 test("keeps the release pipeline structurally safe", async () => {
-    const [releaseSource, releaseBuildSource] = await Promise.all(
-        ["release.yml", "release-build.yml"].map(
+    const [releaseSource, releaseCliBuildSource, releaseVscodeBuildSource] = await Promise.all(
+        ["release.yml", "release-cli-build.yml", "release-vscode-build.yml"].map(
             async (name) => await readFile(new URL(`../.github/workflows/${name}`, import.meta.url), "utf8"),
         ),
     );
     assert.deepEqual(
         releaseContractFailures({
             release: parseWorkflow(releaseSource, "release.yml"),
-            releaseBuild: parseWorkflow(releaseBuildSource, "release-build.yml"),
+            releaseCliBuild: parseWorkflow(releaseCliBuildSource, "release-cli-build.yml"),
+            releaseVscodeBuild: parseWorkflow(releaseVscodeBuildSource, "release-vscode-build.yml"),
         }),
         [],
     );
 });
 
 test("keeps the reusable release matrix and public asset contract exact", async () => {
-    const [releaseSource, releaseBuildSource] = await Promise.all(
-        ["release.yml", "release-build.yml"].map(
+    const [releaseSource, releaseCliBuildSource, releaseVscodeBuildSource, ciSource] = await Promise.all(
+        ["release.yml", "release-cli-build.yml", "release-vscode-build.yml", "ci.yml"].map(
             async (name) => await readFile(new URL(`../.github/workflows/${name}`, import.meta.url), "utf8"),
         ),
     );
     const release = parseWorkflow(releaseSource, "release.yml");
-    const releaseBuild = parseWorkflow(releaseBuildSource, "release-build.yml");
-    const builder = job(release, "build-candidate");
+    const releaseCliBuild = parseWorkflow(releaseCliBuildSource, "release-cli-build.yml");
+    const releaseVscodeBuild = parseWorkflow(releaseVscodeBuildSource, "release-vscode-build.yml");
+    const ci = parseWorkflow(ciSource, "ci.yml");
+    const builder = job(release, "build-cli-candidate");
+    const vscodeBuilder = job(release, "build-vscode-candidate");
     const rows = JSON.parse(builder.with.targets_json);
     assert.deepEqual(rows, [
         {
@@ -244,7 +273,15 @@ test("keeps the reusable release matrix and public asset contract exact", async 
             target: "x86_64-pc-windows-msvc",
         },
     ]);
-    assert.equal(builder.with.build_extension, true);
+    assert.equal(builder.uses, "./.github/workflows/release-cli-build.yml");
+    assert.equal(builder.with.build_extension, undefined);
+    assert.equal(vscodeBuilder.uses, "./.github/workflows/release-vscode-build.yml");
+    assert.equal(vscodeBuilder.with.source_sha, "${{ needs.validate.outputs.source_sha }}");
+    const windowsBuilder = job(ci, "windows-release");
+    assert.equal(windowsBuilder.uses, "./.github/workflows/release-cli-build.yml");
+    assert.equal(windowsBuilder.with.build_extension, undefined);
+    assert.deepEqual(Object.keys(releaseCliBuild.jobs), ["cli"]);
+    assert.deepEqual(Object.keys(releaseVscodeBuild.jobs), ["extension"]);
 
     const publishedNames = rows.flatMap(({ archive, asset, managed_binary }) => {
         const archiveName = `forma-${asset}.${archive}`;
@@ -255,16 +292,18 @@ test("keeps the reusable release matrix and public asset contract exact", async 
         expectedReleaseAssetNames("1.2.3"),
     );
 
-    assert.deepEqual(Object.keys(releaseBuild.on), ["workflow_call"]);
-    assert.equal(secretReferences(releaseBuild).length, 0);
-    for (const definition of Object.values(releaseBuild.jobs)) {
-        assert.equal(definition.environment, undefined);
-        assert.notEqual(definition.permissions?.contents, "write");
-        assert.notEqual(definition.permissions?.["id-token"], "write");
-        for (const step of definition.steps ?? []) {
-            assert.notEqual(step.with?.overwrite, true);
-            if (step.uses?.startsWith("actions/upload-artifact@")) {
-                assert.equal(step.with?.["retention-days"], 30);
+    for (const releaseBuild of [releaseCliBuild, releaseVscodeBuild]) {
+        assert.deepEqual(Object.keys(releaseBuild.on), ["workflow_call"]);
+        assert.equal(secretReferences(releaseBuild).length, 0);
+        for (const definition of Object.values(releaseBuild.jobs)) {
+            assert.equal(definition.environment, undefined);
+            assert.notEqual(definition.permissions?.contents, "write");
+            assert.notEqual(definition.permissions?.["id-token"], "write");
+            for (const step of definition.steps ?? []) {
+                assert.notEqual(step.with?.overwrite, true);
+                if (step.uses?.startsWith("actions/upload-artifact@")) {
+                    assert.equal(step.with?.["retention-days"], 30);
+                }
             }
         }
     }
@@ -312,7 +351,7 @@ test("binds release and deployment recovery paths to the exact source", async ()
 });
 
 test("pins every remote action to an immutable commit", async () => {
-    for (const name of ["ci.yml", "release-build.yml", "release.yml"]) {
+    for (const name of ["ci.yml", "release-cli-build.yml", "release-vscode-build.yml", "release.yml"]) {
         const source = await readFile(new URL(`../.github/workflows/${name}`, import.meta.url), "utf8");
         const workflow = parseWorkflow(source, name);
         for (const [id, definition] of Object.entries(workflow.jobs)) {
@@ -328,13 +367,13 @@ test("pins every remote action to an immutable commit", async () => {
 });
 
 test("retains the complete CI, site, extension, and Zed gates", async () => {
-    const [ciSource, releaseBuildSource] = await Promise.all(
-        ["ci.yml", "release-build.yml"].map(
+    const [ciSource, releaseVscodeBuildSource] = await Promise.all(
+        ["ci.yml", "release-vscode-build.yml"].map(
             async (name) => await readFile(new URL(`../.github/workflows/${name}`, import.meta.url), "utf8"),
         ),
     );
     const ci = parseWorkflow(ciSource, "ci.yml");
-    const releaseBuild = parseWorkflow(releaseBuildSource, "release-build.yml");
+    const releaseVscodeBuild = parseWorkflow(releaseVscodeBuildSource, "release-vscode-build.yml");
     const webCommands = stepRunCommandsForTest(job(ci, "web")).join("\n");
     for (const command of ["pnpm check", "pnpm lint", "pnpm test", "pnpm build", "test:mermaid-worker-upgrade"]) {
         assert.ok(webCommands.includes(command), `web CI must retain ${command}`);
@@ -360,7 +399,9 @@ test("retains the complete CI, site, extension, and Zed gates", async () => {
     const integration = ciExtension.steps.find((step) => step.name === "Run Extension Host tests");
     assert.equal(integration?.env?.FORMA_TEST_BIN, "${{ github.workspace }}/target/debug/forma");
     assert.ok(stepRunCommandsForTest(ciExtension).some((command) => command.includes("smoke:vsix")));
-    assert.ok(stepRunCommandsForTest(job(releaseBuild, "extension")).some((command) => command.includes("smoke:vsix")));
+    assert.ok(
+        stepRunCommandsForTest(job(releaseVscodeBuild, "extension")).some((command) => command.includes("smoke:vsix")),
+    );
 });
 
 test("automatically deploys only a fully gated main CI artifact", async () => {
