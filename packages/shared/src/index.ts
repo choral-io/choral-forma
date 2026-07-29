@@ -641,6 +641,45 @@ export type WorkspaceExplorerEntriesResult = BaseOperationResult & {
     total: number;
 };
 
+export type WorkspaceExplainTargetKind = "content" | "view" | "control" | "unmanaged";
+
+export type WorkspaceExplainContentGroupCandidate = {
+    id: string;
+    matchedIncludePatterns: string[];
+    selected: boolean;
+};
+
+export type WorkspaceExplainTaxonomyMembership = {
+    taxonomy: string;
+    term: string;
+    matchedPatterns: string[];
+    contentGroup?: string;
+};
+
+export type WorkspaceExplainEffective = {
+    selectedContentGroup?: string;
+    schemaConfigured: boolean;
+    template?: string;
+    createConfigured: boolean;
+    guidelines: string[];
+};
+
+export type WorkspaceExplainResult = BaseOperationResult & {
+    operation: "workspace.explain";
+    workspace: WorkspaceSummary;
+    target: {
+        path: string;
+        exists: boolean;
+        kind: WorkspaceExplainTargetKind;
+    };
+    contentGroups: WorkspaceExplainContentGroupCandidate[];
+    taxonomies: WorkspaceExplainTaxonomyMembership[];
+    effective: WorkspaceExplainEffective;
+    provenance: {
+        sources: string[];
+    };
+};
+
 export type ListResult = BaseOperationResult & {
     operation: "list";
     workspace: WorkspaceSummary;
@@ -859,6 +898,14 @@ export class FormaRpcClient {
             cursor,
             limit,
         });
+    }
+
+    workspaceExplain(path: string) {
+        return this.call<WorkspaceExplainResult>("workspace.explain", { path });
+    }
+
+    workspaceExplainEntry(space: string, entry: string) {
+        return this.call<WorkspaceExplainResult>("workspace.explain", { space, entry });
     }
 
     list(space: string) {

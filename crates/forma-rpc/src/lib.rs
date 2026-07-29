@@ -28,6 +28,8 @@ pub enum Operation {
     WorkspaceExplorer,
     #[serde(rename = "workspace.explorerEntries")]
     WorkspaceExplorerEntries,
+    #[serde(rename = "workspace.explain")]
+    WorkspaceExplain,
     #[serde(rename = "inspect")]
     Inspect,
     #[serde(rename = "list")]
@@ -68,6 +70,7 @@ impl Operation {
             Self::WorkspaceDashboard => "workspace.dashboard",
             Self::WorkspaceExplorer => "workspace.explorer",
             Self::WorkspaceExplorerEntries => "workspace.explorerEntries",
+            Self::WorkspaceExplain => "workspace.explain",
             Self::Inspect => "inspect",
             Self::List => "list",
             Self::Create => "create",
@@ -95,6 +98,7 @@ pub enum OperationRequest {
     WorkspaceDashboard(WorkspaceDashboardRequest),
     WorkspaceExplorer(WorkspaceExplorerRequest),
     WorkspaceExplorerEntries(WorkspaceExplorerEntriesRequest),
+    WorkspaceExplain(WorkspaceExplainRequest),
     Inspect(InspectRequest),
     List(ListRequest),
     Create(CreateRequest),
@@ -159,6 +163,18 @@ pub struct WorkspaceExplorerEntriesRequest {
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceExplainRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entry: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -379,6 +395,21 @@ impl Dispatcher {
                         error,
                     ))
                 })
+            }
+            OperationRequest::WorkspaceExplain(request) => {
+                match (request.path, request.space, request.entry) {
+                    (Some(path), None, None) => forma_core::explain_workspace_path(root, &path)
+                        .map(OperationResult::from)
+                        .or_else(|error| Ok(core_error_result(Operation::WorkspaceExplain, error))),
+                    (None, Some(space), Some(entry)) => {
+                        forma_core::explain_workspace_entry(root, &space, &entry)
+                            .map(OperationResult::from)
+                            .or_else(|error| {
+                                Ok(core_error_result(Operation::WorkspaceExplain, error))
+                            })
+                    }
+                    _ => Err(OperationError::InvalidParams),
+                }
             }
             OperationRequest::Inspect(request) => {
                 match (request.path, request.space, request.entry) {
@@ -802,6 +833,27 @@ fn operation_from_method(
                     )
                 })
         }
+        "workspace.explain" => {
+            let request =
+                serde_json::from_value::<WorkspaceExplainRequest>(params).map_err(|_| {
+                    JsonRpcFailure::without_id(
+                        JsonRpcErrorCode::InvalidParams,
+                        "Invalid params.",
+                        "params.invalid",
+                    )
+                })?;
+            match (&request.path, &request.space, &request.entry) {
+                (Some(path), None, None) if forma_core::WorkspacePath::parse_cli(path).is_ok() => {
+                    Ok(OperationRequest::WorkspaceExplain(request))
+                }
+                (None, Some(_), Some(_)) => Ok(OperationRequest::WorkspaceExplain(request)),
+                _ => Err(JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )),
+            }
+        }
         _ => Err(JsonRpcFailure::without_id(
             JsonRpcErrorCode::MethodNotFound,
             "Method not found.",
@@ -1094,6 +1146,27 @@ impl From<forma_core::WorkspaceExplorerEntriesResult> for OperationResult {
             data.insert("nextCursor".to_string(), json!(next_cursor));
         }
         data.insert("total".to_string(), json!(result.total));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::WorkspaceExplainResult> for OperationResult {
+    fn from(result: forma_core::WorkspaceExplainResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("target".to_string(), json!(result.target));
+        data.insert("contentGroups".to_string(), json!(result.content_groups));
+        data.insert("taxonomies".to_string(), json!(result.taxonomies));
+        data.insert("effective".to_string(), json!(result.effective));
+        data.insert("provenance".to_string(), json!(result.provenance));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1786,6 +1859,60 @@ mod tests {
     }
 
     #[test]
+    fn json_rpc_dispatches_workspace_explain_by_path_and_entry_locator() {
+        let root = fixture_root("workspace-explain-rpc");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/explained.md"),
+            "---\nkind: note\ntitle: Explained\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n",
+        )
+        .unwrap();
+
+        let by_path = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"workspace.explain","params":{"path":"notes/explained.md"}}"#,
+        );
+        assert_eq!(by_path["result"]["operation"], "workspace.explain");
+        assert_eq!(by_path["result"]["target"]["path"], "notes/explained.md");
+        assert_eq!(by_path["result"]["target"]["kind"], "content");
+        assert_eq!(by_path["result"]["contentGroups"][0]["id"], "notes");
+        assert_eq!(by_path["result"]["contentGroups"][0]["selected"], true);
+
+        let by_entry = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"2","method":"workspace.explain","params":{"space":"notes","entry":"explained"}}"#,
+        );
+        assert_eq!(by_entry["result"]["target"], by_path["result"]["target"]);
+
+        let missing_path = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"3","method":"workspace.explain","params":{"path":"notes/missing.md"}}"#,
+        );
+        assert_eq!(missing_path["result"]["target"]["exists"], false);
+        assert_eq!(missing_path["result"]["target"]["kind"], "content");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_workspace_explain_rejects_invalid_and_unknown_params() {
+        for body in [
+            br#"{"jsonrpc":"2.0","id":"1","method":"workspace.explain","params":{}}"#.as_slice(),
+            br#"{"jsonrpc":"2.0","id":"2","method":"workspace.explain","params":{"path":"notes/a.md","space":"notes","entry":"a"}}"#.as_slice(),
+            br#"{"jsonrpc":"2.0","id":"3","method":"workspace.explain","params":{"path":"../outside.md"}}"#.as_slice(),
+            br#"{"jsonrpc":"2.0","id":"4","method":"workspace.explain","params":{"path":"notes/a.md","unexpected":true}}"#.as_slice(),
+        ] {
+            let response = Dispatcher::default().handle_json_rpc(body);
+            assert_eq!(
+                response["error"]["code"],
+                JsonRpcErrorCode::InvalidParams as i64
+            );
+            assert_eq!(response["error"]["data"]["code"], "params.invalid");
+        }
+    }
+
+    #[test]
     fn json_rpc_workspace_explorer_preserves_generic_taxonomy_presentation() {
         let root = fixture_root("workspace-explorer-presentation-rpc");
         fs::create_dir_all(root.join(".forma/classification")).unwrap();
@@ -2045,6 +2172,10 @@ imports:
         assert_eq!(
             serde_json::to_value(super::Operation::WorkspaceDashboard).unwrap(),
             "workspace.dashboard"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::WorkspaceExplain).unwrap(),
+            "workspace.explain"
         );
         assert_eq!(
             serde_json::to_value(super::Operation::Inspect).unwrap(),

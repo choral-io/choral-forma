@@ -241,10 +241,17 @@ impl ResolvedWorkspaceModel {
         taxonomy_id: &str,
         term_id: &str,
     ) -> Option<&SpaceDefinition> {
-        let content_group_id = self
-            .content_group_terms
-            .get(&TaxonomyTermId::new(taxonomy_id, term_id))?;
+        let content_group_id = self.content_group_id_for_taxonomy_term(taxonomy_id, term_id)?;
         self.content_groups.get(content_group_id)
+    }
+
+    pub fn content_group_id_for_taxonomy_term(
+        &self,
+        taxonomy_id: &str,
+        term_id: &str,
+    ) -> Option<&ContentGroupId> {
+        self.content_group_terms
+            .get(&TaxonomyTermId::new(taxonomy_id, term_id))
     }
 
     pub fn content_group_term_ids(

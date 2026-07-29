@@ -9,6 +9,7 @@ use serde_yml::Value;
 use thiserror::Error;
 
 use crate::boundary::{WorkspaceBoundary, WorkspaceBoundaryError};
+use crate::classification::{ManagedDocumentKind, classify_managed_document};
 use crate::config::{
     ConfigError, ConfigSourcePath, FormaWorkspace, SpaceDefinition, WorkspaceConfig,
     WorkspaceSettings, config_source_paths, load_workspace,
@@ -18,7 +19,7 @@ use crate::docs::{DocsError, EmbeddedDoc, EmbeddedDocSummary, embedded_doc, embe
 use crate::document::{DocumentAnalysis, DocumentReference, analyze_document_references};
 use crate::index::{
     Discovery, IndexEntry, IndexReference, ReferenceIntent, ReferenceSource,
-    config_error_diagnostic, discover_loaded_workspace, title_for_entry,
+    config_error_diagnostic, discover_loaded_workspace, resolve_space_entry_path, title_for_entry,
 };
 use crate::markdown::{FormaMarkdownDocument, resolve_markdown_title};
 use crate::model::ResolvedWorkspaceModel;
@@ -702,25 +703,6 @@ pub enum WorkspaceFileKind {
     Markdown,
     Config,
     Resource,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ManagedDocumentKind {
-    Content,
-    View,
-    Control,
-    Unmanaged,
-}
-
-impl ManagedDocumentKind {
-    pub fn is_language_document(self) -> bool {
-        matches!(self, Self::Content | Self::View)
-    }
-
-    pub fn is_scope_relevant(self) -> bool {
-        !matches!(self, Self::Unmanaged)
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2091,26 +2073,12 @@ impl WorkspaceSnapshot {
 
     pub fn document_kind(&self, source_path: &str) -> Result<ManagedDocumentKind, OperationError> {
         let source_path = WorkspacePath::parse_cli(source_path)?.as_str().to_string();
-        if !matches!(
-            Path::new(&source_path)
-                .extension()
-                .and_then(|value| value.to_str()),
-            Some("md" | "mdx")
-        ) {
-            return Ok(ManagedDocumentKind::Unmanaged);
-        }
-        if self.view_paths.contains(&source_path) {
-            return Ok(ManagedDocumentKind::View);
-        }
-        if self.scan_plan.taxonomy_patterns().is_match(&source_path) {
-            return Ok(ManagedDocumentKind::Content);
-        }
-        if self.control_paths.contains(&source_path)
-            || self.scan_plan.config_patterns().is_match(&source_path)
-        {
-            return Ok(ManagedDocumentKind::Control);
-        }
-        Ok(ManagedDocumentKind::Unmanaged)
+        Ok(classify_managed_document(
+            &source_path,
+            &self.scan_plan,
+            &self.control_paths,
+            &self.view_paths,
+        ))
     }
 
     pub fn affects_configuration(&self, source_path: &str) -> Result<bool, OperationError> {
@@ -3777,32 +3745,6 @@ fn parent_from_workspace_path(path: &str) -> String {
     path.rsplit_once('/')
         .map(|(parent, _)| parent.to_string())
         .unwrap_or_default()
-}
-
-fn resolve_space_entry_path(
-    entries: &[IndexEntry],
-    space: &str,
-    entry: &str,
-) -> Result<String, OperationError> {
-    let entry = entry.strip_suffix(".md").unwrap_or(entry);
-    let matches = entries
-        .iter()
-        .filter(|candidate| {
-            candidate.space == space
-                && candidate
-                    .path
-                    .rsplit('/')
-                    .next()
-                    .and_then(|name| name.strip_suffix(".md"))
-                    == Some(entry)
-        })
-        .map(|entry| entry.path.clone())
-        .collect::<Vec<_>>();
-    match matches.len() {
-        0 => Err(OperationError::EntryNotFound),
-        1 => Ok(matches[0].clone()),
-        _ => Err(OperationError::EntryAmbiguous),
-    }
 }
 
 fn normalize_entry_path(path: &str) -> Result<String, OperationError> {

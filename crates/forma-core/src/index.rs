@@ -579,6 +579,32 @@ fn taxonomy_mode<'a>(config: &'a WorkspaceConfig, taxonomy_id: &str) -> &'a str 
         .unwrap_or("multiple")
 }
 
+pub(crate) fn resolve_space_entry_path(
+    entries: &[IndexEntry],
+    space: &str,
+    entry: &str,
+) -> Result<String, crate::operations::OperationError> {
+    let entry = entry.strip_suffix(".md").unwrap_or(entry);
+    let matches = entries
+        .iter()
+        .filter(|candidate| {
+            candidate.space == space
+                && candidate
+                    .path
+                    .rsplit('/')
+                    .next()
+                    .and_then(|name| name.strip_suffix(".md"))
+                    == Some(entry)
+        })
+        .map(|entry| entry.path.clone())
+        .collect::<Vec<_>>();
+    match matches.len() {
+        0 => Err(crate::operations::OperationError::EntryNotFound),
+        1 => Ok(matches[0].clone()),
+        _ => Err(crate::operations::OperationError::EntryAmbiguous),
+    }
+}
+
 fn supported_language_suffixes(config: &WorkspaceConfig) -> Vec<LanguageSuffix> {
     let mut suffixes = config
         .workspace

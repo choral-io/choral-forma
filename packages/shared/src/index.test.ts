@@ -292,6 +292,59 @@ describe("FormaRpcClient", () => {
         });
     });
 
+    it("requests workspace explanations by path and configured entry locator", async () => {
+        const calls: Array<{ body: unknown }> = [];
+        const client = new FormaRpcClient("/rpc", (_input, requestInit) => {
+            calls.push({ body: JSON.parse(requestInit.body) });
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: () =>
+                    Promise.resolve({
+                        jsonrpc: "2.0",
+                        id: "1",
+                        result: {
+                            schemaVersion: 1,
+                            operation: "workspace.explain",
+                            status: "passed",
+                            workspace: { root: ".", name: "Example" },
+                            target: { path: "notes/one.md", exists: true, kind: "content" },
+                            contentGroups: [],
+                            taxonomies: [],
+                            effective: {
+                                schemaConfigured: false,
+                                createConfigured: false,
+                                guidelines: [],
+                            },
+                            provenance: { sources: [".forma.md"] },
+                        },
+                    }),
+            });
+        });
+
+        await client.workspaceExplain("notes/one.md");
+        await client.workspaceExplainEntry("notes", "one");
+
+        expect(calls).toEqual([
+            {
+                body: {
+                    jsonrpc: "2.0",
+                    id: "1",
+                    method: "workspace.explain",
+                    params: { path: "notes/one.md" },
+                },
+            },
+            {
+                body: {
+                    jsonrpc: "2.0",
+                    id: "2",
+                    method: "workspace.explain",
+                    params: { space: "notes", entry: "one" },
+                },
+            },
+        ]);
+    });
+
     it("requests canonical reference resolution with an optional fragment", async () => {
         const calls: Array<{ body: unknown }> = [];
         const client = new FormaRpcClient("/rpc", (_input, requestInit) => {

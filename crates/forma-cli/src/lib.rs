@@ -22,8 +22,8 @@ use forma_rpc::{
     CheckRequest, ConfigInspectRequest, ConfigSummaryRequest, CreatePreviewRequest, CreateRequest,
     Dispatcher, DocsGetRequest, DocsListRequest, InitRequest, InspectRequest, ListRequest,
     OperationRequest, ReferenceResolveRequest, SkillsGetRequest, SkillsListRequest,
-    ViewRenderRequest, WorkspaceDashboardRequest, WorkspaceExplorerEntriesRequest,
-    WorkspaceExplorerRequest, WorkspaceHealthRequest,
+    ViewRenderRequest, WorkspaceDashboardRequest, WorkspaceExplainRequest,
+    WorkspaceExplorerEntriesRequest, WorkspaceExplorerRequest, WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_json::Value as JsonValue;
@@ -223,12 +223,22 @@ fn cacheable_rpc_request(body: &[u8]) -> Option<CacheableRpcRequest> {
     {
         return None;
     }
+    if method == "workspace.explain" {
+        let params = object.get("params")?.as_object()?;
+        if params.len() != 2
+            || !params.get("space").is_some_and(JsonValue::is_string)
+            || !params.get("entry").is_some_and(JsonValue::is_string)
+        {
+            return None;
+        }
+    }
     if !matches!(
         method,
         "config.summary"
             | "workspace.dashboard"
             | "workspace.explorer"
             | "workspace.explorerEntries"
+            | "workspace.explain"
             | "workspace.health"
             | "view.render"
             | "file.render"
@@ -507,6 +517,13 @@ enum WorkspaceCommand {
         #[arg(long)]
         json: bool,
     },
+    Explain {
+        #[arg(long)]
+        space: Option<String>,
+        locator: String,
+        #[arg(long)]
+        json: bool,
+    },
     Health {
         #[arg(long)]
         json: bool,
@@ -743,6 +760,29 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                     },
                 ))?;
                 print_result(&result, json, "workspace explorer entries");
+                exit_if_failed(&result);
+                Ok(())
+            }
+            WorkspaceCommand::Explain {
+                space,
+                locator,
+                json,
+            } => {
+                let request = if let Some(space) = space {
+                    WorkspaceExplainRequest {
+                        path: None,
+                        space: Some(space),
+                        entry: Some(locator),
+                    }
+                } else {
+                    WorkspaceExplainRequest {
+                        path: Some(locator),
+                        space: None,
+                        entry: None,
+                    }
+                };
+                let result = dispatcher.dispatch(OperationRequest::WorkspaceExplain(request))?;
+                print_result(&result, json, "workspace explain");
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -1666,6 +1706,22 @@ mod tests {
     }
 
     #[test]
+    fn workspace_explain_caches_stable_entry_locators_but_not_arbitrary_paths() {
+        assert!(
+            cacheable_rpc_request(
+                br#"{"jsonrpc":"2.0","id":"1","method":"workspace.explain","params":{"space":"notes","entry":"one"}}"#,
+            )
+            .is_some()
+        );
+        assert!(
+            cacheable_rpc_request(
+                br#"{"jsonrpc":"2.0","id":"2","method":"workspace.explain","params":{"path":"loose.md"}}"#,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
     fn mutating_rpc_requests_are_classified_explicitly() {
         for method in ["create", "init"] {
             let body = format!(r#"{{"jsonrpc":"2.0","id":"1","method":"{method}","params":{{}}}}"#);
@@ -1908,6 +1964,65 @@ mod tests {
             rpc_cache.responses.lock().unwrap().generation,
             generation + 1
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rpc_handler_invalidates_cached_workspace_explain_after_external_file_removal() {
+        let root = fixture_root("workspace-explain-cache-invalidation");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/explained.md"),
+            "---\nkind: note\ntitle: Explained\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n",
+        )
+        .unwrap();
+        let rpc_cache = Arc::new(RpcCacheRuntime::default());
+        let state = AppState {
+            dispatcher: Dispatcher::new(&root),
+            rpc_cache: rpc_cache.clone(),
+            workspace_root: root.clone(),
+            webapp_dir: None,
+            cors_origins: Vec::new(),
+            root_path: "/".to_string(),
+        };
+
+        let first = response_json(
+            rpc_handler(
+                axum::extract::State(state.clone()),
+                HeaderMap::new(),
+                Bytes::from_static(
+                    br#"{"jsonrpc":"2.0","id":"first","method":"workspace.explain","params":{"space":"notes","entry":"explained"}}"#,
+                ),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(first["result"]["target"]["exists"], true);
+        assert_eq!(rpc_cache.responses.lock().unwrap().responses.len(), 1);
+        let generation = rpc_cache.responses.lock().unwrap().generation;
+
+        fs::remove_file(root.join("notes/explained.md")).unwrap();
+        rpc_cache.validation.lock().unwrap().last_validated = None;
+
+        let second = response_json(
+            rpc_handler(
+                axum::extract::State(state),
+                HeaderMap::new(),
+                Bytes::from_static(
+                    br#"{"jsonrpc":"2.0","id":"second","method":"workspace.explain","params":{"space":"notes","entry":"explained"}}"#,
+                ),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(second["result"]["status"], "failed");
+        assert_eq!(second["result"]["diagnostics"][0]["code"], "entry.notFound");
+        assert_eq!(
+            rpc_cache.responses.lock().unwrap().generation,
+            generation + 1
+        );
+
         fs::remove_dir_all(root).unwrap();
     }
 

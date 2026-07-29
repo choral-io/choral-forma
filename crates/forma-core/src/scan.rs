@@ -73,6 +73,20 @@ impl WorkspacePatternSet {
         self.matcher.is_match(path)
     }
 
+    pub fn matching_patterns(&self, path: impl AsRef<Path>) -> Vec<String> {
+        let path = path.as_ref();
+        self.patterns
+            .iter()
+            .filter(|pattern| {
+                globset::Glob::new(pattern)
+                    .expect("WorkspacePatternSet contains validated globs")
+                    .compile_matcher()
+                    .is_match(path)
+            })
+            .cloned()
+            .collect()
+    }
+
     pub fn matching_files(&self) -> io::Result<Vec<PathBuf>> {
         let mut files = BTreeSet::new();
         for scan_root in &self.scan_roots {

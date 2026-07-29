@@ -827,6 +827,54 @@ fn config_summary_filters_content_group_and_opts_into_sources() {
 }
 
 #[test]
+fn workspace_explain_json_supports_path_and_entry_locators() {
+    let root = fixture_root("workspace-explain-cli");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+    std::fs::write(
+        root.join("notes/explained.md"),
+        "---\nkind: note\ntitle: Explained\nsummary: \"\"\ncreatedAt: \"2026-01-01T00:00:00Z\"\n---\n",
+    )
+    .unwrap();
+
+    let by_path = forma(&root)
+        .args(["workspace", "explain", "notes/explained.md", "--json"])
+        .output()
+        .expect("forma workspace explain should run");
+    assert!(
+        by_path.status.success(),
+        "{}",
+        String::from_utf8_lossy(&by_path.stderr)
+    );
+    let by_path: Value = serde_json::from_slice(&by_path.stdout).unwrap();
+    assert_eq!(by_path["operation"], "workspace.explain");
+    assert_eq!(by_path["target"]["path"], "notes/explained.md");
+    assert_eq!(by_path["target"]["kind"], "content");
+    assert_eq!(by_path["contentGroups"][0]["selected"], true);
+
+    let by_entry = forma(&root)
+        .args([
+            "workspace",
+            "explain",
+            "--space",
+            "notes",
+            "explained",
+            "--json",
+        ])
+        .output()
+        .expect("forma workspace explain --space should run");
+    assert!(
+        by_entry.status.success(),
+        "{}",
+        String::from_utf8_lossy(&by_entry.stderr)
+    );
+    let by_entry: Value = serde_json::from_slice(&by_entry.stdout).unwrap();
+    assert_eq!(by_entry["target"], by_path["target"]);
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn workspace_health_json_uses_operation_result_shape() {
     let root = workspace_health_warning_fixture("workspace-health-json");
 

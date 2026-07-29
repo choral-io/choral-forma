@@ -1,4 +1,5 @@
 pub mod boundary;
+mod classification;
 pub mod config;
 pub mod config_summary;
 pub mod diagnostics;
@@ -13,8 +14,10 @@ pub mod render;
 pub mod scan;
 pub mod schema;
 pub mod site;
+pub mod workspace_explain;
 
 pub use boundary::{PreparedWorkspaceFile, WorkspaceBoundary, WorkspaceBoundaryError};
+pub use classification::ManagedDocumentKind;
 pub use config::{
     ConfigError, ContentGroupDefinition, FormaWorkspace, SpaceDefinition, TaxonomyTermDefinition,
     WorkspaceConfig, load_workspace,
@@ -54,7 +57,7 @@ pub use operations::{
     DashboardSpace, DashboardTaxonomy, DashboardTaxonomyTerm, DashboardViewSummary, DocsGetResult,
     DocsListResult, ExplorerTaxonomy, ExplorerTaxonomyTerm, FileReferencesResult, FilesListResult,
     InitResult, InspectEntry, InspectResult, ListEntry, ListResult, ListedSpace,
-    ManagedDocumentKind, ManagedPathReferenceTarget, OperationError, ReferenceEdge, ReferenceFile,
+    ManagedPathReferenceTarget, OperationError, ReferenceEdge, ReferenceFile,
     ReferenceFragmentLocation, ReferenceResolveCandidate, ReferenceResolveResult,
     ResolvedReferenceTarget, SkillDetail, SkillSource, SkillSummary, SkillsGetResult,
     SkillsListResult, WorkspaceDashboardResult, WorkspaceExplorerEntriesResult,
@@ -90,6 +93,11 @@ pub use site::{
     StaticSiteSnapshot, StaticSiteSnapshotSummary, StaticSiteSpace, StaticSiteTaxonomy,
     StaticSiteTaxonomyTerm, StaticSiteView, StaticSiteWorkspace, StaticSiteWorkspaceLogo,
     build_static_site_snapshot, build_static_site_snapshot_with_root_path,
+};
+pub use workspace_explain::{
+    WorkspaceExplainContentGroupCandidate, WorkspaceExplainEffective, WorkspaceExplainProvenance,
+    WorkspaceExplainResult, WorkspaceExplainTarget, WorkspaceExplainTaxonomyMembership,
+    explain_workspace_entry, explain_workspace_path,
 };
 
 /// Returns the current Forma core crate version.
