@@ -516,10 +516,10 @@ impl Server {
             );
         }
         let affects_configuration = self.session.snapshot().affects_configuration(&path)?;
-        if kind.is_language_document() || affects_configuration {
-            if self.refresh_snapshot("a save", affects_configuration) {
-                self.recently_refreshed_saves.insert(path, Instant::now());
-            }
+        if (kind.is_language_document() || affects_configuration)
+            && self.refresh_snapshot("a save", affects_configuration)
+        {
+            self.recently_refreshed_saves.insert(path, Instant::now());
         }
         Ok(())
     }
