@@ -1,0 +1,263 @@
+name: Reusable release build
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Exact source commit to build
+        required: true
+        type: string
+      targets_json:
+        description: JSON array containing the requested release target rows
+        required: true
+        type: string
+      build_extension:
+        description: Build the VS Code release candidate
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  cli:
+    name: Build ${{ matrix.asset }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.targets_json) }}
+    steps:
+      - name: Reuse an existing immutable artifact
+        id: existing
+        shell: bash
+        env:
+          ARTIFACT_NAME: forma-${{ matrix.asset }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" \
+              --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\" and .expired == false) | .id" \
+              | head -n 1
+          )"
+          if [[ -n "${artifact_id}" ]]; then
+            echo "present=true" >> "${GITHUB_OUTPUT}"
+            echo "Reusing immutable artifact ${ARTIFACT_NAME} (${artifact_id})."
+          else
+            echo "present=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Checkout exact source
+        if: steps.existing.outputs.present != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.source_sha }}
+
+      - name: Setup pnpm
+        if: steps.existing.outputs.present != 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        if: steps.existing.outputs.present != 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Setup Rust target
+        if: steps.existing.outputs.present != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add "${{ matrix.target }}"
+
+      - name: Install dependencies
+        if: steps.existing.outputs.present != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build WebApp assets
+        if: steps.existing.outputs.present != 'true'
+        run: |
+          pnpm --filter @choral-forma/shared build
+          pnpm --filter @choral-forma/webapp build
+
+      - name: Build Forma CLI
+        if: steps.existing.outputs.present != 'true'
+        run: cargo build --release --locked --bin forma --target ${{ matrix.target }}
+
+      - name: Execute native CLI
+        if: steps.existing.outputs.present != 'true'
+        shell: bash
+        run: target/${{ matrix.target }}/release/${{ matrix.binary }} --version
+
+      - name: Package Unix artifacts
+        if: steps.existing.outputs.present != 'true' && matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset="forma-${{ matrix.asset }}"
+          package_root="dist-release/package/${asset}"
+          source_binary="target/${{ matrix.target }}/release/${{ matrix.binary }}"
+          mkdir -p "${package_root}/bin"
+          cp "${source_binary}" "${package_root}/bin/forma"
+          chmod +x "${package_root}/bin/forma"
+          cp README.md "${package_root}/README.md"
+          tar -C dist-release/package -czf "dist-release/${asset}.tar.gz" "${asset}"
+          cp "${source_binary}" "dist-release/${{ matrix.managed_binary }}"
+          chmod +x "dist-release/${{ matrix.managed_binary }}"
+          (
+            cd dist-release
+            shasum -a 256 "${asset}.tar.gz" > "${asset}.tar.gz.sha256"
+            shasum -a 256 "${{ matrix.managed_binary }}" > "${{ matrix.managed_binary }}.sha256"
+          )
+
+      - name: Package Windows artifacts
+        if: steps.existing.outputs.present != 'true' && matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $asset = "forma-${{ matrix.asset }}"
+          New-Item -ItemType Directory -Force -Path "dist-release/$asset/bin" | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist-release/$asset/bin/forma.exe"
+          Copy-Item "README.md" "dist-release/$asset/README.md"
+          Compress-Archive -Path "dist-release/$asset" -DestinationPath "dist-release/$asset.zip" -Force
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist-release/${{ matrix.managed_binary }}"
+          $archiveHash = Get-FileHash -Algorithm SHA256 "dist-release/$asset.zip"
+          "$($archiveHash.Hash.ToLower())  $asset.zip" | Set-Content -NoNewline "dist-release/$asset.zip.sha256"
+          $binaryHash = Get-FileHash -Algorithm SHA256 "dist-release/${{ matrix.managed_binary }}"
+          "$($binaryHash.Hash.ToLower())  ${{ matrix.managed_binary }}" | Set-Content -NoNewline "dist-release/${{ matrix.managed_binary }}.sha256"
+
+      - name: Upload immutable CLI artifact
+        if: steps.existing.outputs.present != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: forma-${{ matrix.asset }}
+          path: |
+            dist-release/forma-${{ matrix.asset }}.${{ matrix.archive }}
+            dist-release/forma-${{ matrix.asset }}.${{ matrix.archive }}.sha256
+            dist-release/${{ matrix.managed_binary }}
+            dist-release/${{ matrix.managed_binary }}.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  extension:
+    name: Build VS Code extension
+    if: inputs.build_extension
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Reuse an existing immutable artifact
+        id: existing
+        shell: bash
+        env:
+          ARTIFACT_NAME: forma-vscode
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" \
+              --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\" and .expired == false) | .id" \
+              | head -n 1
+          )"
+          if [[ -n "${artifact_id}" ]]; then
+            echo "present=true" >> "${GITHUB_OUTPUT}"
+            echo "Reusing immutable artifact ${ARTIFACT_NAME} (${artifact_id})."
+          else
+            echo "present=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Checkout exact source
+        if: steps.existing.outputs.present != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.source_sha }}
+
+      - name: Setup pnpm
+        if: steps.existing.outputs.present != 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        if: steps.existing.outputs.present != 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Setup Rust
+        if: steps.existing.outputs.present != 'true'
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install dependencies
+        if: steps.existing.outputs.present != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Check, lint, test, and build extension
+        if: steps.existing.outputs.present != 'true'
+        run: |
+          pnpm --filter @choral-forma/shared build
+          pnpm --filter forma check
+          pnpm --filter forma lint
+          pnpm --filter forma test
+          pnpm --filter forma build
+
+      - name: Build development Forma binary
+        if: steps.existing.outputs.present != 'true'
+        run: |
+          pnpm --filter @choral-forma/webapp build
+          cargo build --locked --bin forma
+
+      - name: Run Extension Host tests
+        if: steps.existing.outputs.present != 'true'
+        env:
+          FORMA_TEST_BIN: ${{ github.workspace }}/target/debug/forma
+        run: PATH="${{ github.workspace }}/target/debug:$PATH" xvfb-run -a pnpm --filter forma test:integration
+
+      - name: Inspect package contents
+        if: steps.existing.outputs.present != 'true'
+        run: pnpm --filter forma package:contents
+
+      - name: Resolve VSIX output
+        if: steps.existing.outputs.present != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./extensions/vscode/package.json').version")"
+          echo "VSIX_NAME=forma-${version}.vsix" >> "${GITHUB_ENV}"
+          echo "VSIX_OUT=${GITHUB_WORKSPACE}/dist-release/forma-${version}.vsix" >> "${GITHUB_ENV}"
+
+      - name: Package and checksum VSIX
+        if: steps.existing.outputs.present != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter forma package:vsix
+          cd dist-release
+          shasum -a 256 "${VSIX_NAME}" > "${VSIX_NAME}.sha256"
+
+      - name: Smoke test packaged VSIX
+        if: steps.existing.outputs.present != 'true'
+        env:
+          FORMA_TEST_BIN: ${{ github.workspace }}/target/debug/forma
+          VSIX_PATH: ${{ env.VSIX_OUT }}
+        run: xvfb-run -a pnpm --filter forma smoke:vsix
+
+      - name: Upload immutable extension artifact
+        if: steps.existing.outputs.present != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: forma-vscode
+          path: |
+            ${{ env.VSIX_OUT }}
+            ${{ env.VSIX_OUT }}.sha256
+          if-no-files-found: error
+          retention-days: 30

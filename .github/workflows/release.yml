@@ -1,52 +1,44 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Release tag to publish when running manually"
+      version:
+        description: Unprefixed Forma version from the exact main source commit
         required: true
         type: string
-      publish:
-        description: "Create the GitHub Release after building artifacts"
-        required: true
-        default: false
-        type: boolean
-      publish_vscode_marketplace:
-        description: "Publish the packaged VSIX to Visual Studio Marketplace"
-        required: true
-        default: false
-        type: boolean
-      verify_vscode_marketplace_identity:
-        description: "Verify the protected VS Code Marketplace OIDC identity without publishing"
-        required: true
-        default: false
-        type: boolean
 
 permissions:
   actions: read
   contents: read
 
+concurrency:
+  group: forma-release-production
+  queue: max
+  cancel-in-progress: false
+
 jobs:
   validate:
-    name: Validate release version
+    name: Validate exact release candidate
     runs-on: ubuntu-24.04
+    outputs:
+      source_sha: ${{ steps.identity.outputs.source_sha }}
+      tag: ${{ steps.identity.outputs.tag }}
+      version: ${{ steps.identity.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - name: Checkout exact main source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -54,19 +46,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate tag and artifact versions
-        run: node scripts/check-release-version.mjs "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+      - name: Resolve and validate candidate identity
+        id: identity
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          [[ "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          node scripts/check-release-version.mjs "v${RELEASE_VERSION}"
+          test "$(git rev-parse HEAD)" = "${SOURCE_SHA}"
+          echo "version=${RELEASE_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${RELEASE_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "source_sha=${SOURCE_SHA}" >> "${GITHUB_OUTPUT}"
 
-      - name: Verify successful main CI for the exact release candidate
+      - name: Verify current main and exact-source CI
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
         run: |
           set -euo pipefail
-          source_sha="$(git rev-parse "${RELEASE_REF}^{commit}")"
-          gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${source_sha}&event=push&status=completed&per_page=100" \
-            | jq -e --arg source_sha "${source_sha}" '
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          test "${current_main}" = "${SOURCE_SHA}"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${SOURCE_SHA}&event=push&status=completed&per_page=100" \
+            | jq -e --arg source_sha "${SOURCE_SHA}" '
                 .workflow_runs[]
                 | select(
                     .name == "CI"
@@ -76,299 +82,305 @@ jobs:
                   )
               ' >/dev/null
 
-  verify-vscode-marketplace-identity:
-    name: Verify VS Code Marketplace identity
-    needs: validate
-    if: github.event_name == 'workflow_dispatch' && inputs.verify_vscode_marketplace_identity
-    runs-on: ubuntu-24.04
-    environment: vscode-marketplace-publish
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Sign in to Azure with GitHub OIDC
-        uses: azure/login@v3
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
-      - name: Confirm the federated Azure identity
+      - name: Verify release approval protection
         shell: bash
-        run: |
-          set -euo pipefail
-          echo "OIDC authentication succeeded. Marketplace publication is intentionally not attempted."
-
-  build:
-    name: Build ${{ matrix.asset }}
-    needs: validate
-    if: github.event_name != 'workflow_dispatch' || !inputs.verify_vscode_marketplace_identity
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - asset: linux-arm64
-            os: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            binary: forma
-            managed_binary: forma-linux-arm64
-            archive: tar.gz
-          - asset: linux-x64
-            os: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            binary: forma
-            managed_binary: forma-linux-x64
-            archive: tar.gz
-          - asset: macos-arm64
-            os: macos-26
-            target: aarch64-apple-darwin
-            binary: forma
-            managed_binary: forma-macos-arm64
-            archive: tar.gz
-          - asset: macos-x64
-            os: macos-26-intel
-            target: x86_64-apple-darwin
-            binary: forma
-            managed_binary: forma-macos-x64
-            archive: tar.gz
-          - asset: windows-x64
-            os: windows-2025
-            target: x86_64-pc-windows-msvc
-            binary: forma.exe
-            managed_binary: forma-windows-x64.exe
-            archive: zip
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          run_install: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - name: Setup Rust target
-        shell: bash
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-          rustup target add "${{ matrix.target }}"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build WebApp assets
-        run: |
-          pnpm --filter @choral-forma/shared build
-          pnpm --filter @choral-forma/webapp build
-
-      - name: Build forma binary
-        run: cargo build --release --locked --bin forma --target ${{ matrix.target }}
-
-      - name: Package Unix artifact
-        if: matrix.archive == 'tar.gz'
-        shell: bash
-        run: |
-          set -euo pipefail
-          asset="forma-${{ matrix.asset }}"
-          package_root="dist-release/package/${asset}"
-          source_binary="target/${{ matrix.target }}/release/${{ matrix.binary }}"
-          mkdir -p "${package_root}/bin"
-          cp "${source_binary}" "${package_root}/bin/forma"
-          chmod +x "${package_root}/bin/forma"
-          cp README.md "${package_root}/README.md"
-          tar -C dist-release/package -czf "dist-release/${asset}.tar.gz" "${asset}"
-          cp "${source_binary}" "dist-release/${{ matrix.managed_binary }}"
-          chmod +x "dist-release/${{ matrix.managed_binary }}"
-          (
-            cd dist-release
-            shasum -a 256 "${asset}.tar.gz" > "${asset}.tar.gz.sha256"
-            shasum -a 256 "${{ matrix.managed_binary }}" > "${{ matrix.managed_binary }}.sha256"
-          )
-
-      - name: Package Windows artifact
-        if: matrix.archive == 'zip'
-        shell: pwsh
-        run: |
-          $asset = "forma-${{ matrix.asset }}"
-          New-Item -ItemType Directory -Force -Path "dist-release/$asset/bin" | Out-Null
-          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist-release/$asset/bin/forma.exe"
-          Copy-Item "README.md" "dist-release/$asset/README.md"
-          Compress-Archive -Path "dist-release/$asset" -DestinationPath "dist-release/$asset.zip" -Force
-          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist-release/${{ matrix.managed_binary }}"
-          $archiveHash = Get-FileHash -Algorithm SHA256 "dist-release/$asset.zip"
-          "$($archiveHash.Hash.ToLower())  $asset.zip" | Set-Content -NoNewline "dist-release/$asset.zip.sha256"
-          $binaryHash = Get-FileHash -Algorithm SHA256 "dist-release/${{ matrix.managed_binary }}"
-          "$($binaryHash.Hash.ToLower())  ${{ matrix.managed_binary }}" | Set-Content -NoNewline "dist-release/${{ matrix.managed_binary }}.sha256"
-
-      - name: Upload release artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: forma-${{ matrix.asset }}
-          path: |
-            dist-release/forma-${{ matrix.asset }}.${{ matrix.archive }}
-            dist-release/forma-${{ matrix.asset }}.${{ matrix.archive }}.sha256
-            dist-release/${{ matrix.managed_binary }}
-            dist-release/${{ matrix.managed_binary }}.sha256
-          if-no-files-found: error
-
-  extension:
-    name: Build VS Code extension
-    needs: validate
-    if: github.event_name != 'workflow_dispatch' || !inputs.verify_vscode_marketplace_identity
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          run_install: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - name: Setup Rust
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check, lint, test, and build extension
-        run: |
-          pnpm --filter @choral-forma/shared build
-          pnpm --filter forma check
-          pnpm --filter forma lint
-          pnpm --filter forma test
-          pnpm --filter forma build
-
-      - name: Build development Forma binary
-        run: |
-          pnpm --filter @choral-forma/webapp build
-          cargo build --locked --bin forma
-
-      - name: Run Extension Host tests
-        run: PATH="${{ github.workspace }}/target/debug:$PATH" xvfb-run -a pnpm --filter forma test:integration
-
-      - name: Inspect package contents
-        run: pnpm --filter forma package:contents
-
-      - name: Resolve VSIX output
-        shell: bash
-        run: |
-          version="$(node -p "require('./extensions/vscode/package.json').version")"
-          echo "VSIX_NAME=forma-${version}.vsix" >> "$GITHUB_ENV"
-          echo "VSIX_OUT=${GITHUB_WORKSPACE}/dist-release/forma-${version}.vsix" >> "$GITHUB_ENV"
-
-      - name: Package and checksum VSIX
-        run: |
-          pnpm --filter forma package:vsix
-          cd dist-release
-          shasum -a 256 "$VSIX_NAME" > "$VSIX_NAME.sha256"
-
-      - name: Smoke test packaged VSIX
         env:
-          FORMA_TEST_BIN: ${{ github.workspace }}/target/debug/forma
-          VSIX_PATH: ${{ env.VSIX_OUT }}
-        run: xvfb-run -a pnpm --filter forma smoke:vsix
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          environment="$(
+            gh api "repos/${GITHUB_REPOSITORY}/environments/release-production"
+          )"
+          jq -e '
+            .protection_rules[]
+            | select(.type == "required_reviewers")
+            | .reviewers
+            | length > 0
+          ' <<< "${environment}" >/dev/null
 
-      - name: Upload extension release artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: forma-vscode
-          path: |
-            ${{ env.VSIX_OUT }}
-            ${{ env.VSIX_OUT }}.sha256
-          if-no-files-found: error
+      - name: Reject a conflicting tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          refs="$(
+            gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${RELEASE_TAG}"
+          )"
+          exact_ref="$(
+            jq -c --arg ref "refs/tags/${RELEASE_TAG}" '[.[] | select(.ref == $ref)]' <<< "${refs}"
+          )"
+          count="$(jq 'length' <<< "${exact_ref}")"
+          if [[ "${count}" == "0" ]]; then
+            exit 0
+          fi
+          test "${count}" = "1"
+          test "$(jq -r '.[0].object.type' <<< "${exact_ref}")" = "tag"
+          tag_object_sha="$(jq -r '.[0].object.sha' <<< "${exact_ref}")"
+          tag_object="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object_sha}")"
+          test "$(jq -r '.object.type' <<< "${tag_object}")" = "commit"
+          test "$(jq -r '.object.sha' <<< "${tag_object}")" = "${SOURCE_SHA}"
 
-  publish:
-    name: Publish GitHub Release
-    needs: [build, extension]
+  build-candidate:
+    name: Build immutable candidate artifacts
+    needs: validate
+    uses: ./.github/workflows/release-build.yml
+    with:
+      source_sha: ${{ needs.validate.outputs.source_sha }}
+      build_extension: true
+      targets_json: >-
+        [
+          {"asset":"linux-arm64","os":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu","binary":"forma","managed_binary":"forma-linux-arm64","archive":"tar.gz"},
+          {"asset":"linux-x64","os":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu","binary":"forma","managed_binary":"forma-linux-x64","archive":"tar.gz"},
+          {"asset":"macos-arm64","os":"macos-26","target":"aarch64-apple-darwin","binary":"forma","managed_binary":"forma-macos-arm64","archive":"tar.gz"},
+          {"asset":"macos-x64","os":"macos-26-intel","target":"x86_64-apple-darwin","binary":"forma","managed_binary":"forma-macos-x64","archive":"tar.gz"},
+          {"asset":"windows-x64","os":"windows-2025","target":"x86_64-pc-windows-msvc","binary":"forma.exe","managed_binary":"forma-windows-x64.exe","archive":"zip"}
+        ]
+
+  assemble-candidate:
+    name: Assemble source-bound candidate
+    needs: [validate, build-candidate]
     runs-on: ubuntu-24.04
-    if: (github.event_name == 'push' || inputs.publish) && !inputs.verify_vscode_marketplace_identity
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.validate.outputs.source_sha }}
+
+      - name: Locate an existing candidate
+        id: existing
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" \
+              --jq '.artifacts[] | select(.name == "release-candidate" and .expired == false) | .id' \
+              | head -n 1
+          )"
+          if [[ -n "${artifact_id}" ]]; then
+            echo "present=true" >> "${GITHUB_OUTPUT}"
+            echo "Reusing immutable candidate artifact ${artifact_id}."
+          else
+            echo "present=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Download existing candidate
+        if: steps.existing.outputs.present == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-candidate
+          path: candidate
+
+      - name: Download build artifacts
+        if: steps.existing.outputs.present != 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: forma-*
+          path: candidate/assets
+          merge-multiple: true
+
+      - name: Assemble candidate manifest
+        if: steps.existing.outputs.present != 'true'
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+        run: |
+          node scripts/release-candidate.mjs assemble \
+            --assets-dir candidate/assets \
+            --version "${RELEASE_VERSION}" \
+            --source-sha "${SOURCE_SHA}" \
+            --output candidate/release-candidate.json
+
+      - name: Verify candidate manifest
+        env:
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+        run: |
+          node scripts/release-candidate.mjs verify \
+            --assets-dir candidate/assets \
+            --manifest candidate/release-candidate.json \
+            --source-sha "${SOURCE_SHA}"
+
+      - name: Upload immutable candidate
+        if: steps.existing.outputs.present != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-candidate
+          path: candidate
+          if-no-files-found: error
+          retention-days: 30
+
+  promote:
+    name: Promote candidate to GitHub Release
+    needs: [validate, assemble-candidate]
+    runs-on: ubuntu-24.04
+    environment: release-production
     permissions:
       actions: read
       contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ needs.validate.outputs.source_sha }}
 
-      - name: Resolve release tag
-        shell: bash
+      - name: Download immutable candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-candidate
+          path: candidate
+
+      - name: Verify candidate before promotion
+        env:
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
         run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "RELEASE_TAG=${{ inputs.tag }}" >> "$GITHUB_ENV"
-          else
-            echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
-          fi
+          node scripts/release-candidate.mjs verify \
+            --assets-dir candidate/assets \
+            --manifest candidate/release-candidate.json \
+            --source-sha "${SOURCE_SHA}"
 
-      - name: Download release artifacts
+      - name: Revalidate main source boundary
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
         run: |
           set -euo pipefail
-          gh run download "${{ github.run_id }}" --dir release-assets
-          mkdir -p upload
-          find release-assets -maxdepth 3 -type f -exec cp {} upload/ \;
-          ls -la upload
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          test "${current_main}" = "${SOURCE_SHA}"
 
-      - name: Create GitHub Release
+      - name: Create or verify annotated tag
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
         run: |
           set -euo pipefail
-          prerelease_flags=()
-          if [[ "$RELEASE_TAG" == *-* ]]; then
-            prerelease_flags+=(--prerelease)
+          refs="$(
+            gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${RELEASE_TAG}"
+          )"
+          exact_ref="$(
+            jq -c --arg ref "refs/tags/${RELEASE_TAG}" '[.[] | select(.ref == $ref)]' <<< "${refs}"
+          )"
+          count="$(jq 'length' <<< "${exact_ref}")"
+          if [[ "${count}" == "0" ]]; then
+            tag_object="$(
+              jq -n \
+                --arg tag "${RELEASE_TAG}" \
+                --arg message "Forma ${RELEASE_TAG}" \
+                --arg object "${SOURCE_SHA}" \
+                '{tag:$tag,message:$message,object:$object,type:"commit"}' \
+                | gh api --method POST "repos/${GITHUB_REPOSITORY}/git/tags" --input -
+            )"
+            tag_object_sha="$(jq -r '.sha' <<< "${tag_object}")"
+            jq -n \
+              --arg ref "refs/tags/${RELEASE_TAG}" \
+              --arg sha "${tag_object_sha}" \
+              '{ref:$ref,sha:$sha}' \
+              | gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" --input - >/dev/null
+            exit 0
           fi
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "refusing to overwrite existing release: ${RELEASE_TAG}" >&2
+          test "${count}" = "1"
+          test "$(jq -r '.[0].object.type' <<< "${exact_ref}")" = "tag"
+          tag_object_sha="$(jq -r '.[0].object.sha' <<< "${exact_ref}")"
+          tag_object="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object_sha}")"
+          test "$(jq -r '.object.type' <<< "${tag_object}")" = "commit"
+          test "$(jq -r '.object.sha' <<< "${tag_object}")" = "${SOURCE_SHA}"
+
+      - name: Create or reconcile draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          release_api="repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}"
+          if ! release="$(gh api "${release_api}" 2>/dev/null)"; then
+            prerelease_flags=()
+            if [[ "${RELEASE_TAG}" == *-* ]]; then
+              prerelease_flags+=(--prerelease)
+            fi
+            gh release create "${RELEASE_TAG}" \
+              --draft \
+              --generate-notes \
+              --title "Forma ${RELEASE_TAG}" \
+              --verify-tag \
+              "${prerelease_flags[@]}"
+            release="$(gh api "${release_api}")"
+          fi
+
+          release_id="$(jq -r '.id' <<< "${release}")"
+          while read -r asset_id; do
+            test "$(jq -r '.draft' <<< "${release}")" = "true"
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}"
+          done < <(
+            jq -r '.assets[] | select(.state == "starter" and .size == 0) | .id' <<< "${release}"
+          )
+          if jq -e '.assets[] | select(.state != "uploaded" and (.state != "starter" or .size != 0))' \
+            <<< "${release}" >/dev/null; then
+            echo "Release contains an unrecoverable incomplete asset." >&2
             exit 1
           fi
-          gh release create "$RELEASE_TAG" upload/* --generate-notes "${prerelease_flags[@]}"
+
+          rm -rf published-subset
+          mkdir -p published-subset
+          release="$(gh api "${release_api}")"
+          if [[ "$(jq '.assets | length' <<< "${release}")" -gt 0 ]]; then
+            gh release download "${RELEASE_TAG}" --dir published-subset
+          fi
+          subset="$(
+            node scripts/release-candidate.mjs verify-subset \
+              --assets-dir published-subset \
+              --manifest candidate/release-candidate.json \
+              --source-sha "${SOURCE_SHA}"
+          )"
+          while read -r name; do
+            gh release upload "${RELEASE_TAG}" "candidate/assets/${name}"
+          done < <(jq -r '.missingNames[]' <<< "${subset}")
+
+          rm -rf published-assets
+          mkdir -p published-assets
+          gh release download "${RELEASE_TAG}" --dir published-assets
+          node scripts/release-candidate.mjs verify \
+            --assets-dir published-assets \
+            --manifest candidate/release-candidate.json \
+            --source-sha "${SOURCE_SHA}"
+
+          release="$(gh api "${release_api}")"
+          expected_prerelease=false
+          if [[ "${RELEASE_TAG}" == *-* ]]; then
+            expected_prerelease=true
+          fi
+          test "$(jq -r '.tag_name' <<< "${release}")" = "${RELEASE_TAG}"
+          test "$(jq -r '.prerelease' <<< "${release}")" = "${expected_prerelease}"
+          if [[ "$(jq -r '.draft' <<< "${release}")" == "true" ]]; then
+            gh release edit "${RELEASE_TAG}" --draft=false
+          fi
+          echo "releaseId=${release_id}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "sourceCommit=${SOURCE_SHA}" >> "${GITHUB_STEP_SUMMARY}"
 
   verify-published-release:
     name: Verify published release
-    needs: publish
+    needs: [validate, promote]
     runs-on: ubuntu-24.04
-    if: (github.event_name == 'push' || inputs.publish) && !inputs.verify_vscode_marketplace_identity
-    permissions:
-      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ needs.validate.outputs.source_sha }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -379,30 +391,31 @@ jobs:
       - name: Verify published CLI and VSIX compatibility
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/verify-release.mjs "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        run: node scripts/verify-release.mjs "${RELEASE_TAG}"
 
   publish-vscode-marketplace:
     name: Publish VS Code Marketplace extension
-    needs: verify-published-release
-    if: (github.event_name == 'push' || (inputs.publish && inputs.publish_vscode_marketplace)) && !inputs.verify_vscode_marketplace_identity
+    needs: [validate, verify-published-release]
     runs-on: ubuntu-24.04
     environment: vscode-marketplace-publish
     permissions:
+      actions: read
       contents: read
       id-token: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ needs.validate.outputs.source_sha }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -410,25 +423,67 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download packaged VSIX
-        uses: actions/download-artifact@v8
+      - name: Download immutable candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: forma-vscode
-          path: dist-release
+          name: release-candidate
+          path: candidate
+
+      - name: Verify candidate before Marketplace publication
+        env:
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+        run: |
+          node scripts/release-candidate.mjs verify \
+            --assets-dir candidate/assets \
+            --manifest candidate/release-candidate.json \
+            --source-sha "${SOURCE_SHA}"
 
       - name: Sign in to Azure with GitHub OIDC
-        uses: azure/login@v3
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
 
-      - name: Publish packaged VSIX
+      - name: Publish or verify packaged VSIX
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
           set -euo pipefail
-          version="$(node -p "require('./extensions/vscode/package.json').version")"
-          vsix_path="$(find dist-release -type f -name "forma-${version}.vsix" -print -quit)"
-          test -n "$vsix_path"
-          vsix_path="$(realpath "$vsix_path")"
-          pnpm --filter forma exec vsce publish --packagePath "$vsix_path" --azure-credential
+          vsix_name="forma-${RELEASE_VERSION}.vsix"
+          vsix_path="${GITHUB_WORKSPACE}/candidate/assets/${vsix_name}"
+          expected_sha="$(
+            jq -er --arg name "${vsix_name}" \
+              '.assets[] | select(.name == $name) | .sha256' \
+              candidate/release-candidate.json
+          )"
+          marketplace_state="$(
+            pnpm --filter forma exec vsce show choral-io.forma --json \
+              | jq -ce --arg version "${RELEASE_VERSION}" '
+                  [.versions[]? | select(.version == $version)] as $versions
+                  | if ($versions | length) == 0 then
+                      {state: "absent"}
+                    elif ($versions | length) != 1 then
+                      error("duplicate Marketplace version")
+                    else
+                      [
+                        $versions[0].properties[]?
+                        | select(.key == "Microsoft.VisualStudio.Services.VsixSha256")
+                        | .value
+                      ] as $hashes
+                      | if (($hashes | length) == 1
+                            and ($hashes[0] | test("^[0-9A-Fa-f]{64}$"))) then
+                          {state: "present", sha256: ($hashes[0] | ascii_downcase)}
+                        else
+                          error("missing, invalid, or duplicate Marketplace VSIX hash")
+                        end
+                    end
+                '
+          )"
+          if [[ "$(jq -r '.state' <<< "${marketplace_state}")" == "present" ]]; then
+            test "$(jq -r '.sha256' <<< "${marketplace_state}")" = "${expected_sha}"
+            echo "Marketplace already contains the matching VSIX."
+            exit 0
+          fi
+          pnpm --filter forma exec vsce publish --packagePath "${vsix_path}" --azure-credential

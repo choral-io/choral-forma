@@ -2,18 +2,30 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import {
+    environmentName,
+    hasTrigger,
+    job,
+    jobNeeds,
+    parseWorkflow,
+    secretReferences,
+    trigger,
+} from "./workflow-contract.mjs";
+
 const [gitignore, packageJsonSource, pnpmWorkspace, workflow, wranglerSource] = await Promise.all(
     [
         "../.gitignore",
         "../package.json",
         "../pnpm-workspace.yaml",
-        "../.github/workflows/deploy-site.yml",
+        "../.github/workflows/ci.yml",
         "../wrangler.jsonc",
     ].map(async (path) => await readFile(new URL(path, import.meta.url), "utf8")),
 );
 
 const packageJson = JSON.parse(packageJsonSource);
 const wrangler = JSON.parse(wranglerSource.replace(/,\s*([}\]])/gu, "$1"));
+const ci = parseWorkflow(workflow, "ci.yml");
+const deploy = job(ci, "deploy-site");
 
 test("configures an asset-only Cloudflare Worker with one production custom domain", () => {
     assert.equal(wrangler.name, "choral-forma-site");
@@ -45,50 +57,30 @@ test("pins Wrangler and keeps its platform binary installation explicit", () => 
     assert.match(gitignore, /^\.wrangler\/$/mu);
 });
 
-test("automatically deploys successful main CI artifacts while retaining manual rollback", () => {
-    assert.match(workflow, /^on:\n  workflow_run:\n    workflows: \["CI"\]\n    types: \[completed\]/mu);
-    assert.match(workflow, /^  workflow_dispatch:\n    inputs:\n      ci_run_id:/mu);
-    assert.doesNotMatch(workflow, /^\s+(?:push|pull_request|schedule):/mu);
-    assert.match(workflow, /^  cancel-in-progress: false$/mu);
-    assert.match(
-        workflow,
-        /github\.event_name == 'workflow_run'[\s\S]*?github\.event\.workflow_run\.conclusion == 'success'[\s\S]*?github\.event\.workflow_run\.head_branch == 'main'[\s\S]*?github\.event\.workflow_run\.event == 'push'/u,
-    );
-    assert.match(workflow, /github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/u);
-    assert.match(workflow, /environment:\n      name: forma\.choral\.io\n      url: https:\/\/forma\.choral\.io/u);
-    assert.match(workflow, /^  actions: read$/mu);
-    assert.match(workflow, /^  contents: read$/mu);
+test("automatically deploys only a fully successful main push", () => {
+    assert.equal(hasTrigger(ci, "pull_request"), true);
+    assert.deepEqual(trigger(ci, "push").branches, ["main"]);
+    assert.equal(environmentName(deploy), "forma.choral.io");
+    assert.equal(deploy.environment.url, "https://forma.choral.io");
+    const condition = deploy.if.replace(/\s+/gu, " ").trim();
+    assert.doesNotMatch(condition, /\|\|/u);
+    assert.match(condition, /^github\.event_name == 'push' && github\.ref == 'refs\/heads\/main' &&/u);
+    assert.deepEqual(jobNeeds(deploy).sort(), ["extension", "knowledge", "rust", "site", "web", "windows-release"]);
 });
 
-test("deploys only the named artifact from a successful main CI run at the exact source commit", () => {
-    assert.match(
-        workflow,
-        /CI_RUN_ID: \$\{\{ github\.event_name == 'workflow_run' && github\.event\.workflow_run\.id \|\| inputs\.ci_run_id \}\}/u,
-    );
-    assert.match(
-        workflow,
-        /SOURCE_SHA: \$\{\{ github\.event_name == 'workflow_run' && github\.event\.workflow_run\.head_sha \|\| inputs\.source_sha \}\}/u,
-    );
-    assert.match(workflow, /actions\/runs\/\$\{CI_RUN_ID\}/u);
-    assert.match(workflow, /test "\$\(jq -r '\.name'[\s\S]*?= "CI"/u);
-    assert.match(workflow, /test "\$\(jq -r '\.head_branch'[\s\S]*?= "main"/u);
-    assert.match(workflow, /test "\$\(jq -r '\.head_sha'[\s\S]*?= "\$\{SOURCE_SHA\}"/u);
-    assert.match(workflow, /test "\$\(jq -r '\.conclusion'[\s\S]*?= "success"/u);
-    assert.match(
-        workflow,
-        /uses: actions\/checkout@v7[\s\S]*?ref: \$\{\{ github\.event_name == 'workflow_run' && github\.event\.workflow_run\.head_sha \|\| inputs\.source_sha \}\}/u,
-    );
-    assert.match(
-        workflow,
-        /gh run download "\$\{CI_RUN_ID\}"[\s\S]*?--name forma-static-site[\s\S]*?--dir dist\/site/u,
-    );
-    assert.match(workflow, /pnpm install --frozen-lockfile/u);
-    assert.match(workflow, /pnpm site:deploy/u);
+test("binds the named static artifact to the current remote main commit", () => {
+    const commands = deploy.steps.flatMap((step) => (typeof step.run === "string" ? [step.run] : [])).join("\n");
+    assert.equal(commands.match(/git\/ref\/heads\/main/gu)?.length, 2);
+    assert.match(commands, /current_main.*GITHUB_SHA/su);
+    assert.match(commands, /\.forma-source-sha/u);
+    assert.match(commands, /pnpm install --frozen-lockfile/u);
+    assert.match(commands, /pnpm site:deploy/u);
+    const download = deploy.steps.find((step) => step.uses?.startsWith("actions/download-artifact@"));
+    assert.equal(download?.with?.name, "forma-static-site");
+    assert.equal(download?.with?.path, "dist/site");
 });
 
 test("keeps Cloudflare credentials in environment secrets", () => {
-    assert.match(workflow, /CLOUDFLARE_ACCOUNT_ID: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/u);
-    assert.match(workflow, /CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/u);
-    assert.doesNotMatch(workflow, /account_id:/u);
-    assert.doesNotMatch(workflow, /api_token:/u);
+    assert.deepEqual(secretReferences(deploy), ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"]);
+    assert.doesNotMatch(JSON.stringify(wrangler), /account_id|api_token/u);
 });

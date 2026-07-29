@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -20,15 +21,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -132,9 +133,10 @@ jobs:
           test "${first_digest}" = "$(digest)"
           echo "treeDigest=${first_digest}" >> "${GITHUB_STEP_SUMMARY}"
           echo "artifactFiles=$(find "${site}" -type f | wc -l | tr -d ' ')" >> "${GITHUB_STEP_SUMMARY}"
+          printf '%s\n' "${GITHUB_SHA}" > "${site}/.forma-source-sha"
 
       - name: Upload static site artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: forma-static-site
           path: dist/site
@@ -146,15 +148,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -170,21 +172,37 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .node-version
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Check GitHub Actions syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/actionlint.tar.gz"
+          curl -fsSL \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            -o "${archive}"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  ${archive}" \
+            | sha256sum --check
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}" actionlint
+          # actionlint 1.7.12 predates GitHub's concurrency.queue field. The
+          # structured workflow contract fixes that field to the supported
+          # `queue: max` value until actionlint recognizes it.
+          "${RUNNER_TEMP}/actionlint" -color -ignore 'unexpected key "queue"'
 
       - name: Check web packages
         run: pnpm check
@@ -206,15 +224,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -267,7 +285,7 @@ jobs:
         run: xvfb-run -a pnpm --filter forma smoke:vsix
 
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: forma-vscode
           path: ${{ env.VSIX_OUT }}
@@ -278,15 +296,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -317,36 +335,96 @@ jobs:
 
   windows-release:
     name: Windows release build
-    runs-on: windows-2025
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/release-build.yml
+    with:
+      source_sha: ${{ github.sha }}
+      build_extension: false
+      targets_json: >-
+        [
+          {"asset":"windows-x64","os":"windows-2025","target":"x86_64-pc-windows-msvc","binary":"forma.exe","managed_binary":"forma-windows-x64.exe","archive":"zip"}
+        ]
+
+  deploy-site:
+    name: Deploy forma.choral.io
+    needs: [site, knowledge, web, extension, rust, windows-release]
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.site.result == 'success' && needs.knowledge.result == 'success' && needs.web.result == 'success' && needs.extension.result == 'success' && needs.rust.result == 'success' && needs.windows-release.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: forma.choral.io
+      url: https://forma.choral.io
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - name: Reject a superseded main artifact
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "${current_main}" != "${GITHUB_SHA}" ]]; then
+            echo "superseded=true" >> "${GITHUB_OUTPUT}"
+            echo "Deployment skipped: ${GITHUB_SHA} was superseded by ${current_main}." >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "superseded=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Checkout exact source
+        if: steps.source.outputs.superseded != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        if: steps.source.outputs.superseded != 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        if: steps.source.outputs.superseded != 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .node-version
           cache: pnpm
 
-      - name: Setup Rust target
-        shell: bash
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-          rustup target add x86_64-pc-windows-msvc
-
-      - name: Install dependencies
+      - name: Install deployment dependencies
+        if: steps.source.outputs.superseded != 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Build WebApp assets
-        run: |
-          pnpm --filter @choral-forma/shared build
-          pnpm --filter @choral-forma/webapp build
+      - name: Download verified static artifact
+        if: steps.source.outputs.superseded != 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: forma-static-site
+          path: dist/site
 
-      - name: Build release binary
-        run: cargo build --release --locked --bin forma --target x86_64-pc-windows-msvc
+      - name: Verify source-bound static artifact
+        if: steps.source.outputs.superseded != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in index.html 404.html sitemap.xml robots.txt _headers .forma-site-artifact .forma-source-sha data/dashboard.json; do
+            test -f "dist/site/${file}"
+          done
+          test "$(tr -d '\r\n' < dist/site/.forma-source-sha)" = "${GITHUB_SHA}"
+          echo "sourceCommit=${GITHUB_SHA}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "artifactFiles=$(find dist/site -type f | wc -l | tr -d ' ')" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Deploy static assets to Cloudflare
+        if: steps.source.outputs.superseded != 'true'
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          set -euo pipefail
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          test "${current_main}" = "${GITHUB_SHA}"
+          pnpm site:deploy

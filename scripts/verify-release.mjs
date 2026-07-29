@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, readFile, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -54,19 +54,25 @@ async function verifyRelease(releaseTag) {
         const assets = validateReleaseMetadata(release, releaseTag);
         const downloader = managedModule.createFetchDownloader();
 
-        const cliPath = join(scratch, target.assetName);
-        const cliChecksumPath = `${cliPath}.sha256`;
         const vsixName = `forma-${version}.vsix`;
-        const vsixPath = join(scratch, vsixName);
-        const vsixChecksumPath = `${vsixPath}.sha256`;
+        const payloadNames = expectedReleaseAssetNames(version).filter((name) => !name.endsWith(".sha256"));
+        const publishedDirectory = join(scratch, "published-assets");
+        const verifiedPayloads = new Map();
+        await mkdir(publishedDirectory);
+        for (const payloadName of payloadNames) {
+            const payloadPath = join(publishedDirectory, payloadName);
+            const checksumName = `${payloadName}.sha256`;
+            const checksumPath = join(publishedDirectory, checksumName);
+            await downloadAsset(downloader, assets, payloadName, payloadPath, MAX_PAYLOAD_BYTES);
+            await downloadAsset(downloader, assets, checksumName, checksumPath, MAX_CHECKSUM_BYTES);
+            verifiedPayloads.set(payloadName, await verifyChecksum(payloadPath, checksumPath, payloadName));
+        }
 
-        await downloadAsset(downloader, assets, target.assetName, cliPath, MAX_PAYLOAD_BYTES);
-        await downloadAsset(downloader, assets, `${target.assetName}.sha256`, cliChecksumPath, MAX_CHECKSUM_BYTES);
-        await downloadAsset(downloader, assets, vsixName, vsixPath, MAX_PAYLOAD_BYTES);
-        await downloadAsset(downloader, assets, `${vsixName}.sha256`, vsixChecksumPath, MAX_CHECKSUM_BYTES);
-
-        const cliSha256 = await verifyChecksum(cliPath, cliChecksumPath, target.assetName);
-        const vsixSha256 = await verifyChecksum(vsixPath, vsixChecksumPath, vsixName);
+        const cliPath = join(publishedDirectory, target.assetName);
+        const vsixPath = join(publishedDirectory, vsixName);
+        const cliSha256 = verifiedPayloads.get(target.assetName);
+        const vsixSha256 = verifiedPayloads.get(vsixName);
+        if (!cliSha256 || !vsixSha256) throw new Error("Published release payload verification was incomplete.");
         if (process.platform !== "win32") await chmod(cliPath, 0o755);
         const cliVersion = await commandVersion(cliPath);
         assertEqual(cliVersion, `forma ${version}`, "downloaded CLI version");
@@ -95,6 +101,7 @@ async function verifyRelease(releaseTag) {
             tag: releaseTag,
             releaseUrl: release.html_url,
             assets: expectedReleaseAssetNames(version).length,
+            verifiedPayloads: verifiedPayloads.size,
             host: { platform: process.platform, arch: process.arch, asset: target.assetName },
             cli: { version: cliVersion, sha256: cliSha256 },
             vsix: {
