@@ -941,6 +941,7 @@ fn skills_get_builtin_core_prints_markdown_without_workspace_config() {
     );
     assert!(output.stderr.is_empty());
     let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("forma-source-ref: docs:agents.forma-cli-core"));
     assert!(stdout.contains("## Agent Skill"));
     assert!(stdout.contains("Run `forma` commands from the target workspace root, or pass"));
     assert!(stdout.contains("Only If Designing Or Authoring Workspace Config"));
@@ -1140,6 +1141,9 @@ fn init_creates_minimal_workspace_and_agent_runtime_skill() {
     let skill = std::fs::read_to_string(root.join(".agents/skills/forma-cli/SKILL.md")).unwrap();
     assert!(skill.contains("name: forma-cli"));
     assert!(skill.contains("forma skills get forma-cli-core"));
+    assert!(skill.contains("forma config summary --json"));
+    assert!(!skill.contains("forma config inspect --json"));
+    assert!(!skill.contains("forma-source-ref"));
     assert!(skill.contains("workspace root"));
 
     let inspect = forma(&root)
@@ -1291,7 +1295,7 @@ fn skills_get_workspace_skill_prints_markdown_for_agent_consumption() {
     );
     assert!(output.stderr.is_empty());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Source guideline: knowledge/guidelines/authoring.md"));
+    assert!(stdout.contains("forma-source-ref: workspace:knowledge/guidelines/authoring.md"));
     assert!(stdout.contains("## Agent Skill"));
     assert!(stdout.contains("Follow the workflow."));
     assert!(!stdout.contains("Human-facing background."));
@@ -1330,12 +1334,12 @@ fn skills_get_markdown_output_reports_diagnostics_to_stderr() {
     .unwrap();
     std::fs::write(
         root.join("knowledge/guidelines/first-duplicate.md"),
-        "---\nskill:\n  id: duplicate-workflow\n  title: Duplicate One\n---\n\n# Duplicate One\n",
+        "---\nskill:\n  id: duplicate-workflow\n  title: Duplicate One\n  description: Route the first duplicate workflow.\n  projection: full\n---\n\n# Duplicate One\n",
     )
     .unwrap();
     std::fs::write(
         root.join("knowledge/guidelines/second-duplicate.md"),
-        "---\nskill:\n  id: duplicate-workflow\n  title: Duplicate Two\n---\n\n# Duplicate Two\n",
+        "---\nskill:\n  id: duplicate-workflow\n  title: Duplicate Two\n  description: Route the second duplicate workflow.\n  projection: full\n---\n\n# Duplicate Two\n",
     )
     .unwrap();
 

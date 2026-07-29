@@ -14,15 +14,8 @@ tags:
 skill:
     id: local-worklist-and-execution
     title: Local Worklist And Execution
-    description: Use when an Agent needs to manage member-local worklists, logs, drafts, execution notes, or decide whether local material should stay private or be proposed for promotion.
-    triggers:
-        - local worklist
-        - execution log
-        - member local notes
-        - resume local work
-        - promote local draft
-        - worktree execution
-        - run next local item
+    description: Manage this repository's member-local worklists, logs, drafts, and execution notes without promoting them into shared truth accidentally.
+    projection: section
     order: 50
 sources:
     - "guidelines/forma-workspace-operations"
@@ -113,3 +106,7 @@ Report:
 - whether the item stays local or needs shared promotion;
 - checks or git hygiene performed;
 - next action or approval needed.
+
+### Completion Criteria
+
+Finish local work only when the selected item and next action are explicit, local material remains outside shared truth and commits, and any required promotion is stopped at a dry run or approval boundary.

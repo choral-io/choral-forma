@@ -10,12 +10,7 @@ surfaces:
 skill:
     id: forma-workspace-troubleshooting
     title: Forma Workspace Troubleshooting
-    description: Use to diagnose configuration, discovery, validation, or reference failures with read-only evidence first.
-    triggers:
-        - troubleshoot workspace
-        - diagnose Forma error
-        - config inspect failed
-        - workspace health warning
+    description: Diagnose Forma configuration, discovery, validation, and reference failures from read-only evidence before proposing changes.
     order: 40
 order: 225
 ---
@@ -33,6 +28,10 @@ Start with read-only evidence:
 5. Propose the smallest config or content correction and wait for approval before changing shared workspace material.
 
 For missing configuration, explain that built-in docs and skills remain available, then ask whether the human wants `forma init`. For a malformed configuration, preserve the source and address the reported diagnostic before editing unrelated content.
+
+### Completion Criteria
+
+Finish diagnosis only when the failing operation and owning layer are identified from current evidence, repository conventions have not been promoted into Forma semantics, and the smallest proposed correction plus any approval boundary is explicit.
 
 ## Reference
 

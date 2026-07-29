@@ -21,5 +21,6 @@ serde_yml = "0.0.12"
 thiserror = "2.0.18"
 
 [build-dependencies]
+markdown = "1.0.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_yml = "0.0.12"

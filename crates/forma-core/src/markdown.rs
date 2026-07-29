@@ -430,18 +430,25 @@ pub(crate) fn all_markdown_headings(body: &str) -> Vec<FormaHeading> {
     headings
 }
 
+pub(crate) fn top_level_markdown_headings(body: &str) -> Vec<FormaHeading> {
+    let Ok(mdast::Node::Root(root)) = to_mdast(body, &ParseOptions::gfm()) else {
+        return Vec::new();
+    };
+    root.children
+        .iter()
+        .filter_map(|node| {
+            let mdast::Node::Heading(heading) = node else {
+                return None;
+            };
+            forma_heading(heading)
+        })
+        .collect()
+}
+
 fn collect_all_headings(node: &mdast::Node, headings: &mut Vec<FormaHeading>) {
     if let mdast::Node::Heading(heading) = node {
-        let text = plain_text(&heading.children);
-        if !text.trim().is_empty() {
-            headings.push(FormaHeading {
-                level: heading.depth,
-                text,
-                span: heading
-                    .position
-                    .as_ref()
-                    .map(SourceSpan::from_markdown_position),
-            });
+        if let Some(heading) = forma_heading(heading) {
+            headings.push(heading);
         }
     }
     if let Some(children) = node.children() {
@@ -449,6 +456,21 @@ fn collect_all_headings(node: &mdast::Node, headings: &mut Vec<FormaHeading>) {
             collect_all_headings(child, headings);
         }
     }
+}
+
+fn forma_heading(heading: &mdast::Heading) -> Option<FormaHeading> {
+    let text = plain_text(&heading.children);
+    if text.trim().is_empty() {
+        return None;
+    }
+    Some(FormaHeading {
+        level: heading.depth,
+        text,
+        span: heading
+            .position
+            .as_ref()
+            .map(SourceSpan::from_markdown_position),
+    })
 }
 
 fn markdown_resource_span(

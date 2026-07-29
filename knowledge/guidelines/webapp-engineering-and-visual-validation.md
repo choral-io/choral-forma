@@ -18,16 +18,8 @@ tags:
 skill:
     id: webapp-engineering-and-visual-validation
     title: WebApp Engineering And Visual Validation
-    description: Use when an Agent implements, debugs, or visually validates a WebApp page, interaction, responsive layout, theme, or UI-foundation change.
-    triggers:
-        - implement webapp
-        - debug frontend layout
-        - visual validation
-        - responsive webapp
-        - daisyui interaction
-        - sidebar transition
-        - spa navigation dismissal
-        - frontend abstraction review
+    description: Build, debug, and visually validate Forma WebApp pages, interactions, responsive layouts, themes, and UI foundations.
+    projection: section
     order: 45
 sources:
     - "design/webapp-review-surface-design"
@@ -55,6 +47,42 @@ Use this skill when an Agent:
 - decides whether repeated UI code is ready to be extracted.
 
 Read the accepted product or design specification for the affected surface before changing implementation. This guideline does not override route-specific acceptance criteria.
+
+### Execution Sequence
+
+1. Read the affected product, design, route, and configured-data contract.
+2. Reproduce the exact behavior and define an observable red condition before editing.
+3. Choose the narrowest correct state owner and implementation surface.
+4. Implement one complete vertical slice with direct feature code before extracting abstractions.
+5. Run focused type, lint, and behavior checks.
+6. Build and serve the production WebApp through the real backend, then validate representative data, themes, widths, keyboard behavior, navigation, geometry, and console output.
+7. Repeat the same measurement after the final material adjustment and run the required repository gate.
+8. Remove temporary instrumentation and report checks, residual risks, and any unverified browser state.
+
+### Reference Routing
+
+Load `forma skills get webapp-engineering-and-visual-validation --full` when the task needs branch-specific detail:
+
+- state, focus, dismissal, or SPA navigation: `State Ownership`;
+- DaisyUI structure, dependency choice, or abstraction: `Component And Dependency Selection` and `Implement Before Abstracting`;
+- wrapping, clipping, overflow, stacking, or responsive geometry: the layout and overflow sections;
+- animation or transient visual defects: `Transition And Animation Heuristics`;
+- bug diagnosis or browser evidence: `Debugging Workflow` and `Browser Validation Loop`;
+- automated versus browser coverage: `Test Boundaries`;
+- suspicious fixes: `Common Failure Patterns` and `Stop And Reassess When`.
+
+### Guardrails
+
+- Consume configured behavior through shared Core projections; do not recreate product semantics in React.
+- Prefer native browser state, direct DaisyUI structure, and feature-local code until a tested gap justifies more machinery.
+- Do not hide layout defects with fixed dimensions, global clipping, arbitrary stacking values, or screenshot-only validation.
+- Validate against representative non-trivial workspace data rather than the repository's shortest fixtures.
+
+### Completion Criteria
+
+A slice is complete only when the accepted contract is preserved; relevant responsive, theme, keyboard, navigation, transition, overflow, and console states pass; focused and repository gates pass; temporary instrumentation is removed; and remaining limitations are reported.
+
+## Reference
 
 ### Core Principles
 

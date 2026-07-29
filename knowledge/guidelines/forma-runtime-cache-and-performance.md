@@ -17,14 +17,8 @@ tags:
 skill:
     id: forma-runtime-cache-and-performance
     title: Forma Runtime Cache And Performance
-    description: Use when changing effective workspace loading, snapshots, response caches, invalidation, static generation, or performance-sensitive projections.
-    triggers:
-        - change workspace loading
-        - add response cache
-        - change cache invalidation
-        - optimize Forma performance
-        - change static generation
-        - benchmark Forma runtime
+    description: Verify workspace snapshots, caches, invalidation, static generation, and performance changes without weakening Core semantics.
+    projection: full
     order: 45
 sources:
     - "architecture/forma-core-technical-direction"

@@ -13,12 +13,8 @@ tags:
 skill:
     id: task-selection
     title: Task Selection
-    description: Use when an Agent needs to choose, inspect, refine, or report delivery task state.
-    triggers:
-        - choose next task
-        - inspect task readiness
-        - review task board
-        - move task status
+    description: Select, inspect, refine, or report configured delivery tasks while preserving approval boundaries around task and board state.
+    projection: section
     order: 30
 sources:
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
@@ -87,6 +83,16 @@ Use `priority` for urgency or ordering pressure, `value` for expected delivery v
 ### Report
 
 Report the selected task, why it is next, what evidence supports the recommendation, and what must change before execution if it is not ready.
+
+### Reference Routing
+
+Load this skill with `--full` when selection needs detailed evidence gathering, assignment partitioning, metadata audit, board writes, implementation review, or the complete recommendation format.
+
+### Completion Criteria
+
+Finish selection or refinement only when the recommendation is grounded in current task and board evidence, blockers and acceptance criteria are explicit, assignment boundaries are respected, and any state change is either approved exactly or left as a proposal.
+
+## Reference
 
 ### Evidence To Gather
 

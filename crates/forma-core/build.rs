@@ -3,6 +3,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use markdown::{ParseOptions, mdast, to_mdast};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -24,7 +25,7 @@ struct DocMetadata {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SkillMetadata {
     #[serde(default)]
     id: String,
@@ -32,6 +33,10 @@ struct SkillMetadata {
     title: String,
     #[serde(default)]
     description: String,
+    #[serde(default)]
+    triggers: Vec<String>,
+    #[serde(default, rename = "order")]
+    _order: Option<i64>,
 }
 
 fn main() {
@@ -85,9 +90,13 @@ fn main() {
             require(&logical_path, "skill.id", &skill.id);
             require(&logical_path, "skill.title", &skill.title);
             require(&logical_path, "skill.description", &skill.description);
-            if !has_agent_skill_section(body) {
+            validate_skill_name(&logical_path, &skill.id);
+            validate_skill_description(&logical_path, &skill.description);
+            validate_skill_triggers(&logical_path, &skill.triggers);
+            let section_count = agent_skill_section_count(body);
+            if section_count != 1 {
                 panic!(
-                    "canonical skill doc {logical_path} must contain a compact `## Agent Skill` section"
+                    "canonical skill doc {logical_path} must contain exactly one compact `## Agent Skill` section; found {section_count}"
                 );
             }
             if let Some(previous) = skill_ids.insert(skill.id.clone(), logical_path.clone()) {
@@ -134,6 +143,78 @@ fn require(path: &str, field: &str, value: &str) {
     }
 }
 
-fn has_agent_skill_section(body: &str) -> bool {
-    body.lines().any(|line| line.trim() == "## Agent Skill")
+fn validate_skill_triggers(path: &str, triggers: &[String]) {
+    let mut seen = BTreeMap::new();
+    for trigger in triggers {
+        let normalized = trigger.trim();
+        if normalized.is_empty() {
+            panic!("canonical skill doc {path} contains an empty skill trigger");
+        }
+        if seen.insert(normalized, ()).is_some() {
+            panic!("canonical skill doc {path} contains duplicate skill trigger `{normalized}`");
+        }
+    }
+}
+
+// Keep these built-in checks aligned with workspace validation in operations.rs
+// and https://agentskills.io/specification.
+fn validate_skill_name(path: &str, name: &str) {
+    if name.len() > 64 {
+        panic!("canonical skill doc {path} skill id exceeds 64 characters");
+    }
+    if name.starts_with('-') || name.ends_with('-') {
+        panic!("canonical skill doc {path} skill id must not start or end with a hyphen");
+    }
+    if name.contains("--") {
+        panic!("canonical skill doc {path} skill id must not contain consecutive hyphens");
+    }
+    if !name
+        .bytes()
+        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        panic!(
+            "canonical skill doc {path} skill id may contain only lowercase ASCII letters, numbers, and hyphens"
+        );
+    }
+}
+
+fn validate_skill_description(path: &str, description: &str) {
+    if description.chars().count() > 1024 {
+        panic!("canonical skill doc {path} skill description exceeds 1024 characters");
+    }
+}
+
+fn agent_skill_section_count(body: &str) -> usize {
+    let ast = to_mdast(body, &ParseOptions::gfm())
+        .unwrap_or_else(|error| panic!("parse canonical skill Markdown: {error}"));
+    let mdast::Node::Root(root) = ast else {
+        panic!("canonical skill Markdown did not produce a document root");
+    };
+    root.children
+        .iter()
+        .filter_map(|node| {
+            let mdast::Node::Heading(heading) = node else {
+                return None;
+            };
+            Some((heading.depth, markdown_plain_text(&heading.children)))
+        })
+        .filter(|(depth, text)| *depth == 2 && text.trim() == "Agent Skill")
+        .count()
+}
+
+fn markdown_plain_text(nodes: &[mdast::Node]) -> String {
+    let mut output = String::new();
+    for node in nodes {
+        match node {
+            mdast::Node::Text(text) => output.push_str(&text.value),
+            mdast::Node::InlineCode(code) => output.push_str(&code.value),
+            mdast::Node::Break(_) => output.push(' '),
+            _ => {
+                if let Some(children) = node.children() {
+                    output.push_str(&markdown_plain_text(children));
+                }
+            }
+        }
+    }
+    output
 }

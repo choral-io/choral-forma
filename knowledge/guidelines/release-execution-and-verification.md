@@ -13,14 +13,8 @@ tags:
 skill:
     id: release-execution-and-verification
     title: Release Execution And Verification
-    description: Use when an Agent prepares a Forma version bump, release candidate, tag, GitHub Release, published-asset verification, or post-release evidence update.
-    triggers:
-        - prepare Forma release
-        - verify release candidate
-        - create release tag
-        - publish GitHub Release
-        - verify release assets
-        - update release evidence
+    description: Release Forma through exact-candidate gates, immutable publication, published-asset verification, and durable closure evidence.
+    projection: section
     order: 35
 sources:
     - "guidelines/forma-workspace-operations"
@@ -125,3 +119,7 @@ After verification succeeds:
 6. Commit post-release evidence separately. This evidence commit does not change the immutable release tag.
 
 Report checks not run and residual risks explicitly. Remote SSH, Dev Container, WSL, signing, or notarization remain unverified unless the release evidence names a completed test.
+
+### Completion Criteria
+
+A release is complete only when the exact candidate commit passed local and main gates, the immutable tag and expected assets were published, executable verification passed, durable evidence and related task state were updated separately, and untested platforms or residual risks were recorded.

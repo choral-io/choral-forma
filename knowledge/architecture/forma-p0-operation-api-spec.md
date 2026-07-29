@@ -54,7 +54,7 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 | ReferenceResolve | `reference.resolve` | `forma reference resolve --source <path> --target <target> [--intent <intent>] [--fragment <fragment>] [--json]` | No |
 | WorkspaceHealth | `workspace.health` | `forma workspace health [--json]` | No |
 | SkillsList | `skills.list` | `forma skills list [--json]` | No |
-| SkillsGet | `skills.get` | `forma skills get <id> [--json]` | No |
+| SkillsGet | `skills.get` | `forma skills get <id> [--full] [--json]` | No |
 | Init | `init` | `forma init [--name <name>] [--language <tag>] [--timezone <tz>] [--json]` | Yes |
 | Create | `create` | `forma create <space> [--input <name=value>]... [--json]` | Yes |
 | ViewRender | `view.render` | `forma view render <view-id-or-path> [--json]` | No |
@@ -63,6 +63,8 @@ P0 operations are product-semantic actions exposed through adapters. Operation n
 `Serve` is a CLI mode, not a domain operation. The server exposes operation methods through `POST /rpc` and serves static WebApp assets. It may compute diagnostics in memory and expose check status through operation results, but it must not write files in P0.
 
 `forma docs list` and `forma docs get <id>` are local CLI documentation surfaces over embedded product docs. They are not workspace operations and do not require JSON-RPC methods in P0.
+
+`SkillsList` reports each skill's `source`, `sourcePath`, and default `projection: section | full`. `SkillsGet` accepts optional `full: true` to return the complete canonical document or configured guideline instead of its default compact section. Generated Markdown uses Agent Skills frontmatter and records canonical provenance as `metadata.forma-source-ref`: `docs:<document-id>` for embedded docs or `workspace:<workspace-relative-path>` for configured guidelines. A source reference never contains an absolute host path and does not imply authorization, privacy, or publication behavior.
 
 `Init` is a bootstrap operation. In P0 it writes only `.forma.md` and `.agents/skills/forma-cli/SKILL.md`, and it must refuse to overwrite existing target files. It does not install starter-kit content or infer a knowledge structure.
 

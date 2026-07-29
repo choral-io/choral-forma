@@ -21,7 +21,7 @@ use crate::index::{
     Discovery, IndexEntry, IndexReference, ReferenceIntent, ReferenceSource,
     config_error_diagnostic, discover_loaded_workspace, resolve_space_entry_path, title_for_entry,
 };
-use crate::markdown::{FormaMarkdownDocument, resolve_markdown_title};
+use crate::markdown::{FormaMarkdownDocument, resolve_markdown_title, top_level_markdown_headings};
 use crate::model::ResolvedWorkspaceModel;
 use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
 use crate::render::{RenderedHeading, markdown_with_reference_fallbacks, render_all_headings};
@@ -101,6 +101,7 @@ pub struct SkillSummary {
     pub id: String,
     pub title: String,
     pub description: String,
+    pub projection: SkillProjection,
     pub source: SkillSource,
     pub source_path: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -115,6 +116,7 @@ pub struct SkillDetail {
     pub id: String,
     pub title: String,
     pub description: String,
+    pub projection: SkillProjection,
     pub source: SkillSource,
     pub source_path: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -129,6 +131,14 @@ pub struct SkillDetail {
 pub enum SkillSource {
     BuiltIn,
     Guideline,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SkillProjection {
+    #[default]
+    Section,
+    Full,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1116,6 +1126,7 @@ pub fn skills_list(root: impl AsRef<Path>) -> Result<SkillsListResult, Operation
                 id: skill.id,
                 title: skill.title,
                 description: skill.description,
+                projection: skill.projection,
                 source: skill.source,
                 source_path: skill.source_path,
                 triggers: skill.triggers,
@@ -3363,7 +3374,7 @@ pub fn is_public_workspace_path_allowed(root: impl AsRef<Path>, path: &str) -> b
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SkillMetadata {
     id: String,
     #[serde(default)]
@@ -3373,6 +3384,8 @@ struct SkillMetadata {
     #[serde(default)]
     triggers: Vec<String>,
     order: Option<i64>,
+    #[serde(default)]
+    projection: SkillProjection,
 }
 
 fn builtin_skills(full: bool) -> Vec<SkillDetail> {
@@ -3382,15 +3395,26 @@ fn builtin_skills(full: bool) -> Vec<SkillDetail> {
         .filter_map(|doc| {
             let skill = doc.skill.clone()?;
             let source_path = format!("builtin:{}", skill.id);
+            let source_ref = format!("docs:{}", doc.id);
+            let content = skill_markdown_content(
+                &source_ref,
+                &skill.id,
+                &skill.description,
+                &doc.body,
+                full,
+                SkillProjection::Section,
+            )
+            .expect("canonical built-in skill section is validated at build time");
             Some(SkillDetail {
                 id: skill.id,
                 title: skill.title,
                 description: skill.description,
+                projection: SkillProjection::Section,
                 source: SkillSource::BuiltIn,
                 source_path: source_path.clone(),
                 triggers: skill.triggers,
                 order: skill.order,
-                content: skill_markdown_content(&source_path, &doc.body, full),
+                content,
             })
         })
         .collect()
@@ -3429,59 +3453,63 @@ fn configured_guideline_paths(config: &WorkspaceConfig) -> Vec<String> {
     paths
 }
 
-fn skill_markdown_content(source_path: &str, body: &str, full: bool) -> String {
+#[derive(Serialize)]
+struct SkillMarkdownFrontmatter<'a> {
+    name: &'a str,
+    description: &'a str,
+    metadata: SkillMarkdownMetadata<'a>,
+}
+
+#[derive(Serialize)]
+struct SkillMarkdownMetadata<'a> {
+    #[serde(rename = "forma-source-ref")]
+    source_ref: &'a str,
+}
+
+fn skill_markdown_content(
+    source_ref: &str,
+    id: &str,
+    description: &str,
+    body: &str,
+    full: bool,
+    projection: SkillProjection,
+) -> Option<String> {
     let body = body.trim_start_matches('\n').trim_end();
-    let body = if full {
+    let body = if full || projection == SkillProjection::Full {
         body
     } else {
-        agent_skill_section(body).unwrap_or(body)
+        agent_skill_section(body)?
     };
-    format!(
-        "---\nsource: {source_path}\n---\n\n<!-- Source guideline: {source_path} -->\n\n{body}\n"
-    )
+    let frontmatter = serde_yml::to_string(&SkillMarkdownFrontmatter {
+        name: id,
+        description,
+        metadata: SkillMarkdownMetadata { source_ref },
+    })
+    .expect("skill frontmatter should serialize");
+    Some(format!("---\n{frontmatter}---\n\n{body}\n"))
 }
 
 fn agent_skill_section(body: &str) -> Option<&str> {
-    agent_section_with_heading(body, "## Agent Skill")
-        .or_else(|| agent_section_with_heading(body, "## Agent Guidance"))
+    let headings = top_level_markdown_headings(body);
+    agent_section_with_heading(body, &headings, "Agent Skill")
+        .or_else(|| agent_section_with_heading(body, &headings, "Agent Guidance"))
 }
 
-fn agent_section_with_heading<'a>(body: &'a str, heading: &str) -> Option<&'a str> {
-    let mut section_start = None;
-    let mut section_end = body.len();
-    let mut offset = 0;
-
-    for line in body.split_inclusive('\n') {
-        if markdown_heading_level(line) == Some(2) && line.trim() == heading {
-            section_start = Some(offset);
-            offset += line.len();
-            continue;
-        }
-
-        if section_start.is_some() && matches!(markdown_heading_level(line), Some(1 | 2)) {
-            section_end = offset;
-            break;
-        }
-        offset += line.len();
-    }
-
-    section_start.map(|start| body[start..section_end].trim_end())
-}
-
-fn markdown_heading_level(line: &str) -> Option<usize> {
-    let trimmed = line.trim_start();
-    let hashes = trimmed
-        .chars()
-        .take_while(|character| *character == '#')
-        .count();
-    if hashes == 0 || hashes > 6 {
-        return None;
-    }
-    if trimmed.as_bytes().get(hashes) == Some(&b' ') {
-        Some(hashes)
-    } else {
-        None
-    }
+fn agent_section_with_heading<'a>(
+    body: &'a str,
+    headings: &[crate::markdown::FormaHeading],
+    expected: &str,
+) -> Option<&'a str> {
+    let index = headings
+        .iter()
+        .position(|heading| heading.level == 2 && heading.text.trim() == expected)?;
+    let start = headings[index].span?.start_byte;
+    let end = headings[index + 1..]
+        .iter()
+        .find(|heading| heading.level <= 2)
+        .and_then(|heading| heading.span)
+        .map_or(body.len(), |span| span.start_byte);
+    body.get(start..end).map(str::trim_end)
 }
 
 fn write_workspace_file(root: &Path, path: &str, content: &str) -> Result<(), OperationError> {
@@ -3559,11 +3587,11 @@ Then inspect the workspace:
 
 ```sh
 forma skills list --json
-forma config inspect --json
+forma config summary --json
 forma workspace health --json
 ```
 
-Use the built-in guide and any workspace-projected skills before creating spaces, templates, views, guidelines, or shared Markdown content.
+Use the built-in guide and any workspace-projected skills before creating content groups, templates, views, guidelines, or shared Markdown content.
 "#
 }
 
@@ -3579,6 +3607,20 @@ fn collect_workspace_skills(
         if media_type_for_workspace_path(&source_path) != Some("text/markdown") {
             continue;
         }
+        let source_path = match WorkspacePath::parse_config(&source_path) {
+            Ok(path) => path.as_str().to_string(),
+            Err(error) => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "skills.invalidSourcePath",
+                        "Configured skill guideline must use a workspace-relative POSIX path.",
+                    )
+                    .with_path(source_path)
+                    .with_actual(error.to_string()),
+                );
+                continue;
+            }
+        };
         let source = match fs::read_to_string(root.join(&source_path)) {
             Ok(source) => source,
             Err(error) => {
@@ -3622,28 +3664,40 @@ fn collect_workspace_skills(
                 continue;
             }
         };
-        if metadata.id.trim().is_empty() {
-            diagnostics.push(
-                Diagnostic::error("skills.invalidId", "Skill id must not be empty.")
-                    .with_path(source_path.clone()),
-            );
+        let (validation_diagnostics, invalid) =
+            validate_workspace_skill_metadata(&source_path, &metadata, &document.body);
+        diagnostics.extend(validation_diagnostics);
+        if invalid {
             continue;
         }
-
-        let title = if metadata.title.trim().is_empty() {
-            metadata.id.clone()
-        } else {
-            metadata.title
+        let source_ref = format!("workspace:{source_path}");
+        let Some(content) = skill_markdown_content(
+            &source_ref,
+            &metadata.id,
+            &metadata.description,
+            &document.body,
+            full,
+            metadata.projection,
+        ) else {
+            diagnostics.push(
+                Diagnostic::error(
+                    "skills.projectionFailed",
+                    "Validated Agent Skill section could not be projected.",
+                )
+                .with_path(source_path),
+            );
+            continue;
         };
         skills.push(SkillDetail {
             id: metadata.id,
-            title,
+            title: metadata.title,
             description: metadata.description,
+            projection: metadata.projection,
             source: SkillSource::Guideline,
             source_path: source_path.clone(),
             triggers: metadata.triggers,
             order: metadata.order,
-            content: skill_markdown_content(&source_path, &document.body, full),
+            content,
         });
     }
 
@@ -3674,6 +3728,162 @@ fn skill_value_from_frontmatter(frontmatter: &Value) -> Option<Value> {
         return None;
     };
     mapping.get(Value::String("skill".to_string())).cloned()
+}
+
+// Keep this runtime contract aligned with build.rs and
+// https://agentskills.io/specification.
+const MAX_AGENT_SKILL_NAME_LENGTH: usize = 64;
+const MAX_AGENT_SKILL_DESCRIPTION_LENGTH: usize = 1024;
+
+fn agent_skill_name_error(name: &str) -> Option<String> {
+    if name.trim().is_empty() {
+        return Some("Skill id must not be empty.".to_string());
+    }
+    if name.len() > MAX_AGENT_SKILL_NAME_LENGTH {
+        return Some(format!(
+            "Skill id must not exceed {MAX_AGENT_SKILL_NAME_LENGTH} characters."
+        ));
+    }
+    if name.starts_with('-') || name.ends_with('-') {
+        return Some("Skill id must not start or end with a hyphen.".to_string());
+    }
+    if name.contains("--") {
+        return Some("Skill id must not contain consecutive hyphens.".to_string());
+    }
+    if !name
+        .bytes()
+        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        return Some(
+            "Skill id may contain only lowercase ASCII letters, numbers, and hyphens.".to_string(),
+        );
+    }
+    None
+}
+
+fn agent_skill_description_error(description: &str) -> Option<String> {
+    if description.trim().is_empty() {
+        return Some("Skill description must not be empty.".to_string());
+    }
+    if description.chars().count() > MAX_AGENT_SKILL_DESCRIPTION_LENGTH {
+        return Some(format!(
+            "Skill description must not exceed {MAX_AGENT_SKILL_DESCRIPTION_LENGTH} characters."
+        ));
+    }
+    None
+}
+
+fn heading_occurrences(body: &str, heading: &str) -> usize {
+    top_level_markdown_headings(body)
+        .iter()
+        .filter(|candidate| candidate.level == 2 && candidate.text.trim() == heading)
+        .count()
+}
+
+fn validate_workspace_skill_metadata(
+    source_path: &str,
+    metadata: &SkillMetadata,
+    body: &str,
+) -> (Vec<Diagnostic>, bool) {
+    let mut diagnostics = Vec::new();
+    let mut invalid = false;
+
+    if let Some(message) = agent_skill_name_error(&metadata.id) {
+        diagnostics.push(
+            Diagnostic::error("skills.invalidId", message)
+                .with_path(source_path.to_string())
+                .with_actual(metadata.id.clone())
+                .with_expected(
+                    "1-64 lowercase ASCII letters, numbers, or hyphens without edge or repeated hyphens",
+                ),
+        );
+        invalid = true;
+    }
+    if metadata.title.trim().is_empty() {
+        diagnostics.push(
+            Diagnostic::error("skills.invalidTitle", "Skill title must not be empty.")
+                .with_path(source_path.to_string()),
+        );
+        invalid = true;
+    }
+    if let Some(message) = agent_skill_description_error(&metadata.description) {
+        diagnostics.push(
+            Diagnostic::error("skills.invalidDescription", message)
+                .with_path(source_path.to_string())
+                .with_actual(format!(
+                    "{} characters",
+                    metadata.description.chars().count()
+                )),
+        );
+        invalid = true;
+    }
+
+    let mut seen_triggers = BTreeSet::new();
+    for trigger in &metadata.triggers {
+        let trigger = trigger.trim();
+        if trigger.is_empty() {
+            diagnostics.push(
+                Diagnostic::error("skills.invalidTrigger", "Skill trigger must not be empty.")
+                    .with_path(source_path.to_string()),
+            );
+            invalid = true;
+        } else if !seen_triggers.insert(trigger) {
+            diagnostics.push(
+                Diagnostic::error(
+                    "skills.duplicateTrigger",
+                    "Skill triggers must be unique within a guideline.",
+                )
+                .with_path(source_path.to_string())
+                .with_actual(trigger.to_string()),
+            );
+            invalid = true;
+        }
+    }
+
+    if metadata.projection != SkillProjection::Section {
+        return (diagnostics, invalid);
+    }
+
+    let agent_skill_sections = heading_occurrences(body, "Agent Skill");
+    let legacy_sections = heading_occurrences(body, "Agent Guidance");
+    match (agent_skill_sections, legacy_sections) {
+        (1, 0) => {}
+        (0, 1) => diagnostics.push(
+            Diagnostic::warning(
+                "skills.legacyAgentGuidance",
+                "Rename `## Agent Guidance` to `## Agent Skill`.",
+            )
+            .with_path(source_path.to_string()),
+        ),
+        (0, 0) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    "skills.agentSkillSectionMissing",
+                    "Section-projected skills require exactly one `## Agent Skill` section.",
+                )
+                .with_path(source_path.to_string())
+                .with_expected(
+                    "add `## Agent Skill` or set `skill.projection: full` intentionally",
+                ),
+            );
+            invalid = true;
+        }
+        _ => {
+            diagnostics.push(
+                Diagnostic::error(
+                    "skills.ambiguousProjection",
+                    "Section-projected skills must have exactly one Agent Skill section.",
+                )
+                .with_path(source_path.to_string())
+                .with_actual(format!(
+                    "{agent_skill_sections} `## Agent Skill`, {legacy_sections} legacy `## Agent Guidance`"
+                )),
+            );
+            invalid = true;
+        }
+    }
+
+    (diagnostics, invalid)
 }
 
 fn duplicate_skill_id_diagnostics(skills: &[SkillDetail]) -> Vec<Diagnostic> {
@@ -3844,18 +4054,21 @@ mod tests {
     use serde_yml::Value;
 
     use super::{
-        CreateInputSource, ManagedDocumentKind, OperationError, SkillSource, WorkspaceFileFeature,
-        WorkspaceHealthCategory, WorkspaceSession, WorkspaceSnapshot,
-        build_workspace_health_result, create_entry, create_preview,
-        dashboard_entry_summary_from_file, docs_get, docs_list, inspect_config,
-        inspect_entry_by_path, is_public_workspace_path_allowed, is_raw_workspace_path_allowed,
-        list_file_references, list_files, resolve_reference, skills_get, skills_list,
-        workspace_dashboard, workspace_explorer, workspace_explorer_entries,
-        workspace_file_from_path, workspace_health,
+        CreateInputSource, ManagedDocumentKind, OperationError, SkillProjection, SkillSource,
+        WorkspaceFileFeature, WorkspaceHealthCategory, WorkspaceSession, WorkspaceSnapshot,
+        agent_skill_description_error, agent_skill_name_error, build_workspace_health_result,
+        create_entry, create_preview, dashboard_entry_summary_from_file, docs_get, docs_list,
+        inspect_config, inspect_entry_by_path, is_public_workspace_path_allowed,
+        is_raw_workspace_path_allowed, list_file_references, list_files, resolve_reference,
+        skills_get, skills_list, workspace_dashboard, workspace_explorer,
+        workspace_explorer_entries, workspace_file_from_path, workspace_health,
     };
     use crate::boundary::WorkspaceBoundaryError;
     use crate::config::load_workspace;
-    use crate::{Diagnostic, IndexEntry, OperationStatus, ReferenceIntent, WorkspaceFileKind};
+    use crate::{
+        Diagnostic, FormaMarkdownDocument, IndexEntry, OperationStatus, ReferenceIntent,
+        WorkspaceFileKind,
+    };
 
     const FIXTURE_VIEWS_DIR: &str = ".forma/views";
 
@@ -4060,8 +4273,18 @@ schema:
         assert_eq!(result.status, OperationStatus::Passed);
         let skill = result.skill.expect("built-in skill should be returned");
         assert_eq!(skill.id, "forma-cli-core");
+        assert_eq!(skill.projection, SkillProjection::Section);
         assert_eq!(skill.source, SkillSource::BuiltIn);
         assert_eq!(skill.source_path, "builtin:forma-cli-core");
+        let frontmatter = FormaMarkdownDocument::parse(&skill.content)
+            .frontmatter
+            .value
+            .expect("generated skill frontmatter");
+        assert_eq!(
+            frontmatter["metadata"]["forma-source-ref"],
+            Value::String("docs:agents.forma-cli-core".to_string())
+        );
+        assert!(frontmatter["source"].is_null());
         assert!(skill.content.contains("## Agent Skill"));
         assert!(
             skill
@@ -4086,6 +4309,31 @@ schema:
         assert_eq!(skill.id, "forma-cli-core");
         assert_eq!(skill.source, SkillSource::BuiltIn);
         assert!(skill.content.contains("## Agent Skill"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn builtin_design_and_bootstrap_skills_keep_required_completion_criteria() {
+        let root = fixture_root("skills-builtin-workspace-authoring");
+        fs::create_dir_all(&root).unwrap();
+
+        let design = skills_get(&root, "forma-workspace-design", false)
+            .unwrap()
+            .skill
+            .expect("design skill should be returned");
+        assert!(design.content.contains("### Discovery Sequence"));
+        assert!(design.content.contains("### Design Brief"));
+        assert!(design.content.contains("### Completion Criteria"));
+
+        let bootstrap = skills_get(&root, "forma-workspace-bootstrap", false)
+            .unwrap()
+            .skill
+            .expect("bootstrap skill should be returned");
+        assert!(bootstrap.content.contains("### Required Dry Run"));
+        assert!(bootstrap.content.contains("### Execution Sequence"));
+        assert!(bootstrap.content.contains("### Completion Criteria"));
+        assert!(!bootstrap.content.contains("### Optional Pattern"));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -4118,6 +4366,7 @@ schema:
             .iter()
             .find(|skill| skill.id == "markdown-authoring")
             .expect("workspace skill should be discovered");
+        assert_eq!(skill.projection, SkillProjection::Section);
         assert_eq!(skill.source, SkillSource::Guideline);
         assert_eq!(skill.source_path, "knowledge/guidelines/authoring.md");
 
@@ -4259,7 +4508,7 @@ schema:
         );
         fs::write(
             root.join("knowledge/guidelines/core.md"),
-            "---\nskill:\n  id: forma-cli-core\n  title: Bad Override\n  description: Should not override built-in.\n---\n\n# Bad\n",
+            "---\nskill:\n  id: forma-cli-core\n  title: Bad Override\n  description: Should not override built-in.\n  projection: full\n---\n\n# Bad\n",
         )
         .unwrap();
 
@@ -4286,7 +4535,7 @@ schema:
         );
         fs::write(
             root.join("knowledge/guidelines/core.md"),
-            "---\nskill:\n  id: forma-cli-core\n  title: Bad Override\n  description: Should not override built-in.\n---\n\n# Bad\n",
+            "---\nskill:\n  id: forma-cli-core\n  title: Bad Override\n  description: Should not override built-in.\n  projection: full\n---\n\n# Bad\n",
         )
         .unwrap();
 
@@ -4323,11 +4572,21 @@ schema:
         assert_eq!(result.status, OperationStatus::Passed);
         let skill = result.skill.unwrap();
         assert_eq!(skill.source, SkillSource::Guideline);
+        let frontmatter = FormaMarkdownDocument::parse(&skill.content)
+            .frontmatter
+            .value
+            .expect("generated skill frontmatter");
+        assert!(skill.content.contains("name: markdown-authoring"));
         assert!(
             skill
                 .content
-                .contains("Source guideline: knowledge/guidelines/authoring.md")
+                .contains("description: Use for Markdown edits.")
         );
+        assert_eq!(
+            frontmatter["metadata"]["forma-source-ref"],
+            Value::String("workspace:knowledge/guidelines/authoring.md".to_string())
+        );
+        assert!(frontmatter["source"].is_null());
         assert!(skill.content.contains("## Agent Skill"));
         assert!(skill.content.contains("Follow the workflow."));
         assert!(skill.content.contains("Keep agent details."));
@@ -4336,6 +4595,14 @@ schema:
 
         let full_result = skills_get(&root, "markdown-authoring", true).unwrap();
         let full_skill = full_result.skill.unwrap();
+        let full_frontmatter = FormaMarkdownDocument::parse(&full_skill.content)
+            .frontmatter
+            .value
+            .expect("generated full skill frontmatter");
+        assert_eq!(
+            full_frontmatter["metadata"]["forma-source-ref"],
+            Value::String("workspace:knowledge/guidelines/authoring.md".to_string())
+        );
         assert!(full_skill.content.contains("Human-facing background."));
         assert!(full_skill.content.contains("Full reference material."));
 
@@ -4343,7 +4610,167 @@ schema:
     }
 
     #[test]
-    fn skills_get_falls_back_to_full_guideline_when_agent_skill_section_is_missing() {
+    fn skills_get_uses_markdown_structure_for_section_projection() {
+        let root = fixture_root("skills-get-structured-section");
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/structured.md\n",
+        );
+        fs::write(
+            root.join("knowledge/guidelines/structured.md"),
+            r#"---
+skill:
+  id: structured-skill
+  title: Structured Skill
+  description: Project only the real Agent Skill section.
+---
+
+# Structured Skill
+
+```md
+## Agent Skill
+
+Decoy before the real section.
+```
+
+## Agent Skill ##
+
+Keep the real instructions.
+
+```md
+# Not a section boundary
+## Reference
+```
+
+Keep content after fenced headings.
+
+## Reference
+
+Exclude the real reference section.
+"#,
+        )
+        .unwrap();
+
+        let result = skills_get(&root, "structured-skill", false).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Passed);
+        let content = result.skill.expect("structured skill").content;
+        assert!(content.contains("## Agent Skill ##"));
+        assert!(content.contains("Keep the real instructions."));
+        assert!(content.contains("Keep content after fenced headings."));
+        assert!(!content.contains("Decoy before the real section."));
+        assert!(!content.contains("Exclude the real reference section."));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn agent_skill_name_validation_matches_the_portable_contract() {
+        assert!(agent_skill_name_error("a").is_none());
+        assert!(agent_skill_name_error(&"a".repeat(64)).is_none());
+        for invalid in [
+            "",
+            "UPPERCASE",
+            "contains space",
+            "contains_underscore",
+            "-leading",
+            "trailing-",
+            "double--hyphen",
+        ] {
+            assert!(
+                agent_skill_name_error(invalid).is_some(),
+                "{invalid:?} should be rejected"
+            );
+        }
+        assert!(agent_skill_name_error(&"a".repeat(65)).is_some());
+    }
+
+    #[test]
+    fn agent_skill_description_validation_matches_the_portable_contract() {
+        assert!(agent_skill_description_error("a").is_none());
+        assert!(agent_skill_description_error(&"a".repeat(1024)).is_none());
+        assert!(agent_skill_description_error("").is_some());
+        assert!(agent_skill_description_error("   ").is_some());
+        assert!(agent_skill_description_error(&"a".repeat(1025)).is_some());
+    }
+
+    #[test]
+    fn skills_list_rejects_unknown_metadata_and_long_description() {
+        let root = fixture_root("skills-list-strict-contract");
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/unknown.md\n  - knowledge/guidelines/long.md\n",
+        );
+        fs::write(
+            root.join("knowledge/guidelines/unknown.md"),
+            "---\nskill:\n  id: unknown-field\n  title: Unknown Field\n  description: Reject misspelled metadata.\n  projecton: full\n---\n\n# Unknown\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("knowledge/guidelines/long.md"),
+            format!(
+                "---\nskill:\n  id: long-description\n  title: Long Description\n  description: '{}'\n  projection: full\n---\n\n# Long\n",
+                "a".repeat(1025)
+            ),
+        )
+        .unwrap();
+
+        let result = skills_list(&root).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "skills.invalidMetadata")
+        );
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "skills.invalidDescription")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn skills_list_allows_omitted_triggers_but_rejects_invalid_declared_triggers() {
+        let root = fixture_root("skills-list-trigger-contract");
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/invalid-triggers.md\n",
+        );
+        fs::write(
+            root.join("knowledge/guidelines/invalid-triggers.md"),
+            "---\nskill:\n  id: invalid-triggers\n  title: Invalid Triggers\n  description: Reject invalid declared triggers.\n  triggers:\n    - ''\n    - duplicate\n    - duplicate\n  projection: full\n---\n\n# Invalid Triggers\n",
+        )
+        .unwrap();
+
+        let result = skills_list(&root).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "skills.invalidTrigger")
+        );
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "skills.duplicateTrigger")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn skills_get_rejects_section_projection_without_agent_skill_section() {
         let root = fixture_root("skills-get-without-agent-section");
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
         write_config(
@@ -4358,9 +4785,107 @@ schema:
 
         let result = skills_get(&root, "markdown-authoring", false).unwrap();
 
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert!(result.skill.is_none());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "skills.agentSkillSectionMissing")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn skills_get_projects_full_guideline_only_when_declared() {
+        let root = fixture_root("skills-get-full-projection");
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/reference.md\n",
+        );
+        fs::write(
+            root.join("knowledge/guidelines/reference.md"),
+            "---\nskill:\n  id: workspace-reference\n  title: Workspace Reference\n  description: Classify workspace concepts from the complete reference.\n  projection: full\n---\n\n# Workspace Reference\n\n## Purpose\n\nComplete reference body.\n",
+        )
+        .unwrap();
+
+        let result = skills_get(&root, "workspace-reference", false).unwrap();
+
         assert_eq!(result.status, OperationStatus::Passed);
-        let skill = result.skill.unwrap();
-        assert!(skill.content.contains("Legacy guideline body."));
+        let skill = result.skill.expect("full skill should be returned");
+        assert_eq!(skill.projection, SkillProjection::Full);
+        assert!(skill.content.contains("name: workspace-reference"));
+        assert!(skill.content.contains("# Workspace Reference"));
+        assert!(skill.content.contains("Complete reference body."));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn skills_get_reads_legacy_agent_guidance_with_warning() {
+        let root = fixture_root("skills-get-legacy-agent-guidance");
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/legacy.md\n",
+        );
+        fs::write(
+            root.join("knowledge/guidelines/legacy.md"),
+            "---\nskill:\n  id: legacy-skill\n  title: Legacy Skill\n  description: Route legacy guidance while it is migrated.\n---\n\n# Legacy\n\n## Agent Guidance\n\nFollow the legacy workflow.\n",
+        )
+        .unwrap();
+
+        let result = skills_get(&root, "legacy-skill", false).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Warning);
+        assert!(
+            result
+                .skill
+                .expect("legacy skill should remain readable")
+                .content
+                .contains("Follow the legacy workflow.")
+        );
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "skills.legacyAgentGuidance")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn skills_list_rejects_empty_title_and_description() {
+        let root = fixture_root("skills-list-empty-required-metadata");
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/invalid.md\n",
+        );
+        fs::write(
+            root.join("knowledge/guidelines/invalid.md"),
+            "---\nskill:\n  id: invalid-skill\n  title: ''\n  description: ''\n---\n\n# Invalid\n\n## Agent Skill\n\nDo nothing.\n",
+        )
+        .unwrap();
+
+        let result = skills_list(&root).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Failed);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "skills.invalidTitle")
+        );
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "skills.invalidDescription")
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

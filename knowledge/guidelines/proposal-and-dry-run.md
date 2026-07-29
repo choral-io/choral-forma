@@ -13,16 +13,8 @@ tags:
 skill:
     id: proposal-and-dry-run
     title: Proposal And Dry Run
-    description: Use when an Agent may create, promote, reorganize, or materially update shared workspace content, task state, release evidence, configuration, guidelines, schemas, views, or proposals.
-    triggers:
-        - create shared content
-        - promote local notes
-        - change task status
-        - update release evidence
-        - create proposal
-        - update guidelines
-        - update config
-        - multi-file content change
+    description: Gate shared Forma workspace changes through an explicit fast path, dry run, proposal, or Human approval boundary.
+    projection: section
     order: 15
 sources:
     - "guidelines/forma-workspace-operations"
@@ -134,6 +126,16 @@ Create or recommend a proposal instead of editing canonical content when:
 - the user asks for options, critique, evaluation, or a plan rather than implementation.
 
 A proposal should include source evidence, the proposed canonical target, review questions, and acceptance criteria. Do not present a proposal as delivered work.
+
+### Reference Routing
+
+Load this skill with `--full` when the change matches a detailed task/board, local promotion, proposal, release, or guideline/config scenario. Apply only the matching scenario template.
+
+### Completion Criteria
+
+Complete this gate only when the decision, target, evidence, file-level scope, risks, verification, and approval requirement are explicit. If confirmation is required and has not already been granted for that exact scope, stop without editing.
+
+## Reference
 
 ### Scenario Templates
 

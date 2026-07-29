@@ -13,12 +13,8 @@ tags:
 skill:
     id: markdown-authoring
     title: Agent Markdown Authoring
-    description: Use when an Agent needs to create or edit shared Markdown content.
-    triggers:
-        - create shared project content
-        - edit task metadata
-        - promote local notes
-        - update guidelines
+    description: Author approved shared Markdown content through configuration-derived placement, minimal edits, and Forma verification.
+    projection: section
     order: 20
 sources:
     - "tasks/replace-knowledge-workflow-mechanics-with-forma-cli"
@@ -70,6 +66,10 @@ Run `cargo run -q -p forma-cli -- check --json` after edits. Run `cargo run -q -
 ### Report
 
 Report files changed, durable facts added or clarified, checks run, checks not run, remaining warnings, and follow-up tasks.
+
+### Completion Criteria
+
+Finish authoring only when the approved canonical files contain the intended durable facts, configured placement and metadata remain valid, required Forma checks pass, and residual warnings or unverified behavior are reported.
 
 ## Evidence To Gather
 
@@ -205,16 +205,16 @@ Use stable projection sections:
 
 - `## Overview` for the primary Human-readable explanation;
 - `## CLI Help` for concise CLI/help text;
-- `## Agent Guidance` for skill or Agent-facing procedure;
+- `## Agent Skill` for compact skill or Agent-facing procedure;
 - `## Reference` for stable details, examples, schema fragments, and configuration snippets.
 
 When editing docs:
 
 - do not make a diagram, image, screenshot, or visual layout the only source of important information;
-- keep `## CLI Help` and `## Agent Guidance` text-only, using Markdown prose, lists, tables, and fenced code blocks;
+- keep `## CLI Help` and `## Agent Skill` text-only, using Markdown prose, lists, tables, and fenced code blocks;
 - allow rich diagrams and screenshots in docs-oriented sections only when the text around them explains the same facts;
 - ensure any document with `surfaces: [help]` has a useful `## CLI Help` section;
-- ensure any document with `surfaces: [skill]` has a useful `## Agent Guidance` section.
+- ensure any document with `surfaces: [skill]` has exactly one useful `## Agent Skill` section.
 
 Run the docs-backed Agent bootstrap pressure gate when a change affects:
 

@@ -16,16 +16,8 @@ tags:
 skill:
     id: forma-product-model-and-configuration-fidelity
     title: Forma Product Model And Configuration Fidelity
-    description: Use when changing code, contracts, documentation, or tests that interpret Forma concepts, identifiers, workspace paths, classification, configuration, or publication boundaries.
-    triggers:
-        - change Forma product model
-        - interpret workspace configuration
-        - add Forma primitive
-        - hard-coded workspace path
-        - configuration fidelity
-        - classification semantics
-        - publication boundary
-        - cross-surface contract
+    description: Classify Forma concepts, paths, identifiers, and publication boundaries before changing cross-surface code, contracts, docs, or tests.
+    projection: full
     order: 40
 sources:
     - "product/product-direction"
@@ -78,6 +70,7 @@ Use `forma config summary --sources --json` for the resolved model and `forma wo
 - Treat every valid explicitly configured import as part of one effective configuration. A path named `local` has no intrinsic precedence, privacy, publication, or ownership meaning.
 - Keep secrets and material requiring a privacy guarantee outside configured workspace inputs until Forma has an explicit authorization and publication model.
 - Let Core own discovery, classification, and path resolution. RPC, CLI, WebApp, static export, and editor integrations should consume that projection instead of reinterpreting it.
+- Keep Agent Skill metadata, projection, validation, generated Markdown, CLI/RPC output, and product documentation aligned. A change to one of those surfaces must check the others and update the canonical `cli.skills` contract before adding a new source-reference kind.
 - Keep UI labels, filters, fields, columns, colors, and configured routes data-driven unless the product contract reserves them.
 - Do not introduce a new product primitive only to simplify one repository workflow.
 

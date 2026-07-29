@@ -10,11 +10,7 @@ surfaces:
 skill:
     id: forma-workspace-design
     title: Forma Workspace Design
-    description: Use to discover a real content workflow and define a small, approved workspace slice.
-    triggers:
-        - design workspace
-        - discover content model
-        - plan first workspace slice
+    description: Discover a real content workflow and define one small, approved Forma workspace slice before configuration.
     order: 10
 order: 205
 ---
@@ -27,7 +23,7 @@ Use this only when the human asks to design a workspace, understand a business d
 
 The goal is to produce a short workspace design brief before configuring Forma. Keep the conversation focused on real work, not abstract taxonomy design.
 
-## Discovery Sequence
+### Discovery Sequence
 
 Ask questions in small batches. Stop when the next answer would not change the first slice.
 
@@ -39,7 +35,7 @@ Ask questions in small batches. Stop when the next answer would not change the f
 6. Relationship candidates: which objects refer to each other, and which relationships can wait?
 7. Repository inclusion and publication boundary: which files should be configured or shared, and which must stay outside configured workspace inputs until Git, hosting, and access controls define their handling? Forma path names do not provide a privacy guarantee.
 
-## Design Brief
+### Design Brief
 
 Before writing config, summarize:
 
@@ -55,10 +51,14 @@ Before writing config, summarize:
 | Operating rules       | Guidelines needed now or deferred                                   |
 | Verification path     | Commands that will prove the first slice works                      |
 
-## First-Slice Selection Rules
+### First-Slice Selection Rules
 
 Choose the first slice that has real examples, clear fields, and immediate verification value. Prefer a record type the human can create two examples for now.
 
 Do not choose a relationship-heavy object first if it requires several missing spaces. Use scalar fields and Markdown links until the target space exists and the relationship has clear validation value.
 
-After the design brief is accepted, load `agents.workspace-bootstrap` and produce the first-slice dry run.
+After the design brief is accepted, load `forma-workspace-bootstrap` and produce the first-slice dry run.
+
+### Completion Criteria
+
+Stop discovery only when the Human has accepted a brief that names the business outcome, one first content group, deferred content, required fields, relationship strategy, operating rules, and exact verification path. Do not edit configuration during discovery.

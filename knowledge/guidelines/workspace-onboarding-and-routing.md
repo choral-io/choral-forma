@@ -13,14 +13,8 @@ tags:
 skill:
     id: workspace-onboarding-and-routing
     title: Workspace Onboarding And Routing
-    description: Use when an Agent needs to understand a Forma workspace, route an unclear request, explain project knowledge structure, or decide which workspace-projected skill applies.
-    triggers:
-        - workspace onboarding
-        - route project request
-        - where should content go
-        - explain workspace structure
-        - choose workflow skill
-        - recover unclear workspace state
+    description: Route unclear Forma workspace requests to the configured space, focused guideline skill, and safe next action.
+    projection: section
     order: 12
 sources:
     - "guidelines/forma-workspace-operations"
@@ -87,3 +81,7 @@ Respond with:
 - recommended skill or guideline;
 - one safe next action;
 - actions to avoid until approved.
+
+### Completion Criteria
+
+Finish routing when the request class, configured target or unresolved ambiguity, one focused skill, one safe next action, and all applicable stop or approval boundaries are explicit.

@@ -13,15 +13,8 @@ tags:
 skill:
     id: workspace-audit-and-reporting
     title: Workspace Audit And Reporting
-    description: Use when an Agent needs to audit workspace health, task metadata, schema consistency, status, stale claims, or produce a read-only project knowledge report.
-    triggers:
-        - workspace audit
-        - schema audit
-        - task metadata audit
-        - status report
-        - health report
-        - stale knowledge
-        - readiness report
+    description: Audit Forma workspace health, schema and task consistency, stale knowledge, or status without applying repairs.
+    projection: section
     order: 18
 sources:
     - "guidelines/forma-workspace-operations"
@@ -96,3 +89,7 @@ When an audit finds repair work:
 1. Summarize the smallest coherent fix.
 2. Point to the target guideline: [[guidelines/content-maintenance]], [[guidelines/task-selection]], or [[guidelines/proposal-and-dry-run]].
 3. Stop unless the user explicitly approves the exact repair scope.
+
+### Completion Criteria
+
+Complete the audit only when scope, evidence class, impact-ordered findings, reliability, proposed repairs, judgment boundaries, and checks not run are explicit, with no unapproved file changes.

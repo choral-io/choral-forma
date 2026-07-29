@@ -2410,12 +2410,12 @@ mod tests {
         write_entry(
             &root,
             "notes/first.md",
-            "---\ntitle: First\nskill:\n  id: duplicate-skill\n---\n",
+            "---\ntitle: First\nskill:\n  id: duplicate-skill\n  title: Duplicate Skill One\n  description: Route the first duplicate skill.\n  projection: full\n---\n",
         );
         write_entry(
             &root,
             "notes/second.md",
-            "---\ntitle: Second\nskill:\n  id: duplicate-skill\n---\n",
+            "---\ntitle: Second\nskill:\n  id: duplicate-skill\n  title: Duplicate Skill Two\n  description: Route the second duplicate skill.\n  projection: full\n---\n",
         );
 
         let result = check_workspace(&root);
