@@ -4,9 +4,7 @@ import { performance } from "node:perf_hooks";
 import * as vscode from "vscode";
 
 import { assertNativeMarkdownLink } from "./link-assertions.ts";
-
-const warmSampleCount = 50;
-const warmP95BudgetMs = 100;
+import { measureWarmPerformance } from "./performance-gate.ts";
 
 export async function run(): Promise<void> {
     const formaTestBin = process.env.FORMA_TEST_BIN;
@@ -266,59 +264,6 @@ async function timed<T>(operation: () => Promise<T>): Promise<{ durationMs: numb
     const started = performance.now();
     const result = await operation();
     return { durationMs: performance.now() - started, result };
-}
-
-async function sampleDurations(samples: number, operation: () => Promise<void>): Promise<number[]> {
-    const durations: number[] = [];
-    for (let index = 0; index < samples; index += 1) {
-        durations.push((await timed(operation)).durationMs);
-    }
-    return durations;
-}
-
-type DurationStatistics = {
-    minimumMs: number;
-    medianMs: number;
-    p95Ms: number;
-    maximumMs: number;
-};
-
-type WarmPerformanceMeasurement = {
-    measurement: DurationStatistics;
-    attempts: DurationStatistics[];
-    passed: boolean;
-};
-
-async function measureWarmPerformance(operation: () => Promise<void>): Promise<WarmPerformanceMeasurement> {
-    const firstAttempt = statistics(await sampleDurations(warmSampleCount, operation));
-    const attempts = [firstAttempt];
-    if (firstAttempt.p95Ms > warmP95BudgetMs) {
-        attempts.push(statistics(await sampleDurations(warmSampleCount, operation)));
-    }
-    const measurement = attempts.at(-1);
-    if (!measurement) throw new Error("Warm performance measurement did not produce a distribution.");
-    return {
-        measurement,
-        attempts,
-        passed: attempts.some(({ p95Ms }) => p95Ms <= warmP95BudgetMs),
-    };
-}
-
-function statistics(values: number[]): DurationStatistics {
-    const sorted = [...values].sort((left, right) => left - right);
-    const minimum = sorted[0];
-    if (minimum === undefined) throw new Error("Performance statistics require at least one sample.");
-    const percentile = (fraction: number): number => {
-        const value = sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
-        if (value === undefined) throw new Error("Performance percentile could not be calculated.");
-        return value;
-    };
-    return {
-        minimumMs: round(minimum),
-        medianMs: round(percentile(0.5)),
-        p95Ms: round(percentile(0.95)),
-        maximumMs: round(sorted.at(-1) ?? 0),
-    };
 }
 
 function round(value: number): number {
