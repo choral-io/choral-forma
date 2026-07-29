@@ -26,7 +26,8 @@ use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
 use crate::render::{RenderedHeading, markdown_with_reference_fallbacks, render_all_headings};
 use crate::scan::WorkspaceScanPlan;
 use crate::schema::{
-    PlaceholderContext, render_placeholder_template, resolve_create_inputs, resolve_runtime_values,
+    PlaceholderContext, parse_space_schema, render_placeholder_template, resolve_create_inputs,
+    resolve_runtime_values, validate_schema_value,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -144,6 +145,39 @@ pub struct CreateResult {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CreatePreviewResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub workspace: WorkspaceSummary,
+    pub target: CreatePreviewTarget,
+    pub inputs: BTreeMap<String, CreateInputResult>,
+    pub content: CreatePreviewContent,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePreviewTarget {
+    pub path: String,
+    pub space: String,
+    pub template: String,
+    pub conflict: bool,
+    pub writable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePreviewContent {
+    pub source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frontmatter: Option<Value>,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InitResult {
     pub schema_version: u16,
     pub operation: String,
@@ -169,6 +203,18 @@ pub struct CreateInputResult {
     pub value: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transform: Option<String>,
+}
+
+struct CreateEntryPlan {
+    workspace: WorkspaceSummary,
+    path: WorkspacePath,
+    public_path: String,
+    space: String,
+    template: String,
+    conflict: bool,
+    inputs: BTreeMap<String, CreateInputResult>,
+    source: String,
+    diagnostics: Vec<Diagnostic>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -792,7 +838,101 @@ pub fn create_entry(
     provided: BTreeMap<String, Value>,
 ) -> Result<CreateResult, OperationError> {
     let workspace = load_workspace(root.as_ref())?;
-    let boundary = WorkspaceBoundary::new(root.as_ref())?;
+    let plan = plan_create_entry(&workspace, space_id, provided)?;
+    if plan.conflict {
+        return Err(OperationError::PathConflict(plan.public_path));
+    }
+    let boundary = WorkspaceBoundary::new(&workspace.root)?;
+    if let Err(error) = boundary.write_new_file(&plan.path, &plan.source) {
+        if matches!(error, WorkspaceBoundaryError::AlreadyExists { .. }) {
+            return Err(OperationError::PathConflict(plan.public_path));
+        }
+        return Err(error.into());
+    }
+
+    Ok(CreateResult {
+        schema_version: 1,
+        operation: "create".to_string(),
+        status: DiagnosticSummary::from_diagnostics(&plan.diagnostics).status(),
+        workspace: plan.workspace,
+        created: CreatedEntry {
+            path: plan.public_path,
+            space: plan.space,
+            template: plan.template,
+        },
+        inputs: plan.inputs,
+        summary: DiagnosticSummary::from_diagnostics(&plan.diagnostics),
+        diagnostics: plan.diagnostics,
+    })
+}
+
+pub fn create_preview(
+    root: impl AsRef<Path>,
+    space_id: &str,
+    provided: BTreeMap<String, Value>,
+) -> Result<CreatePreviewResult, OperationError> {
+    let workspace = load_workspace(root.as_ref())?;
+    let plan = plan_create_entry(&workspace, space_id, provided)?;
+    let document = FormaMarkdownDocument::parse(&plan.source);
+    let mut diagnostics = plan.diagnostics;
+    diagnostics.extend(
+        document
+            .diagnostics
+            .iter()
+            .cloned()
+            .map(|diagnostic| diagnostic.with_path(plan.public_path.clone())),
+    );
+
+    if let Some(space) = workspace.model.content_group(space_id)
+        && let Ok(schema) = parse_space_schema(space)
+    {
+        diagnostics.extend(validate_schema_value(
+            &workspace.config,
+            &schema,
+            document.frontmatter.value.as_ref().unwrap_or(&Value::Null),
+            &plan.public_path,
+        ));
+    }
+    if plan.conflict {
+        diagnostics.push(
+            Diagnostic::warning(
+                "create.pathConflict",
+                "The preview target already exists and would not be created.",
+            )
+            .with_path(plan.public_path.clone()),
+        );
+    }
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+
+    Ok(CreatePreviewResult {
+        schema_version: 1,
+        operation: "create.preview".to_string(),
+        status: summary.status(),
+        workspace: plan.workspace,
+        target: CreatePreviewTarget {
+            path: plan.public_path,
+            space: plan.space,
+            template: plan.template,
+            conflict: plan.conflict,
+            writable: !plan.conflict,
+        },
+        inputs: plan.inputs,
+        content: CreatePreviewContent {
+            source: plan.source,
+            frontmatter: document.frontmatter.value,
+            body: document.body,
+        },
+        summary,
+        diagnostics,
+    })
+}
+
+fn plan_create_entry(
+    workspace: &FormaWorkspace,
+    space_id: &str,
+    provided: BTreeMap<String, Value>,
+) -> Result<CreateEntryPlan, OperationError> {
+    let boundary = WorkspaceBoundary::new(&workspace.root)?;
     let space = workspace
         .model
         .content_group(space_id)
@@ -810,7 +950,7 @@ pub fn create_entry(
 
     let runtime = resolve_runtime_values(&workspace.config, ".");
     let resolved = resolve_create_inputs(&create.inputs, &provided, &runtime);
-    let mut diagnostics = workspace.diagnostics;
+    let mut diagnostics = workspace.diagnostics.clone();
     diagnostics.extend(runtime.diagnostics.clone());
     diagnostics.extend(resolved.diagnostics);
     if DiagnosticSummary::from_diagnostics(&diagnostics).errors > 0 {
@@ -831,8 +971,8 @@ pub fn create_entry(
     let Some(directory) = directory.value else {
         return Err(OperationError::InvalidInput("directory".to_string()));
     };
-    let rendered_path = WorkspacePath::parse_config(format!("{directory}/{filename}"))?;
-    let public_path = rendered_path.as_str().to_string();
+    let path = WorkspacePath::parse_config(format!("{directory}/{filename}"))?;
+    let public_path = path.as_str().to_string();
 
     let template_path = WorkspacePath::parse_config(&space.template)?;
     let template_source = fs::read_to_string(boundary.resolve_existing_file(&template_path)?)
@@ -842,19 +982,11 @@ pub fn create_entry(
         })?;
     let rendered = render_placeholder_template(&template_source, &context);
     diagnostics.extend(rendered.diagnostics);
-    let Some(rendered) = rendered.value else {
+    let Some(source) = rendered.value else {
         return Err(OperationError::InvalidInput("template".to_string()));
     };
 
-    if let Err(error) = boundary.write_new_file(&rendered_path, rendered) {
-        if matches!(error, WorkspaceBoundaryError::AlreadyExists { .. }) {
-            return Err(OperationError::PathConflict(public_path));
-        }
-        return Err(error.into());
-    }
-
-    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
-
+    let conflict = boundary.check_new_file(&path)?;
     let inputs = resolved
         .values
         .into_iter()
@@ -879,22 +1011,19 @@ pub fn create_entry(
         })
         .collect();
 
-    Ok(CreateResult {
-        schema_version: 1,
-        operation: "create".to_string(),
-        status: summary.status(),
+    Ok(CreateEntryPlan {
         workspace: WorkspaceSummary {
             root: ".".to_string(),
-            name: workspace.config.workspace.name,
+            name: workspace.config.workspace.name.clone(),
             logo: None,
         },
-        created: CreatedEntry {
-            path: public_path,
-            space: space_id.to_string(),
-            template: space.template.clone(),
-        },
+        path,
+        public_path,
+        space: space_id.to_string(),
+        template: space.template.clone(),
+        conflict,
         inputs,
-        summary,
+        source,
         diagnostics,
     })
 }
@@ -3773,13 +3902,14 @@ mod tests {
     use serde_yml::Value;
 
     use super::{
-        ManagedDocumentKind, OperationError, SkillSource, WorkspaceFileFeature,
+        CreateInputSource, ManagedDocumentKind, OperationError, SkillSource, WorkspaceFileFeature,
         WorkspaceHealthCategory, WorkspaceSession, WorkspaceSnapshot,
-        build_workspace_health_result, create_entry, dashboard_entry_summary_from_file, docs_get,
-        docs_list, inspect_config, inspect_entry_by_path, is_public_workspace_path_allowed,
-        is_raw_workspace_path_allowed, list_file_references, list_files, resolve_reference,
-        skills_get, skills_list, workspace_dashboard, workspace_explorer,
-        workspace_explorer_entries, workspace_file_from_path, workspace_health,
+        build_workspace_health_result, create_entry, create_preview,
+        dashboard_entry_summary_from_file, docs_get, docs_list, inspect_config,
+        inspect_entry_by_path, is_public_workspace_path_allowed, is_raw_workspace_path_allowed,
+        list_file_references, list_files, resolve_reference, skills_get, skills_list,
+        workspace_dashboard, workspace_explorer, workspace_explorer_entries,
+        workspace_file_from_path, workspace_health,
     };
     use crate::boundary::WorkspaceBoundaryError;
     use crate::config::load_workspace;
@@ -4805,6 +4935,196 @@ imports:
         assert_eq!(result.status, OperationStatus::Passed);
         assert!(result.diagnostics.is_empty());
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn create_preview_resolves_create_plan_without_writing() {
+        let root = fixture_root("create-preview-plan");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        let notes_config_path = root.join(".forma/spaces/notes.md");
+        let notes_config = fs::read_to_string(&notes_config_path).unwrap();
+        fs::write(
+            &notes_config_path,
+            notes_config.replace("directory: \"notes\"", "directory: \"preview/drafts\""),
+        )
+        .unwrap();
+
+        let preview = create_preview(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Preview Note".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap();
+
+        assert_eq!(preview.operation, "create.preview");
+        assert_eq!(preview.status, OperationStatus::Passed);
+        assert_eq!(preview.target.path, "preview/drafts/preview-note.md");
+        assert!(!preview.target.conflict);
+        assert!(preview.target.writable);
+        assert_eq!(preview.inputs["title"].source, CreateInputSource::Explicit);
+        assert_eq!(preview.inputs["slug"].source, CreateInputSource::Default);
+        assert_eq!(
+            preview.inputs["slug"].value,
+            Value::String("preview-note".to_string())
+        );
+        assert!(preview.inputs["createdAt"].value.as_str().is_some());
+        assert!(preview.content.source.contains("title: \"Preview Note\""));
+        assert_eq!(
+            preview
+                .content
+                .frontmatter
+                .as_ref()
+                .and_then(|value| value.get("title")),
+            Some(&Value::String("Preview Note".to_string()))
+        );
+        assert!(preview.content.body.contains("# Preview Note"));
+        assert!(!root.join("preview").exists());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn create_preview_reports_conflicts_and_matches_create_source() {
+        let root = fixture_root("create-preview-conflict");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        let notes_config_path = root.join(".forma/spaces/notes.md");
+        let notes_config = fs::read_to_string(&notes_config_path).unwrap();
+        fs::write(
+            &notes_config_path,
+            notes_config.replace(
+                "default: \"{{ runtime.values.currentDateTime }}\"",
+                "default: \"fixed-time\"",
+            ),
+        )
+        .unwrap();
+        let inputs = [(
+            "title".to_string(),
+            Value::String("Preview Parity".to_string()),
+        )]
+        .into();
+
+        let preview = create_preview(&root, "notes", inputs).unwrap();
+        let created = create_entry(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Preview Parity".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap();
+        let written = fs::read_to_string(root.join(&created.created.path)).unwrap();
+        assert_eq!(preview.target.path, created.created.path);
+        assert_eq!(preview.content.source, written);
+
+        let conflict = create_preview(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Preview Parity".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap();
+        assert_eq!(conflict.status, OperationStatus::Warning);
+        assert!(conflict.target.conflict);
+        assert!(!conflict.target.writable);
+        assert!(
+            conflict
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "create.pathConflict")
+        );
+        assert_eq!(
+            fs::read_to_string(root.join(&created.created.path)).unwrap(),
+            written
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn create_preview_reports_schema_diagnostics_without_changing_create_writes() {
+        let root = fixture_root("create-preview-schema");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join(".forma/spaces/templates/note.md"),
+            "---\ntitle: \"{{ input.title }}\"\ncreatedAt:\n  - invalid\n---\n\n# {{ input.title }}\n",
+        )
+        .unwrap();
+        let inputs = [(
+            "title".to_string(),
+            Value::String("Schema Preview".to_string()),
+        )]
+        .into();
+
+        let preview = create_preview(&root, "notes", inputs).unwrap();
+        assert_eq!(preview.status, OperationStatus::Failed);
+        assert!(preview.target.writable);
+        assert!(
+            preview
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "schema.type.invalid")
+        );
+        assert!(!root.join("notes/schema-preview.md").exists());
+
+        create_entry(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Schema Preview".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap();
+        assert!(root.join("notes/schema-preview.md").is_file());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn create_preview_rejects_symlinked_output_parent_without_writing() {
+        use std::os::unix::fs::symlink;
+
+        let root = fixture_root("create-preview-output-symlink");
+        let outside = fixture_root("create-preview-output-symlink-outside");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        copy_starter_workspace(&root);
+        fs::remove_dir_all(root.join("notes")).unwrap();
+        symlink(&outside, root.join("notes")).unwrap();
+
+        let error = create_preview(
+            &root,
+            "notes",
+            [(
+                "title".to_string(),
+                Value::String("Unsafe Preview".to_string()),
+            )]
+            .into(),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            OperationError::Boundary(WorkspaceBoundaryError::Symlink { .. })
+        ));
+        assert!(!outside.join("unsafe-preview.md").exists());
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
     }
 
     #[test]

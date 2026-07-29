@@ -34,6 +34,8 @@ pub enum Operation {
     List,
     #[serde(rename = "create")]
     Create,
+    #[serde(rename = "create.preview")]
+    CreatePreview,
     #[serde(rename = "init")]
     Init,
     #[serde(rename = "view.render")]
@@ -69,6 +71,7 @@ impl Operation {
             Self::Inspect => "inspect",
             Self::List => "list",
             Self::Create => "create",
+            Self::CreatePreview => "create.preview",
             Self::Init => "init",
             Self::ViewRender => "view.render",
             Self::FileRender => "file.render",
@@ -95,6 +98,7 @@ pub enum OperationRequest {
     Inspect(InspectRequest),
     List(ListRequest),
     Create(CreateRequest),
+    CreatePreview(CreatePreviewRequest),
     Init(InitRequest),
     ViewRender(ViewRenderRequest),
     FileRender(FileRenderRequest),
@@ -180,6 +184,15 @@ pub struct ListRequest {
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateRequest {
+    pub space: String,
+    #[serde(default)]
+    pub inputs: BTreeMap<String, serde_yml::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePreviewRequest {
     pub space: String,
     #[serde(default)]
     pub inputs: BTreeMap<String, serde_yml::Value>,
@@ -387,6 +400,11 @@ impl Dispatcher {
                 forma_core::create_entry(root, &request.space, request.inputs)
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::Create, error)))
+            }
+            OperationRequest::CreatePreview(request) => {
+                forma_core::create_preview(root, &request.space, request.inputs)
+                    .map(OperationResult::from)
+                    .or_else(|error| Ok(core_error_result(Operation::CreatePreview, error)))
             }
             OperationRequest::Init(request) => forma_core::init_workspace(
                 root,
@@ -612,6 +630,15 @@ fn operation_from_method(
             }),
         "create" => serde_json::from_value::<CreateRequest>(params)
             .map(OperationRequest::Create)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "create.preview" => serde_json::from_value::<CreatePreviewRequest>(params)
+            .map(OperationRequest::CreatePreview)
             .map_err(|_| {
                 JsonRpcFailure::without_id(
                     JsonRpcErrorCode::InvalidParams,
@@ -873,6 +900,25 @@ impl From<forma_core::CreateResult> for OperationResult {
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("created".to_string(), json!(result.created));
         data.insert("inputs".to_string(), json!(result.inputs));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::CreatePreviewResult> for OperationResult {
+    fn from(result: forma_core::CreatePreviewResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("target".to_string(), json!(result.target));
+        data.insert("inputs".to_string(), json!(result.inputs));
+        data.insert("content".to_string(), json!(result.content));
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1513,6 +1559,39 @@ mod tests {
     }
 
     #[test]
+    fn json_rpc_dispatches_create_preview_without_writing() {
+        let root = fixture_root("create-preview-rpc");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"preview","method":"create.preview","params":{"space":"notes","inputs":{"title":"RPC Preview"}}}"#,
+        );
+
+        assert_eq!(response["result"]["operation"], "create.preview");
+        assert_eq!(response["result"]["target"]["path"], "notes/rpc-preview.md");
+        assert_eq!(response["result"]["target"]["writable"], true);
+        assert_eq!(
+            response["result"]["content"]["frontmatter"]["title"],
+            "RPC Preview"
+        );
+        assert!(!root.join("notes/rpc-preview.md").exists());
+
+        let unknown = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"unknown","method":"create.preview","params":{"space":"notes","unexpected":true}}"#,
+        );
+        assert_eq!(
+            unknown["error"]["code"],
+            JsonRpcErrorCode::InvalidParams as i64
+        );
+        assert_eq!(unknown["error"]["data"]["code"], "params.invalid");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn json_rpc_rejects_legacy_file_methods() {
         let root = fixture_root("legacy-file-methods");
         fs::create_dir_all(&root).unwrap();
@@ -1978,6 +2057,10 @@ imports:
         assert_eq!(
             serde_json::to_value(super::Operation::Create).unwrap(),
             "create"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::CreatePreview).unwrap(),
+            "create.preview"
         );
         assert_eq!(
             serde_json::to_value(super::Operation::ViewRender).unwrap(),

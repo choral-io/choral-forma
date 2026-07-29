@@ -114,6 +114,44 @@ impl WorkspaceBoundary {
         self.prepare_new_file(path)?.write_all(contents)
     }
 
+    /// Checks whether a path can be created without changing the filesystem.
+    ///
+    /// Missing parent directories are allowed because `write_new_file` creates
+    /// them after applying the same boundary checks. Existing parents must be
+    /// ordinary directories, and an existing target is reported to the caller.
+    pub fn check_new_file(&self, path: &WorkspacePath) -> Result<bool, WorkspaceBoundaryError> {
+        let components = path.as_str().split('/').collect::<Vec<_>>();
+        let mut current = self.root.clone();
+        let mut relative = PathBuf::new();
+
+        for component in components.iter().take(components.len().saturating_sub(1)) {
+            current.push(component);
+            relative.push(component);
+            match fs::symlink_metadata(&current) {
+                Ok(metadata) if metadata.file_type().is_symlink() => {
+                    return Err(WorkspaceBoundaryError::Symlink {
+                        path: display_relative(&relative),
+                    });
+                }
+                Ok(metadata) if !metadata.is_dir() => {
+                    return Err(WorkspaceBoundaryError::NotDirectory {
+                        path: display_relative(&relative),
+                    });
+                }
+                Ok(_) => {}
+                Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
+                Err(source) => return Err(self.io_error(path, source)),
+            }
+        }
+
+        let target = self.root.join(path.as_str());
+        match fs::symlink_metadata(target) {
+            Ok(_) => Ok(true),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+            Err(source) => Err(self.io_error(path, source)),
+        }
+    }
+
     fn create_and_validate_parent_directories(
         &self,
         path: &WorkspacePath,

@@ -1941,6 +1941,55 @@ fn create_reports_path_conflicts_and_unknown_inputs_as_json_failures() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
+#[test]
+fn create_preview_and_dry_run_render_without_writing() {
+    let root = fixture_root("create-preview");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+
+    let preview = forma(&root)
+        .args([
+            "create",
+            "notes",
+            "--input",
+            "title=CLI Preview",
+            "--preview",
+            "--json",
+        ])
+        .output()
+        .expect("forma create --preview should run");
+    assert!(
+        preview.status.success(),
+        "{}",
+        String::from_utf8_lossy(&preview.stderr)
+    );
+    let preview_stdout = String::from_utf8_lossy(&preview.stdout);
+    assert!(preview_stdout.contains(r#""operation":"create.preview""#));
+    assert!(preview_stdout.contains(r#""path":"notes/cli-preview.md""#));
+    assert!(!root.join("notes/cli-preview.md").exists());
+
+    let dry_run = forma(&root)
+        .args([
+            "create",
+            "notes",
+            "--input",
+            "title=CLI Dry Run",
+            "--dry-run",
+            "--json",
+        ])
+        .output()
+        .expect("forma create --dry-run should run");
+    assert!(
+        dry_run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&dry_run.stderr)
+    );
+    assert!(String::from_utf8_lossy(&dry_run.stdout).contains(r#""operation":"create.preview""#));
+    assert!(!root.join("notes/cli-dry-run.md").exists());
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 fn forma(root: &std::path::Path) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_forma"));
     command.current_dir(root);

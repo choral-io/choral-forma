@@ -121,6 +121,47 @@ describe("FormaRpcClient", () => {
         });
     });
 
+    it("requests create previews without overloading create", async () => {
+        const calls: Array<{ body: unknown }> = [];
+        const client = new FormaRpcClient("/rpc", (_input, requestInit) => {
+            calls.push({ body: JSON.parse(requestInit.body) });
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: () =>
+                    Promise.resolve({
+                        jsonrpc: "2.0",
+                        id: "1",
+                        result: {
+                            schemaVersion: 1,
+                            operation: "create.preview",
+                            status: "passed",
+                            workspace: { root: ".", name: "Example" },
+                            target: {
+                                path: "notes/preview.md",
+                                space: "notes",
+                                template: ".forma/spaces/templates/note.md",
+                                conflict: false,
+                                writable: true,
+                            },
+                            inputs: {},
+                            content: { source: "# Preview", body: "# Preview" },
+                        },
+                    }),
+            });
+        });
+
+        await expect(client.createPreview({ space: "notes", inputs: { title: "Preview" } })).resolves.toMatchObject({
+            operation: "create.preview",
+            target: { conflict: false, writable: true },
+        });
+
+        expect(calls[0]?.body).toMatchObject({
+            method: "create.preview",
+            params: { space: "notes", inputs: { title: "Preview" } },
+        });
+    });
+
     it("requests built-in docs without workspace params", async () => {
         const calls: Array<{ body: unknown }> = [];
         const client = new FormaRpcClient("/rpc", (_input, requestInit) => {

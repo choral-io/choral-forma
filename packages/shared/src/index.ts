@@ -648,6 +648,41 @@ export type ListResult = BaseOperationResult & {
     entries: ListedEntry[];
 };
 
+export type CreateInputSource = "explicit" | "default";
+
+export type CreateInputResult = {
+    source: CreateInputSource;
+    value: unknown;
+    transform?: string;
+};
+
+export type CreatePreviewRequest = {
+    space: string;
+    inputs?: Record<string, unknown>;
+};
+
+export type CreatePreviewTarget = {
+    path: string;
+    space: string;
+    template: string;
+    conflict: boolean;
+    writable: boolean;
+};
+
+export type CreatePreviewContent = {
+    source: string;
+    frontmatter?: unknown;
+    body: string;
+};
+
+export type CreatePreviewResult = BaseOperationResult & {
+    operation: "create.preview";
+    workspace: WorkspaceSummary;
+    target: CreatePreviewTarget;
+    inputs: Record<string, CreateInputResult>;
+    content: CreatePreviewContent;
+};
+
 export type InspectResult = BaseOperationResult & {
     operation: "inspect";
     workspace: WorkspaceSummary;
@@ -828,6 +863,13 @@ export class FormaRpcClient {
 
     list(space: string) {
         return this.call<ListResult>("list", { space });
+    }
+
+    createPreview(request: CreatePreviewRequest) {
+        return this.call<CreatePreviewResult>("create.preview", {
+            space: request.space,
+            inputs: request.inputs ?? {},
+        });
     }
 
     inspect(path: string) {

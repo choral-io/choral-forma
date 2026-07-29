@@ -19,11 +19,11 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use clap::{Parser, Subcommand, ValueEnum};
 use forma_rpc::{
-    CheckRequest, ConfigInspectRequest, ConfigSummaryRequest, CreateRequest, Dispatcher,
-    DocsGetRequest, DocsListRequest, InitRequest, InspectRequest, ListRequest, OperationRequest,
-    ReferenceResolveRequest, SkillsGetRequest, SkillsListRequest, ViewRenderRequest,
-    WorkspaceDashboardRequest, WorkspaceExplorerEntriesRequest, WorkspaceExplorerRequest,
-    WorkspaceHealthRequest,
+    CheckRequest, ConfigInspectRequest, ConfigSummaryRequest, CreatePreviewRequest, CreateRequest,
+    Dispatcher, DocsGetRequest, DocsListRequest, InitRequest, InspectRequest, ListRequest,
+    OperationRequest, ReferenceResolveRequest, SkillsGetRequest, SkillsListRequest,
+    ViewRenderRequest, WorkspaceDashboardRequest, WorkspaceExplorerEntriesRequest,
+    WorkspaceExplorerRequest, WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_json::Value as JsonValue;
@@ -339,6 +339,8 @@ enum Command {
         space: String,
         #[arg(long = "input", value_parser = parse_input_pair)]
         inputs: Vec<(String, Value)>,
+        #[arg(long, alias = "dry-run")]
+        preview: bool,
         #[arg(long)]
         json: bool,
     },
@@ -572,13 +574,23 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Some(Command::Create {
             space,
             inputs,
+            preview,
             json,
         }) => {
-            let result = dispatcher.dispatch(OperationRequest::Create(CreateRequest {
-                space,
-                inputs: inputs.into_iter().collect(),
-            }))?;
-            print_result(&result, json, "create");
+            let inputs = inputs.into_iter().collect();
+            let result = if preview {
+                dispatcher.dispatch(OperationRequest::CreatePreview(CreatePreviewRequest {
+                    space,
+                    inputs,
+                }))?
+            } else {
+                dispatcher.dispatch(OperationRequest::Create(CreateRequest { space, inputs }))?
+            };
+            print_result(
+                &result,
+                json,
+                if preview { "create preview" } else { "create" },
+            );
             exit_if_failed(&result);
             Ok(())
         }
@@ -1618,6 +1630,12 @@ mod tests {
         assert!(
             cacheable_rpc_request(br#"{"jsonrpc":"2.0","id":"3","method":"create","params":{}}"#)
                 .is_none()
+        );
+        assert!(
+            cacheable_rpc_request(
+                br#"{"jsonrpc":"2.0","id":"4","method":"create.preview","params":{}}"#
+            )
+            .is_none()
         );
     }
 
