@@ -65,7 +65,7 @@ test("automatically deploys only a fully successful main push", () => {
     const condition = deploy.if.replace(/\s+/gu, " ").trim();
     assert.doesNotMatch(condition, /\|\|/u);
     assert.match(condition, /^github\.event_name == 'push' && github\.ref == 'refs\/heads\/main' &&/u);
-    assert.deepEqual(jobNeeds(deploy).sort(), ["extension", "knowledge", "rust", "site", "web", "windows-release"]);
+    assert.deepEqual(jobNeeds(deploy).sort(), ["cli-release-build", "extension", "knowledge", "rust", "site", "web"]);
 });
 
 test("binds the named static artifact to the current remote main commit", () => {

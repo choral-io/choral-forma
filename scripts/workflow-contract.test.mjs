@@ -230,7 +230,8 @@ test("keeps the reusable release matrix and public asset contract exact", async 
     const ci = parseWorkflow(ciSource, "ci.yml");
     const builder = job(release, "build-cli-candidate");
     const vscodeBuilder = job(release, "build-vscode-candidate");
-    const rows = JSON.parse(builder.with.targets_json);
+    const cliBuildJob = job(releaseCliBuild, "cli");
+    const rows = cliBuildJob.strategy.matrix.include;
     assert.deepEqual(rows, [
         {
             archive: "tar.gz",
@@ -274,12 +275,14 @@ test("keeps the reusable release matrix and public asset contract exact", async 
         },
     ]);
     assert.equal(builder.uses, "./.github/workflows/release-cli-build.yml");
-    assert.equal(builder.with.build_extension, undefined);
+    assert.deepEqual(Object.keys(builder.with), ["source_sha"]);
     assert.equal(vscodeBuilder.uses, "./.github/workflows/release-vscode-build.yml");
     assert.equal(vscodeBuilder.with.source_sha, "${{ needs.validate.outputs.source_sha }}");
-    const windowsBuilder = job(ci, "windows-release");
-    assert.equal(windowsBuilder.uses, "./.github/workflows/release-cli-build.yml");
-    assert.equal(windowsBuilder.with.build_extension, undefined);
+    const ciBuilder = job(ci, "cli-release-build");
+    assert.equal(ciBuilder.uses, "./.github/workflows/release-cli-build.yml");
+    assert.deepEqual(Object.keys(ciBuilder.with), ["source_sha"]);
+    assert.equal(ciBuilder.with.source_sha, "${{ github.sha }}");
+    assert.deepEqual(Object.keys(releaseCliBuild.on.workflow_call.inputs), ["source_sha"]);
     assert.deepEqual(Object.keys(releaseCliBuild.jobs), ["cli"]);
     assert.deepEqual(Object.keys(releaseVscodeBuild.jobs), ["extension"]);
 
