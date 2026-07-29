@@ -21,6 +21,7 @@ use crate::index::{
     config_error_diagnostic, discover_loaded_workspace, title_for_entry,
 };
 use crate::markdown::{FormaMarkdownDocument, resolve_markdown_title};
+use crate::model::ResolvedWorkspaceModel;
 use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
 use crate::render::{RenderedHeading, markdown_with_reference_fallbacks, render_all_headings};
 use crate::scan::WorkspaceScanPlan;
@@ -791,9 +792,8 @@ pub fn create_entry(
     let workspace = load_workspace(root.as_ref())?;
     let boundary = WorkspaceBoundary::new(root.as_ref())?;
     let space = workspace
-        .config
-        .spaces
-        .get(space_id)
+        .model
+        .content_group(space_id)
         .ok_or_else(|| OperationError::SpaceNotFound(space_id.to_string()))?;
     let create = space
         .create
@@ -1099,9 +1099,8 @@ pub fn inspect_entry_by_space(
 pub fn list_space(root: impl AsRef<Path>, space_id: &str) -> Result<ListResult, OperationError> {
     let workspace = load_workspace(root.as_ref())?;
     let space = workspace
-        .config
-        .spaces
-        .get(space_id)
+        .model
+        .content_group(space_id)
         .ok_or_else(|| OperationError::SpaceNotFound(space_id.to_string()))?;
     let discovery = discover_loaded_workspace(&workspace);
     let entries = discovery
@@ -1204,8 +1203,8 @@ pub fn list_files(root: impl AsRef<Path>) -> Result<FilesListResult, OperationEr
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
     let mut files = collect_workspace_files(&workspace);
     let template_paths = workspace
-        .config
-        .spaces
+        .model
+        .content_groups()
         .values()
         .filter_map(|space| WorkspacePath::parse_config(&space.template).ok())
         .map(|path| path.as_str().to_string())
@@ -1303,7 +1302,7 @@ pub fn workspace_dashboard(
     let taxonomies = dashboard_taxonomies(
         root.as_ref(),
         &workspace.config,
-        &workspace.scan_plan,
+        &workspace.model,
         &workspace_files,
         &config_paths,
         &entries,
@@ -1320,7 +1319,7 @@ pub fn workspace_dashboard(
     }
     entries.sort_by(|left, right| left.path.cmp(&right.path));
 
-    let views = dashboard_view_summaries(&discovery.index.views, &workspace.config);
+    let views = dashboard_view_summaries(&discovery.index.views, &workspace.model);
     let home = workspace_home_document(root.as_ref())?;
 
     Ok(WorkspaceDashboardResult {
@@ -1381,12 +1380,12 @@ pub fn workspace_explorer(
     let workspace_files = collect_workspace_files(&workspace);
     let taxonomies = explorer_taxonomies(
         &workspace.config,
-        &workspace.scan_plan,
+        &workspace.model,
         &workspace_files,
         &config_paths,
         &all_diagnostics,
     );
-    let views = dashboard_view_summaries(&discovery.index.views, &workspace.config);
+    let views = dashboard_view_summaries(&discovery.index.views, &workspace.model);
 
     Ok(WorkspaceExplorerResult {
         schema_version: 1,
@@ -1435,11 +1434,12 @@ pub fn workspace_explorer_entries(
         .map(|entry| (entry.path.as_str(), entry))
         .collect::<BTreeMap<_, _>>();
     let title_space = workspace
-        .config
-        .space_for_taxonomy_term(taxonomy_id, term_id);
+        .model
+        .content_group_for_taxonomy_term(taxonomy_id, term_id);
     let all_diagnostics = read_operation_diagnostics(discovery.diagnostics);
     let term_patterns = workspace
-        .scan_plan
+        .model
+        .scan_plan()
         .taxonomy_term_patterns()
         .get(taxonomy_id)
         .and_then(|terms| terms.get(term_id));
@@ -1503,7 +1503,7 @@ pub fn workspace_explorer_entries(
 
 fn explorer_taxonomies(
     config: &WorkspaceConfig,
-    scan_plan: &WorkspaceScanPlan,
+    model: &ResolvedWorkspaceModel,
     files: &[WorkspaceFile],
     config_paths: &BTreeSet<String>,
     diagnostics: &[Diagnostic],
@@ -1518,7 +1518,8 @@ fn explorer_taxonomies(
                 .into_iter()
                 .flat_map(|terms| terms.iter())
                 .map(|(term_id, term)| {
-                    let term_patterns = scan_plan
+                    let term_patterns = model
+                        .scan_plan()
                         .taxonomy_term_patterns()
                         .get(taxonomy_id)
                         .and_then(|terms| terms.get(term_id));
@@ -1567,7 +1568,7 @@ fn explorer_taxonomies(
 
 fn dashboard_view_summaries(
     views: &[crate::index::IndexView],
-    config: &WorkspaceConfig,
+    model: &ResolvedWorkspaceModel,
 ) -> Vec<DashboardViewSummary> {
     views
         .iter()
@@ -1580,7 +1581,7 @@ fn dashboard_view_summaries(
             space: view
                 .space
                 .clone()
-                .or_else(|| view_taxonomy_space(view, config)),
+                .or_else(|| view_taxonomy_space(view, model)),
         })
         .collect()
 }
@@ -1588,7 +1589,7 @@ fn dashboard_view_summaries(
 fn dashboard_taxonomies(
     root: &Path,
     config: &WorkspaceConfig,
-    scan_plan: &WorkspaceScanPlan,
+    model: &ResolvedWorkspaceModel,
     files: &[WorkspaceFile],
     config_paths: &BTreeSet<String>,
     indexed_entries: &[DashboardEntrySummary],
@@ -1607,11 +1608,12 @@ fn dashboard_taxonomies(
                     let entries = dashboard_term_entries(
                         root,
                         term_id,
-                        scan_plan
+                        model
+                            .scan_plan()
                             .taxonomy_term_patterns()
                             .get(taxonomy_id)
                             .and_then(|terms| terms.get(term_id)),
-                        config.space_for_taxonomy_term(taxonomy_id, term_id),
+                        model.content_group_for_taxonomy_term(taxonomy_id, term_id),
                         files,
                         config_paths,
                         indexed_entries,
@@ -1808,7 +1810,10 @@ fn taxonomy_term_sort_key(term: &DashboardTaxonomyTerm) -> (bool, i64, String, S
     )
 }
 
-fn view_taxonomy_space(view: &crate::index::IndexView, config: &WorkspaceConfig) -> Option<String> {
+fn view_taxonomy_space(
+    view: &crate::index::IndexView,
+    model: &ResolvedWorkspaceModel,
+) -> Option<String> {
     view.source
         .as_ref()?
         .taxonomy
@@ -1818,8 +1823,8 @@ fn view_taxonomy_space(view: &crate::index::IndexView, config: &WorkspaceConfig)
                 return None;
             }
             let term_id = &terms[0];
-            config
-                .space_for_taxonomy_term(taxonomy_id, term_id)
+            model
+                .content_group_for_taxonomy_term(taxonomy_id, term_id)
                 .map(|_| term_id.clone())
         })
 }
@@ -1911,7 +1916,7 @@ impl WorkspaceSnapshot {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, OperationError> {
         let workspace = load_workspace(root.as_ref())?;
         let discovery = discover_loaded_workspace(&workspace);
-        let scan_plan = Arc::clone(&workspace.scan_plan);
+        let scan_plan = workspace.model.scan_plan_arc();
         let configuration_paths = workspace
             .config_sources
             .iter()
@@ -1919,7 +1924,7 @@ impl WorkspaceSnapshot {
             .collect::<BTreeSet<_>>();
         let mut control_paths = configuration_paths.clone();
         control_paths.extend(workspace.config.guidelines.iter().cloned());
-        for space in workspace.config.spaces.values() {
+        for space in workspace.model.content_groups().values() {
             if !space.template.is_empty() {
                 control_paths.insert(space.template.clone());
             }
@@ -3051,7 +3056,11 @@ fn inspect_entry(
         )
     });
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
-    let guidelines = applicable_guidelines(&workspace.config, space.as_deref().unwrap_or_default());
+    let guidelines = applicable_guidelines(
+        &workspace.config,
+        &workspace.model,
+        space.as_deref().unwrap_or_default(),
+    );
 
     Ok(InspectResult {
         schema_version: 1,
@@ -3082,12 +3091,15 @@ fn inspect_entry(
     })
 }
 
-fn applicable_guidelines(config: &WorkspaceConfig, space_id: &str) -> Vec<String> {
+fn applicable_guidelines(
+    config: &WorkspaceConfig,
+    model: &ResolvedWorkspaceModel,
+    space_id: &str,
+) -> Vec<String> {
     let mut guidelines = Vec::new();
     for guideline in config.guidelines.iter().chain(
-        config
-            .spaces
-            .get(space_id)
+        model
+            .content_group(space_id)
             .into_iter()
             .flat_map(|space| space.guidelines.iter()),
     ) {
@@ -3149,7 +3161,12 @@ fn inspect_config_value(
 fn collect_workspace_files(workspace: &FormaWorkspace) -> Vec<WorkspaceFile> {
     let root = &workspace.root;
     let mut files = BTreeMap::<String, WorkspaceFile>::new();
-    if let Ok(paths) = workspace.scan_plan.content_patterns().matching_files() {
+    if let Ok(paths) = workspace
+        .model
+        .scan_plan()
+        .content_patterns()
+        .matching_files()
+    {
         for path in paths {
             if let Some(file) = workspace_file_from_path(root, path) {
                 files.insert(file.path.clone(), file);
@@ -3158,10 +3175,11 @@ fn collect_workspace_files(workspace: &FormaWorkspace) -> Vec<WorkspaceFile> {
     }
 
     let known_paths = workspace
-        .scan_plan
+        .model
+        .scan_plan()
         .control_paths()
         .iter()
-        .chain(workspace.scan_plan.resource_paths())
+        .chain(workspace.model.scan_plan().resource_paths())
         .cloned()
         .collect::<BTreeSet<_>>();
     let boundary = WorkspaceBoundary::new(root).ok();

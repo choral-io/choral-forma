@@ -8,6 +8,7 @@ use crate::markdown::{
     FormaMarkdownDocument, FormaReference, FormaReferenceIntent, FormaReferenceSyntax, SourceSpan,
     markdown_fenced_references, markdown_inline_code_references,
 };
+use crate::model::ResolvedWorkspaceModel;
 use crate::path::slugify_path_segment;
 use crate::schema::{SchemaNode, parse_space_schema};
 
@@ -94,7 +95,7 @@ pub fn analyze_document_references(
             raw,
             frontmatter_offset,
             value,
-            &collect_semantic_reference_fields(&workspace.config, &schema),
+            &collect_semantic_reference_fields(&workspace.config, &workspace.model, &schema),
         ));
     }
 
@@ -257,9 +258,9 @@ fn matched_space<'a>(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<&'a SpaceDefinition> {
     let mut matches = Vec::new();
-    for (space_id, patterns) in workspace.scan_plan.space_patterns() {
+    for (space_id, patterns) in workspace.model.scan_plan().space_patterns() {
         if patterns.is_match(source_path)
-            && let Some(space) = workspace.config.spaces.get(space_id)
+            && let Some(space) = workspace.model.content_group(space_id)
         {
             matches.push((space_id, space));
         }
@@ -280,15 +281,17 @@ fn matched_space<'a>(
 
 pub(crate) fn collect_semantic_reference_fields(
     config: &WorkspaceConfig,
+    model: &ResolvedWorkspaceModel,
     schema: &SchemaNode,
 ) -> Vec<SemanticReferenceField> {
     let mut fields = Vec::new();
-    collect_semantic_reference_fields_inner(config, schema, "", false, &mut fields);
+    collect_semantic_reference_fields_inner(config, model, schema, "", false, &mut fields);
     fields
 }
 
 fn collect_semantic_reference_fields_inner(
     config: &WorkspaceConfig,
+    model: &ResolvedWorkspaceModel,
     schema: &SchemaNode,
     field_path: &str,
     many: bool,
@@ -302,21 +305,23 @@ fn collect_semantic_reference_fields_inner(
                 } else {
                     format!("{field_path}.{name}")
                 };
-                collect_semantic_reference_fields_inner(config, node, &next, many, fields);
+                collect_semantic_reference_fields_inner(config, model, node, &next, many, fields);
             }
         }
         SchemaNode::List { items, .. } => {
-            collect_semantic_reference_fields_inner(config, items, field_path, true, fields);
+            collect_semantic_reference_fields_inner(config, model, items, field_path, true, fields);
         }
         SchemaNode::Named { name, .. } => {
-            if let Some(field) = semantic_reference_field(config, name, field_path, many, true) {
+            if let Some(field) =
+                semantic_reference_field(config, model, name, field_path, many, true)
+            {
                 fields.push(field);
             }
         }
         SchemaNode::EntryRef { target, .. } => {
             if let Some(target) = target {
                 if let Some(field) =
-                    semantic_reference_field(config, target, field_path, many, true)
+                    semantic_reference_field(config, model, target, field_path, many, true)
                 {
                     fields.push(field);
                 }
@@ -343,6 +348,7 @@ fn collect_semantic_reference_fields_inner(
 
 fn semantic_reference_field(
     config: &WorkspaceConfig,
+    model: &ResolvedWorkspaceModel,
     type_name: &str,
     field_path: &str,
     many: bool,
@@ -356,7 +362,9 @@ fn semantic_reference_field(
     Some(SemanticReferenceField {
         field: field_path.to_string(),
         semantic_type: include_semantic_type.then(|| type_name.to_string()),
-        space: semantic_type.space().map(ToOwned::to_owned),
+        space: model
+            .semantic_type_target(type_name)
+            .map(|content_group_id| content_group_id.as_str().to_string()),
         transform,
         many,
     })
@@ -766,10 +774,13 @@ mod tests {
     #[test]
     fn maps_nested_repeated_frontmatter_values_in_crlf_documents() {
         let mut workspace = load_workspace(fixture_root()).unwrap();
-        workspace.config.spaces.get_mut("tasks").unwrap().schema = serde_yml::from_str(
+        std::sync::Arc::make_mut(&mut workspace.model)
+            .content_group_mut("tasks")
+            .unwrap()
+            .schema = serde_yml::from_str(
             "type: object\nfields:\n  fields:\n    type: object\n    fields:\n      owners:\n        type: list\n        items:\n          type: member\n",
         )
-        .unwrap();
+            .unwrap();
         let source = "---\r\nfields:\r\n  owners: [members/sam-rivera, members/sam-rivera]\r\n---\r\nSee [Sam](../members/sam-rivera.md).\r\n";
 
         let analysis = analyze_document_references(&workspace, "tasks/navigation-test.md", source);

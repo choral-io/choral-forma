@@ -19,6 +19,7 @@ use crate::markdown::{
     FormaHeading, FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax,
     all_markdown_headings,
 };
+use crate::model::ResolvedWorkspaceModel;
 use crate::operations::{
     OperationError, WorkspaceSummary, diagnostic_sort_key, diagnostics_for_workspace_path,
 };
@@ -881,7 +882,13 @@ fn render_view_from_loaded(
     }
 
     let definition_is_valid = view_definition.as_ref().is_some_and(|definition| {
-        view_definition_is_valid(definition, &workspace.config, &view_path, &mut diagnostics)
+        view_definition_is_valid(
+            definition,
+            &workspace.config,
+            &workspace.model,
+            &view_path,
+            &mut diagnostics,
+        )
     });
     if view_definition.is_some() && !definition_is_valid {
         diagnostics.push(
@@ -987,6 +994,7 @@ fn parse_view_definition(
 fn view_definition_is_valid(
     definition: &ViewDefinition,
     config: &WorkspaceConfig,
+    model: &ResolvedWorkspaceModel,
     path: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
@@ -995,7 +1003,7 @@ fn view_definition_is_valid(
         valid = false;
     }
     if let Some(space) = &definition.space
-        && !config.spaces.contains_key(space)
+        && model.content_group(space).is_none()
     {
         valid = false;
     }

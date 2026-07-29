@@ -56,6 +56,7 @@ Declare the primary taxonomy before its terms:
 schemaVersion: 1
 kind: taxonomy
 id: spaces
+projection: contentGroups
 title: Spaces
 mode: primary
 ---
@@ -91,7 +92,7 @@ schema:
 ---
 ```
 
-`taxonomy: spaces` projects the term into `spaces` in `forma config inspect --json`. Names such as tasks, members, notes, or projects are user-defined terms, not Forma built-ins.
+The taxonomy-level `projection: contentGroups` projects its terms into the compatibility `spaces` map in `forma config inspect --json`. `taxonomy: spaces` only references this example's configured taxonomy id. Names such as tasks, members, notes, or projects are user-defined terms, not Forma built-ins.
 
 ## Verify
 

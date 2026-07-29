@@ -12,6 +12,7 @@ use crate::config::{
     CreateInput, RuntimeValueProvider, SemanticType, SpaceDefinition, WorkspaceConfig,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
+use crate::model::ResolvedWorkspaceModel;
 use crate::path::{FORMA_CONFIG_PATH, slugify_path_segment};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -482,9 +483,35 @@ pub struct RenderedTemplate {
 }
 
 pub fn validate_space_schemas(config: &WorkspaceConfig) -> Vec<Diagnostic> {
+    validate_schema_definitions(
+        config,
+        config
+            .spaces
+            .iter()
+            .map(|(space_id, space)| (space_id.as_str(), space)),
+    )
+}
+
+pub fn validate_content_group_schemas(
+    config: &WorkspaceConfig,
+    model: &ResolvedWorkspaceModel,
+) -> Vec<Diagnostic> {
+    validate_schema_definitions(
+        config,
+        model
+            .content_groups()
+            .iter()
+            .map(|(content_group_id, definition)| (content_group_id.as_str(), definition)),
+    )
+}
+
+fn validate_schema_definitions<'a>(
+    config: &WorkspaceConfig,
+    definitions: impl IntoIterator<Item = (&'a str, &'a SpaceDefinition)>,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    for (space_id, space) in &config.spaces {
+    for (space_id, space) in definitions {
         let field_path = format!("spaces.{space_id}.schema");
         match parse_space_schema(space) {
             Ok(schema) => validate_schema_node(
@@ -1301,7 +1328,6 @@ mod tests {
                         input: TypeInput {
                             transform: Some("slugify".to_string()),
                         },
-                        space: Some("members".to_string()),
                     },
                 ),
             ]),
@@ -1320,7 +1346,6 @@ mod tests {
                     schema,
                 },
             )]),
-            space_term_keys: BTreeSet::from([("spaces".to_string(), "tasks".to_string())]),
         }
     }
 

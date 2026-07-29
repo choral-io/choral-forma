@@ -5,6 +5,7 @@ pub mod docs;
 pub mod document;
 pub mod index;
 pub mod markdown;
+pub mod model;
 pub mod operations;
 pub mod path;
 pub mod render;
@@ -14,8 +15,8 @@ pub mod site;
 
 pub use boundary::{PreparedWorkspaceFile, WorkspaceBoundary, WorkspaceBoundaryError};
 pub use config::{
-    ConfigError, FormaWorkspace, SpaceDefinition, TaxonomyTermDefinition, WorkspaceConfig,
-    load_workspace,
+    ConfigError, ContentGroupDefinition, FormaWorkspace, SpaceDefinition, TaxonomyTermDefinition,
+    WorkspaceConfig, load_workspace,
 };
 pub use diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
@@ -35,6 +36,11 @@ pub use index::{
 pub use markdown::{
     FormaMarkdownDocument, FormaReference, FormaReferenceIntent, FormaReferenceSource,
     FormaReferenceSyntax, ParsedFrontmatter, SourceSpan, split_frontmatter,
+};
+pub use model::{
+    ConfigProjection, ConfigProvenance, ContentGroupId, ResolvedWorkspaceModel, SemanticTypeId,
+    TaxonomyId, TaxonomyTermId, TermId, TypedConfigGraph, TypedSemanticTypeNode, TypedTaxonomyNode,
+    TypedTermNode,
 };
 pub use operations::{
     ConfigInspectResult, ConfigSource, CreateInputResult, CreateInputSource, CreateResult,
@@ -68,7 +74,8 @@ pub use scan::{WorkspacePatternSet, WorkspaceScanPlan};
 pub use schema::{
     PlaceholderContext, RenderedTemplate, ResolvedCreateInputs, RuntimeValues, SchemaNode,
     TemplateValueResolver, Transform, render_placeholder_template, resolve_create_inputs,
-    resolve_runtime_values, validate_schema_value, validate_space_schemas,
+    resolve_runtime_values, validate_content_group_schemas, validate_schema_value,
+    validate_space_schemas,
 };
 pub use site::{
     STATIC_SITE_SNAPSHOT_SCHEMA_VERSION, StaticSiteDiagnostic, StaticSiteEntry,

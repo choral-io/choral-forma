@@ -28,6 +28,7 @@ Define the taxonomy before adding terms. The taxonomy config node gives Human re
 schemaVersion: 1
 kind: taxonomy
 id: spaces
+projection: contentGroups
 title: Spaces
 mode: primary
 description: Primary content groups for this workspace.
@@ -35,7 +36,7 @@ description: Primary content groups for this workspace.
 # Spaces
 ```
 
-Use `kind: term` with `taxonomy: spaces` to declare a content group in an included Markdown config node. The `taxonomy` value must match the taxonomy config node `id`.
+Use `kind: term` with the selected taxonomy id to declare a content group in an included Markdown config node. `taxonomy: spaces` below references this example's taxonomy; the id itself is not reserved.
 
 ```yaml
 ---

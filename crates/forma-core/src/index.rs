@@ -16,6 +16,7 @@ use crate::document::{
     is_explicit_path_reference,
 };
 use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, resolve_markdown_title};
+use crate::model::ResolvedWorkspaceModel;
 use crate::operations::workspace_skill_diagnostics;
 use crate::path::WorkspacePath;
 use crate::schema::{parse_space_schema, validate_schema_value};
@@ -222,7 +223,10 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
 
     for entry in &mut entries {
         let mut refs = Vec::new();
-        let space = &config.spaces[&entry.space];
+        let space = workspace
+            .model
+            .content_group(&entry.space)
+            .expect("indexed entries have a resolved content group");
         if let Ok(schema) = parse_space_schema(space) {
             let frontmatter_value = entry
                 .document
@@ -236,7 +240,7 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
                 frontmatter_value,
                 entry.path.clone(),
             ));
-            let ref_fields = collect_semantic_reference_fields(config, &schema);
+            let ref_fields = collect_semantic_reference_fields(config, &workspace.model, &schema);
             refs.extend(resolve_frontmatter_refs(
                 &entry.path,
                 frontmatter_value,
@@ -285,21 +289,31 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
         });
     }
 
-    let mut spaces = config
-        .spaces
+    let mut spaces = workspace
+        .model
+        .content_groups()
         .iter()
         .map(|(id, space)| IndexSpace {
-            id: id.clone(),
+            id: id.as_str().to_string(),
             title: space.title.clone(),
             display: space.display.clone(),
             include: space.include.clone(),
             include_patterns: space.include_patterns.clone(),
-            entry_count: path_index.by_space.get(id).map(BTreeSet::len).unwrap_or(0),
+            entry_count: path_index
+                .by_space
+                .get(id.as_str())
+                .map(BTreeSet::len)
+                .unwrap_or(0),
         })
         .collect::<Vec<_>>();
     spaces.sort_by(|left, right| space_sort_key(left).cmp(&space_sort_key(right)));
 
-    let mut views = discover_views(root, config, &workspace.config_sources, &mut diagnostics);
+    let mut views = discover_views(
+        root,
+        &workspace.model,
+        &workspace.config_sources,
+        &mut diagnostics,
+    );
     views.sort_by(|left, right| view_sort_key(left).cmp(&view_sort_key(right)));
     diagnostics.extend(resource_description_diagnostics(workspace));
     let resolved_titles = index_entries
@@ -372,7 +386,8 @@ fn discover_entries(
     let root = &workspace.root;
     let config = &workspace.config;
     let markdown_files = workspace
-        .scan_plan
+        .model
+        .scan_plan()
         .content_patterns()
         .matching_files_with_extensions(&["md", "mdx"])
         .unwrap_or_default();
@@ -386,8 +401,8 @@ fn discover_entries(
         .map(|source| source.path.clone())
         .collect::<BTreeSet<_>>();
     let supported_language_suffixes = supported_language_suffixes(config);
-    let matchers = build_space_matchers(&workspace.scan_plan);
-    let taxonomy_matchers = build_taxonomy_matchers(&workspace.scan_plan);
+    let matchers = build_space_matchers(workspace.model.scan_plan());
+    let taxonomy_matchers = build_taxonomy_matchers(workspace.model.scan_plan());
     let mut entries = Vec::new();
     let mut variants_by_canonical = BTreeMap::<String, Vec<CandidateVariant>>::new();
 
@@ -619,7 +634,7 @@ fn build_space_matchers(
 
 fn discover_views(
     root: &Path,
-    config: &WorkspaceConfig,
+    model: &ResolvedWorkspaceModel,
     config_sources: &[ConfigSourcePath],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<IndexView> {
@@ -660,7 +675,7 @@ fn discover_views(
         if space.is_none() {
             space = source
                 .as_ref()
-                .and_then(|source| source_taxonomy_space(source, config));
+                .and_then(|source| source_taxonomy_space(source, model));
         }
         let title =
             optional_string(&value, "view.title").or_else(|| optional_string(&value, "title"));
@@ -671,7 +686,7 @@ fn discover_views(
         };
         let valid_space = space
             .as_ref()
-            .is_none_or(|space| config.spaces.contains_key(space));
+            .is_none_or(|space| model.content_group(space).is_some());
         let valid_source = source
             .as_ref()
             .is_none_or(|source| source.source_type == "pages");
@@ -720,7 +735,8 @@ fn resource_description_diagnostics(workspace: &FormaWorkspace) -> Vec<Diagnosti
     let root = &workspace.root;
     let mut diagnostics = Vec::new();
     for path in workspace
-        .scan_plan
+        .model
+        .scan_plan()
         .content_patterns()
         .matching_files_with_extensions(&["md", "mdx"])
         .unwrap_or_default()
@@ -1241,14 +1257,17 @@ fn parse_view_source(value: &Value) -> Option<IndexViewSource> {
     })
 }
 
-fn source_taxonomy_space(source: &IndexViewSource, config: &WorkspaceConfig) -> Option<String> {
+fn source_taxonomy_space(
+    source: &IndexViewSource,
+    model: &ResolvedWorkspaceModel,
+) -> Option<String> {
     source.taxonomy.iter().find_map(|(taxonomy_id, terms)| {
         if terms.len() != 1 {
             return None;
         }
         let term_id = &terms[0];
-        config
-            .space_for_taxonomy_term(taxonomy_id, term_id)
+        model
+            .content_group_for_taxonomy_term(taxonomy_id, term_id)
             .map(|_| term_id.clone())
     })
 }
@@ -1470,7 +1489,8 @@ mod tests {
         let workspace = load_workspace(&root).unwrap();
 
         let paths = workspace
-            .scan_plan
+            .model
+            .scan_plan()
             .content_patterns()
             .matching_files_with_extensions(&["md", "mdx"])
             .unwrap()
@@ -2175,7 +2195,7 @@ mod tests {
         write_workspace_file(
             &root,
             ".forma/spaces/index.md",
-            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\nprojection: contentGroups\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
         );
         write_workspace_file(
             &root,
@@ -2473,7 +2493,7 @@ mod tests {
         );
         fs::write(
             root.join(".forma/spaces/index.md"),
-            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\nprojection: contentGroups\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
         )
         .unwrap();
         for (path, title, include, template, title_field, summary_field) in [

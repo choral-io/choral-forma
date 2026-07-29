@@ -10,6 +10,7 @@ use crate::boundary::WorkspaceBoundary;
 use crate::config::WorkspaceConfig;
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::markdown::FormaMarkdownDocument;
+use crate::model::ResolvedWorkspaceRelationships;
 use crate::path::{FORMA_CONFIG_PATH, WorkspaceGlob, WorkspacePath};
 
 #[derive(Debug, Clone)]
@@ -184,12 +185,13 @@ impl WorkspaceScanPlan {
     pub(crate) fn resolve(
         bootstrap: Self,
         config: &WorkspaceConfig,
+        relationships: &ResolvedWorkspaceRelationships,
         config_sources: impl IntoIterator<Item = String>,
     ) -> Arc<Self> {
         let root = &bootstrap.root;
         let mut diagnostics = bootstrap.diagnostics;
-        let space_patterns = config
-            .spaces
+        let space_patterns = relationships
+            .content_groups()
             .iter()
             .map(|(space_id, space)| {
                 let patterns = if space.include_patterns.is_empty() {
@@ -198,7 +200,7 @@ impl WorkspaceScanPlan {
                     space.include_patterns.clone()
                 };
                 (
-                    space_id.clone(),
+                    space_id.as_str().to_string(),
                     pattern_set_skipping_invalid(root, patterns),
                 )
             })
@@ -211,8 +213,8 @@ impl WorkspaceScanPlan {
                     let terms = terms
                         .iter()
                         .map(|(term_id, term)| {
-                            let patterns = if config
-                                .space_for_taxonomy_term(taxonomy_id, term_id)
+                            let patterns = if relationships
+                                .content_group_for_taxonomy_term(taxonomy_id, term_id)
                                 .is_some()
                             {
                                 pattern_set_skipping_invalid(root, term.include_patterns.clone())
@@ -232,14 +234,14 @@ impl WorkspaceScanPlan {
                 })
             })
             .collect::<BTreeMap<_, BTreeMap<_, _>>>();
-        for (taxonomy_id, term_id) in config.space_term_keys() {
-            let Some(patterns) = space_patterns.get(term_id) else {
+        for (term_id, content_group_id) in relationships.content_group_term_ids() {
+            let Some(patterns) = space_patterns.get(content_group_id.as_str()) else {
                 continue;
             };
             taxonomy_term_patterns
-                .entry(taxonomy_id.to_string())
+                .entry(term_id.taxonomy().as_str().to_string())
                 .or_default()
-                .insert(term_id.to_string(), patterns.clone());
+                .insert(term_id.term().as_str().to_string(), patterns.clone());
         }
         let taxonomy_patterns = WorkspacePatternSet::from_validated(
             root,
@@ -265,7 +267,7 @@ impl WorkspaceScanPlan {
                 .map(|path| path.as_str().to_string()),
         );
         control_paths.extend(valid_exact_paths(config.guidelines.iter()));
-        for space in config.spaces.values() {
+        for space in relationships.content_groups().values() {
             if !space.template.is_empty() {
                 control_paths.extend(valid_exact_paths(std::iter::once(&space.template)));
             }
@@ -633,7 +635,8 @@ include:
 
         let workspace = crate::config::load_workspace(&dir).unwrap();
         let space_terms = workspace
-            .scan_plan
+            .model
+            .scan_plan()
             .taxonomy_term_patterns()
             .get("spaces")
             .expect("configured terms must remain available to taxonomy queries");
@@ -690,7 +693,8 @@ imports:
         );
         assert!(
             workspace
-                .scan_plan
+                .model
+                .scan_plan()
                 .taxonomy_term_patterns()
                 .get("topics")
                 .and_then(|terms| terms.get("guides"))

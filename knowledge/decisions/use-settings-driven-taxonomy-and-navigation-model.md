@@ -89,3 +89,4 @@ This keeps configuration tidy, but it makes `.forma/` a semi-hidden product stor
 - [[architecture/forma-view-query-model]]
 - [[product/product-direction]]
 - [[product/forma-p0-starter-spec]]
+- [[decisions/resolve-authored-config-into-typed-workspace-model]]

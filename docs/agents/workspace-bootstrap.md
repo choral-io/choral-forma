@@ -85,8 +85,8 @@ For the first content group:
 
 1. Load `workspace.first-slice-config`, `workspace.spaces`, `workspace.schemas`, and `workspace.templates` with `forma docs get`.
 2. Confirm the first-slice dry run with the human.
-3. Add the taxonomy config node first if it does not already exist, for example `kind: taxonomy` with `id: spaces`.
-4. Add one included term config node, commonly `kind: term` with `taxonomy: spaces`.
+3. Add the taxonomy config node first if it does not already exist. A taxonomy that provides schema-bearing content groups declares `projection: contentGroups`; its `id` is workspace-configured and does not need to be `spaces`.
+4. Add one included `kind: term` config node whose `taxonomy` matches the selected taxonomy id.
 5. Add one template referenced by `create.template`.
 6. Run `forma config inspect --json` and confirm the expected entry appears under `taxonomies` and `spaces`.
 7. Run `forma check --json`. If it reports `config.taxonomyMissing`, add the missing taxonomy config before creating content.

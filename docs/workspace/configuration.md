@@ -144,12 +144,15 @@ Included Markdown config nodes use frontmatter as their machine-readable configu
 schemaVersion: 1
 kind: taxonomy
 id: spaces
+projection: contentGroups
 title: Spaces
 mode: primary
 ---
 ```
 
-`mode: primary` means one page should match at most one term in that taxonomy. `mode: multiple` means one page may match several terms in that taxonomy. A page may belong to terms from different taxonomies at the same time. In the current P0 implementation, Forma fully enforces this uniqueness rule for the configured `spaces` projection; generalized primary-taxonomy validation is a planned extension.
+`projection: contentGroups` selects this taxonomy as the source of schema-bearing content groups. The taxonomy `id` is workspace-configured; `spaces` is only the id used by this example.
+
+`mode: primary` means one page should match at most one term in that taxonomy. `mode: multiple` means one page may match several terms in that taxonomy. A page may belong to terms from different taxonomies at the same time. In the current P0 implementation, Forma fully enforces this uniqueness rule for the configured content-group projection; generalized primary-taxonomy validation is a planned extension.
 
 In the current P0 configuration model, a configured content group is commonly declared as a taxonomy term:
 
@@ -183,7 +186,7 @@ schema:
 
 `create.directory` and `create.filename` are rendered with the same create-time placeholder context. Both may reference configured `input.*` values and runtime values, and the combined rendered path must remain a workspace-relative path.
 
-`taxonomy: spaces` must match a declared taxonomy `id`. It also projects this config node into the effective `spaces` map reported by `forma config inspect --json`. `space`, `note`, `task`, and similar names are not built-in domain objects; they are configured patterns derived from explicit config.
+`taxonomy: spaces` must match the `id` of the taxonomy that declares `projection: contentGroups`. That projection makes the term available through the compatibility `spaces` map reported by `forma config inspect --json`. `space`, `note`, `task`, and similar names are not built-in domain objects; they are configured patterns derived from explicit config.
 
 ### Display Metadata
 

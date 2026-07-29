@@ -11,11 +11,14 @@ use thiserror::Error;
 use crate::boundary::{WorkspaceBoundary, WorkspaceBoundaryError};
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
 use crate::markdown::FormaMarkdownDocument;
+use crate::model::{
+    ConfigProjection, ConfigProvenance, ResolvedWorkspaceModel, SemanticTypeId, TaxonomyId,
+    TaxonomyTermId, TypedConfigGraph, TypedSemanticTypeNode, TypedTaxonomyNode, TypedTermNode,
+    resolve_workspace_model,
+};
 use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspaceGlob, WorkspacePath};
 use crate::scan::WorkspaceScanPlan;
-use crate::schema::validate_space_schemas;
-
-const SPACE_PROJECTION_TAXONOMY_ID: &str = "spaces";
+use crate::schema::validate_content_group_schemas;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FormaWorkspace {
@@ -24,7 +27,7 @@ pub struct FormaWorkspace {
     pub config_sources: Vec<ConfigSourcePath>,
     pub config_source_patterns: Vec<String>,
     pub diagnostics: Vec<Diagnostic>,
-    pub scan_plan: Arc<WorkspaceScanPlan>,
+    pub model: Arc<ResolvedWorkspaceModel>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,33 +55,6 @@ pub struct WorkspaceConfig {
     pub types: BTreeMap<String, SemanticType>,
     #[serde(default)]
     pub spaces: BTreeMap<String, SpaceDefinition>,
-    #[serde(skip)]
-    pub(crate) space_term_keys: BTreeSet<(String, String)>,
-}
-
-impl WorkspaceConfig {
-    pub(crate) fn space_for_taxonomy_term(
-        &self,
-        taxonomy_id: &str,
-        term_id: &str,
-    ) -> Option<&SpaceDefinition> {
-        let is_configured_space =
-            self.space_term_keys
-                .iter()
-                .any(|(configured_taxonomy, configured_term)| {
-                    configured_taxonomy == taxonomy_id && configured_term == term_id
-                });
-        if !is_configured_space {
-            return None;
-        }
-        self.spaces.get(term_id)
-    }
-
-    pub(crate) fn space_term_keys(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.space_term_keys
-            .iter()
-            .map(|(taxonomy_id, term_id)| (taxonomy_id.as_str(), term_id.as_str()))
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -137,8 +113,6 @@ pub enum SemanticType {
         source: String,
         #[serde(default)]
         input: TypeInput,
-        #[serde(skip)]
-        space: Option<String>,
     },
     Enum {
         values: Vec<String>,
@@ -149,13 +123,6 @@ impl SemanticType {
     pub fn source(&self) -> Option<&str> {
         match self {
             Self::EntryRef { source, .. } => Some(source.as_str()),
-            Self::Enum { .. } => None,
-        }
-    }
-
-    pub fn space(&self) -> Option<&str> {
-        match self {
-            Self::EntryRef { space, .. } => space.as_deref(),
             Self::Enum { .. } => None,
         }
     }
@@ -187,6 +154,8 @@ pub struct SpaceDefinition {
     pub guidelines: Vec<String>,
     pub schema: Value,
 }
+
+pub type ContentGroupDefinition = SpaceDefinition;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -344,6 +313,8 @@ struct ConfigNode {
     #[serde(default)]
     taxonomy: Option<String>,
     #[serde(default)]
+    projection: Option<String>,
+    #[serde(default)]
     title: Option<String>,
     #[serde(default)]
     display: DisplayOptions,
@@ -363,7 +334,7 @@ struct ConfigNode {
     schema: Option<Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TermCreateDefinition {
     directory: String,
@@ -380,8 +351,15 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
     let mut config_value = read_markdown_frontmatter_value(&config_path, FORMA_CONFIG_PATH)?;
     let mut diagnostics = Vec::new();
     let mut types = BTreeMap::new();
+    let mut type_sources = BTreeMap::new();
     let root_types = take_types_from_value(&mut config_value, FORMA_CONFIG_PATH)?;
-    merge_type_definitions(&mut types, root_types, FORMA_CONFIG_PATH, &mut diagnostics);
+    merge_type_definitions(
+        &mut types,
+        &mut type_sources,
+        root_types,
+        FORMA_CONFIG_PATH,
+        &mut diagnostics,
+    );
 
     let base_config_file: ConfigFile =
         serde_yml::from_value(config_value.clone()).map_err(|source| ConfigError::Parse {
@@ -400,7 +378,13 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
             continue;
         }
         let local_types = take_types_from_value(&mut local_value, public_path)?;
-        merge_type_definitions(&mut types, local_types, public_path, &mut diagnostics);
+        merge_type_definitions(
+            &mut types,
+            &mut type_sources,
+            local_types,
+            public_path,
+            &mut diagnostics,
+        );
         deep_merge(&mut config_value, local_value);
     }
 
@@ -411,8 +395,8 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
         })?;
     reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
 
-    let (taxonomies, terms, spaces, space_term_keys, space_sources, node_diagnostics) =
-        load_config_nodes(root, &imported_config_paths, &mut types)?;
+    let (taxonomies, terms, config_graph, node_diagnostics) =
+        load_config_nodes(root, &imported_config_paths, &mut types, &mut type_sources)?;
     diagnostics.extend(node_diagnostics);
 
     let mut config = WorkspaceConfig {
@@ -424,12 +408,8 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
         taxonomies,
         terms,
         types,
-        spaces,
-        space_term_keys,
+        spaces: BTreeMap::new(),
     };
-    resolve_type_sources(&mut config, &space_sources, &mut diagnostics);
-    diagnostics.extend(validate_config_paths(root, &config));
-    diagnostics.extend(validate_space_schemas(&config));
 
     let mut config_sources = vec![ConfigSourcePath {
         path: FORMA_CONFIG_PATH.to_string(),
@@ -446,12 +426,16 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
     config_sources.sort_by(|left, right| left.path.cmp(&right.path));
     config_sources.dedup_by(|left, right| left.path == right.path);
 
-    let scan_plan = WorkspaceScanPlan::resolve(
-        bootstrap_scan_plan,
+    let (spaces, model) = resolve_workspace_model(
+        config_graph,
         &config,
+        bootstrap_scan_plan,
         config_sources.iter().map(|source| source.path.clone()),
+        &mut diagnostics,
     );
-    diagnostics.extend(scan_plan.diagnostics().iter().cloned());
+    config.spaces = spaces;
+    diagnostics.extend(validate_config_paths(root, &config, &model));
+    diagnostics.extend(validate_content_group_schemas(&config, &model));
 
     Ok(FormaWorkspace {
         root: root.to_path_buf(),
@@ -459,7 +443,7 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
         config_sources,
         config_source_patterns,
         diagnostics,
-        scan_plan,
+        model,
     })
 }
 
@@ -475,9 +459,7 @@ fn reject_legacy_root_include(config_file: &ConfigFile, path: &str) -> Result<()
 type LoadedConfigNodes = (
     BTreeMap<String, Value>,
     BTreeMap<String, BTreeMap<String, TaxonomyTermDefinition>>,
-    BTreeMap<String, SpaceDefinition>,
-    BTreeSet<(String, String)>,
-    BTreeMap<String, String>,
+    TypedConfigGraph,
     Vec<Diagnostic>,
 );
 
@@ -485,12 +467,11 @@ fn load_config_nodes(
     root: &Path,
     imported_config_paths: &[String],
     types: &mut BTreeMap<String, SemanticType>,
+    type_sources: &mut BTreeMap<String, ConfigProvenance>,
 ) -> Result<LoadedConfigNodes, ConfigError> {
     let mut taxonomies = BTreeMap::new();
     let mut terms = BTreeMap::<String, BTreeMap<String, TaxonomyTermDefinition>>::new();
-    let mut spaces = BTreeMap::new();
-    let mut space_term_keys = BTreeSet::new();
-    let mut space_sources = BTreeMap::new();
+    let mut config_graph = TypedConfigGraph::new(ConfigProvenance::new(FORMA_CONFIG_PATH));
     let mut diagnostics = Vec::new();
     let mut referenced_taxonomies = Vec::new();
     let mut parsed_nodes = Vec::new();
@@ -526,7 +507,13 @@ fn load_config_nodes(
         let has_top_level_types = !node.types.is_empty();
         let has_explicit_type_kind = node.kind.as_deref() == Some("types");
         if has_explicit_type_kind || has_top_level_types {
-            merge_type_definitions(types, node.types, &public_path, &mut diagnostics);
+            merge_type_definitions(
+                types,
+                type_sources,
+                node.types,
+                &public_path,
+                &mut diagnostics,
+            );
 
             if has_explicit_type_kind {
                 continue;
@@ -539,6 +526,13 @@ fn load_config_nodes(
                 .id
                 .clone()
                 .unwrap_or_else(|| view_id_from_config_path(&public_path));
+            let projection =
+                parse_config_projection(node.projection.as_deref(), &public_path, &mut diagnostics);
+            config_graph.insert_taxonomy(TypedTaxonomyNode::new(
+                TaxonomyId::new(taxonomy_id.clone()),
+                projection,
+                ConfigProvenance::new(&public_path),
+            ));
             taxonomies.insert(taxonomy_id, frontmatter);
             continue;
         }
@@ -580,6 +574,32 @@ fn load_config_nodes(
             continue;
         };
         let title = node.title.clone().unwrap_or_else(|| public_path.clone());
+        let content_group_candidate = node.include.first().cloned().map(|include| {
+            let schema = node
+                .schema
+                .clone()
+                .unwrap_or_else(|| starter_term_schema(&term_id));
+            SpaceDefinition {
+                title: title.clone(),
+                display: display.clone(),
+                description: node.description.clone(),
+                include,
+                include_patterns: node.include.clone(),
+                template: node
+                    .create
+                    .as_ref()
+                    .map(|create| create.template.clone())
+                    .unwrap_or_default(),
+                create: node.create.as_ref().map(|create| CreateDefinition {
+                    directory: create.directory.clone(),
+                    filename: create.filename.clone(),
+                    inputs: create.inputs.clone(),
+                }),
+                conventions: node.conventions.clone(),
+                guidelines: node.guidelines.clone(),
+                schema,
+            }
+        });
         terms.entry(taxonomy.clone()).or_default().insert(
             term_id.clone(),
             TaxonomyTermDefinition {
@@ -589,43 +609,11 @@ fn load_config_nodes(
                 include_patterns: node.include.clone(),
             },
         );
-        // Keep the current P0 space projection adapter in the config owner.
-        // Consumers use `space_term_keys` and do not infer this relationship.
-        if taxonomy != SPACE_PROJECTION_TAXONOMY_ID {
-            continue;
-        }
-        let Some(include) = node.include.first().cloned() else {
-            continue;
-        };
-        let schema = node
-            .schema
-            .clone()
-            .unwrap_or_else(|| starter_term_schema(&term_id));
-        add_space_source_aliases(&mut space_sources, &public_path, &term_id);
-        space_term_keys.insert((taxonomy, term_id.clone()));
-        spaces.insert(
-            term_id,
-            SpaceDefinition {
-                title,
-                display,
-                description: node.description,
-                include,
-                include_patterns: node.include,
-                template: node
-                    .create
-                    .as_ref()
-                    .map(|create| create.template.clone())
-                    .unwrap_or_default(),
-                create: node.create.map(|create| CreateDefinition {
-                    directory: create.directory,
-                    filename: create.filename,
-                    inputs: create.inputs,
-                }),
-                conventions: node.conventions,
-                guidelines: node.guidelines,
-                schema,
-            },
-        );
+        config_graph.insert_term(TypedTermNode::new(
+            TaxonomyTermId::new(taxonomy, term_id),
+            ConfigProvenance::new(&public_path),
+            content_group_candidate,
+        ));
     }
 
     for (taxonomy, public_path) in referenced_taxonomies {
@@ -646,14 +634,41 @@ fn load_config_nodes(
         }
     }
 
-    Ok((
-        taxonomies,
-        terms,
-        spaces,
-        space_term_keys,
-        space_sources,
-        diagnostics,
-    ))
+    for (type_name, provenance) in type_sources {
+        config_graph.insert_semantic_type(TypedSemanticTypeNode::new(
+            SemanticTypeId::new(type_name),
+            provenance.clone(),
+        ));
+    }
+
+    Ok((taxonomies, terms, config_graph, diagnostics))
+}
+
+fn parse_config_projection(
+    projection: Option<&str>,
+    public_path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<ConfigProjection> {
+    match projection {
+        None => None,
+        Some("contentGroups") => Some(ConfigProjection::ContentGroups),
+        Some(projection) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    "config.projection.unknown",
+                    format!("Config projection `{projection}` is not recognized."),
+                )
+                .with_path(public_path)
+                .with_location(DiagnosticLocation::Frontmatter {
+                    field: "projection".to_string(),
+                    index: None,
+                })
+                .with_actual(projection)
+                .with_expected("contentGroups"),
+            );
+            None
+        }
+    }
 }
 
 fn validate_display_options(
@@ -749,20 +764,6 @@ fn view_id_from_config_path(path: &str) -> String {
         .to_string()
 }
 
-fn add_space_source_aliases(
-    space_sources: &mut BTreeMap<String, String>,
-    public_path: &str,
-    space_id: &str,
-) {
-    space_sources.insert(public_path.to_string(), space_id.to_string());
-    if let Some(without_extension) = public_path
-        .strip_suffix(".md")
-        .or_else(|| public_path.strip_suffix(".mdx"))
-    {
-        space_sources.insert(without_extension.to_string(), space_id.to_string());
-    }
-}
-
 fn take_types_from_value(
     value: &mut Value,
     public_path: &str,
@@ -781,6 +782,7 @@ fn take_types_from_value(
 
 fn merge_type_definitions(
     types: &mut BTreeMap<String, SemanticType>,
+    type_sources: &mut BTreeMap<String, ConfigProvenance>,
     incoming: BTreeMap<String, SemanticType>,
     public_path: &str,
     diagnostics: &mut Vec<Diagnostic>,
@@ -788,6 +790,7 @@ fn merge_type_definitions(
     for (type_name, semantic_type) in incoming {
         if let std::collections::btree_map::Entry::Vacant(entry) = types.entry(type_name.clone()) {
             entry.insert(semantic_type);
+            type_sources.insert(type_name, ConfigProvenance::new(public_path));
             continue;
         }
         diagnostics.push(
@@ -801,52 +804,6 @@ fn merge_type_definitions(
             })
             .with_actual(type_name),
         );
-    }
-}
-
-fn resolve_type_sources(
-    config: &mut WorkspaceConfig,
-    space_sources: &BTreeMap<String, String>,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    for (type_name, semantic_type) in &mut config.types {
-        let SemanticType::EntryRef { source, space, .. } = semantic_type else {
-            continue;
-        };
-        match WorkspacePath::parse_config(source.as_str()) {
-            Ok(path) => {
-                if let Some(space_id) = space_sources.get(path.as_str()) {
-                    *space = Some(space_id.clone());
-                } else {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "config.type.sourceMissing",
-                            format!(
-                                "Type `{type_name}` source does not reference a configured space."
-                            ),
-                        )
-                        .with_path(FORMA_CONFIG_PATH)
-                        .with_location(DiagnosticLocation::Config {
-                            field: format!("types.{type_name}.source"),
-                        })
-                        .with_actual(source.clone()),
-                    );
-                }
-            }
-            Err(error) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "config.pathInvalid",
-                        format!("Type `{type_name}` source path is invalid: {error}."),
-                    )
-                    .with_path(FORMA_CONFIG_PATH)
-                    .with_location(DiagnosticLocation::Config {
-                        field: format!("types.{type_name}.source"),
-                    })
-                    .with_actual(source.clone()),
-                );
-            }
-        }
     }
 }
 
@@ -925,7 +882,11 @@ fn deep_merge(base: &mut Value, overlay: Value) {
     }
 }
 
-fn validate_config_paths(root: &Path, config: &WorkspaceConfig) -> Vec<Diagnostic> {
+fn validate_config_paths(
+    root: &Path,
+    config: &WorkspaceConfig,
+    model: &ResolvedWorkspaceModel,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     if let Some(logo) = &config.workspace.logo {
@@ -982,7 +943,8 @@ fn validate_config_paths(root: &Path, config: &WorkspaceConfig) -> Vec<Diagnosti
         }
     }
 
-    for (space_id, space) in &config.spaces {
+    for (space_id, space) in model.content_groups() {
+        let space_id = space_id.as_str();
         for (index, include) in space.include_patterns.iter().enumerate() {
             if let Err(error) = WorkspaceGlob::parse_config(include) {
                 diagnostics.push(
@@ -1359,7 +1321,13 @@ mod tests {
             workspace.config.taxonomies["spaces"]["kind"],
             Value::String("taxonomy".to_string())
         );
-        assert_eq!(workspace.config.types["task"].space(), Some("tasks"));
+        assert_eq!(
+            workspace
+                .model
+                .semantic_type_target("task")
+                .map(|id| id.as_str()),
+            Some("tasks")
+        );
     }
 
     #[test]
@@ -1371,7 +1339,13 @@ mod tests {
 
         assert_eq!(workspace.config.workspace.name, "Acme Workspace");
         assert_eq!(workspace.config.workspace.timezone, "Asia/Shanghai");
-        assert_eq!(workspace.config.types["note"].space(), Some("notes"));
+        assert_eq!(
+            workspace
+                .model
+                .semantic_type_target("note")
+                .map(|id| id.as_str()),
+            Some("notes")
+        );
         assert_eq!(workspace.config.spaces["notes"].include, "notes/**/*.md");
         assert!(workspace.diagnostics.is_empty());
 
@@ -1497,7 +1471,13 @@ mod tests {
                 .and_then(super::SemanticType::source),
             Some(".forma/spaces/people")
         );
-        assert_eq!(workspace.config.types["person"].space(), Some("people"));
+        assert_eq!(
+            workspace
+                .model
+                .semantic_type_target("person")
+                .map(|id| id.as_str()),
+            Some("people")
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1532,7 +1512,13 @@ mod tests {
         let workspace = load_workspace(&root).unwrap();
 
         assert!(workspace.diagnostics.is_empty());
-        assert_eq!(workspace.config.types["person"].space(), Some("people"));
+        assert_eq!(
+            workspace
+                .model
+                .semantic_type_target("person")
+                .map(|id| id.as_str()),
+            Some("people")
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1567,7 +1553,13 @@ mod tests {
                 .and_then(super::SemanticType::source),
             Some(".forma/spaces/people")
         );
-        assert_eq!(workspace.config.types["person"].space(), Some("people"));
+        assert_eq!(
+            workspace
+                .model
+                .semantic_type_target("person")
+                .map(|id| id.as_str()),
+            Some("people")
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1745,8 +1737,72 @@ mod tests {
     }
 
     #[test]
-    fn space_projection_keeps_its_configured_taxonomy_relationship() {
-        let root = fixture_root("space-projection-taxonomy-relationship");
+    fn explicit_content_group_projection_is_taxonomy_id_neutral() {
+        let root = fixture_root("content-group-projection-taxonomy-relationship");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - config/*.md\n",
+        );
+        write_config_node(
+            &root,
+            "config/areas.md",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: areas\nprojection: contentGroups\ntitle: Areas\n---\n",
+        );
+        write_config_node(
+            &root,
+            "config/spaces.md",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\ntitle: Legacy-shaped taxonomy\n---\n",
+        );
+        write_config_node(
+            &root,
+            "config/area-notes.md",
+            "---\nschemaVersion: 1\nkind: term\nid: notes\ntaxonomy: areas\ntitle: Notes\ninclude:\n  - notes/**/*.md\n---\n",
+        );
+        write_config_node(
+            &root,
+            "config/space-notes.md",
+            "---\nschemaVersion: 1\nkind: term\nid: notes\ntaxonomy: spaces\ntitle: Reused Notes Term\ninclude:\n  - legacy-notes/**/*.md\n---\n",
+        );
+        write_config_node(&root, "notes/one.md", "---\ntitle: One\n---\n\n# One\n");
+
+        let workspace = load_workspace(&root).unwrap();
+        let discovery = crate::index::discover_loaded_workspace(&workspace);
+
+        assert!(workspace.diagnostics.is_empty());
+        assert!(discovery.diagnostics.is_empty());
+        assert!(
+            workspace
+                .model
+                .content_group_for_taxonomy_term("areas", "notes")
+                .is_some()
+        );
+        assert!(
+            workspace
+                .model
+                .content_group_for_taxonomy_term("spaces", "notes")
+                .is_none()
+        );
+        assert_eq!(workspace.config.spaces["notes"].include, "notes/**/*.md");
+        assert_eq!(
+            workspace
+                .model
+                .config_graph()
+                .taxonomies()
+                .get(&crate::model::TaxonomyId::new("areas"))
+                .unwrap()
+                .provenance()
+                .source_path(),
+            "config/areas.md"
+        );
+        assert_eq!(discovery.index.entries.len(), 1);
+        assert_eq!(discovery.index.entries[0].space, "notes");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_spaces_taxonomy_emits_mechanical_compatibility_warning() {
+        let root = fixture_root("legacy-spaces-projection");
         write_root_config(
             &root,
             "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - config/*.md\n",
@@ -1758,33 +1814,74 @@ mod tests {
         );
         write_config_node(
             &root,
-            "config/topics.md",
-            "---\nschemaVersion: 1\nkind: taxonomy\nid: topics\ntitle: Topics\n---\n",
-        );
-        write_config_node(
-            &root,
-            "config/space-notes.md",
+            "config/notes.md",
             "---\nschemaVersion: 1\nkind: term\nid: notes\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - notes/**/*.md\n---\n",
-        );
-        write_config_node(
-            &root,
-            "config/topic-notes.md",
-            "---\nschemaVersion: 1\nkind: term\nid: notes\ntaxonomy: topics\ntitle: Notes Topic\ninclude:\n  - tagged-notes/**/*.md\n---\n",
         );
 
         let workspace = load_workspace(&root).unwrap();
+        let compatibility = workspace
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "config.projection.compatibilitySpaces")
+            .collect::<Vec<_>>();
 
-        assert!(
-            workspace
-                .config
-                .space_for_taxonomy_term("spaces", "notes")
-                .is_some()
+        assert_eq!(compatibility.len(), 1);
+        assert_eq!(compatibility[0].path.as_deref(), Some("config/spaces.md"));
+        assert_eq!(
+            compatibility[0].expected.as_deref(),
+            Some("projection: contentGroups")
         );
-        assert!(
-            workspace
-                .config
-                .space_for_taxonomy_term("topics", "notes")
-                .is_none()
+        assert!(workspace.model.content_group("notes").is_some());
+        assert!(workspace.config.spaces.contains_key("notes"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn projection_diagnostics_retain_authored_source_provenance() {
+        let root = fixture_root("content-group-projection-diagnostics");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - config/*.md\n",
+        );
+        for (path, id, projection) in [
+            ("config/areas.md", "areas", "contentGroups"),
+            ("config/sections.md", "sections", "contentGroups"),
+            ("config/topics.md", "topics", "topicIndex"),
+        ] {
+            write_config_node(
+                &root,
+                path,
+                &format!(
+                    "---\nschemaVersion: 1\nkind: taxonomy\nid: {id}\nprojection: {projection}\ntitle: {id}\n---\n"
+                ),
+            );
+        }
+
+        let workspace = load_workspace(&root).unwrap();
+        let projection_diagnostics = workspace
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code.starts_with("config.projection."))
+            .collect::<Vec<_>>();
+
+        assert_eq!(projection_diagnostics.len(), 3);
+        assert!(projection_diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "config.projection.unknown"
+                && diagnostic.path.as_deref() == Some("config/topics.md")
+        }));
+        assert_eq!(
+            projection_diagnostics
+                .iter()
+                .filter(|diagnostic| {
+                    diagnostic.code == "config.projection.multipleContentGroups"
+                        && matches!(
+                            diagnostic.path.as_deref(),
+                            Some("config/areas.md" | "config/sections.md")
+                        )
+                })
+                .count(),
+            2
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -1805,8 +1902,8 @@ mod tests {
 
         let workspace = load_workspace(&root).unwrap();
 
-        assert_eq!(workspace.config.types["person"].space(), None);
-        assert_eq!(workspace.config.types["missing"].space(), None);
+        assert_eq!(workspace.model.semantic_type_target("person"), None);
+        assert_eq!(workspace.model.semantic_type_target("missing"), None);
         assert_eq!(
             workspace
                 .diagnostics
@@ -1995,7 +2092,7 @@ mod tests {
         fs::create_dir_all(root.join(".forma/spaces")).unwrap();
         fs::write(
             root.join(".forma/spaces/index.md"),
-            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\nprojection: contentGroups\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
         )
         .unwrap();
         fs::write(
@@ -2327,7 +2424,7 @@ mod tests {
         fs::create_dir_all(root.join(".forma/spaces")).unwrap();
         fs::write(
             root.join(".forma/spaces/index.md"),
-            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
+            "---\nschemaVersion: 1\nkind: taxonomy\nid: spaces\nprojection: contentGroups\ntitle: Spaces\nmode: primary\n---\n\n# Spaces\n",
         )
         .unwrap();
     }
