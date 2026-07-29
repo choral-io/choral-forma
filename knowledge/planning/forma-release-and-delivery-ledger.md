@@ -29,6 +29,7 @@ sources:
     - "releases/forma-v0.1.26"
     - "releases/forma-v0.1.27"
     - "releases/forma-v0.1.28"
+    - "planning/release-artifact-promotion-pipeline-redesign"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
     - "tasks/optimize-sticky-headers-in-view-rendering"
@@ -75,6 +76,7 @@ Each referenced release record remains the canonical source for its scope and va
 - **Active delivery:** [[tasks/optimize-sticky-headers-in-view-rendering]] has completed the WebApp Table and Kanban slices; the remaining scope is the VS Code native-preview evaluation.
 - **Next product-value slices:** [[tasks/design-guided-knowledge-modeling-flow]] and [[tasks/define-external-product-value-validation]] are ready. Guided modeling remains the first adoption-path design; external validation defines the parallel comparative evidence gate and starts from the authorized case corpus.
 - **Architecture dependency:** [[planning/taxonomy-term-presentation-and-graph-color-execution-plan]] keeps taxonomy-neutral presentation, membership, and cross-Host validation boundaries explicit.
+- **Release workflow hardening:** [[planning/release-artifact-promotion-pipeline-redesign]] defines the source-bound, build-once artifact promotion contract for the next release.
 
 ## Workflow-Readiness Review
 
