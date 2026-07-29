@@ -6,7 +6,7 @@ summary: "{{ input.summary }}"
 scope: project
 type: release
 status: planned
-version: ""
+version: "v{{ input.version }}"
 date:
 owners: []
 tags:

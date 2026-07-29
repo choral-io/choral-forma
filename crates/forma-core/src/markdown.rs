@@ -446,10 +446,10 @@ pub(crate) fn top_level_markdown_headings(body: &str) -> Vec<FormaHeading> {
 }
 
 fn collect_all_headings(node: &mdast::Node, headings: &mut Vec<FormaHeading>) {
-    if let mdast::Node::Heading(heading) = node {
-        if let Some(heading) = forma_heading(heading) {
-            headings.push(heading);
-        }
+    if let mdast::Node::Heading(heading) = node
+        && let Some(heading) = forma_heading(heading)
+    {
+        headings.push(heading);
     }
     if let Some(children) = node.children() {
         for child in children {

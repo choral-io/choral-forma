@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{hash::Hash, hash::Hasher};
 
@@ -98,6 +98,37 @@ fn supports_standard_version_flag() {
         format!("forma {}\n", env!("CARGO_PKG_VERSION"))
     );
     assert!(output.stderr.is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn exits_quietly_when_json_or_markdown_stdout_pipe_is_closed() {
+    for arguments in [
+        vec!["docs", "get", "cli.skills", "--json"],
+        vec!["docs", "get", "cli.skills"],
+    ] {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_forma"))
+            .args(arguments)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("forma should start");
+        drop(child.stdout.take());
+
+        let output = child
+            .wait_with_output()
+            .expect("forma should exit after stdout closes");
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            !String::from_utf8_lossy(&output.stderr).contains("panicked"),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 }
 
 #[test]
@@ -1539,6 +1570,122 @@ fn repository_workspace_config_exposes_target_spaces_and_views() {
     assert!(design_list.status.success());
     let design_stdout = String::from_utf8_lossy(&design_list.stdout);
     assert!(design_stdout.contains(r#""path":"knowledge/design/"#));
+}
+
+#[test]
+fn repository_release_create_contract_previews_versioned_record() {
+    let repository_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let root = fixture_root("repository-release-create-contract");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::copy(repository_root.join(".forma.md"), root.join(".forma.md")).unwrap();
+    copy_dir_recursive(
+        &repository_root.join(".forma/spaces"),
+        &root.join(".forma/spaces"),
+    );
+    copy_dir_recursive(
+        &repository_root.join(".forma/views"),
+        &root.join(".forma/views"),
+    );
+    copy_dir_recursive(
+        &repository_root.join("knowledge/guidelines"),
+        &root.join("knowledge/guidelines"),
+    );
+    let expected_path = "knowledge/releases/forma-v0.1.26.md";
+
+    let missing_version = forma(&root)
+        .args(["create", "releases", "--preview", "--json"])
+        .output()
+        .expect("forma create releases without a version should run");
+    assert!(!missing_version.status.success());
+    let missing_version: Value = serde_json::from_slice(&missing_version.stdout)
+        .expect("failed preview output should be valid JSON");
+    assert_eq!(missing_version["operation"], "create.preview");
+    assert_eq!(missing_version["status"], "failed");
+    assert_eq!(
+        missing_version["diagnostics"][0]["code"],
+        "operation.inputInvalid"
+    );
+
+    let default_title = forma(&root)
+        .args([
+            "create",
+            "releases",
+            "--input",
+            "version=0.1.26",
+            "--preview",
+            "--json",
+        ])
+        .output()
+        .expect("forma create releases --preview should run");
+    assert!(
+        default_title.status.success(),
+        "{}",
+        String::from_utf8_lossy(&default_title.stderr)
+    );
+
+    let default_title: Value =
+        serde_json::from_slice(&default_title.stdout).expect("preview output should be valid JSON");
+    assert_eq!(default_title["operation"], "create.preview");
+    assert_eq!(default_title["target"]["path"], expected_path);
+    assert_eq!(default_title["inputs"]["title"]["source"], "default");
+    assert_eq!(default_title["inputs"]["title"]["value"], "Forma v0.1.26");
+    assert_eq!(
+        default_title["content"]["frontmatter"]["title"],
+        "Forma v0.1.26"
+    );
+    assert_eq!(
+        default_title["content"]["frontmatter"]["version"],
+        "v0.1.26"
+    );
+    assert_eq!(default_title["content"]["frontmatter"]["summary"], "");
+    assert!(
+        default_title["content"]["body"]
+            .as_str()
+            .expect("preview body should be a string")
+            .contains("# Forma v0.1.26")
+    );
+    assert!(!root.join(expected_path).exists());
+
+    let explicit_title = forma(&root)
+        .args([
+            "create",
+            "releases",
+            "--input",
+            "version=0.1.26",
+            "--input",
+            "title=Forma v0.1.26 Public Preview",
+            "--preview",
+            "--json",
+        ])
+        .output()
+        .expect("forma create releases with an explicit title should run");
+    assert!(
+        explicit_title.status.success(),
+        "{}",
+        String::from_utf8_lossy(&explicit_title.stderr)
+    );
+
+    let explicit_title: Value = serde_json::from_slice(&explicit_title.stdout)
+        .expect("preview output should be valid JSON");
+    assert_eq!(explicit_title["target"]["path"], expected_path);
+    assert_eq!(explicit_title["inputs"]["title"]["source"], "explicit");
+    assert_eq!(
+        explicit_title["content"]["frontmatter"]["title"],
+        "Forma v0.1.26 Public Preview"
+    );
+    assert_eq!(
+        explicit_title["content"]["frontmatter"]["version"],
+        "v0.1.26"
+    );
+    assert!(
+        explicit_title["content"]["body"]
+            .as_str()
+            .expect("preview body should be a string")
+            .contains("# Forma v0.1.26 Public Preview")
+    );
+    assert!(!root.join(expected_path).exists());
+
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

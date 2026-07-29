@@ -57,14 +57,13 @@ include:
     - "knowledge/releases/**/*.md"
 create:
     directory: knowledge/releases
-    filename: "{{ input.slug }}.md"
+    filename: "forma-v{{ input.version }}.md"
     template: .forma/spaces/templates/release.md
     inputs:
-        title:
+        version:
             required: true
-        slug:
-            default: "{{ input.title }}"
-            transform: slugify
+        title:
+            default: "Forma v{{ input.version }}"
         summary:
             default: ""
 conventions:

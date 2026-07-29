@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
+use std::fmt;
 use std::fs;
 use std::hash::{Hash, Hasher};
+use std::io::{self, Write};
 use std::net::SocketAddr;
 use std::path::{Component, Path as FsPath, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -37,6 +39,31 @@ static STATIC_WEBAPP_DIST: Dir<'_> = include_dir!("$OUT_DIR/webapp-static-dist")
 
 const RPC_CACHE_VALIDATION_INTERVAL: Duration = Duration::from_millis(200);
 const RPC_CACHE_MAX_RESPONSES: usize = 128;
+
+fn write_stdout(arguments: fmt::Arguments<'_>) -> io::Result<()> {
+    let stdout = io::stdout();
+    let mut stdout = stdout.lock();
+    write_stdout_to(&mut stdout, arguments)
+}
+
+fn write_stdout_to(writer: &mut impl Write, arguments: fmt::Arguments<'_>) -> io::Result<()> {
+    writer.write_fmt(arguments)
+}
+
+macro_rules! stdout_print {
+    ($($arguments:tt)*) => {
+        write_stdout(format_args!($($arguments)*))
+    };
+}
+
+macro_rules! stdout_println {
+    () => {
+        write_stdout(format_args!("\n"))
+    };
+    ($($arguments:tt)*) => {
+        write_stdout(format_args!("{}\n", format_args!($($arguments)*)))
+    };
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct RpcCacheKey {
@@ -561,7 +588,22 @@ enum SiteCommand {
 
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
-    run_cli(cli).await
+    finish_cli_run(run_cli(cli).await)
+}
+
+fn finish_cli_run(
+    result: Result<(), Box<dyn std::error::Error>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match result {
+        Err(error)
+            if error
+                .downcast_ref::<io::Error>()
+                .is_some_and(|error| error.kind() == io::ErrorKind::BrokenPipe) =>
+        {
+            Ok(())
+        }
+        result => result,
+    }
 }
 
 async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
@@ -573,18 +615,18 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let dispatcher = Dispatcher::new(&workspace);
 
     if version {
-        println!("forma {}", forma_core::version());
+        stdout_println!("forma {}", forma_core::version())?;
         return Ok(());
     }
 
     match command {
         None => {
-            println!("forma {}", forma_core::version());
+            stdout_println!("forma {}", forma_core::version())?;
             Ok(())
         }
         Some(Command::Check { json }) => {
             let result = dispatcher.dispatch(OperationRequest::Check(CheckRequest::default()))?;
-            print_result(&result, json, "check");
+            print_result(&result, json, "check")?;
             exit_if_failed(&result);
             Ok(())
         }
@@ -607,7 +649,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 &result,
                 json,
                 if preview { "create preview" } else { "create" },
-            );
+            )?;
             exit_if_failed(&result);
             Ok(())
         }
@@ -622,7 +664,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 language,
                 timezone,
             }))?;
-            print_result(&result, json, "init");
+            print_result(&result, json, "init")?;
             exit_if_failed(&result);
             Ok(())
         }
@@ -645,13 +687,13 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
             let result = dispatcher.dispatch(OperationRequest::Inspect(request))?;
-            print_result(&result, json, "inspect");
+            print_result(&result, json, "inspect")?;
             exit_if_failed(&result);
             Ok(())
         }
         Some(Command::List { space, json }) => {
             let result = dispatcher.dispatch(OperationRequest::List(ListRequest { space }))?;
-            print_result(&result, json, "list");
+            print_result(&result, json, "list")?;
             exit_if_failed(&result);
             Ok(())
         }
@@ -662,7 +704,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                         view,
                         params: Default::default(),
                     }))?;
-                print_result(&result, json, "view render");
+                print_result(&result, json, "view render")?;
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -683,7 +725,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                         fragment,
                     },
                 ))?;
-                print_result(&result, json, "reference resolve");
+                print_result(&result, json, "reference resolve")?;
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -691,14 +733,14 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Some(Command::Docs { command }) => match command {
             DocsCommand::List { json } => {
                 let result = dispatcher.dispatch(OperationRequest::DocsList(DocsListRequest {}))?;
-                print_docs_list_result(&result, json);
+                print_docs_list_result(&result, json)?;
                 exit_if_failed(&result);
                 Ok(())
             }
             DocsCommand::Get { id, json } => {
                 let result =
                     dispatcher.dispatch(OperationRequest::DocsGet(DocsGetRequest { id }))?;
-                print_docs_get_result(&result, json);
+                print_docs_get_result(&result, json)?;
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -709,7 +751,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                     let result = dispatcher.dispatch(OperationRequest::ConfigInspect(
                         ConfigInspectRequest { path },
                     ))?;
-                    print_result(&result, json, "config inspect");
+                    print_result(&result, json, "config inspect")?;
                     exit_if_failed(&result);
                     Ok(())
                 }
@@ -721,7 +763,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                     let result = dispatcher.dispatch(OperationRequest::ConfigSummary(
                         ConfigSummaryRequest { group, sources },
                     ))?;
-                    print_result(&result, json, "config summary");
+                    print_result(&result, json, "config summary")?;
                     exit_if_failed(&result);
                     Ok(())
                 }
@@ -732,7 +774,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 let result = dispatcher.dispatch(OperationRequest::WorkspaceDashboard(
                     WorkspaceDashboardRequest::default(),
                 ))?;
-                print_result(&result, json, "workspace dashboard");
+                print_result(&result, json, "workspace dashboard")?;
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -740,7 +782,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 let result = dispatcher.dispatch(OperationRequest::WorkspaceExplorer(
                     WorkspaceExplorerRequest::default(),
                 ))?;
-                print_result(&result, json, "workspace explorer");
+                print_result(&result, json, "workspace explorer")?;
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -759,7 +801,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                         limit: Some(limit),
                     },
                 ))?;
-                print_result(&result, json, "workspace explorer entries");
+                print_result(&result, json, "workspace explorer entries")?;
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -782,7 +824,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                     }
                 };
                 let result = dispatcher.dispatch(OperationRequest::WorkspaceExplain(request))?;
-                print_result(&result, json, "workspace explain");
+                print_result(&result, json, "workspace explain")?;
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -790,7 +832,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 let result = dispatcher.dispatch(OperationRequest::WorkspaceHealth(
                     WorkspaceHealthRequest::default(),
                 ))?;
-                print_result(&result, json, "workspace health");
+                print_result(&result, json, "workspace health")?;
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -799,14 +841,14 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             SkillsCommand::List { json } => {
                 let result = dispatcher
                     .dispatch(OperationRequest::SkillsList(SkillsListRequest::default()))?;
-                print_skills_list_result(&result, json);
+                print_skills_list_result(&result, json)?;
                 exit_if_failed(&result);
                 Ok(())
             }
             SkillsCommand::Get { id, full, json } => {
                 let result = dispatcher
                     .dispatch(OperationRequest::SkillsGet(SkillsGetRequest { id, full }))?;
-                print_skill_get_result(&result, json);
+                print_skill_get_result(&result, json)?;
                 exit_if_failed(&result);
                 Ok(())
             }
@@ -828,9 +870,9 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                     },
                     &STATIC_WEBAPP_DIST,
                 ) {
-                    Ok(result) => print_site_build_result(&result, json),
+                    Ok(result) => print_site_build_result(&result, json)?,
                     Err(error) => {
-                        print_site_build_failure(&error, json);
+                        print_site_build_failure(&error, json)?;
                         std::process::exit(1);
                     }
                 }
@@ -857,23 +899,23 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-fn print_site_build_result(result: &site::SiteBuildResult, json: bool) {
+fn print_site_build_result(result: &site::SiteBuildResult, json: bool) -> io::Result<()> {
     if json {
-        println!(
+        stdout_println!(
             "{}",
             serde_json::to_string(result).expect("site result is serializable")
-        );
-        return;
+        )?;
+        return Ok(());
     }
     let status = match result.status {
         forma_core::OperationStatus::Passed => "passed",
         forma_core::OperationStatus::Warning => "warning",
         forma_core::OperationStatus::Failed => "failed",
     };
-    println!("site build {status}");
-    println!("output {}", result.output);
-    println!("routes {}", result.counts.routes);
-    println!("assets {}", result.counts.assets);
+    stdout_println!("site build {status}")?;
+    stdout_println!("output {}", result.output)?;
+    stdout_println!("routes {}", result.counts.routes)?;
+    stdout_println!("assets {}", result.counts.assets)?;
     for diagnostic in &result.diagnostics {
         let diagnostic = forma_core::Diagnostic {
             severity: diagnostic.severity,
@@ -884,13 +926,14 @@ fn print_site_build_result(result: &site::SiteBuildResult, json: bool) {
             actual: diagnostic.actual.clone(),
             expected: diagnostic.expected.clone(),
         };
-        print_diagnostic(&diagnostic);
+        print_diagnostic(&diagnostic)?;
     }
+    Ok(())
 }
 
-fn print_site_build_failure(error: &str, json: bool) {
+fn print_site_build_failure(error: &str, json: bool) -> io::Result<()> {
     if json {
-        println!(
+        stdout_println!(
             "{}",
             serde_json::json!({
                 "schemaVersion": 1,
@@ -903,32 +946,34 @@ fn print_site_build_failure(error: &str, json: bool) {
                     "message": error,
                 }],
             })
-        );
+        )?;
     } else {
         eprintln!("error site.buildFailed: {error}");
     }
+    Ok(())
 }
 
-fn print_result(result: &forma_rpc::OperationResult, json: bool, label: &str) {
+fn print_result(result: &forma_rpc::OperationResult, json: bool, label: &str) -> io::Result<()> {
     if json {
-        println!("{}", result.to_json_string());
+        stdout_println!("{}", result.to_json_string())?;
     } else {
-        println!("{label} {}", result.status_label());
+        stdout_println!("{label} {}", result.status_label())?;
         for diagnostic in &result.diagnostics {
-            print_diagnostic(diagnostic);
+            print_diagnostic(diagnostic)?;
         }
     }
+    Ok(())
 }
 
-fn print_skills_list_result(result: &forma_rpc::OperationResult, json: bool) {
+fn print_skills_list_result(result: &forma_rpc::OperationResult, json: bool) -> io::Result<()> {
     if json {
-        println!("{}", result.to_json_string());
-        return;
+        stdout_println!("{}", result.to_json_string())?;
+        return Ok(());
     }
 
-    println!("skills list {}", result.status_label());
+    stdout_println!("skills list {}", result.status_label())?;
     for diagnostic in &result.diagnostics {
-        print_diagnostic(diagnostic);
+        print_diagnostic(diagnostic)?;
     }
     if let Some(skills) = result.data.get("skills").and_then(|value| value.as_array()) {
         for skill in skills {
@@ -944,18 +989,19 @@ fn print_skills_list_result(result: &forma_rpc::OperationResult, json: bool) {
                 .get("sourcePath")
                 .and_then(|value| value.as_str())
                 .unwrap_or("");
-            println!("{id}\t{title}\t{source}");
+            stdout_println!("{id}\t{title}\t{source}")?;
         }
     }
+    Ok(())
 }
 
-fn print_docs_list_result(result: &forma_rpc::OperationResult, json: bool) {
+fn print_docs_list_result(result: &forma_rpc::OperationResult, json: bool) -> io::Result<()> {
     if json {
-        println!("{}", result.to_json_string());
+        stdout_println!("{}", result.to_json_string())?;
     } else {
-        println!("docs list {}", result.status_label());
+        stdout_println!("docs list {}", result.status_label())?;
         for diagnostic in &result.diagnostics {
-            print_diagnostic(diagnostic);
+            print_diagnostic(diagnostic)?;
         }
         if let Some(docs) = result.data.get("docs").and_then(|value| value.as_array()) {
             for doc in docs {
@@ -968,35 +1014,37 @@ fn print_docs_list_result(result: &forma_rpc::OperationResult, json: bool) {
                     .get("path")
                     .and_then(|value| value.as_str())
                     .unwrap_or("");
-                println!("{id}\t{title}\t{path}");
+                stdout_println!("{id}\t{title}\t{path}")?;
             }
         }
     }
+    Ok(())
 }
 
-fn print_docs_get_result(result: &forma_rpc::OperationResult, json: bool) {
+fn print_docs_get_result(result: &forma_rpc::OperationResult, json: bool) -> io::Result<()> {
     if json {
-        println!("{}", result.to_json_string());
+        stdout_println!("{}", result.to_json_string())?;
     } else if let Some(doc) = result.data.get("doc") {
         let body = doc
             .get("body")
             .and_then(|value| value.as_str())
             .unwrap_or("");
-        print!("{body}");
+        stdout_print!("{body}")?;
         if !body.ends_with('\n') {
-            println!();
+            stdout_println!()?;
         }
     } else {
         for diagnostic in &result.diagnostics {
             eprint_diagnostic(diagnostic);
         }
     }
+    Ok(())
 }
 
-fn print_skill_get_result(result: &forma_rpc::OperationResult, json: bool) {
+fn print_skill_get_result(result: &forma_rpc::OperationResult, json: bool) -> io::Result<()> {
     if json {
-        println!("{}", result.to_json_string());
-        return;
+        stdout_println!("{}", result.to_json_string())?;
+        return Ok(());
     }
 
     if let Some(content) = result
@@ -1005,9 +1053,9 @@ fn print_skill_get_result(result: &forma_rpc::OperationResult, json: bool) {
         .and_then(|skill| skill.get("content"))
         .and_then(|content| content.as_str())
     {
-        print!("{content}");
+        stdout_print!("{content}")?;
         if !content.ends_with('\n') {
-            println!();
+            stdout_println!()?;
         }
         if !matches!(result.status, forma_core::OperationStatus::Passed) {
             for diagnostic in &result.diagnostics {
@@ -1015,27 +1063,30 @@ fn print_skill_get_result(result: &forma_rpc::OperationResult, json: bool) {
             }
         }
     } else {
-        println!("skills get {}", result.status_label());
+        stdout_println!("skills get {}", result.status_label())?;
         for diagnostic in &result.diagnostics {
-            print_diagnostic(diagnostic);
+            print_diagnostic(diagnostic)?;
         }
     }
+    Ok(())
 }
 
-fn print_diagnostic(diagnostic: &forma_core::Diagnostic) {
+fn print_diagnostic(diagnostic: &forma_core::Diagnostic) -> io::Result<()> {
     let severity = match diagnostic.severity {
         forma_core::DiagnosticSeverity::Error => "error",
         forma_core::DiagnosticSeverity::Warning => "warning",
         forma_core::DiagnosticSeverity::Info => "info",
     };
     if let Some(path) = &diagnostic.path {
-        println!(
+        stdout_println!(
             "{severity} {}: {} ({path})",
-            diagnostic.code, diagnostic.message
-        );
+            diagnostic.code,
+            diagnostic.message
+        )?;
     } else {
-        println!("{severity} {}: {}", diagnostic.code, diagnostic.message);
+        stdout_println!("{severity} {}: {}", diagnostic.code, diagnostic.message)?;
     }
+    Ok(())
 }
 
 fn eprint_diagnostic(diagnostic: &forma_core::Diagnostic) {
@@ -1080,7 +1131,7 @@ pub async fn serve(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::bind(bind).await?;
     let local_addr = listener.local_addr()?;
-    println!("forma serve listening on http://{local_addr}");
+    stdout_println!("forma serve listening on http://{local_addr}")?;
     axum::serve(
         listener,
         rpc_router_with_dispatcher_and_workspace(
@@ -1594,6 +1645,7 @@ impl StatusLabel for forma_rpc::OperationResult {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::io::{self, Write};
     use std::path::Path;
     use std::sync::{Arc, Barrier};
     use std::thread;
@@ -1606,12 +1658,65 @@ mod tests {
     use tower::ServiceExt;
 
     use super::{
-        AppState, RpcCacheRuntime, cacheable_rpc_request, complete_rpc_request, inject_base_href,
-        is_mutating_rpc_request, normalize_root_path, response_with_rpc_id, rpc_handler,
-        rpc_router, rpc_router_with_dispatcher, rpc_router_with_dispatcher_and_workspace,
-        rpc_router_with_options, rpc_router_with_options_and_root_path, should_serve_spa_index,
-        workspace_fingerprint, workspace_watch_set,
+        AppState, RpcCacheRuntime, cacheable_rpc_request, complete_rpc_request, finish_cli_run,
+        inject_base_href, is_mutating_rpc_request, normalize_root_path, response_with_rpc_id,
+        rpc_handler, rpc_router, rpc_router_with_dispatcher,
+        rpc_router_with_dispatcher_and_workspace, rpc_router_with_options,
+        rpc_router_with_options_and_root_path, should_serve_spa_index, workspace_fingerprint,
+        workspace_watch_set, write_stdout_to,
     };
+
+    struct FailingWriter {
+        kind: io::ErrorKind,
+    }
+
+    impl Write for FailingWriter {
+        fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
+            Err(io::Error::new(self.kind, "simulated output failure"))
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn broken_pipe_is_suppressed_for_json_and_markdown_output() {
+        let json_error = write_stdout_to(
+            &mut FailingWriter {
+                kind: io::ErrorKind::BrokenPipe,
+            },
+            format_args!(r#"{{"operation":"check"}}\n"#),
+        )
+        .unwrap_err();
+        assert!(finish_cli_run(Err(Box::new(json_error))).is_ok());
+
+        let markdown_error = write_stdout_to(
+            &mut FailingWriter {
+                kind: io::ErrorKind::BrokenPipe,
+            },
+            format_args!("# Agent Skill\n\nUse the focused workflow.\n"),
+        )
+        .unwrap_err();
+        assert!(finish_cli_run(Err(Box::new(markdown_error))).is_ok());
+    }
+
+    #[test]
+    fn non_broken_pipe_output_errors_remain_visible_to_the_caller() {
+        let error = write_stdout_to(
+            &mut FailingWriter {
+                kind: io::ErrorKind::Other,
+            },
+            format_args!("ordinary output\n"),
+        )
+        .unwrap_err();
+        let error = finish_cli_run(Err(Box::new(error))).unwrap_err();
+
+        assert_eq!(
+            error.downcast_ref::<io::Error>().map(io::Error::kind),
+            Some(io::ErrorKind::Other)
+        );
+    }
 
     #[test]
     fn root_path_accepts_only_normalized_url_segments() {

@@ -1144,17 +1144,32 @@ pub fn skills_get(
     full: bool,
 ) -> Result<SkillsGetResult, OperationError> {
     let root = root.as_ref();
-    let mut skills = builtin_skills(full);
+    let builtin_skills = builtin_skills(full);
+    let requested_builtin = builtin_skills.iter().find(|skill| skill.id == id).cloned();
+    let mut skills = builtin_skills;
     let mut diagnostics = Vec::new();
     let mut config = None;
 
-    if skills.iter().any(|skill| skill.id == id) {
+    if let Some(requested_builtin) = requested_builtin {
         if let Ok(workspace) = load_workspace(root) {
-            let (workspace_skills, workspace_diagnostics) =
+            let (workspace_skills, _workspace_diagnostics) =
                 collect_workspace_skills(root, &workspace.config, full);
             config = Some(workspace.config);
-            skills.extend(workspace_skills);
-            diagnostics.extend(workspace_diagnostics);
+
+            // A built-in request is self-contained. Workspace discovery is only
+            // consulted to prevent a configured skill from reusing the requested
+            // built-in id; unrelated guideline diagnostics must not make that
+            // built-in unavailable.
+            let conflicting_skills = workspace_skills
+                .into_iter()
+                .filter(|skill| skill.id == id)
+                .collect::<Vec<_>>();
+            if conflicting_skills.is_empty() {
+                skills = vec![requested_builtin];
+            } else {
+                skills = vec![requested_builtin];
+                skills.extend(conflicting_skills);
+            }
         }
     } else {
         match load_workspace(root) {
@@ -3659,7 +3674,9 @@ fn collect_workspace_skills(
                     )
                     .with_path(source_path.clone())
                     .with_actual(error.to_string())
-                    .with_expected("skill.id must be a non-empty string"),
+                    .with_expected(
+                        "skill metadata may contain only id, title, description, triggers, order, and projection",
+                    ),
                 );
                 continue;
             }
@@ -4554,6 +4571,35 @@ schema:
     }
 
     #[test]
+    fn skills_get_builtin_ignores_unrelated_workspace_skill_diagnostics() {
+        let root = fixture_root("skills-get-builtin-ignores-unrelated-diagnostics");
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/invalid.md\n",
+        );
+        fs::write(
+            root.join("knowledge/guidelines/invalid.md"),
+            "---\nskill:\n  id: unrelated-invalid\n  title: Unrelated Invalid\n  description: This metadata has an intentional typo.\n  projecton: full\n---\n\n# Invalid\n",
+        )
+        .unwrap();
+
+        let result = skills_get(&root, "forma-cli-core", false).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Passed);
+        assert_eq!(
+            result
+                .skill
+                .expect("built-in skill should remain available")
+                .id,
+            "forma-cli-core"
+        );
+        assert!(result.diagnostics.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn skills_get_returns_markdown_content_for_workspace_skill() {
         let root = fixture_root("skills-get");
         fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
@@ -4666,6 +4712,53 @@ Exclude the real reference section.
     }
 
     #[test]
+    fn skills_get_ignores_agent_skill_headings_inside_tilde_fences() {
+        let root = fixture_root("skills-get-tilde-fence-section");
+        fs::create_dir_all(root.join("knowledge/guidelines")).unwrap();
+        write_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Content\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines:\n  - knowledge/guidelines/tilde.md\n",
+        );
+        fs::write(
+            root.join("knowledge/guidelines/tilde.md"),
+            r#"---
+skill:
+  id: tilde-fence-skill
+  title: Tilde Fence Skill
+  description: Project one real Agent Skill section after a tilde fence.
+---
+
+# Tilde Fence Skill
+
+~~~markdown
+## Agent Skill
+
+This is a fenced decoy.
+~~~
+
+## Agent Skill
+
+Keep the real instructions.
+
+## Reference
+
+Exclude this reference.
+"#,
+        )
+        .unwrap();
+
+        let result = skills_get(&root, "tilde-fence-skill", false).unwrap();
+
+        assert_eq!(result.status, OperationStatus::Passed);
+        let content = result.skill.expect("tilde fence skill").content;
+        assert!(content.contains("Keep the real instructions."));
+        assert!(!content.contains("This is a fenced decoy."));
+        assert!(!content.contains("Exclude this reference."));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn agent_skill_name_validation_matches_the_portable_contract() {
         assert!(agent_skill_name_error("a").is_none());
         assert!(agent_skill_name_error(&"a".repeat(64)).is_none());
@@ -4732,6 +4825,13 @@ Exclude the real reference section.
                 .iter()
                 .any(|diagnostic| diagnostic.code == "skills.invalidDescription")
         );
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "skills.invalidMetadata"
+                && diagnostic.expected.as_deref()
+                    == Some(
+                        "skill metadata may contain only id, title, description, triggers, order, and projection",
+                    )
+        }));
 
         fs::remove_dir_all(root).unwrap();
     }
