@@ -58,9 +58,11 @@ jobs:
           [[ "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]]
           node scripts/check-release-version.mjs "v${RELEASE_VERSION}"
           test "$(git rev-parse HEAD)" = "${SOURCE_SHA}"
-          echo "version=${RELEASE_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "tag=v${RELEASE_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "source_sha=${SOURCE_SHA}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "version=${RELEASE_VERSION}"
+            echo "tag=v${RELEASE_VERSION}"
+            echo "source_sha=${SOURCE_SHA}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Verify current main and exact-source CI
         shell: bash
