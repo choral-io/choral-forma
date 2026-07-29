@@ -23,6 +23,6 @@ order: 70
 
 Use this command for configured lists, tables, kanban boards, and graphs. A view locator may be a configured view id such as `.forma/views/task-board`, or the matching Markdown path such as `.forma/views/task-board.md`.
 
-## Agent Guidance
+## Agent Skill
 
 Prefer `forma view render <view-id-or-path> --json` over workflow-specific read commands when the workspace already defines a view for the workflow.

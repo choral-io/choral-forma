@@ -11,7 +11,7 @@ order: 215
 
 # Workspace Example Accelerator
 
-## Agent Guidance
+## Agent Skill
 
 Use this doc only when the Human explicitly asks to learn from an example, start from a starter workspace, or use a known pattern as a fast path. It is an accelerator, not the default bootstrap contract.
 
@@ -43,7 +43,7 @@ Before copying or adapting anything:
 1. Name the target slice in the Human's domain language.
 2. State which example or starter is being used and why it is the closest fit.
 3. Separate what will be copied exactly, adapted, or rejected.
-4. Confirm local/private boundaries before bringing over paths, guidelines, or sample content.
+4. Confirm repository inclusion, publication, and access-control boundaries before bringing over paths, guidelines, or sample content. A path name does not provide a privacy guarantee.
 
 Use the example to accelerate structure review:
 

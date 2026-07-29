@@ -59,7 +59,7 @@ For an entry reference field, store the workspace reference path that resolves t
 
 When defining templates or create defaults for entry reference fields, inspect the field schema first. If the default should point to the current user, use a runtime identity value such as `currentUserId` only as an input to the workspace's explicit reference path. For example, `people/{{ runtime.values.currentUserId }}` is valid only when `people/<id>` is the configured reference form for the `person` type in that workspace.
 
-## Agent Guidance
+## Agent Skill
 
 Keep schema fields minimal and aligned with the human workflow. Prefer camelCase field names unless the existing workspace uses another convention.
 

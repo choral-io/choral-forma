@@ -14,7 +14,7 @@ use crate::config::{
     WorkspaceSettings, config_source_paths, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
-use crate::docs::embedded_doc;
+use crate::docs::{DocsError, EmbeddedDoc, EmbeddedDocSummary, embedded_doc, embedded_docs};
 use crate::document::{DocumentAnalysis, DocumentReference, analyze_document_references};
 use crate::index::{
     Discovery, IndexEntry, IndexReference, ReferenceIntent, ReferenceSource,
@@ -65,6 +65,29 @@ pub struct SkillsGetResult {
     pub workspace: WorkspaceSummary,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skill: Option<SkillDetail>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocsListResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub docs: Vec<EmbeddedDocSummary>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocsGetResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc: Option<EmbeddedDoc>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -691,6 +714,8 @@ pub struct ListEntry {
 
 #[derive(Debug, Error)]
 pub enum OperationError {
+    #[error("embedded documentation error: {0}")]
+    Docs(#[from] DocsError),
     #[error("configuration error: {0}")]
     Config(#[from] ConfigError),
     #[error("space `{0}` was not found")]
@@ -721,6 +746,41 @@ pub enum OperationError {
         #[source]
         source: std::io::Error,
     },
+}
+
+pub fn docs_list() -> Result<DocsListResult, OperationError> {
+    let docs = embedded_docs()?;
+    let diagnostics = Vec::new();
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+    Ok(DocsListResult {
+        schema_version: 1,
+        operation: "docs.list".to_string(),
+        status: summary.status(),
+        docs: docs.iter().map(EmbeddedDocSummary::from).collect(),
+        summary,
+        diagnostics,
+    })
+}
+
+pub fn docs_get(id: &str) -> Result<DocsGetResult, OperationError> {
+    let doc = embedded_doc(id)?;
+    let diagnostics = if doc.is_some() {
+        Vec::new()
+    } else {
+        vec![
+            Diagnostic::error("docs.notFound", "Documentation topic was not found.")
+                .with_actual(id.to_string()),
+        ]
+    };
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+    Ok(DocsGetResult {
+        schema_version: 1,
+        operation: "docs.get".to_string(),
+        status: summary.status(),
+        doc,
+        summary,
+        diagnostics,
+    })
 }
 
 pub fn create_entry(
@@ -913,7 +973,7 @@ pub fn init_workspace(
 
 pub fn skills_list(root: impl AsRef<Path>) -> Result<SkillsListResult, OperationError> {
     let root = root.as_ref();
-    let mut skills = builtin_skills();
+    let mut skills = builtin_skills(false);
     let mut diagnostics = Vec::new();
     let mut config = None;
 
@@ -960,7 +1020,7 @@ pub fn skills_get(
     full: bool,
 ) -> Result<SkillsGetResult, OperationError> {
     let root = root.as_ref();
-    let mut skills = builtin_skills();
+    let mut skills = builtin_skills(full);
     let mut diagnostics = Vec::new();
     let mut config = None;
 
@@ -3198,23 +3258,25 @@ struct SkillMetadata {
     order: Option<i64>,
 }
 
-fn builtin_skills() -> Vec<SkillDetail> {
-    let doc = embedded_doc("agents.forma-cli-core")
-        .expect("embedded docs should parse")
-        .expect("forma-cli-core embedded doc should exist");
-    let skill = doc
-        .skill
-        .expect("forma-cli-core embedded doc should declare skill metadata");
-    vec![SkillDetail {
-        id: skill.id,
-        title: skill.title,
-        description: skill.description,
-        source: SkillSource::BuiltIn,
-        source_path: "builtin:forma-cli-core".to_string(),
-        triggers: skill.triggers,
-        order: skill.order,
-        content: builtin_skill_markdown_content("builtin:forma-cli-core", &doc.body),
-    }]
+fn builtin_skills(full: bool) -> Vec<SkillDetail> {
+    embedded_docs()
+        .expect("canonical embedded docs should parse")
+        .into_iter()
+        .filter_map(|doc| {
+            let skill = doc.skill.clone()?;
+            let source_path = format!("builtin:{}", skill.id);
+            Some(SkillDetail {
+                id: skill.id,
+                title: skill.title,
+                description: skill.description,
+                source: SkillSource::BuiltIn,
+                source_path: source_path.clone(),
+                triggers: skill.triggers,
+                order: skill.order,
+                content: skill_markdown_content(&source_path, &doc.body, full),
+            })
+        })
+        .collect()
 }
 
 fn workspace_summary_from_config_or_fallback(config: Option<&WorkspaceConfig>) -> WorkspaceSummary {
@@ -3250,12 +3312,8 @@ fn configured_guideline_paths(config: &WorkspaceConfig) -> Vec<String> {
     paths
 }
 
-fn skill_markdown_content(
-    source_path: &str,
-    document: &FormaMarkdownDocument,
-    full: bool,
-) -> String {
-    let body = document.body.trim_start_matches('\n').trim_end();
+fn skill_markdown_content(source_path: &str, body: &str, full: bool) -> String {
+    let body = body.trim_start_matches('\n').trim_end();
     let body = if full {
         body
     } else {
@@ -3267,12 +3325,17 @@ fn skill_markdown_content(
 }
 
 fn agent_skill_section(body: &str) -> Option<&str> {
+    agent_section_with_heading(body, "## Agent Skill")
+        .or_else(|| agent_section_with_heading(body, "## Agent Guidance"))
+}
+
+fn agent_section_with_heading<'a>(body: &'a str, heading: &str) -> Option<&'a str> {
     let mut section_start = None;
     let mut section_end = body.len();
     let mut offset = 0;
 
     for line in body.split_inclusive('\n') {
-        if markdown_heading_level(line) == Some(2) && line.trim() == "## Agent Skill" {
+        if markdown_heading_level(line) == Some(2) && line.trim() == heading {
             section_start = Some(offset);
             offset += line.len();
             continue;
@@ -3302,11 +3365,6 @@ fn markdown_heading_level(line: &str) -> Option<usize> {
     } else {
         None
     }
-}
-
-fn builtin_skill_markdown_content(source_path: &str, body: &str) -> String {
-    let body = body.trim_start_matches('\n').trim_end();
-    format!("---\nsource: {source_path}\n---\n\n{body}\n")
 }
 
 fn write_workspace_file(root: &Path, path: &str, content: &str) -> Result<(), OperationError> {
@@ -3468,7 +3526,7 @@ fn collect_workspace_skills(
             source_path: source_path.clone(),
             triggers: metadata.triggers,
             order: metadata.order,
-            content: skill_markdown_content(&source_path, &document, full),
+            content: skill_markdown_content(&source_path, &document.body, full),
         });
     }
 
@@ -3487,7 +3545,7 @@ pub(crate) fn workspace_skill_diagnostics(
     root: &Path,
     config: &WorkspaceConfig,
 ) -> Vec<Diagnostic> {
-    let mut skills = builtin_skills();
+    let mut skills = builtin_skills(false);
     let (workspace_skills, mut diagnostics) = collect_workspace_skills(root, config, false);
     skills.extend(workspace_skills);
     diagnostics.extend(duplicate_skill_id_diagnostics(&skills));
@@ -3625,6 +3683,11 @@ pub fn detect_environment_timezone() -> String {
 
 pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
     match error {
+        OperationError::Docs(error) => Diagnostic::error(
+            "docs.invalidEmbeddedDocument",
+            "Built-in documentation could not be loaded.",
+        )
+        .with_actual(error.to_string()),
         OperationError::Config(error) => config_error_diagnostic(error),
         OperationError::SpaceNotFound(space) => {
             Diagnostic::error("space.notFound", format!("Space `{space}` was not found."))
@@ -3687,8 +3750,8 @@ mod tests {
     use super::{
         ManagedDocumentKind, OperationError, SkillSource, WorkspaceFileFeature,
         WorkspaceHealthCategory, WorkspaceSession, WorkspaceSnapshot,
-        build_workspace_health_result, create_entry, dashboard_entry_summary_from_file,
-        inspect_config, inspect_entry_by_path, is_public_workspace_path_allowed,
+        build_workspace_health_result, create_entry, dashboard_entry_summary_from_file, docs_get,
+        docs_list, inspect_config, inspect_entry_by_path, is_public_workspace_path_allowed,
         is_raw_workspace_path_allowed, list_file_references, list_files, resolve_reference,
         skills_get, skills_list, workspace_dashboard, workspace_explorer,
         workspace_explorer_entries, workspace_file_from_path, workspace_health,
@@ -3901,8 +3964,14 @@ schema:
         let skill = result.skill.expect("built-in skill should be returned");
         assert_eq!(skill.id, "forma-cli-core");
         assert_eq!(skill.source, SkillSource::BuiltIn);
-        assert!(skill.content.contains("# Forma CLI Core"));
-        assert!(skill.content.contains("Built-in skill: forma-cli-core"));
+        assert_eq!(skill.source_path, "builtin:forma-cli-core");
+        assert!(skill.content.contains("## Agent Skill"));
+        assert!(
+            skill
+                .content
+                .contains("Run `forma` commands from the target workspace root")
+        );
+        assert!(!skill.content.contains("## Reference"));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -3919,7 +3988,7 @@ schema:
         let skill = result.skill.expect("built-in skill should be returned");
         assert_eq!(skill.id, "forma-cli-core");
         assert_eq!(skill.source, SkillSource::BuiltIn);
-        assert!(skill.content.contains("Built-in skill: forma-cli-core"));
+        assert!(skill.content.contains("## Agent Skill"));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -3972,11 +4041,57 @@ schema:
                 .iter()
                 .any(|skill| skill.id == "forma-cli-core")
         );
+        for id in [
+            "forma-workspace-design",
+            "forma-workspace-bootstrap",
+            "forma-workspace-maintenance",
+            "forma-workspace-troubleshooting",
+        ] {
+            assert!(
+                result.skills.iter().any(|skill| skill.id == id),
+                "missing {id}"
+            );
+        }
         assert!(
             result
                 .diagnostics
                 .iter()
                 .any(|diagnostic| diagnostic.code == "skills.workspaceUnavailable")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn docs_operations_are_available_without_workspace_config() {
+        let root = fixture_root("docs-no-config");
+        fs::create_dir_all(&root).unwrap();
+
+        let list = docs_list().unwrap();
+        assert_eq!(list.status, OperationStatus::Passed);
+        assert!(list.docs.iter().any(|doc| doc.id == "cli.docs"));
+        assert!(
+            list.docs
+                .iter()
+                .any(|doc| doc.id == "agents.workspace-troubleshooting")
+        );
+
+        let get = docs_get("agents.workspace-troubleshooting").unwrap();
+        assert_eq!(get.status, OperationStatus::Passed);
+        assert!(
+            get.doc
+                .expect("canonical doc should be returned")
+                .body
+                .contains("## Agent Skill")
+        );
+
+        let missing = docs_get("missing.topic").unwrap();
+        assert_eq!(missing.status, OperationStatus::Failed);
+        assert!(
+            missing
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "docs.notFound")
         );
 
         fs::remove_dir_all(root).unwrap();

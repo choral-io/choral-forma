@@ -7,12 +7,21 @@ audience:
 surfaces:
     - docs
     - skill
+skill:
+    id: forma-workspace-bootstrap
+    title: Forma Workspace Bootstrap
+    description: Use after initialization to turn one approved content workflow into a verified first workspace slice.
+    triggers:
+        - bootstrap workspace
+        - configure first space
+        - initialize content workflow
+    order: 20
 order: 210
 ---
 
 # Workspace Bootstrap
 
-## Agent Guidance
+## Agent Skill
 
 After `forma init`, help the human turn one real content workflow into a small workspace. The default path is no-example bootstrap: the human should describe their business or personal context in ordinary language; the Agent should translate that context into explicit Forma config only after confirming the first slice.
 
@@ -30,7 +39,7 @@ Useful questions:
 - Which fields describe each item well enough for lists or tables?
 - Which fields should point to another page, person, project, customer, decision, source, or other content item?
 - Which repeated operating rules should future Humans or Agents read before editing this content?
-- Which files should be shared, and which should stay local or private?
+- Which files are intended for repository inclusion, and which must stay outside configured workspace inputs until Git, hosting, and access controls define their handling? Forma paths do not provide a privacy guarantee.
 
 Stop when you can describe one content group, its first template, and one verification path. Do not design the whole workspace in the first pass.
 

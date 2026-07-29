@@ -48,6 +48,10 @@ pub enum Operation {
     SkillsList,
     #[serde(rename = "skills.get")]
     SkillsGet,
+    #[serde(rename = "docs.list")]
+    DocsList,
+    #[serde(rename = "docs.get")]
+    DocsGet,
 }
 
 impl Operation {
@@ -70,6 +74,8 @@ impl Operation {
             Self::WorkspaceHealth => "workspace.health",
             Self::SkillsList => "skills.list",
             Self::SkillsGet => "skills.get",
+            Self::DocsList => "docs.list",
+            Self::DocsGet => "docs.get",
         }
     }
 }
@@ -93,6 +99,8 @@ pub enum OperationRequest {
     WorkspaceHealth(WorkspaceHealthRequest),
     SkillsList(SkillsListRequest),
     SkillsGet(SkillsGetRequest),
+    DocsList(DocsListRequest),
+    DocsGet(DocsGetRequest),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -228,6 +236,18 @@ pub struct SkillsGetRequest {
     pub id: String,
     #[serde(default)]
     pub full: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct DocsListRequest {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct DocsGetRequest {
+    pub id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -395,6 +415,12 @@ impl Dispatcher {
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::SkillsGet, error)))
             }
+            OperationRequest::DocsList(_) => forma_core::docs_list()
+                .map(OperationResult::from)
+                .or_else(|error| Ok(core_error_result(Operation::DocsList, error))),
+            OperationRequest::DocsGet(request) => forma_core::docs_get(&request.id)
+                .map(OperationResult::from)
+                .or_else(|error| Ok(core_error_result(Operation::DocsGet, error))),
         }
     }
 
@@ -674,6 +700,24 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "docs.list" => serde_json::from_value::<DocsListRequest>(params)
+            .map(OperationRequest::DocsList)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "docs.get" => serde_json::from_value::<DocsGetRequest>(params)
+            .map(OperationRequest::DocsGet)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         "workspace.dashboard" => serde_json::from_value::<WorkspaceDashboardRequest>(params)
             .map(OperationRequest::WorkspaceDashboard)
             .map_err(|_| {
@@ -748,6 +792,40 @@ impl From<forma_core::SkillsGetResult> for OperationResult {
         data.insert("workspace".to_string(), json!(result.workspace));
         if let Some(skill) = result.skill {
             data.insert("skill".to_string(), json!(skill));
+        }
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::DocsListResult> for OperationResult {
+    fn from(result: forma_core::DocsListResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("docs".to_string(), json!(result.docs));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::DocsGetResult> for OperationResult {
+    fn from(result: forma_core::DocsGetResult) -> Self {
+        let mut data = BTreeMap::new();
+        if let Some(doc) = result.doc {
+            data.insert("doc".to_string(), json!(doc));
         }
         Self {
             schema_version: result.schema_version,
@@ -1661,6 +1739,49 @@ imports:
                 .unwrap()
                 .contains("Human-facing background.")
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_dispatches_embedded_docs_without_workspace_config() {
+        let root = fixture_root("docs-rpc");
+        fs::create_dir_all(&root).unwrap();
+
+        let list = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"docs.list","params":{}}"#,
+        );
+        assert_eq!(list["result"]["operation"], "docs.list");
+        assert!(
+            list["result"]["docs"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|doc| doc["id"] == "agents.workspace-troubleshooting")
+        );
+
+        let get = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"2","method":"docs.get","params":{"id":"cli.docs"}}"#,
+        );
+        assert_eq!(get["result"]["operation"], "docs.get");
+        assert_eq!(get["result"]["doc"]["id"], "cli.docs");
+
+        let missing = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"3","method":"docs.get","params":{"id":"missing.topic"}}"#,
+        );
+        assert_eq!(missing["result"]["status"], "failed");
+        assert_eq!(missing["result"]["diagnostics"][0]["code"], "docs.notFound");
+
+        fs::write(root.join(".forma.md"), "---\nschemaVersion: [\n---\n").unwrap();
+        let malformed = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"4","method":"docs.get","params":{"id":"cli.docs"}}"#,
+        );
+        assert_eq!(malformed["result"]["status"], "passed");
+        assert_eq!(malformed["result"]["doc"]["id"], "cli.docs");
 
         fs::remove_dir_all(root).unwrap();
     }

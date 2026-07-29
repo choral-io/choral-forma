@@ -23,6 +23,6 @@ order: 40
 
 Use `forma check --json` to validate the current workspace after changing config, templates, schemas, guidelines, or Markdown content.
 
-## Agent Guidance
+## Agent Skill
 
 Run this after changing `.forma.md`, config nodes, templates, or shared Markdown content.

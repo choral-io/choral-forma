@@ -23,6 +23,6 @@ order: 20
 
 Run `forma init` from the target project directory. The command writes `.forma.md` and `.agents/skills/forma-cli/SKILL.md` when those paths do not already exist.
 
-## Agent Guidance
+## Agent Skill
 
 Do not create getting-started content, `skills/forma-cli/SKILL.md`, or `AGENTS.md` as part of the init step. After init, load `forma-cli-core`; if the human wants workspace setup, use the no-example first-slice path instead of copying example content.

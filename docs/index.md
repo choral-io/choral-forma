@@ -26,7 +26,9 @@ Start from a concrete workflow instead of from the abstract model. A workspace m
 
 Product docs are the source for Human documentation, embedded docs, CLI help excerpts, and built-in Agent skill output. A docs page may include diagrams, screenshots, Mermaid charts, or other rich Markdown when that helps Human readers.
 
-Help and skill projections must remain usable as plain text. Keep any CLI or Agent-critical instructions in stable text sections such as `## CLI Help`, `## Agent Guidance`, and `## Reference`.
+Help and skill projections must remain usable as plain text. Keep any CLI or Agent-critical instructions in stable text sections such as `## CLI Help`, `## Agent Skill`, and `## Reference`.
+
+Use `forma docs list --json` to discover the embedded canonical pages. This works before workspace configuration is available; workspace guidance is discovered separately through `forma skills list --json`.
 
 ## Reference
 

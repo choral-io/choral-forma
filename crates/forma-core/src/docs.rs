@@ -1,93 +1,14 @@
 use std::collections::BTreeSet;
 use std::fmt;
+use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
 use crate::markdown::FormaMarkdownDocument;
 
-const EMBEDDED_DOC_SOURCES: &[(&str, &str)] = &[
-    ("docs/index.md", include_str!("../../../docs/index.md")),
-    (
-        "docs/getting-started.md",
-        include_str!("../../../docs/getting-started.md"),
-    ),
-    (
-        "docs/cli/init.md",
-        include_str!("../../../docs/cli/init.md"),
-    ),
-    (
-        "docs/cli/config.md",
-        include_str!("../../../docs/cli/config.md"),
-    ),
-    (
-        "docs/cli/check.md",
-        include_str!("../../../docs/cli/check.md"),
-    ),
-    (
-        "docs/cli/view.md",
-        include_str!("../../../docs/cli/view.md"),
-    ),
-    (
-        "docs/cli/serve.md",
-        include_str!("../../../docs/cli/serve.md"),
-    ),
-    (
-        "docs/cli/site.md",
-        include_str!("../../../docs/cli/site.md"),
-    ),
-    (
-        "docs/cli/skills.md",
-        include_str!("../../../docs/cli/skills.md"),
-    ),
-    (
-        "docs/workspace/configuration.md",
-        include_str!("../../../docs/workspace/configuration.md"),
-    ),
-    (
-        "docs/workspace/first-slice-config.md",
-        include_str!("../../../docs/workspace/first-slice-config.md"),
-    ),
-    (
-        "docs/workspace/spaces.md",
-        include_str!("../../../docs/workspace/spaces.md"),
-    ),
-    (
-        "docs/workspace/schemas.md",
-        include_str!("../../../docs/workspace/schemas.md"),
-    ),
-    (
-        "docs/workspace/templates.md",
-        include_str!("../../../docs/workspace/templates.md"),
-    ),
-    (
-        "docs/workspace/views.md",
-        include_str!("../../../docs/workspace/views.md"),
-    ),
-    (
-        "docs/workspace/guidelines.md",
-        include_str!("../../../docs/workspace/guidelines.md"),
-    ),
-    (
-        "docs/agents/forma-cli-core.md",
-        include_str!("../../../docs/agents/forma-cli-core.md"),
-    ),
-    (
-        "docs/agents/workspace-design-discovery.md",
-        include_str!("../../../docs/agents/workspace-design-discovery.md"),
-    ),
-    (
-        "docs/agents/workspace-bootstrap.md",
-        include_str!("../../../docs/agents/workspace-bootstrap.md"),
-    ),
-    (
-        "docs/agents/workspace-example-accelerator.md",
-        include_str!("../../../docs/agents/workspace-example-accelerator.md"),
-    ),
-    (
-        "docs/agents/workspace-maintenance.md",
-        include_str!("../../../docs/agents/workspace-maintenance.md"),
-    ),
-];
+include!(concat!(env!("OUT_DIR"), "/embedded_docs_registry.rs"));
+
+static EMBEDDED_DOCS: OnceLock<Result<Vec<EmbeddedDoc>, DocsError>> = OnceLock::new();
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -102,6 +23,35 @@ pub struct EmbeddedDoc {
     pub order: i64,
     pub path: String,
     pub body: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmbeddedDocSummary {
+    pub id: String,
+    pub title: String,
+    pub summary: String,
+    pub audience: Vec<String>,
+    pub surfaces: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill: Option<EmbeddedSkill>,
+    pub order: i64,
+    pub path: String,
+}
+
+impl From<&EmbeddedDoc> for EmbeddedDocSummary {
+    fn from(doc: &EmbeddedDoc) -> Self {
+        Self {
+            id: doc.id.clone(),
+            title: doc.title.clone(),
+            summary: doc.summary.clone(),
+            audience: doc.audience.clone(),
+            surfaces: doc.surfaces.clone(),
+            skill: doc.skill.clone(),
+            order: doc.order,
+            path: doc.path.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -136,6 +86,14 @@ impl fmt::Display for DocsError {
 impl std::error::Error for DocsError {}
 
 pub fn embedded_docs() -> Result<Vec<EmbeddedDoc>, DocsError> {
+    EMBEDDED_DOCS.get_or_init(load_embedded_docs).clone()
+}
+
+pub fn embedded_doc(id: &str) -> Result<Option<EmbeddedDoc>, DocsError> {
+    Ok(embedded_docs()?.into_iter().find(|doc| doc.id == id))
+}
+
+fn load_embedded_docs() -> Result<Vec<EmbeddedDoc>, DocsError> {
     let mut docs = Vec::new();
     let mut ids = BTreeSet::new();
 
@@ -149,10 +107,6 @@ pub fn embedded_docs() -> Result<Vec<EmbeddedDoc>, DocsError> {
 
     docs.sort_by(|a, b| a.order.cmp(&b.order).then_with(|| a.id.cmp(&b.id)));
     Ok(docs)
-}
-
-pub fn embedded_doc(id: &str) -> Result<Option<EmbeddedDoc>, DocsError> {
-    Ok(embedded_docs()?.into_iter().find(|doc| doc.id == id))
 }
 
 fn parse_embedded_doc(path: &str, source: &str) -> Result<EmbeddedDoc, DocsError> {
@@ -235,7 +189,7 @@ mod tests {
         assert!(core.audience.contains(&"agent".to_string()));
         assert!(core.surfaces.contains(&"skill".to_string()));
         assert!(core.body.contains("# Forma CLI Core"));
-        assert!(core.body.contains("## Agent Guidance"));
+        assert!(core.body.contains("## Agent Skill"));
     }
 
     #[test]

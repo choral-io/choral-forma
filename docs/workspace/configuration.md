@@ -223,6 +223,6 @@ include:
 
 Clients map icon ids to their own bundled assets and adapt configured colors to the active theme. An unsupported icon produces `config.displayIconInvalid`; an invalid color produces `config.displayColorInvalid`. Invalid presentation values are omitted from the effective display metadata so clients can use their normal fallback icon and theme color. Forma does not download icons, accept icon URLs, or interpret arbitrary SVG from workspace config.
 
-## Agent Guidance
+## Agent Skill
 
 Do not infer configuration from `.gitignore` or path names. Add config nodes through explicit `imports` patterns. Before adding term nodes, make sure the referenced taxonomy has a `kind: taxonomy` config node with a matching `id`. Then verify the effective model with `forma config inspect --json` and `forma check --json`.

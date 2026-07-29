@@ -89,7 +89,7 @@ query:
           value: active
 ```
 
-## Agent Guidance
+## Agent Skill
 
 Add views after the underlying spaces and fields exist. Treat views as projections, not as hidden state.
 

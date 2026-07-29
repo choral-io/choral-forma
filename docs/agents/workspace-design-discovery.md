@@ -7,12 +7,21 @@ audience:
 surfaces:
     - docs
     - skill
+skill:
+    id: forma-workspace-design
+    title: Forma Workspace Design
+    description: Use to discover a real content workflow and define a small, approved workspace slice.
+    triggers:
+        - design workspace
+        - discover content model
+        - plan first workspace slice
+    order: 10
 order: 205
 ---
 
 # Workspace Design Discovery
 
-## Agent Guidance
+## Agent Skill
 
 Use this only when the human asks to design a workspace, understand a business domain, or plan a content system. Do not load this doc for read-only health, list, inspect, or view tasks.
 
@@ -28,7 +37,7 @@ Ask questions in small batches. Stop when the next answer would not change the f
 4. Users and responsibilities: who creates, edits, reviews, reads, or archives the content?
 5. Retrieval needs: what will people search, filter, compare, group, or sort during normal work?
 6. Relationship candidates: which objects refer to each other, and which relationships can wait?
-7. Local or private boundaries: which files should stay local or personal?
+7. Repository inclusion and publication boundary: which files should be configured or shared, and which must stay outside configured workspace inputs until Git, hosting, and access controls define their handling? Forma path names do not provide a privacy guarantee.
 
 ## Design Brief
 

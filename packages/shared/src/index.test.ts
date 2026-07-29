@@ -121,6 +121,50 @@ describe("FormaRpcClient", () => {
         });
     });
 
+    it("requests built-in docs without workspace params", async () => {
+        const calls: Array<{ body: unknown }> = [];
+        const client = new FormaRpcClient("/rpc", (_input, requestInit) => {
+            calls.push({ body: JSON.parse(requestInit.body) });
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: () =>
+                    Promise.resolve({
+                        jsonrpc: "2.0",
+                        id: "1",
+                        result: {
+                            schemaVersion: 1,
+                            operation: "docs.list",
+                            status: "passed",
+                            docs: [],
+                        },
+                    }),
+            });
+        });
+
+        await expect(client.docsList()).resolves.toMatchObject({ operation: "docs.list" });
+        await client.docsGet("agents.forma-cli-core");
+
+        expect(calls).toEqual([
+            {
+                body: {
+                    jsonrpc: "2.0",
+                    id: "1",
+                    method: "docs.list",
+                    params: {},
+                },
+            },
+            {
+                body: {
+                    jsonrpc: "2.0",
+                    id: "2",
+                    method: "docs.get",
+                    params: { id: "agents.forma-cli-core" },
+                },
+            },
+        ]);
+    });
+
     it("requests read-only workspace health without params", async () => {
         const calls: Array<{ input: string; body: unknown }> = [];
         const client = new FormaRpcClient("/rpc", (input, requestInit) => {

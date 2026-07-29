@@ -17,7 +17,7 @@ order: 150
 
 Guidelines are ordinary Markdown files declared in `.forma.md` or space configuration. They provide soft collaboration rules, Human-readable background, and Agent workflows.
 
-## Agent Guidance
+## Agent Skill
 
 Read configured guidelines before editing shared workspace content. Treat them as context and procedure, not hidden system instructions.
 

@@ -19,10 +19,10 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use clap::{Parser, Subcommand, ValueEnum};
 use forma_rpc::{
-    CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, InitRequest, InspectRequest,
-    ListRequest, OperationRequest, ReferenceResolveRequest, SkillsGetRequest, SkillsListRequest,
-    ViewRenderRequest, WorkspaceDashboardRequest, WorkspaceExplorerEntriesRequest,
-    WorkspaceExplorerRequest, WorkspaceHealthRequest,
+    CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, DocsGetRequest, DocsListRequest,
+    InitRequest, InspectRequest, ListRequest, OperationRequest, ReferenceResolveRequest,
+    SkillsGetRequest, SkillsListRequest, ViewRenderRequest, WorkspaceDashboardRequest,
+    WorkspaceExplorerEntriesRequest, WorkspaceExplorerRequest, WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_json::Value as JsonValue;
@@ -648,11 +648,16 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         },
         Some(Command::Docs { command }) => match command {
             DocsCommand::List { json } => {
-                print_docs_list(json)?;
+                let result = dispatcher.dispatch(OperationRequest::DocsList(DocsListRequest {}))?;
+                print_docs_list_result(&result, json);
+                exit_if_failed(&result);
                 Ok(())
             }
             DocsCommand::Get { id, json } => {
-                print_docs_get(&id, json)?;
+                let result =
+                    dispatcher.dispatch(OperationRequest::DocsGet(DocsGetRequest { id }))?;
+                print_docs_get_result(&result, json);
+                exit_if_failed(&result);
                 Ok(())
             }
         },
@@ -866,86 +871,48 @@ fn print_skills_list_result(result: &forma_rpc::OperationResult, json: bool) {
     }
 }
 
-fn print_docs_list(json: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let docs = forma_core::embedded_docs()?;
+fn print_docs_list_result(result: &forma_rpc::OperationResult, json: bool) {
     if json {
-        let docs = docs
-            .iter()
-            .map(|doc| {
-                serde_json::json!({
-                    "id": doc.id,
-                    "title": doc.title,
-                    "summary": doc.summary,
-                    "path": doc.path,
-                    "audience": doc.audience,
-                    "surfaces": doc.surfaces,
-                    "order": doc.order,
-                })
-            })
-            .collect::<Vec<_>>();
-        println!(
-            "{}",
-            serde_json::json!({
-                "schemaVersion": 1,
-                "operation": "docs.list",
-                "status": "passed",
-                "docs": docs,
-                "summary": { "errors": 0, "warnings": 0, "infos": 0 },
-                "diagnostics": [],
-            })
-        );
+        println!("{}", result.to_json_string());
     } else {
-        println!("docs list passed");
-        for doc in docs {
-            println!("{}\t{}\t{}", doc.id, doc.title, doc.path);
+        println!("docs list {}", result.status_label());
+        for diagnostic in &result.diagnostics {
+            print_diagnostic(diagnostic);
+        }
+        if let Some(docs) = result.data.get("docs").and_then(|value| value.as_array()) {
+            for doc in docs {
+                let id = doc.get("id").and_then(|value| value.as_str()).unwrap_or("");
+                let title = doc
+                    .get("title")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("");
+                let path = doc
+                    .get("path")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("");
+                println!("{id}\t{title}\t{path}");
+            }
         }
     }
-    Ok(())
 }
 
-fn print_docs_get(id: &str, json: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let Some(doc) = forma_core::embedded_doc(id)? else {
-        if json {
-            println!(
-                "{}",
-                serde_json::json!({
-                    "schemaVersion": 1,
-                    "operation": "docs.get",
-                    "status": "failed",
-                    "summary": { "errors": 1, "warnings": 0, "infos": 0 },
-                    "diagnostics": [{
-                        "severity": "error",
-                        "code": "docs.notFound",
-                        "message": "Documentation topic was not found.",
-                        "actual": id,
-                    }],
-                })
-            );
-        } else {
-            eprintln!("error docs.notFound Documentation topic was not found: {id}");
-        }
-        std::process::exit(1);
-    };
-
+fn print_docs_get_result(result: &forma_rpc::OperationResult, json: bool) {
     if json {
-        println!(
-            "{}",
-            serde_json::json!({
-                "schemaVersion": 1,
-                "operation": "docs.get",
-                "status": "passed",
-                "doc": doc,
-                "summary": { "errors": 0, "warnings": 0, "infos": 0 },
-                "diagnostics": [],
-            })
-        );
-    } else {
-        print!("{}", doc.body);
-        if !doc.body.ends_with('\n') {
+        println!("{}", result.to_json_string());
+    } else if let Some(doc) = result.data.get("doc") {
+        let body = doc
+            .get("body")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        print!("{body}");
+        if !body.ends_with('\n') {
             println!();
         }
+    } else {
+        for diagnostic in &result.diagnostics {
+            eprint_diagnostic(diagnostic);
+        }
     }
-    Ok(())
 }
 
 fn print_skill_get_result(result: &forma_rpc::OperationResult, json: bool) {

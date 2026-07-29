@@ -853,12 +853,12 @@ fn skills_get_builtin_core_prints_markdown_without_workspace_config() {
     );
     assert!(output.stderr.is_empty());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("# Forma CLI Core"));
+    assert!(stdout.contains("## Agent Skill"));
     assert!(stdout.contains("Run `forma` commands from the target workspace root, or pass"));
-    assert!(stdout.contains("Built-in skill: forma-cli-core"));
     assert!(stdout.contains("Only If Designing Or Authoring Workspace Config"));
     assert!(stdout.contains("Do not create `skills/forma-cli/SKILL.md`"));
     assert!(stdout.contains("forma skills list --json"));
+    assert!(!stdout.contains("## Reference"));
     assert!(!stdout.contains(r#""operation":"skills.get""#));
 
     std::fs::remove_dir_all(root).unwrap();
@@ -888,6 +888,8 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(list_stdout.contains(r#""id":"cli.site""#));
     assert!(list_stdout.contains(r#""id":"agents.forma-cli-core""#));
     assert!(list_stdout.contains(r#""id":"agents.workspace-example-accelerator""#));
+    assert!(list_stdout.contains(r#""id":"agents.workspace-troubleshooting""#));
+    assert!(list_stdout.contains(r#""id":"cli.docs""#));
 
     let get = forma(&root)
         .args(["docs", "get", "workspace.configuration"])

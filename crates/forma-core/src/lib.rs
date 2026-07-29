@@ -20,7 +20,9 @@ pub use config::{
 pub use diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
 };
-pub use docs::{DocsError, EmbeddedDoc, EmbeddedSkill, embedded_doc, embedded_docs};
+pub use docs::{
+    DocsError, EmbeddedDoc, EmbeddedDocSummary, EmbeddedSkill, embedded_doc, embedded_docs,
+};
 pub use document::{
     DocumentAnalysis, DocumentReference, DocumentReferenceSyntax, analyze_document_references,
     project_inline_code_references, project_markdown_fenced_references,
@@ -37,19 +39,20 @@ pub use markdown::{
 pub use operations::{
     ConfigInspectResult, ConfigSource, CreateInputResult, CreateInputSource, CreateResult,
     CreatedEntry, DashboardEntrySummary, DashboardSpace, DashboardTaxonomy, DashboardTaxonomyTerm,
-    DashboardViewSummary, ExplorerTaxonomy, ExplorerTaxonomyTerm, FileReferencesResult,
-    FilesListResult, InitResult, InspectEntry, InspectResult, ListEntry, ListResult, ListedSpace,
-    ManagedDocumentKind, ManagedPathReferenceTarget, OperationError, ReferenceEdge, ReferenceFile,
-    ReferenceFragmentLocation, ReferenceResolveCandidate, ReferenceResolveResult,
-    ResolvedReferenceTarget, SkillDetail, SkillSource, SkillSummary, SkillsGetResult,
-    SkillsListResult, WorkspaceDashboardResult, WorkspaceExplorerEntriesResult,
+    DashboardViewSummary, DocsGetResult, DocsListResult, ExplorerTaxonomy, ExplorerTaxonomyTerm,
+    FileReferencesResult, FilesListResult, InitResult, InspectEntry, InspectResult, ListEntry,
+    ListResult, ListedSpace, ManagedDocumentKind, ManagedPathReferenceTarget, OperationError,
+    ReferenceEdge, ReferenceFile, ReferenceFragmentLocation, ReferenceResolveCandidate,
+    ReferenceResolveResult, ResolvedReferenceTarget, SkillDetail, SkillSource, SkillSummary,
+    SkillsGetResult, SkillsListResult, WorkspaceDashboardResult, WorkspaceExplorerEntriesResult,
     WorkspaceExplorerResult, WorkspaceFile, WorkspaceFileFeature, WorkspaceFileKind,
     WorkspaceHomeDocument, WorkspaceLogoSummary, WorkspaceSession, WorkspaceSnapshot,
-    WorkspaceSummary, create_entry, detect_environment_timezone, init_workspace, inspect_config,
-    inspect_entry_by_path, inspect_entry_by_space, is_public_workspace_path_allowed,
-    is_raw_workspace_path_allowed, list_file_references, list_files, list_space,
-    media_type_for_workspace_path, operation_error_diagnostic, resolve_reference, skills_get,
-    skills_list, workspace_dashboard, workspace_explorer, workspace_explorer_entries,
+    WorkspaceSummary, create_entry, detect_environment_timezone, docs_get, docs_list,
+    init_workspace, inspect_config, inspect_entry_by_path, inspect_entry_by_space,
+    is_public_workspace_path_allowed, is_raw_workspace_path_allowed, list_file_references,
+    list_files, list_space, media_type_for_workspace_path, operation_error_diagnostic,
+    resolve_reference, skills_get, skills_list, workspace_dashboard, workspace_explorer,
+    workspace_explorer_entries,
 };
 pub use path::{
     FORMA_CONFIG_PATH, PathError, WorkspaceGlob, WorkspacePath, normalize_cli_path,

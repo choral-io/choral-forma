@@ -7,12 +7,21 @@ audience:
 surfaces:
     - docs
     - skill
+skill:
+    id: forma-workspace-maintenance
+    title: Forma Workspace Maintenance
+    description: Use to make verified, configuration-aware maintenance changes to an existing workspace.
+    triggers:
+        - maintain workspace
+        - edit workspace content
+        - review workspace changes
+    order: 30
 order: 220
 ---
 
 # Workspace Maintenance
 
-## Agent Guidance
+## Agent Skill
 
 Before editing shared workspace content, inspect the effective config and relevant entries. Use configured schemas and guidelines. Report planned multi-file edits before making them.
 

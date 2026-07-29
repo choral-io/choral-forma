@@ -18,12 +18,16 @@ order: 60
 
 ## Overview
 
-`forma skills list --json` discovers built-in and workspace-projected skills. `forma skills get <id>` prints compact Agent-readable Markdown guidance. For guideline-backed skills, the default output uses the guideline's `## Agent Skill` section when present; use `--full` to print the complete guideline.
+`forma skills list --json` discovers built-in skills declared in canonical docs and workspace-projected skills. `forma skills get <id>` prints compact Agent-readable Markdown guidance. For skill-backed documents, the default output uses the document's `## Agent Skill` section; use `--full` to print the complete source.
 
 ## CLI Help
 
 Use `forma skills list --json` to discover available Agent guidance. Use `forma skills get <id>` to print one compact skill as Markdown for Agent reading. Use `forma skills get <id> --full` only when full Human-facing background or reference material is needed.
 
-## Agent Guidance
+## Agent Skill
 
-Load `forma-cli-core` first, then load only workspace-projected skills that apply to the task. Prefer the default compact projection. Use `--full` for audit, ambiguity, or guideline authoring work that needs the complete source.
+Load `forma-cli-core` first, then load only skills that apply to the task. Prefer the default compact projection. Use `--full` for audit, ambiguity, or guideline authoring work that needs the complete source.
+
+## Migration
+
+Built-in skills must use `## Agent Skill`; the build validates that section. Workspace guidelines using the legacy `## Agent Guidance` heading remain readable as a compatibility fallback, but should be renamed to `## Agent Skill` when they are next edited. A document without either heading still returns its full body for backward compatibility.

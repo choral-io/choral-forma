@@ -23,6 +23,6 @@ order: 30
 
 Use `forma config inspect --json` to see the effective workspace name, sources, spaces, views, guidelines, runtime values, and diagnostics.
 
-## Agent Guidance
+## Agent Skill
 
 Use config output before choosing paths or editing workspace structure.

@@ -84,7 +84,7 @@ Shared reference notes.
 
 The `create.template` value points to the template used by `forma create`. It is nested under `create`, not a top-level field in the authored config node.
 
-## Agent Guidance
+## Agent Skill
 
 Create a content group only after the human describes a durable content category. Define include patterns, schema, create behavior, and guidelines explicitly.
 

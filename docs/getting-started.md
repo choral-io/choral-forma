@@ -23,6 +23,6 @@ Forma is not limited to a single domain such as tasks, notes, or project documen
 
 Use `forma init` to create the minimal workspace bootstrap in an empty project. Then run `forma check --json` and `forma skills get forma-cli-core`.
 
-## Agent Guidance
+## Agent Skill
 
 After initialization, load the Forma CLI Core skill and ask the human what workflow they want to organize first. Translate that workflow into the smallest useful content group before creating additional spaces, templates, views, or guidelines.

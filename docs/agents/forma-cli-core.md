@@ -23,7 +23,7 @@ order: 200
 
 # Forma CLI Core
 
-## Agent Guidance
+## Agent Skill
 
 Run `forma` commands from the target workspace root, or pass `--workspace <path>`.
 

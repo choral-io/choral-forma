@@ -60,6 +60,39 @@ export type BaseOperationResult = {
     diagnostics?: Diagnostic[];
 };
 
+export type EmbeddedDocSkill = {
+    id: string;
+    title: string;
+    description: string;
+    triggers?: string[];
+    order?: number;
+};
+
+export type EmbeddedDocSummary = {
+    id: string;
+    title: string;
+    summary: string;
+    audience: string[];
+    surfaces: string[];
+    skill?: EmbeddedDocSkill;
+    order: number;
+    path: string;
+};
+
+export type EmbeddedDoc = EmbeddedDocSummary & {
+    body: string;
+};
+
+export type DocsListResult = BaseOperationResult & {
+    operation: "docs.list";
+    docs: EmbeddedDocSummary[];
+};
+
+export type DocsGetResult = BaseOperationResult & {
+    operation: "docs.get";
+    doc?: EmbeddedDoc;
+};
+
 export type IndexSpace = {
     id: string;
     title: string;
@@ -657,6 +690,14 @@ export class FormaRpcClient {
 
     check() {
         return this.call<CheckResult>("check");
+    }
+
+    docsList() {
+        return this.call<DocsListResult>("docs.list");
+    }
+
+    docsGet(id: string) {
+        return this.call<DocsGetResult>("docs.get", { id });
     }
 
     configInspect() {
