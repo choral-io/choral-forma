@@ -5,7 +5,7 @@ title: Forma v0.1.26
 summary: Public Preview update for static publishing, resolved workspace operations, runtime performance, and Agent-facing embedded Skills.
 scope: project
 type: release
-status: planned
+status: failed
 version: v0.1.26
 date: 2026-07-29
 owners:
@@ -53,6 +53,12 @@ Publish the coordinated Public Preview update after [[releases/forma-v0.1.25]]. 
 5. The complete candidate is pushed and main CI passes for its exact commit before any tag decision.
 6. An annotated `v0.1.26` tag, GitHub Release publication, and Marketplace publication require explicit maintainer approval.
 7. After publication, `mise run release:verify -- v0.1.26` verifies the complete asset inventory, checksums, CLI version, VSIX identity, and managed CLI installation.
+
+## Failed Publication Attempt
+
+The immutable `v0.1.26` tag points to candidate commit `54e39aec7762191114b745d6ef0d4d8001a497b4`. Its exact-source main CI and static-site deployment passed, but the tag-triggered Release workflow failed in the Windows asset job before publication because the WebApp build script used a POSIX-only inline environment assignment.
+
+No GitHub Release, release assets, published-release verification, or Marketplace publication was created for `v0.1.26`. The tag remains unchanged; [[releases/forma-v0.1.27]] carries this feature cutline forward with the cross-platform build correction.
 
 ## Migration Or Operations Notes
 

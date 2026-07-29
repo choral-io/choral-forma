@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.27
+
+- Publish the `0.1.26` feature cutline through a cross-platform WebApp build that selects the static workspace client with a Vite mode instead of POSIX-only shell syntax.
+
 ## 0.1.26
 
 - Ship the coordinated Forma CLI with resolved configuration summaries, non-writing create previews, workspace path explanations, and embedded Agent Skills.
