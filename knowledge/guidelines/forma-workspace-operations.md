@@ -39,6 +39,8 @@ Before task, review, audit, or project workspace work, Agents should run:
 
 The built-in `forma-cli-core` guide is packaged with the Forma binary from the product documentation source `docs/agents/forma-cli-core.md`. It is embedded product documentation, not a project workspace guideline, and does not need to be listed in `.forma.md`.
 
+Product documentation is the canonical source for built-in Docs, help, and Agent guidance. Embedded registries and built-in Skills are deterministic projections of that source; do not maintain a second hand-written contract in generated or runtime-facing output.
+
 Agents should then use `cargo run -q -p forma-cli -- skills list --json` to discover workspace-projected skills and load guideline files declared by `config summary` before task, board, review, proposal, or shared project-content operations. Use `config inspect` only when the authored effective configuration must be debugged. Guidelines may include general rules as well as workflow-specific procedures.
 
 For unclear requests, onboarding, recovery, or workflow routing, start with [[guidelines/workspace-onboarding-and-routing]] before loading narrower guidelines.
@@ -55,6 +57,8 @@ Agent workflow should be config-driven:
 8. Report any guideline gap instead of inventing hidden rules.
 
 When code or documentation interprets workspace concepts, identifiers, paths, classifications, or publication boundaries, follow [[guidelines/forma-product-model-and-configuration-fidelity]] before treating a repository example as a Forma contract.
+
+When work changes workspace loading, snapshots, caches, static generation, or performance-sensitive projections, follow [[guidelines/forma-runtime-cache-and-performance]].
 
 ## Write Boundary
 

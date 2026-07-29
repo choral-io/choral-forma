@@ -92,6 +92,18 @@ Skip the dry run only when all are true:
 
 Even on the fast path, run `cargo run -q -p forma-cli -- check --json` after editing.
 
+### Configured Create Preview
+
+Before an approved `forma create`, run the same content group and inputs with `--preview --json`. Treat preview output as advisory evidence, not approval, authorization, a filesystem lock, or a guarantee that the later write will succeed.
+
+Keep these decisions separate:
+
+- `target.writable` describes the target at preview time;
+- rendered content and schema diagnostics describe the proposed entry;
+- explicit Human approval authorizes the write.
+
+Repeat the preview if the inputs, effective configuration, template, or target changed before creation.
+
 ### Dry-Run Output
 
 Use this compact format before any non-fast-path write:
