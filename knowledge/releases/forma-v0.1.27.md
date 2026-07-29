@@ -5,7 +5,7 @@ title: "Forma v0.1.27"
 summary: "Corrective Public Preview release for the v0.1.26 feature cutline and cross-platform publication."
 scope: project
 type: release
-status: planned
+status: failed
 version: "v0.1.27"
 date: 2026-07-29
 owners:
@@ -37,24 +37,26 @@ Publish the complete [[releases/forma-v0.1.26]] feature cutline from a new immut
 
 ## Validation
 
-1. The focused release regression test and both WebApp build modes pass.
-2. `mise run version:check -- v0.1.27` and `CI=true mise run check` pass from the exact candidate.
-3. Forma content checks and workspace health pass.
-4. The matching `forma-0.1.27.vsix` packages and passes its isolated installation and activation smoke test.
-5. The complete candidate is pushed and main CI passes for its exact commit before tagging.
-6. The tag-triggered Release workflow builds all supported CLI assets and the VSIX, including the Windows runner that failed for `v0.1.26`.
-7. `mise run release:verify -- v0.1.27` verifies the published asset inventory, checksums, CLI version, VSIX identity, and managed CLI installation.
+1. The focused release regression test and both WebApp build modes passed.
+2. `mise run version:check -- v0.1.27` and `CI=true mise run check` passed from the exact candidate.
+3. Forma content checks and workspace health passed.
+4. The matching `forma-0.1.27.vsix` packaged and passed its local isolated installation and activation smoke test.
+5. Exact-source main [CI run 30440106551](https://github.com/choral-io/choral-forma/actions/runs/30440106551) passed before tagging.
+6. The tag-triggered Release workflow verified the corrected Windows WebApp build, but later build and smoke gates failed before publication.
 
-## Rollout Plan
+## Failed Publication Attempt
 
-- Create an annotated `v0.1.27` tag only after exact-source local and main gates pass.
-- Let the protected Release workflow publish GitHub assets and the verified VSIX to Marketplace.
-- Keep the failed `v0.1.26` tag immutable and do not create a release from it.
+The immutable `v0.1.27` tag points to candidate commit `1776019732b1c38f62704b32e6ed35ee8a998452`. [Release run 30440443182](https://github.com/choral-io/choral-forma/actions/runs/30440443182) confirmed that the cross-platform Vite-mode correction fixed the original Windows WebApp failure, then exposed two later gates:
+
+- The Windows release binary build treated CRLF canonical-document frontmatter as missing because the build-time parser accepted only LF delimiters.
+- The packaged VSIX passed build, installation, activation, and functional navigation checks, but a shared-runner scheduling spike caused one 50-sample warm Definition distribution to report `121.968 ms` p95 against the `100 ms` budget.
+
+No GitHub Release, release assets, published-release verification, or Marketplace publication was created for `v0.1.27`. The tag remains unchanged; [[releases/forma-v0.1.28]] carries the full cutline forward with both corrections and a Windows pre-tag CI gate.
 
 ## Migration Or Operations Notes
 
 - Existing Forma workspace content does not require migration.
-- Consumers who did not receive `v0.1.26` should upgrade directly from `v0.1.25` to `v0.1.27`.
+- Consumers should remain on `v0.1.25` until the corrective [[releases/forma-v0.1.28]] release is published.
 - Main-branch static-site deployment remains independent from the versioned CLI and editor-extension release.
 
 ## Release Notes
@@ -67,5 +69,5 @@ Do not move or overwrite `v0.1.26`, `v0.1.27`, Marketplace versions, or verified
 
 ## Post-Release Follow-Up
 
-- Add this released record to [[planning/forma-release-and-delivery-ledger]], then run `mise run release:record-check -- v0.1.27` before committing the post-release evidence.
+- Preserve this record as failed-publication evidence and link the corrective [[releases/forma-v0.1.28]] result.
 - Continue the planned WebApp code-splitting work for the largest generated chunks.

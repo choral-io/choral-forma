@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.28
+
+- Parse embedded canonical-document frontmatter consistently across LF and CRLF checkouts, preflight the Windows release build on `main`, and make packaged-extension performance gating resilient to a single shared-runner scheduling outlier while retaining a repeated-breach failure.
+
 ## 0.1.27
 
 - Publish the `0.1.26` feature cutline through a cross-platform WebApp build that selects the static workspace client with a Vite mode instead of POSIX-only shell syntax.
