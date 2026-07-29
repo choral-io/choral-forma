@@ -23,9 +23,18 @@ const workflows = await Promise.all(
     ),
 );
 const pnpmWorkspace = await readFile(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
+const webappPackage = JSON.parse(await readFile(new URL("../packages/webapp/package.json", import.meta.url), "utf8"));
 
 test("keeps parallel pnpm gates from mutating the dependency installation", () => {
     assert.match(pnpmWorkspace, /^verifyDepsBeforeRun:\s+false$/mu);
+});
+
+test("keeps the WebApp release build portable across runner shells", () => {
+    assert.doesNotMatch(
+        webappPackage.scripts.build,
+        /(?:^|&&\s+)[A-Z_][A-Z0-9_]*=/u,
+        "release builds run this script on Windows, where POSIX inline environment assignments fail",
+    );
 });
 
 test("only treats an explicit release input as a tag", () => {

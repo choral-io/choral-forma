@@ -3,43 +3,45 @@ import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
-const formaRpcProxyTarget = process.env.FORMA_RPC_PROXY_TARGET;
-const workspaceClient = process.env.VITE_FORMA_WORKSPACE_CLIENT === "static" ? "static" : "rpc";
+export default defineConfig(({ mode }) => {
+    const formaRpcProxyTarget = process.env.FORMA_RPC_PROXY_TARGET;
+    const workspaceClient = mode === "static" ? "static" : "rpc";
 
-export default defineConfig({
-    base: "./",
-    define: {
-        __FORMA_WORKSPACE_CLIENT__: JSON.stringify(workspaceClient),
-    },
-    resolve: {
-        alias: {
-            "@": fileURLToPath(new URL("./src", import.meta.url)),
-            "@choral-forma/graph-view/fixtures": fileURLToPath(
-                new URL("../graph-view/src/fixtures.ts", import.meta.url),
-            ),
-            "@choral-forma/graph-view/presentation": fileURLToPath(
-                new URL("../graph-view/src/presentation.ts", import.meta.url),
-            ),
-            "@choral-forma/graph-view/projection": fileURLToPath(
-                new URL("../graph-view/src/projection.ts", import.meta.url),
-            ),
-            "@choral-forma/graph-view": fileURLToPath(new URL("../graph-view/src/index.ts", import.meta.url)),
-            "@choral-forma/shared": fileURLToPath(new URL("../shared/src/index.ts", import.meta.url)),
+    return {
+        base: "./",
+        define: {
+            __FORMA_WORKSPACE_CLIENT__: JSON.stringify(workspaceClient),
         },
-    },
-    server: formaRpcProxyTarget
-        ? {
-              proxy: {
-                  "/rpc": {
-                      changeOrigin: true,
-                      target: formaRpcProxyTarget,
+        resolve: {
+            alias: {
+                "@": fileURLToPath(new URL("./src", import.meta.url)),
+                "@choral-forma/graph-view/fixtures": fileURLToPath(
+                    new URL("../graph-view/src/fixtures.ts", import.meta.url),
+                ),
+                "@choral-forma/graph-view/presentation": fileURLToPath(
+                    new URL("../graph-view/src/presentation.ts", import.meta.url),
+                ),
+                "@choral-forma/graph-view/projection": fileURLToPath(
+                    new URL("../graph-view/src/projection.ts", import.meta.url),
+                ),
+                "@choral-forma/graph-view": fileURLToPath(new URL("../graph-view/src/index.ts", import.meta.url)),
+                "@choral-forma/shared": fileURLToPath(new URL("../shared/src/index.ts", import.meta.url)),
+            },
+        },
+        server: formaRpcProxyTarget
+            ? {
+                  proxy: {
+                      "/rpc": {
+                          changeOrigin: true,
+                          target: formaRpcProxyTarget,
+                      },
+                      "/raw": {
+                          changeOrigin: true,
+                          target: formaRpcProxyTarget,
+                      },
                   },
-                  "/raw": {
-                      changeOrigin: true,
-                      target: formaRpcProxyTarget,
-                  },
-              },
-          }
-        : undefined,
-    plugins: [tailwindcss(), react()],
+              }
+            : undefined,
+        plugins: [tailwindcss(), react()],
+    };
 });
