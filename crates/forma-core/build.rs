@@ -6,6 +6,11 @@ use std::path::{Path, PathBuf};
 use markdown::{ParseOptions, mdast, to_mdast};
 use serde::Deserialize;
 
+#[path = "src/frontmatter.rs"]
+mod frontmatter;
+
+use frontmatter::split_frontmatter_slices;
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct DocMetadata {
@@ -57,8 +62,11 @@ fn main() {
         println!("cargo:rerun-if-changed={}", path.display());
         let source = fs::read_to_string(&path)
             .unwrap_or_else(|error| panic!("read canonical doc {}: {error}", path.display()));
-        let (frontmatter, body) = split_frontmatter(&source)
+        let split = split_frontmatter_slices(&source);
+        let frontmatter = split
+            .frontmatter
             .unwrap_or_else(|| panic!("canonical doc {} is missing frontmatter", path.display()));
+        let body = split.body;
         let metadata = serde_yml::from_str::<DocMetadata>(frontmatter)
             .unwrap_or_else(|error| panic!("parse frontmatter in {}: {error}", path.display()));
         let logical_path = path
@@ -129,12 +137,6 @@ fn collect_markdown_files(directory: &Path, paths: &mut Vec<PathBuf>) -> std::io
         }
     }
     Ok(())
-}
-
-fn split_frontmatter(source: &str) -> Option<(&str, &str)> {
-    let source = source.strip_prefix("---\n")?;
-    let end = source.find("\n---\n")?;
-    Some((&source[..end], &source[end + 5..]))
 }
 
 fn require(path: &str, field: &str, value: &str) {

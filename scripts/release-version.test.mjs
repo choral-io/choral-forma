@@ -207,6 +207,13 @@ test("requires successful main CI for the exact release candidate", () => {
     );
 });
 
+test("builds the Windows release binary before a commit can become a release candidate", () => {
+    assert.match(
+        workflows[0],
+        /windows-release:\n    name: Windows release build\n    runs-on: windows-2025[\s\S]*?pnpm --filter @choral-forma\/webapp build[\s\S]*?cargo build --release --locked --bin forma --target x86_64-pc-windows-msvc/u,
+    );
+});
+
 test("builds and retains the static-site artifact in CI without deployment", () => {
     const ciWorkflow = workflows[0];
     assert.match(

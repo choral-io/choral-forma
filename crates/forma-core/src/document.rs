@@ -3,6 +3,7 @@ use serde_yml::Value;
 
 use crate::config::{FormaWorkspace, SemanticType, SpaceDefinition, WorkspaceConfig};
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
+use crate::frontmatter::frontmatter_opening_end;
 use crate::index::{ReferenceFragmentKind, ReferenceIntent, ReferenceSource};
 use crate::markdown::{
     FormaMarkdownDocument, FormaReference, FormaReferenceIntent, FormaReferenceSyntax, SourceSpan,
@@ -526,10 +527,7 @@ fn yaml_value_boundary(source: &str, start: usize, end: usize) -> bool {
 }
 
 fn frontmatter_content_offset(source: &str) -> Option<usize> {
-    source
-        .strip_prefix("---\n")
-        .map(|_| 4)
-        .or_else(|| source.strip_prefix("---\r\n").map(|_| 5))
+    frontmatter_opening_end(source)
 }
 
 fn split_reference_target(

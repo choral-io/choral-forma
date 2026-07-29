@@ -2,6 +2,7 @@ use markdown::{ParseOptions, mdast, to_mdast};
 use serde::{Deserialize, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
+use crate::frontmatter::split_frontmatter_slices;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -300,53 +301,10 @@ fn rebase_span(source: &str, offset: usize, span: Option<SourceSpan>) -> Option<
 }
 
 pub fn split_frontmatter(source: &str) -> FrontmatterSplit {
-    let Some(first_line_end) = frontmatter_opening_end(source) else {
-        return FrontmatterSplit {
-            frontmatter: None,
-            body: source.to_string(),
-        };
-    };
-
-    let mut offset = first_line_end;
-    while offset <= source.len() {
-        let line_end = source[offset..]
-            .find('\n')
-            .map(|index| offset + index)
-            .unwrap_or(source.len());
-        let line = source[offset..line_end].trim_end_matches('\r');
-        if line.trim() == "---" {
-            let body_start = if line_end < source.len() {
-                line_end + 1
-            } else {
-                line_end
-            };
-            return FrontmatterSplit {
-                frontmatter: Some(source[first_line_end..offset].to_string()),
-                body: source[body_start..].to_string(),
-            };
-        }
-        if line_end == source.len() {
-            break;
-        }
-        offset = line_end + 1;
-    }
-
+    let split = split_frontmatter_slices(source);
     FrontmatterSplit {
-        frontmatter: None,
-        body: source.to_string(),
-    }
-}
-
-fn frontmatter_opening_end(source: &str) -> Option<usize> {
-    if source == "---" {
-        return None;
-    }
-    if source.starts_with("---\n") {
-        Some(4)
-    } else if source.starts_with("---\r\n") {
-        Some(5)
-    } else {
-        None
+        frontmatter: split.frontmatter.map(str::to_string),
+        body: split.body.to_string(),
     }
 }
 
