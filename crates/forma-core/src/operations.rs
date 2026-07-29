@@ -721,6 +721,8 @@ pub enum OperationError {
     Config(#[from] ConfigError),
     #[error("space `{0}` was not found")]
     SpaceNotFound(String),
+    #[error("content group `{0}` was not found")]
+    ContentGroupNotFound(String),
     #[error("space `{0}` does not define create behavior")]
     CreateNotConfigured(String),
     #[error("invalid input `{0}`")]
@@ -3710,6 +3712,11 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
         OperationError::SpaceNotFound(space) => {
             Diagnostic::error("space.notFound", format!("Space `{space}` was not found."))
         }
+        OperationError::ContentGroupNotFound(group) => Diagnostic::error(
+            "contentGroup.notFound",
+            format!("Content group `{group}` was not found."),
+        )
+        .with_actual(group),
         OperationError::CreateNotConfigured(space) => Diagnostic::error(
             "create.notConfigured",
             format!("Space `{space}` does not define create behavior."),

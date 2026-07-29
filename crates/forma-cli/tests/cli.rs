@@ -787,6 +787,46 @@ fn config_inspect_rejects_config_without_frontmatter() {
 }
 
 #[test]
+fn config_summary_filters_content_group_and_opts_into_sources() {
+    let root = fixture_root("config-summary");
+    copy_starter_workspace(&root);
+
+    let output = forma(&root)
+        .args([
+            "config",
+            "summary",
+            "--group",
+            "tasks",
+            "--sources",
+            "--json",
+        ])
+        .output()
+        .expect("forma config summary should run");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["operation"], "config.summary");
+    assert_eq!(result["overview"]["contentGroups"], 1);
+    assert_eq!(result["contentGroups"][0]["id"], "tasks");
+    assert!(result["sources"].is_array());
+    assert!(result.get("config").is_none());
+
+    let default_output = forma(&root)
+        .args(["config", "summary", "--json"])
+        .output()
+        .expect("forma config summary should run without optional flags");
+    let default_result: Value = serde_json::from_slice(&default_output.stdout).unwrap();
+    assert!(default_result.get("sources").is_none());
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn workspace_health_json_uses_operation_result_shape() {
     let root = workspace_health_warning_fixture("workspace-health-json");
 

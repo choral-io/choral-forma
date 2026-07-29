@@ -433,6 +433,103 @@ export type ConfigInspectResult = BaseOperationResult & {
     sourcePatterns: string[];
 };
 
+export type ConfigSummaryOverview = {
+    contentGroups: number;
+    taxonomies: number;
+    taxonomyTerms: number;
+    semanticTypes: number;
+    views: number;
+    guidelines: number;
+    runtimeValues: number;
+};
+
+export type ConfigSummarySchemaField = {
+    path: string;
+    type: string;
+    required: boolean;
+    readonly: boolean;
+    hidden: boolean;
+    label?: string;
+    semanticType?: string;
+    target?: string;
+    itemType?: string;
+};
+
+export type ConfigSummaryCreateInput = {
+    name: string;
+    field?: string;
+    label?: string;
+    type?: string;
+    required: boolean;
+    hasDefault: boolean;
+    transform?: string;
+};
+
+export type ConfigSummaryContentGroup = {
+    id: string;
+    title: string;
+    description?: string;
+    includePatterns: string[];
+    schemaFields: ConfigSummarySchemaField[];
+    create?: {
+        directory: string;
+        filename: string;
+        template: string;
+        inputs: ConfigSummaryCreateInput[];
+    };
+    guidelines?: string[];
+    entryCount: number;
+    sourcePath?: string;
+};
+
+export type ConfigSummaryTaxonomy = {
+    id: string;
+    title: string;
+    projection?: string;
+    sourcePath?: string;
+    terms: Array<{
+        id: string;
+        title: string;
+        contentGroup?: string;
+        sourcePath?: string;
+    }>;
+};
+
+export type ConfigSummarySemanticType = {
+    id: string;
+    kind: string;
+    values?: string[];
+    targetContentGroup?: string;
+    sourcePath?: string;
+};
+
+export type ConfigSummaryRuntimeValue = {
+    id: string;
+    provider: string;
+    required: boolean;
+    transform?: string;
+};
+
+export type ConfigSummaryView = Omit<IndexView, "path"> & {
+    sourcePath?: string;
+};
+
+export type ConfigSummaryResult = BaseOperationResult & {
+    operation: "config.summary";
+    workspace: WorkspaceSummary;
+    overview: ConfigSummaryOverview;
+    contentGroups: ConfigSummaryContentGroup[];
+    taxonomies: ConfigSummaryTaxonomy[];
+    semanticTypes: ConfigSummarySemanticType[];
+    views: ConfigSummaryView[];
+    guidelines: string[];
+    runtimeValues: ConfigSummaryRuntimeValue[];
+    sources?: Array<{
+        path: string;
+        present: boolean;
+    }>;
+};
+
 export type FilesListResult = BaseOperationResult & {
     operation: "files.list";
     workspace: WorkspaceSummary;
@@ -702,6 +799,10 @@ export class FormaRpcClient {
 
     configInspect() {
         return this.call<ConfigInspectResult>("config.inspect");
+    }
+
+    configSummary(options: { group?: string; sources?: boolean } = {}) {
+        return this.call<ConfigSummaryResult>("config.summary", options);
     }
 
     filesList() {

@@ -165,6 +165,46 @@ describe("FormaRpcClient", () => {
         ]);
     });
 
+    it("requests a scoped config summary with explicit source provenance", async () => {
+        const calls: Array<{ body: unknown }> = [];
+        const client = new FormaRpcClient("/rpc", (_input, requestInit) => {
+            calls.push({ body: JSON.parse(requestInit.body) });
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: () =>
+                    Promise.resolve({
+                        jsonrpc: "2.0",
+                        id: "1",
+                        result: {
+                            schemaVersion: 1,
+                            operation: "config.summary",
+                            status: "passed",
+                            contentGroups: [],
+                        },
+                    }),
+            });
+        });
+
+        await client.configSummary({ group: "tasks", sources: true });
+        await client.configSummary();
+
+        expect(calls.map((call) => call.body)).toEqual([
+            {
+                jsonrpc: "2.0",
+                id: "1",
+                method: "config.summary",
+                params: { group: "tasks", sources: true },
+            },
+            {
+                jsonrpc: "2.0",
+                id: "2",
+                method: "config.summary",
+                params: {},
+            },
+        ]);
+    });
+
     it("requests read-only workspace health without params", async () => {
         const calls: Array<{ input: string; body: unknown }> = [];
         const client = new FormaRpcClient("/rpc", (input, requestInit) => {

@@ -18,6 +18,8 @@ pub enum Operation {
     Check,
     #[serde(rename = "config.inspect")]
     ConfigInspect,
+    #[serde(rename = "config.summary")]
+    ConfigSummary,
     #[serde(rename = "files.list")]
     FilesList,
     #[serde(rename = "workspace.dashboard")]
@@ -59,6 +61,7 @@ impl Operation {
         match self {
             Self::Check => "check",
             Self::ConfigInspect => "config.inspect",
+            Self::ConfigSummary => "config.summary",
             Self::FilesList => "files.list",
             Self::WorkspaceDashboard => "workspace.dashboard",
             Self::WorkspaceExplorer => "workspace.explorer",
@@ -84,6 +87,7 @@ impl Operation {
 pub enum OperationRequest {
     Check(CheckRequest),
     ConfigInspect(ConfigInspectRequest),
+    ConfigSummary(ConfigSummaryRequest),
     FilesList(FilesListRequest),
     WorkspaceDashboard(WorkspaceDashboardRequest),
     WorkspaceExplorer(WorkspaceExplorerRequest),
@@ -114,6 +118,16 @@ pub struct CheckRequest {}
 pub struct ConfigInspectRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigSummaryRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    #[serde(default)]
+    pub sources: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -322,6 +336,11 @@ impl Dispatcher {
                 forma_core::inspect_config(root, request.path.as_deref())
                     .map(OperationResult::from)
                     .or_else(|error| Ok(core_error_result(Operation::ConfigInspect, error)))
+            }
+            OperationRequest::ConfigSummary(request) => {
+                forma_core::summarize_config(root, request.group.as_deref(), request.sources)
+                    .map(OperationResult::from)
+                    .or_else(|error| Ok(core_error_result(Operation::ConfigSummary, error)))
             }
             OperationRequest::FilesList(_) => forma_core::list_files(root)
                 .map(OperationResult::from)
@@ -664,6 +683,15 @@ fn operation_from_method(
                 "params.invalid",
             )),
         },
+        "config.summary" => serde_json::from_value::<ConfigSummaryRequest>(params)
+            .map(OperationRequest::ConfigSummary)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         "files.list" => serde_json::from_value::<FilesListRequest>(params)
             .map(OperationRequest::FilesList)
             .map_err(|_| {
@@ -915,6 +943,32 @@ impl From<forma_core::ConfigInspectResult> for OperationResult {
         data.insert("workspace".to_string(), json!(result.workspace));
         data.insert("config".to_string(), json!(result.config));
         data.insert("sources".to_string(), json!(result.sources));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::ConfigSummaryResult> for OperationResult {
+    fn from(result: forma_core::ConfigSummaryResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("workspace".to_string(), json!(result.workspace));
+        data.insert("overview".to_string(), json!(result.overview));
+        data.insert("contentGroups".to_string(), json!(result.content_groups));
+        data.insert("taxonomies".to_string(), json!(result.taxonomies));
+        data.insert("semanticTypes".to_string(), json!(result.semantic_types));
+        data.insert("views".to_string(), json!(result.views));
+        data.insert("guidelines".to_string(), json!(result.guidelines));
+        data.insert("runtimeValues".to_string(), json!(result.runtime_values));
+        if let Some(sources) = result.sources {
+            data.insert("sources".to_string(), json!(sources));
+        }
         Self {
             schema_version: result.schema_version,
             operation: result.operation,
@@ -1384,6 +1438,62 @@ mod tests {
     }
 
     #[test]
+    fn json_rpc_dispatches_config_summary_with_opt_in_sources() {
+        let root = fixture_root("config-summary-rpc");
+        copy_starter_workspace(&root);
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"config.summary","params":{"group":"tasks","sources":true}}"#,
+        );
+
+        assert_eq!(response["result"]["operation"], "config.summary");
+        assert_eq!(response["result"]["contentGroups"][0]["id"], "tasks");
+        assert_eq!(response["result"]["overview"]["contentGroups"], 1);
+        assert!(response["result"]["sources"].is_array());
+        assert!(response["result"]["config"].is_null());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_config_summary_omits_sources_by_default_and_reports_missing_group() {
+        let root = fixture_root("config-summary-rpc-defaults");
+        copy_starter_workspace(&root);
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"config.summary","params":{}}"#,
+        );
+        assert!(response["result"].get("sources").is_none());
+
+        let missing = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"2","method":"config.summary","params":{"group":"missing"}}"#,
+        );
+        assert_eq!(missing["result"]["status"], "failed");
+        assert_eq!(
+            missing["result"]["diagnostics"][0]["code"],
+            "contentGroup.notFound"
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_config_summary_rejects_unknown_params() {
+        let response = Dispatcher::default().handle_json_rpc(
+            br#"{"jsonrpc":"2.0","id":"1","method":"config.summary","params":{"unexpected":true}}"#,
+        );
+
+        assert_eq!(
+            response["error"]["code"],
+            JsonRpcErrorCode::InvalidParams as i64
+        );
+        assert_eq!(response["error"]["data"]["code"], "params.invalid");
+    }
+
+    #[test]
     fn json_rpc_dispatches_init() {
         let root = fixture_root("init-rpc");
         fs::create_dir_all(&root).unwrap();
@@ -1844,6 +1954,10 @@ imports:
         assert_eq!(
             serde_json::to_value(super::Operation::ConfigInspect).unwrap(),
             "config.inspect"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::ConfigSummary).unwrap(),
+            "config.summary"
         );
         assert_eq!(
             serde_json::to_value(super::Operation::FilesList).unwrap(),

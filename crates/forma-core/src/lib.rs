@@ -1,5 +1,6 @@
 pub mod boundary;
 pub mod config;
+pub mod config_summary;
 pub mod diagnostics;
 pub mod docs;
 pub mod document;
@@ -17,6 +18,11 @@ pub use boundary::{PreparedWorkspaceFile, WorkspaceBoundary, WorkspaceBoundaryEr
 pub use config::{
     ConfigError, ContentGroupDefinition, FormaWorkspace, SpaceDefinition, TaxonomyTermDefinition,
     WorkspaceConfig, load_workspace,
+};
+pub use config_summary::{
+    ConfigSummaryOverview, ConfigSummaryResult, ConfigViewSummary, ContentGroupSummary,
+    CreateInputSummary, CreateSummary, RuntimeValueSummary, SchemaFieldSummary,
+    SemanticTypeSummary, TaxonomySummary, TaxonomyTermSummary, summarize_config,
 };
 pub use diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,

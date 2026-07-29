@@ -19,10 +19,11 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use clap::{Parser, Subcommand, ValueEnum};
 use forma_rpc::{
-    CheckRequest, ConfigInspectRequest, CreateRequest, Dispatcher, DocsGetRequest, DocsListRequest,
-    InitRequest, InspectRequest, ListRequest, OperationRequest, ReferenceResolveRequest,
-    SkillsGetRequest, SkillsListRequest, ViewRenderRequest, WorkspaceDashboardRequest,
-    WorkspaceExplorerEntriesRequest, WorkspaceExplorerRequest, WorkspaceHealthRequest,
+    CheckRequest, ConfigInspectRequest, ConfigSummaryRequest, CreateRequest, Dispatcher,
+    DocsGetRequest, DocsListRequest, InitRequest, InspectRequest, ListRequest, OperationRequest,
+    ReferenceResolveRequest, SkillsGetRequest, SkillsListRequest, ViewRenderRequest,
+    WorkspaceDashboardRequest, WorkspaceExplorerEntriesRequest, WorkspaceExplorerRequest,
+    WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_json::Value as JsonValue;
@@ -224,7 +225,8 @@ fn cacheable_rpc_request(body: &[u8]) -> Option<CacheableRpcRequest> {
     }
     if !matches!(
         method,
-        "workspace.dashboard"
+        "config.summary"
+            | "workspace.dashboard"
             | "workspace.explorer"
             | "workspace.explorerEntries"
             | "workspace.health"
@@ -410,6 +412,17 @@ enum ConfigCommand {
     Inspect {
         #[arg(long)]
         path: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Summarize resolved workspace structure for planning.
+    Summary {
+        /// Select one content group by exact id; other workspace-level context remains included.
+        #[arg(long)]
+        group: Option<String>,
+        /// Include the imported configuration source list.
+        #[arg(long)]
+        sources: bool,
         #[arg(long)]
         json: bool,
     },
@@ -661,17 +674,30 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 Ok(())
             }
         },
-        Some(Command::Config { command }) => match command {
-            ConfigCommand::Inspect { path, json } => {
-                let result =
-                    dispatcher.dispatch(OperationRequest::ConfigInspect(ConfigInspectRequest {
-                        path,
-                    }))?;
-                print_result(&result, json, "config inspect");
-                exit_if_failed(&result);
-                Ok(())
+        Some(Command::Config { command }) => {
+            match command {
+                ConfigCommand::Inspect { path, json } => {
+                    let result = dispatcher.dispatch(OperationRequest::ConfigInspect(
+                        ConfigInspectRequest { path },
+                    ))?;
+                    print_result(&result, json, "config inspect");
+                    exit_if_failed(&result);
+                    Ok(())
+                }
+                ConfigCommand::Summary {
+                    group,
+                    sources,
+                    json,
+                } => {
+                    let result = dispatcher.dispatch(OperationRequest::ConfigSummary(
+                        ConfigSummaryRequest { group, sources },
+                    ))?;
+                    print_result(&result, json, "config summary");
+                    exit_if_failed(&result);
+                    Ok(())
+                }
             }
-        },
+        }
         Some(Command::Workspace { command }) => match command {
             WorkspaceCommand::Dashboard { json } => {
                 let result = dispatcher.dispatch(OperationRequest::WorkspaceDashboard(
@@ -1592,6 +1618,16 @@ mod tests {
         assert!(
             cacheable_rpc_request(br#"{"jsonrpc":"2.0","id":"3","method":"create","params":{}}"#)
                 .is_none()
+        );
+    }
+
+    #[test]
+    fn config_summary_requests_are_cacheable() {
+        assert!(
+            cacheable_rpc_request(
+                br#"{"jsonrpc":"2.0","id":"1","method":"config.summary","params":{"group":"tasks","sources":false}}"#
+            )
+            .is_some()
         );
     }
 
