@@ -235,10 +235,11 @@ The tag form is only required when validating a release tag. CI and the Release 
 
 Use the local Forma config as the active project workspace context:
 
-- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- config summary --sources --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
 - `cargo run -q -p forma-cli -- list --space tasks --json`
 - `cargo run -q -p forma-cli -- inspect <path> --json`
+- `cargo run -q -p forma-cli -- workspace explain <path> --json`
 - `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json`
 - `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
 

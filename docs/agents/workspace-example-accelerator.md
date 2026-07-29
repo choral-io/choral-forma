@@ -67,6 +67,6 @@ Use the example to accelerate structure review:
 3. Inspect only the relevant example files or starter workspace parts.
 4. Produce a dry run that marks each artifact as `copy`, `adapt`, or `skip`.
 5. Wait for approval before writing shared config or shared content.
-6. Verify with the same commands used in the no-example path: `forma config inspect --json`, `forma check --json`, and `forma workspace health --json`, plus any slice-specific `list`, `inspect`, or `create` commands.
+6. Verify with the same commands used in the no-example path: `forma config summary --sources --json`, `forma check --json`, and `forma workspace health --json`, plus any slice-specific `list`, `inspect`, `workspace explain`, or `create --preview` commands.
 
 If the example creates pressure to copy too much at once, stop and fall back to `agents.workspace-bootstrap`.

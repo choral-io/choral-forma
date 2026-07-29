@@ -55,7 +55,7 @@ Use this skill when the user asks for:
 Run or confirm current output from:
 
 - `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- config summary --sources --json`
 - `cargo run -q -p forma-cli -- check --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
 
@@ -72,7 +72,7 @@ Inspect specific entries before reporting item-level findings.
 - Separate field-based, board-based, link-based, git-based, test-based, and inferred evidence.
 - Treat task `status` as board membership and `readiness` as executability.
 - Treat proposals as unaccepted until their status and related canonical target show acceptance.
-- Treat local-only files as private execution context unless the user selected them for review.
+- Treat repository-excluded local files as workflow-local context unless the user selected them for review. Do not claim that Forma paths provide privacy.
 - Report stale or contradictory claims with source paths instead of choosing silently.
 - Do not repair files during an audit unless a confirmed dry run already approved the exact change.
 

@@ -34,22 +34,22 @@ This guideline defines the general operating boundary for humans and Agents work
 Before task, review, audit, or project workspace work, Agents should run:
 
 - `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- config summary --sources --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
 
 The built-in `forma-cli-core` guide is packaged with the Forma binary from the product documentation source `docs/agents/forma-cli-core.md`. It is embedded product documentation, not a project workspace guideline, and does not need to be listed in `.forma.md`.
 
-Agents should then use `cargo run -q -p forma-cli -- skills list --json` to discover workspace-projected skills and load guideline files declared by `config inspect` before task, board, review, proposal, or shared project-content operations. Guidelines may include general rules as well as workflow-specific procedures.
+Agents should then use `cargo run -q -p forma-cli -- skills list --json` to discover workspace-projected skills and load guideline files declared by `config summary` before task, board, review, proposal, or shared project-content operations. Use `config inspect` only when the authored effective configuration must be debugged. Guidelines may include general rules as well as workflow-specific procedures.
 
 For unclear requests, onboarding, recovery, or workflow routing, start with [[guidelines/workspace-onboarding-and-routing]] before loading narrower guidelines.
 
 Agent workflow should be config-driven:
 
 1. Load the built-in CLI guide from `forma skills get forma-cli-core`.
-2. Read effective workspace config.
+2. Read the resolved workspace summary and its provenance.
 3. Discover workspace-projected skills.
 4. Read configured workspace guidelines.
-5. If acting on a specific space, view, task, or file, inspect it and read any guidelines returned by that operation.
+5. If acting on a specific configured space, view, task, or file, inspect it. Use `workspace explain` when placement or classification matters, and read any applicable guidelines.
 6. Use Forma CLI/RPC operation output as evidence.
 7. Apply the relevant guideline procedure.
 8. Report any guideline gap instead of inventing hidden rules.

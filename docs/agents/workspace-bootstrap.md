@@ -88,10 +88,10 @@ For the first content group:
 3. Add the taxonomy config node first if it does not already exist. A taxonomy that provides schema-bearing content groups declares `projection: contentGroups`; its `id` is workspace-configured and does not need to be `spaces`.
 4. Add one included `kind: term` config node whose `taxonomy` matches the selected taxonomy id.
 5. Add one template referenced by `create.template`.
-6. Run `forma config inspect --json` and confirm the expected entry appears under `taxonomies` and `spaces`.
+6. Run `forma config summary --group <content-group-id> --sources --json` and confirm the resolved content group, qualified taxonomy term, schema, create contract, and provenance. Use `config inspect` only if the authored effective config must be debugged.
 7. Run `forma check --json`. If it reports `config.taxonomyMissing`, add the missing taxonomy config before creating content.
-8. Create one or two sample pages with `forma create <space-id> --input ... --json`.
-9. Verify with `forma list --space <space-id> --json` and `forma inspect <path> --json`.
+8. Preview one sample page with `forma create <space-id> --input <name>=<yaml-value> --preview --json`. Repeat `--input` for additional values. Confirm the target path passes the current boundary and conflict checks, and resolve validation diagnostics before writing.
+9. Create the approved sample page with the same inputs, then verify it with `forma list --space <space-id> --json`, `forma inspect <path> --json`, and `forma workspace explain <path> --json`.
 10. Add a guideline or view only if the first workflow needs it now. Before doing that, load `workspace.guidelines` or `workspace.views`.
 11. Run `forma workspace health --json` and explain warnings in terms of the human's expected relationships.
 

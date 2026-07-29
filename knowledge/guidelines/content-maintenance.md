@@ -45,17 +45,17 @@ Use this skill when an Agent has explicit approval to create, update, promote, o
 Run:
 
 - `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- config summary --sources --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
 
-Read configured workspace guidelines before editing. If acting on a task or entry, inspect that target and read returned guidelines.
+Read configured workspace guidelines before editing. If acting on a task or entry, inspect that target and read returned guidelines. Use `workspace explain <path> --json` when placement, classification, or provenance matters.
 
 For reviewable dry-run, proposal, stop-point, and confirmation behavior, load [[guidelines/proposal-and-dry-run]] before applying this broader authoring workflow.
 
 ### Authoring Workflow
 
 1. Classify the source material as transient context, local-only material, shared project content, task metadata, proposal material, decision material, or sensitive/private material that must not be captured.
-2. Discover the target configured space from `config inspect` and space definitions. Do not infer a path from repository habits before reading the effective config.
+2. Discover the target configured space with `config summary --group <id> --sources --json`. Use `workspace explain <path> --json` for candidate paths. Do not infer a path from repository habits; use `config inspect` only when the authored config must be debugged.
 3. Inspect existing candidate pages before creating a duplicate. Prefer updating a canonical page when it already covers the topic.
 4. Choose the target workspace-relative path, frontmatter shape, owner/reviewer fields, and links before editing.
 5. For multi-file edits, promotion from local-only material, task status changes, guideline/config changes, dependency-related content, or ambiguous placement, provide a dry-run summary before editing.
@@ -75,7 +75,7 @@ Report files changed, durable facts added or clarified, checks run, checks not r
 
 Start with Forma state:
 
-- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- config summary --sources --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
 - `cargo run -q -p forma-cli -- check --json`
 
@@ -145,7 +145,7 @@ Before writing, confirm all of the following:
 - the user has approved the write scope or the exact target;
 - `forma-cli-core` has been loaded with `skills get forma-cli-core`;
 - `skills list --json` has been used to discover workspace-projected skills;
-- `config inspect --json` has identified the target configured space;
+- `config summary --group <id> --sources --json` has identified the target configured space;
 - `workspace health --json` has provided the current relationship baseline;
 - the relevant workspace skill and any target-specific guidelines have been read.
 
@@ -179,8 +179,8 @@ Provide a dry-run summary and wait for confirmation before editing when the chan
 
 Use the effective config, not path memory:
 
-1. Choose the semantic content type first: product, architecture, decision, design, concept, task, guideline, release, metric, experiment, test case, proposal, user story, member, or workspace.
-2. Map that type to a configured space from `config inspect`.
+1. For this repository, choose the relevant configured content type first: product, architecture, decision, design, concept, task, guideline, release, metric, experiment, test case, proposal, user story, member, or workspace. These are not Forma built-ins.
+2. Map that type to a configured space with `config summary --group <id> --sources --json`.
 3. Use the space `create.directory`, `create.filename`, `template`, schema, and conventions to choose the target path and frontmatter.
 4. Search or inspect existing entries in that space before creating a new page.
 5. Prefer canonical-language pages. Treat localized files as variants, not independent primary pages.

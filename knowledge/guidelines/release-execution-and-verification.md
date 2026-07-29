@@ -54,7 +54,7 @@ Use this skill for:
 Run or confirm:
 
 - `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- config summary --sources --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
 - `cargo run -q -p forma-cli -- skills get release-execution-and-verification`
 

@@ -12,9 +12,9 @@ If `forma` is missing, install it from https://github.com/choral-io/choral-forma
 Bootstrap:
 
 - `forma skills get forma-cli-core`
-- `forma config inspect --json`
+- `forma config summary --json`
 - `forma workspace health --json`
 
-Use `forma-cli-core` and workspace-projected skills for command details and workflow guidance. Do not assume repository layout, guideline paths, space ids, or local-only paths beyond Forma output and repository instructions.
+Use `forma-cli-core` and workspace-projected skills for command details and workflow guidance. Use `forma workspace explain <path> --json` instead of inferring path meaning from directory names. Use `forma config inspect --json` only when the resolved summary is insufficient and authored effective configuration must be debugged. Do not assume repository layout, guideline paths, space ids, or local-only paths beyond Forma output and repository instructions.
 
-Do not modify shared content, task metadata, Forma config, guidelines, or repository operating state without explicit human approval. After approved writes, run `forma check --json` and `forma workspace health --json`.
+Do not modify shared content, task metadata, Forma config, guidelines, or repository operating state without explicit human approval. Before an approved `forma create`, run the same inputs with `--preview`. After approved writes, run `forma check --json` and `forma workspace health --json`.

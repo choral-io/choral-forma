@@ -63,8 +63,10 @@ This repository uses Forma-managed workspace runtime in the repository Markdown 
     - `.forma/spaces/*.md` (as configured workspace spaces)
     - `.forma/views/*.md` (where applicable)
 - Use these bootstrap checks before project workspace reads or workflow actions:
-    - `cargo run -q -p forma-cli -- config inspect --json`
+    - `cargo run -q -p forma-cli -- config summary --sources --json`
     - `cargo run -q -p forma-cli -- workspace health --json`
+- Use `config inspect --json` only when the resolved summary is insufficient and the authored effective configuration must be debugged.
+- Use `workspace explain <path> --json` when a path's configured classification, content-group selection, taxonomy membership, or provenance matters.
 - Before task, review, proposal, or shared project content write operations, read configured guideline files declared in `.forma.md`.
 - Before release version, tag, GitHub Release, published-asset verification, or post-release evidence operations, inspect the target release and follow the configured Releases space guideline. Verify the exact candidate commit through its required local and main CI gates; never create or move a tag to bypass a failed gate.
 - Use the project-local `forma-cli` skill for:

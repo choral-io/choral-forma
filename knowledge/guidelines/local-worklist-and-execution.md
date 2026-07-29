@@ -57,7 +57,7 @@ Use this skill when the user asks to:
 Run or confirm current output from:
 
 - `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- config summary --sources --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
 
 Resolve the current user from configured runtime values when available. If the member id is ambiguous, ask before writing local files.

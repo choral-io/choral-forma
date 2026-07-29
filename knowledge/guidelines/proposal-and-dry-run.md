@@ -61,7 +61,7 @@ Use this skill before editing when the change may:
 Run or confirm current output from:
 
 - `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- config summary --sources --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
 - `cargo run -q -p forma-cli -- skills get proposal-and-dry-run`
 

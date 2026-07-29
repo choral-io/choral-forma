@@ -66,6 +66,8 @@ Before calling something built in, reserved, private, public, local, shared, or 
 
 If those sources disagree, stop and report the inconsistency. Do not resolve it by copying the most convenient current implementation.
 
+Use `forma config summary --sources --json` for the resolved model and `forma workspace explain <path> --json` for path-specific classification and provenance. Use `forma config inspect --json` only when the authored effective configuration itself must be examined.
+
 ## Implementation Rules
 
 - Derive configurable meaning from effective configuration or a typed Core resolver.

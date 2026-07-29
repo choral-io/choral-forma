@@ -26,9 +26,9 @@ order: 225
 
 Start with read-only evidence:
 
-1. Run `forma config inspect --json`, `forma check --json`, and `forma workspace health --json` from the target workspace root.
-2. Read the diagnostics and the effective configuration sources before suggesting edits.
-3. Use `forma inspect`, `forma list`, or `forma view render` only for the configured content or view implicated by the diagnostic.
+1. Run `forma config summary --sources --json`, `forma check --json`, and `forma workspace health --json` from the target workspace root.
+2. Read the diagnostics and resolved provenance before suggesting edits. Escalate to `forma config inspect --json` only when the authored effective configuration must be debugged.
+3. Use `forma workspace explain` for the implicated path, including a missing or unmanaged path. Use `forma inspect`, `forma list`, or `forma view render` only for the configured content group or view implicated by the diagnostic.
 4. Treat directory names, ignored files, and paths such as `.forma/local/**` as repository conventions, not privacy or publication guarantees. A configured file participates according to its configuration.
 5. Propose the smallest config or content correction and wait for approval before changing shared workspace material.
 

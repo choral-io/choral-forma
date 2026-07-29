@@ -92,7 +92,7 @@ Report the selected task, why it is next, what evidence supports the recommendat
 
 Start from Forma operations, not hidden workflow files:
 
-- `cargo run -q -p forma-cli -- config inspect --json`
+- `cargo run -q -p forma-cli -- config summary --group tasks --sources --json`
 - `cargo run -q -p forma-cli -- workspace health --json`
 - `cargo run -q -p forma-cli -- list --space tasks --json`
 - `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
@@ -101,6 +101,7 @@ Inspect candidate tasks with:
 
 - `cargo run -q -p forma-cli -- inspect <task-path> --json`
 - `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json`
+- `cargo run -q -p forma-cli -- workspace explain <task-path> --json`
 
 Use source documents linked from the task when acceptance, scope, or product intent matters. Use current member context only when ownership, assignment, focus area, or capacity is explicitly relevant.
 
