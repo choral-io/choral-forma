@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.29
+
+- Add the coordinated Forma CLI self-update release with checksum-verified exact-version selection, install-script ownership receipts, recoverable cross-platform executable replacement, and explicit package-manager boundaries.
+- Update the official Windows installer to use `%USERPROFILE%\.local\bin`, maintain the User PATH idempotently, and make the installed CLI available in the current PowerShell session.
+
 ## 0.1.28
 
 - Parse embedded canonical-document frontmatter consistently across LF and CRLF checkouts, preflight the Windows release build on `main`, and make packaged-extension performance gating resilient to a single shared-runner scheduling outlier while retaining a repeated-breach failure.
