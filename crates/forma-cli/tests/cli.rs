@@ -1,10 +1,13 @@
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{hash::Hash, hash::Hasher};
 
 use forma_core::FORMA_CONFIG_PATH;
 use serde_json::Value;
+
+#[cfg(unix)]
+use std::process::Stdio;
 
 fn copy_starter_workspace(root: &Path) {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))

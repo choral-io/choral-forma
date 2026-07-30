@@ -220,7 +220,10 @@ mod tests {
         let directory = std::env::temp_dir().join(format!(
             "forma-receipt-test-{}-{}",
             std::process::id(),
-            std::thread::current().name().unwrap_or("unnamed")
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
         ));
         let _ = fs::remove_dir_all(&directory);
         fs::create_dir_all(&directory).unwrap();
