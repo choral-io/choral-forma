@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem in the Forma CLI, WebApp, docs, or examples.
+description: Report a reproducible problem in the CLI, WebApp, static site, editor integrations, docs, or examples.
 title: "Bug: "
 labels:
   - bug
@@ -7,7 +7,21 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for trying Forma. This project is in public alpha, so reports are used for product feedback and triage, not as a support SLA.
+        Thanks for trying Forma. This project is in Public Preview, so reports are used for product feedback and triage, not as a support SLA.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - CLI
+        - WebApp or static site
+        - VS Code extension
+        - Zed extension
+        - Workspace configuration or validation
+        - Documentation or examples
+        - Other
+    validations:
+      required: true
   - type: textarea
     id: summary
     attributes:
@@ -43,7 +57,7 @@ body:
     attributes:
       label: Forma version
       description: Run `forma --version` if available.
-      placeholder: "forma 0.1.0"
+      placeholder: "forma X.Y.Z"
   - type: textarea
     id: environment
     attributes:

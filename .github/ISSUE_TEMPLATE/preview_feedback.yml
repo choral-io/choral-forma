@@ -1,4 +1,4 @@
-name: Alpha feedback
+name: Public Preview feedback
 description: Share feedback, feature requests, and product suggestions for Forma.
 title: "Feedback: "
 labels:
@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this form for alpha feedback, feature requests, and product suggestions. External pull requests are not accepted before beta, and issue discussion does not imply a feature commitment.
+        Use this form for Public Preview feedback, feature requests, and product suggestions. External pull requests are not accepted during Public Preview, and issue discussion does not imply a feature commitment.
   - type: textarea
     id: context
     attributes:
