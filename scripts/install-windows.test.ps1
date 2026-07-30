@@ -78,8 +78,7 @@ foreach ($functionDefinition in $functionDefinitions) {
 
 foreach ($functionName in @(
         "Update-FormaPathValue",
-        "Set-FormaInstallPath",
-        "Remove-LegacyFormaInstall"
+        "Set-FormaInstallPath"
     )) {
     Assert-True (
         $null -ne (Get-Command $functionName -CommandType Function -ErrorAction SilentlyContinue)
@@ -87,65 +86,25 @@ foreach ($functionName in @(
 }
 
 $newInstallDir = "C:\Users\forma\.local\bin"
-$legacyInstallDirs = @(
-    "C:\Users\forma\AppData\Local\Programs\Choral\Forma\bin",
-    "C:\Users\forma\AppData\Local\Programs\ChoralForma\bin"
-)
-$initialPath = "C:\Tools;$($legacyInstallDirs[0]);C:\Other"
-$expectedPath = "C:\Tools;$newInstallDir;C:\Other"
+$initialPath = "C:\Tools;C:\Other"
+$expectedPath = "C:\Tools;C:\Other;$newInstallDir"
 
 $updatedPath = Update-FormaPathValue `
     -PathValue $initialPath `
-    -InstallDir $newInstallDir `
-    -LegacyInstallDirs $legacyInstallDirs
-Assert-Equal $updatedPath $expectedPath "The legacy PATH entry must be replaced in place."
+    -InstallDir $newInstallDir
+Assert-Equal $updatedPath $expectedPath "The install directory must be appended to PATH."
 
 $idempotentPath = Update-FormaPathValue `
-    -PathValue "$newInstallDir\;$($legacyInstallDirs[0]);$($legacyInstallDirs[1]);$newInstallDir;C:\Other" `
-    -InstallDir $newInstallDir `
-    -LegacyInstallDirs $legacyInstallDirs
+    -PathValue "$newInstallDir\;$newInstallDir;C:\Other" `
+    -InstallDir $newInstallDir
 Assert-Equal (
     $idempotentPath
-) "$newInstallDir;C:\Other" "PATH normalization must remove all legacy entries and remain idempotent."
+) "$newInstallDir;C:\Other" "PATH normalization must deduplicate the install directory."
 
 $emptyPath = Update-FormaPathValue `
     -PathValue "" `
-    -InstallDir $newInstallDir `
-    -LegacyInstallDirs $legacyInstallDirs
+    -InstallDir $newInstallDir
 Assert-Equal $emptyPath $newInstallDir "An empty PATH must receive the install directory."
-
-$cleanupRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
-    "forma-installer-test-" + [System.Guid]::NewGuid().ToString("N")
-)
-$cleanupLegacyDir = Join-Path $cleanupRoot "ChoralForma\bin"
-try {
-    New-Item -ItemType Directory -Force -Path $cleanupLegacyDir | Out-Null
-    Set-Content -Path (Join-Path $cleanupLegacyDir "forma.exe") -Value "owned"
-    Set-Content -Path (Join-Path $cleanupLegacyDir "keep.txt") -Value "unknown"
-
-    Remove-LegacyFormaInstall -LegacyInstallDir $cleanupLegacyDir
-
-    Assert-True (
-        -not (Test-Path -LiteralPath (Join-Path $cleanupLegacyDir "forma.exe"))
-    ) "The legacy Forma executable must be removed."
-    Assert-True (
-        Test-Path -LiteralPath (Join-Path $cleanupLegacyDir "keep.txt")
-    ) "Unknown files in the legacy directory must be preserved."
-    Assert-True (
-        Test-Path -LiteralPath $cleanupLegacyDir
-    ) "A non-empty legacy directory must be preserved."
-
-    Remove-Item -LiteralPath (Join-Path $cleanupLegacyDir "keep.txt") -Force
-    Remove-LegacyFormaInstall -LegacyInstallDir $cleanupLegacyDir
-    Assert-True (
-        -not (Test-Path -LiteralPath $cleanupLegacyDir)
-    ) "An empty legacy bin directory must be removed."
-    Assert-True (
-        -not (Test-Path -LiteralPath (Split-Path -Parent $cleanupLegacyDir))
-    ) "An empty legacy product directory must be removed."
-} finally {
-    Remove-Item -LiteralPath $cleanupRoot -Recurse -Force -ErrorAction SilentlyContinue
-}
 
 $runningOnWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
 if ($runningOnWindows) {
@@ -154,20 +113,18 @@ if ($runningOnWindows) {
     try {
         [Environment]::SetEnvironmentVariable(
             "Path",
-            "C:\Tools;$($legacyInstallDirs[0]);$($legacyInstallDirs[1])",
+            "C:\Tools",
             "User"
         )
-        $env:Path = "C:\Windows\System32;$($legacyInstallDirs[0]);$($legacyInstallDirs[1])"
+        $env:Path = "C:\Windows\System32"
 
-        $pathResult = Set-FormaInstallPath `
-            -InstallDir $newInstallDir `
-            -LegacyInstallDirs $legacyInstallDirs
+        $pathResult = Set-FormaInstallPath -InstallDir $newInstallDir
 
         Assert-True $pathResult.UserChanged "The persistent User PATH must be updated."
         Assert-True $pathResult.ProcessChanged "The current process PATH must be updated."
         Assert-Equal (
             [Environment]::GetEnvironmentVariable("Path", "User")
-        ) "C:\Tools;$newInstallDir" "The User PATH must contain the new install directory."
+        ) "C:\Tools;$newInstallDir" "The User PATH must contain the install directory."
         Assert-Equal (
             $env:Path
         ) "C:\Windows\System32;$newInstallDir" "The current process PATH must be immediately usable."

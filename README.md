@@ -175,7 +175,7 @@ Windows PowerShell:
 
 During Public Preview, install a pinned release tag so the CLI and editor extensions remain on the same coordinated version. Update the tag in these examples before publishing each preview release.
 
-On Windows, the installer defaults to `%USERPROFILE%\.local\bin`, adds that directory to the User PATH, and updates the current PowerShell session so `forma` is immediately available. Existing installations under `%LOCALAPPDATA%\Programs\Choral\Forma\bin` or `%LOCALAPPDATA%\Programs\ChoralForma\bin` are migrated safely. Set `FORMA_INSTALL_DIR` or pass `-InstallDir` to override the install directory; pass `-NoModifyPath` when PATH is managed separately.
+On Windows, the installer defaults to `%USERPROFILE%\.local\bin`, adds that directory to the User PATH, and updates the current PowerShell session so `forma` is immediately available. Set `FORMA_INSTALL_DIR` or pass `-InstallDir` to override the install directory; pass `-NoModifyPath` when PATH is managed separately.
 
 ### mise GitHub Backend
 
