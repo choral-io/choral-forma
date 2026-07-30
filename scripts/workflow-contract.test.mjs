@@ -285,6 +285,14 @@ test("keeps the reusable release matrix and public asset contract exact", async 
     assert.deepEqual(Object.keys(releaseCliBuild.on.workflow_call.inputs), ["source_sha"]);
     assert.deepEqual(Object.keys(releaseCliBuild.jobs), ["cli"]);
     assert.deepEqual(Object.keys(releaseVscodeBuild.jobs), ["extension"]);
+    assert.ok(
+        stepRunCommandsForTest(cliBuildJob).some(
+            (command) =>
+                command.includes("cargo test --release --locked -p forma-cli self_update") &&
+                command.includes("--target ${{ matrix.target }}"),
+        ),
+        "every release CLI target must run the self-update contract tests",
+    );
 
     const publishedNames = rows.flatMap(({ archive, asset, managed_binary }) => {
         const archiveName = `forma-${asset}.${archive}`;
@@ -404,6 +412,11 @@ test("retains the complete CI, site, extension, and Zed gates", async () => {
         stepRunCommandsForTest(windowsInstaller).some((command) =>
             command.includes("scripts/install-windows.test.ps1"),
         ),
+    );
+    const unixInstaller = job(ci, "unix-installer");
+    assert.equal(unixInstaller["runs-on"], "ubuntu-24.04");
+    assert.ok(
+        stepRunCommandsForTest(unixInstaller).some((command) => command.includes("scripts/install-unix.test.sh")),
     );
     const ciExtension = job(ci, "extension");
     const integration = ciExtension.steps.find((step) => step.name === "Run Extension Host tests");

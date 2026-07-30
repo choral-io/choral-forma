@@ -32,4 +32,4 @@ Use `forma docs list --json` to discover the embedded canonical pages. This work
 
 ## Reference
 
-Start with `getting-started`, then use the CLI and workspace reference docs for details.
+Start with `getting-started`, then use the CLI and workspace reference docs for details. Install-script users can use `cli.self-update` for explicit, checksum-verified CLI updates.

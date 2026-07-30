@@ -109,6 +109,10 @@ jobs:
           pnpm --filter @choral-forma/shared build
           pnpm --filter @choral-forma/webapp build
 
+      - name: Test self-update contract
+        if: steps.existing.outputs.present != 'true'
+        run: cargo test --release --locked -p forma-cli self_update --target ${{ matrix.target }}
+
       - name: Build Forma CLI
         if: steps.existing.outputs.present != 'true'
         run: cargo build --release --locked --bin forma --target ${{ matrix.target }}

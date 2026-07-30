@@ -163,6 +163,63 @@ fn site_build_help_has_no_configurable_home_entry() {
 }
 
 #[test]
+fn self_update_help_exposes_only_release_scoped_controls() {
+    let output = Command::new(env!("CARGO_BIN_EXE_forma"))
+        .args(["self-update", "--help"])
+        .output()
+        .expect("forma self-update --help should run");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for option in [
+        "[VERSION]",
+        "--check",
+        "--yes",
+        "--reinstall",
+        "--allow-downgrade",
+        "--json",
+    ] {
+        assert!(stdout.contains(option), "missing {option} in {stdout}");
+    }
+    for unsupported in ["--url", "--asset", "--channel", "--branch"] {
+        assert!(!stdout.contains(unsupported));
+    }
+}
+
+#[test]
+fn self_update_reinstall_requires_an_exact_version() {
+    let output = Command::new(env!("CARGO_BIN_EXE_forma"))
+        .args(["self-update", "--reinstall"])
+        .output()
+        .expect("forma self-update should reject an unscoped reinstall");
+
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--reinstall"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("<VERSION>"));
+}
+
+#[test]
+fn self_update_json_failure_is_machine_readable_without_a_workspace() {
+    let root = fixture_root("self-update-json-error");
+    std::fs::create_dir_all(&root).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_forma"))
+        .current_dir(&root)
+        .args(["self-update", "not-a-version", "--json"])
+        .output()
+        .expect("forma self-update should report invalid versions");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["schemaVersion"], 1);
+    assert_eq!(result["operation"], "self.update");
+    assert_eq!(result["status"], "failed");
+    assert_eq!(result["diagnostics"][0]["code"], "self.updateFailed");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     let root = fixture_root("site-build-artifact");
     std::fs::create_dir_all(&root).unwrap();

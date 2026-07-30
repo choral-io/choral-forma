@@ -5,6 +5,29 @@ REPO="${FORMA_INSTALL_REPO:-choral-io/choral-forma}"
 VERSION="${1:-latest}"
 INSTALL_DIR="${FORMA_INSTALL_DIR:-$HOME/.local/bin}"
 
+case "$REPO" in
+  */*)
+    repo_owner="${REPO%%/*}"
+    repo_name="${REPO#*/}"
+    ;;
+  *)
+    echo "invalid GitHub repository identity: $REPO" >&2
+    exit 1
+    ;;
+esac
+case "$repo_owner" in
+  "" | "." | ".." | *[!A-Za-z0-9._-]*)
+    echo "invalid GitHub repository identity: $REPO" >&2
+    exit 1
+    ;;
+esac
+case "$repo_name" in
+  "" | "." | ".." | */* | *[!A-Za-z0-9._-]*)
+    echo "invalid GitHub repository identity: $REPO" >&2
+    exit 1
+    ;;
+esac
+
 case "$(uname -s)" in
   Darwin) os="macos" ;;
   Linux) os="linux" ;;
@@ -34,8 +57,12 @@ else
 fi
 
 tmp_dir="$(mktemp -d)"
+receipt_tmp=""
 cleanup() {
   rm -rf "$tmp_dir"
+  if [ -n "$receipt_tmp" ]; then
+    rm -f "$receipt_tmp"
+  fi
 }
 trap cleanup EXIT INT TERM
 
@@ -59,6 +86,29 @@ fi
 
 mkdir -p "$INSTALL_DIR"
 install -m 0755 "$tmp_dir/forma-${os}-${arch}/bin/forma" "$INSTALL_DIR/forma"
+
+version_output="$("$INSTALL_DIR/forma" --version)"
+case "$version_output" in
+  "forma "*) installed_version="${version_output#forma }" ;;
+  *)
+    echo "installed Forma returned an unexpected version: $version_output" >&2
+    exit 1
+    ;;
+esac
+case "$installed_version" in
+  "" | *[!0-9A-Za-z.+-]*)
+    echo "installed Forma returned an invalid version: $installed_version" >&2
+    exit 1
+    ;;
+esac
+
+receipt_tmp="$INSTALL_DIR/.forma.install.json.tmp.$$"
+printf '{\n  "schemaVersion": 1,\n  "manager": "forma-install-script",\n  "repository": "%s",\n  "installedVersion": "%s"\n}\n' \
+  "$REPO" \
+  "$installed_version" \
+  > "$receipt_tmp"
+mv "$receipt_tmp" "$INSTALL_DIR/forma.install.json"
+receipt_tmp=""
 
 echo "Installed forma to $INSTALL_DIR/forma"
 echo "Ensure $INSTALL_DIR is on PATH before running forma."

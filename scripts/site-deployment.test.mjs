@@ -71,6 +71,7 @@ test("automatically deploys only a fully successful main push", () => {
         "knowledge",
         "rust",
         "site",
+        "unix-installer",
         "web",
         "windows-installer",
     ]);

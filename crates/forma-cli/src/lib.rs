@@ -31,6 +31,7 @@ use include_dir::{Dir, include_dir};
 use serde_json::Value as JsonValue;
 use serde_yml::Value;
 
+mod self_update;
 mod site;
 mod static_html;
 
@@ -432,6 +433,25 @@ enum Command {
         #[command(subcommand)]
         command: SiteCommand,
     },
+    /// Check for or install a published Forma CLI release.
+    SelfUpdate {
+        /// Exact SemVer to install; omit to select the newest eligible release.
+        version: Option<String>,
+        /// Check release and installation state without downloading or replacing Forma.
+        #[arg(long)]
+        check: bool,
+        /// Skip the interactive update confirmation.
+        #[arg(long, short = 'y')]
+        yes: bool,
+        /// Replace Forma even when the requested version is already installed.
+        #[arg(long, requires = "version")]
+        reinstall: bool,
+        /// Permit an explicitly requested version older than the running Forma.
+        #[arg(long, requires = "version")]
+        allow_downgrade: bool,
+        #[arg(long)]
+        json: bool,
+    },
     /// Run the Forma language server over stdio.
     Lsp,
     Serve {
@@ -612,13 +632,61 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         workspace,
         command,
     } = cli;
-    let dispatcher = Dispatcher::new(&workspace);
 
     if version {
         stdout_println!("forma {}", forma_core::version())?;
         return Ok(());
     }
 
+    let command = match command {
+        Some(Command::SelfUpdate {
+            version,
+            check,
+            yes,
+            reinstall,
+            allow_downgrade,
+            json,
+        }) => {
+            let result = self_update::execute(self_update::Options {
+                version,
+                check,
+                yes,
+                reinstall,
+                allow_downgrade,
+            })
+            .await;
+            match result {
+                Ok(report) if json => {
+                    stdout_println!("{}", serde_json::to_string_pretty(&report)?)?;
+                }
+                Ok(report) => {
+                    let stdout = io::stdout();
+                    let mut stdout = stdout.lock();
+                    report.write_human(&mut stdout)?;
+                }
+                Err(source) if json => {
+                    stdout_println!(
+                        "{}",
+                        serde_json::json!({
+                            "schemaVersion": 1,
+                            "operation": "self.update",
+                            "status": "failed",
+                            "diagnostics": [{
+                                "severity": "error",
+                                "code": "self.updateFailed",
+                                "message": source.to_string(),
+                            }],
+                        })
+                    )?;
+                    std::process::exit(1);
+                }
+                Err(source) => return Err(source),
+            }
+            return Ok(());
+        }
+        other => other,
+    };
+    let dispatcher = Dispatcher::new(&workspace);
     match command {
         None => {
             stdout_println!("forma {}", forma_core::version())?;
@@ -879,6 +947,9 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 Ok(())
             }
         },
+        Some(Command::SelfUpdate { .. }) => {
+            unreachable!("self-update commands are handled before workspace dispatch")
+        }
         Some(Command::Lsp) => Ok(forma_lsp::run(workspace)?),
         Some(Command::Serve {
             bind,

@@ -111,6 +111,65 @@ function Set-FormaInstallPath {
     }
 }
 
+function ConvertFrom-FormaVersionOutput {
+    param(
+        [string] $VersionOutput
+    )
+
+    $normalizedOutput = $VersionOutput.Trim()
+    if ($normalizedOutput -notmatch '^forma ([0-9A-Za-z.+-]+)$') {
+        throw "Installed Forma returned an unexpected version: $normalizedOutput"
+    }
+    return $Matches[1]
+}
+
+function Write-FormaInstallReceipt {
+    param(
+        [string] $InstallDir,
+        [string] $Repo,
+        [string] $InstalledVersion
+    )
+
+    if (-not (Test-FormaRepositoryIdentity -Repo $Repo)) {
+        throw "Invalid GitHub repository identity: $Repo"
+    }
+
+    $receipt = [ordered] @{
+        schemaVersion = 1
+        manager = "forma-install-script"
+        repository = $Repo
+        installedVersion = $InstalledVersion
+    }
+    $receiptJson = $receipt | ConvertTo-Json
+    $receiptPath = Join-Path $InstallDir "forma.install.json"
+    $temporaryReceiptPath = Join-Path $InstallDir (
+        ".forma.install.json.tmp-" + [System.Diagnostics.Process]::GetCurrentProcess().Id
+    )
+    $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+    try {
+        [System.IO.File]::WriteAllText(
+            $temporaryReceiptPath,
+            "$receiptJson`n",
+            $utf8WithoutBom
+        )
+        Move-Item $temporaryReceiptPath $receiptPath -Force
+    } finally {
+        Remove-Item $temporaryReceiptPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Test-FormaRepositoryIdentity {
+    param(
+        [string] $Repo
+    )
+
+    return (
+        $Repo -match '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$' -and
+        $Repo -notmatch '^(?:\.{1,2})/' -and
+        $Repo -notmatch '/(?:\.{1,2})$'
+    )
+}
+
 if ($MyInvocation.InvocationName -eq ".") {
     return
 }
@@ -122,6 +181,9 @@ if (-not [Environment]::Is64BitOperatingSystem) {
 }
 
 $InstallDir = [System.IO.Path]::GetFullPath($InstallDir)
+if (-not (Test-FormaRepositoryIdentity -Repo $Repo)) {
+    throw "Invalid GitHub repository identity: $Repo"
+}
 
 $asset = "forma-windows-x64.zip"
 $baseUrl = "https://github.com/$Repo/releases"
@@ -167,9 +229,19 @@ try {
 
     Expand-Archive -Path $archivePath -DestinationPath $extractPath -Force
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-    Copy-Item (Join-Path $extractPath "forma-windows-x64\bin\forma.exe") (Join-Path $InstallDir "forma.exe") -Force
+    $targetPath = Join-Path $InstallDir "forma.exe"
+    Copy-Item (Join-Path $extractPath "forma-windows-x64\bin\forma.exe") $targetPath -Force
+    $versionOutput = (& $targetPath --version | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw "Installed Forma failed to report its version."
+    }
+    $installedVersion = ConvertFrom-FormaVersionOutput -VersionOutput $versionOutput
+    Write-FormaInstallReceipt `
+        -InstallDir $InstallDir `
+        -Repo $Repo `
+        -InstalledVersion $installedVersion
 
-    Write-Host "Installed forma to $(Join-Path $InstallDir "forma.exe")"
+    Write-Host "Installed forma to $targetPath"
     if ($NoModifyPath) {
         Write-Host "PATH was not modified. Ensure $InstallDir is on PATH before running forma."
     } else {
