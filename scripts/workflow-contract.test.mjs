@@ -398,6 +398,13 @@ test("retains the complete CI, site, extension, and Zed gates", async () => {
     const rustCommands = stepRunCommandsForTest(job(ci, "rust")).join("\n");
     assert.match(rustCommands, /rustup target add wasm32-wasip1/u);
     assert.match(rustCommands, /cargo check -p forma-zed-extension --target wasm32-wasip1 --locked/u);
+    const windowsInstaller = job(ci, "windows-installer");
+    assert.equal(windowsInstaller["runs-on"], "windows-2025");
+    assert.ok(
+        stepRunCommandsForTest(windowsInstaller).some((command) =>
+            command.includes("scripts/install-windows.test.ps1"),
+        ),
+    );
     const ciExtension = job(ci, "extension");
     const integration = ciExtension.steps.find((step) => step.name === "Run Extension Host tests");
     assert.equal(integration?.env?.FORMA_TEST_BIN, "${{ github.workspace }}/target/debug/forma");

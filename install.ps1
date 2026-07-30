@@ -1,14 +1,184 @@
 param(
     [string] $Version = "latest",
     [string] $Repo = $(if ($env:FORMA_INSTALL_REPO) { $env:FORMA_INSTALL_REPO } else { "choral-io/choral-forma" }),
-    [string] $InstallDir = $(if ($env:FORMA_INSTALL_DIR) { $env:FORMA_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "Programs\ChoralForma\bin" })
+    [string] $InstallDir = $(if ($env:FORMA_INSTALL_DIR) { $env:FORMA_INSTALL_DIR } else { Join-Path $env:USERPROFILE ".local\bin" }),
+    [switch] $NoModifyPath
 )
+
+function ConvertTo-FormaComparablePath {
+    param(
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return ""
+    }
+
+    $expandedPath = [Environment]::ExpandEnvironmentVariables(
+        $Path.Trim().Trim([char] '"')
+    )
+    $normalizedPath = $expandedPath.Replace("/", "\").TrimEnd([char] "\")
+    if ($normalizedPath -match "^[A-Za-z]:$") {
+        return "$normalizedPath\"
+    }
+    return $normalizedPath
+}
+
+function Test-FormaPathEqual {
+    param(
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Left,
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Right
+    )
+
+    return [StringComparer]::OrdinalIgnoreCase.Equals(
+        (ConvertTo-FormaComparablePath $Left),
+        (ConvertTo-FormaComparablePath $Right)
+    )
+}
+
+function Update-FormaPathValue {
+    param(
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $PathValue,
+        [string] $InstallDir,
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string[]] $LegacyInstallDirs
+    )
+
+    $updatedEntries = [System.Collections.Generic.List[string]]::new()
+    $installDirAdded = $false
+
+    foreach ($entry in @($PathValue -split ";")) {
+        if ([string]::IsNullOrWhiteSpace($entry)) {
+            continue
+        }
+
+        $isInstallDir = Test-FormaPathEqual $entry $InstallDir
+        $isLegacyInstallDir = $false
+        foreach ($legacyInstallDir in @($LegacyInstallDirs)) {
+            if (
+                -not [string]::IsNullOrWhiteSpace($legacyInstallDir) -and
+                (Test-FormaPathEqual $entry $legacyInstallDir)
+            ) {
+                $isLegacyInstallDir = $true
+                break
+            }
+        }
+        if ($isInstallDir -or $isLegacyInstallDir) {
+            if (-not $installDirAdded) {
+                $updatedEntries.Add($InstallDir)
+                $installDirAdded = $true
+            }
+            continue
+        }
+
+        $updatedEntries.Add($entry)
+    }
+
+    if (-not $installDirAdded) {
+        $updatedEntries.Add($InstallDir)
+    }
+
+    return $updatedEntries -join ";"
+}
+
+function Set-FormaInstallPath {
+    param(
+        [string] $InstallDir,
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string[]] $LegacyInstallDirs
+    )
+
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $updatedUserPath = Update-FormaPathValue `
+        -PathValue $userPath `
+        -InstallDir $InstallDir `
+        -LegacyInstallDirs $LegacyInstallDirs
+    $userChanged = -not [StringComparer]::Ordinal.Equals(
+        $userPath,
+        $updatedUserPath
+    )
+    if ($userChanged) {
+        [Environment]::SetEnvironmentVariable("Path", $updatedUserPath, "User")
+    }
+
+    $processPath = $env:Path
+    $updatedProcessPath = Update-FormaPathValue `
+        -PathValue $processPath `
+        -InstallDir $InstallDir `
+        -LegacyInstallDirs $LegacyInstallDirs
+    $processChanged = -not [StringComparer]::Ordinal.Equals(
+        $processPath,
+        $updatedProcessPath
+    )
+    if ($processChanged) {
+        $env:Path = $updatedProcessPath
+    }
+
+    return [pscustomobject] @{
+        UserChanged = $userChanged
+        ProcessChanged = $processChanged
+    }
+}
+
+function Remove-LegacyFormaInstall {
+    param(
+        [string] $LegacyInstallDir
+    )
+
+    $legacyExecutable = Join-Path $LegacyInstallDir "forma.exe"
+    if (Test-Path -LiteralPath $legacyExecutable -PathType Leaf) {
+        Remove-Item -LiteralPath $legacyExecutable -Force
+    }
+
+    if (-not (Test-Path -LiteralPath $LegacyInstallDir -PathType Container)) {
+        return
+    }
+
+    $legacyBinEntry = Get-ChildItem -LiteralPath $LegacyInstallDir -Force |
+        Select-Object -First 1
+    if ($null -ne $legacyBinEntry) {
+        return
+    }
+
+    Remove-Item -LiteralPath $LegacyInstallDir -Force
+    $legacyProductDir = Split-Path -Parent $LegacyInstallDir
+    if (-not (Test-Path -LiteralPath $legacyProductDir -PathType Container)) {
+        return
+    }
+
+    $legacyProductEntry = Get-ChildItem -LiteralPath $legacyProductDir -Force |
+        Select-Object -First 1
+    if ($null -eq $legacyProductEntry) {
+        Remove-Item -LiteralPath $legacyProductDir -Force
+    }
+}
+
+if ($MyInvocation.InvocationName -eq ".") {
+    return
+}
 
 $ErrorActionPreference = "Stop"
 
 if (-not [Environment]::Is64BitOperatingSystem) {
     throw "Choral Forma currently provides a Windows x64 release artifact only."
 }
+
+$InstallDir = [System.IO.Path]::GetFullPath($InstallDir)
+$defaultInstallDir = Join-Path $env:USERPROFILE ".local\bin"
+$legacyInstallDirs = @(
+    (Join-Path $env:LOCALAPPDATA "Programs\Choral\Forma\bin"),
+    (Join-Path $env:LOCALAPPDATA "Programs\ChoralForma\bin")
+)
 
 $asset = "forma-windows-x64.zip"
 $baseUrl = "https://github.com/$Repo/releases"
@@ -57,7 +227,25 @@ try {
     Copy-Item (Join-Path $extractPath "forma-windows-x64\bin\forma.exe") (Join-Path $InstallDir "forma.exe") -Force
 
     Write-Host "Installed forma to $(Join-Path $InstallDir "forma.exe")"
-    Write-Host "Ensure $InstallDir is on PATH before running forma."
+    if ($NoModifyPath) {
+        Write-Host "PATH was not modified. Ensure $InstallDir is on PATH before running forma."
+    } else {
+        $pathResult = Set-FormaInstallPath `
+            -InstallDir $InstallDir `
+            -LegacyInstallDirs $legacyInstallDirs
+        if ($pathResult.UserChanged) {
+            Write-Host "Added $InstallDir to the user PATH."
+        } else {
+            Write-Host "$InstallDir is already on the user PATH."
+        }
+
+        if (Test-FormaPathEqual $InstallDir $defaultInstallDir) {
+            foreach ($legacyInstallDir in $legacyInstallDirs) {
+                Remove-LegacyFormaInstall -LegacyInstallDir $legacyInstallDir
+            }
+        }
+        Write-Host "Run forma --version to verify the installation."
+    }
 } finally {
     Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
 }

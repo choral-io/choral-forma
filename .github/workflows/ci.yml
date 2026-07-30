@@ -167,6 +167,17 @@ jobs:
       - name: Check knowledge Markdown
         run: pnpm exec prettier --check "knowledge/**/*.md"
 
+  windows-installer:
+    name: Windows installer
+    runs-on: windows-2025
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Test Windows installer
+        shell: pwsh
+        run: ./scripts/install-windows.test.ps1
+
   web:
     name: Web
     runs-on: ubuntu-24.04
@@ -344,9 +355,9 @@ jobs:
 
   deploy-site:
     name: Deploy forma.choral.io
-    needs: [site, knowledge, web, extension, rust, cli-release-build]
+    needs: [site, knowledge, windows-installer, web, extension, rust, cli-release-build]
     if: >-
-      github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.site.result == 'success' && needs.knowledge.result == 'success' && needs.web.result == 'success' && needs.extension.result == 'success' && needs.rust.result == 'success' && needs.cli-release-build.result == 'success'
+      github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.site.result == 'success' && needs.knowledge.result == 'success' && needs.windows-installer.result == 'success' && needs.web.result == 'success' && needs.extension.result == 'success' && needs.rust.result == 'success' && needs.cli-release-build.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment:
