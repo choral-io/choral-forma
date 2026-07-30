@@ -42,7 +42,7 @@
     "eslint-plugin-better-tailwindcss": "~4.7.0",
     "eslint-plugin-react-hooks": "~7.1.1",
     "eslint-plugin-react-refresh": "~0.5.3",
-    "globals": "~17.7.0",
+    "globals": "~17.8.0",
     "lucide-static": "~1.27.0",
     "subset-font": "~2.5.0",
     "tailwindcss": "~4.3.3",
