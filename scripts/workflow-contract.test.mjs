@@ -66,6 +66,8 @@ jobs:
     environment: release-production
     permissions:
       contents: write
+    steps:
+      - run: gh api --paginate "repos/example/project/releases?per_page=100"
   verify-published-release:
     needs: promote
     permissions:
@@ -352,6 +354,7 @@ test("binds release and deployment recovery paths to the exact source", async ()
     );
     const promoteCommands = stepRunCommandsForTest(job(release, "promote")).join("\n");
     assert.match(promoteCommands, /\/git\/tags/u);
+    assert.match(promoteCommands, /releases\?per_page=100/u);
     assert.match(promoteCommands, /verify-subset/u);
     assert.match(promoteCommands, /release-candidate\.mjs verify/u);
 

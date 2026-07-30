@@ -300,7 +300,19 @@ jobs:
         run: |
           set -euo pipefail
           release_api="repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}"
-          if ! release="$(gh api "${release_api}" 2>/dev/null)"; then
+          resolve_release() {
+            local release
+            if release="$(gh api "${release_api}" 2>/dev/null)"; then
+              printf '%s' "${release}"
+              return
+            fi
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+              | jq --slurp --arg tag "${RELEASE_TAG}" \
+                'map(.[]) | map(select(.tag_name == $tag)) | first // empty'
+          }
+
+          release="$(resolve_release)"
+          if [[ -z "${release}" ]]; then
             prerelease_flags=()
             if [[ "${RELEASE_TAG}" == *-* ]]; then
               prerelease_flags+=(--prerelease)
@@ -311,8 +323,9 @@ jobs:
               --title "Forma ${RELEASE_TAG}" \
               --verify-tag \
               "${prerelease_flags[@]}"
-            release="$(gh api "${release_api}")"
+            release="$(resolve_release)"
           fi
+          test -n "${release}"
 
           release_id="$(jq -r '.id' <<< "${release}")"
           while read -r asset_id; do
@@ -329,7 +342,7 @@ jobs:
 
           rm -rf published-subset
           mkdir -p published-subset
-          release="$(gh api "${release_api}")"
+          release="$(resolve_release)"
           if [[ "$(jq '.assets | length' <<< "${release}")" -gt 0 ]]; then
             gh release download "${RELEASE_TAG}" --dir published-subset
           fi
@@ -351,7 +364,7 @@ jobs:
             --manifest candidate/release-candidate.json \
             --source-sha "${SOURCE_SHA}"
 
-          release="$(gh api "${release_api}")"
+          release="$(resolve_release)"
           expected_prerelease=false
           if [[ "${RELEASE_TAG}" == *-* ]]; then
             expected_prerelease=true

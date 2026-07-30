@@ -137,6 +137,9 @@ export function releaseContractFailures({ release, releaseCliBuild, releaseVscod
         if (permission(release, promote, "contents") !== "write") {
             failures.push("promotion must have contents: write");
         }
+        if (!/releases\?per_page=100/u.test(stepRunCommands(promote).join("\n"))) {
+            failures.push("promotion must resolve draft releases when the tag endpoint returns 404");
+        }
     }
     if (!isRecord(verify) || !dependsOn(verify, "promote")) {
         failures.push("published-release verification must depend on promotion");
