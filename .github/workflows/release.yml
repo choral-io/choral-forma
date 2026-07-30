@@ -301,29 +301,39 @@ jobs:
           set -euo pipefail
           release_api="repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}"
           resolve_release() {
-            local release
+            local release release_id
             if release="$(gh api "${release_api}" 2>/dev/null)"; then
               printf '%s' "${release}"
               return
             fi
-            gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
-              | jq --slurp --arg tag "${RELEASE_TAG}" \
-                'map(.[]) | map(select(.tag_name == $tag)) | first // empty'
+            if ! release_id="$(
+              gh release view "${RELEASE_TAG}" --json databaseId --jq '.databaseId' 2>/dev/null
+            )"; then
+              return
+            fi
+            gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}"
           }
 
           release="$(resolve_release)"
           if [[ -z "${release}" ]]; then
-            prerelease_flags=()
+            expected_prerelease=false
             if [[ "${RELEASE_TAG}" == *-* ]]; then
-              prerelease_flags+=(--prerelease)
+              expected_prerelease=true
             fi
-            gh release create "${RELEASE_TAG}" \
-              --draft \
-              --generate-notes \
-              --title "Forma ${RELEASE_TAG}" \
-              --verify-tag \
-              "${prerelease_flags[@]}"
-            release="$(resolve_release)"
+            release="$(
+              jq --null-input \
+                --arg tag "${RELEASE_TAG}" \
+                --arg name "Forma ${RELEASE_TAG}" \
+                --argjson prerelease "${expected_prerelease}" \
+                '{
+                  tag_name: $tag,
+                  name: $name,
+                  draft: true,
+                  prerelease: $prerelease,
+                  generate_release_notes: true
+                }' \
+                | gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" --input -
+            )"
           fi
           test -n "${release}"
 

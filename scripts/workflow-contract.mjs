@@ -137,8 +137,9 @@ export function releaseContractFailures({ release, releaseCliBuild, releaseVscod
         if (permission(release, promote, "contents") !== "write") {
             failures.push("promotion must have contents: write");
         }
-        if (!/releases\?per_page=100/u.test(stepRunCommands(promote).join("\n"))) {
-            failures.push("promotion must resolve draft releases when the tag endpoint returns 404");
+        const promoteCommands = stepRunCommands(promote).join("\n");
+        if (!/gh release view/u.test(promoteCommands) || !/releases\/\$\{release_id\}/u.test(promoteCommands)) {
+            failures.push("promotion must resolve draft releases by immutable release ID");
         }
     }
     if (!isRecord(verify) || !dependsOn(verify, "promote")) {
