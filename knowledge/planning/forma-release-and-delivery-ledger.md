@@ -29,6 +29,7 @@ sources:
     - "releases/forma-v0.1.26"
     - "releases/forma-v0.1.27"
     - "releases/forma-v0.1.28"
+    - "releases/forma-v0.1.29"
     - "planning/release-artifact-promotion-pipeline-redesign"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
@@ -66,17 +67,18 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.26         | [[releases/forma-v0.1.26]]         | Failed before publication in the Windows asset job. |
 | v0.1.27         | [[releases/forma-v0.1.27]]         | Failed before publication in later release gates.   |
 | v0.1.28         | [[releases/forma-v0.1.28]]         | Released corrective Public Preview milestone.       |
+| v0.1.29         | [[releases/forma-v0.1.29]]         | Released managed CLI self-update milestone.         |
 
 ## Current Delivery Cutline
 
-- **Current released baseline:** [[releases/forma-v0.1.28]]. Its record contains the candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset, and known-boundary evidence.
+- **Current released baseline:** [[releases/forma-v0.1.29]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset, managed self-update, recovery, and known-boundary evidence.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.
 - **Active validation:** [[tasks/validate-shared-graph-view-cross-host-parity]] remains the active cross-Host Graph evidence boundary.
 - **Active delivery:** [[tasks/optimize-sticky-headers-in-view-rendering]] has completed the WebApp Table and Kanban slices; the remaining scope is the VS Code native-preview evaluation.
 - **Next product-value slices:** [[tasks/design-guided-knowledge-modeling-flow]] and [[tasks/define-external-product-value-validation]] are ready. Guided modeling remains the first adoption-path design; external validation defines the parallel comparative evidence gate and starts from the authorized case corpus.
 - **Architecture dependency:** [[planning/taxonomy-term-presentation-and-graph-color-execution-plan]] keeps taxonomy-neutral presentation, membership, and cross-Host validation boundaries explicit.
-- **Release workflow hardening:** [[planning/release-artifact-promotion-pipeline-redesign]] defines the source-bound, build-once artifact promotion contract for the next release.
+- **Release workflow hardening:** [[planning/release-artifact-promotion-pipeline-redesign]] remains the design basis for source-bound promotion. The v0.1.29 recovery hardened draft reconciliation; cross-workflow reuse of the already verified main-CI artifacts remains a bounded efficiency follow-up.
 
 ## Workflow-Readiness Review
 
