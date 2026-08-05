@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { downloadAndUnzipVSCode } from "@vscode/test-electron";
 
-import { createTestEnvironment } from "./test-environment.mjs";
+import { createTestEnvironment, resolveFormaTestBin } from "./test-environment.mjs";
 
 const extensionRoot = resolve(import.meta.dirname, "..");
 const scratch = await mkdtemp(join(tmpdir(), "choral-forma-untrusted-"));
@@ -18,11 +18,9 @@ const testFile = resolve(extensionRoot, "dist/test/untrusted.test.cjs");
 const invocationMarker = join(scratch, "forma-was-executed");
 const sentinel = join(scratch, process.platform === "win32" ? "forma-sentinel.cmd" : "forma-sentinel");
 const managedCliRoot = join(userData, "User", "globalStorage", "choral-io.forma", "cli");
-const formaTestBin = resolve(
-    extensionRoot,
-    "../..",
-    "target/debug",
-    process.platform === "win32" ? "forma.exe" : "forma",
+const formaTestBin = resolveFormaTestBin(
+    process.env,
+    resolve(extensionRoot, "../..", "target/debug", process.platform === "win32" ? "forma.exe" : "forma"),
 );
 
 try {

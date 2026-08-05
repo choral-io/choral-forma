@@ -1,11 +1,11 @@
 import { defineConfig } from "@vscode/test-cli";
 import { resolve } from "node:path";
 
-const formaTestBin = resolve(
-    import.meta.dirname,
-    "../..",
-    "target/debug",
-    process.platform === "win32" ? "forma.exe" : "forma",
+import { resolveFormaTestBin } from "./scripts/test-environment.mjs";
+
+const formaTestBin = resolveFormaTestBin(
+    process.env,
+    resolve(import.meta.dirname, "../..", "target/debug", process.platform === "win32" ? "forma.exe" : "forma"),
 );
 const env = { FORMA_TEST_BIN: formaTestBin };
 

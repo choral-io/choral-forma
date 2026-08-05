@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } from "@vscode/test-electron";
 
-import { createTestEnvironment, shouldUseShellForCommand } from "./test-environment.mjs";
+import { createTestEnvironment, resolveFormaTestBin, shouldUseShellForCommand } from "./test-environment.mjs";
 
 const vsix = process.env.VSIX_PATH;
 if (!vsix) throw new Error("VSIX_PATH must point to the disposable VSIX to validate.");
@@ -14,9 +14,10 @@ if (!vsix) throw new Error("VSIX_PATH must point to the disposable VSIX to valid
 const extensionRoot = resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const expectedIdentity = `${manifest.publisher}.${manifest.name}@${manifest.version}`;
-const formaTestBin =
-    process.env.FORMA_TEST_BIN ??
-    resolve(extensionRoot, "../..", "target/debug", process.platform === "win32" ? "forma.exe" : "forma");
+const formaTestBin = resolveFormaTestBin(
+    process.env,
+    resolve(extensionRoot, "../..", "target/debug", process.platform === "win32" ? "forma.exe" : "forma"),
+);
 const vscodeExecutablePath =
     process.env.VSCODE_EXECUTABLE_PATH ??
     (await downloadAndUnzipVSCode({
