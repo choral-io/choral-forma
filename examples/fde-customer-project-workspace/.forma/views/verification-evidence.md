@@ -4,19 +4,19 @@ kind: view
 mode: list
 title: Verification Evidence
 display:
-  order: 30
+    order: 30
 description: Verification entries and engineering cards that explain the executable fixture.
 source:
-  type: pages
-  taxonomy:
-    spaces:
-      - engagement-content
-      - engineering
+    type: pages
+    taxonomy:
+        spaces:
+            - engagement-content
+            - engineering
 sort:
-  - field: fields.result
-    direction: asc
-  - field: source.path
-    direction: asc
+    - field: fields.result
+      direction: asc
+    - field: source.path
+      direction: asc
 ---
 
 # Verification Evidence

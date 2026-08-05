@@ -4,18 +4,18 @@ kind: view
 mode: list
 title: Evidence Review
 display:
-  order: 10
+    order: 10
 description: Evidence cards, source projects, reviews, and revalidation records.
 source:
-  type: pages
-  taxonomy:
-    spaces:
-      - practice-content
+    type: pages
+    taxonomy:
+        spaces:
+            - practice-content
 sort:
-  - field: fields.status
-    direction: asc
-  - field: source.path
-    direction: asc
+    - field: fields.status
+      direction: asc
+    - field: source.path
+      direction: asc
 ---
 
 # Evidence Review

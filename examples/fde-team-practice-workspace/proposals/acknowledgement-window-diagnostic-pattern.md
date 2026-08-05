@@ -6,14 +6,14 @@ status: ready-for-review
 synthetic: "true"
 engagementKey: ENG-SYN-001
 sources:
-  - evidence-cards/acknowledgement-window-comparison
-  - projects/p-042
-  - projects/p-051
+    - evidence-cards/acknowledgement-window-comparison
+    - projects/p-042
+    - projects/p-051
 relatedTo:
-  - reviews/acknowledgement-window-review
+    - reviews/acknowledgement-window-review
 tags:
-  - proposal
-  - human-review
+    - proposal
+    - human-review
 ---
 
 # Proposal: Acknowledgement Window Diagnostic Pattern

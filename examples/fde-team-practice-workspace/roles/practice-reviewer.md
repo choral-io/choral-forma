@@ -7,10 +7,10 @@ synthetic: "true"
 engagementKey: ENG-SYN-001
 ownerRole: practice-reviewer
 relatedTo:
-  - reviews/acknowledgement-window-review
+    - reviews/acknowledgement-window-review
 tags:
-  - role
-  - human-review
+    - role
+    - human-review
 ---
 
 # Role: Practice Reviewer

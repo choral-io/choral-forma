@@ -8,10 +8,10 @@ engagementKey: ENG-SYN-001
 sourceId: MSG-SYN-018
 sourceKind: synthetic-external-record
 relatedTo:
-  - verifications/acknowledgement-window-validation
+    - verifications/acknowledgement-window-validation
 tags:
-  - communication-index
-  - validation
+    - communication-index
+    - validation
 ---
 
 # Synthetic Validation Source Index

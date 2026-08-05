@@ -4,18 +4,18 @@ kind: view
 mode: list
 title: Work Items
 display:
-  order: 20
+    order: 20
 description: Customer asks, issues, proposals, decisions, and tasks.
 source:
-  type: pages
-  taxonomy:
-    spaces:
-      - engagement-content
+    type: pages
+    taxonomy:
+        spaces:
+            - engagement-content
 sort:
-  - field: fields.status
-    direction: asc
-  - field: source.path
-    direction: asc
+    - field: fields.status
+      direction: asc
+    - field: source.path
+      direction: asc
 ---
 
 # Work Items

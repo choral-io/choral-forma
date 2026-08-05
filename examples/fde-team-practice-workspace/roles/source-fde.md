@@ -7,10 +7,10 @@ synthetic: "true"
 engagementKey: ENG-SYN-001
 ownerRole: source-project-fde
 relatedTo:
-  - evidence-cards/acknowledgement-window-comparison
+    - evidence-cards/acknowledgement-window-comparison
 tags:
-  - role
-  - responsibility
+    - role
+    - responsibility
 ---
 
 # Role: Source Project FDE

@@ -8,14 +8,14 @@ engagementKey: ENG-SYN-001
 customerKey: C-017
 environment: staging
 sources:
-  - communications/discovery-call
+    - communications/discovery-call
 relatedTo:
-  - asks/acknowledgement-window
-  - engineering/config
-  - proposals/environment-aware-ack-window
+    - asks/acknowledgement-window
+    - engineering/config
+    - proposals/environment-aware-ack-window
 tags:
-  - issue
-  - environment-difference
+    - issue
+    - environment-difference
 ---
 
 # Delayed Acknowledgement Window Mismatch

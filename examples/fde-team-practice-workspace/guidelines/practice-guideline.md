@@ -3,18 +3,18 @@ scope: workspace
 title: "Practice Guideline: Revalidate Before Reuse"
 summary: Use reviewed patterns as investigation prompts and revalidate them against the current project.
 tags:
-  - practice
-  - revalidation
+    - practice
+    - revalidation
 skill:
-  id: revalidate-before-reuse
-  title: Revalidate Before Reuse
-  description: Apply a reviewed practice only after checking current project conditions, limits, and failure paths.
-  projection: section
-  order: 20
+    id: revalidate-before-reuse
+    title: Revalidate Before Reuse
+    description: Apply a reviewed practice only after checking current project conditions, limits, and failure paths.
+    projection: section
+    order: 20
 sources:
-  - patterns/acknowledgement-window-diagnostic
+    - patterns/acknowledgement-window-diagnostic
 relatedTo:
-  - overview/practice-map
+    - overview/practice-map
 ---
 
 # Practice Guideline: Revalidate Before Reuse

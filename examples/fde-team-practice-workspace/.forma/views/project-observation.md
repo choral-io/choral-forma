@@ -4,18 +4,18 @@ kind: view
 mode: list
 title: Project Observation
 display:
-  order: 20
+    order: 20
 description: Minimal synthetic portfolio observation metadata, not a portfolio built into Forma.
 source:
-  type: pages
-  taxonomy:
-    spaces:
-      - practice-content
+    type: pages
+    taxonomy:
+        spaces:
+            - practice-content
 sort:
-  - field: fields.lastHealthStatus
-    direction: asc
-  - field: source.path
-    direction: asc
+    - field: fields.lastHealthStatus
+      direction: asc
+    - field: source.path
+      direction: asc
 ---
 
 # Project Observation

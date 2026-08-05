@@ -6,16 +6,16 @@ status: verified
 synthetic: "true"
 engagementKey: ENG-SYN-001
 fixturePaths:
-  - engineering/fixture/config/staging.json
-  - engineering/fixture/config/production-naive.json
-  - engineering/fixture/config/production-adjusted.json
+    - engineering/fixture/config/staging.json
+    - engineering/fixture/config/production-naive.json
+    - engineering/fixture/config/production-adjusted.json
 relatedTo:
-  - issues/delayed-acknowledgement
-  - proposals/environment-aware-ack-window
-  - decisions/use-replay-guard-and-profile-specific-window
+    - issues/delayed-acknowledgement
+    - proposals/environment-aware-ack-window
+    - decisions/use-replay-guard-and-profile-specific-window
 tags:
-  - configuration
-  - environment-difference
+    - configuration
+    - environment-difference
 ---
 
 # Acknowledgement Window Configuration Profiles

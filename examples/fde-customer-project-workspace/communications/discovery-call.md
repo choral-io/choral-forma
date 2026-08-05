@@ -8,12 +8,12 @@ engagementKey: ENG-SYN-001
 sourceId: MSG-SYN-017
 sourceKind: synthetic-external-record
 relatedTo:
-  - customers/c-017
-  - asks/acknowledgement-window
-  - issues/delayed-acknowledgement
+    - customers/c-017
+    - asks/acknowledgement-window
+    - issues/delayed-acknowledgement
 tags:
-  - communication-index
-  - external-source
+    - communication-index
+    - external-source
 ---
 
 # Synthetic Discovery Source Index

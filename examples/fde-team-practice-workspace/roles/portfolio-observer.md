@@ -7,10 +7,10 @@ synthetic: "true"
 engagementKey: ENG-SYN-001
 ownerRole: portfolio-observer
 relatedTo:
-  - portfolio-observation/engagement-syn-001
+    - portfolio-observation/engagement-syn-001
 tags:
-  - role
-  - metadata-boundary
+    - role
+    - metadata-boundary
 ---
 
 # Role: Portfolio Observer

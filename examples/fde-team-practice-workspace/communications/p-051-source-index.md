@@ -9,8 +9,8 @@ sourceId: EXT-SYN-051
 sourceKind: synthetic-external-record
 projectRef: projects/p-051
 tags:
-  - source-index
-  - external-permission
+    - source-index
+    - external-permission
 ---
 
 # P-051 External Source Index

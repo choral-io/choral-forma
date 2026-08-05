@@ -6,12 +6,12 @@ status: done
 synthetic: "true"
 engagementKey: ENG-SYN-001
 relatedTo:
-  - decisions/use-replay-guard-and-profile-specific-window
-  - engineering/collector
-  - engineering/config
+    - decisions/use-replay-guard-and-profile-specific-window
+    - engineering/collector
+    - engineering/config
 tags:
-  - task
-  - engineering
+    - task
+    - engineering
 ---
 
 # Implement Acknowledgement Window Fixture

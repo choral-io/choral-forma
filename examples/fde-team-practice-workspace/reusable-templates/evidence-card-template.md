@@ -8,12 +8,12 @@ engagementKey: ENG-SYN-001
 applicability: "Use only for already-authorized, de-identified project summaries."
 limits: "Do not include original customer names, paths, credentials, communication bodies, or cross-workspace references."
 sources:
-  - patterns/acknowledgement-window-diagnostic
+    - patterns/acknowledgement-window-diagnostic
 relatedTo:
-  - evidence-cards/acknowledgement-window-comparison
+    - evidence-cards/acknowledgement-window-comparison
 tags:
-  - template
-  - de-identification
+    - template
+    - de-identification
 ---
 
 # Reusable Template: De-identified Evidence Card

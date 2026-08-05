@@ -6,12 +6,12 @@ status: done
 synthetic: "true"
 engagementKey: ENG-SYN-001
 relatedTo:
-  - customers/c-017
-  - communications/discovery-call
-  - issues/delayed-acknowledgement
+    - customers/c-017
+    - communications/discovery-call
+    - issues/delayed-acknowledgement
 tags:
-  - task
-  - investigation
+    - task
+    - investigation
 ---
 
 # Inspect Synthetic Environment

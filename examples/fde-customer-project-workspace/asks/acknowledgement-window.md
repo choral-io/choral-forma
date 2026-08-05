@@ -7,13 +7,13 @@ synthetic: "true"
 engagementKey: ENG-SYN-001
 customerKey: C-017
 sources:
-  - communications/discovery-call
+    - communications/discovery-call
 relatedTo:
-  - customers/c-017
-  - issues/delayed-acknowledgement
+    - customers/c-017
+    - issues/delayed-acknowledgement
 tags:
-  - customer-ask
-  - validation
+    - customer-ask
+    - validation
 ---
 
 # Customer Ask: Preserve Valid Acknowledgements

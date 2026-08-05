@@ -10,11 +10,11 @@ blockerClass: external-confirmation
 lastHealthStatus: passed
 ownerRole: portfolio-observer
 projectRefs:
-  - projects/p-042
-  - projects/p-051
+    - projects/p-042
+    - projects/p-051
 tags:
-  - metadata-only
-  - not-forma-built-in
+    - metadata-only
+    - not-forma-built-in
 ---
 
 # Synthetic Portfolio Observation ENG-SYN-001

@@ -6,13 +6,13 @@ status: approved-with-limits
 synthetic: "true"
 engagementKey: ENG-SYN-001
 sources:
-  - issues/delayed-acknowledgement
-  - engineering/config
+    - issues/delayed-acknowledgement
+    - engineering/config
 relatedTo:
-  - decisions/use-replay-guard-and-profile-specific-window
+    - decisions/use-replay-guard-and-profile-specific-window
 tags:
-  - proposal
-  - human-review
+    - proposal
+    - human-review
 ---
 
 # Environment-Aware Acknowledgement Window

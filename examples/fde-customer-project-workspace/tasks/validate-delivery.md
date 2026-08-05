@@ -6,12 +6,12 @@ status: reviewing
 synthetic: "true"
 engagementKey: ENG-SYN-001
 relatedTo:
-  - verifications/acknowledgement-window-validation
-  - communications/validation-review
-  - runbooks/investigate-delayed-acknowledgement
+    - verifications/acknowledgement-window-validation
+    - communications/validation-review
+    - runbooks/investigate-delayed-acknowledgement
 tags:
-  - task
-  - verification
+    - task
+    - verification
 ---
 
 # Validate Synthetic Delivery

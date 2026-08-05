@@ -6,11 +6,11 @@ status: done
 synthetic: "true"
 engagementKey: ENG-SYN-001
 relatedTo:
-  - engineering/regression-test
-  - verifications/acknowledgement-window-validation
+    - engineering/regression-test
+    - verifications/acknowledgement-window-validation
 tags:
-  - task
-  - regression
+    - task
+    - regression
 ---
 
 # Run Positive Negative and Adjusted Regression Paths

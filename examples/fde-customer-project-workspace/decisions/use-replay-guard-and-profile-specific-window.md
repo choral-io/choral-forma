@@ -6,14 +6,14 @@ status: confirmed
 synthetic: "true"
 engagementKey: ENG-SYN-001
 sources:
-  - proposals/environment-aware-ack-window
-  - issues/delayed-acknowledgement
+    - proposals/environment-aware-ack-window
+    - issues/delayed-acknowledgement
 relatedTo:
-  - tasks/implement-ack-window
-  - runbooks/investigate-delayed-acknowledgement
+    - tasks/implement-ack-window
+    - runbooks/investigate-delayed-acknowledgement
 tags:
-  - decision
-  - boundary
+    - decision
+    - boundary
 ---
 
 # Use Replay Guard and Profile-Specific Window

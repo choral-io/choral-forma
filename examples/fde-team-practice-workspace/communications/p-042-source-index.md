@@ -9,8 +9,8 @@ sourceId: EXT-SYN-042
 sourceKind: synthetic-external-record
 projectRef: projects/p-042
 tags:
-  - source-index
-  - external-permission
+    - source-index
+    - external-permission
 ---
 
 # P-042 External Source Index

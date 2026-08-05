@@ -4,18 +4,18 @@ kind: view
 mode: list
 title: Practice Catalog
 display:
-  order: 30
+    order: 30
 description: Reviewed patterns, guidelines, and reusable templates with explicit limits.
 source:
-  type: pages
-  taxonomy:
-    spaces:
-      - practice-content
+    type: pages
+    taxonomy:
+        spaces:
+            - practice-content
 sort:
-  - field: fields.type
-    direction: asc
-  - field: source.path
-    direction: asc
+    - field: fields.type
+      direction: asc
+    - field: source.path
+      direction: asc
 ---
 
 # Practice Catalog

@@ -7,15 +7,15 @@ synthetic: "true"
 engagementKey: ENG-SYN-001
 artifactKind: markdown-context-card
 fixturePaths:
-  - engineering/fixture/src/ack-window.mjs
-  - engineering/fixture/config/staging.json
-  - engineering/fixture/tests/ack-window.test.mjs
+    - engineering/fixture/src/ack-window.mjs
+    - engineering/fixture/config/staging.json
+    - engineering/fixture/tests/ack-window.test.mjs
 relatedTo:
-  - decisions/use-replay-guard-and-profile-specific-window
-  - tasks/implement-ack-window
+    - decisions/use-replay-guard-and-profile-specific-window
+    - tasks/implement-ack-window
 tags:
-  - engineering
-  - fixture
+    - engineering
+    - fixture
 ---
 
 # Acknowledgement Collector Artifact Card

@@ -9,14 +9,14 @@ decision: approved-with-adjustment
 humanReviewRole: practice-reviewer
 reason: "Two different environments and the retained naive failure support a conditional diagnostic pattern, not a fixed setting."
 sources:
-  - evidence-cards/acknowledgement-window-comparison
-  - proposals/acknowledgement-window-diagnostic-pattern
+    - evidence-cards/acknowledgement-window-comparison
+    - proposals/acknowledgement-window-diagnostic-pattern
 relatedTo:
-  - patterns/acknowledgement-window-diagnostic
-  - revalidations/p-051-revalidation
+    - patterns/acknowledgement-window-diagnostic
+    - revalidations/p-051-revalidation
 tags:
-  - human-review
-  - approval-boundary
+    - human-review
+    - approval-boundary
 ---
 
 # Human Review: Acknowledgement Window Pattern

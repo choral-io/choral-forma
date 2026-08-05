@@ -6,14 +6,14 @@ status: reviewed
 synthetic: "true"
 engagementKey: ENG-SYN-001
 sources:
-  - engineering/regression-test
-  - decisions/use-replay-guard-and-profile-specific-window
+    - engineering/regression-test
+    - decisions/use-replay-guard-and-profile-specific-window
 relatedTo:
-  - issues/delayed-acknowledgement
-  - verifications/acknowledgement-window-validation
+    - issues/delayed-acknowledgement
+    - verifications/acknowledgement-window-validation
 tags:
-  - runbook
-  - human-review
+    - runbook
+    - human-review
 ---
 
 # Investigate Delayed Acknowledgement

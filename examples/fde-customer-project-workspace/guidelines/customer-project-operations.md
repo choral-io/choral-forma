@@ -3,17 +3,17 @@ scope: workspace
 title: Customer Project Operations
 summary: Read-only Agent workflow and human approval boundaries for the synthetic customer project.
 tags:
-  - fde
-  - synthetic
-  - boundaries
+    - fde
+    - synthetic
+    - boundaries
 skill:
-  id: customer-project-operations
-  title: Customer Project Operations
-  description: Inspect the current synthetic customer project, run its deterministic fixture, and stop before human-approved writes or external actions.
-  projection: section
-  order: 10
+    id: customer-project-operations
+    title: Customer Project Operations
+    description: Inspect the current synthetic customer project, run its deterministic fixture, and stop before human-approved writes or external actions.
+    projection: section
+    order: 10
 relatedTo:
-  - overview/engagement-map
+    - overview/engagement-map
 ---
 
 # Customer Project Operations

@@ -10,11 +10,11 @@ environment: staging
 result: passed
 exitStatus: "0"
 actual:
-  - fixture=ack-window profile=staging cases=4 passed=4 failed=0
+    - fixture=ack-window profile=staging cases=4 passed=4 failed=0
 projectRef: projects/p-042
 tags:
-  - verification
-  - source-project
+    - verification
+    - source-project
 ---
 
 # P-042 Staging Verification Result

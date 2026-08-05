@@ -3,20 +3,20 @@ scope: workspace
 title: Practice Distillation
 summary: Human-reviewed, de-identified comparison workflow for turning project evidence into limited team practice.
 tags:
-  - fde
-  - practice
-  - de-identification
-  - boundaries
+    - fde
+    - practice
+    - de-identification
+    - boundaries
 skill:
-  id: practice-distillation
-  title: Practice Distillation
-  description: Compare already-authorized local evidence cards, preserve differences and failures, and stop before human approval or cross-workspace action.
-  projection: section
-  order: 10
+    id: practice-distillation
+    title: Practice Distillation
+    description: Compare already-authorized local evidence cards, preserve differences and failures, and stop before human approval or cross-workspace action.
+    projection: section
+    order: 10
 sources:
-  - patterns/acknowledgement-window-diagnostic
+    - patterns/acknowledgement-window-diagnostic
 relatedTo:
-  - overview/practice-map
+    - overview/practice-map
 ---
 
 # Practice Distillation
