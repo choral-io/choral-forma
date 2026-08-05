@@ -1,0 +1,5 @@
+{
+  "profile": "staging",
+  "ackWindowSeconds": 120,
+  "rejectReplay": true
+}

@@ -1,0 +1,9 @@
+{
+  "profile": "production-like",
+  "cases": [
+    { "id": "fast", "delaySeconds": 30, "replayed": false, "expected": "accepted" },
+    { "id": "production-boundary", "delaySeconds": 90, "replayed": false, "expected": "accepted" },
+    { "id": "burst-late", "delaySeconds": 91, "replayed": false, "expected": "rejected" },
+    { "id": "retry-replay", "delaySeconds": 5, "replayed": true, "expected": "rejected" }
+  ]
+}

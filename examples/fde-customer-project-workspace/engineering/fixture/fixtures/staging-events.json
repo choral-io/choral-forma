@@ -1,0 +1,9 @@
+{
+  "profile": "staging",
+  "cases": [
+    { "id": "fast", "delaySeconds": 30, "replayed": false, "expected": "accepted" },
+    { "id": "boundary", "delaySeconds": 120, "replayed": false, "expected": "accepted" },
+    { "id": "late", "delaySeconds": 121, "replayed": false, "expected": "rejected" },
+    { "id": "replay", "delaySeconds": 5, "replayed": true, "expected": "rejected" }
+  ]
+}

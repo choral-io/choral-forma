@@ -1,0 +1,5 @@
+{
+  "profile": "production-adjusted",
+  "ackWindowSeconds": 90,
+  "rejectReplay": true
+}
