@@ -123,41 +123,6 @@ function ConvertFrom-FormaVersionOutput {
     return $Matches[1]
 }
 
-function Write-FormaInstallReceipt {
-    param(
-        [string] $InstallDir,
-        [string] $Repo,
-        [string] $InstalledVersion
-    )
-
-    if (-not (Test-FormaRepositoryIdentity -Repo $Repo)) {
-        throw "Invalid GitHub repository identity: $Repo"
-    }
-
-    $receipt = [ordered] @{
-        schemaVersion = 1
-        manager = "forma-install-script"
-        repository = $Repo
-        installedVersion = $InstalledVersion
-    }
-    $receiptJson = $receipt | ConvertTo-Json
-    $receiptPath = Join-Path $InstallDir "forma.install.json"
-    $temporaryReceiptPath = Join-Path $InstallDir (
-        ".forma.install.json.tmp-" + [System.Diagnostics.Process]::GetCurrentProcess().Id
-    )
-    $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
-    try {
-        [System.IO.File]::WriteAllText(
-            $temporaryReceiptPath,
-            "$receiptJson`n",
-            $utf8WithoutBom
-        )
-        Move-Item $temporaryReceiptPath $receiptPath -Force
-    } finally {
-        Remove-Item $temporaryReceiptPath -Force -ErrorAction SilentlyContinue
-    }
-}
-
 function Test-FormaRepositoryIdentity {
     param(
         [string] $Repo
@@ -235,11 +200,7 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Installed Forma failed to report its version."
     }
-    $installedVersion = ConvertFrom-FormaVersionOutput -VersionOutput $versionOutput
-    Write-FormaInstallReceipt `
-        -InstallDir $InstallDir `
-        -Repo $Repo `
-        -InstalledVersion $installedVersion
+    $null = ConvertFrom-FormaVersionOutput -VersionOutput $versionOutput
 
     Write-Host "Installed forma to $targetPath"
     if ($NoModifyPath) {

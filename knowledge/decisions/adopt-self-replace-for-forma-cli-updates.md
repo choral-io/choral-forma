@@ -2,7 +2,7 @@
 schemaVersion: 1
 kind: note
 title: "Adopt Self Replace For Forma CLI Updates"
-summary: "Use self-replace as the cross-platform executable replacement layer while Forma owns release identity, verification, installation ownership, recovery, and CLI contracts."
+summary: "Use self-replace as the cross-platform executable replacement layer while Forma owns release identity, verification, explicit authorization, transient recovery, and CLI contracts."
 scope: project
 type: decision
 owners:
@@ -23,11 +23,11 @@ sources:
 
 ## Decision
 
-Forma CLI self-update uses `self-replace` only as the cross-platform executable-replacement layer. Forma owns release discovery, exact version and asset selection, checksum verification, installation ownership, confirmation, structured output, recovery state, and update notifications.
+Forma CLI self-update uses `self-replace` only as the cross-platform executable-replacement layer. Forma owns release discovery, exact version and asset selection, checksum verification, confirmation, structured output, transient recovery state, and update notifications.
 
 The feature is a CLI Host and distribution capability. It is not a workspace operation, Forma Core primitive, RPC operation, WebApp capability, or editor-managed binary lifecycle.
 
-Implementation and release-gate coverage are tracked in [Add owned Forma CLI self-update](../tasks/add-owned-forma-cli-self-update.md).
+The original v0.1.29 implementation is recorded in [Add owned Forma CLI self-update](../tasks/add-owned-forma-cli-self-update.md). The single-file installation correction is tracked in [Remove persistent self-update receipt](../tasks/remove-persistent-self-update-receipt.md).
 
 ## CLI Contract
 
@@ -45,15 +45,17 @@ forma self-update [VERSION] [--check] [--yes] [--reinstall]
 - Branches, commits, arbitrary URLs, and caller-selected asset paths are not accepted.
 - Normal workspace commands do not perform network requests as part of this first implementation.
 
-## Installation Ownership
+## Update Authority And Installation State
 
-Only an adjacent, valid `forma.install.json` receipt with manager `forma-install-script` authorizes in-place replacement. The official `install.sh` and `install.ps1` scripts create this receipt.
+Explicit invocation and confirmation authorize Forma to replace the running executable. A noninteractive caller must obtain approval before passing `--yes`. Forma does not persist or infer an installation owner.
 
-The stable receipt fields are `schemaVersion`, `manager`, `repository`, and `installedVersion`. A transient `pendingUpdate` object may additionally record source and target versions plus adjacent backup and staging file names while replacement is in progress.
+The official install scripts leave only the Forma executable in the install directory after a fresh installation. The official repository identity is compiled into Forma, and the installed version comes from the running executable.
 
-Installations managed by mise, WinGet, an editor extension, another package manager, or an unknown/manual process may check for releases but are not overwritten. Forma does not infer installation ownership from a path name, environment layout, or Git state.
+The same standalone binary may be installed by an official script, copied manually, or managed by mise, WinGet, an editor, or another package manager. Distinguishing those cases would require external persistent state, manager-specific binaries, or unreliable path inference. Forma instead recommends using the existing manager's update lifecycle while keeping an explicitly confirmed self-update available.
 
-Editor-managed Forma binaries retain their existing exact-release, checksum-verified, versioned-storage lifecycle and do not participate in CLI self-update.
+Adjacent `forma.install.json` files created by v0.1.29 are legacy inert files. New install scripts and self-update code neither read, overwrite, nor delete them.
+
+Editor-managed Forma binaries retain their existing exact-release, checksum-verified, versioned-storage lifecycle. Editor adapters do not invoke CLI self-update automatically.
 
 ## Verification And Replacement
 
@@ -64,12 +66,12 @@ The updater resolves an exact platform-specific standalone release asset and its
 3. strictly validates the checksum entry and payload digest;
 4. restores executable permissions where required;
 5. runs the staged executable with `--version`;
-6. records pending state and a recovery backup;
+6. records a transient transaction journal and recovery backup;
 7. calls `self-replace`;
 8. verifies the executable now published at the original path;
-9. commits or restores the receipt and backup state.
+9. removes the journal, staging file, backup, and lock after success or rollback.
 
-Power loss in the final replacement window may still require installer-assisted recovery. A permanent launcher and unconditional crash-safe rollback remain deferred until observed demand justifies their additional runtime and distribution complexity.
+If an update stops after the transaction is written, the next explicit self-update reconciles the journal against the running binary version and removes the transient files. Power loss in the final replacement window may still require installer-assisted recovery. A permanent launcher and unconditional crash-safe rollback remain deferred until observed demand justifies their additional runtime and distribution complexity.
 
 ## Deferred
 

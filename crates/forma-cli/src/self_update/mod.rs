@@ -1,19 +1,18 @@
-mod receipt;
 mod release;
 mod replacement;
+mod transaction;
 mod verify;
 
 use std::error::Error;
 use std::fmt;
 use std::io::{self, IsTerminal, Write};
 
-use receipt::{InstallReceipt, PendingUpdate, ReceiptState};
 use release::{Release, ReleaseClient};
 use semver::Version;
 use serde::Serialize;
+use transaction::UpdateTransaction;
 
 const OFFICIAL_REPOSITORY: &str = "choral-io/choral-forma";
-const INSTALL_SCRIPT_MANAGER: &str = "forma-install-script";
 
 #[derive(Debug, Clone)]
 pub struct Options {
@@ -50,7 +49,6 @@ pub struct Report {
     target_version: String,
     direction: UpdateDirection,
     update_available: bool,
-    installation_owner: String,
     can_apply: bool,
     target_asset: String,
 }
@@ -60,7 +58,6 @@ impl Report {
         writeln!(writer, "Current version: {}", self.current_version)?;
         writeln!(writer, "Target version: {}", self.target_version)?;
         writeln!(writer, "Target asset: {}", self.target_asset)?;
-        writeln!(writer, "Installation owner: {}", self.installation_owner)?;
         match self.status {
             UpdateStatus::UpToDate => writeln!(writer, "Forma is already up to date."),
             UpdateStatus::UpdateAvailable => {
@@ -69,7 +66,7 @@ impl Report {
                 } else {
                     writeln!(
                         writer,
-                        "The requested release is available, but this installation cannot apply it."
+                        "The requested release is available, but the current options do not permit it."
                     )
                 }
             }
@@ -103,17 +100,9 @@ pub async fn execute(options: Options) -> Result<Report, Box<dyn Error>> {
             "cannot resolve the current Forma executable: {source}"
         ))
     })?;
-    let receipt_path = receipt::path_for_executable(&current_executable)?;
-    let receipt_state = receipt::reconcile_pending(
-        receipt::load(&receipt_path)?,
-        &receipt_path,
-        &current_executable,
-        &current_version,
-    )?;
-    let repository = receipt_state
-        .valid()
-        .map(|value| value.repository.as_str())
-        .unwrap_or(OFFICIAL_REPOSITORY);
+    let transaction_path = transaction::path_for_executable(&current_executable)?;
+    transaction::reconcile(&transaction_path, &current_executable, &current_version)?;
+    let repository = OFFICIAL_REPOSITORY;
     release::validate_repository(repository)?;
 
     let requested_version = options
@@ -134,7 +123,6 @@ pub async fn execute(options: Options) -> Result<Report, Box<dyn Error>> {
             &current_version,
             &current_version,
             target_asset,
-            &receipt_state,
             UpdateStatus::UpToDate,
             false,
         ));
@@ -147,10 +135,7 @@ pub async fn execute(options: Options) -> Result<Report, Box<dyn Error>> {
         UpdateDirection::Same => options.reinstall,
         UpdateDirection::Downgrade => options.allow_downgrade,
     };
-    let owns_installation = receipt_state.valid().is_some_and(|receipt| {
-        receipt.manager == INSTALL_SCRIPT_MANAGER && receipt.installed_version == current_version
-    });
-    let can_apply = owns_installation && version_permits_apply;
+    let can_apply = version_permits_apply;
     let status = if direction == UpdateDirection::Same && !options.reinstall {
         UpdateStatus::UpToDate
     } else {
@@ -160,7 +145,6 @@ pub async fn execute(options: Options) -> Result<Report, Box<dyn Error>> {
         &current_version,
         &release.version,
         target_asset,
-        &receipt_state,
         status,
         can_apply,
     );
@@ -168,7 +152,6 @@ pub async fn execute(options: Options) -> Result<Report, Box<dyn Error>> {
         return Ok(check_report);
     }
 
-    let receipt = require_owned_receipt(&receipt_state, &current_version)?;
     match direction {
         UpdateDirection::Upgrade => {}
         UpdateDirection::Same if !options.reinstall => return Ok(check_report),
@@ -190,8 +173,8 @@ pub async fn execute(options: Options) -> Result<Report, Box<dyn Error>> {
         release,
         target_asset,
         current_executable,
-        receipt_path,
-        receipt.clone(),
+        transaction_path,
+        current_version,
     )
     .await
 }
@@ -201,8 +184,8 @@ async fn apply(
     release: Release,
     target_asset: &str,
     current_executable: std::path::PathBuf,
-    receipt_path: std::path::PathBuf,
-    mut receipt: InstallReceipt,
+    transaction_path: std::path::PathBuf,
+    current_version: Version,
 ) -> Result<Report, Box<dyn Error>> {
     let checksum_asset = format!("{target_asset}.sha256");
     let binary_url = release.asset_url(target_asset)?;
@@ -235,8 +218,9 @@ async fn apply(
         cleanup_update_artifacts(&paths);
         return Err(source);
     }
-    receipt.pending_update = Some(PendingUpdate {
-        from_version: receipt.installed_version.clone(),
+    let transaction = UpdateTransaction {
+        schema_version: 1,
+        from_version: current_version.clone(),
         to_version: release.version.clone(),
         backup_file: paths
             .backup
@@ -250,8 +234,8 @@ async fn apply(
             .and_then(|value| value.to_str())
             .ok_or_else(|| error("update staging path is not valid UTF-8"))?
             .to_owned(),
-    });
-    if let Err(source) = receipt::write(&receipt_path, &receipt) {
+    };
+    if let Err(source) = transaction::write(&transaction_path, &transaction) {
         cleanup_update_artifacts(&paths);
         return Err(source);
     }
@@ -262,13 +246,11 @@ async fn apply(
                 "failed to replace Forma ({source}) and failed to restore its backup ({recovery})"
             )));
         }
-        receipt.pending_update = None;
-        receipt::write(&receipt_path, &receipt).map_err(|receipt_error| {
+        finish_transaction(&transaction_path, &paths).map_err(|transaction_error| {
             error(format!(
-                "failed to replace Forma ({source}); restored the executable, but could not finalize its installation receipt ({receipt_error})"
+                "failed to replace Forma ({source}); restored the executable, but could not finalize its update transaction ({transaction_error})"
             ))
         })?;
-        cleanup_update_artifacts(&paths);
         return Err(error(format!("failed to replace Forma: {source}")));
     }
 
@@ -280,30 +262,22 @@ async fn apply(
                 "the updated Forma executable failed verification ({source}) and its backup could not be restored ({recovery})"
             ))
         })?;
-        receipt.pending_update = None;
-        receipt::write(&receipt_path, &receipt)?;
-        let _ = replacement::remove_if_present(&paths.backup);
-        let _ = replacement::remove_if_present(&paths.staged);
+        finish_transaction(&transaction_path, &paths)?;
         return Err(error(format!(
             "the updated Forma executable failed verification and the previous version was restored: {source}"
         )));
     }
 
-    let previous_version = receipt.installed_version.clone();
-    receipt.installed_version = release.version.clone();
-    receipt.pending_update = None;
-    receipt::write(&receipt_path, &receipt)?;
-    cleanup_update_artifacts(&paths);
+    finish_transaction(&transaction_path, &paths)?;
 
     Ok(Report {
-        schema_version: 1,
+        schema_version: 2,
         operation: "self.update",
         status: UpdateStatus::Updated,
-        current_version: previous_version.to_string(),
+        current_version: current_version.to_string(),
         target_version: release.version.to_string(),
-        direction: compare_versions(&previous_version, &release.version),
+        direction: compare_versions(&current_version, &release.version),
         update_available: false,
-        installation_owner: receipt.manager,
         can_apply: true,
         target_asset: target_asset.to_owned(),
     })
@@ -314,50 +288,31 @@ fn cleanup_update_artifacts(paths: &replacement::Paths) {
     let _ = replacement::remove_if_present(&paths.staged);
 }
 
+fn finish_transaction(
+    transaction_path: &std::path::Path,
+    paths: &replacement::Paths,
+) -> Result<(), Box<dyn Error>> {
+    transaction::finish(transaction_path, &paths.backup, &paths.staged)
+}
+
 fn report(
     current: &Version,
     target: &Version,
     target_asset: &str,
-    receipt: &ReceiptState,
     status: UpdateStatus,
     can_apply: bool,
 ) -> Report {
     Report {
-        schema_version: 1,
+        schema_version: 2,
         operation: "self.update",
         status,
         current_version: current.to_string(),
         target_version: target.to_string(),
         direction: compare_versions(current, target),
         update_available: status == UpdateStatus::UpdateAvailable,
-        installation_owner: receipt.owner_label().to_owned(),
         can_apply,
         target_asset: target_asset.to_owned(),
     }
-}
-
-fn require_owned_receipt<'a>(
-    state: &'a ReceiptState,
-    current_version: &Version,
-) -> Result<&'a InstallReceipt, Box<dyn Error>> {
-    let receipt = state.valid().ok_or_else(|| {
-        error(
-            "this Forma executable is not owned by the official install scripts; update it with mise, WinGet, its editor extension, another package manager, or rerun the Forma installer",
-        )
-    })?;
-    if receipt.manager != INSTALL_SCRIPT_MANAGER {
-        return Err(error(format!(
-            "installation manager {} does not permit Forma self-update",
-            receipt.manager
-        )));
-    }
-    if receipt.installed_version != *current_version {
-        return Err(error(format!(
-            "installation receipt records Forma {}, but the running executable is {}; rerun the installer to repair ownership metadata",
-            receipt.installed_version, current_version
-        )));
-    }
-    Ok(receipt)
 }
 
 fn normalize_version(source: &str) -> Result<Version, Box<dyn Error>> {
@@ -432,5 +387,20 @@ mod tests {
             compare_versions(&current, &Version::new(0, 1, 27)),
             UpdateDirection::Downgrade
         );
+    }
+
+    #[test]
+    fn self_update_report_has_no_persistent_installation_owner() {
+        let report = report(
+            &Version::new(0, 1, 29),
+            &Version::new(0, 1, 30),
+            "forma-macos-arm64",
+            UpdateStatus::UpdateAvailable,
+            true,
+        );
+        let value = serde_json::to_value(report).unwrap();
+        assert_eq!(value["schemaVersion"], 2);
+        assert_eq!(value["canApply"], true);
+        assert!(value.get("installationOwner").is_none());
     }
 }

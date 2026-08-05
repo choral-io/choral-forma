@@ -70,18 +70,14 @@ if FORMA_INSTALL_REPO="../choral-forma" sh "$repository_root/install.sh" latest 
 fi
 
 test "$("$install_dir/forma" --version)" = "forma 9.9.9"
-node -e '
-const fs = require("node:fs");
-const receipt = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-if (
-  receipt.schemaVersion !== 1 ||
-  receipt.manager !== "forma-install-script" ||
-  receipt.repository !== "choral-io/choral-forma" ||
-  receipt.installedVersion !== "9.9.9" ||
-  Object.hasOwn(receipt, "pendingUpdate")
-) {
-  throw new Error(`unexpected installation receipt: ${JSON.stringify(receipt)}`);
-}
-' "$install_dir/forma.install.json"
+test ! -e "$install_dir/forma.install.json"
+
+printf '%s\n' '{"legacy":true}' > "$install_dir/forma.install.json"
+PATH="$fake_bin:$PATH" \
+FORMA_INSTALL_TEST_FIXTURE="$fixture_root" \
+FORMA_INSTALL_DIR="$install_dir" \
+FORMA_INSTALL_REPO="choral-io/choral-forma" \
+sh "$repository_root/install.sh" v9.9.9
+test "$(cat "$install_dir/forma.install.json")" = '{"legacy":true}'
 
 printf '%s\n' "Unix installer tests passed."

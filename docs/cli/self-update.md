@@ -30,25 +30,25 @@ forma self-update [VERSION] [--check] [--yes] [--reinstall]
 
 - Omit `VERSION` to select the newest eligible published release.
 - Supply an exact SemVer such as `0.1.29` or `v0.1.29` to select that release.
-- Use `--check` to inspect release and installation state without downloading or replacing Forma.
+- Use `--check` to inspect release state without downloading or replacing Forma.
 - Use `--yes` only when a noninteractive caller has already obtained update approval.
 - Use `--reinstall` with an exact `VERSION` to replace the same version.
 - Use `--allow-downgrade` with an exact lower `VERSION` to acknowledge the version direction.
-- Use `--json` for the version, asset, ownership, applicability, and diagnostic contract.
+- Use `--json` for the version, asset, applicability, and diagnostic contract.
 
 Branches, commits, arbitrary URLs, channels, and caller-selected asset paths are not accepted.
 
-## Installation Ownership
+## Update Authority And Installation State
 
-Only installations created by the official `install.sh` or `install.ps1` scripts can update themselves in place. Those scripts write `forma.install.json` beside the executable with the installation manager, repository, and version.
+Explicitly invoking `forma self-update` and confirming the selected version authorizes Forma to replace the running executable. Forma does not infer an installation manager from an executable path, environment layout, or persistent receipt.
 
-Forma installations managed by mise, WinGet, an editor extension, another package manager, or manual copying may use `forma self-update --check`, but Forma will direct their actual update back to that manager. Forma never infers ownership from an install path.
+The official `install.sh` and `install.ps1` scripts keep the steady-state installation single-file. If mise, WinGet, an editor, or another package manager manages Forma, prefer that manager's update lifecycle so its version records remain consistent. Forma does not automatically invoke or coordinate with those managers.
 
 ## Verification And Recovery
 
-Before replacement, Forma validates the Release identity, exact platform asset, checksum asset, downloaded digest, executable permissions, and staged binary version. It records a recovery backup and pending receipt before invoking the cross-platform executable replacement layer, then verifies and commits the installed version.
+Before replacement, Forma validates the Release identity, exact platform asset, checksum asset, downloaded digest, executable permissions, and staged binary version. It records an adjacent transient transaction journal and recovery backup before invoking the cross-platform executable replacement layer, then verifies the installed version.
 
-If the process stops after replacement but before receipt finalization, the next `forma self-update` reconciles the pending receipt against the version of the running executable. A power or filesystem failure that prevents both replacement and recovery may still require rerunning the install script.
+The journal, staging file, backup, and lock are removed after successful replacement or rollback. If the process stops while an update is pending, the next `forma self-update` reconciles the transaction against the version of the running executable and removes the transient files. A power or filesystem failure that prevents both replacement and recovery may still require rerunning the install script.
 
 ## Supported Release Targets
 

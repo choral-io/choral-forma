@@ -80,7 +80,6 @@ foreach ($functionName in @(
         "Update-FormaPathValue",
         "Set-FormaInstallPath",
         "ConvertFrom-FormaVersionOutput",
-        "Write-FormaInstallReceipt",
         "Test-FormaRepositoryIdentity"
     )) {
     Assert-True (
@@ -117,34 +116,9 @@ Assert-True (
 Assert-True (
     -not (Test-FormaRepositoryIdentity -Repo "../choral-forma")
 ) "A repository identity must not contain a traversal segment."
-
-$receiptTestDir = Join-Path ([System.IO.Path]::GetTempPath()) (
-    "forma-receipt-test-" + [System.Guid]::NewGuid().ToString("N")
-)
-New-Item -ItemType Directory -Force -Path $receiptTestDir | Out-Null
-try {
-    Write-FormaInstallReceipt `
-        -InstallDir $receiptTestDir `
-        -Repo "choral-io/choral-forma" `
-        -InstalledVersion "0.1.29"
-    $receiptPath = Join-Path $receiptTestDir "forma.install.json"
-    $receiptBytes = [System.IO.File]::ReadAllBytes($receiptPath)
-    Assert-True (
-        $receiptBytes.Length -lt 3 -or
-        -not (
-            $receiptBytes[0] -eq 0xEF -and
-            $receiptBytes[1] -eq 0xBB -and
-            $receiptBytes[2] -eq 0xBF
-        )
-    ) "The receipt must use UTF-8 without a BOM."
-    $receipt = Get-Content $receiptPath -Raw | ConvertFrom-Json
-    Assert-Equal $receipt.schemaVersion 1 "The receipt schema version must remain explicit."
-    Assert-Equal $receipt.manager "forma-install-script" "The install script must own the receipt."
-    Assert-Equal $receipt.repository "choral-io/choral-forma" "The receipt must preserve its repository."
-    Assert-Equal $receipt.installedVersion "0.1.29" "The receipt must record the installed binary version."
-} finally {
-    Remove-Item -Recurse -Force $receiptTestDir -ErrorAction SilentlyContinue
-}
+Assert-True (
+    -not $installerAst.Extent.Text.Contains("forma.install.json")
+) "install.ps1 must neither create nor delete the legacy installation receipt."
 
 $runningOnWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
 if ($runningOnWindows) {

@@ -57,12 +57,8 @@ else
 fi
 
 tmp_dir="$(mktemp -d)"
-receipt_tmp=""
 cleanup() {
   rm -rf "$tmp_dir"
-  if [ -n "$receipt_tmp" ]; then
-    rm -f "$receipt_tmp"
-  fi
 }
 trap cleanup EXIT INT TERM
 
@@ -101,14 +97,6 @@ case "$installed_version" in
     exit 1
     ;;
 esac
-
-receipt_tmp="$INSTALL_DIR/.forma.install.json.tmp.$$"
-printf '{\n  "schemaVersion": 1,\n  "manager": "forma-install-script",\n  "repository": "%s",\n  "installedVersion": "%s"\n}\n' \
-  "$REPO" \
-  "$installed_version" \
-  > "$receipt_tmp"
-mv "$receipt_tmp" "$INSTALL_DIR/forma.install.json"
-receipt_tmp=""
 
 echo "Installed forma to $INSTALL_DIR/forma"
 echo "Ensure $INSTALL_DIR is on PATH before running forma."

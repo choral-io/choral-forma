@@ -177,7 +177,7 @@ During Public Preview, install a pinned release tag so the CLI and editor extens
 
 On Windows, the installer defaults to `%USERPROFILE%\.local\bin`, adds that directory to the User PATH, and updates the current PowerShell session so `forma` is immediately available. Set `FORMA_INSTALL_DIR` or pass `-InstallDir` to override the install directory; pass `-NoModifyPath` when PATH is managed separately.
 
-The official install scripts also write an installation receipt beside `forma`. This receipt lets the CLI distinguish an install it owns from one managed by mise, WinGet, an editor extension, or another package manager.
+The official install scripts keep the steady-state installation single-file: the install directory receives only the `forma` executable.
 
 To check for the newest published release without changing the executable:
 
@@ -192,7 +192,7 @@ forma self-update
 forma self-update 0.1.29
 ```
 
-Use `--yes` only after a noninteractive workflow has obtained approval. Same-version replacement additionally requires `--reinstall`; installing an older exact version additionally requires `--allow-downgrade`. Installs not owned by the official scripts remain checkable, but must be updated through their existing package manager or editor lifecycle.
+Use `--yes` only after a noninteractive workflow has obtained approval. Same-version replacement additionally requires `--reinstall`; installing an older exact version additionally requires `--allow-downgrade`. Explicit invocation and confirmation authorize Forma to replace the running executable. If mise, WinGet, an editor, or another package manager manages the installation, prefer that manager's update lifecycle instead.
 
 ### mise GitHub Backend
 
