@@ -5,9 +5,9 @@ title: "Forma v0.1.30"
 summary: "Publish receipt-free CLI updates, editor navigation intelligence, and validated FDE workspace examples."
 scope: project
 type: release
-status: planned
+status: released
 version: "v0.1.30"
-date:
+date: 2026-08-05
 owners:
     - "members/tiscs"
 tags:
@@ -70,12 +70,21 @@ Publish the coordinated Public Preview update after [[releases/forma-v0.1.29]]. 
 
 > Forma `v0.1.30` makes editor navigation more informative, keeps explicit CLI self-updates recoverable without persistent installation state, and adds executable examples for customer-project and team-practice FDE workflows.
 
+## Published Evidence
+
+- **Candidate:** `0cf545f42b0432c3a804bc17d2c8530702f64f4d`.
+- **Exact main CI:** [run 31019630300](https://github.com/choral-io/choral-forma/actions/runs/31019630300) passed the knowledge, Web, Rust, installer, static-site, VS Code, five-target Release-build, and source-bound deployment gates. The annotated `v0.1.30` tag resolves to this exact commit.
+- **Publication:** [Release run 31021109528](https://github.com/choral-io/choral-forma/actions/runs/31021109528) validated the exact candidate, assembled the immutable source-bound artifact set, promoted the GitHub Release, verified the published payloads, and published or verified the Marketplace package.
+- **GitHub Release:** [Forma v0.1.30](https://github.com/choral-io/choral-forma/releases/tag/v0.1.30) is a non-draft, non-prerelease Release published on 2026-08-05 with the exact 22-file asset contract.
+- **Independent verification:** `mise run release:verify -- v0.1.30` passed for all 22 assets and 11 payloads. The native macOS Arm64 CLI reported `forma 0.1.30` with SHA-256 `44aab8a6988d87a05585d24dd48e89d7e08e571b4fa71318a8c62d74e4cf6b57`; the VSIX reported `choral-io.forma@0.1.30`, engine `^1.110.0`, and SHA-256 `049829412d1392cbeab0a0fac90e9e8cf0068aa6b3e87293f29ed6a0f3c0d8ea`.
+- **Managed installation:** the production editor-extension installation implementation downloaded, checksum-verified, installed, and executed the published `forma-macos-arm64` payload as `forma 0.1.30`, then cleaned its temporary and managed test storage.
+- **Receipt-free transition:** exact-candidate installer and self-update gates verified fresh single-file installation, byte-preserving treatment of a legacy `forma.install.json`, a `v0.1.29` install-script-owned transition to `v0.1.30`, and cleanup of transient transaction artifacts.
+- **Marketplace:** the protected Marketplace job authenticated through GitHub OIDC and published or verified `choral-io.forma@0.1.30` from the same immutable VSIX candidate.
+
 ## Rollback Plan
 
 Do not move or overwrite a published tag, Marketplace version, or verified asset. Before publication, return a failed candidate to remediation. After publication, use the official installer as the recovery path and publish a higher coordinated version for any correction.
 
 ## Post-Release Follow-Up
 
-- Record the exact candidate, main CI run, Release workflow, published asset verification, VSIX identity, and self-update transition evidence after publication.
-- Change this record to `released` and update the current released baseline only after all approved publication criteria pass.
 - Keep Remote SSH, Dev Container, WSL, code signing, notarization, Zed Registry publication, and non-native in-place replacement paths explicit as unverified unless release evidence closes them.

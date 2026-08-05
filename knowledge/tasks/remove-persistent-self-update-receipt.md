@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: cli
 effort: S
-status: reviewing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -76,3 +76,12 @@ Implemented locally on 2026-07-30 for inclusion in the next coordinated Forma re
 - `mise run check` passes.
 
 The installer change and the first receipt-free CLI release should be published as one coordinated release. Forma v0.1.29 still requires its receipt to apply an update, so this source change should not be pushed to `main` as an isolated installer-only delivery.
+
+## Release Evidence
+
+Released in [[releases/forma-v0.1.30]] on 2026-08-05 from candidate `0cf545f42b0432c3a804bc17d2c8530702f64f4d`.
+
+- Exact-source local and main gates passed the Unix and Windows installer regressions and all five platform self-update contracts.
+- Fresh official-script installation remained single-file at rest, while an existing legacy receipt remained byte-for-byte unchanged and inert.
+- The `v0.1.29` to `v0.1.30` transition completed without persistent transaction, staging, backup, or lock artifacts.
+- The published 22-asset Release and independent managed-install verification passed for `forma 0.1.30`.
