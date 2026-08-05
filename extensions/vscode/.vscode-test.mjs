@@ -1,5 +1,7 @@
 import { defineConfig } from "@vscode/test-cli";
-import { resolve } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 import {
     createFormaTestEnvironment,
@@ -12,7 +14,8 @@ const formaTestBin = resolveFormaTestBin(
     resolve(import.meta.dirname, "../..", "target/debug", process.platform === "win32" ? "forma.exe" : "forma"),
 );
 const env = createFormaTestEnvironment(process.env, formaTestBin);
-const userDataDirectory = resolve(import.meta.dirname, ".vscode-test", "candidate-user-data");
+const userDataDirectory = mkdtempSync(join(tmpdir(), "forma-vscode-"));
+process.once("exit", () => rmSync(userDataDirectory, { force: true, recursive: true }));
 await writeFormaTestSettings(userDataDirectory, formaTestBin);
 const launchArgs = ["--disable-extensions", "--disable-workspace-trust", `--user-data-dir=${userDataDirectory}`];
 
