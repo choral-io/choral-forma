@@ -3,6 +3,7 @@ import { resolve, relative, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
+const examplesRoot = resolve(repoRoot, "examples");
 const customerWorkspace = resolve(repoRoot, "examples/fde-customer-project-workspace");
 const practiceWorkspace = resolve(repoRoot, "examples/fde-team-practice-workspace");
 const referenceFields = new Set([
@@ -14,9 +15,11 @@ const referenceFields = new Set([
   "projectRef",
   "projectRefs"
 ]);
-const forbiddenField = /^(auto|automatic|sync|synchronization|promotion|autoPromotion|automaticPromotion|autoImport|autoShare)$/i;
+const forbiddenField =
+  /^(auto|automatic|sync|synchronization|promotion|autoPromotion|automaticPromotion|autoImport|autoShare)$/i;
 const sensitiveField = /(password|secret|api[-_]?key|access[-_]?token|bearer|credential|endpoint|email|phone)/i;
-const positiveAutomationClaim = /\b(?:automatic(?:ally)?\s+(?:import|sync(?:hronize)?|promot(?:e|ion)|share)|(?:import|sync(?:hronize)?|promot(?:e|ion)|share)\s+automatic(?:ally)?)\b/i;
+const positiveAutomationClaim =
+  /\b(?:automatic(?:ally)?\s+(?:import|sync(?:hronize)?|promot(?:e|ion)|share)|(?:import|sync(?:hronize)?|promot(?:e|ion)|share)\s+automatic(?:ally)?)\b/i;
 
 function parseOptions(argv) {
   const options = { formaBin: process.env.FORMA_BIN ?? "forma" };
@@ -44,6 +47,16 @@ function allFiles(root) {
   return files;
 }
 
+function discoverExampleWorkspaces() {
+  return readdirSync(examplesRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(resolve(examplesRoot, entry.name, ".forma.md")))
+    .map((entry) => ({
+      name: entry.name,
+      path: resolve(examplesRoot, entry.name)
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
 function readFrontmatter(path) {
   const source = readFileSync(path, "utf8");
   if (!source.startsWith("---\n")) return {};
@@ -56,7 +69,7 @@ function scalar(value) {
   const trimmed = value.trim();
   if (trimmed === "[]") return [];
   if (trimmed === "{}") return {};
-  if ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
     return trimmed.slice(1, -1).replaceAll('\\"', '"');
   }
   return trimmed;
@@ -110,7 +123,7 @@ function resolveLocalRef(workspaceRoot, value, field, ownerPath, errors) {
   }
 }
 
-function checkWorkspaceBoundary(workspaceRoot, errors, counters) {
+function checkWorkspaceBoundary(workspaceRoot, errors, counters, { strictRelativePaths = false } = {}) {
   const workspaceFiles = allFiles(workspaceRoot);
   const workspaceConfigPath = resolve(workspaceRoot, ".forma.md");
   const workspaceConfig = readFrontmatter(workspaceConfigPath);
@@ -136,7 +149,9 @@ function checkWorkspaceBoundary(workspaceRoot, errors, counters) {
     }
     if (
       /file:\/\//i.test(source) ||
-      ((path.endsWith(".md") || path.endsWith(".forma.md")) && /(^|[\s"'`(])\.\.\//m.test(source))
+      (strictRelativePaths &&
+        (path.endsWith(".md") || path.endsWith(".forma.md")) &&
+        /(^|[\s"'`(])\.\.\//m.test(source))
     ) {
       counters.originalPath += 1;
       errors.push(`${label}: external file path`);
@@ -186,13 +201,12 @@ function checkWorkspaceBoundary(workspaceRoot, errors, counters) {
   }
 }
 
-function checkRelatedArtifacts(errors, counters) {
+function checkRelatedArtifacts(exampleWorkspaces, errors, counters) {
   const artifacts = [
     resolve(repoRoot, "README.md"),
-    resolve(repoRoot, "examples/fde-customer-project-workspace/README.md"),
-    resolve(repoRoot, "examples/fde-team-practice-workspace/README.md"),
     resolve(repoRoot, ".github/workflows/ci.yml"),
-    resolve(repoRoot, "scripts/check-fde-examples.mjs")
+    resolve(repoRoot, "scripts/check-example-workspaces.mjs"),
+    ...exampleWorkspaces.map(({ path }) => resolve(path, "README.md"))
   ];
   for (const path of artifacts) {
     const source = readFileSync(path, "utf8");
@@ -205,17 +219,26 @@ function checkRelatedArtifacts(errors, counters) {
       counters.originalPath += 1;
       errors.push(`${label}: related document contains an external relative path`);
     }
-    if (/\b(?:password|secret|api[_-]?key|access[_-]?token)\s*[:=]\s*[^\s`"']+/i.test(source) || /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/.test(source)) {
+    if (
+      /\b(?:password|secret|api[_-]?key|access[_-]?token)\s*[:=]\s*[^\s`"']+/i.test(source) ||
+      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/.test(source)
+    ) {
       counters.sensitiveData += 1;
       errors.push(`${label}: related artifact contains sensitive-looking data`);
     }
     for (const line of source.split("\n")) {
-      if (positiveAutomationClaim.test(line) && !/\b(?:no|not|never|without|does not|do not|must not|cannot)\b/i.test(line)) {
+      if (
+        positiveAutomationClaim.test(line) &&
+        !/\b(?:no|not|never|without|does not|do not|must not|cannot)\b/i.test(line)
+      ) {
         counters.automaticPromotion += 1;
         errors.push(`${label}: positive automatic sharing/import/sync/promotion claim`);
       }
     }
-    if (!path.endsWith(".mjs") && /\b(?:path|import|entryRef|join|auth|authorization|sync|promotion)\b[^\n]*ENG-SYN-001/i.test(source)) {
+    if (
+      !path.endsWith(".mjs") &&
+      /\b(?:path|import|entryRef|join|auth|authorization|sync|promotion)\b[^\n]*ENG-SYN-001/i.test(source)
+    ) {
       counters.engagementKeyMisuse += 1;
       errors.push(`${label}: ENG-SYN-001 is used near a path, import, reference, join, auth, sync, or promotion claim`);
     }
@@ -283,7 +306,9 @@ function checkFormaWorkspace(formaBin, workspacePath, label, errors) {
     if (parsed.status !== "passed" || parsed.summary?.errors !== 0 || parsed.summary?.warnings !== 0) {
       errors.push(`${label} ${operation}: expected passed with zero errors/warnings: ${JSON.stringify(parsed)}`);
     }
-    console.log(`${label}-${operation}=status:${parsed.status} errors:${parsed.summary?.errors ?? "?"} warnings:${parsed.summary?.warnings ?? "?"}`);
+    console.log(
+      `${label}-${operation}=status:${parsed.status} errors:${parsed.summary?.errors ?? "?"} warnings:${parsed.summary?.warnings ?? "?"}`
+    );
   }
 }
 
@@ -313,21 +338,22 @@ function checkFixture(errors) {
     }
   ];
   for (const command of commands) {
-    const result = run("node", [
-      "scripts/run-regression.mjs",
-      "--config",
-      command.config,
-      "--input",
-      command.input
-    ], fixtureRoot);
+    const result = run(
+      "node",
+      ["scripts/run-regression.mjs", "--config", command.config, "--input", command.input],
+      fixtureRoot
+    );
     const output = result.stdout.trim();
     if (result.exitStatus !== command.expectedExit || output !== command.expectedOutput) {
-      errors.push(`${command.label}: expected exit ${command.expectedExit} and ${command.expectedOutput}, got exit ${result.exitStatus} and ${output}`);
+      errors.push(
+        `${command.label}: expected exit ${command.expectedExit} and ${command.expectedOutput}, got exit ${result.exitStatus} and ${output}`
+      );
     }
     console.log(`${command.label}=exit:${result.exitStatus} output:${output}`);
   }
   const tests = run("node", ["--test", "tests/ack-window.test.mjs"], fixtureRoot);
-  if (tests.exitStatus !== 0) errors.push(`fixture-tests: expected exit 0, got ${tests.exitStatus}: ${tests.stderr || tests.stdout}`);
+  if (tests.exitStatus !== 0)
+    errors.push(`fixture-tests: expected exit 0, got ${tests.exitStatus}: ${tests.stderr || tests.stdout}`);
   console.log(`fixture-tests=exit:${tests.exitStatus}`);
 }
 
@@ -345,14 +371,26 @@ try {
   };
 
   const version = run(formaBin, ["--version"], repoRoot);
-  if (version.exitStatus !== 0) throw new Error(`unable to run Forma CLI ${formaBin}: ${version.stderr || version.stdout}`);
+  if (version.exitStatus !== 0)
+    throw new Error(`unable to run Forma CLI ${formaBin}: ${version.stderr || version.stdout}`);
   console.log(`forma-version=${version.stdout.trim()}`);
 
-  checkWorkspaceBoundary(customerWorkspace, errors, counters);
-  checkWorkspaceBoundary(practiceWorkspace, errors, counters);
-  checkRelatedArtifacts(errors, counters);
+  const exampleWorkspaces = discoverExampleWorkspaces();
+  if (exampleWorkspaces.length === 0) throw new Error("no example workspace with .forma.md was discovered");
+  const fdeWorkspacePaths = new Set([customerWorkspace, practiceWorkspace]);
+  for (const workspace of exampleWorkspaces) {
+    checkWorkspaceBoundary(workspace.path, errors, counters, {
+      strictRelativePaths: fdeWorkspacePaths.has(workspace.path)
+    });
+  }
+  checkRelatedArtifacts(exampleWorkspaces, errors, counters);
   const practiceContract = requirePracticeContract(errors);
-  console.log(`practice-sources=${practiceContract.sourceCount} environments=${practiceContract.environmentCount} counterexample=present revalidation-reason=present`);
+  console.log(
+    `example-workspaces=${exampleWorkspaces.length} names=${exampleWorkspaces.map(({ name }) => name).join(",")}`
+  );
+  console.log(
+    `practice-sources=${practiceContract.sourceCount} environments=${practiceContract.environmentCount} counterexample=present revalidation-reason=present`
+  );
   console.log(`boundary-cross-workspace-import=${counters.crossWorkspaceImport}`);
   console.log(`boundary-cross-workspace-entryRef=${counters.crossWorkspaceEntryRef}`);
   console.log(`boundary-original-path=${counters.originalPath}`);
@@ -360,17 +398,16 @@ try {
   console.log(`boundary-sensitive-data=${counters.sensitiveData}`);
   console.log(`boundary-engagement-key-misuse=${counters.engagementKeyMisuse}`);
 
-  checkFormaWorkspace(formaBin, customerWorkspace, "customer", errors);
-  checkFormaWorkspace(formaBin, practiceWorkspace, "practice", errors);
+  for (const workspace of exampleWorkspaces) checkFormaWorkspace(formaBin, workspace.path, workspace.name, errors);
   checkFixture(errors);
 
   if (errors.length > 0) {
-    for (const error of errors) console.error(`fde-example-error=${error}`);
+    for (const error of errors) console.error(`example-gate-error=${error}`);
     process.exitCode = 1;
   } else {
-    console.log("fde-examples=status:passed");
+    console.log("examples=status:passed");
   }
 } catch (error) {
-  console.error(`fde-example-error=${error.message}`);
+  console.error(`example-gate-error=${error.message}`);
   process.exitCode = 1;
 }

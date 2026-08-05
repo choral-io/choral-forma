@@ -12,6 +12,7 @@ skill:
   id: product-rd-workspace-operations
   title: Product R&D Workspace Operations
   description: Use when an Agent needs to inspect, maintain, or classify shared product R&D workspace content.
+  projection: section
   triggers:
     - product workspace maintenance
     - product rd content
@@ -22,6 +23,10 @@ updatedAt: "2026-06-29T00:00:00Z"
 ---
 
 # Workspace Operations
+
+## Agent Skill
+
+Use this skill when inspecting or maintaining the product R&D workspace. Read the configured spaces and current records first, keep Markdown as the source of truth, and run Forma checks after approved relationship or configuration changes.
 
 ## Guidance
 

@@ -47,7 +47,7 @@ jobs:
           pnpm --filter @choral-forma/webapp build
           cargo build --locked --bin forma
 
-      - name: Check FDE example workspaces
+      - name: Check example workspaces
         run: pnpm check:examples -- --forma-bin "${GITHUB_WORKSPACE}/target/debug/forma"
 
       - name: Check workspace and build static artifact

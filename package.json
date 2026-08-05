@@ -17,7 +17,7 @@
     "build": "pnpm --recursive --if-present build",
     "test": "vitest run extensions/vscode/src packages/graph-view/src packages/shared/src packages/webapp/src && node --test scripts/*.test.mjs",
     "check": "node scripts/check-release-version.mjs && pnpm --recursive --if-present check && prettier --check . --cache",
-    "check:examples": "node scripts/check-fde-examples.mjs",
+    "check:examples": "node scripts/check-example-workspaces.mjs",
     "format": "prettier --write . --cache",
     "site:deploy": "wrangler deploy",
     "site:deploy:dry-run": "wrangler deploy --dry-run"

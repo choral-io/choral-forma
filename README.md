@@ -103,22 +103,24 @@ Example workspaces are separate from this repository's `knowledge/` project work
 - `examples/fde-customer-project-workspace/` is a runnable synthetic single-customer FDE project with an ordinary engineering fixture.
 - `examples/fde-team-practice-workspace/` is a runnable synthetic practice workspace with two de-identified project sources, a counterexample, and revalidation.
 
-Check the example workspace:
+Check the example workspaces:
 
 ```sh
 forma --workspace examples/minimal-workspace check --json
 forma --workspace examples/getting-started-workspace check --json
 forma --workspace examples/software-product-rd-workspace check --json
+forma --workspace examples/fde-customer-project-workspace check --json
+forma --workspace examples/fde-team-practice-workspace check --json
 ```
 
-The FDE examples have an independent gate so their required evidence is not mixed with existing legacy example diagnostics:
+The example-workspace gate discovers every committed `examples/*` workspace with a `.forma.md` entry point and checks its Forma configuration, content, and health. It also runs the additional engineering fixture and boundary contracts for the FDE examples:
 
 ```sh
 cargo build --locked --bin forma
 pnpm check:examples -- --forma-bin target/debug/forma
 ```
 
-The FDE gate runs each workspace's `config summary --sources`, `check`, and `workspace health`, the positive/negative/adjusted engineering fixture paths, the Node regression tests, and the static cross-workspace/sensitive-data boundary checks.
+The gate runs each workspace's `config summary --sources`, `check`, and `workspace health`. It additionally runs the FDE positive/negative/adjusted engineering fixture paths, Node regression tests, and static cross-workspace/sensitive-data boundary checks.
 
 Serve the read-only WebApp and RPC backend from an example workspace:
 

@@ -9,6 +9,7 @@ skill:
   id: getting-started-task-selection
   title: Getting Started Task Selection
   description: Use when an Agent needs to choose, inspect, or review getting-started workspace tasks.
+  projection: section
   triggers:
     - choose getting-started task
     - inspect getting-started blockers
@@ -19,6 +20,10 @@ updatedAt: "2026-06-03T18:00:00Z"
 ---
 
 # Task Selection
+
+## Agent Skill
+
+Use this skill when selecting, inspecting, or reviewing tasks in the getting-started workspace. Read the current task metadata before recommending work, preserve explicit dependencies, and obtain human approval before changing task state.
 
 ## When To Use This
 

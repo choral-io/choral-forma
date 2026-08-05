@@ -12,6 +12,7 @@ skill:
   id: product-rd-flow
   title: Product R&D Flow
   description: Use when an Agent needs to choose, inspect, refine, or review product development tasks.
+  projection: section
   triggers:
     - choose product task
     - inspect release readiness
@@ -23,6 +24,10 @@ updatedAt: "2026-06-29T00:00:00Z"
 ---
 
 # Product R&D Flow
+
+## Agent Skill
+
+Use this skill when selecting, inspecting, refining, or reviewing product development work. Keep product direction, release scope, readiness, ownership, and task state under human approval, and ground recommendations in linked evidence.
 
 ## Task Selection
 

@@ -9,6 +9,7 @@ skill:
   id: getting-started-workspace-operations
   title: Getting Started Workspace Operations
   description: Use when an Agent needs to maintain or classify shared getting-started workspace content.
+  projection: section
   triggers:
     - getting-started content edits
     - local-only promotion
@@ -19,6 +20,10 @@ updatedAt: "2026-06-03T18:00:00Z"
 ---
 
 # Workspace Operations
+
+## Agent Skill
+
+Use this skill when maintaining or classifying shared getting-started content. Inspect the configured workspace structure first, keep shared Markdown reviewable, and do not promote local configuration or change shared content without human approval.
 
 ## When To Use This
 

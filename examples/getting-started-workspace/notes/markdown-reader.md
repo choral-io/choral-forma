@@ -7,7 +7,7 @@ updatedAt: "2026-06-03T18:00:00Z"
 
 # Markdown Reader
 
-The reader renders ordinary Markdown. Choral Forma does not require proprietary page syntax for the common cases shown here. For a page that leans more heavily on internal references, compare [[notes/connect-pages|Connect Pages]].
+The reader renders ordinary Markdown. Choral Forma does not require proprietary page syntax for the common cases shown here. For a page that leans more heavily on internal references, compare [[notes/connect-pages|Connect Pages]]. The completed editor-link validation is tracked in [[tasks/validate-editor-link-navigation|Validate Editor Link Navigation]].
 
 ## Inline Text
 

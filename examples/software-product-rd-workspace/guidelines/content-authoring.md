@@ -12,6 +12,7 @@ skill:
   id: product-rd-content-authoring
   title: Product R&D Content Authoring
   description: Use when an Agent has approval to create or edit shared product R&D Markdown content.
+  projection: section
   triggers:
     - create product content
     - edit release evidence
@@ -23,6 +24,10 @@ updatedAt: "2026-07-26T00:00:00Z"
 ---
 
 # Content Authoring
+
+## Agent Skill
+
+Use this skill when an approved change creates or updates shared product R&D Markdown. Inspect the configured spaces and linked evidence first, keep edits reviewable, and run Forma checks after the change.
 
 ## Placement
 
