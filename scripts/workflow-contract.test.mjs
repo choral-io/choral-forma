@@ -367,17 +367,17 @@ test("binds release and deployment recovery paths to the exact source", async ()
     assert.match(deployCommands, /\.forma-source-sha/u);
 });
 
-test("pins every remote action to an immutable commit", async () => {
+test("uses floating major tags for every remote action", async () => {
     for (const name of ["ci.yml", "release-cli-build.yml", "release-vscode-build.yml", "release.yml"]) {
         const source = await readFile(new URL(`../.github/workflows/${name}`, import.meta.url), "utf8");
         const workflow = parseWorkflow(source, name);
         for (const [id, definition] of Object.entries(workflow.jobs)) {
             if (typeof definition.uses === "string" && !definition.uses.startsWith("./")) {
-                assert.match(definition.uses, /@[a-f0-9]{40}$/u, `${name}:${id} must pin its reusable workflow`);
+                assert.match(definition.uses, /@v[1-9]\d*$/u, `${name}:${id} must use a floating major tag`);
             }
             for (const step of definition.steps ?? []) {
                 if (typeof step.uses !== "string" || step.uses.startsWith("./")) continue;
-                assert.match(step.uses, /@[a-f0-9]{40}$/u, `${name}:${id} must pin ${step.uses}`);
+                assert.match(step.uses, /@v[1-9]\d*$/u, `${name}:${id} must use a floating major tag for ${step.uses}`);
             }
         }
     }

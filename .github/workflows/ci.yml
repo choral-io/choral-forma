@@ -21,15 +21,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -136,7 +136,7 @@ jobs:
           printf '%s\n' "${GITHUB_SHA}" > "${site}/.forma-source-sha"
 
       - name: Upload static site artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@v7
         with:
           name: forma-static-site
           path: dist/site
@@ -148,15 +148,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -172,7 +172,7 @@ jobs:
     runs-on: windows-2025
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
 
       - name: Test Windows installer
         shell: pwsh
@@ -183,7 +183,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
 
       - name: Test Unix installer
         shell: bash
@@ -194,15 +194,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -246,15 +246,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -307,7 +307,7 @@ jobs:
         run: xvfb-run -a pnpm --filter forma smoke:vsix
 
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@v7
         with:
           name: forma-vscode
           path: ${{ env.VSIX_OUT }}
@@ -318,15 +318,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@v6
         with:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -392,19 +392,19 @@ jobs:
 
       - name: Checkout exact source
         if: steps.source.outputs.superseded != 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
 
       - name: Setup pnpm
         if: steps.source.outputs.superseded != 'true'
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        uses: pnpm/action-setup@v6
         with:
           run_install: false
 
       - name: Setup Node.js
         if: steps.source.outputs.superseded != 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -415,7 +415,7 @@ jobs:
 
       - name: Download verified static artifact
         if: steps.source.outputs.superseded != 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@v8
         with:
           name: forma-static-site
           path: dist/site
