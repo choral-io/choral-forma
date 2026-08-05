@@ -12,7 +12,7 @@ describe("workspaceExplorerMessage", () => {
     });
 
     it("explains runtime states that prevent Explorer loading", () => {
-        expect(workspaceExplorerMessage(false, false, "incompatible")).toBe(
+        expect(workspaceExplorerMessage(false, false, "binaryMissing")).toBe(
             "Forma CLI is unavailable. Use the Forma status menu for recovery.",
         );
         expect(workspaceExplorerMessage(false, false, "restricted")).toBe(

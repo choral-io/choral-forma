@@ -15,6 +15,7 @@ import {
 function context(root: string): FormaLspRuntimeContext {
     return {
         command: "/opt/forma/bin/forma",
+        extensionVersion: "0.1.29",
         root,
         rootUri: `file://${root}`,
         includePatterns: ["notes/**/*.md", "notes/**/*.md"],
@@ -59,7 +60,10 @@ describe("Forma LSP lifecycle", () => {
             scheme: "file",
             pattern: { baseUri: "file:///repo", pattern: ".forma.md" },
         });
-        expect(formaLspInitializationOptions()).toEqual({ clientProfile: "vscode" });
+        expect(formaLspInitializationOptions("0.1.29")).toEqual({
+            clientProfile: "vscode",
+            extensionVersion: "0.1.29",
+        });
     });
 
     it("keeps one client, switches roots in stop-before-start order, and disposes cleanly", async () => {
@@ -122,7 +126,7 @@ describe("Forma LSP lifecycle", () => {
         expect(lifecycle.state).toBe("stopped");
     });
 
-    it("restarts when the managed scope changes and stops when the workspace root is removed", async () => {
+    it("restarts when the managed scope or extension version changes and stops with the workspace", async () => {
         const calls: string[] = [];
         const lifecycle = new FormaLspLifecycle((runtime) => ({
             start: async () => {
@@ -137,13 +141,18 @@ describe("Forma LSP lifecycle", () => {
         }));
         const initial = context("/repo");
         const changed = { ...initial, includePatterns: ["tasks/**/*.md"] };
+        const updatedExtension = { ...changed, extensionVersion: "0.1.30" };
 
         await lifecycle.sync(initial);
         await lifecycle.sync(changed);
+        await lifecycle.sync(updatedExtension);
         await lifecycle.sync(undefined);
 
         expect(calls).toEqual([
             "start:notes/**/*.md,notes/**/*.md",
+            "stop",
+            "dispose",
+            "start:tasks/**/*.md",
             "stop",
             "dispose",
             "start:tasks/**/*.md",

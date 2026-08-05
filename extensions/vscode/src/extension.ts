@@ -143,10 +143,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
                 resetWorkspaceWatchers();
                 void explorer.refresh();
             }
-            if (
-                !offeredCliRecovery &&
-                (runtime.state.kind === "binaryMissing" || runtime.state.kind === "incompatible")
-            ) {
+            if (!offeredCliRecovery && runtime.state.kind === "binaryMissing") {
                 offeredCliRecovery = true;
                 void offerCliRecovery(runtime.state);
             }
@@ -156,9 +153,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
 
     context.subscriptions.push(
         vscode.commands.registerCommand("forma.statusMenu", async () => {
-            const cliRecovery = ["binaryMissing", "incompatible"].includes(runtime.state.kind)
-                ? [{ label: "$(cloud-download) Install Matching Forma CLI", command: "forma.installCli" }]
-                : [];
+            const cliRecovery =
+                runtime.state.kind === "binaryMissing"
+                    ? [{ label: "$(cloud-download) Install Matching Forma CLI", command: "forma.installCli" }]
+                    : [];
             const choice = await vscode.window.showQuickPick(
                 [
                     ...cliRecovery,
@@ -290,6 +288,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
         }),
     );
 
+    registerVersionDiagnosticActions(context);
     registerNavigation(context, runtime, diagnostics);
     await refreshRuntime();
     const restoredPreviews = await previews.restoreOpenState(vscode.workspace.textDocuments, currentTabs());
@@ -311,6 +310,52 @@ function stateTooltip(state: FormaRuntime["state"]): string {
     if ("detail" in state) return `${state.label}\n${state.detail}`;
     if ("root" in state) return `${state.label}\n${state.root}`;
     return state.label;
+}
+
+function registerVersionDiagnosticActions(context: vscode.ExtensionContext): void {
+    const selector: vscode.DocumentSelector = [
+        { language: "markdown", scheme: "file" },
+        { language: "markdown", scheme: "vscode-remote" },
+    ];
+    context.subscriptions.push(
+        vscode.languages.registerCodeActionsProvider(
+            selector,
+            {
+                provideCodeActions(_document, _range, actionContext) {
+                    return actionContext.diagnostics
+                        .filter((diagnostic) => diagnosticCodeValue(diagnostic) === "forma.cliVersionMismatch")
+                        .flatMap((diagnostic) => [
+                            versionDiagnosticAction(diagnostic, "Install matching Forma CLI", "forma.installCli", true),
+                            versionDiagnosticAction(diagnostic, "Choose existing Forma CLI", "forma.selectCli"),
+                            versionDiagnosticAction(
+                                diagnostic,
+                                "Open Forma CLI installation instructions",
+                                "forma.openCliInstructions",
+                            ),
+                        ]);
+                },
+            },
+            { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
+        ),
+    );
+}
+
+function diagnosticCodeValue(diagnostic: vscode.Diagnostic): string | number | undefined {
+    const code = diagnostic.code;
+    return typeof code === "object" ? code.value : code;
+}
+
+function versionDiagnosticAction(
+    diagnostic: vscode.Diagnostic,
+    title: string,
+    command: string,
+    preferred = false,
+): vscode.CodeAction {
+    const action = new vscode.CodeAction(title, vscode.CodeActionKind.QuickFix);
+    action.command = { command, title };
+    action.diagnostics = [diagnostic];
+    action.isPreferred = preferred;
+    return action;
 }
 
 function watcherKey(base: vscode.Uri, pattern: string): string {
@@ -343,9 +388,7 @@ function boundedError(error: unknown): string {
     return (error instanceof Error ? error.message : String(error)).replaceAll(/\s+/gu, " ").slice(0, 2_000);
 }
 
-async function offerCliRecovery(
-    state: Extract<FormaRuntime["state"], { kind: "binaryMissing" | "incompatible" }>,
-): Promise<void> {
+async function offerCliRecovery(state: Extract<FormaRuntime["state"], { kind: "binaryMissing" }>): Promise<void> {
     const choice = await vscode.window.showWarningMessage(
         state.detail,
         "Install matching CLI",
@@ -399,8 +442,7 @@ async function installMatchingCli(
                     return await installManagedCli({
                         version,
                         globalStorage: context.globalStorageUri,
-                        replaceExisting:
-                            runtime.state.kind === "binaryMissing" || runtime.state.kind === "incompatible",
+                        replaceExisting: runtime.state.kind === "binaryMissing",
                         signal: controller.signal,
                     });
                 } finally {

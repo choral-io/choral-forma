@@ -35,11 +35,6 @@ export type ProcessResult = {
 
 export type ProcessRunner = (request: ProcessRequest) => Promise<ProcessResult>;
 
-export type FormaProbe =
-    | { kind: "ready"; command: string; version: string }
-    | { kind: "missing"; command: string; message: string }
-    | { kind: "incompatible"; command: string; version: string };
-
 export class FormaCommandError extends Error {
     constructor(
         message: string,
@@ -124,7 +119,6 @@ export class FormaClient {
 
     constructor(
         private readonly command: string,
-        private readonly expectedVersion: string,
         private readonly runner: ProcessRunner = runProcess,
         private readonly timeoutMs = 15_000,
         private readonly maxOutputBytes = 1_048_576,
@@ -135,32 +129,6 @@ export class FormaClient {
 
     invalidate(): void {
         this.scheduler.invalidate();
-    }
-
-    async probe(signal?: AbortSignal): Promise<FormaProbe> {
-        try {
-            const result = await this.run({
-                command: this.command,
-                args: ["--version"],
-                timeoutMs: this.timeoutMs,
-                maxOutputBytes: 8_192,
-                ...(signal ? { signal } : {}),
-            });
-            if (result.code !== 0) {
-                return { kind: "missing", command: this.command, message: boundedMessage(result.stderr) };
-            }
-            const match = /^forma\s+([^\s]+)$/u.exec(result.stdout.trim());
-            if (!match?.[1] || match[1] !== this.expectedVersion) {
-                return { kind: "incompatible", command: this.command, version: match?.[1] ?? "unknown" };
-            }
-            return { kind: "ready", command: this.command, version: match[1] };
-        } catch (error) {
-            return {
-                kind: "missing",
-                command: this.command,
-                message: error instanceof Error ? error.message : "Forma could not be started.",
-            };
-        }
     }
 
     configInspect(workspace: string, signal?: AbortSignal): Promise<ConfigInspectResult> {
@@ -302,6 +270,12 @@ export function formatFormaError(error: unknown): string {
         return `${error.message} CLI stderr: ${error.stderr}`.replaceAll(/\s+/gu, " ").slice(0, 2_000);
     }
     return (error instanceof Error ? error.message : String(error)).replaceAll(/\s+/gu, " ").slice(0, 2_000);
+}
+
+export function isFormaExecutableUnavailable(error: unknown): boolean {
+    if (!(error instanceof Error) || !("code" in error)) return false;
+    const code = error.code;
+    return code === "ENOENT" || code === "EACCES";
 }
 
 function isOperationResult(value: unknown): value is { schemaVersion: number; operation: string } {

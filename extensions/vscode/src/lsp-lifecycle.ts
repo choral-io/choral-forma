@@ -1,5 +1,6 @@
 export type FormaLspRuntimeContext = {
     command: string;
+    extensionVersion: string;
     root: string;
     rootUri: string;
     includePatterns: readonly string[];
@@ -195,8 +196,11 @@ export function formaLspDocumentSelector(context: FormaLspRuntimeContext): Array
     }));
 }
 
-export function formaLspInitializationOptions(): { clientProfile: "vscode" } {
-    return { clientProfile: "vscode" };
+export function formaLspInitializationOptions(extensionVersion: string): {
+    clientProfile: "vscode";
+    extensionVersion: string;
+} {
+    return { clientProfile: "vscode", extensionVersion };
 }
 
 export class RestartBudget {
@@ -216,7 +220,13 @@ export class RestartBudget {
 }
 
 function contextKey(context: FormaLspRuntimeContext): string {
-    return JSON.stringify([context.command, context.root, context.rootUri, formaLspDocumentPatterns(context)]);
+    return JSON.stringify([
+        context.command,
+        context.extensionVersion,
+        context.root,
+        context.rootUri,
+        formaLspDocumentPatterns(context),
+    ]);
 }
 
 function safeError(error: unknown): string {

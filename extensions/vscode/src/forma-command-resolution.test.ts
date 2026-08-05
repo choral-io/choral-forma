@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
     formaCommandSourceLabel,
-    formatFormaCommandProbe,
+    formatFormaCommandResolution,
     resolveRuntimeFormaCommand,
 } from "./forma-command-resolution.ts";
 
@@ -41,19 +41,12 @@ describe("Forma runtime command resolution", () => {
         expect(formaCommandSourceLabel(source)).toBe(label);
     });
 
-    it("logs a bounded single-line probe record", () => {
+    it("logs a bounded single-line command-resolution record", () => {
         const command = `/tmp/${"nested ".repeat(80)}\nforma`;
-        const formatted = formatFormaCommandProbe(
-            { command, source: "managed" },
-            "0.1.0-alpha.17",
-            "missing",
-            `failed\n${"x".repeat(3_000)}`,
-        );
+        const formatted = formatFormaCommandResolution({ command, source: "managed" });
 
         expect(formatted).toContain("source=managed");
-        expect(formatted).toContain("expected=0.1.0-alpha.17 actual=missing");
-        expect(formatted).toContain('error="failed ');
         expect(formatted).not.toContain("\n");
-        expect(formatted.length).toBeLessThanOrEqual(2_340);
+        expect(formatted.length).toBeLessThanOrEqual(300);
     });
 });

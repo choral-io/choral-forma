@@ -15,10 +15,10 @@ import type {
 import * as vscode from "vscode";
 
 import { DocumentInspectCache } from "./document-inspect-cache.ts";
-import { FormaClient, formatFormaError, runProcess } from "./forma-client.ts";
+import { FormaClient, formatFormaError, isFormaExecutableUnavailable, runProcess } from "./forma-client.ts";
 import {
     formaCommandSourceLabel,
-    formatFormaCommandProbe,
+    formatFormaCommandResolution,
     resolveRuntimeFormaCommand,
 } from "./forma-command-resolution.ts";
 import type { FormaLspRuntimeContext } from "./lsp-lifecycle.ts";
@@ -40,7 +40,6 @@ export type FormaRuntimeState =
     | { kind: "checking"; label: "Forma: Checking…" }
     | { kind: "binaryMissing"; label: "Forma: CLI not found"; detail: string }
     | { kind: "configuredWorkspaceMissing"; label: "Forma: Workspace not found"; detail: string }
-    | { kind: "incompatible"; label: "Forma: Incompatible version"; detail: string }
     | { kind: "invalidConfig"; label: "Forma: Invalid configuration"; root: string }
     | { kind: "warning"; label: "Forma: Warnings"; root: string }
     | { kind: "failed"; label: "Forma: Failed"; detail: string }
@@ -171,35 +170,10 @@ export class FormaRuntime implements vscode.Disposable {
                 isFile,
             );
             if (!isCurrentRefresh(controller, this.refreshController)) return;
-            const client = new FormaClient(resolution.command, this.expectedCliVersion, runProcess, timeoutMs);
+            const client = new FormaClient(resolution.command, runProcess, timeoutMs);
             this.client = client;
-            const probe = await client.probe(controller.signal);
-            if (isAborted(controller)) return;
-            this.output.appendLine(
-                formatFormaCommandProbe(
-                    resolution,
-                    this.expectedCliVersion,
-                    probe.kind === "missing" ? "missing" : probe.version,
-                    probe.kind === "missing" ? probe.message : undefined,
-                ),
-            );
+            this.output.appendLine(formatFormaCommandResolution(resolution));
             const source = formaCommandSourceLabel(resolution.source);
-            if (probe.kind === "missing") {
-                this.setState({
-                    kind: "binaryMissing",
-                    label: "Forma: CLI not found",
-                    detail: `${probe.message} Checked ${source}; Forma for VS Code requires ${this.expectedCliVersion}.`,
-                });
-                return;
-            }
-            if (probe.kind === "incompatible") {
-                this.setState({
-                    kind: "incompatible",
-                    label: "Forma: Incompatible version",
-                    detail: `Found Forma CLI ${probe.version} from ${source}; Forma for VS Code requires ${this.expectedCliVersion}.`,
-                });
-                return;
-            }
 
             const activeRoot =
                 this.selectedRoot ?? selectWorkspaceRoot(this.roots, activeDocument?.uri.fsPath) ?? this.roots[0];
@@ -207,7 +181,18 @@ export class FormaRuntime implements vscode.Disposable {
                 this.setState({ kind: "noWorkspace", label: "Forma: No workspace" });
                 return;
             }
-            const inspected = await client.configInspect(activeRoot, controller.signal);
+            let inspected: ConfigInspectResult;
+            try {
+                inspected = await client.configInspect(activeRoot, controller.signal);
+            } catch (error) {
+                if (!isFormaExecutableUnavailable(error)) throw error;
+                this.setState({
+                    kind: "binaryMissing",
+                    label: "Forma: CLI not found",
+                    detail: `${formatFormaError(error)} Checked ${source}; Forma for VS Code requires ${this.expectedCliVersion}.`,
+                });
+                return;
+            }
             if (isAborted(controller)) return;
             const scope = workspaceScopeFromConfig(inspected);
             this.scopes.set(activeRoot, scope);
@@ -217,6 +202,7 @@ export class FormaRuntime implements vscode.Disposable {
             } else if (inspected.status === "warning") {
                 this.lspContextValue = {
                     command: resolution.command,
+                    extensionVersion: this.expectedCliVersion,
                     root: activeRoot,
                     rootUri: this.uriFor(activeRoot).toString(),
                     ...scope,
@@ -225,6 +211,7 @@ export class FormaRuntime implements vscode.Disposable {
             } else {
                 this.lspContextValue = {
                     command: resolution.command,
+                    extensionVersion: this.expectedCliVersion,
                     root: activeRoot,
                     rootUri: this.uriFor(activeRoot).toString(),
                     ...scope,

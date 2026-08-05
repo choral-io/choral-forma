@@ -19,7 +19,7 @@ After installation:
 
 ## Requirements
 
-Forma for VS Code requires a CLI with the same coordinated release version as the extension. It first honors the machine-level `forma.path` setting, then a matching binary managed inside extension storage, and finally `forma` on the Extension Host `PATH`.
+Forma for VS Code expects a CLI from the same coordinated release as the extension. It first honors the machine-level `forma.path` setting, then a matching binary managed inside extension storage, and finally `forma` on the Extension Host `PATH`. A compatible running Forma language server reports a package-version difference as an advisory diagnostic on `.forma.md`; the diagnostic links to installation guidance and offers native Quick Fix actions. Structured CLI operations remain protected by their operation schema even when package versions differ.
 
 When no matching CLI is available, the extension can download the exact release-aligned binary after explicit user confirmation. The download is checksum-verified, stored in a versioned extension directory, and does not modify `PATH` or overwrite an externally managed binary. The extension never executes a binary path supplied by workspace content.
 
@@ -43,7 +43,7 @@ The extension runs as a workspace extension, so the Forma binary, managed storag
 
 ## Trust and troubleshooting
 
-In Restricted Mode the extension neither downloads nor executes Forma. Trust the workspace to enable CLI installation, discovery, checks, navigation, and previews. Use **Forma: Open Output** for bounded command diagnostics. Missing and incompatible binaries are reported without preventing extension activation.
+In Restricted Mode the extension neither downloads nor executes Forma. Trust the workspace to enable CLI installation, discovery, checks, navigation, and previews. Use **Forma: Open Output** for bounded command diagnostics. Missing binaries and incompatible operation schemas are reported without preventing extension activation.
 
 View source always opens in the normal Markdown editor. Forma uses VS Code's native Markdown Preview, which remains read-only and refreshes after saved changes.
 

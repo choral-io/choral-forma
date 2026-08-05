@@ -68,7 +68,7 @@ function createFormaLanguageClient(context: FormaLspRuntimeContext, output: vsco
     const clientOptions: LanguageClientOptions = {
         documentSelector,
         workspaceFolder,
-        initializationOptions: formaLspInitializationOptions(),
+        initializationOptions: formaLspInitializationOptions(context.extensionVersion),
         outputChannel: output,
         revealOutputChannelOn: RevealOutputChannelOn.Never,
         errorHandler,

@@ -138,3 +138,7 @@ Stop rather than broadening the goal when:
 - Protocol logs contain no material errors.
 - Performance and resource results are recorded against the current budgets.
 - No Zed publication or Forma release occurs as part of this goal.
+
+## Accepted Follow-Up
+
+The completed Definition and DocumentLink baseline is extended by [[planning/forma-lsp-navigation-intelligence-extension-plan]], which adds Hover, Diagnostics, context-aware Completion, and Find References without changing this plan's historical delivery cutline.

@@ -1,16 +1,16 @@
 # Forma for Zed
 
-This development extension adds Forma reference navigation to Zed's built-in Markdown language through the `forma lsp` command.
+This development extension adds Forma reference navigation and language intelligence to Zed's built-in Markdown language through the `forma lsp` command.
 
 ## Requirements
 
-- Install the same Forma CLI version as this extension.
+- Install the Forma CLI.
 - Ensure `forma` is available in the Zed worktree environment's `PATH`.
 - Open a worktree whose root contains `.forma.md`.
 
-The extension resolves `forma` from the worktree `PATH` and runs `forma --version` before starting the language server. During the coordinated Alpha line, the CLI version must match the extension version exactly. A missing or incompatible CLI fails with an actionable language-server status instead of starting best-effort. Internal test installations can place the desired release earlier on the Zed worktree `PATH` without replacing another machine-level installation.
+The extension resolves `forma` from the worktree `PATH` and starts it with `--workspace <root> lsp`. It does not run a separate version check before starting the language server. Instead, it passes the extension version through LSP `initializationOptions`; when the CLI version differs, the server publishes an advisory diagnostic on `.forma.md` with a link to the [Forma installation instructions](https://github.com/choral-io/choral-forma#installing-forma). The warning does not block startup. Older CLIs that predate this diagnostic cannot report the mismatch, while CLIs that fail before LSP initialization remain visible through Zed's logs. Internal test installations can place the desired CLI earlier on the Zed worktree `PATH` without replacing another machine-level installation.
 
-Zed's native `lsp.forma.binary` setting is a host-level escape hatch. When present, Zed launches that command directly and bypasses the extension's command construction, version check, and required `--workspace <root> lsp` arguments. Do not use that override for the normal Forma setup or expect it to participate in the managed CLI lifecycle.
+Zed's native `lsp.forma.binary` setting is a host-level escape hatch. When present, Zed launches that command directly and bypasses the extension's command construction and required `--workspace <root> lsp` arguments. Do not use that override for the normal Forma setup or expect it to participate in the managed CLI lifecycle.
 
 The extension does not download or update the CLI. Managed acquisition, checksum verification, caching, and remote-host validation remain follow-up work. It does not add Preview rendering or custom UI.
 
@@ -20,6 +20,15 @@ The extension does not download or update the CLI. Managed acquisition, checksum
 2. In Zed, run `zed: install dev extension`.
 3. Select this `extensions/zed` directory.
 4. Open a Markdown file in a Forma workspace, then use `F12` or `Cmd+Click` / `Ctrl+Click` on a supported reference.
+
+The language server uses Zed's native UI for the added capabilities:
+
+- Hover shows resolved metadata or unresolved and ambiguous reference details.
+- Diagnostics report invalid Forma-owned references and the advisory CLI version mismatch.
+- Completion suggests canonical entry paths inside wikilinks and embeds, headings and block ids after `#`, and schema-declared `entryRef` frontmatter values. Title search is supported, but completion inserts the canonical path rather than creating an alias identity.
+- Find All References returns exact saved and unsaved Forma-owned occurrences. The first implementation returns references only, not an entry declaration.
+
+Ordinary Markdown links remain host-owned. Forma completion and references stay inactive in ordinary strings, inline code, and fenced examples.
 
 Forma does not provide syntax-highlight rules, fixed colors, or font-style overrides. Zed's built-in Markdown grammar and active theme remain the sole owners of source rendering, including wikilinks and embeds. No Zed highlighting setting is required by Forma.
 

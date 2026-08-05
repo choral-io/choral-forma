@@ -17,15 +17,9 @@ export function formaCommandSourceLabel(source: FormaCommandResolution["source"]
     }
 }
 
-export function formatFormaCommandProbe(
-    resolution: FormaCommandResolution,
-    expectedVersion: string,
-    actualVersion: string,
-    error?: string,
-): string {
+export function formatFormaCommandResolution(resolution: FormaCommandResolution): string {
     const command = resolution.command.replace(/\s+/gu, " ").trim().slice(0, 240);
-    const detail = error ? ` error=${JSON.stringify(error.replace(/\s+/gu, " ").trim().slice(0, 2_000))}` : "";
-    return `[probe] source=${resolution.source} command=${JSON.stringify(command)} expected=${expectedVersion} actual=${actualVersion}${detail}`;
+    return `[runtime] source=${resolution.source} command=${JSON.stringify(command)}`;
 }
 
 export async function resolveRuntimeFormaCommand(

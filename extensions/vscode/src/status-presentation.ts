@@ -13,7 +13,6 @@ export function statusText(state: FormaRuntimeState): string {
         case "binaryMissing":
         case "configuredWorkspaceMissing":
         case "failed":
-        case "incompatible":
         case "invalidConfig":
             return "$(error) Forma";
         case "noWorkspace":
