@@ -59,6 +59,21 @@ pub struct FormaHeading {
     pub span: Option<SourceSpan>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MarkdownFragmentProjection {
+    pub headings: Vec<FormaHeading>,
+    pub block_ids: Vec<String>,
+}
+
+impl MarkdownFragmentProjection {
+    pub(crate) fn from_document(document: &FormaMarkdownDocument) -> Self {
+        Self {
+            headings: document.headings.clone(),
+            block_ids: markdown_block_ids(&document.body),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum FormaReferenceIntent {
@@ -180,6 +195,39 @@ pub fn parse_markdown(source: &str) -> FormaMarkdownDocument {
     }
 }
 
+fn markdown_block_ids(body: &str) -> Vec<String> {
+    let fenced_ranges = fenced_code_block_ranges(body);
+    let inline_ranges = inline_code_spans(body, &fenced_ranges)
+        .into_iter()
+        .map(|span| (span.start, span.end))
+        .collect::<Vec<_>>();
+    let mut result = Vec::new();
+    let mut line_start = 0;
+    for line_with_newline in body.split_inclusive('\n') {
+        let line = line_with_newline
+            .strip_suffix('\n')
+            .unwrap_or(line_with_newline);
+        let trimmed = line.trim_end_matches('\r').trim_end();
+        if let Some((prefix, block_id)) = trimmed.rsplit_once(" ^")
+            && !block_id.is_empty()
+            && !block_id.chars().any(char::is_whitespace)
+        {
+            let marker = line_start + prefix.len() + 1;
+            let in_ignored_range = fenced_ranges
+                .iter()
+                .chain(inline_ranges.iter())
+                .any(|(start, end)| (*start..*end).contains(&marker));
+            if !in_ignored_range {
+                result.push(block_id.to_string());
+            }
+        }
+        line_start += line_with_newline.len();
+    }
+    result.sort();
+    result.dedup();
+    result
+}
+
 pub(crate) fn leading_h1_text(body: &str) -> Option<String> {
     let ast = to_mdast(body, &ParseOptions::gfm()).ok()?;
     let first = ast.children()?.first()?;
@@ -207,6 +255,70 @@ pub(crate) fn resolve_markdown_title(
         .is_some_and(|(title, heading)| normalize_title(title) == normalize_title(heading));
 
     (title, omit_leading_title)
+}
+
+pub(crate) fn is_markdown_body_text_position(source: &str, offset: usize) -> bool {
+    if offset > source.len() || !source.is_char_boundary(offset) {
+        return false;
+    }
+    let split = split_frontmatter(source);
+    let body_offset = source.len().saturating_sub(split.body.len());
+    if offset < body_offset {
+        return false;
+    }
+    let body_offset_at_cursor = offset - body_offset;
+    let fenced = fenced_code_blocks(&split.body);
+    if fenced
+        .iter()
+        .any(|block| (block.start..block.end).contains(&body_offset_at_cursor))
+    {
+        return false;
+    }
+    let line_start = split.body[..body_offset_at_cursor]
+        .rfind('\n')
+        .map_or(0, |offset| offset + 1);
+    if has_unclosed_inline_code(&split.body[line_start..body_offset_at_cursor]) {
+        return false;
+    }
+    let fenced_ranges = fenced
+        .iter()
+        .map(|block| (block.start, block.end))
+        .collect::<Vec<_>>();
+    !inline_code_spans(&split.body, &fenced_ranges)
+        .iter()
+        .any(|span| (span.start..span.end).contains(&body_offset_at_cursor))
+}
+
+fn has_unclosed_inline_code(line_prefix: &str) -> bool {
+    let bytes = line_prefix.as_bytes();
+    let mut active_delimiter = None;
+    let mut offset = 0;
+    while offset < bytes.len() {
+        if bytes[offset] != b'`'
+            || (offset > 0
+                && bytes[..offset]
+                    .iter()
+                    .rev()
+                    .take_while(|byte| **byte == b'\\')
+                    .count()
+                    % 2
+                    == 1)
+        {
+            offset += 1;
+            continue;
+        }
+        let start = offset;
+        while offset < bytes.len() && bytes[offset] == b'`' {
+            offset += 1;
+        }
+        let delimiter = offset - start;
+        if active_delimiter == Some(delimiter) {
+            active_delimiter = None;
+        } else if active_delimiter.is_none() {
+            active_delimiter = Some(delimiter);
+        }
+    }
+    active_delimiter.is_some()
 }
 
 fn normalized_title_candidate(value: String) -> Option<String> {
@@ -1136,6 +1248,18 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(targets, vec!["notes/real", "notes/also-real"]);
+    }
+
+    #[test]
+    fn projects_block_ids_only_from_semantic_markdown_body() {
+        let document = FormaMarkdownDocument::parse(
+            "---\nexample: ^frontmatter\n---\n\nReal block. ^real\n\n```md\nFake block. ^fenced\n```\n\n`Inline block. ^inline`\n",
+        );
+
+        assert_eq!(
+            super::MarkdownFragmentProjection::from_document(&document).block_ids,
+            vec!["real"]
+        );
     }
 
     #[test]

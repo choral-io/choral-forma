@@ -22,6 +22,14 @@ pub struct DocumentAnalysis {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DocumentDiagnostic {
+    pub diagnostic: Diagnostic,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub span: Option<SourceSpan>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DocumentReference {
     pub source: ReferenceSource,
     pub syntax: DocumentReferenceSyntax,
@@ -59,6 +67,27 @@ pub enum DocumentReferenceSyntax {
     ObsidianEmbed,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceOccurrence {
+    pub source_path: String,
+    pub target_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment: Option<String>,
+    pub syntax: DocumentReferenceSyntax,
+    pub intent: ReferenceIntent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    pub span: SourceSpan,
+    pub resolution: ReferenceOccurrenceResolution,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ReferenceOccurrenceResolution {
+    Resolved,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SemanticReferenceField {
     pub field: String,
@@ -68,12 +97,28 @@ pub(crate) struct SemanticReferenceField {
     pub many: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EntryRefCompletionContext {
+    pub query: String,
+    pub replace_span: SourceSpan,
+    pub target_space: Option<String>,
+}
+
 pub fn analyze_document_references(
     workspace: &FormaWorkspace,
     source_path: &str,
     source: &str,
 ) -> DocumentAnalysis {
     let document = FormaMarkdownDocument::parse(source);
+    analyze_document_references_from_document(workspace, source_path, source, &document)
+}
+
+pub(crate) fn analyze_document_references_from_document(
+    workspace: &FormaWorkspace,
+    source_path: &str,
+    source: &str,
+    document: &FormaMarkdownDocument,
+) -> DocumentAnalysis {
     let mut diagnostics = document
         .diagnostics
         .iter()
@@ -110,6 +155,63 @@ pub fn analyze_document_references(
         references,
         diagnostics,
     }
+}
+
+pub(crate) fn frontmatter_reference_completion_context(
+    workspace: &FormaWorkspace,
+    source_path: &str,
+    source: &str,
+    cursor_byte: usize,
+) -> Option<EntryRefCompletionContext> {
+    if cursor_byte > source.len() || !source.is_char_boundary(cursor_byte) {
+        return None;
+    }
+    let frontmatter_offset = frontmatter_content_offset(source)?;
+    let split = crate::frontmatter::split_frontmatter_slices(source);
+    let raw = split.frontmatter?;
+    let relative_cursor = cursor_byte.checked_sub(frontmatter_offset)?;
+    if relative_cursor > raw.len() || !raw.is_char_boundary(relative_cursor) {
+        return None;
+    }
+    let mut diagnostics = Vec::new();
+    let space = matched_space(workspace, source_path, &mut diagnostics)?;
+    let schema = parse_space_schema(space).ok()?;
+    let semantic_fields =
+        collect_semantic_reference_fields(&workspace.config, &workspace.model, &schema);
+    let parsed_fields = yaml_fields(raw);
+
+    for semantic_field in semantic_fields {
+        let Some((field_index, parsed_field)) = parsed_fields
+            .iter()
+            .enumerate()
+            .find(|(_, field)| field.path == semantic_field.field)
+        else {
+            continue;
+        };
+        let field_end = parsed_fields[field_index + 1..]
+            .iter()
+            .find(|candidate| candidate.indent <= parsed_field.indent)
+            .map(|candidate| candidate.line_start)
+            .unwrap_or(raw.len());
+        if !(parsed_field.value_start..=field_end).contains(&relative_cursor) {
+            continue;
+        }
+        let (start, end, query) = if semantic_field.many {
+            partial_yaml_list_value(raw, parsed_field, field_end, relative_cursor)?
+        } else {
+            partial_yaml_scalar_value(raw, parsed_field, field_end, relative_cursor)?
+        };
+        return Some(EntryRefCompletionContext {
+            query,
+            replace_span: source_span(
+                source,
+                frontmatter_offset + start,
+                frontmatter_offset + end,
+            )?,
+            target_space: semantic_field.space,
+        });
+    }
+    None
 }
 
 /// Returns link syntax projected from `md` and `markdown` fenced blocks.
@@ -251,6 +353,21 @@ fn frontmatter_references(
         }
     }
     references
+}
+
+pub(crate) fn parsed_frontmatter_references(
+    source: &str,
+    document: &FormaMarkdownDocument,
+    fields: &[SemanticReferenceField],
+) -> Vec<DocumentReference> {
+    let (Some(raw), Some(value), Some(frontmatter_offset)) = (
+        document.frontmatter.raw.as_deref(),
+        document.frontmatter.value.as_ref(),
+        frontmatter_content_offset(source),
+    ) else {
+        return Vec::new();
+    };
+    frontmatter_references(source, raw, frontmatter_offset, value, fields)
 }
 
 fn matched_space<'a>(
@@ -473,6 +590,201 @@ fn yaml_fields(source: &str) -> Vec<YamlField> {
     fields
 }
 
+fn partial_yaml_scalar_value(
+    source: &str,
+    field: &YamlField,
+    field_end: usize,
+    cursor: usize,
+) -> Option<(usize, usize, String)> {
+    if cursor > field_end || is_in_yaml_comment(source, cursor) {
+        return None;
+    }
+    let line_end = source[field.value_start..field_end]
+        .find(['\r', '\n'])
+        .map(|offset| field.value_start + offset)
+        .unwrap_or(field_end);
+    if cursor > line_end {
+        return None;
+    }
+    partial_yaml_token(source, field.value_start, cursor, line_end, &[])
+}
+
+fn partial_yaml_list_value(
+    source: &str,
+    field: &YamlField,
+    field_end: usize,
+    cursor: usize,
+) -> Option<(usize, usize, String)> {
+    if cursor > field_end || is_in_yaml_comment(source, cursor) {
+        return None;
+    }
+    let field_prefix = &source[field.value_start..cursor];
+    if field_prefix.trim_start().starts_with('[') {
+        let segment_start = field_prefix
+            .rfind([',', '['])
+            .map(|offset| field.value_start + offset + 1)
+            .unwrap_or(field.value_start);
+        if source[segment_start..cursor].contains(']') {
+            return None;
+        }
+        let line_end = source[cursor..field_end]
+            .find(['\r', '\n'])
+            .map(|offset| cursor + offset)
+            .unwrap_or(field_end);
+        return partial_yaml_token(source, segment_start, cursor, line_end, &[',', ']']);
+    }
+
+    let line_start = source[..cursor].rfind('\n').map_or(0, |offset| offset + 1);
+    if line_start < field.line_start {
+        return None;
+    }
+    let line_prefix = &source[line_start..cursor];
+    let indent = line_prefix.len() - line_prefix.trim_start_matches(' ').len();
+    if indent <= field.indent
+        || direct_yaml_list_indent(source, field, field_end, line_start) != Some(indent)
+    {
+        return None;
+    }
+    let trimmed = &line_prefix[indent..];
+    let after_dash = trimmed.strip_prefix('-')?;
+    if !after_dash.is_empty()
+        && !after_dash
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_whitespace)
+    {
+        return None;
+    }
+    let value_offset = after_dash.len() - after_dash.trim_start_matches(' ').len();
+    let value_start = line_start + indent + 1 + value_offset;
+    let line_end = source[cursor..field_end]
+        .find(['\r', '\n'])
+        .map(|offset| cursor + offset)
+        .unwrap_or(field_end);
+    partial_yaml_token(source, value_start, cursor, line_end, &[])
+}
+
+fn direct_yaml_list_indent(
+    source: &str,
+    field: &YamlField,
+    field_end: usize,
+    current_line_start: usize,
+) -> Option<usize> {
+    let first_child_line = source[field.line_start..field_end]
+        .find('\n')
+        .map(|offset| field.line_start + offset + 1)?;
+    let mut line_start = first_child_line;
+    let mut direct_indent = None;
+    for line_with_ending in source[first_child_line..field_end].split_inclusive('\n') {
+        if line_start > current_line_start {
+            break;
+        }
+        let line = line_with_ending.trim_end_matches(['\r', '\n']);
+        let indent = line.len() - line.trim_start_matches(' ').len();
+        let trimmed = &line[indent..];
+        if !trimmed.is_empty() && !trimmed.starts_with('#') {
+            if direct_indent.is_none() {
+                if !is_yaml_list_item(trimmed) {
+                    return None;
+                }
+                direct_indent = Some(indent);
+            }
+            if line_start == current_line_start {
+                return (direct_indent == Some(indent) && is_yaml_list_item(trimmed))
+                    .then_some(indent);
+            }
+        }
+        line_start += line_with_ending.len();
+    }
+    None
+}
+
+fn is_yaml_list_item(trimmed: &str) -> bool {
+    trimmed.strip_prefix('-').is_some_and(|after_dash| {
+        after_dash.is_empty()
+            || after_dash
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_whitespace)
+    })
+}
+
+fn partial_yaml_token(
+    source: &str,
+    mut start: usize,
+    cursor: usize,
+    limit: usize,
+    terminators: &[char],
+) -> Option<(usize, usize, String)> {
+    while source
+        .as_bytes()
+        .get(start)
+        .is_some_and(u8::is_ascii_whitespace)
+        && start < cursor
+    {
+        start += 1;
+    }
+    let quote = source
+        .as_bytes()
+        .get(start)
+        .copied()
+        .filter(|byte| matches!(*byte, b'\'' | b'"'));
+    if quote.is_some() {
+        start += 1;
+    }
+    if start > cursor || cursor > limit {
+        return None;
+    }
+
+    let mut end = limit;
+    if let Some(quote) = quote {
+        let mut escaped = false;
+        for (offset, byte) in source[start..limit].bytes().enumerate() {
+            if byte == b'\\' && quote == b'"' && !escaped {
+                escaped = true;
+                continue;
+            }
+            if byte == quote && !escaped {
+                end = start + offset;
+                break;
+            }
+            escaped = false;
+        }
+    } else {
+        end = source[start..limit]
+            .char_indices()
+            .find(|(offset, character)| {
+                terminators.contains(character)
+                    || (*character == '#'
+                        && (*offset == 0
+                            || source[start..start + *offset]
+                                .chars()
+                                .next_back()
+                                .is_some_and(char::is_whitespace)))
+            })
+            .map(|(offset, _)| start + offset)
+            .unwrap_or(limit);
+        while let Some(character) = source[start..end].chars().next_back() {
+            if !character.is_whitespace() {
+                break;
+            }
+            end -= character.len_utf8();
+        }
+    }
+    if cursor > end {
+        return None;
+    }
+    let query = source.get(start..cursor)?;
+    if query.chars().any(|character| {
+        character == '\n'
+            || character == '\r'
+            || matches!(character, '\'' | '"' | '[' | ']' | '{' | '}')
+    }) {
+        return None;
+    }
+    Some((start, end, query.trim_end().to_string()))
+}
+
 fn find_yaml_scalar(
     source: &str,
     field_range: (usize, usize),
@@ -583,7 +895,7 @@ fn split_source_target_span(
     (target_span, fragment_span)
 }
 
-fn source_span(source: &str, start: usize, end: usize) -> Option<SourceSpan> {
+pub(crate) fn source_span(source: &str, start: usize, end: usize) -> Option<SourceSpan> {
     source.get(start..end)?;
     let (start_line, start_column) = line_column(source, start);
     let (end_line, end_column) = line_column(source, end);
@@ -610,7 +922,10 @@ mod tests {
 
     use crate::{ReferenceSource, load_workspace};
 
-    use super::{DocumentReferenceSyntax, analyze_document_references};
+    use super::{
+        DocumentReferenceSyntax, analyze_document_references,
+        frontmatter_reference_completion_context,
+    };
 
     #[test]
     fn analyzes_body_and_schema_declared_frontmatter_references_with_exact_ranges() {
@@ -796,6 +1111,70 @@ mod tests {
         );
         assert_eq!(analysis.references[0].syntax_span.start_line, 3);
         assert_eq!(analysis.references[2].syntax_span.start_line, 5);
+    }
+
+    #[test]
+    fn replaces_complete_active_entry_ref_tokens_in_yaml_shapes() {
+        let mut workspace = load_workspace(fixture_root()).unwrap();
+        std::sync::Arc::make_mut(&mut workspace.model)
+            .content_group_mut("tasks")
+            .unwrap()
+            .schema = serde_yml::from_str(
+            "type: object\nfields:\n  owner:\n    type: member\n  owners:\n    type: list\n    items:\n      type: member\n",
+        )
+        .unwrap();
+
+        for (source, cursor_marker, query, replaced) in [
+            (
+                "---\nowner: \"Sam Rivera\"\n---\n",
+                "Sam",
+                "Sam",
+                "Sam Rivera",
+            ),
+            (
+                "---\nowners:\n  - Mira Chen\n---\n",
+                "Mira",
+                "Mira",
+                "Mira Chen",
+            ),
+            (
+                "---\nowners: [Sam Rivera, Mira Chen]\n---\n",
+                "Mira",
+                "Mira",
+                "Mira Chen",
+            ),
+        ] {
+            let cursor = source.find(cursor_marker).unwrap() + cursor_marker.len();
+            let context = frontmatter_reference_completion_context(
+                &workspace,
+                "tasks/completion.md",
+                source,
+                cursor,
+            )
+            .unwrap();
+            assert_eq!(context.query, query);
+            assert_eq!(
+                &source[context.replace_span.start_byte..context.replace_span.end_byte],
+                replaced
+            );
+        }
+    }
+
+    #[test]
+    fn excludes_nested_block_lists_from_entry_ref_completion() {
+        let workspace = load_workspace(fixture_root()).unwrap();
+        let source = "---\nowners:\n  metadata:\n    - Sam\n---\n";
+        let cursor = source.find("Sam").unwrap() + "Sam".len();
+
+        assert!(
+            frontmatter_reference_completion_context(
+                &workspace,
+                "tasks/completion.md",
+                source,
+                cursor,
+            )
+            .is_none()
+        );
     }
 
     fn fixture_root() -> PathBuf {

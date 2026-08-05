@@ -26,6 +26,7 @@ export async function main(arguments_ = process.argv.slice(2)) {
             "---",
             "Definition: [[knowledge/product/product-direction#Product Direction]].",
             "Positionless: [[knowledge/product/product-direction]].",
+            "Completion: [[knowledge/product/prod",
             "",
         ].join("\n");
         const project = await measureWorkspace({
@@ -34,6 +35,10 @@ export async function main(arguments_ = process.argv.slice(2)) {
             sourcePath: "knowledge/tasks/lsp-performance-benchmark.md",
             source: projectSource,
             position: { line: 5, character: 20 },
+            completionPosition: positionAtOffset(
+                projectSource,
+                projectSource.indexOf("[[knowledge/product/prod") + "[[knowledge/product/prod".length,
+            ),
             repetitions,
         });
         const synthetic = [];
@@ -43,7 +48,8 @@ export async function main(arguments_ = process.argv.slice(2)) {
             const target = `notes/note-${String(middle - 1).padStart(5, "0")}`;
             const sourcePath = `notes/note-${String(middle).padStart(5, "0")}.md`;
             const targetHeading = `Note ${middle - 1}`;
-            const source = `---\ntitle: LSP ${size}\nkind: note\n---\n\n# LSP ${size}\n\nDefinition: [[${target}#${targetHeading}]].\nPositionless: [[${target}]].\n`;
+            const completionMarker = "[[notes/note-0";
+            const source = `---\ntitle: LSP ${size}\nkind: note\n---\n\n# LSP ${size}\n\nDefinition: [[${target}#${targetHeading}]].\nPositionless: [[${target}]].\nCompletion: ${completionMarker}\n`;
             synthetic.push({
                 entries: size,
                 ...(await measureWorkspace({
@@ -52,6 +58,10 @@ export async function main(arguments_ = process.argv.slice(2)) {
                     sourcePath,
                     source,
                     position: { line: 7, character: 20 },
+                    completionPosition: positionAtOffset(
+                        source,
+                        source.indexOf(completionMarker) + completionMarker.length,
+                    ),
                     repetitions,
                 })),
             });
@@ -91,7 +101,7 @@ export async function main(arguments_ = process.argv.slice(2)) {
     }
 }
 
-async function measureWorkspace({ binary, workspace, sourcePath, source, position, repetitions }) {
+async function measureWorkspace({ binary, workspace, sourcePath, source, position, completionPosition, repetitions }) {
     workspace = await realpath(workspace);
     const process = new LspProcess(binary, workspace);
     try {
@@ -124,6 +134,28 @@ async function measureWorkspace({ binary, workspace, sourcePath, source, positio
         for (let index = 0; index < repetitions; index += 1) {
             warmDocumentLink.push((await timedRequest(process, "textDocument/documentLink", documentLink)).durationMs);
         }
+        const completion = { textDocument: { uri }, position: completionPosition };
+        const coldCompletion = await timedRequest(process, "textDocument/completion", completion);
+        if (!Array.isArray(coldCompletion.result) || coldCompletion.result.length === 0) {
+            throw new Error(`Completion did not return candidates in ${workspace}.`);
+        }
+        const warmCompletion = [];
+        for (let index = 0; index < repetitions; index += 1) {
+            warmCompletion.push((await timedRequest(process, "textDocument/completion", completion)).durationMs);
+        }
+        const references = {
+            textDocument: { uri },
+            position,
+            context: { includeDeclaration: false },
+        };
+        const coldReferences = await timedRequest(process, "textDocument/references", references);
+        if (!Array.isArray(coldReferences.result) || coldReferences.result.length === 0) {
+            throw new Error(`References did not return locations in ${workspace}.`);
+        }
+        const warmReferences = [];
+        for (let index = 0; index < repetitions; index += 1) {
+            warmReferences.push((await timedRequest(process, "textDocument/references", references)).durationMs);
+        }
         const idleBefore = process.resources();
         const idleStarted = performance.now();
         await new Promise((resolveIdle) => setTimeout(resolveIdle, 1_000));
@@ -139,12 +171,22 @@ async function measureWorkspace({ binary, workspace, sourcePath, source, positio
             warmDefinition: statistics(warmDefinition),
             coldDocumentLinkMs: round(coldDocumentLink.durationMs),
             warmDocumentLink: statistics(warmDocumentLink),
+            coldCompletionMs: round(coldCompletion.durationMs),
+            warmCompletion: statistics(warmCompletion),
+            coldReferencesMs: round(coldReferences.durationMs),
+            warmReferences: statistics(warmReferences),
             connectedRssBytes: resources.rssKiB === null ? null : resources.rssKiB * 1024,
             idleCpuPercent,
         };
     } finally {
         await process.close();
     }
+}
+
+function positionAtOffset(source, offset) {
+    const prefix = source.slice(0, offset);
+    const lines = prefix.split("\n");
+    return { line: lines.length - 1, character: lines.at(-1).length };
 }
 
 class LspProcess {
@@ -292,7 +334,7 @@ function printMeasurement(label, measurement) {
         ? `${(measurement.connectedRssBytes / 1024 / 1024).toFixed(1)} MiB`
         : "n/a";
     console.log(
-        `${label}: init=${measurement.initializeMs.toFixed(1)}ms cold=${measurement.coldDefinitionMs.toFixed(1)}ms warm-p95=${measurement.warmDefinition.p95Ms.toFixed(1)}ms rss=${rss} idle-cpu=${String(measurement.idleCpuPercent)}%`,
+        `${label}: init=${measurement.initializeMs.toFixed(1)}ms definition=${measurement.coldDefinitionMs.toFixed(1)}/${measurement.warmDefinition.p95Ms.toFixed(1)}ms completion=${measurement.coldCompletionMs.toFixed(1)}/${measurement.warmCompletion.p95Ms.toFixed(1)}ms references=${measurement.coldReferencesMs.toFixed(1)}/${measurement.warmReferences.p95Ms.toFixed(1)}ms rss=${rss} idle-cpu=${String(measurement.idleCpuPercent)}%`,
     );
 }
 

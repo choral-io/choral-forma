@@ -12,10 +12,14 @@ use crate::config::{
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::document::{
+    DocumentReference, DocumentReferenceSyntax, ReferenceOccurrence, ReferenceOccurrenceResolution,
     SemanticReferenceField, apply_reference_transform, collect_semantic_reference_fields,
-    is_explicit_path_reference,
+    is_explicit_path_reference, parsed_frontmatter_references, source_span,
 };
-use crate::markdown::{FormaMarkdownDocument, FormaReferenceIntent, resolve_markdown_title};
+use crate::markdown::{
+    FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax, MarkdownFragmentProjection,
+    SourceSpan, resolve_markdown_title,
+};
 use crate::model::ResolvedWorkspaceModel;
 use crate::operations::workspace_skill_diagnostics;
 use crate::path::WorkspacePath;
@@ -178,10 +182,17 @@ pub struct Discovery {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct DiscoveryRuntime {
+    pub(crate) references_by_target: BTreeMap<String, Vec<ReferenceOccurrence>>,
+    pub(crate) fragment_projections: BTreeMap<String, MarkdownFragmentProjection>,
+}
+
+#[derive(Debug, Clone)]
 struct CandidateEntry {
     path: String,
     space: String,
     taxonomies: BTreeMap<String, Vec<String>>,
+    source: String,
     document: FormaMarkdownDocument,
     variants: Vec<CandidateVariant>,
 }
@@ -190,6 +201,7 @@ struct CandidateEntry {
 struct CandidateVariant {
     language: String,
     path: String,
+    source: String,
     document: FormaMarkdownDocument,
 }
 
@@ -213,16 +225,37 @@ pub fn discover_workspace(root: impl AsRef<Path>) -> Result<Discovery, ConfigErr
 }
 
 pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
+    discover_loaded_workspace_with_runtime(workspace).0
+}
+
+pub(crate) fn discover_loaded_workspace_with_runtime(
+    workspace: &FormaWorkspace,
+) -> (Discovery, DiscoveryRuntime) {
     let root = &workspace.root;
     let config = &workspace.config;
     let mut diagnostics = workspace.diagnostics.clone();
 
     let mut entries = discover_entries(workspace, &mut diagnostics);
+    let mut fragment_projections = BTreeMap::new();
+    for entry in &entries {
+        fragment_projections.insert(
+            entry.path.clone(),
+            MarkdownFragmentProjection::from_document(&entry.document),
+        );
+        for variant in &entry.variants {
+            fragment_projections.insert(
+                variant.path.clone(),
+                MarkdownFragmentProjection::from_document(&variant.document),
+            );
+        }
+    }
     let path_index = PathIndex::from_entries(&entries);
     let mut index_entries = Vec::new();
+    let mut occurrences_by_source = BTreeMap::<String, Vec<ReferenceOccurrence>>::new();
 
     for entry in &mut entries {
         let mut refs = Vec::new();
+        let mut occurrences = Vec::new();
         let space = workspace
             .model
             .content_group(&entry.space)
@@ -241,27 +274,63 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
                 entry.path.clone(),
             ));
             let ref_fields = collect_semantic_reference_fields(config, &workspace.model, &schema);
+            let document_references =
+                parsed_frontmatter_references(&entry.source, &entry.document, &ref_fields);
             refs.extend(resolve_frontmatter_refs(
                 &entry.path,
                 frontmatter_value,
                 &ref_fields,
+                &document_references,
                 &path_index,
                 &mut diagnostics,
+                &mut occurrences,
             ));
         }
         refs.extend(resolve_body_refs(
             &entry.path,
+            &entry.source,
             &entry.document,
             &path_index,
             &mut diagnostics,
+            &mut occurrences,
         ));
+        occurrences_by_source.insert(entry.path.clone(), occurrences);
 
         let frontmatter_value = entry.document.frontmatter.value.as_ref();
         let variants = entry
             .variants
             .iter()
             .map(|variant| {
+                let mut variant_occurrences = Vec::new();
+                let mut ignored_diagnostics = Vec::new();
                 let frontmatter_value = variant.document.frontmatter.value.as_ref();
+                if let Ok(schema) = parse_space_schema(space) {
+                    let ref_fields =
+                        collect_semantic_reference_fields(config, &workspace.model, &schema);
+                    let document_references = parsed_frontmatter_references(
+                        &variant.source,
+                        &variant.document,
+                        &ref_fields,
+                    );
+                    let _ = resolve_frontmatter_refs(
+                        &variant.path,
+                        frontmatter_value.unwrap_or(&Value::Null),
+                        &ref_fields,
+                        &document_references,
+                        &path_index,
+                        &mut ignored_diagnostics,
+                        &mut variant_occurrences,
+                    );
+                }
+                let _ = resolve_body_refs(
+                    &variant.path,
+                    &variant.source,
+                    &variant.document,
+                    &path_index,
+                    &mut ignored_diagnostics,
+                    &mut variant_occurrences,
+                );
+                occurrences_by_source.insert(variant.path.clone(), variant_occurrences);
                 let (title, omit_leading_title) =
                     resolved_entry_title(frontmatter_value, space, &variant.document);
                 IndexEntryVariant {
@@ -312,6 +381,9 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
         root,
         &workspace.model,
         &workspace.config_sources,
+        &path_index,
+        &mut occurrences_by_source,
+        &mut fragment_projections,
         &mut diagnostics,
     );
     views.sort_by(|left, right| view_sort_key(left).cmp(&view_sort_key(right)));
@@ -326,21 +398,60 @@ pub fn discover_loaded_workspace(workspace: &FormaWorkspace) -> Discovery {
         }
     }
     index_entries.sort_by(|left, right| left.path.cmp(&right.path));
+    let references_by_target = reference_occurrence_index(occurrences_by_source);
 
-    Discovery {
-        index: SummaryIndex {
-            schema_version: 1,
-            workspace: IndexWorkspace {
-                name: config.workspace.name.clone(),
-                canonical_language: config.workspace.canonical_language.clone(),
-                supported_languages: config.workspace.supported_languages.clone(),
+    (
+        Discovery {
+            index: SummaryIndex {
+                schema_version: 1,
+                workspace: IndexWorkspace {
+                    name: config.workspace.name.clone(),
+                    canonical_language: config.workspace.canonical_language.clone(),
+                    supported_languages: config.workspace.supported_languages.clone(),
+                },
+                spaces,
+                views,
+                entries: index_entries,
             },
-            spaces,
-            views,
-            entries: index_entries,
+            diagnostics,
         },
-        diagnostics,
+        DiscoveryRuntime {
+            references_by_target,
+            fragment_projections,
+        },
+    )
+}
+
+fn reference_occurrence_index(
+    occurrences_by_source: BTreeMap<String, Vec<ReferenceOccurrence>>,
+) -> BTreeMap<String, Vec<ReferenceOccurrence>> {
+    let mut result = BTreeMap::<String, Vec<ReferenceOccurrence>>::new();
+    for occurrences in occurrences_by_source.into_values() {
+        for occurrence in occurrences {
+            result
+                .entry(occurrence.target_path.clone())
+                .or_default()
+                .push(occurrence);
+        }
     }
+    for occurrences in result.values_mut() {
+        occurrences.sort_by(|left, right| {
+            (
+                left.source_path.as_str(),
+                left.span.start_byte,
+                left.span.end_byte,
+                left.fragment.as_deref(),
+            )
+                .cmp(&(
+                    right.source_path.as_str(),
+                    right.span.start_byte,
+                    right.span.end_byte,
+                    right.fragment.as_deref(),
+                ))
+        });
+        occurrences.dedup();
+    }
+    result
 }
 
 pub fn check_workspace(root: impl AsRef<Path>) -> CheckResult {
@@ -470,6 +581,7 @@ fn discover_entries(
                         .push(CandidateVariant {
                             language,
                             path: relative,
+                            source,
                             document,
                         });
                 }
@@ -496,6 +608,7 @@ fn discover_entries(
                     path: relative,
                     space: matched[0].clone(),
                     taxonomies,
+                    source,
                     document,
                     variants: Vec::new(),
                 });
@@ -662,6 +775,9 @@ fn discover_views(
     root: &Path,
     model: &ResolvedWorkspaceModel,
     config_sources: &[ConfigSourcePath],
+    path_index: &PathIndex,
+    occurrences_by_source: &mut BTreeMap<String, Vec<ReferenceOccurrence>>,
+    fragment_projections: &mut BTreeMap<String, MarkdownFragmentProjection>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<IndexView> {
     let mut views = Vec::new();
@@ -671,14 +787,18 @@ fn discover_views(
         .filter(|source| source.path.ends_with(".md") || source.path.ends_with(".mdx"))
         .map(|source| source.path.clone())
     {
-        let Ok(source) = fs::read_to_string(root.join(&relative)) else {
+        let Ok(source_text) = fs::read_to_string(root.join(&relative)) else {
             diagnostics.push(
                 Diagnostic::error("view.readFailed", "View file could not be read.")
                     .with_path(relative),
             );
             continue;
         };
-        let document = FormaMarkdownDocument::parse(&source);
+        let document = FormaMarkdownDocument::parse(&source_text);
+        fragment_projections.insert(
+            relative.clone(),
+            MarkdownFragmentProjection::from_document(&document),
+        );
         diagnostics.extend(
             document
                 .diagnostics
@@ -686,34 +806,34 @@ fn discover_views(
                 .cloned()
                 .map(|diagnostic| diagnostic.with_path(relative.clone())),
         );
-        let Some(value) = document.frontmatter.value else {
+        let Some(value) = document.frontmatter.value.as_ref() else {
             continue;
         };
-        if required_string(&value, "kind").as_deref() != Some("view") {
+        if required_string(value, "kind").as_deref() != Some("view") {
             continue;
         }
-        crate::render::validate_table_column_presentation_value(&value, &relative, diagnostics);
-        let surface = required_string(&value, "surface").unwrap_or_else(|| "page".to_string());
-        let mode = required_string(&value, "view.mode").or_else(|| required_string(&value, "mode"));
+        crate::render::validate_table_column_presentation_value(value, &relative, diagnostics);
+        let surface = required_string(value, "surface").unwrap_or_else(|| "page".to_string());
+        let mode = required_string(value, "view.mode").or_else(|| required_string(value, "mode"));
         let mut space =
-            required_string(&value, "view.space").or_else(|| required_string(&value, "space"));
-        let source = parse_view_source(&value);
+            required_string(value, "view.space").or_else(|| required_string(value, "space"));
+        let view_source = parse_view_source(value);
         if space.is_none() {
-            space = source
+            space = view_source
                 .as_ref()
                 .and_then(|source| source_taxonomy_space(source, model));
         }
         let title =
-            optional_string(&value, "view.title").or_else(|| optional_string(&value, "title"));
+            optional_string(value, "view.title").or_else(|| optional_string(value, "title"));
         let display = DisplayOptions {
-            order: optional_i64(&value, "view.display.order")
-                .or_else(|| optional_i64(&value, "display.order")),
+            order: optional_i64(value, "view.display.order")
+                .or_else(|| optional_i64(value, "display.order")),
             ..DisplayOptions::default()
         };
         let valid_space = space
             .as_ref()
             .is_none_or(|space| model.content_group(space).is_some());
-        let valid_source = source
+        let valid_source = view_source
             .as_ref()
             .is_none_or(|source| source.source_type == "pages");
         if mode.is_none() || !valid_space || !valid_source {
@@ -723,13 +843,24 @@ fn discover_views(
             );
             continue;
         }
+        let mut ignored_diagnostics = Vec::new();
+        let mut occurrences = Vec::new();
+        let _ = resolve_body_refs(
+            &relative,
+            &source_text,
+            &document,
+            path_index,
+            &mut ignored_diagnostics,
+            &mut occurrences,
+        );
+        occurrences_by_source.insert(relative.clone(), occurrences);
         views.push(IndexView {
             id: view_id(&relative),
             path: relative,
             surface,
             mode: mode.unwrap(),
             space,
-            source,
+            source: view_source,
             title,
             display,
         });
@@ -803,8 +934,10 @@ fn resolve_frontmatter_refs(
     source_path: &str,
     frontmatter: &Value,
     fields: &[SemanticReferenceField],
+    document_references: &[DocumentReference],
     path_index: &PathIndex,
     diagnostics: &mut Vec<Diagnostic>,
+    occurrences: &mut Vec<ReferenceOccurrence>,
 ) -> Vec<IndexReference> {
     let mut refs = Vec::new();
     for field in fields {
@@ -819,9 +952,11 @@ fn resolve_frontmatter_refs(
                         item,
                         field,
                         Some(index),
+                        document_references,
                         path_index,
                         diagnostics,
                         &mut refs,
+                        occurrences,
                     );
                 }
             }
@@ -831,9 +966,11 @@ fn resolve_frontmatter_refs(
                 value,
                 field,
                 None,
+                document_references,
                 path_index,
                 diagnostics,
                 &mut refs,
+                occurrences,
             );
         }
     }
@@ -845,9 +982,11 @@ fn resolve_frontmatter_ref_value(
     value: &Value,
     field: &SemanticReferenceField,
     index: Option<usize>,
+    document_references: &[DocumentReference],
     path_index: &PathIndex,
     diagnostics: &mut Vec<Diagnostic>,
     refs: &mut Vec<IndexReference>,
+    occurrences: &mut Vec<ReferenceOccurrence>,
 ) {
     let Some(raw_target) = value.as_str() else {
         return;
@@ -875,18 +1014,40 @@ fn resolve_frontmatter_ref_value(
         }
     }
     match path_index.resolve(&target, field.space.as_deref()) {
-        ResolveResult::Resolved(target_path) => refs.push(IndexReference {
-            source: ReferenceSource::Frontmatter,
-            field: Some(field.field.clone()),
-            raw_target: Some(raw_target.to_string()),
-            target_path,
-            fragment: None,
-            fragment_kind: None,
-            target_title: None,
-            resolved_title: None,
-            semantic_type: field.semantic_type.clone(),
-            intent: ReferenceIntent::Reference,
-        }),
+        ResolveResult::Resolved(target_path) => {
+            let span = document_references
+                .iter()
+                .find(|reference| {
+                    reference.field.as_deref() == Some(field.field.as_str())
+                        && reference.index == index
+                        && reference.raw_target == raw_target
+                })
+                .and_then(|reference| reference.target_span.or(Some(reference.syntax_span)));
+            refs.push(IndexReference {
+                source: ReferenceSource::Frontmatter,
+                field: Some(field.field.clone()),
+                raw_target: Some(raw_target.to_string()),
+                target_path: target_path.clone(),
+                fragment: None,
+                fragment_kind: None,
+                target_title: None,
+                resolved_title: None,
+                semantic_type: field.semantic_type.clone(),
+                intent: ReferenceIntent::Reference,
+            });
+            if let Some(span) = span {
+                occurrences.push(ReferenceOccurrence {
+                    source_path: source_path.to_string(),
+                    target_path,
+                    fragment: None,
+                    syntax: DocumentReferenceSyntax::Frontmatter,
+                    intent: ReferenceIntent::Reference,
+                    field: Some(field.field.clone()),
+                    span,
+                    resolution: ReferenceOccurrenceResolution::Resolved,
+                });
+            }
+        }
         ResolveResult::Unresolved => diagnostics.push(
             Diagnostic::error("entryRef.unresolved", "Reference cannot be resolved.")
                 .with_path(source_path)
@@ -919,9 +1080,11 @@ fn resolve_frontmatter_ref_value(
 
 fn resolve_body_refs(
     source_path: &str,
+    source: &str,
     document: &FormaMarkdownDocument,
     path_index: &PathIndex,
     diagnostics: &mut Vec<Diagnostic>,
+    occurrences: &mut Vec<ReferenceOccurrence>,
 ) -> Vec<IndexReference> {
     let mut refs = Vec::new();
     for reference in &document.references {
@@ -953,18 +1116,38 @@ fn resolve_body_refs(
         }
         let target = split_reference_target(&reference.target, source_path);
         match path_index.resolve_from(&target.path, source_path, None) {
-            ResolveResult::Resolved(target_path) => refs.push(IndexReference {
-                source: ReferenceSource::Body,
-                field: None,
-                raw_target: Some(reference.target.clone()),
-                target_path,
-                fragment: target.fragment,
-                fragment_kind: target.fragment_kind,
-                target_title: non_empty_string(reference.label.clone()),
-                resolved_title: None,
-                semantic_type: None,
-                intent,
-            }),
+            ResolveResult::Resolved(target_path) => {
+                refs.push(IndexReference {
+                    source: ReferenceSource::Body,
+                    field: None,
+                    raw_target: Some(reference.target.clone()),
+                    target_path: target_path.clone(),
+                    fragment: target.fragment.clone(),
+                    fragment_kind: target.fragment_kind,
+                    target_title: non_empty_string(reference.label.clone()),
+                    resolved_title: None,
+                    semantic_type: None,
+                    intent,
+                });
+                if let (Some(syntax), Some(span)) = (
+                    document_reference_syntax(reference.syntax),
+                    body_reference_span(source, document, reference),
+                ) && matches!(
+                    syntax,
+                    DocumentReferenceSyntax::Wikilink | DocumentReferenceSyntax::ObsidianEmbed
+                ) {
+                    occurrences.push(ReferenceOccurrence {
+                        source_path: source_path.to_string(),
+                        target_path,
+                        fragment: target.fragment,
+                        syntax,
+                        intent,
+                        field: None,
+                        span,
+                        resolution: ReferenceOccurrenceResolution::Resolved,
+                    });
+                }
+            }
             ResolveResult::Unresolved => diagnostics.push(
                 Diagnostic::error("entryRef.unresolved", "Reference cannot be resolved.")
                     .with_path(source_path)
@@ -1005,6 +1188,30 @@ fn resolve_body_refs(
         }
     }
     refs
+}
+
+fn document_reference_syntax(syntax: FormaReferenceSyntax) -> Option<DocumentReferenceSyntax> {
+    Some(match syntax {
+        FormaReferenceSyntax::MarkdownLink => DocumentReferenceSyntax::MarkdownLink,
+        FormaReferenceSyntax::MarkdownImage => DocumentReferenceSyntax::MarkdownImage,
+        FormaReferenceSyntax::Wikilink => DocumentReferenceSyntax::Wikilink,
+        FormaReferenceSyntax::ObsidianEmbed => DocumentReferenceSyntax::ObsidianEmbed,
+        FormaReferenceSyntax::FormaCommentDirective => return None,
+    })
+}
+
+fn body_reference_span(
+    source: &str,
+    document: &FormaMarkdownDocument,
+    reference: &crate::markdown::FormaReference,
+) -> Option<SourceSpan> {
+    let span = reference.target_span.or(reference.syntax_span)?;
+    let body_offset = source.len().saturating_sub(document.body.len());
+    source_span(
+        source,
+        body_offset + span.start_byte,
+        body_offset + span.end_byte,
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1139,7 +1346,7 @@ impl PathIndex {
 
         let matches = self
             .by_basename
-            .get(candidates[0].strip_suffix(".md").unwrap_or(&candidates[0]))
+            .get(strip_markdown_extension(&candidates[0]))
             .into_iter()
             .flatten()
             .filter(|path| self.path_allowed(path, space))
@@ -1169,11 +1376,21 @@ impl PathIndex {
 
 fn candidate_paths(target: &str) -> Vec<String> {
     let target = target.trim_start_matches("./");
-    if target.ends_with(".md") {
+    if target.ends_with(".md") || target.ends_with(".mdx") {
         vec![target.to_string()]
     } else {
-        vec![format!("{target}.md"), target.to_string()]
+        vec![
+            format!("{target}.md"),
+            format!("{target}.mdx"),
+            target.to_string(),
+        ]
     }
+}
+
+fn strip_markdown_extension(path: &str) -> &str {
+    path.strip_suffix(".md")
+        .or_else(|| path.strip_suffix(".mdx"))
+        .unwrap_or(path)
 }
 
 fn relative_reference_path(target: &str, source_path: &str) -> Option<String> {
@@ -1366,7 +1583,9 @@ fn is_non_markdown_resource_target(target: &str) -> bool {
     Path::new(path)
         .extension()
         .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| !extension.eq_ignore_ascii_case("md"))
+        .is_some_and(|extension| {
+            !extension.eq_ignore_ascii_case("md") && !extension.eq_ignore_ascii_case("mdx")
+        })
 }
 
 fn workspace_relative_path(root: &Path, path: &Path) -> Option<String> {
@@ -1951,10 +2170,16 @@ mod tests {
         write_entry(
             &root,
             "notes/getting-started.zh-hans.md",
-            "---\nkind: note\nname: Getting Started ZH\ndescription: Variant summary\n---\n",
+            "---\nkind: note\nname: Getting Started ZH\ndescription: Variant summary\n---\n\n[[notes/target]]\n",
+        );
+        write_entry(
+            &root,
+            "notes/target.md",
+            "---\nkind: note\nname: Target\ndescription: \"\"\n---\n",
         );
 
-        let discovery = discover_workspace(&root).unwrap();
+        let workspace = load_workspace(&root).unwrap();
+        let (discovery, runtime) = discover_loaded_workspace_with_runtime(&workspace);
         let entry = discovery
             .index
             .entries
@@ -1972,6 +2197,12 @@ mod tests {
         assert_eq!(
             entry.variants[0].summary.as_deref(),
             Some("Variant summary")
+        );
+        let occurrences = runtime.references_by_target.get("notes/target.md").unwrap();
+        assert_eq!(occurrences.len(), 1);
+        assert_eq!(
+            occurrences[0].source_path,
+            "notes/getting-started.zh-hans.md"
         );
 
         fs::remove_dir_all(root).unwrap();

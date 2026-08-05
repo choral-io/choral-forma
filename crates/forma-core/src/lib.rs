@@ -1,5 +1,6 @@
 pub mod boundary;
 mod classification;
+mod completion;
 pub mod config;
 pub mod config_summary;
 pub mod diagnostics;
@@ -19,6 +20,7 @@ pub mod workspace_explain;
 
 pub use boundary::{PreparedWorkspaceFile, WorkspaceBoundary, WorkspaceBoundaryError};
 pub use classification::ManagedDocumentKind;
+pub use completion::{DocumentCompletion, DocumentCompletionCandidate, DocumentCompletionKind};
 pub use config::{
     ConfigError, ContentGroupDefinition, FormaWorkspace, SpaceDefinition, TaxonomyTermDefinition,
     WorkspaceConfig, load_workspace,
@@ -35,7 +37,8 @@ pub use docs::{
     DocsError, EmbeddedDoc, EmbeddedDocSummary, EmbeddedSkill, embedded_doc, embedded_docs,
 };
 pub use document::{
-    DocumentAnalysis, DocumentReference, DocumentReferenceSyntax, analyze_document_references,
+    DocumentAnalysis, DocumentDiagnostic, DocumentReference, DocumentReferenceSyntax,
+    ReferenceOccurrence, ReferenceOccurrenceResolution, analyze_document_references,
     project_inline_code_references, project_markdown_fenced_references,
 };
 pub use index::{

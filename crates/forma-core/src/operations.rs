@@ -10,18 +10,30 @@ use thiserror::Error;
 
 use crate::boundary::{WorkspaceBoundary, WorkspaceBoundaryError};
 use crate::classification::{ManagedDocumentKind, classify_managed_document};
+use crate::completion::{
+    CompletionContext, DocumentCompletion, DocumentCompletionCandidate, DocumentCompletionKind,
+    wikilink_completion_context,
+};
 use crate::config::{
     ConfigError, ConfigSourcePath, FormaWorkspace, SpaceDefinition, WorkspaceConfig,
     WorkspaceSettings, config_source_paths, load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSeverity, DiagnosticSummary, OperationStatus};
 use crate::docs::{DocsError, EmbeddedDoc, EmbeddedDocSummary, embedded_doc, embedded_docs};
-use crate::document::{DocumentAnalysis, DocumentReference, analyze_document_references};
+use crate::document::{
+    DocumentAnalysis, DocumentDiagnostic, DocumentReference, DocumentReferenceSyntax,
+    ReferenceOccurrence, ReferenceOccurrenceResolution, analyze_document_references,
+    analyze_document_references_from_document, frontmatter_reference_completion_context,
+};
 use crate::index::{
     Discovery, IndexEntry, IndexReference, ReferenceIntent, ReferenceSource,
-    config_error_diagnostic, discover_loaded_workspace, resolve_space_entry_path, title_for_entry,
+    config_error_diagnostic, discover_loaded_workspace, discover_loaded_workspace_with_runtime,
+    resolve_space_entry_path, title_for_entry,
 };
-use crate::markdown::{FormaMarkdownDocument, resolve_markdown_title, top_level_markdown_headings};
+use crate::markdown::{
+    FormaMarkdownDocument, MarkdownFragmentProjection, resolve_markdown_title,
+    top_level_markdown_headings,
+};
 use crate::model::ResolvedWorkspaceModel;
 use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
 use crate::render::{RenderedHeading, markdown_with_reference_fallbacks, render_all_headings};
@@ -670,12 +682,15 @@ pub struct WorkspaceSnapshot {
     configuration_paths: BTreeSet<String>,
     control_paths: BTreeSet<String>,
     view_paths: BTreeSet<String>,
+    references_by_target: BTreeMap<String, Vec<ReferenceOccurrence>>,
+    fragment_projections: BTreeMap<String, MarkdownFragmentProjection>,
 }
 
 #[derive(Debug, Clone)]
 struct OpenDocument {
     source: String,
     analysis: DocumentAnalysis,
+    fragments: MarkdownFragmentProjection,
 }
 
 #[derive(Debug, Clone)]
@@ -2054,7 +2069,7 @@ pub fn list_file_references(
 impl WorkspaceSnapshot {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, OperationError> {
         let workspace = load_workspace(root.as_ref())?;
-        let discovery = discover_loaded_workspace(&workspace);
+        let (discovery, runtime) = discover_loaded_workspace_with_runtime(&workspace);
         let scan_plan = workspace.model.scan_plan_arc();
         let configuration_paths = workspace
             .config_sources
@@ -2082,6 +2097,8 @@ impl WorkspaceSnapshot {
             configuration_paths,
             control_paths,
             view_paths,
+            references_by_target: runtime.references_by_target,
+            fragment_projections: runtime.fragment_projections,
         })
     }
 
@@ -2124,6 +2141,22 @@ impl WorkspaceSnapshot {
 
     pub fn analyze_document(&self, source_path: &str, source: &str) -> DocumentAnalysis {
         analyze_document_references(&self.workspace, source_path, source)
+    }
+
+    fn analyze_document_with_fragments(
+        &self,
+        source_path: &str,
+        source: &str,
+    ) -> (DocumentAnalysis, MarkdownFragmentProjection) {
+        let document = FormaMarkdownDocument::parse(source);
+        let fragments = MarkdownFragmentProjection::from_document(&document);
+        let analysis = analyze_document_references_from_document(
+            &self.workspace,
+            source_path,
+            source,
+            &document,
+        );
+        (analysis, fragments)
     }
 
     pub fn resolve_reference(
@@ -2203,7 +2236,10 @@ impl WorkspaceSession {
                 .document_kind(path)
                 .is_ok_and(ManagedDocumentKind::is_language_document);
             if managed && reanalyze_documents {
-                document.analysis = snapshot.analyze_document(path, &document.source);
+                let (analysis, fragments) =
+                    snapshot.analyze_document_with_fragments(path, &document.source);
+                document.analysis = analysis;
+                document.fragments = fragments;
                 self.document_analysis_count += 1;
             }
             managed
@@ -2224,13 +2260,16 @@ impl WorkspaceSession {
         {
             return Ok(document.analysis.clone());
         }
-        let analysis = self.snapshot.analyze_document(&source_path, &source);
+        let (analysis, fragments) = self
+            .snapshot
+            .analyze_document_with_fragments(&source_path, &source);
         self.document_analysis_count += 1;
         self.open_documents.insert(
             source_path,
             OpenDocument {
                 source,
                 analysis: analysis.clone(),
+                fragments,
             },
         );
         Ok(analysis)
@@ -2255,6 +2294,264 @@ impl WorkspaceSession {
                 }
             })?;
         Ok(self.snapshot.analyze_document(&source_path, &source))
+    }
+
+    pub fn document_diagnostics(
+        &self,
+        source_path: &str,
+    ) -> Result<Vec<DocumentDiagnostic>, OperationError> {
+        let source_path = normalize_entry_path(source_path)?;
+        let analysis = self.document_analysis(&source_path)?;
+        let mut diagnostics = analysis
+            .diagnostics
+            .iter()
+            .cloned()
+            .map(|diagnostic| DocumentDiagnostic {
+                diagnostic,
+                span: None,
+            })
+            .collect::<Vec<_>>();
+
+        for reference in analysis.references.iter().filter(|reference| {
+            matches!(
+                reference.syntax,
+                DocumentReferenceSyntax::Frontmatter
+                    | DocumentReferenceSyntax::Wikilink
+                    | DocumentReferenceSyntax::ObsidianEmbed
+            )
+        }) {
+            let result = self.resolve_document_reference(&source_path, reference)?;
+            if result.target.is_none()
+                && result.candidates.is_empty()
+                && self
+                    .resolve_managed_path_reference(&source_path, reference)?
+                    .is_some()
+            {
+                continue;
+            }
+            for diagnostic in result.diagnostics {
+                let span = if diagnostic.code == "reference.fragmentUnresolved" {
+                    reference
+                        .fragment_span
+                        .or(reference.target_span)
+                        .or(Some(reference.syntax_span))
+                } else {
+                    reference.target_span.or(Some(reference.syntax_span))
+                };
+                let item = DocumentDiagnostic { diagnostic, span };
+                if !diagnostics.contains(&item) {
+                    diagnostics.push(item);
+                }
+            }
+        }
+
+        diagnostics.sort_by(|left, right| {
+            (
+                left.span.map(|span| span.start_byte).unwrap_or(usize::MAX),
+                left.span.map(|span| span.end_byte).unwrap_or(usize::MAX),
+                left.diagnostic.code.as_str(),
+                left.diagnostic.message.as_str(),
+            )
+                .cmp(&(
+                    right.span.map(|span| span.start_byte).unwrap_or(usize::MAX),
+                    right.span.map(|span| span.end_byte).unwrap_or(usize::MAX),
+                    right.diagnostic.code.as_str(),
+                    right.diagnostic.message.as_str(),
+                ))
+        });
+        Ok(diagnostics)
+    }
+
+    pub fn complete_document(
+        &self,
+        source_path: &str,
+        cursor_byte: usize,
+    ) -> Result<Option<DocumentCompletion>, OperationError> {
+        let source_path = normalize_entry_path(source_path)?;
+        let source = if let Some(document) = self.open_documents.get(&source_path) {
+            document.source.clone()
+        } else {
+            fs::read_to_string(self.snapshot.root().join(&source_path)).map_err(|source| {
+                OperationError::Io {
+                    path: source_path.clone(),
+                    source,
+                }
+            })?
+        };
+        let context = wikilink_completion_context(&source, cursor_byte);
+        if context.is_none()
+            && let Some(context) = frontmatter_reference_completion_context(
+                &self.snapshot.workspace,
+                &source_path,
+                &source,
+                cursor_byte,
+            )
+        {
+            return Ok(Some(DocumentCompletion {
+                replace_span: context.replace_span,
+                candidates: entry_completion_candidates(
+                    &self.snapshot.discovery.index.entries,
+                    &context.query,
+                    context.target_space.as_deref(),
+                ),
+            }));
+        }
+        let Some(context) = context else {
+            return Ok(None);
+        };
+
+        let completion = match context {
+            CompletionContext::Target {
+                query,
+                intent: _,
+                replace_span,
+            } => DocumentCompletion {
+                replace_span,
+                candidates: entry_completion_candidates(
+                    &self.snapshot.discovery.index.entries,
+                    &query,
+                    None,
+                ),
+            },
+            CompletionContext::Fragment {
+                target,
+                query,
+                replace_span,
+            } => {
+                let target_path = if target.is_empty() {
+                    Some(source_path.clone())
+                } else {
+                    let resolved = resolve_reference_in_snapshot(
+                        &self.snapshot,
+                        &source_path,
+                        &target,
+                        ReferenceIntent::Link,
+                        None,
+                        None,
+                        false,
+                    )?
+                    .target
+                    .map(|target| target.path);
+                    if resolved.is_some() {
+                        resolved
+                    } else {
+                        let managed_reference = DocumentReference {
+                            source: ReferenceSource::Body,
+                            syntax: DocumentReferenceSyntax::Wikilink,
+                            intent: ReferenceIntent::Link,
+                            raw_target: target.clone(),
+                            target,
+                            label: None,
+                            fragment: None,
+                            fragment_kind: None,
+                            field: None,
+                            index: None,
+                            target_space: None,
+                            syntax_span: replace_span,
+                            target_span: None,
+                            label_span: None,
+                            fragment_span: None,
+                        };
+                        self.resolve_managed_path_reference(&source_path, &managed_reference)?
+                            .map(|target| target.path)
+                    }
+                };
+                let Some(target_path) = target_path else {
+                    return Ok(Some(DocumentCompletion {
+                        replace_span,
+                        candidates: Vec::new(),
+                    }));
+                };
+                let target_document = self
+                    .open_documents
+                    .get(&target_path)
+                    .map(|document| &document.fragments)
+                    .or_else(|| self.snapshot.fragment_projections.get(&target_path));
+                DocumentCompletion {
+                    replace_span,
+                    candidates: target_document.map_or_else(Vec::new, |document| {
+                        fragment_completion_candidates(&target_path, document, &query)
+                    }),
+                }
+            }
+        };
+        Ok(Some(completion))
+    }
+
+    pub fn references_for_document_position(
+        &self,
+        source_path: &str,
+        cursor_byte: usize,
+    ) -> Result<Vec<ReferenceOccurrence>, OperationError> {
+        let source_path = normalize_entry_path(source_path)?;
+        let analysis = self.document_analysis(&source_path)?;
+        let Some(reference) = analysis.references.iter().find(|reference| {
+            is_find_references_syntax(reference.syntax)
+                && reference.syntax_span.start_byte <= cursor_byte
+                && cursor_byte < reference.syntax_span.end_byte
+        }) else {
+            return Ok(Vec::new());
+        };
+        let resolution = self.resolve_document_reference(&source_path, reference)?;
+        let Some(target_path) = resolution.target.map(|target| target.path) else {
+            return Ok(Vec::new());
+        };
+
+        let open_paths = self.open_documents.keys().cloned().collect::<BTreeSet<_>>();
+        let mut occurrences = self
+            .snapshot
+            .references_by_target
+            .get(&target_path)
+            .into_iter()
+            .flatten()
+            .filter(|occurrence| !open_paths.contains(&occurrence.source_path))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        for (path, document) in &self.open_documents {
+            for reference in document
+                .analysis
+                .references
+                .iter()
+                .filter(|reference| is_find_references_syntax(reference.syntax))
+            {
+                let resolution = self.resolve_document_reference(path, reference)?;
+                if resolution
+                    .target
+                    .as_ref()
+                    .is_none_or(|target| target.path != target_path)
+                {
+                    continue;
+                }
+                occurrences.push(ReferenceOccurrence {
+                    source_path: path.clone(),
+                    target_path: target_path.clone(),
+                    fragment: reference.fragment.clone(),
+                    syntax: reference.syntax,
+                    intent: reference.intent,
+                    field: reference.field.clone(),
+                    span: reference.target_span.unwrap_or(reference.syntax_span),
+                    resolution: ReferenceOccurrenceResolution::Resolved,
+                });
+            }
+        }
+
+        occurrences.sort_by(|left, right| {
+            (
+                left.source_path.as_str(),
+                left.span.start_byte,
+                left.span.end_byte,
+                left.fragment.as_deref(),
+            )
+                .cmp(&(
+                    right.source_path.as_str(),
+                    right.span.start_byte,
+                    right.span.end_byte,
+                    right.fragment.as_deref(),
+                ))
+        });
+        occurrences.dedup();
+        Ok(occurrences)
     }
 
     pub fn resolve_document_reference(
@@ -2365,6 +2662,130 @@ impl WorkspaceSession {
             }));
         }
         Ok(None)
+    }
+}
+
+fn entry_completion_candidates(
+    entries: &[IndexEntry],
+    query: &str,
+    target_space: Option<&str>,
+) -> Vec<DocumentCompletionCandidate> {
+    let query = query.trim().to_lowercase();
+    let mut candidates = entries
+        .iter()
+        .filter(|entry| target_space.is_none_or(|space| entry.space == space))
+        .filter_map(|entry| {
+            let canonical = entry
+                .path
+                .strip_suffix(".md")
+                .or_else(|| entry.path.strip_suffix(".mdx"))
+                .unwrap_or(&entry.path);
+            let title = entry.title.as_deref().unwrap_or(canonical);
+            completion_match_rank(&query, canonical, Some(title)).map(|rank| {
+                (
+                    rank,
+                    title.to_lowercase(),
+                    canonical.to_lowercase(),
+                    DocumentCompletionCandidate {
+                        label: title.to_string(),
+                        insert_text: canonical.to_string(),
+                        detail: Some(match entry.kind.as_deref() {
+                            Some(kind) => format!("{} · {} · {kind}", entry.path, entry.space),
+                            None => format!("{} · {}", entry.path, entry.space),
+                        }),
+                        kind: DocumentCompletionKind::Entry,
+                    },
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    candidates
+        .sort_by(|left, right| (&left.0, &left.1, &left.2).cmp(&(&right.0, &right.1, &right.2)));
+    candidates
+        .into_iter()
+        .map(|(_, _, _, candidate)| candidate)
+        .collect()
+}
+
+fn is_find_references_syntax(syntax: DocumentReferenceSyntax) -> bool {
+    matches!(
+        syntax,
+        DocumentReferenceSyntax::Frontmatter
+            | DocumentReferenceSyntax::Wikilink
+            | DocumentReferenceSyntax::ObsidianEmbed
+    )
+}
+
+fn fragment_completion_candidates(
+    target_path: &str,
+    document: &MarkdownFragmentProjection,
+    query: &str,
+) -> Vec<DocumentCompletionCandidate> {
+    let query = query.trim().to_lowercase();
+    let query_without_caret = query.strip_prefix('^').unwrap_or(&query);
+    let mut ranked = document
+        .headings
+        .iter()
+        .filter_map(|heading| {
+            completion_match_rank(&query, &heading.text, None).map(|rank| {
+                (
+                    rank,
+                    heading.text.to_lowercase(),
+                    DocumentCompletionCandidate {
+                        label: heading.text.clone(),
+                        insert_text: heading.text.clone(),
+                        detail: Some(format!("Heading · {target_path}")),
+                        kind: DocumentCompletionKind::Heading,
+                    },
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    for block_id in &document.block_ids {
+        let Some(rank) = completion_match_rank(query_without_caret, block_id, None) else {
+            continue;
+        };
+        ranked.push((
+            rank,
+            format!("^{block_id}").to_lowercase(),
+            DocumentCompletionCandidate {
+                label: format!("^{block_id}"),
+                insert_text: format!("^{block_id}"),
+                detail: Some(format!("Block · {target_path}")),
+                kind: DocumentCompletionKind::Block,
+            },
+        ));
+    }
+    ranked.sort_by(|left, right| (&left.0, &left.1).cmp(&(&right.0, &right.1)));
+    ranked.dedup_by(|left, right| left.2.insert_text == right.2.insert_text);
+    ranked
+        .into_iter()
+        .map(|(_, _, candidate)| candidate)
+        .collect()
+}
+
+fn completion_match_rank(query: &str, value: &str, alternate: Option<&str>) -> Option<u8> {
+    if query.is_empty() {
+        return Some(0);
+    }
+    let value = value.to_lowercase();
+    let alternate = alternate.map(str::to_lowercase);
+    if value.starts_with(query) {
+        Some(0)
+    } else if alternate
+        .as_deref()
+        .is_some_and(|alternate| alternate.starts_with(query))
+    {
+        Some(1)
+    } else if value.contains(query) {
+        Some(2)
+    } else if alternate
+        .as_deref()
+        .is_some_and(|alternate| alternate.contains(query))
+    {
+        Some(3)
+    } else {
+        None
     }
 }
 
@@ -2567,11 +2988,11 @@ fn resolve_reference_candidates(
         }
     }
 
-    let normalized = raw_target.trim_start_matches("./").trim_end_matches(".md");
+    let normalized = strip_markdown_extension(raw_target.trim_start_matches("./"));
     let mut matches = candidate_entries
         .into_iter()
         .filter(|entry| {
-            let without_extension = entry.path.strip_suffix(".md").unwrap_or(&entry.path);
+            let without_extension = strip_markdown_extension(&entry.path);
             if normalized.contains('/') {
                 without_extension == normalized
                     || without_extension.ends_with(&format!("/{normalized}"))
@@ -2590,7 +3011,7 @@ fn resolve_reference_candidates(
 }
 
 fn semantic_reference_candidates(source: &IndexEntry, raw_target: &str) -> Vec<String> {
-    let normalized = raw_target.trim_start_matches("./").trim_end_matches(".md");
+    let normalized = strip_markdown_extension(raw_target.trim_start_matches("./"));
     let mut matches = source
         .refs
         .iter()
@@ -2599,10 +3020,7 @@ fn semantic_reference_candidates(source: &IndexEntry, raw_target: &str) -> Vec<S
                 && reference.intent == ReferenceIntent::Reference
         })
         .filter(|reference| {
-            let without_extension = reference
-                .target_path
-                .strip_suffix(".md")
-                .unwrap_or(&reference.target_path);
+            let without_extension = strip_markdown_extension(&reference.target_path);
             without_extension == normalized
                 || without_extension.ends_with(&format!("/{normalized}"))
         })
@@ -2635,8 +3053,18 @@ fn reference_path_variants(target: &str) -> Vec<String> {
     if target.ends_with(".md") || target.ends_with(".mdx") {
         vec![target.to_string()]
     } else {
-        vec![format!("{target}.md"), target.to_string()]
+        vec![
+            format!("{target}.md"),
+            format!("{target}.mdx"),
+            target.to_string(),
+        ]
     }
+}
+
+fn strip_markdown_extension(path: &str) -> &str {
+    path.strip_suffix(".md")
+        .or_else(|| path.strip_suffix(".mdx"))
+        .unwrap_or(path)
 }
 
 fn reference_candidate(entry: &IndexEntry) -> ReferenceResolveCandidate {
@@ -3977,7 +4405,7 @@ fn parent_from_workspace_path(path: &str) -> String {
 fn normalize_entry_path(path: &str) -> Result<String, OperationError> {
     let normalized = WorkspacePath::parse_cli(path)?;
     let value = normalized.as_str();
-    if value.ends_with(".md") {
+    if value.ends_with(".md") || value.ends_with(".mdx") {
         Ok(value.to_string())
     } else {
         Ok(format!("{value}.md"))
@@ -6510,6 +6938,396 @@ conventions:
                 .len(),
             1
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_session_aggregates_editor_diagnostics_with_reference_spans() {
+        let root = fixture_root("workspace-session-document-diagnostics");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("members/sam-rivera.md"),
+            "---\nname: Sam Rivera\ndescription: \"\"\n---\n\n# Sam Rivera\n",
+        )
+        .unwrap();
+        for directory in ["notes/a", "notes/b"] {
+            fs::create_dir_all(root.join(directory)).unwrap();
+            fs::write(
+                root.join(directory).join("same.md"),
+                format!("---\ntitle: {directory}\nsummary: \"\"\n---\n\n# Same\n"),
+            )
+            .unwrap();
+        }
+
+        let source = "---\ntitle: Unsaved\nsummary: \"\"\n---\n\n[[missing]]\n[[same]]\n[[members/sam-rivera#Missing heading]]\n[Native missing](missing.md)\n";
+        let mut session = WorkspaceSession::load(&root).unwrap();
+        session
+            .set_document("tasks/unsaved.md", source.to_string())
+            .unwrap();
+        let analyses = session.document_analysis_count();
+        let diagnostics = session.document_diagnostics("tasks/unsaved.md").unwrap();
+        let reference_diagnostics = diagnostics
+            .iter()
+            .filter(|item| item.diagnostic.code.starts_with("reference."))
+            .collect::<Vec<_>>();
+
+        assert_eq!(reference_diagnostics.len(), 3);
+        assert_eq!(
+            reference_diagnostics
+                .iter()
+                .map(|item| item.diagnostic.code.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "reference.unresolved",
+                "reference.ambiguous",
+                "reference.fragmentUnresolved",
+            ]
+        );
+        assert_eq!(
+            reference_diagnostics
+                .iter()
+                .map(|item| {
+                    let span = item.span.unwrap();
+                    &source[span.start_byte..span.end_byte]
+                })
+                .collect::<Vec<_>>(),
+            vec!["missing", "same", "#Missing heading"]
+        );
+        assert_eq!(session.document_analysis_count(), analyses);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_session_completes_wikilink_targets_and_overlay_fragments() {
+        let root = fixture_root("workspace-session-document-completion");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("members/sam-rivera.md"),
+            "---\nname: Sam Rivera\ndescription: \"\"\n---\n\n# Sam Rivera\n\n## Saved Heading\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/completion-view.md"),
+            "---\nschemaVersion: 1\nkind: view\nmode: list\ntitle: Completion View\nsource:\n  type: pages\n---\n\n## View Heading\n",
+        )
+        .unwrap();
+
+        let mut session = WorkspaceSession::load(&root).unwrap();
+        let source = "---\ntitle: Unsaved\nsummary: \"\"\n---\n\n😀 [[Sam";
+        session
+            .set_document("tasks/unsaved.md", source.to_string())
+            .unwrap();
+        let builds = session.snapshot_build_count();
+        let analyses = session.document_analysis_count();
+        let completion = session
+            .complete_document("tasks/unsaved.md", source.len())
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            &source[completion.replace_span.start_byte..completion.replace_span.end_byte],
+            "Sam"
+        );
+        assert!(completion.candidates.iter().any(|candidate| {
+            candidate.label == "Sam Rivera" && candidate.insert_text == "members/sam-rivera"
+        }));
+
+        session
+            .set_document(
+                "members/sam-rivera.md",
+                "---\nname: Sam Rivera\ndescription: \"\"\n---\n\n# Sam Rivera\n\n## 未保存目标 😀\n\nBlock. ^risk-id\n"
+                    .to_string(),
+            )
+            .unwrap();
+        let fragment_source =
+            "---\ntitle: Unsaved\nsummary: \"\"\n---\n\n[[members/sam-rivera#未保存";
+        session
+            .set_document("tasks/unsaved.md", fragment_source.to_string())
+            .unwrap();
+        let heading = session
+            .complete_document("tasks/unsaved.md", fragment_source.len())
+            .unwrap()
+            .unwrap();
+        assert!(heading.candidates.iter().any(|candidate| {
+            candidate.insert_text == "未保存目标 😀"
+                && candidate.kind == crate::DocumentCompletionKind::Heading
+        }));
+
+        let block_source = "---\ntitle: Unsaved\nsummary: \"\"\n---\n\n[[members/sam-rivera#^ri";
+        session
+            .set_document("tasks/unsaved.md", block_source.to_string())
+            .unwrap();
+        let block = session
+            .complete_document("tasks/unsaved.md", block_source.len())
+            .unwrap()
+            .unwrap();
+        assert!(block.candidates.iter().any(|candidate| {
+            candidate.insert_text == "^risk-id"
+                && candidate.kind == crate::DocumentCompletionKind::Block
+        }));
+        let view_fragment_source =
+            "---\ntitle: Unsaved\nsummary: \"\"\n---\n\n[[.forma/views/completion-view#View";
+        session
+            .set_document("tasks/unsaved.md", view_fragment_source.to_string())
+            .unwrap();
+        let view_fragment = session
+            .complete_document("tasks/unsaved.md", view_fragment_source.len())
+            .unwrap()
+            .unwrap();
+        assert!(
+            view_fragment
+                .candidates
+                .iter()
+                .any(|candidate| candidate.insert_text == "View Heading")
+        );
+        assert_eq!(session.snapshot_build_count(), builds);
+        assert_eq!(session.document_analysis_count(), analyses + 4);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_session_completes_schema_declared_entry_ref_yaml_shapes() {
+        let root = fixture_root("workspace-session-entry-ref-completion");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        let task_space_path = root.join(".forma/spaces/tasks.md");
+        let task_space = fs::read_to_string(&task_space_path).unwrap();
+        fs::write(
+            &task_space_path,
+            task_space.replacen(
+                "    owners:\n",
+                "    owner:\n      type: member\n    owners:\n",
+                1,
+            ),
+        )
+        .unwrap();
+        for (name, slug) in [("Sam Rivera", "sam-rivera"), ("Mira Chen", "mira-chen")] {
+            fs::write(
+                root.join(format!("members/{slug}.md")),
+                format!("---\nname: {name}\ndescription: \"\"\n---\n\n# {name}\n"),
+            )
+            .unwrap();
+        }
+        fs::write(
+            root.join("tasks/other-task.md"),
+            "---\ntitle: Other Task\nsummary: \"\"\n---\n\n# Other Task\n",
+        )
+        .unwrap();
+
+        let mut session = WorkspaceSession::load(&root).unwrap();
+        for (source, expected_query, expected_target) in [
+            (
+                "---\ntitle: Test\nsummary: \"\"\nowner: \"Sam\n---\n",
+                "Sam",
+                "members/sam-rivera",
+            ),
+            (
+                "---\ntitle: Test\nsummary: \"\"\nowners:\n  - Mir\n---\n",
+                "Mir",
+                "members/mira-chen",
+            ),
+            (
+                "---\ntitle: Test\nsummary: \"\"\nowners: [Sam, Mir\n---\n",
+                "Mir",
+                "members/mira-chen",
+            ),
+        ] {
+            let cursor = source.find("\n---\n").unwrap();
+            session
+                .set_document("tasks/completion.md", source.to_string())
+                .unwrap();
+            let completion = session
+                .complete_document("tasks/completion.md", cursor)
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                &source[completion.replace_span.start_byte..completion.replace_span.end_byte],
+                expected_query
+            );
+            assert!(
+                completion
+                    .candidates
+                    .iter()
+                    .any(|candidate| candidate.insert_text == expected_target)
+            );
+            assert!(
+                completion
+                    .candidates
+                    .iter()
+                    .all(|candidate| candidate.insert_text.starts_with("members/"))
+            );
+        }
+
+        let ordinary = "---\ntitle: Test\nsummary: Sam\n---\n";
+        session
+            .set_document("tasks/completion.md", ordinary.to_string())
+            .unwrap();
+        assert!(
+            session
+                .complete_document("tasks/completion.md", ordinary.find("\n---\n").unwrap())
+                .unwrap()
+                .is_none()
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_session_finds_exact_reference_occurrences_with_open_document_overlays() {
+        let root = fixture_root("workspace-session-reference-occurrences");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("members/sam-rivera.md"),
+            "---\nname: Sam Rivera\ndescription: \"\"\n---\n\n# Sam Rivera\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("tasks/source-a.md"),
+            "---\ntitle: Source A\nsummary: \"\"\nowners:\n  - members/sam-rivera\n---\n\n[[members/sam-rivera]]\n[Native](../members/sam-rivera.md)\n",
+        )
+        .unwrap();
+        let source_b = "---\ntitle: Source B\nsummary: \"\"\nowners:\n  - members/sam-rivera\n---\n\n![[members/sam-rivera#Sam Rivera]]\n";
+        fs::write(root.join("tasks/source-b.md"), source_b).unwrap();
+        let view_source = "---\nschemaVersion: 1\nkind: view\nmode: list\ntitle: Reference View\nsource:\n  type: pages\n---\n\n[[members/sam-rivera]]\n";
+        fs::write(root.join(".forma/views/reference-view.md"), view_source).unwrap();
+
+        let mut session = WorkspaceSession::load(&root).unwrap();
+        let overlay = "---\ntitle: Source A\nsummary: \"\"\nowners: []\n---\n\n[[members/sam-rivera]] and [[members/sam-rivera#Sam Rivera]].\n[Native](../members/sam-rivera.md)\n";
+        session
+            .set_document("tasks/source-a.md", overlay.to_string())
+            .unwrap();
+        let builds = session.snapshot_build_count();
+        let cursor = overlay.find("members/sam-rivera").unwrap() + 3;
+        let occurrences = session
+            .references_for_document_position("tasks/source-a.md", cursor)
+            .unwrap();
+
+        assert_eq!(occurrences.len(), 5);
+        assert_eq!(
+            occurrences
+                .iter()
+                .filter(|occurrence| occurrence.source_path == "tasks/source-a.md")
+                .count(),
+            2
+        );
+        assert_eq!(
+            occurrences
+                .iter()
+                .filter(|occurrence| occurrence.source_path == "tasks/source-b.md")
+                .count(),
+            2
+        );
+        assert_eq!(
+            occurrences
+                .iter()
+                .filter(|occurrence| occurrence.source_path == ".forma/views/reference-view.md")
+                .count(),
+            1
+        );
+        for occurrence in &occurrences {
+            let source = if occurrence.source_path == "tasks/source-a.md" {
+                overlay
+            } else if occurrence.source_path == ".forma/views/reference-view.md" {
+                view_source
+            } else {
+                source_b
+            };
+            assert!(
+                source[occurrence.span.start_byte..occurrence.span.end_byte]
+                    .contains("members/sam-rivera")
+            );
+            assert_eq!(occurrence.target_path, "members/sam-rivera.md");
+            assert_eq!(
+                occurrence.resolution,
+                crate::ReferenceOccurrenceResolution::Resolved
+            );
+        }
+        assert_eq!(session.snapshot_build_count(), builds);
+
+        let adjacent = "---\ntitle: Source A\nsummary: \"\"\nowners: []\n---\n\n[[members/sam-rivera]][[tasks/source-b]]\n";
+        session
+            .set_document("tasks/source-a.md", adjacent.to_string())
+            .unwrap();
+        let boundary_cursor = adjacent.find("[[tasks/source-b]]").unwrap();
+        let adjacent_occurrences = session
+            .references_for_document_position("tasks/source-a.md", boundary_cursor)
+            .unwrap();
+        assert_eq!(adjacent_occurrences.len(), 1);
+        assert_eq!(adjacent_occurrences[0].target_path, "tasks/source-b.md");
+
+        let native_cursor = overlay.find("../members/sam-rivera.md").unwrap() + 5;
+        session
+            .set_document("tasks/source-a.md", overlay.to_string())
+            .unwrap();
+        assert!(
+            session
+                .references_for_document_position("tasks/source-a.md", native_cursor)
+                .unwrap()
+                .is_empty()
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_session_supports_mdx_completion_and_reference_occurrences() {
+        let root = fixture_root("workspace-session-mdx-navigation");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        for relative in [".forma/spaces/tasks.md", ".forma/spaces/members.md"] {
+            let path = root.join(relative);
+            let source = fs::read_to_string(&path).unwrap();
+            fs::write(&path, source.replace("/**/*.md\"", "/**/*\"")).unwrap();
+        }
+        fs::write(
+            root.join("members/sam-rivera.mdx"),
+            "---\nname: Sam Rivera\ndescription: \"\"\n---\n\n# Sam Rivera\n",
+        )
+        .unwrap();
+        let saved = "---\ntitle: MDX Source\nsummary: \"\"\nowners:\n  - members/sam-rivera.mdx\n---\n\n[[members/sam-rivera]]\n";
+        fs::write(root.join("tasks/source.mdx"), saved).unwrap();
+
+        let mut session = WorkspaceSession::load(&root).unwrap();
+        let cursor = saved.rfind("members/sam-rivera").unwrap() + 4;
+        let saved_occurrences = session
+            .references_for_document_position("tasks/source.mdx", cursor)
+            .unwrap();
+        assert_eq!(saved_occurrences.len(), 2);
+        assert!(saved_occurrences.iter().all(|occurrence| {
+            occurrence.source_path == "tasks/source.mdx"
+                && occurrence.target_path == "members/sam-rivera.mdx"
+        }));
+
+        let completion_source =
+            "---\ntitle: MDX Completion\nsummary: \"\"\nowners:\n  - Sam\n---\n";
+        session
+            .set_document("tasks/completion.mdx", completion_source.to_string())
+            .unwrap();
+        let completion = session
+            .complete_document(
+                "tasks/completion.mdx",
+                completion_source.find("\n---\n").unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert!(
+            completion
+                .candidates
+                .iter()
+                .any(|candidate| candidate.insert_text == "members/sam-rivera")
+        );
+
+        let overlay =
+            "---\ntitle: MDX Source\nsummary: \"\"\nowners: []\n---\n\n[[members/sam-rivera]]\n";
+        session
+            .set_document("tasks/source.mdx", overlay.to_string())
+            .unwrap();
+        let overlay_cursor = overlay.find("members/sam-rivera").unwrap() + 4;
+        let overlay_occurrences = session
+            .references_for_document_position("tasks/source.mdx", overlay_cursor)
+            .unwrap();
+        assert_eq!(overlay_occurrences.len(), 1);
+        assert_eq!(overlay_occurrences[0].source_path, "tasks/source.mdx");
         fs::remove_dir_all(root).unwrap();
     }
 
