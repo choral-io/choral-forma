@@ -6,7 +6,12 @@ import { fileURLToPath } from "node:url";
 
 import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } from "@vscode/test-electron";
 
-import { createFormaTestEnvironment, resolveFormaTestBin, shouldUseShellForCommand } from "./test-environment.mjs";
+import {
+    createFormaTestEnvironment,
+    resolveFormaTestBin,
+    shouldUseShellForCommand,
+    writeFormaTestSettings,
+} from "./test-environment.mjs";
 
 const vsix = process.env.VSIX_PATH;
 if (!vsix) throw new Error("VSIX_PATH must point to the disposable VSIX to validate.");
@@ -60,6 +65,7 @@ try {
     if (!listed.stdout.split(/\r?\n/u).includes(expectedIdentity)) {
         throw new Error(`Installed extension identity was not found. Output: ${listed.stdout.trim()}`);
     }
+    await writeFormaTestSettings(userData, formaTestBin);
     const validation = await run(vscodeExecutablePath, [
         ...(process.platform === "linux" ? ["--no-sandbox", "--disable-gpu-sandbox"] : []),
         "--disable-updates",
