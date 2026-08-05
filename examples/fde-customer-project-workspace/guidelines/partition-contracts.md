@@ -20,9 +20,9 @@ relatedTo:
     - overview/engagement-map
 ---
 
-# Customer Workspace Partition Contracts
+## Agent Skill
 
-The directory names below are team conventions backed by separate Forma content groups. The content group, not the directory name alone, supplies the schema, create template, and local guideline visible to an Agent.
+Read this contract before routing a new record. The directory names are team conventions; the configured Forma content group supplies the schema, create template, and local guideline visible to an Agent.
 
 | Partition | Use for | Required contract | Do not use for |
 | --- | --- | --- | --- |
@@ -38,8 +38,6 @@ The directory names below are team conventions backed by separate Forma content 
 | `guidelines/` | Agent instructions and boundaries | Guideline metadata and related context | Customer facts or delivery evidence |
 | `engineering/` | Markdown context cards for code/config/tests | Engineering metadata and fixture references when applicable | The actual `.mjs`/`.json` fixture assets |
 | `verifications/` | Reproducible command evidence | Result, exit status, expected output, and failure conditions | Production publication claims |
-
-## Agent Skill
 
 Route a new record through the partition table, preserve workspace-local evidence, and stop for human approval before external or production action.
 

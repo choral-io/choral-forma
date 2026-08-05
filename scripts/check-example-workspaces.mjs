@@ -717,6 +717,8 @@ function checkPartitionContracts(formaBin, workspacePath, label, errors) {
         workspacePath === customerWorkspace
             ? "guidelines/partition-contracts.md"
             : "guidelines/practice-partition-contracts.md";
+    const skillId =
+        workspacePath === customerWorkspace ? "customer-partition-contracts" : "practice-partition-contracts";
 
     const summaryResult = run(
         formaBin,
@@ -725,6 +727,24 @@ function checkPartitionContracts(formaBin, workspacePath, label, errors) {
     );
     const summary = parseJsonResult(summaryResult, `${label} partition summary`, errors);
     if (!summary) return;
+
+    const skillResult = run(formaBin, ["--workspace", workspacePath, "skills", "get", skillId, "--json"], repoRoot);
+    const skill = parseJsonResult(skillResult, `${label} partition skill`, errors);
+    if (skill) {
+        const content = skill.skill?.content ?? "";
+        if (skill.status !== "passed" || skill.skill?.sourcePath !== partitionGuideline) {
+            errors.push(`${label} partition skill did not resolve ${partitionGuideline}`);
+        }
+        if (!content.includes("## Agent Skill")) {
+            errors.push(`${label} partition skill is missing the projected Agent Skill section`);
+        }
+        for (const contract of contracts) {
+            if (!content.includes(`\`${contract.group}/\``)) {
+                errors.push(`${label} partition skill is missing the ${contract.group}/ routing entry`);
+            }
+        }
+    }
+    console.log(`${label}-partition-skill=status:${errors.length === 0 ? "passed" : "failed"}`);
 
     const groups = new Map((summary.contentGroups ?? []).map((group) => [group.id, group]));
     const expectedGroups = new Set(contracts.map(({ group }) => group));

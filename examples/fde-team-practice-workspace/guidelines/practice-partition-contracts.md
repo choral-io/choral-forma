@@ -22,9 +22,9 @@ relatedTo:
     - overview/practice-map
 ---
 
-# Practice Workspace Partition Contracts
+## Agent Skill
 
-The directory names below are team conventions backed by separate Forma content groups. A source observation, evidence card, review, pattern, guideline, and revalidation are different record types and must not be collapsed into one generic content group.
+Read this contract before routing a new record. The directory names are team conventions; each configured Forma content group supplies the schema, create template, and local guideline visible to an Agent. A source observation, evidence card, review, pattern, guideline, and revalidation are different record types and must not be collapsed into one generic content group.
 
 | Partition | Use for | Required contract | Human or boundary rule |
 | --- | --- | --- | --- |
@@ -42,8 +42,6 @@ The directory names below are team conventions backed by separate Forma content 
 | `revalidations/` | Current-project reuse decisions | Environment, result, reason, adjustment | Required before reusing a pattern |
 | `roles/` | Responsibility metadata | Owner role and local context | Not RBAC or an authorization grant |
 | `portfolio-observation/` | Minimal attention metadata | Stage, blocker, health, owner, project references | Not a built-in portfolio or customer truth |
-
-## Agent Skill
 
 Route a new record through the partition table, preserve de-identification and local references, and stop for human review before accepting or reusing a practice.
 
