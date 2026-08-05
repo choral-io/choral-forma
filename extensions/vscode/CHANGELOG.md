@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.30
+
+- Add Core-owned completion, hover, diagnostics, and references for Forma workspace links, with matching VS Code and Zed initialization contracts.
+- Report coordinated CLI and editor-extension version mismatches through LSP diagnostics, including VS Code recovery actions and installation guidance, without a separate `forma --version` probe.
+- Replace persistent self-update receipts with transient recovery transactions while preserving legacy receipts as inert files, and add validated FDE customer-project and team-practice workspace examples.
+
 ## 0.1.29
 
 - Add the coordinated Forma CLI self-update release with checksum-verified exact-version selection, install-script ownership receipts, recoverable cross-platform executable replacement, and explicit package-manager boundaries.

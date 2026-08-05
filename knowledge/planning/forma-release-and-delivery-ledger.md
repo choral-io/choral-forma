@@ -30,6 +30,7 @@ sources:
     - "releases/forma-v0.1.27"
     - "releases/forma-v0.1.28"
     - "releases/forma-v0.1.29"
+    - "releases/forma-v0.1.30"
     - "planning/release-artifact-promotion-pipeline-redesign"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
@@ -68,10 +69,12 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.27         | [[releases/forma-v0.1.27]]         | Failed before publication in later release gates.   |
 | v0.1.28         | [[releases/forma-v0.1.28]]         | Released corrective Public Preview milestone.       |
 | v0.1.29         | [[releases/forma-v0.1.29]]         | Released managed CLI self-update milestone.         |
+| v0.1.30         | [[releases/forma-v0.1.30]]         | Planned receipt-free update and editor milestone.   |
 
 ## Current Delivery Cutline
 
 - **Current released baseline:** [[releases/forma-v0.1.29]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset, managed self-update, recovery, and known-boundary evidence.
+- **Active release candidate:** [[releases/forma-v0.1.30]] coordinates receipt-free self-update transactions, Core-owned editor navigation intelligence, and executable FDE workspace examples. It remains planned until exact-source local and main gates pass and publication is separately approved.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.
 - **Active validation:** [[tasks/validate-shared-graph-view-cross-host-parity]] remains the active cross-Host Graph evidence boundary.
