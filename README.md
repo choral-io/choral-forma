@@ -100,6 +100,8 @@ Example workspaces are separate from this repository's `knowledge/` project work
 - `examples/minimal-workspace/` is the smallest committed workspace shape.
 - `examples/getting-started-workspace/` is the guided product demo and reader/view fixture.
 - `examples/software-product-rd-workspace/` is a copyable software product R&D team template.
+- `examples/fde-customer-project-workspace/` is a runnable synthetic single-customer FDE project with an ordinary engineering fixture.
+- `examples/fde-team-practice-workspace/` is a runnable synthetic practice workspace with two de-identified project sources, a counterexample, and revalidation.
 
 Check the example workspace:
 
@@ -108,6 +110,15 @@ forma --workspace examples/minimal-workspace check --json
 forma --workspace examples/getting-started-workspace check --json
 forma --workspace examples/software-product-rd-workspace check --json
 ```
+
+The FDE examples have an independent gate so their required evidence is not mixed with existing legacy example diagnostics:
+
+```sh
+cargo build --locked --bin forma
+pnpm check:examples -- --forma-bin target/debug/forma
+```
+
+The FDE gate runs each workspace's `config summary --sources`, `check`, and `workspace health`, the positive/negative/adjusted engineering fixture paths, the Node regression tests, and the static cross-workspace/sensitive-data boundary checks.
 
 Serve the read-only WebApp and RPC backend from an example workspace:
 
