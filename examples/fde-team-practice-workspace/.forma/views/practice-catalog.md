@@ -10,7 +10,11 @@ source:
     type: pages
     taxonomy:
         spaces:
-            - practice-content
+            - proposals
+            - patterns
+            - guidelines
+            - reusable-templates
+            - roles
 sort:
     - field: fields.type
       direction: asc
@@ -20,6 +24,6 @@ sort:
 
 # Practice Catalog
 
-The catalog is a team-defined projection; it is not automatic cross-workspace promotion.
+The catalog is a team-defined projection; it is not automatic cross-workspace promotion or a built-in registry.
 
 <!-- forma:content -->

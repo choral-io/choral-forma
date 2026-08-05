@@ -10,7 +10,10 @@ source:
     type: pages
     taxonomy:
         spaces:
-            - practice-content
+            - customers
+            - projects
+            - communications
+            - portfolio-observation
 sort:
     - field: fields.lastHealthStatus
       direction: asc
@@ -20,6 +23,6 @@ sort:
 
 # Project Observation
 
-Only stage, owner role, blocker class, health status, and practice signal belong in this team-defined observation layer.
+Only de-identified source metadata, stage, owner role, blocker class, health status, and practice signal belong in this team-defined observation layer.
 
 <!-- forma:content -->

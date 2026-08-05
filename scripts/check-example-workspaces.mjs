@@ -21,6 +21,400 @@ const sensitiveField = /(password|secret|api[-_]?key|access[-_]?token|bearer|cre
 const positiveAutomationClaim =
     /\b(?:automatic(?:ally)?\s+(?:import|sync(?:hronize)?|promot(?:e|ion)|share)|(?:import|sync(?:hronize)?|promot(?:e|ion)|share)\s+automatic(?:ally)?)\b/i;
 
+const partitionContracts = new Map([
+    [
+        customerWorkspace,
+        [
+            {
+                group: "overview",
+                path: "overview/engagement-map.md",
+                include: "overview/**/*.md",
+                template: ".forma/spaces/templates/overview.md",
+                required: ["title", "summary", "type", "status", "synthetic", "engagementKey", "relatedTo"],
+            },
+            {
+                group: "customers",
+                path: "customers/c-017.md",
+                include: "customers/**/*.md",
+                template: ".forma/spaces/templates/customer-fact.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "customerKey",
+                    "environment",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "communications",
+                path: "communications/discovery-call.md",
+                include: "communications/**/*.md",
+                template: ".forma/spaces/templates/communication-index.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "sourceId",
+                    "sourceKind",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "asks",
+                path: "asks/acknowledgement-window.md",
+                include: "asks/**/*.md",
+                template: ".forma/spaces/templates/ask.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "customerKey",
+                    "sources",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "issues",
+                path: "issues/delayed-acknowledgement.md",
+                include: "issues/**/*.md",
+                template: ".forma/spaces/templates/issue.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "customerKey",
+                    "environment",
+                    "sources",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "proposals",
+                path: "proposals/environment-aware-ack-window.md",
+                include: "proposals/**/*.md",
+                template: ".forma/spaces/templates/proposal.md",
+                required: ["title", "summary", "type", "status", "synthetic", "engagementKey", "sources", "relatedTo"],
+            },
+            {
+                group: "decisions",
+                path: "decisions/use-replay-guard-and-profile-specific-window.md",
+                include: "decisions/**/*.md",
+                template: ".forma/spaces/templates/decision.md",
+                required: ["title", "summary", "type", "status", "synthetic", "engagementKey", "sources", "relatedTo"],
+            },
+            {
+                group: "tasks",
+                path: "tasks/inspect-environment.md",
+                include: "tasks/**/*.md",
+                template: ".forma/spaces/templates/task.md",
+                required: ["title", "summary", "type", "status", "synthetic", "engagementKey", "relatedTo"],
+            },
+            {
+                group: "runbooks",
+                path: "runbooks/investigate-delayed-acknowledgement.md",
+                include: "runbooks/**/*.md",
+                template: ".forma/spaces/templates/runbook.md",
+                required: ["title", "summary", "type", "status", "synthetic", "engagementKey", "sources", "relatedTo"],
+            },
+            {
+                group: "guidelines",
+                path: "guidelines/customer-project-operations.md",
+                include: "guidelines/**/*.md",
+                template: ".forma/spaces/templates/guideline.md",
+                required: ["title", "summary", "type", "status", "synthetic", "engagementKey", "relatedTo"],
+            },
+            {
+                group: "engineering",
+                path: "engineering/collector.md",
+                include: "engineering/**/*.md",
+                template: ".forma/spaces/templates/engineering.md",
+                required: ["title", "summary", "type", "status", "synthetic", "engagementKey", "relatedTo"],
+            },
+            {
+                group: "verifications",
+                path: "verifications/acknowledgement-window-validation.md",
+                include: "verifications/**/*.md",
+                template: ".forma/spaces/templates/verification.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "result",
+                    "exitStatus",
+                    "commands",
+                    "expected",
+                    "failureConditions",
+                    "relatedTo",
+                    "sources",
+                ],
+            },
+        ],
+    ],
+    [
+        practiceWorkspace,
+        [
+            {
+                group: "overview",
+                path: "overview/practice-map.md",
+                include: "overview/**/*.md",
+                template: ".forma/spaces/templates/overview.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "sourceProjects",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "customers",
+                path: "customers/c-017.md",
+                include: "customers/**/*.md",
+                template: ".forma/spaces/templates/customer-index.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "customerKey",
+                    "environment",
+                    "allowedShare",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "projects",
+                path: "projects/p-042.md",
+                include: "projects/**/*.md",
+                template: ".forma/spaces/templates/project-observation.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "sourceEngagementKey",
+                    "customerKey",
+                    "projectKey",
+                    "environment",
+                    "customerRef",
+                    "sources",
+                    "allowedShare",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "communications",
+                path: "communications/p-042-source-index.md",
+                include: "communications/**/*.md",
+                template: ".forma/spaces/templates/source-index.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "sourceId",
+                    "sourceKind",
+                    "projectRef",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "evidence-cards",
+                path: "evidence-cards/acknowledgement-window-comparison.md",
+                include: "evidence-cards/**/*.md",
+                template: ".forma/spaces/templates/evidence-card.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "sourceProjects",
+                    "results",
+                    "environmentDifference",
+                    "counterexample",
+                    "revalidationReason",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "verification",
+                path: "verification/p-042-staging-result.md",
+                include: "verification/**/*.md",
+                template: ".forma/spaces/templates/verification-result.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "projectKey",
+                    "environment",
+                    "result",
+                    "exitStatus",
+                    "actual",
+                    "projectRef",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "proposals",
+                path: "proposals/acknowledgement-window-diagnostic-pattern.md",
+                include: "proposals/**/*.md",
+                template: ".forma/spaces/templates/practice-proposal.md",
+                required: ["title", "summary", "type", "status", "synthetic", "engagementKey", "sources", "relatedTo"],
+            },
+            {
+                group: "reviews",
+                path: "reviews/acknowledgement-window-review.md",
+                include: "reviews/**/*.md",
+                template: ".forma/spaces/templates/human-review.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "decision",
+                    "humanReviewRole",
+                    "reason",
+                    "sources",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "patterns",
+                path: "patterns/acknowledgement-window-diagnostic.md",
+                include: "patterns/**/*.md",
+                template: ".forma/spaces/templates/pattern.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "applicability",
+                    "limits",
+                    "counterexample",
+                    "sources",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "guidelines",
+                path: "guidelines/practice-distillation.md",
+                include: "guidelines/**/*.md",
+                template: ".forma/spaces/templates/practice-guideline.md",
+                required: ["title", "summary", "type", "status", "synthetic", "engagementKey", "sources", "relatedTo"],
+            },
+            {
+                group: "reusable-templates",
+                path: "reusable-templates/evidence-card-template.md",
+                include: "reusable-templates/**/*.md",
+                template: ".forma/spaces/templates/reusable-template.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "applicability",
+                    "limits",
+                    "sources",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "revalidations",
+                path: "revalidations/p-051-revalidation.md",
+                include: "revalidations/**/*.md",
+                template: ".forma/spaces/templates/revalidation.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "projectKey",
+                    "environment",
+                    "projectRef",
+                    "sources",
+                    "result",
+                    "reason",
+                    "revalidationReason",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "roles",
+                path: "roles/source-fde.md",
+                include: "roles/**/*.md",
+                template: ".forma/spaces/templates/role.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "ownerRole",
+                    "relatedTo",
+                ],
+            },
+            {
+                group: "portfolio-observation",
+                path: "portfolio-observation/engagement-syn-001.md",
+                include: "portfolio-observation/**/*.md",
+                template: ".forma/spaces/templates/portfolio-observation.md",
+                required: [
+                    "title",
+                    "summary",
+                    "type",
+                    "status",
+                    "synthetic",
+                    "engagementKey",
+                    "stage",
+                    "blockerClass",
+                    "lastHealthStatus",
+                    "ownerRole",
+                    "projectRefs",
+                    "relatedTo",
+                ],
+            },
+        ],
+    ],
+]);
+
 function parseOptions(argv) {
     const options = { formaBin: process.env.FORMA_BIN ?? "forma" };
     for (let index = 0; index < argv.length; index += 1) {
@@ -316,6 +710,88 @@ function checkFormaWorkspace(formaBin, workspacePath, label, errors) {
     }
 }
 
+function checkPartitionContracts(formaBin, workspacePath, label, errors) {
+    const contracts = partitionContracts.get(workspacePath);
+    if (!contracts) return;
+    const partitionGuideline =
+        workspacePath === customerWorkspace
+            ? "guidelines/partition-contracts.md"
+            : "guidelines/practice-partition-contracts.md";
+
+    const summaryResult = run(
+        formaBin,
+        ["--workspace", workspacePath, "config", "summary", "--sources", "--json"],
+        repoRoot,
+    );
+    const summary = parseJsonResult(summaryResult, `${label} partition summary`, errors);
+    if (!summary) return;
+
+    const groups = new Map((summary.contentGroups ?? []).map((group) => [group.id, group]));
+    const expectedGroups = new Set(contracts.map(({ group }) => group));
+    for (const group of groups.keys()) {
+        if (!expectedGroups.has(group))
+            errors.push(`${label} partition contract has unexpected content group ${group}`);
+    }
+    for (const group of expectedGroups) {
+        if (!groups.has(group)) errors.push(`${label} partition contract is missing content group ${group}`);
+    }
+
+    for (const contract of contracts) {
+        const before = errors.length;
+        const group = groups.get(contract.group);
+        if (!group) {
+            console.log(`${label}-partition=${contract.group} path=${contract.path} status:failed`);
+            continue;
+        }
+        if (!group.includePatterns?.includes(contract.include)) {
+            errors.push(`${label} ${contract.group}: expected include pattern ${contract.include}`);
+        }
+        if (group.entryCount < 1) {
+            errors.push(`${label} ${contract.group}: expected at least one entry`);
+        }
+        if (group.create?.template !== contract.template) {
+            errors.push(
+                `${label} ${contract.group}: expected template ${contract.template}, got ${group.create?.template ?? "missing"}`,
+            );
+        }
+        if (!group.guidelines?.includes(partitionGuideline)) {
+            errors.push(`${label} ${contract.group}: missing partition contract guideline`);
+        }
+        const schemaFields = new Map((group.schemaFields ?? []).map((field) => [field.path, field]));
+        for (const field of contract.required) {
+            if (!schemaFields.get(field)?.required) {
+                errors.push(`${label} ${contract.group}: schema field ${field} must be required`);
+            }
+        }
+
+        const explainResult = run(
+            formaBin,
+            ["--workspace", workspacePath, "workspace", "explain", contract.path, "--json"],
+            repoRoot,
+        );
+        const explain = parseJsonResult(explainResult, `${label} ${contract.group} explain`, errors);
+        if (explain) {
+            if (explain.status !== "passed" || explain.target?.kind !== "content") {
+                errors.push(`${label} ${contract.group}: explain did not resolve a content entry`);
+            }
+            if (explain.effective?.selectedContentGroup !== contract.group) {
+                errors.push(
+                    `${label} ${contract.group}: explain selected ${explain.effective?.selectedContentGroup ?? "none"}`,
+                );
+            }
+            if (explain.effective?.template !== contract.template) {
+                errors.push(`${label} ${contract.group}: explain template ${explain.effective?.template ?? "none"}`);
+            }
+            if (!explain.effective?.guidelines?.includes(partitionGuideline)) {
+                errors.push(`${label} ${contract.group}: explain omitted partition contract guideline`);
+            }
+        }
+        console.log(
+            `${label}-partition=${contract.group} path=${contract.path} status:${errors.length === before ? "passed" : "failed"}`,
+        );
+    }
+}
+
 function checkFixture(errors) {
     const fixtureRoot = resolve(customerWorkspace, "engineering/fixture");
     const commands = [
@@ -402,7 +878,10 @@ try {
     console.log(`boundary-sensitive-data=${counters.sensitiveData}`);
     console.log(`boundary-engagement-key-misuse=${counters.engagementKeyMisuse}`);
 
-    for (const workspace of exampleWorkspaces) checkFormaWorkspace(formaBin, workspace.path, workspace.name, errors);
+    for (const workspace of exampleWorkspaces) {
+        checkFormaWorkspace(formaBin, workspace.path, workspace.name, errors);
+        checkPartitionContracts(formaBin, workspace.path, workspace.name, errors);
+    }
     checkFixture(errors);
 
     if (errors.length > 0) {

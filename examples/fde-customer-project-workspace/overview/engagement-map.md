@@ -20,6 +20,7 @@ relatedTo:
     - runbooks/investigate-delayed-acknowledgement
     - verifications/acknowledgement-window-validation
     - guidelines/customer-project-operations
+    - guidelines/partition-contracts
 tags:
     - fde
     - synthetic

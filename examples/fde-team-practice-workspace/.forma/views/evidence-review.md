@@ -10,7 +10,12 @@ source:
     type: pages
     taxonomy:
         spaces:
-            - practice-content
+            - projects
+            - communications
+            - evidence-cards
+            - verification
+            - reviews
+            - revalidations
 sort:
     - field: fields.status
       direction: asc
@@ -20,6 +25,6 @@ sort:
 
 # Evidence Review
 
-This is a read-only projection for the team-defined review workflow.
+This is a read-only projection for the team-defined evidence and human-review workflow.
 
 <!-- forma:content -->

@@ -2,6 +2,10 @@
 scope: workspace
 title: Customer Project Operations
 summary: Read-only Agent workflow and human approval boundaries for the synthetic customer project.
+type: guideline
+status: active
+synthetic: "true"
+engagementKey: ENG-SYN-001
 tags:
     - fde
     - synthetic
@@ -17,6 +21,8 @@ relatedTo:
 ---
 
 # Customer Project Operations
+
+Read `guidelines/partition-contracts.md` first. It is the routing contract for the configured customer-project partitions.
 
 ## Agent Skill
 

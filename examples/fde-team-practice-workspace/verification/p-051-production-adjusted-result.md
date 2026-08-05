@@ -13,6 +13,7 @@ actual:
     - fixture=ack-window profile=production-adjusted cases=4 passed=4 failed=0
 reason: "The diagnostic sequence still applies, but the profile-specific window and replay guard require adjustment."
 projectRef: projects/p-051
+relatedTo: []
 tags:
     - verification
     - revalidation

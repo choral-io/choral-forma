@@ -12,6 +12,7 @@ exitStatus: "0"
 actual:
     - fixture=ack-window profile=staging cases=4 passed=4 failed=0
 projectRef: projects/p-042
+relatedTo: []
 tags:
     - verification
     - source-project

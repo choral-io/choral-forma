@@ -10,7 +10,11 @@ source:
     type: pages
     taxonomy:
         spaces:
-            - engagement-content
+            - asks
+            - issues
+            - proposals
+            - decisions
+            - tasks
 sort:
     - field: fields.status
       direction: asc

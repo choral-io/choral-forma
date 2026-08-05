@@ -10,8 +10,18 @@ source:
     type: pages
     taxonomy:
         spaces:
-            - engagement-content
+            - overview
+            - customers
+            - communications
+            - asks
+            - issues
+            - proposals
+            - decisions
+            - tasks
+            - runbooks
+            - guidelines
             - engineering
+            - verifications
 sort:
     - field: fields.status
       direction: asc
@@ -21,6 +31,6 @@ sort:
 
 # Engagement Flow
 
-The view is a read-only projection over the two explicitly configured content groups.
+The view is a read-only projection over the explicitly configured customer-project partitions.
 
 <!-- forma:content -->

@@ -8,6 +8,7 @@ engagementKey: ENG-SYN-001
 sourceId: EXT-SYN-042
 sourceKind: synthetic-external-record
 projectRef: projects/p-042
+relatedTo: []
 tags:
     - source-index
     - external-permission

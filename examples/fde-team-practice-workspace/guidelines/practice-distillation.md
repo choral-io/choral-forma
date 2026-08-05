@@ -2,6 +2,10 @@
 scope: workspace
 title: Practice Distillation
 summary: Human-reviewed, de-identified comparison workflow for turning project evidence into limited team practice.
+type: practice-guideline
+status: active
+synthetic: "true"
+engagementKey: ENG-SYN-001
 tags:
     - fde
     - practice
@@ -20,6 +24,8 @@ relatedTo:
 ---
 
 # Practice Distillation
+
+Read `guidelines/practice-partition-contracts.md` first. It is the routing contract for the configured source, evidence, review, practice, and revalidation partitions.
 
 ## Agent Skill
 

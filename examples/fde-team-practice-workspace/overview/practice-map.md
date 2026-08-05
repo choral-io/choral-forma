@@ -14,6 +14,7 @@ relatedTo:
     - reviews/acknowledgement-window-review
     - patterns/acknowledgement-window-diagnostic
     - guidelines/practice-distillation
+    - guidelines/practice-partition-contracts
     - reusable-templates/evidence-card-template
     - revalidations/p-051-revalidation
     - portfolio-observation/engagement-syn-001

@@ -103,6 +103,8 @@ Example workspaces are separate from this repository's `knowledge/` project work
 - `examples/fde-customer-project-workspace/` is a runnable synthetic single-customer FDE project with an ordinary engineering fixture.
 - `examples/fde-team-practice-workspace/` is a runnable synthetic practice workspace with two de-identified project sources, a counterexample, and revalidation.
 
+The FDE examples also show team-defined partition contracts: each stable record type has an explicit content group, schema, create template, and Agent-facing guidance. See each workspace's `guidelines/*partition-contracts.md`; these are example conventions, not Forma domain types.
+
 Check the example workspaces:
 
 ```sh
@@ -120,7 +122,7 @@ cargo build --locked --bin forma
 pnpm check:examples -- --forma-bin target/debug/forma
 ```
 
-The gate runs each workspace's `config summary --sources`, `check`, and `workspace health`. It additionally runs the FDE positive/negative/adjusted engineering fixture paths, Node regression tests, and static cross-workspace/sensitive-data boundary checks.
+The gate runs each workspace's `config summary --sources`, `check`, and `workspace health`. It additionally verifies every FDE partition's include pattern, required schema fields, create template, and `workspace explain` routing; runs the positive/negative/adjusted engineering fixture paths and Node regression tests; and enforces static cross-workspace/sensitive-data boundaries.
 
 Serve the read-only WebApp and RPC backend from an example workspace:
 

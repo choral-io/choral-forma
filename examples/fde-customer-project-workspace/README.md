@@ -2,7 +2,7 @@
 
 This is a runnable, synthetic example of one customer project workspace. It demonstrates customer facts, external communication indexes, engineering context, ordinary code/configuration/tests, asks, issues, proposals, decisions, tasks, runbooks, guidelines, and verification evidence.
 
-The folders are team conventions. Forma only provides the explicitly configured content groups, schemas, templates, views, guidelines, references, and checks. The `.mjs` and `.json` files under `engineering/fixture/` are ordinary unmanaged engineering assets; the Markdown engineering cards do not replace them.
+The folders are team conventions. Each stable record type has an explicitly configured Forma content group with its own include pattern, schema, create template, and partition guidance; Forma does not provide customer, ask, issue, or engineering domain types. Read `guidelines/partition-contracts.md` before routing a new record. The `.mjs` and `.json` files under `engineering/fixture/` are ordinary unmanaged engineering assets; the Markdown engineering cards do not replace them.
 
 `ENG-SYN-001` is a narrative association key only. This workspace does not import, join, authorize, synchronize, or promote content across workspaces.
 
@@ -14,10 +14,11 @@ Run from the repository root with the current checkout's Forma CLI:
 cargo run -q -p forma-cli -- --workspace examples/fde-customer-project-workspace config summary --sources --json
 cargo run -q -p forma-cli -- --workspace examples/fde-customer-project-workspace check --json
 cargo run -q -p forma-cli -- --workspace examples/fde-customer-project-workspace workspace health --json
-cargo run -q -p forma-cli -- --workspace examples/fde-customer-project-workspace create engagement-content --input title='Synthetic preview ask' --preview --json
+cargo run -q -p forma-cli -- --workspace examples/fde-customer-project-workspace workspace explain customers/c-017.md --json
+cargo run -q -p forma-cli -- --workspace examples/fde-customer-project-workspace create asks --input title='Synthetic preview ask' --preview --json
 ```
 
-The preview must report `status: passed`, zero errors/warnings, `target.writable: true`, `target.conflict: false`, and `target.path: asks/synthetic-preview-ask.md`; it must not create a file. `engagement-content` is the configured content group, while `asks/` is a team-defined output directory.
+The preview must report `status: passed`, zero errors/warnings, `target.writable: true`, `target.conflict: false`, and `target.path: asks/synthetic-preview-ask.md`; it must not create a file. `asks` is the configured content group for the `asks/` partition, not a Forma built-in domain.
 
 Run from this workspace root for the engineering fixture:
 
@@ -46,7 +47,7 @@ The staging and adjusted commands exit `0`. The intentionally incorrect producti
 
 ## Workflow
 
-1. Inspect the synthetic customer facts and external source indexes.
+1. Read `guidelines/partition-contracts.md`, then inspect the synthetic customer facts and external source indexes.
 2. Compare the ask and issue with the environment record.
 3. Review the proposal and human-confirmed decision.
 4. Run the ordinary code/configuration/regression fixture.

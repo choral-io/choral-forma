@@ -13,6 +13,7 @@ actual:
     - fixture=ack-window profile=production-naive cases=4 passed=2 failed=2
 counterexample: "The 120-second profile without replay protection accepts burst-late and retry-replay cases that should be rejected."
 projectRef: projects/p-051
+relatedTo: []
 tags:
     - verification
     - counterexample

@@ -2,6 +2,10 @@
 scope: workspace
 title: "Practice Guideline: Revalidate Before Reuse"
 summary: Use reviewed patterns as investigation prompts and revalidate them against the current project.
+type: practice-guideline
+status: active
+synthetic: "true"
+engagementKey: ENG-SYN-001
 tags:
     - practice
     - revalidation
@@ -18,6 +22,8 @@ relatedTo:
 ---
 
 # Practice Guideline: Revalidate Before Reuse
+
+Use the partition contract to distinguish source observations, reviewed practice, and current-project revalidation.
 
 ## Agent Skill
 
