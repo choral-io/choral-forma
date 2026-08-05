@@ -197,7 +197,7 @@
     "@vscode/test-electron": "~3.1.0",
     "@vscode/vsce": "~3.9.2",
     "esbuild": "~0.28.1",
-    "lucide-react": "~1.27.0",
+    "lucide-react": "~1.28.0",
     "mocha": "~11.7.6"
   },
   "dependencies": {
