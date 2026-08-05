@@ -3742,7 +3742,7 @@ mod tests {
             )
             .unwrap()
             .unwrap();
-        assert_eq!(image_links.len(), 6);
+        assert_eq!(image_links.len(), 8);
         assert!(image_links.iter().all(|link| {
             link.target
                 .as_ref()
