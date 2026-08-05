@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { downloadAndUnzipVSCode } from "@vscode/test-electron";
 
-import { createTestEnvironment, resolveFormaTestBin } from "./test-environment.mjs";
+import { createFormaTestEnvironment, resolveFormaTestBin } from "./test-environment.mjs";
 
 const extensionRoot = resolve(import.meta.dirname, "..");
 const scratch = await mkdtemp(join(tmpdir(), "choral-forma-untrusted-"));
@@ -59,8 +59,7 @@ try {
             `--extensionTestsPath=${runner}`,
             workspace,
         ],
-        createTestEnvironment(process.env, {
-            FORMA_TEST_BIN: formaTestBin,
+        createFormaTestEnvironment(process.env, formaTestBin, {
             FORMA_TEST_INVOCATION_MARKER: invocationMarker,
             FORMA_TEST_MANAGED_CLI_ROOT: managedCliRoot,
             FORMA_TEST_SENTINEL: sentinel,

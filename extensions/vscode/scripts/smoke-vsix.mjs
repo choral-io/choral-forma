@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } from "@vscode/test-electron";
 
-import { createTestEnvironment, resolveFormaTestBin, shouldUseShellForCommand } from "./test-environment.mjs";
+import { createFormaTestEnvironment, resolveFormaTestBin, shouldUseShellForCommand } from "./test-environment.mjs";
 
 const vsix = process.env.VSIX_PATH;
 if (!vsix) throw new Error("VSIX_PATH must point to the disposable VSIX to validate.");
@@ -88,7 +88,7 @@ try {
 async function run(command, args) {
     return await new Promise((resolvePromise, reject) => {
         const child = spawn(command, args, {
-            env: createTestEnvironment(process.env, { FORMA_TEST_BIN: formaTestBin }),
+            env: createFormaTestEnvironment(process.env, formaTestBin),
             shell: shouldUseShellForCommand(command),
             stdio: ["ignore", "pipe", "pipe"],
             windowsHide: true,

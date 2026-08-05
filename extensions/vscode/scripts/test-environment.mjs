@@ -1,6 +1,16 @@
+import { delimiter, dirname } from "node:path";
+
 export function createTestEnvironment(environment, additions) {
     const { ELECTRON_RUN_AS_NODE: _electronRunAsNode, ...cleanEnvironment } = environment;
     return { ...cleanEnvironment, ...additions };
+}
+
+export function createFormaTestEnvironment(environment, formaTestBin, additions = {}, pathDelimiter = delimiter) {
+    const pathKey = Object.keys(environment).find((key) => key.toLowerCase() === "path") ?? "PATH";
+    const currentPath = environment[pathKey];
+    const executableDirectory = dirname(formaTestBin);
+    const path = currentPath ? `${executableDirectory}${pathDelimiter}${currentPath}` : executableDirectory;
+    return createTestEnvironment(environment, { ...additions, FORMA_TEST_BIN: formaTestBin, [pathKey]: path });
 }
 
 export function resolveFormaTestBin(environment, fallback) {
