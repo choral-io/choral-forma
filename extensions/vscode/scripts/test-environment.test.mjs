@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -6,6 +9,7 @@ import {
     createTestEnvironment,
     resolveFormaTestBin,
     shouldUseShellForCommand,
+    writeFormaTestSettings,
 } from "./test-environment.mjs";
 
 test("omits ELECTRON_RUN_AS_NODE from the environment passed to VS Code", () => {
@@ -54,4 +58,15 @@ test("puts the exact Forma test binary first on the extension host PATH", () => 
             VSCODE_TEST_OPTIONS: "{}",
         },
     );
+});
+
+test("writes the exact Forma path before VS Code autoactivation", async () => {
+    const userData = await mkdtemp(join(tmpdir(), "forma-test-settings-"));
+    try {
+        const settingsPath = await writeFormaTestSettings(userData, "/tmp/exact/forma");
+        assert.equal(settingsPath, join(userData, "User", "settings.json"));
+        assert.deepEqual(JSON.parse(await readFile(settingsPath, "utf8")), { "forma.path": "/tmp/exact/forma" });
+    } finally {
+        await rm(userData, { force: true, recursive: true });
+    }
 });

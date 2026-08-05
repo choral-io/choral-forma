@@ -1,4 +1,5 @@
-import { delimiter, dirname } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { delimiter, dirname, join } from "node:path";
 
 export function createTestEnvironment(environment, additions) {
     const { ELECTRON_RUN_AS_NODE: _electronRunAsNode, ...cleanEnvironment } = environment;
@@ -19,4 +20,12 @@ export function resolveFormaTestBin(environment, fallback) {
 
 export function shouldUseShellForCommand(command, platform = process.platform) {
     return platform === "win32" && /\.cmd$/iu.test(command);
+}
+
+export async function writeFormaTestSettings(userDataDirectory, formaTestBin) {
+    const userSettingsDirectory = join(userDataDirectory, "User");
+    const settingsPath = join(userSettingsDirectory, "settings.json");
+    await mkdir(userSettingsDirectory, { recursive: true });
+    await writeFile(settingsPath, `${JSON.stringify({ "forma.path": formaTestBin }, undefined, 4)}\n`);
+    return settingsPath;
 }
