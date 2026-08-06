@@ -130,7 +130,7 @@ link_command() {
 make_restricted_path() {
   destination="$1"
   mkdir -p "$destination"
-  for command_name in env sh mktemp rm tar mkdir install cp; do
+  for command_name in env sh mktemp rm tar gzip mkdir install cp; do
     link_command "$command_name" "$destination"
   done
   ln -s "$fake_bin/uname" "$destination/uname"
