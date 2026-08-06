@@ -56,6 +56,52 @@ else
   checksum_url="${base_url}/download/${VERSION}/${asset}.sha256"
 fi
 
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256_tool="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+  sha256_tool="shasum"
+elif command -v openssl >/dev/null 2>&1; then
+  sha256_tool="openssl"
+else
+  echo "no supported SHA-256 tool found; install sha256sum, shasum, or OpenSSL and retry" >&2
+  exit 1
+fi
+
+verify_sha256() {
+  checksum_file="$1"
+  asset_file="$2"
+
+  case "$sha256_tool" in
+    sha256sum)
+      sha256sum -c "$checksum_file"
+      ;;
+    shasum)
+      shasum -a 256 -c "$checksum_file"
+      ;;
+    openssl)
+      IFS=' ' read -r expected_checksum _ < "$checksum_file"
+      if [ "${#expected_checksum}" -ne 64 ]; then
+        echo "invalid SHA-256 checksum file: $checksum_file" >&2
+        return 1
+      fi
+      case "$expected_checksum" in
+        *[!0-9A-Fa-f]*)
+          echo "invalid SHA-256 checksum in $checksum_file" >&2
+          return 1
+          ;;
+      esac
+
+      actual_checksum="$(openssl dgst -sha256 -r "$asset_file")"
+      actual_checksum="${actual_checksum%% *}"
+      if [ "$actual_checksum" != "$expected_checksum" ]; then
+        echo "SHA-256 checksum verification failed for $asset_file" >&2
+        return 1
+      fi
+      printf '%s\n' "$asset_file: OK"
+      ;;
+  esac
+}
+
 tmp_dir="$(mktemp -d)"
 cleanup() {
   rm -rf "$tmp_dir"
@@ -76,7 +122,7 @@ fi
 
 (
   cd "$tmp_dir"
-  shasum -a 256 -c "$asset.sha256"
+  verify_sha256 "$asset.sha256" "$asset"
   tar -xzf "$asset"
 )
 
