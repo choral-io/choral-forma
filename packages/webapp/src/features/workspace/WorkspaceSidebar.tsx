@@ -126,7 +126,7 @@ function SidebarLink({
                 aria-current={active ? "page" : undefined}
                 aria-label={label}
                 className={cn(
-                    "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 gap-3 outline-none focus-visible:ring-2",
+                    "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 gap-3 leading-5 outline-none focus-visible:ring-2",
                     active && "menu-active",
                 )}
                 data-tip={label}
@@ -134,7 +134,7 @@ function SidebarLink({
                 onClick={onNavigate}
                 to={to}
             >
-                <Icon aria-hidden="true" className="size-4 shrink-0" />
+                <Icon aria-hidden="true" className="size-5 shrink-0" />
                 <span className="is-drawer-close:hidden min-w-0 truncate" data-sidebar-label>
                     {label}
                 </span>

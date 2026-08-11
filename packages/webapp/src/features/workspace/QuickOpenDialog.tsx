@@ -105,7 +105,7 @@ export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpen
             aria-label="Quick open"
             className={cn(
                 isSidebarTrigger
-                    ? "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 gap-3 outline-none focus-visible:ring-2"
+                    ? "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 gap-3 leading-5 outline-none focus-visible:ring-2"
                     : "btn btn-square btn-ghost",
                 className,
             )}
@@ -116,7 +116,7 @@ export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpen
             title={trigger === "header" ? "Quick open (Ctrl/⌘ K)" : undefined}
             type="button"
         >
-            <Search aria-hidden="true" className={isSidebarTrigger ? "size-4 shrink-0" : undefined} />
+            <Search aria-hidden="true" className={isSidebarTrigger ? "size-5 shrink-0" : undefined} />
             {isSidebarTrigger ? (
                 <>
                     <span className="is-drawer-close:hidden min-w-0 truncate" data-sidebar-label>
