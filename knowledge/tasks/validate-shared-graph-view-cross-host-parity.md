@@ -73,3 +73,9 @@ Establish evidence that the WebApp and VS Code Graph surfaces share one implemen
 - The text legend exposes configured taxonomy and Term identities, while the accessible selected-node summary exposes the active Page identity, path, and relationship count in both Hosts without duplicating the complete searchable node collection. Filter summaries become required when filters are implemented.
 - Medium and large fixtures remain responsive within recorded budgets, layout work is bounded, and idle graphs do not consume continuous CPU after settling.
 - WebApp checks, VS Code package and integration checks, shared package tests, performance evidence, and the milestone local validation gate pass before push and CI.
+
+## Result
+
+The 2026-08-11 validation iteration strengthened shared fixtures and adapter coverage, passed the packaged local VSIX smoke, and rendered the real workspace Graph through an ARM64 Dev Container Remote Extension Host. The x64 Remote SSH path reached `Forma: Ready` and passed direct CLI workspace and Graph rendering, but its native Markdown Preview remained blank and the following small-fixture reconnect failed dynamic port forwarding on the 1 vCPU, 967 MiB host.
+
+The task therefore remains Doing. Live high-contrast and reduced-motion sessions, browser render and interaction timing, long-running retained-memory and idle-CPU profiling, and a stable Remote SSH Graph Preview remain open. Full evidence, benchmark interpretation, the explicit WebApp Worker versus VS Code synchronous-layout boundary, and environment cleanup are recorded in [[discovery/shared-graph-view-cross-host-parity-validation-2026-08-11]].
