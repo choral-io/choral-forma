@@ -2,6 +2,7 @@ import { FolderOpen, HeartPulse, House, LayoutGrid, PanelLeftClose, PanelLeftOpe
 import { Link, useLocation } from "react-router";
 
 import type { WorkspaceDashboard } from "@/data/workspace-client";
+import { FormaBrandIcon } from "@/features/workspace/FormaBrandIcon";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { cn } from "@/lib/utils";
 import { taxonomyRoutePath } from "@/lib/workspace-routes";
@@ -49,10 +50,7 @@ export function WorkspaceSidebar({
                             onClick={onNavigate}
                             to="/"
                         >
-                            <span
-                                aria-hidden="true"
-                                className="size-7 bg-(image:--workspace-brand-icon) bg-contain bg-center bg-no-repeat"
-                            />
+                            <FormaBrandIcon className="size-7" />
                         </Link>
                         <button
                             aria-label="Toggle workspace sidebar"

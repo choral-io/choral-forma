@@ -41,7 +41,10 @@
     --depth: 0;
     --noise: 0;
     --graph-accent: oklch(58.8% 0.158 241.966);
-    --workspace-brand-icon: url("/forma-icon.svg");
+    --workspace-brand-tile-start: #08265b;
+    --workspace-brand-tile-end: #062253;
+    --workspace-brand-bars-start: #b29ff5;
+    --workspace-brand-bars-end: #b7a4f6;
 }
 
 @plugin "daisyui/theme" {
@@ -78,7 +81,10 @@
     --depth: 0;
     --noise: 0;
     --graph-accent: oklch(68.5% 0.169 237.323);
-    --workspace-brand-icon: url("/forma-icon-dark.svg");
+    --workspace-brand-tile-start: #b29ff5;
+    --workspace-brand-tile-end: #b7a4f6;
+    --workspace-brand-bars-start: #08265b;
+    --workspace-brand-bars-end: #062253;
 }
 
 @font-face {
