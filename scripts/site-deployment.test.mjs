@@ -49,7 +49,7 @@ test("configures an asset-only Cloudflare Worker with one production custom doma
 });
 
 test("pins Wrangler and keeps its platform binary installation explicit", () => {
-    assert.equal(packageJson.devDependencies.wrangler, "~4.118.0");
+    assert.equal(packageJson.devDependencies.wrangler, "~4.120.0");
     assert.equal(packageJson.scripts["site:deploy"], "wrangler deploy");
     assert.equal(packageJson.scripts["site:deploy:dry-run"], "wrangler deploy --dry-run");
     assert.match(pnpmWorkspace, /^  workerd: true$/mu);
