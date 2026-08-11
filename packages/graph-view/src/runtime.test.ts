@@ -181,6 +181,37 @@ describe("SigmaGraphRuntime lifecycle", () => {
         expect(cancelAnimationFrame).toHaveBeenCalledWith(41);
     });
 
+    it("supports shared Enter, Escape, and fit keyboard actions", () => {
+        const container = fakeContainer();
+        const onOpenNode = vi.fn();
+        const runtime = createGraphRuntime({
+            container,
+            projection: projection(),
+            theme: theme(),
+            layout: { engine: "force", reducedMotion: true },
+            onOpenNode,
+        });
+        const renderer = sigmaMocks.instances[0];
+        const keyDown = container.eventListeners.get("keydown");
+        if (!renderer || typeof keyDown !== "function") throw new Error("Expected Graph keyboard listener.");
+        renderer.emit("clickNode", { node: "a.md" });
+        const preventEnter = vi.fn();
+
+        keyDown({ key: "Enter", preventDefault: preventEnter } as unknown as Event);
+        expect(preventEnter).toHaveBeenCalledOnce();
+        expect(onOpenNode).toHaveBeenCalledWith(expect.objectContaining({ id: "a.md" }));
+
+        keyDown({ key: "Escape", preventDefault: vi.fn() } as unknown as Event);
+        expect(runtime.snapshot().selectedNodeId).toBeNull();
+
+        renderer.camera.setState.mockClear();
+        const preventFit = vi.fn();
+        keyDown({ key: "F", preventDefault: preventFit } as unknown as Event);
+        expect(preventFit).toHaveBeenCalledOnce();
+        expect(renderer.camera.setState).toHaveBeenCalledWith({ x: 0.5, y: 0.5, ratio: 1 });
+        runtime.destroy();
+    });
+
     it("passes platform-approved wheel zoom and trackpad pinch events through to Sigma", () => {
         const browserWindow = fakeWindowEventTarget();
         vi.stubGlobal("window", browserWindow);

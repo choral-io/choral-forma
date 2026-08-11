@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { graphFixture, graphFixtureProfile, invalidGraphFixture } from "./fixtures.ts";
+import { graphFixture, graphFixtureProfile, invalidGraphFixture, semanticGraphFixture } from "./fixtures.ts";
 import { aggregateDisplayEdges, graphLabel, GraphViewModel, nodeSize } from "./model.ts";
 import { DEFAULT_GRAPH_PRESENTATION, type GraphEdgeInput, type GraphProjection } from "./types.ts";
 
@@ -152,6 +152,21 @@ describe("graph fixtures and presentation", () => {
     it("uses a bounded shared label instead of Host-specific truncation", () => {
         expect(graphLabel("A concise title", 42)).toBe("A concise title");
         expect(graphLabel("A title that is too long", 12)).toBe("A title tha…");
+    });
+
+    it("keeps semantic edge cases deterministic across Host adapters", () => {
+        const snapshot = new GraphViewModel(semanticGraphFixture()).snapshot();
+
+        expect(snapshot.nodes[0]?.displayLabel).toBe("A deliberately long graph label that must…");
+        expect(snapshot.edges).toHaveLength(1);
+        expect(snapshot.edges[0]).toMatchObject({
+            id: "notes/semantic-source.md↔notes/semantic-target.md",
+            direction: "reciprocal",
+        });
+        expect(snapshot.edges[0]?.semanticEdges.map((semanticEdge) => semanticEdge.id)).toEqual([
+            "semantic-forward",
+            "semantic-reverse",
+        ]);
     });
 });
 

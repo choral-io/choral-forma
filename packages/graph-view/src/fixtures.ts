@@ -36,6 +36,29 @@ export function invalidGraphFixture(): GraphProjection {
     };
 }
 
+export function semanticGraphFixture(): GraphProjection {
+    const firstId = "notes/semantic-source.md";
+    const secondId = "notes/semantic-target.md";
+    return {
+        legend: [{ key: "areas:research", label: "Research", color: "#4f7cac" }],
+        nodes: [
+            {
+                id: firstId,
+                path: firstId,
+                title: "A deliberately long graph label that must use the shared truncation policy",
+                kind: "page",
+                classification: { key: "areas:research", label: "Research", color: "#4f7cac" },
+            },
+            { id: secondId, path: secondId, title: "Semantic target", kind: "page" },
+        ],
+        edges: [
+            graphEdge("semantic-forward", firstId, secondId),
+            graphEdge("semantic-reverse", secondId, firstId),
+            graphEdge("semantic-unresolved", firstId, "notes/missing-target.md"),
+        ],
+    };
+}
+
 export function graphFixture(nodeCount: number, edgeCount: number, seed = 1): GraphProjection {
     const nodes = Array.from({ length: nodeCount }, (_value, index): GraphNodeInput => {
         const id = `notes/node-${String(index + 1).padStart(4, "0")}.md`;
@@ -77,5 +100,18 @@ function seededRandom(seed: number): () => number {
     return () => {
         state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
         return state / 0x1_0000_0000;
+    };
+}
+
+function graphEdge(id: string, source: string, target: string): GraphEdgeInput {
+    return {
+        id,
+        source,
+        target,
+        sourcePath: source,
+        targetPath: target,
+        intent: "link",
+        referenceSource: "body",
+        label: "links to",
     };
 }

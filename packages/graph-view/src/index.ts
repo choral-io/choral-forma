@@ -3,6 +3,7 @@ export {
     graphFixture,
     graphFixtureProfile,
     invalidGraphFixture,
+    semanticGraphFixture,
     type GraphFixtureProfile,
 } from "./fixtures.ts";
 export { GraphViewModel, aggregateDisplayEdges, graphLabel, nodeSize } from "./model.ts";

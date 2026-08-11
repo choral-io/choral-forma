@@ -1,4 +1,4 @@
-import { graphFixtureProfile, type GraphFixtureProfile } from "@choral-forma/graph-view/fixtures";
+import { graphFixtureProfile, semanticGraphFixture, type GraphFixtureProfile } from "@choral-forma/graph-view/fixtures";
 import { normalizeGraphProjection } from "@choral-forma/graph-view/projection";
 import type { ViewRenderOutput } from "@choral-forma/shared";
 import { describe, expect, it } from "vitest";
@@ -12,12 +12,18 @@ type DashboardGraphProjection = Extract<DashboardViewProjection, { kind: "graph"
 
 describe("Graph adapter parity", () => {
     for (const profile of ["empty", "small", "medium", "large"] as const) {
-        it(`normalizes the ${profile} fixture identically in WebApp and VS Code`, () => {
+        it(`normalizes the ${profile} fixture identically to the shared Graph projection`, () => {
             const render = renderProjection(profile);
 
             expect(mapDashboardGraphProjection(dashboardProjection(render))).toEqual(normalizeGraphProjection(render));
         });
     }
+
+    it("preserves explicit semantic edge cases through the WebApp adapter", () => {
+        const render = semanticRenderProjection();
+
+        expect(mapDashboardGraphProjection(dashboardProjection(render))).toEqual(normalizeGraphProjection(render));
+    });
 });
 
 function renderProjection(profile: GraphFixtureProfile): GraphRenderOutput {
@@ -40,6 +46,20 @@ function renderProjection(profile: GraphFixtureProfile): GraphRenderOutput {
                       },
                   }
                 : {}),
+        })),
+        edges: fixture.edges.map((edge) => ({ ...edge })),
+    };
+}
+
+function semanticRenderProjection(): GraphRenderOutput {
+    const fixture = semanticGraphFixture();
+    return {
+        kind: "graph",
+        legend: (fixture.legend ?? []).map((item) => ({ ...item, taxonomy: "areas" })),
+        nodes: fixture.nodes.map(({ classification, ...node }) => ({
+            ...node,
+            space: "semantic-fixture",
+            ...(classification ? { classification: { ...classification, taxonomy: "areas" } } : {}),
         })),
         edges: fixture.edges.map((edge) => ({ ...edge })),
     };
