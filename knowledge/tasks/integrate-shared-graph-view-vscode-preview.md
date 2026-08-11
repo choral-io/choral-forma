@@ -9,12 +9,13 @@ priority: P1
 value: H
 module: app
 effort: M
-status: reviewing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
 assignees: []
-reviewers: []
+reviewers:
+    - "members/tiscs"
 tags:
     - forma
     - graph

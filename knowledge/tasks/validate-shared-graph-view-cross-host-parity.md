@@ -13,7 +13,8 @@ status: doing
 readiness: ready
 owners:
     - "members/tiscs"
-assignees: []
+assignees:
+    - "members/tiscs"
 reviewers: []
 tags:
     - forma

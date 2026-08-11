@@ -14,7 +14,8 @@ readiness: "ready"
 owners:
     - "members/tiscs"
 assignees: []
-reviewers: []
+reviewers:
+    - "members/tiscs"
 tags:
     - forma
     - views
