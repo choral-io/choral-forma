@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
 use crate::config::{
-    DisplayOptions, FormaWorkspace, WorkspaceConfig, config_source_paths, load_workspace,
+    DisplayOptions, FormaWorkspace, WorkspaceConfig, config_source_paths, is_valid_display_color,
+    load_workspace,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::index::{
@@ -256,9 +257,12 @@ pub struct GraphRenderNode {
 #[serde(rename_all = "camelCase")]
 pub struct GraphRenderNodeClassification {
     pub key: String,
-    pub taxonomy: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub taxonomy: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub terms: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
     pub label: String,
 }
 
@@ -266,9 +270,12 @@ pub struct GraphRenderNodeClassification {
 #[serde(rename_all = "camelCase")]
 pub struct GraphRenderLegendItem {
     pub key: String,
-    pub taxonomy: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub taxonomy: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub terms: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
     pub label: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
@@ -611,7 +618,14 @@ struct GraphNodePresentationDefinition {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GraphNodeColorByDefinition {
-    taxonomy: String,
+    taxonomy: Option<String>,
+    field: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum GraphNodeColorSource<'a> {
+    Taxonomy(&'a str),
+    Field(&'a str),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -903,6 +917,8 @@ fn render_view_from_loaded(
                 definition,
                 &workspace.config,
                 &discovery.index.entries,
+                &view_path,
+                &mut diagnostics,
             )
         } else {
             None
@@ -1025,30 +1041,56 @@ fn view_definition_is_valid(
             }
         }
     }
-    if let Some(taxonomy) = definition
+    if let Some(color_by) = definition
         .graph
         .as_ref()
         .and_then(|graph| graph.presentation.as_ref())
         .and_then(|presentation| presentation.nodes.color_by.as_ref())
-        .map(|color_by| color_by.taxonomy.as_str())
-        && !config.taxonomies.contains_key(taxonomy)
     {
-        diagnostics.push(
-            Diagnostic::error(
-                "view.graphTaxonomyMissing",
-                "Graph node color taxonomy is not configured.",
-            )
-            .with_path(path)
-            .with_location(DiagnosticLocation::Frontmatter {
-                field: "graph.presentation.nodes.colorBy.taxonomy".to_string(),
-                index: None,
-            })
-            .with_actual(taxonomy.to_string())
-            .with_expected("configured taxonomy id".to_string()),
-        );
-        valid = false;
+        match (&color_by.taxonomy, &color_by.field) {
+            (Some(taxonomy), None) if !config.taxonomies.contains_key(taxonomy) => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "view.graphTaxonomyMissing",
+                        "Graph node color taxonomy is not configured.",
+                    )
+                    .with_path(path)
+                    .with_location(DiagnosticLocation::Frontmatter {
+                        field: "graph.presentation.nodes.colorBy.taxonomy".to_string(),
+                        index: None,
+                    })
+                    .with_actual(taxonomy.to_string())
+                    .with_expected("configured taxonomy id".to_string()),
+                );
+                valid = false;
+            }
+            (Some(_), None) => {}
+            (None, Some(field)) if is_supported_graph_color_field(field) => {}
+            _ => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "view.graphColorByInvalid",
+                        "Graph node color source must define exactly one taxonomy or frontmatter field.",
+                    )
+                    .with_path(path)
+                    .with_location(DiagnosticLocation::Frontmatter {
+                        field: "graph.presentation.nodes.colorBy".to_string(),
+                        index: None,
+                    })
+                    .with_expected(
+                        "exactly one of taxonomy or a non-empty fields.<path> field".to_string(),
+                    ),
+                );
+                valid = false;
+            }
+        }
     }
     valid
+}
+
+fn is_supported_graph_color_field(field: &str) -> bool {
+    normalized_field_path(field)
+        .is_some_and(|path| !path.is_empty() && path.split('.').all(|segment| !segment.is_empty()))
 }
 
 fn validate_table_column_presentation(
@@ -1331,6 +1373,8 @@ fn render_view_definition(
     definition: &ViewDefinition,
     config: &WorkspaceConfig,
     entries: &[IndexEntry],
+    view_path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<ViewRenderOutput> {
     if definition.surface != "page" {
         return None;
@@ -1388,12 +1432,34 @@ fn render_view_definition(
                     .collect(),
             })
         }
-        "graph" => Some(render_graph_view(
-            &items,
-            entries,
-            definition.graph.as_ref(),
-            config,
-        )),
+        "graph" => {
+            let render = render_graph_view(&items, entries, definition.graph.as_ref(), config);
+            if matches!(
+                graph_node_color_source(definition.graph.as_ref()),
+                Some(GraphNodeColorSource::Field(_))
+            ) && let ViewRenderOutput::Graph { legend, .. } = &render
+            {
+                let classified_values = legend.iter().filter(|item| item.color.is_some()).count();
+                if classified_values > GRAPH_COLOR_CARDINALITY_WARNING_THRESHOLD {
+                    diagnostics.push(
+                        Diagnostic::warning(
+                            "view.graphColorCardinalityHigh",
+                            "Graph node color field has many distinct values and may create a noisy legend.",
+                        )
+                        .with_path(view_path)
+                        .with_location(DiagnosticLocation::Frontmatter {
+                            field: "graph.presentation.nodes.colorBy.field".to_string(),
+                            index: None,
+                        })
+                        .with_actual(classified_values.to_string())
+                        .with_expected(format!(
+                            "at most {GRAPH_COLOR_CARDINALITY_WARNING_THRESHOLD} distinct scalar values"
+                        )),
+                    );
+                }
+            }
+            Some(render)
+        }
         _ => None,
     }
 }
@@ -1413,10 +1479,7 @@ fn render_graph_view(
         .map(|entry| (entry.path.as_str(), entry))
         .collect::<BTreeMap<_, _>>();
 
-    let color_taxonomy = graph
-        .and_then(|graph| graph.presentation.as_ref())
-        .and_then(|presentation| presentation.nodes.color_by.as_ref())
-        .map(|color_by| color_by.taxonomy.as_str());
+    let color_source = graph_node_color_source(graph);
     let nodes = items
         .iter()
         .map(|item| GraphRenderNode {
@@ -1425,13 +1488,21 @@ fn render_graph_view(
             title: item.title.clone(),
             space: item.space.clone(),
             kind: item.kind.clone(),
-            classification: color_taxonomy
-                .map(|taxonomy| graph_node_classification(item, config, taxonomy)),
+            classification: color_source.map(|source| match source {
+                GraphNodeColorSource::Taxonomy(taxonomy) => {
+                    graph_taxonomy_classification(item, config, taxonomy)
+                }
+                GraphNodeColorSource::Field(field) => graph_field_classification(item, field),
+            }),
         })
         .collect::<Vec<_>>();
-    let legend = color_taxonomy
-        .map(|taxonomy| graph_legend(&nodes, config, taxonomy))
-        .unwrap_or_default();
+    let legend = match color_source {
+        Some(GraphNodeColorSource::Taxonomy(taxonomy)) => {
+            graph_taxonomy_legend(&nodes, config, taxonomy)
+        }
+        Some(GraphNodeColorSource::Field(field)) => graph_field_legend(items, field),
+        None => Vec::new(),
+    };
 
     let default_rules;
     let rules = if let Some(graph) = graph.filter(|graph| !graph.edges.is_empty()) {
@@ -1496,7 +1567,16 @@ fn render_graph_view(
     }
 }
 
-fn graph_node_classification(
+fn graph_node_color_source(graph: Option<&GraphDefinition>) -> Option<GraphNodeColorSource<'_>> {
+    let color_by = graph?.presentation.as_ref()?.nodes.color_by.as_ref()?;
+    match (&color_by.taxonomy, &color_by.field) {
+        (Some(taxonomy), None) => Some(GraphNodeColorSource::Taxonomy(taxonomy)),
+        (None, Some(field)) => Some(GraphNodeColorSource::Field(field)),
+        _ => None,
+    }
+}
+
+fn graph_taxonomy_classification(
     item: &RenderCandidate,
     config: &WorkspaceConfig,
     taxonomy: &str,
@@ -1533,13 +1613,14 @@ fn graph_node_classification(
     };
     GraphRenderNodeClassification {
         key,
-        taxonomy: taxonomy.to_string(),
+        taxonomy: Some(taxonomy.to_string()),
         terms,
+        field: None,
         label,
     }
 }
 
-fn graph_legend(
+fn graph_taxonomy_legend(
     nodes: &[GraphRenderNode],
     config: &WorkspaceConfig,
     taxonomy: &str,
@@ -1567,8 +1648,9 @@ fn graph_legend(
                     term_id.clone(),
                     GraphRenderLegendItem {
                         key,
-                        taxonomy: taxonomy.to_string(),
+                        taxonomy: Some(taxonomy.to_string()),
                         terms: vec![term_id.clone()],
+                        field: None,
                         label: term.title.clone(),
                         color: term
                             .display
@@ -1596,8 +1678,9 @@ fn graph_legend(
     if used_keys.contains(multiple_key.as_str()) {
         legend.push(GraphRenderLegendItem {
             key: multiple_key,
-            taxonomy: taxonomy.to_string(),
+            taxonomy: Some(taxonomy.to_string()),
             terms: Vec::new(),
+            field: None,
             label: "Multiple terms".to_string(),
             color: None,
         });
@@ -1606,14 +1689,135 @@ fn graph_legend(
     if used_keys.contains(unclassified_key.as_str()) {
         legend.push(GraphRenderLegendItem {
             key: unclassified_key,
-            taxonomy: taxonomy.to_string(),
+            taxonomy: Some(taxonomy.to_string()),
             terms: Vec::new(),
+            field: None,
             label: "Unclassified".to_string(),
             color: None,
         });
     }
     legend
 }
+
+fn graph_field_classification(
+    item: &RenderCandidate,
+    field: &str,
+) -> GraphRenderNodeClassification {
+    graph_field_classification_and_color(item, field).0
+}
+
+fn graph_field_classification_and_color(
+    item: &RenderCandidate,
+    field: &str,
+) -> (GraphRenderNodeClassification, Option<String>) {
+    let Some(value) = value_for_target(item, field)
+        .as_ref()
+        .and_then(graph_field_scalar)
+    else {
+        return (
+            GraphRenderNodeClassification {
+                key: format!("field:{field}:unclassified"),
+                taxonomy: None,
+                terms: Vec::new(),
+                field: Some(field.to_string()),
+                label: "Unclassified".to_string(),
+            },
+            None,
+        );
+    };
+    let hash = stable_graph_color_hash(value.identity.as_bytes());
+    let color = value.explicit_color.unwrap_or_else(|| {
+        GENERATED_GRAPH_COLORS[hash as usize % GENERATED_GRAPH_COLORS.len()].to_string()
+    });
+    (
+        GraphRenderNodeClassification {
+            key: format!("field:{field}:value:{hash:016x}"),
+            taxonomy: None,
+            terms: Vec::new(),
+            field: Some(field.to_string()),
+            label: value.label,
+        },
+        Some(color),
+    )
+}
+
+struct GraphFieldScalar {
+    identity: String,
+    label: String,
+    explicit_color: Option<String>,
+}
+
+fn graph_field_scalar(value: &Value) -> Option<GraphFieldScalar> {
+    let (identity, label, explicit_color) = match value {
+        Value::String(value) => {
+            let label = value.trim();
+            if label.is_empty() {
+                return None;
+            }
+            if is_valid_display_color(label) {
+                let color = label.to_ascii_uppercase();
+                (format!("string:{color}"), color.clone(), Some(color))
+            } else {
+                (format!("string:{label}"), label.to_string(), None)
+            }
+        }
+        Value::Number(value) => {
+            let label = value.to_string();
+            (format!("number:{label}"), label, None)
+        }
+        Value::Bool(value) => {
+            let label = value.to_string();
+            (format!("boolean:{label}"), label, None)
+        }
+        _ => return None,
+    };
+    Some(GraphFieldScalar {
+        identity,
+        label,
+        explicit_color,
+    })
+}
+
+fn graph_field_legend(items: &[RenderCandidate], field: &str) -> Vec<GraphRenderLegendItem> {
+    let mut items_by_key = BTreeMap::new();
+    for item in items {
+        let (classification, color) = graph_field_classification_and_color(item, field);
+        items_by_key
+            .entry(classification.key.clone())
+            .or_insert_with(|| GraphRenderLegendItem {
+                key: classification.key,
+                taxonomy: None,
+                terms: Vec::new(),
+                field: classification.field,
+                label: classification.label,
+                color,
+            });
+    }
+    let mut legend = items_by_key.into_values().collect::<Vec<_>>();
+    legend.sort_by(|left, right| {
+        (left.label.to_lowercase(), &left.label, &left.key).cmp(&(
+            right.label.to_lowercase(),
+            &right.label,
+            &right.key,
+        ))
+    });
+    legend
+}
+
+fn stable_graph_color_hash(value: &[u8]) -> u64 {
+    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+    const FNV_PRIME: u64 = 0x100000001b3;
+    value.iter().fold(FNV_OFFSET_BASIS, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(FNV_PRIME)
+    })
+}
+
+const GENERATED_GRAPH_COLORS: [&str; 16] = [
+    "#2563EB", "#7C3AED", "#DB2777", "#16A34A", "#D97706", "#0891B2", "#0F766E", "#9333EA",
+    "#475569", "#EA580C", "#4F46E5", "#DC2626", "#65A30D", "#C026D3", "#0284C7", "#A16207",
+];
+
+const GRAPH_COLOR_CARDINALITY_WARNING_THRESHOLD: usize = 24;
 
 fn taxonomy_display(config: &WorkspaceConfig, taxonomy: &str) -> DisplayOptions {
     config
@@ -2180,9 +2384,10 @@ mod tests {
     use serde_yml::Value;
 
     use super::{
-        ReferenceIntent, ReferenceSource, RenderedHeading, TableColumnLink, TableColumnLinkTarget,
-        TableColumnOverflow, ViewRenderColumn, ViewRenderFieldValue, ViewRenderOutput,
-        normalized_table_column_dimension, render_file, render_view,
+        GRAPH_COLOR_CARDINALITY_WARNING_THRESHOLD, ReferenceIntent, ReferenceSource,
+        RenderedHeading, TableColumnLink, TableColumnLinkTarget, TableColumnOverflow,
+        ViewRenderColumn, ViewRenderFieldValue, ViewRenderOutput,
+        normalized_table_column_dimension, render_file, render_view, stable_graph_color_hash,
     };
     use crate::OperationStatus;
     use crate::index::discover_workspace;
@@ -3022,6 +3227,186 @@ mod tests {
                 .as_ref()
                 .map(|value| (value.key.as_str(), value.label.as_str())),
             Some(("areas:multiple", "Sources, Targets"))
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renders_graph_classification_from_a_frontmatter_field() {
+        let root = fixture_root("graph-view-field-color");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/doing-one.md"),
+            "---\nkind: note\ntitle: Doing One\nworkflow:\n  stage: doing\n---\n\n# Doing One\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/doing-two.md"),
+            "---\nkind: note\ntitle: Doing Two\nworkflow:\n  stage: doing\n---\n\n# Doing Two\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/explicit.md"),
+            "---\nkind: note\ntitle: Explicit\nworkflow:\n  stage: \"#dc2626\"\n---\n\n# Explicit\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/explicit-uppercase.md"),
+            "---\nkind: note\ntitle: Explicit Uppercase\nworkflow:\n  stage: \"#DC2626\"\n---\n\n# Explicit Uppercase\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/missing.md"),
+            "---\nkind: note\ntitle: Missing\n---\n\n# Missing\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/unsupported.md"),
+            "---\nkind: note\ntitle: Unsupported\nworkflow:\n  stage:\n    - doing\n    - done\n---\n\n# Unsupported\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".forma/views/workspace-graph.md"),
+            "---\nkind: view\nmode: graph\ntitle: Workspace Graph\nsource:\n  type: pages\n  include:\n    - \"notes/**/*.md\"\ngraph:\n  presentation:\n    nodes:\n      colorBy:\n        field: fields.workflow.stage\n---\n\n# Workspace Graph\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "workspace-graph", BTreeMap::new()).unwrap();
+        let Some(ViewRenderOutput::Graph { nodes, legend, .. }) = result.render else {
+            panic!("expected graph render");
+        };
+
+        assert_eq!(legend.len(), 3);
+        assert_eq!(legend[0].label, "#DC2626");
+        assert_eq!(legend[0].color.as_deref(), Some("#DC2626"));
+        assert_eq!(legend[1].label, "doing");
+        assert_eq!(legend[1].color.as_deref(), Some("#C026D3"));
+        assert_eq!(legend[2].label, "Unclassified");
+        assert_eq!(legend[2].color, None);
+
+        let doing_one = nodes
+            .iter()
+            .find(|node| node.path == "notes/doing-one.md")
+            .and_then(|node| node.classification.as_ref())
+            .expect("doing one classification");
+        let doing_two = nodes
+            .iter()
+            .find(|node| node.path == "notes/doing-two.md")
+            .and_then(|node| node.classification.as_ref())
+            .expect("doing two classification");
+        assert_eq!(doing_one.key, doing_two.key);
+        assert_eq!(doing_one.label, "doing");
+        assert_eq!(doing_one.field.as_deref(), Some("fields.workflow.stage"));
+        assert_eq!(doing_one.taxonomy, None);
+
+        let explicit = nodes
+            .iter()
+            .find(|node| node.path == "notes/explicit.md")
+            .and_then(|node| node.classification.as_ref())
+            .expect("explicit classification");
+        let explicit_uppercase = nodes
+            .iter()
+            .find(|node| node.path == "notes/explicit-uppercase.md")
+            .and_then(|node| node.classification.as_ref())
+            .expect("uppercase explicit classification");
+        assert_eq!(explicit.key, explicit_uppercase.key);
+
+        let missing = nodes
+            .iter()
+            .find(|node| node.path == "notes/missing.md")
+            .and_then(|node| node.classification.as_ref())
+            .expect("missing classification");
+        let unsupported = nodes
+            .iter()
+            .find(|node| node.path == "notes/unsupported.md")
+            .and_then(|node| node.classification.as_ref())
+            .expect("unsupported classification");
+        assert_eq!(missing.key, unsupported.key);
+        assert_eq!(missing.label, "Unclassified");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn keeps_generated_graph_colors_stable_for_typed_scalar_values() {
+        assert_eq!(
+            stable_graph_color_hash(b"string:doing"),
+            0xe98f_0c27_9bc0_f74d
+        );
+        assert_ne!(
+            stable_graph_color_hash(b"string:42"),
+            stable_graph_color_hash(b"number:42")
+        );
+        assert_ne!(
+            stable_graph_color_hash(b"string:true"),
+            stable_graph_color_hash(b"boolean:true")
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_graph_field_color_sources() {
+        for (fixture, color_by) in [
+            (
+                "graph-view-color-source-conflict",
+                "taxonomy: spaces\n        field: fields.status",
+            ),
+            ("graph-view-color-field-invalid", "field: status"),
+        ] {
+            let root = fixture_root(fixture);
+            fs::create_dir_all(&root).unwrap();
+            copy_starter_workspace(&root);
+            fs::write(
+                root.join(".forma/views/workspace-graph.md"),
+                format!(
+                    "---\nkind: view\nmode: graph\nsource:\n  type: pages\ngraph:\n  presentation:\n    nodes:\n      colorBy:\n        {color_by}\n---\n\n# Workspace Graph\n\n<!-- forma:content -->\n"
+                ),
+            )
+            .unwrap();
+
+            let result = render_view(&root, "workspace-graph", BTreeMap::new()).unwrap();
+
+            assert!(result.render.is_none());
+            assert!(
+                result
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == "view.graphColorByInvalid")
+            );
+
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn warns_when_a_graph_color_field_has_high_cardinality() {
+        let root = fixture_root("graph-view-field-color-cardinality");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        for index in 0..=GRAPH_COLOR_CARDINALITY_WARNING_THRESHOLD {
+            fs::write(
+                root.join(format!("notes/value-{index}.md")),
+                format!(
+                    "---\nkind: note\ntitle: Value {index}\ncategory: value-{index}\n---\n\n# Value {index}\n"
+                ),
+            )
+            .unwrap();
+        }
+        fs::write(
+            root.join(".forma/views/workspace-graph.md"),
+            "---\nkind: view\nmode: graph\nsource:\n  type: pages\n  include:\n    - \"notes/**/*.md\"\ngraph:\n  presentation:\n    nodes:\n      colorBy:\n        field: fields.category\n---\n\n# Workspace Graph\n\n<!-- forma:content -->\n",
+        )
+        .unwrap();
+
+        let result = render_view(&root, "workspace-graph", BTreeMap::new()).unwrap();
+
+        assert!(result.render.is_some());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "view.graphColorCardinalityHigh")
         );
 
         fs::remove_dir_all(root).unwrap();

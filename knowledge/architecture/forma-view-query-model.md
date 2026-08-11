@@ -201,7 +201,9 @@ graph:
 ---
 ```
 
-Graph node coloring is explicit and taxonomy-neutral. When `graph.presentation.nodes.colorBy.taxonomy` is present, Core projects the matching configured term identity and presentation. A term color falls back to its taxonomy main color; unclassified and multi-term Pages remain neutral rather than receiving an inferred category. A missing taxonomy is a View diagnostic. Without `colorBy`, the Graph keeps Host-neutral node colors.
+Graph node coloring is explicit and configuration-driven. When `graph.presentation.nodes.colorBy.taxonomy` is present, Core projects the matching configured term identity and presentation. A term color falls back to its taxonomy main color; unclassified and multi-term Pages remain neutral rather than receiving an inferred category. A missing taxonomy is a View diagnostic.
+
+`graph.presentation.nodes.colorBy.field` is the mutually exclusive field-driven alternative. It reads a scalar frontmatter value through the standard `fields.<path>` target syntax. Valid `#RRGGBB` strings remain explicit colors; other non-empty strings, numbers, and booleans map deterministically to the Core-owned Graph palette. Missing, null, empty, list, and object values remain neutral and classify as `Unclassified`. Core owns this classification and color projection so RPC, WebApp, static export, and editor Hosts do not reinterpret frontmatter independently. Without `colorBy`, the Graph keeps Host-neutral node colors.
 
 Graph should be opened through normal view navigation, tabs, or links. It is a view mode, not a separate global product surface. Relationship panels may show backlinks and outgoing links for the current page, but they are not the primary graph surface.
 

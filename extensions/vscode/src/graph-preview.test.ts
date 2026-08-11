@@ -51,6 +51,40 @@ describe("VS Code Graph Preview adapter", () => {
         expect(projection.nodes[0]).not.toHaveProperty("space");
     });
 
+    it("maps field-driven presentation through the shared projection", () => {
+        const projection = mapPreviewGraphProjection({
+            kind: "graph",
+            nodes: [
+                {
+                    id: "tasks/one.md",
+                    path: "tasks/one.md",
+                    title: "One",
+                    space: "compatibility-only",
+                    classification: {
+                        key: "field:fields.status:value:doing",
+                        field: "fields.status",
+                        label: "doing",
+                    },
+                },
+            ],
+            edges: [],
+            legend: [
+                {
+                    key: "field:fields.status:value:doing",
+                    field: "fields.status",
+                    label: "doing",
+                    color: "#2563EB",
+                },
+            ],
+        });
+
+        expect(projection.nodes[0]?.classification).toEqual({
+            key: "field:fields.status:value:doing",
+            label: "doing",
+            color: "#2563EB",
+        });
+    });
+
     it("rejects malformed inert Preview data", () => {
         expect(parsePreviewGraphData("not json")).toBeUndefined();
         expect(parsePreviewGraphData('{"schemaVersion":1,"projection":{"kind":"table"}}')).toBeUndefined();

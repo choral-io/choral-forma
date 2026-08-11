@@ -202,16 +202,15 @@ export interface DashboardGraphNode {
     classification?: DashboardGraphClassification;
 }
 
-export interface DashboardGraphClassification {
+interface DashboardGraphClassificationBase {
     key: string;
-    taxonomy: string;
-    terms?: string[];
     label: string;
 }
 
-export interface DashboardGraphLegendItem extends DashboardGraphClassification {
-    color?: string;
-}
+export type DashboardGraphClassification = DashboardGraphClassificationBase &
+    ({ taxonomy: string; terms?: string[]; field?: never } | { field: string; taxonomy?: never; terms?: never });
+
+export type DashboardGraphLegendItem = DashboardGraphClassification & { color?: string };
 
 export interface DashboardGraphEdge {
     id: string;

@@ -35,6 +35,31 @@ describe("WebApp graph adapter", () => {
         expect(activeGraphNodeId(projection(), "/pages/a")).toBe("a.md");
         expect(activeGraphNodeId(projection(), "/views/graph")).toBeNull();
     });
+
+    it("maps field-driven colors through the shared projection", () => {
+        const source = projection();
+        source.legend = [
+            {
+                key: "field:fields.status:value:doing",
+                field: "fields.status",
+                label: "doing",
+                color: "#2563EB",
+            },
+        ];
+        const firstNode = source.nodes[0];
+        if (!firstNode) throw new Error("expected graph fixture node");
+        firstNode.classification = {
+            key: "field:fields.status:value:doing",
+            field: "fields.status",
+            label: "doing",
+        };
+
+        expect(mapDashboardGraphProjection(source).nodes[0]?.classification).toEqual({
+            key: "field:fields.status:value:doing",
+            label: "doing",
+            color: "#2563EB",
+        });
+    });
 });
 
 function projection(): Extract<DashboardViewProjection, { kind: "graph" }> {

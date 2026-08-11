@@ -77,6 +77,20 @@ graph:
 
 `graph.presentation.nodes.colorBy.taxonomy` optionally colors nodes by any configured taxonomy. A Page that matches one term uses the term's `display.color`, falling back to the taxonomy's `display.color`. Unclassified Pages and Pages that match several terms keep a neutral fill, so Forma never chooses an arbitrary first term. Omitting `colorBy` preserves the Host's neutral Graph colors; naming an unknown taxonomy reports `view.graphTaxonomyMissing`.
 
+A Graph can instead classify nodes from one scalar frontmatter field:
+
+```yaml
+graph:
+    presentation:
+        nodes:
+            colorBy:
+                field: fields.status
+```
+
+`graph.presentation.nodes.colorBy.field` uses the same `fields.<path>` convention as View queries and supports nested paths such as `fields.workflow.stage`. A non-empty string, number, or boolean becomes a classification label. A string in the existing `#RRGGBB` display-color format is used directly; every other supported value maps deterministically to the built-in Graph palette, so equal typed values receive the same color across Hosts. Missing, null, empty, list, and object values remain neutral and appear as `Unclassified` rather than being flattened or assigned an arbitrary first value.
+
+Configure exactly one of `colorBy.taxonomy` or `colorBy.field`. Invalid combinations and field paths report `view.graphColorByInvalid`. Choose a field with a small, meaningful set of values; more than 24 distinct scalar values reports `view.graphColorCardinalityHigh` because fields such as entry titles or unique identifiers create noisy Graphs and legends.
+
 Node size is derived from the number of incoming and outgoing resolved references, using a bounded logarithmic scale so highly connected Pages stand out without overwhelming the layout.
 
 Use `query` only for filters within the selected source:

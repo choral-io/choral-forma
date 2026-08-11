@@ -337,12 +337,13 @@ export type GraphRenderNode = {
     classification?: GraphRenderNodeClassification;
 };
 
-export type GraphRenderNodeClassification = {
+type GraphRenderClassificationBase = {
     key: string;
-    taxonomy: string;
-    terms?: string[];
     label: string;
 };
+
+export type GraphRenderNodeClassification = GraphRenderClassificationBase &
+    ({ taxonomy: string; terms?: string[]; field?: never } | { field: string; taxonomy?: never; terms?: never });
 
 export type GraphRenderLegendItem = GraphRenderNodeClassification & {
     color?: string;

@@ -14,6 +14,9 @@ type GraphProjectionSourceNode = {
     classification?: {
         key: string;
         label: string;
+        taxonomy?: string;
+        terms?: readonly string[];
+        field?: string;
     };
 };
 
@@ -21,6 +24,9 @@ type GraphProjectionSourceLegendItem = {
     key: string;
     label: string;
     color?: string;
+    taxonomy?: string;
+    terms?: readonly string[];
+    field?: string;
 };
 
 export function normalizeGraphProjection(projection: GraphProjectionSource): GraphProjection {
