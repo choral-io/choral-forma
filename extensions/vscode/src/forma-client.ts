@@ -18,13 +18,18 @@ import { RequestScheduler } from "./request-scheduler.ts";
 
 export const supportedSchemaVersion = 1;
 
+const defaultMaxStdoutBytes = 1_048_576;
+const largeWorkspaceMaxStdoutBytes = 8_388_608;
+const maxStderrBytes = 65_536;
+
 export type ProcessRequest = {
     command: string;
     args: string[];
     cwd?: string;
     signal?: AbortSignal;
     timeoutMs: number;
-    maxOutputBytes: number;
+    maxStdoutBytes: number;
+    maxStderrBytes: number;
 };
 
 export type ProcessResult = {
@@ -58,22 +63,32 @@ export const runProcess: ProcessRunner = async (request) =>
             stdio: ["ignore", "pipe", "pipe"],
             windowsHide: true,
         });
-        let stdout = "";
-        let stderr = "";
+        const stdout = { chunks: [] as Buffer[], byteLength: 0 };
+        const stderr = { chunks: [] as Buffer[], byteLength: 0 };
         let timedOut = false;
         let outputExceeded = false;
 
-        const append = (current: string, chunk: Buffer): string => {
-            const next = current + chunk.toString("utf8");
-            if (Buffer.byteLength(next) > request.maxOutputBytes) {
+        const append = (output: typeof stdout, chunk: Buffer, maximumBytes: number): void => {
+            if (outputExceeded) return;
+            const remainingBytes = maximumBytes - output.byteLength;
+            if (chunk.byteLength > remainingBytes) {
+                if (remainingBytes > 0) {
+                    output.chunks.push(chunk.subarray(0, remainingBytes));
+                    output.byteLength += remainingBytes;
+                }
                 outputExceeded = true;
                 child.kill();
-                return next.slice(0, request.maxOutputBytes);
+                return;
             }
-            return next;
+            output.chunks.push(chunk);
+            output.byteLength += chunk.byteLength;
         };
-        child.stdout.on("data", (chunk: Buffer) => (stdout = append(stdout, chunk)));
-        child.stderr.on("data", (chunk: Buffer) => (stderr = append(stderr, chunk)));
+        child.stdout.on("data", (chunk: Buffer) => {
+            append(stdout, chunk, request.maxStdoutBytes);
+        });
+        child.stderr.on("data", (chunk: Buffer) => {
+            append(stderr, chunk, request.maxStderrBytes);
+        });
 
         const timeout = setTimeout(() => {
             timedOut = true;
@@ -92,12 +107,14 @@ export const runProcess: ProcessRunner = async (request) =>
         child.once("close", (code) => {
             clearTimeout(timeout);
             request.signal?.removeEventListener("abort", cancel);
+            const stdoutText = Buffer.concat(stdout.chunks, stdout.byteLength).toString("utf8");
+            const stderrText = Buffer.concat(stderr.chunks, stderr.byteLength).toString("utf8");
             if (request.signal?.aborted) {
-                reject(new FormaCommandError("Forma command was cancelled.", "cancelled", boundedMessage(stderr)));
+                reject(new FormaCommandError("Forma command was cancelled.", "cancelled", boundedMessage(stderrText)));
                 return;
             }
             if (timedOut) {
-                reject(new FormaCommandError("Forma command timed out.", "timeout", boundedMessage(stderr)));
+                reject(new FormaCommandError("Forma command timed out.", "timeout", boundedMessage(stderrText)));
                 return;
             }
             if (outputExceeded) {
@@ -105,12 +122,12 @@ export const runProcess: ProcessRunner = async (request) =>
                     new FormaCommandError(
                         "Forma command output exceeded the safe limit.",
                         "failed",
-                        boundedMessage(stderr),
+                        boundedMessage(stderrText),
                     ),
                 );
                 return;
             }
-            resolve({ code, stdout, stderr });
+            resolve({ code, stdout: stdoutText, stderr: stderrText });
         });
     });
 
@@ -121,7 +138,6 @@ export class FormaClient {
         private readonly command: string,
         private readonly runner: ProcessRunner = runProcess,
         private readonly timeoutMs = 15_000,
-        private readonly maxOutputBytes = 1_048_576,
         concurrency = 2,
     ) {
         this.scheduler = new RequestScheduler(concurrency);
@@ -136,15 +152,27 @@ export class FormaClient {
     }
 
     check(workspace: string, signal?: AbortSignal): Promise<CheckResult> {
-        return this.runJson("check", workspace, ["check"], signal);
+        return this.runJson("check", workspace, ["check"], signal, largeWorkspaceMaxStdoutBytes);
     }
 
     workspaceHealth(workspace: string, signal?: AbortSignal): Promise<WorkspaceHealthResult> {
-        return this.runJson("workspace.health", workspace, ["workspace", "health"], signal);
+        return this.runJson(
+            "workspace.health",
+            workspace,
+            ["workspace", "health"],
+            signal,
+            largeWorkspaceMaxStdoutBytes,
+        );
     }
 
     workspaceDashboard(workspace: string, signal?: AbortSignal): Promise<WorkspaceDashboardResult> {
-        return this.runJson("workspace.dashboard", workspace, ["workspace", "dashboard"], signal);
+        return this.runJson(
+            "workspace.dashboard",
+            workspace,
+            ["workspace", "dashboard"],
+            signal,
+            largeWorkspaceMaxStdoutBytes,
+        );
     }
 
     workspaceExplorer(workspace: string, signal?: AbortSignal): Promise<WorkspaceExplorerResult> {
@@ -178,7 +206,7 @@ export class FormaClient {
     }
 
     renderView(workspace: string, view: string, signal?: AbortSignal): Promise<ViewRenderResult> {
-        return this.runJson("view.render", workspace, ["view", "render", view], signal);
+        return this.runJson("view.render", workspace, ["view", "render", view], signal, largeWorkspaceMaxStdoutBytes);
     }
 
     resolveReference(
@@ -199,13 +227,15 @@ export class FormaClient {
         workspace: string,
         args: string[],
         signal?: AbortSignal,
+        maxStdoutBytes = defaultMaxStdoutBytes,
     ): Promise<T> {
         const result = await this.run({
             command: this.command,
             args: ["--workspace", workspace, ...args, "--json"],
             cwd: workspace,
             timeoutMs: this.timeoutMs,
-            maxOutputBytes: this.maxOutputBytes,
+            maxStdoutBytes,
+            maxStderrBytes,
             ...(signal ? { signal } : {}),
         });
         if (result.code !== 0 && result.stdout.trim() === "") {
@@ -246,7 +276,8 @@ export class FormaClient {
             scheduled.args,
             scheduled.cwd,
             scheduled.timeoutMs,
-            scheduled.maxOutputBytes,
+            scheduled.maxStdoutBytes,
+            scheduled.maxStderrBytes,
         ]);
         return this.scheduler.schedule(
             key,

@@ -6,6 +6,7 @@ import {
     formatFormaError,
     isFormaExecutableUnavailable,
     resolveFormaCommand,
+    runProcess,
     type ProcessRunner,
 } from "./forma-client.ts";
 
@@ -23,6 +24,49 @@ describe("resolveFormaCommand", () => {
 });
 
 describe("FormaClient", () => {
+    it("uses a larger bounded stdout budget only for full workspace results", async () => {
+        const requests: Parameters<ProcessRunner>[0][] = [];
+        const fake: ProcessRunner = vi.fn(async (request: Parameters<ProcessRunner>[0]) => {
+            requests.push(request);
+            const command = request.args.slice(2, -1).join(" ");
+            const operation = command.startsWith("config inspect")
+                ? "config.inspect"
+                : command.startsWith("workspace explorer-entries")
+                  ? "workspace.explorerEntries"
+                  : command.startsWith("workspace explorer")
+                    ? "workspace.explorer"
+                    : command.startsWith("workspace dashboard")
+                      ? "workspace.dashboard"
+                      : command.startsWith("workspace health")
+                        ? "workspace.health"
+                        : command.startsWith("inspect")
+                          ? "inspect"
+                          : command.startsWith("view render")
+                            ? "view.render"
+                            : command.startsWith("reference resolve")
+                              ? "reference.resolve"
+                              : "check";
+            return { code: 0, stderr: "", stdout: JSON.stringify({ schemaVersion: 1, operation, status: "passed" }) };
+        });
+        const client = new FormaClient("forma", fake);
+
+        await client.configInspect("/workspace");
+        await client.check("/workspace");
+        await client.workspaceHealth("/workspace");
+        await client.workspaceDashboard("/workspace");
+        await client.workspaceExplorer("/workspace");
+        await client.workspaceExplorerEntries("/workspace", "spaces", "notes");
+        await client.inspect("/workspace", "notes/a.md");
+        await client.renderView("/workspace", ".forma/views/graph.md");
+        await client.resolveReference("/workspace", "notes/a.md", "notes/b", "link");
+
+        expect(requests.map(({ maxStdoutBytes, maxStderrBytes }) => ({ maxStdoutBytes, maxStderrBytes }))).toEqual(
+            [1_048_576, 8_388_608, 8_388_608, 8_388_608, 1_048_576, 1_048_576, 1_048_576, 8_388_608, 1_048_576].map(
+                (maxStdoutBytes) => ({ maxStdoutBytes, maxStderrBytes: 65_536 }),
+            ),
+        );
+    });
+
     it("validates JSON operation identity", async () => {
         const client = new FormaClient(
             "forma",
@@ -158,5 +202,41 @@ describe("FormaClient", () => {
                 ],
             }),
         );
+    });
+});
+
+describe("runProcess", () => {
+    it("accepts the observed graph payload within the view-render budget", async () => {
+        await expect(
+            runProcess({
+                command: process.execPath,
+                args: ["-e", 'process.stdout.write("x".repeat(2_314_372))'],
+                timeoutMs: 15_000,
+                maxStdoutBytes: 8_388_608,
+                maxStderrBytes: 65_536,
+            }),
+        ).resolves.toMatchObject({ code: 0 });
+    });
+
+    it("enforces stdout and stderr budgets independently", async () => {
+        await expect(
+            runProcess({
+                command: process.execPath,
+                args: ["-e", 'process.stdout.write("x".repeat(33))'],
+                timeoutMs: 15_000,
+                maxStdoutBytes: 32,
+                maxStderrBytes: 64,
+            }),
+        ).rejects.toMatchObject({ kind: "failed" });
+
+        await expect(
+            runProcess({
+                command: process.execPath,
+                args: ["-e", 'process.stdout.write("x".repeat(64)); process.stderr.write("y".repeat(33))'],
+                timeoutMs: 15_000,
+                maxStdoutBytes: 64,
+                maxStderrBytes: 32,
+            }),
+        ).rejects.toMatchObject({ kind: "failed" });
     });
 });
