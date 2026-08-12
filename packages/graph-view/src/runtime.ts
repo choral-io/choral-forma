@@ -161,7 +161,7 @@ class SigmaGraphRuntime implements GraphRuntime {
     destroy(): void {
         if (this.#destroyed) return;
         this.#destroyed = true;
-        const webGlContexts = graphWebGlContexts(this.#container);
+        const canvasResources = graphCanvasResources(this.#container);
         cancelAnimationFrame(this.#resizeFrame);
         this.#container.removeEventListener("keydown", this.#handleKeyDown);
         this.#container.removeEventListener("wheel", this.#handleWheelCapture, { capture: true });
@@ -171,7 +171,11 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#resizeObserver.disconnect();
         this.#layout.destroy();
         this.#renderer.kill();
-        for (const context of webGlContexts) context.getExtension("WEBGL_lose_context")?.loseContext();
+        for (const context of canvasResources.webGlContexts) context.getExtension("WEBGL_lose_context")?.loseContext();
+        for (const canvas of canvasResources.canvases) {
+            canvas.width = 0;
+            canvas.height = 0;
+        }
     }
 
     #createRenderer(graph: GraphologyViewGraph): GraphRenderer {
@@ -388,14 +392,18 @@ class SigmaGraphRuntime implements GraphRuntime {
     };
 }
 
-function graphWebGlContexts(container: HTMLElement): readonly (WebGLRenderingContext | WebGL2RenderingContext)[] {
-    if (typeof container.querySelectorAll !== "function") return [];
+function graphCanvasResources(container: HTMLElement): {
+    canvases: readonly HTMLCanvasElement[];
+    webGlContexts: readonly (WebGLRenderingContext | WebGL2RenderingContext)[];
+} {
+    if (typeof container.querySelectorAll !== "function") return { canvases: [], webGlContexts: [] };
+    const canvases = [...container.querySelectorAll("canvas")];
     const contexts: (WebGLRenderingContext | WebGL2RenderingContext)[] = [];
-    for (const canvas of container.querySelectorAll("canvas")) {
+    for (const canvas of canvases) {
         const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
         if (context) contexts.push(context);
     }
-    return contexts;
+    return { canvases, webGlContexts: contexts };
 }
 
 function isMacOSPlatform(): boolean {

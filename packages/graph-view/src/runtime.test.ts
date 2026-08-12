@@ -211,6 +211,8 @@ describe("SigmaGraphRuntime lifecycle", () => {
         } as unknown as WebGL2RenderingContext;
         const canvas = {
             getContext: vi.fn((name: string) => (name === "webgl2" ? webGlContext : null)),
+            height: 480,
+            width: 720,
         } as unknown as HTMLCanvasElement;
         const container = fakeContainer();
         container.querySelectorAll = vi.fn(() => [canvas]) as unknown as typeof container.querySelectorAll;
@@ -226,6 +228,8 @@ describe("SigmaGraphRuntime lifecycle", () => {
         expect(sigmaMocks.instances[0]?.kill).toHaveBeenCalledOnce();
         expect(webGlContext.getExtension).toHaveBeenCalledWith("WEBGL_lose_context");
         expect(loseContext).toHaveBeenCalledOnce();
+        expect(canvas.width).toBe(0);
+        expect(canvas.height).toBe(0);
     });
 
     it("supports shared Enter, Escape, and fit keyboard actions", () => {
