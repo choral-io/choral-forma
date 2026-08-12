@@ -206,16 +206,18 @@ describe("SigmaGraphRuntime lifecycle", () => {
 
     it("explicitly releases retained WebGL contexts after renderer disposal", () => {
         const loseContext = vi.fn();
+        const getExtension = vi.fn((name: string) => (name === "WEBGL_lose_context" ? { loseContext } : null));
         const webGlContext = {
-            getExtension: vi.fn((name: string) => (name === "WEBGL_lose_context" ? { loseContext } : null)),
+            getExtension,
         } as unknown as WebGL2RenderingContext;
         const canvas = {
             getContext: vi.fn((name: string) => (name === "webgl2" ? webGlContext : null)),
             height: 480,
+            tagName: "CANVAS",
             width: 720,
         } as unknown as HTMLCanvasElement;
         const container = fakeContainer();
-        container.querySelectorAll = vi.fn(() => [canvas]) as unknown as typeof container.querySelectorAll;
+        Object.defineProperty(container, "children", { value: [canvas] });
         const runtime = createGraphRuntime({
             container,
             projection: projection(),
@@ -226,7 +228,7 @@ describe("SigmaGraphRuntime lifecycle", () => {
         runtime.destroy();
 
         expect(sigmaMocks.instances[0]?.kill).toHaveBeenCalledOnce();
-        expect(webGlContext.getExtension).toHaveBeenCalledWith("WEBGL_lose_context");
+        expect(getExtension).toHaveBeenCalledWith("WEBGL_lose_context");
         expect(loseContext).toHaveBeenCalledOnce();
         expect(canvas.width).toBe(0);
         expect(canvas.height).toBe(0);
@@ -638,6 +640,7 @@ function fakeContainer(removeEventListener = vi.fn()): HTMLElement & { eventList
     const eventListeners = new Map<string, EventListener>();
     return {
         eventListeners,
+        children: [],
         offsetHeight: 480,
         offsetWidth: 720,
         style: { removeProperty: vi.fn() },
@@ -647,7 +650,6 @@ function fakeContainer(removeEventListener = vi.fn()): HTMLElement & { eventList
         }),
         hasAttribute: vi.fn((name: string) => attributes.has(name)),
         removeEventListener,
-        querySelectorAll: vi.fn(() => []),
         setAttribute: vi.fn((name: string, value: string) => attributes.set(name, value)),
     } as unknown as HTMLElement & { eventListeners: Map<string, EventListener> };
 }

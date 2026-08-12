@@ -396,8 +396,9 @@ function graphCanvasResources(container: HTMLElement): {
     canvases: readonly HTMLCanvasElement[];
     webGlContexts: readonly (WebGLRenderingContext | WebGL2RenderingContext)[];
 } {
-    if (typeof container.querySelectorAll !== "function") return { canvases: [], webGlContexts: [] };
-    const canvases = [...container.querySelectorAll("canvas")];
+    const canvases = Array.from(container.children).filter(
+        (element): element is HTMLCanvasElement => element.tagName === "CANVAS",
+    );
     const contexts: (WebGLRenderingContext | WebGL2RenderingContext)[] = [];
     for (const canvas of canvases) {
         const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
