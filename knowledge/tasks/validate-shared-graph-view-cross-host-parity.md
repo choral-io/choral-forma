@@ -9,13 +9,14 @@ priority: P1
 value: H
 module: app
 effort: M
-status: doing
+status: reviewing
 readiness: ready
 owners:
     - "members/tiscs"
 assignees:
     - "members/tiscs"
-reviewers: []
+reviewers:
+    - "members/tiscs"
 tags:
     - forma
     - graph
@@ -76,8 +77,8 @@ Establish evidence that the WebApp and VS Code Graph surfaces share one implemen
 
 ## Result
 
-The 2026-08-12 follow-up completed the local WebApp and packaged VS Code performance loop, including 25-, approximately 500-, and approximately 5,000-node fixtures; first render, layout settle, longest task, reset responsiveness, 30-second idle samples, high-contrast, reduced-motion, and repeated disposal evidence. It also raised only the full-workspace VS Code command stdout budgets from 1 MiB to 8 MiB while keeping smaller calls at 1 MiB and stderr independently bounded at 64 KiB.
+The 2026-08-12 and 2026-08-13 follow-ups completed the local WebApp, packaged VS Code, and Remote SSH validation loops. Evidence covers 25-, approximately 500-, and approximately 5,000-node fixtures; first render, layout settle, longest task, reset responsiveness, 30-second idle samples, high contrast, reduced motion, repeated disposal, window reload, Remote source navigation, and Remote Extension Host and LSP resource use. The exact `d57079e` candidate passed main CI, and its Linux CLI and VSIX artifacts were used for the Remote run.
 
-Local behavior is ready for review with two explicit Host boundaries: WebApp Worker settle and VS Code synchronous layout are measured separately, and VS Code `workbench.reduceMotion: on` did not propagate to the native Markdown Preview webview even though the shared runtime honored reduced motion when the media feature was present. Repeated VS Code Preview disposal released the iframe and all Forma lifecycle references, but Chromium retained collectible renderer memory until DevTools garbage collection; this Host high-water behavior remains a recorded performance risk rather than being reported as zero growth.
+The accepted Remote host at `tiscs@10.0.0.53` rendered and interacted with both the 25-node and 5,000-node fixtures. Node activation navigated the native Remote Markdown Preview to the real note path, expand and Escape worked, window reload restored one Graph instance, ten Preview disposal cycles left no iframe target, and the large fixture completed render, selection, F reset, expand, Escape, and close. The 5,000-node CLI projection was 2,314,372 bytes, confirming the scoped 8 MiB stdout budget. Validation-created remote and local state was recorded, copied to ignored evidence storage, and removed after the complete run; post-cleanup checks found no validation directories, processes, temporary paths, or listeners.
 
-The task remains Doing because the approved Remote SSH host currently closes port `8022` before SSH key exchange; port `22` completes negotiation but rejects the available public key. No remote files or services were changed during this attempt, so there is nothing new to clean. The complete small- and large-fixture Remote interaction loop, exact-candidate push, and CI confirmation remain required before assigning the reviewer and moving the task to Reviewing. Full evidence is recorded in [[discovery/shared-graph-view-cross-host-parity-validation-2026-08-11]].
+The task is ready for review with two explicit Host boundaries: WebApp Worker settle and VS Code synchronous layout are measured separately, and VS Code `workbench.reduceMotion: on` did not propagate to the native Markdown Preview webview even though the shared runtime honored reduced motion when the media feature was present. Repeated VS Code Preview disposal released the iframe and all Forma lifecycle references, but Chromium retained collectible renderer memory until DevTools garbage collection; this Host high-water behavior remains a recorded performance risk rather than being reported as zero growth. Full evidence is recorded in [[discovery/shared-graph-view-cross-host-parity-validation-2026-08-11]].

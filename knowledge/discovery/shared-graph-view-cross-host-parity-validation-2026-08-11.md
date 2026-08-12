@@ -25,9 +25,9 @@ sources:
 
 ## Outcome
 
-This iteration passes the shared projection/model contract, packaged local VSIX smoke, a real ARM64 Dev Container Graph Preview, and the 2026-08-12 local WebApp and packaged VS Code performance and accessibility follow-up. Browser evidence now covers first render, layout settle, longest task, reset responsiveness, 30-second idle samples, high contrast where supported, reduced motion, and repeated Preview disposal.
+This iteration passes the shared projection/model contract, packaged local VSIX smoke, a real ARM64 Dev Container Graph Preview, the 2026-08-12 local WebApp and packaged VS Code performance and accessibility follow-up, and the 2026-08-13 Remote SSH acceptance loop. Browser evidence covers first render, layout settle, longest task, reset responsiveness, 30-second idle samples, high contrast where supported, reduced motion, repeated Preview disposal, Remote source navigation, window reload restoration, and 5,000-node Remote interaction.
 
-The task remains Doing because the approved Remote SSH host at `114.67.117.38:8022` currently closes the connection before SSH key exchange. The complete current-candidate Remote interaction loop, push, and CI confirmation remain open. No remote state was changed during the failed 2026-08-12 connection attempts.
+The exact `d57079e3e734206cee8f34a169837ea8c3a74727` candidate was already pushed and passed main CI run `31596442939`. Its CI-produced Linux x64 CLI and VSIX were used on `tiscs@10.0.0.53`. The complete Remote loop passed, all validation-created state was restored to the recorded baseline, and the task is now ready for review.
 
 The Graph parity implementation is commit `868b868`. The aggregate delivery gate was rerun successfully after the independent dependency-refresh commit `6342e24`.
 
@@ -52,7 +52,7 @@ Passed evidence includes:
 
 - 40 shared Graph View tests;
 - 16 focused WebApp and VS Code adapter tests;
-- 67 pnpm test files and 386 tests in the final aggregate run;
+- 67 pnpm test files and 394 tests in the final aggregate run;
 - the Rust workspace, Zed WASM check, formatting, lint, type checks, and production builds through `mise run check`;
 - a locally packaged `forma-0.1.30-parity.vsix` with 57 files and a size of 210.32 KiB;
 - installed-VSIX activation in 50.413 ms, cold Definition in 35.764 ms, highest warm Definition p95 in 28.881 ms, cold DocumentLink in 1.814 ms, and highest warm DocumentLink p95 in 2.448 ms.
@@ -111,7 +111,7 @@ Chromium did not naturally collect the detached renderer heap during the 30-seco
 
 The isolated VS Code instance and WebApp browser and server processes were closed immediately after measurement.
 
-### Current Remote SSH Attempt
+### 2026-08-12 Unsuccessful Remote SSH Attempt
 
 The approved host is reachable at the TCP layer on port `8022`, but it closes after the local SSH version is sent and before the server banner or key exchange. Port `22` completes SSH negotiation but rejects the available public key. Because authentication never began on `8022`, this follow-up created no directories, installed no extension or CLI, and changed no remote files or services. There is therefore no new remote state to clean, and the earlier instruction to preserve incomplete validation state does not apply to any newly created state in this attempt.
 
@@ -131,12 +131,25 @@ VS Code Remote SSH `0.124.0` installed the candidate VSIX, started the Remote Ex
 
 The Remote SSH and Dev Container VS Code windows were closed immediately after use. The dedicated Podman container, remote test directory, and temporary `/usr/local/bin/forma` installation were removed after exact-target and checksum checks.
 
-## Remaining Gates
+### Accepted Remote SSH Run — 2026-08-13
 
-- Restore SSH access to the approved host and run the current packaged candidate through small-fixture source activation, expand and Escape, window reload and Preview restoration, ten disposal cycles, and a 5,000-node render, select, reset, expand, and close loop.
-- Record Remote Extension Host CPU and memory separately from the local Webview renderer evidence.
-- Push the exact candidate and confirm its main CI gate before assigning the reviewer and moving the task to Reviewing.
+The accepted host `tiscs@10.0.0.53` ran Debian 13 x64 with 4 CPUs, 7.8 GiB RAM, no swap, and approximately 24 GiB free disk. Baseline inspection found no `forma` executable, no `~/.vscode-server`, and no validation directory. The run created only `/home/tiscs/choral-forma-validation-d57079e`, allowed Remote SSH to create `~/.vscode-server`, and did not change system packages, services, or `/usr/local/bin`.
+
+The exact CI artifacts for `d57079e` were verified before use. The CLI passed configuration summary, workspace health, field Graph render, and taxonomy Graph render for the empty, 25-node, approximately 500-node, and 5,000-node fixtures. The field Graph outputs were 604, 12,826, 232,123, and 2,314,372 bytes respectively; the large result confirms that the scoped 8 MiB `view render` stdout budget covers the observed payload without raising smaller-operation budgets.
+
+VS Code `1.132.1` with Remote SSH `0.124.0` installed `choral-io.forma@0.1.30` into the Remote Extension Host and reached `Forma: Ready`. The 25-node Preview rendered one Graph host, eight Sigma canvases, and one expand control. A real node selection navigated the native Markdown Preview to `notes/note-00023.md`; expand and Escape passed. After `Developer: Reload Window`, `Forma: Ready` returned and exactly one Graph host, eight canvases, and one expand control were restored.
+
+Ten small-fixture Preview open/close cycles followed by a final 30-second wait left zero Webview iframe targets. Across the approximately 53-second process sample, the Remote Extension Host accumulated no additional whole CPU second and the Forma LSP remained at 0 CPU seconds; relevant RSS values did not show per-cycle growth. This evidence covers the Remote Extension Host and LSP separately from the earlier local Webview renderer measurements.
+
+The same isolated VS Code window then rendered the 5,000-node and 5,000-edge field Graph. Mount to first Sigma paint and synchronous layout settlement was approximately 124 ms. Selection produced a real `notes/note-04957.md` summary; F reset, expand, Escape, and close passed. When the VS Code window was backgrounded, Chromium correctly reported the Webview hidden and paused the 250 ms camera animation; once foregrounded, the trusted F key reset the camera to `{x: 0.5, y: 0.5, ratio: 1, angle: 0}`. After close, zero iframe targets remained. At the final sample, the Remote Extension Host had accumulated 2 CPU seconds over 377 seconds and used 160,700 KiB RSS, while the large-workspace Forma LSP had accumulated 0 CPU seconds and used 45,288 KiB RSS.
+
+The complete change log, four-fixture CLI results, and three process snapshots were copied to ignored local evidence under `target/validation/remote-ssh-10.0.0.53/` before cleanup. The isolated local VS Code instance was released. Only validation-owned remote processes and the exact validation root, validation-created `~/.vscode-server`, and three observed validation-created `/tmp/code-*` paths were removed. Post-cleanup checks found both remote directories absent, zero matching processes, zero matching temporary paths, and no remaining validation-created loopback listeners. Pre-existing services and listeners were unchanged.
+
+## Review Boundary And Residual Risks
+
 - Carry the VS Code reduced-motion propagation gap and natural renderer high-water behavior as explicit Host risks; do not describe either as resolved by shared-runtime unit coverage.
+- Preserve the explicit Host layout boundary: WebApp Worker settlement and VS Code synchronous layout are comparable policy outcomes, not identical final coordinates.
+- The validation task is ready for Human review; acceptance and a later move from Reviewing to Done remain separate decisions.
 
 ## Verification Commands
 
