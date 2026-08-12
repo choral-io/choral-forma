@@ -161,6 +161,7 @@ class SigmaGraphRuntime implements GraphRuntime {
     destroy(): void {
         if (this.#destroyed) return;
         this.#destroyed = true;
+        const webGlContexts = graphWebGlContexts(this.#container);
         cancelAnimationFrame(this.#resizeFrame);
         this.#container.removeEventListener("keydown", this.#handleKeyDown);
         this.#container.removeEventListener("wheel", this.#handleWheelCapture, { capture: true });
@@ -170,6 +171,7 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#resizeObserver.disconnect();
         this.#layout.destroy();
         this.#renderer.kill();
+        for (const context of webGlContexts) context.getExtension("WEBGL_lose_context")?.loseContext();
     }
 
     #createRenderer(graph: GraphologyViewGraph): GraphRenderer {
@@ -384,6 +386,16 @@ class SigmaGraphRuntime implements GraphRuntime {
             this.fit();
         }
     };
+}
+
+function graphWebGlContexts(container: HTMLElement): readonly (WebGLRenderingContext | WebGL2RenderingContext)[] {
+    if (typeof container.querySelectorAll !== "function") return [];
+    const contexts: (WebGLRenderingContext | WebGL2RenderingContext)[] = [];
+    for (const canvas of container.querySelectorAll("canvas")) {
+        const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+        if (context) contexts.push(context);
+    }
+    return contexts;
 }
 
 function isMacOSPlatform(): boolean {

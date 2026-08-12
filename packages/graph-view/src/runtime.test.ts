@@ -204,6 +204,30 @@ describe("SigmaGraphRuntime lifecycle", () => {
         runtime.destroy();
     });
 
+    it("explicitly releases retained WebGL contexts after renderer disposal", () => {
+        const loseContext = vi.fn();
+        const webGlContext = {
+            getExtension: vi.fn((name: string) => (name === "WEBGL_lose_context" ? { loseContext } : null)),
+        } as unknown as WebGL2RenderingContext;
+        const canvas = {
+            getContext: vi.fn((name: string) => (name === "webgl2" ? webGlContext : null)),
+        } as unknown as HTMLCanvasElement;
+        const container = fakeContainer();
+        container.querySelectorAll = vi.fn(() => [canvas]) as unknown as typeof container.querySelectorAll;
+        const runtime = createGraphRuntime({
+            container,
+            projection: projection(),
+            theme: theme(),
+            layout: { engine: "force", reducedMotion: true },
+        });
+
+        runtime.destroy();
+
+        expect(sigmaMocks.instances[0]?.kill).toHaveBeenCalledOnce();
+        expect(webGlContext.getExtension).toHaveBeenCalledWith("WEBGL_lose_context");
+        expect(loseContext).toHaveBeenCalledOnce();
+    });
+
     it("supports shared Enter, Escape, and fit keyboard actions", () => {
         const container = fakeContainer();
         const onOpenNode = vi.fn();
@@ -619,6 +643,7 @@ function fakeContainer(removeEventListener = vi.fn()): HTMLElement & { eventList
         }),
         hasAttribute: vi.fn((name: string) => attributes.has(name)),
         removeEventListener,
+        querySelectorAll: vi.fn(() => []),
         setAttribute: vi.fn((name: string, value: string) => attributes.set(name, value)),
     } as unknown as HTMLElement & { eventListeners: Map<string, EventListener> };
 }
