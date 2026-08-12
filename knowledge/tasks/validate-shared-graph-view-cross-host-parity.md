@@ -9,14 +9,13 @@ priority: P1
 value: H
 module: app
 effort: M
-status: reviewing
+status: doing
 readiness: ready
 owners:
     - "members/tiscs"
 assignees:
     - "members/tiscs"
-reviewers:
-    - "members/tiscs"
+reviewers: []
 tags:
     - forma
     - graph
@@ -77,6 +76,8 @@ Establish evidence that the WebApp and VS Code Graph surfaces share one implemen
 
 ## Result
 
-The 2026-08-11 validation iteration strengthened shared fixtures and adapter coverage, passed the packaged local VSIX smoke, and rendered the real workspace Graph through an ARM64 Dev Container Remote Extension Host. The x64 Remote SSH path reached `Forma: Ready` and passed direct CLI workspace and Graph rendering, but its native Markdown Preview remained blank and the following small-fixture reconnect failed dynamic port forwarding on the 1 vCPU, 967 MiB host.
+The 2026-08-12 follow-up completed the local WebApp and packaged VS Code performance loop, including 25-, approximately 500-, and approximately 5,000-node fixtures; first render, layout settle, longest task, reset responsiveness, 30-second idle samples, high-contrast, reduced-motion, and repeated disposal evidence. It also raised only the full-workspace VS Code command stdout budgets from 1 MiB to 8 MiB while keeping smaller calls at 1 MiB and stderr independently bounded at 64 KiB.
 
-The task therefore remains Doing. Live high-contrast and reduced-motion sessions, browser render and interaction timing, long-running retained-memory and idle-CPU profiling, and a stable Remote SSH Graph Preview remain open. Full evidence, benchmark interpretation, the explicit WebApp Worker versus VS Code synchronous-layout boundary, and environment cleanup are recorded in [[discovery/shared-graph-view-cross-host-parity-validation-2026-08-11]].
+Local behavior is ready for review with two explicit Host boundaries: WebApp Worker settle and VS Code synchronous layout are measured separately, and VS Code `workbench.reduceMotion: on` did not propagate to the native Markdown Preview webview even though the shared runtime honored reduced motion when the media feature was present. Repeated VS Code Preview disposal released the iframe and all Forma lifecycle references, but Chromium retained collectible renderer memory until DevTools garbage collection; this Host high-water behavior remains a recorded performance risk rather than being reported as zero growth.
+
+The task remains Doing because the approved Remote SSH host currently closes port `8022` before SSH key exchange; port `22` completes negotiation but rejects the available public key. No remote files or services were changed during this attempt, so there is nothing new to clean. The complete small- and large-fixture Remote interaction loop, exact-candidate push, and CI confirmation remain required before assigning the reviewer and moving the task to Reviewing. Full evidence is recorded in [[discovery/shared-graph-view-cross-host-parity-validation-2026-08-11]].

@@ -25,11 +25,13 @@ sources:
 
 ## Outcome
 
-This iteration passes the shared projection/model contract, packaged local VSIX smoke, and a real ARM64 Dev Container Graph Preview. It also proves that the official x64 CLI and VS Code extension activate over Remote SSH, but it does not pass the Remote SSH Graph Preview gate: the full-workspace Preview remained blank, and the subsequent small-fixture reconnect failed while establishing dynamic port forwarding on the 1 vCPU, 967 MiB server.
+This iteration passes the shared projection/model contract, packaged local VSIX smoke, a real ARM64 Dev Container Graph Preview, and the 2026-08-12 local WebApp and packaged VS Code performance and accessibility follow-up. Browser evidence now covers first render, layout settle, longest task, reset responsiveness, 30-second idle samples, high contrast where supported, reduced motion, and repeated Preview disposal.
 
-The task remains Doing. Live high-contrast and reduced-motion sessions, browser first-meaningful-render and interaction timing, and long-running retained-memory and idle-CPU profiling remain open. Remote SSH Preview should be repeated on a larger or more stable host before it becomes a release gate.
+The task remains Doing because the approved Remote SSH host at `114.67.117.38:8022` currently closes the connection before SSH key exchange. The complete current-candidate Remote interaction loop, push, and CI confirmation remain open. No remote state was changed during the failed 2026-08-12 connection attempts.
 
 The Graph parity implementation is commit `868b868`. The aggregate delivery gate was rerun successfully after the independent dependency-refresh commit `6342e24`.
+
+The 2026-08-12 follow-up adds bounded VS Code workspace-output handling in `89f3f1a`, runtime timing marks in `2d18798`, and explicit Graph WebGL and canvas disposal in `8ae1b68`, `258090e`, and `b139b82`.
 
 ## Shared Contract Evidence
 
@@ -71,6 +73,48 @@ A representative run measured:
 
 The 5,000-node synchronous layout result is near zero because the shared policy performs no synchronous ForceAtlas2 iterations above 2,000 nodes. It measures deterministic seeding and construction, not Worker settle, Sigma paint, first meaningful render, interaction latency, disposal memory, or idle CPU. These microbenchmarks are feedback signals rather than browser budgets.
 
+## 2026-08-12 Local Host Follow-Up
+
+### VS Code Output Budgets
+
+The original 1 MiB combined-process-output limit blocked the observed 2,314,372-byte 5,000-node `view render` payload. The client now bounds stdout and stderr independently:
+
+- `config inspect`, `check`, `workspace health`, `workspace dashboard`, and `view render` receive an 8 MiB stdout budget;
+- Explorer, entry inspection, reference resolution, and other smaller calls keep the 1 MiB stdout budget;
+- every call keeps a separate 64 KiB stderr budget.
+
+The change is covered by operation-specific budget tests, an observed-size regression test, and independent stdout/stderr overflow tests. The larger budget is not applied globally.
+
+### WebApp Browser Measurements
+
+Production WebApp builds were served through the real Forma backend against the same 25-, approximately 500-, and approximately 5,000-node fixture workspaces. Marks distinguish mount, first Sigma paint, and synchronous or Worker layout settlement.
+
+| Fixture | Mount to first render | Mount to layout settle | Longest main-thread task | Settled 30-second main-thread work |
+| --- | --: | --: | --: | --: |
+| 25 nodes | 49.2 ms | 49.2 ms | 50.0 ms | 9.306 ms |
+| about 500 nodes | 76.4 ms | 1,247.1 ms | 76.0 ms | 6.706 ms |
+| about 5,000 nodes | 108.3 ms | 1,239.0 ms | 108.7 ms | 14.167 ms |
+
+The approximately 500- and 5,000-node fixtures used the Web Worker settle path. The 5,000-node reset reached the next paint in 18.5 ms. Light and dark themes rendered with shared semantic state, and emulated `prefers-reduced-motion: reduce` changed the large fixture to the synchronous policy after reload. WebApp exposes System, Light, and Dark rather than a dedicated high-contrast mode; high contrast is therefore validated on the VS Code Host under the acceptance criterion's “where supported” boundary.
+
+The WebApp disposal loop reached approximately 15.317 MiB after ten route disposals and 15.346 MiB after twenty, a second-block increase of about 28 KiB with zero retained canvases. This is treated as a plateau rather than per-disposal growth.
+
+### Packaged VS Code Measurements
+
+The current locally packaged VSIX rendered the same 25-node fixture with the repository-built CLI. Selection, keyboard reset, expand and Escape, source activation, theme refresh, and Preview reopen worked. High-contrast tokens resolved to contrast border `#6fc3df` and focus border `#f38518`; labels, edges, legend, summary, controls, and focus remained legible.
+
+With reduced motion present in the Webview media environment, mount to first render and synchronous layout settle were 26.4 ms, reset reached the next paint in 17.3 ms, and interaction state remained correct. However, setting VS Code `workbench.reduceMotion` to `on` and reloading the window did not make the native Markdown Preview Webview report `prefers-reduced-motion: reduce`. CDP media emulation proved that the shared runtime honors the media feature, while the missing VS Code setting propagation is an explicit Host gap.
+
+After layout settlement, the isolated VS Code process group used about 0.20 CPU seconds over a 30-second sample, or approximately 0.67% of one core. Preview disposal fired `pagehide` in both the outer Webview and actual Graph document, removed the iframe target, disconnected Forma observers, destroyed Sigma, lost WebGL contexts, and zeroed canvas backing stores.
+
+Chromium did not naturally collect the detached renderer heap during the 30-second disposal windows: the retained renderer rose from about 1.70 GiB after ten cycles to 2.84 GiB after twenty. A DevTools `HeapProfiler.collectGarbage` call reduced the same renderer to about 773 MiB, and it remained about 773 MiB after the final Preview close and 30-second idle. The evidence shows that the objects are collectible and no longer Forma-reachable, but it also records a significant Host renderer high-water risk rather than claiming that natural disposal immediately returns memory.
+
+The isolated VS Code instance and WebApp browser and server processes were closed immediately after measurement.
+
+### Current Remote SSH Attempt
+
+The approved host is reachable at the TCP layer on port `8022`, but it closes after the local SSH version is sent and before the server banner or key exchange. Port `22` completes SSH negotiation but rejects the available public key. Because authentication never began on `8022`, this follow-up created no directories, installed no extension or CLI, and changed no remote files or services. There is therefore no new remote state to clean, and the earlier instruction to preserve incomplete validation state does not apply to any newly created state in this attempt.
+
 ## Real Remote Evidence
 
 ### Dev Container
@@ -89,11 +133,10 @@ The Remote SSH and Dev Container VS Code windows were closed immediately after u
 
 ## Remaining Gates
 
-- Repeat Remote SSH Graph Preview on a host with at least 2 vCPU and 2–4 GiB RAM, then exercise render, expand, source activation, reload, and disposal.
-- Run live light, dark, high-contrast, and reduced-motion sessions; automated policy coverage is not a substitute for the visual checks.
-- Capture browser first meaningful render, layout settle, longest main-thread task, and interaction responsiveness for 25, about 500, and about 5,000 nodes.
-- Measure idle CPU after settling and retained memory after repeated Preview disposal in both Hosts.
-- Define separate budgets for the WebApp Worker settle path and the VS Code synchronous policy instead of treating final coordinates as a parity requirement.
+- Restore SSH access to the approved host and run the current packaged candidate through small-fixture source activation, expand and Escape, window reload and Preview restoration, ten disposal cycles, and a 5,000-node render, select, reset, expand, and close loop.
+- Record Remote Extension Host CPU and memory separately from the local Webview renderer evidence.
+- Push the exact candidate and confirm its main CI gate before assigning the reviewer and moving the task to Reviewing.
+- Carry the VS Code reduced-motion propagation gap and natural renderer high-water behavior as explicit Host risks; do not describe either as resolved by shared-runtime unit coverage.
 
 ## Verification Commands
 
