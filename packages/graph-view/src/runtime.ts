@@ -17,6 +17,7 @@ import {
     DEFAULT_GRAPH_PRESENTATION,
     type GraphDisplayEdgeState,
     type GraphLayoutOptions,
+    type GraphLayoutSettleMode,
     type GraphNodeInput,
     type GraphNodeState,
     type GraphPresentation,
@@ -55,8 +56,12 @@ class SigmaGraphRuntime implements GraphRuntime {
     readonly #layoutOptions: GraphLayoutOptions;
     readonly #model: GraphViewModel;
     readonly #onOpenNode: ((node: GraphNodeInput) => void) | undefined;
+    readonly #onFirstRender: (() => void) | undefined;
+    readonly #onLayoutSettled: ((mode: GraphLayoutSettleMode) => void) | undefined;
     readonly #onSelectionChange: ((snapshot: GraphViewSnapshot) => void) | undefined;
     #destroyed = false;
+    #firstRenderReported = false;
+    #layoutSettledReported = false;
     #edgeFocusCanvas: HTMLCanvasElement;
     #edgeFocusContext: CanvasRenderingContext2D | null;
     #edgeFocusEdges: readonly GraphDisplayEdgeState[] = [];
@@ -81,6 +86,8 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#presentation = { ...DEFAULT_GRAPH_PRESENTATION, ...options.presentation };
         this.#model = new GraphViewModel(options.projection, this.#presentation);
         this.#onOpenNode = options.onOpenNode;
+        this.#onFirstRender = options.onFirstRender;
+        this.#onLayoutSettled = options.onLayoutSettled;
         this.#onSelectionChange = options.onSelectionChange;
         this.#theme = options.theme;
         this.#snapshot = this.#model.snapshot();
@@ -219,6 +226,14 @@ class SigmaGraphRuntime implements GraphRuntime {
         });
         this.#renderer.on("afterRender", () => {
             this.#drawEdgeFocus();
+            if (!this.#firstRenderReported) {
+                this.#firstRenderReported = true;
+                this.#onFirstRender?.();
+            }
+            if (!this.#layoutSettledReported && !this.#layout.usesWorker) {
+                this.#layoutSettledReported = true;
+                this.#onLayoutSettled?.("synchronous");
+            }
         });
     }
 
@@ -248,6 +263,10 @@ class SigmaGraphRuntime implements GraphRuntime {
                 this.#renderer.refresh();
                 if (this.#snapshot.selectedNodeId) this.#centerNode(this.#snapshot.selectedNodeId);
                 else this.fit();
+                if (!this.#layoutSettledReported) {
+                    this.#layoutSettledReported = true;
+                    this.#onLayoutSettled?.("worker");
+                }
             },
         });
     }

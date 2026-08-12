@@ -128,6 +128,7 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
     let selectedNodeId: string | null = readPreservedSelection(graphKey, data.activeNodeId);
     let expanded = false;
     let boundExpandButton: HTMLButtonElement | undefined;
+    markGraphPerformance("forma.graph.vscode.mount-start");
     const runtime = createGraphRuntime({
         container,
         projection,
@@ -146,6 +147,12 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
             selectedNodeId = snapshot.selectedNodeId;
             preserveSelection(graphKey, selectedNodeId);
             updateSelectionSurface(host, data.projection, snapshot);
+        },
+        onFirstRender: () => {
+            markGraphPerformance("forma.graph.vscode.first-render");
+        },
+        onLayoutSettled: (mode) => {
+            markGraphPerformance(`forma.graph.vscode.layout-settled.${mode}`);
         },
     });
 
@@ -219,6 +226,10 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
             shadow.replaceChildren();
         },
     };
+}
+
+function markGraphPerformance(name: string): void {
+    if (typeof performance !== "undefined" && typeof performance.mark === "function") performance.mark(name);
 }
 
 function syncExpandedBodyState(): void {

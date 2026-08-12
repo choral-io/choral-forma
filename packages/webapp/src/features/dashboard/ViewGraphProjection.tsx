@@ -115,6 +115,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         const container = containerRef.current;
         if (!container) return;
         const initialInput = initialInputRef.current;
+        markGraphPerformance("forma.graph.webapp.mount-start");
         const runtime = createGraphRuntime({
             container,
             projection: initialInput.projection,
@@ -131,6 +132,12 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
             },
             onSelectionChange(snapshot) {
                 setSelectedNodeId(snapshot.selectedNodeId);
+            },
+            onFirstRender() {
+                markGraphPerformance("forma.graph.webapp.first-render");
+            },
+            onLayoutSettled(mode) {
+                markGraphPerformance(`forma.graph.webapp.layout-settled.${mode}`);
             },
         });
         runtimeRef.current = runtime;
@@ -214,6 +221,10 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
             ) : null}
         </div>
     );
+}
+
+function markGraphPerformance(name: string): void {
+    if (typeof performance !== "undefined" && typeof performance.mark === "function") performance.mark(name);
 }
 
 function GraphNodeSummary({

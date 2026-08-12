@@ -118,6 +118,7 @@ export class GraphLayoutSession {
     readonly #onSettled: (() => void) | undefined;
     #supervisor: LayoutSupervisor | null = null;
     #timer: ReturnType<typeof setTimeout> | null = null;
+    readonly #usesWorker: boolean;
 
     constructor(
         graph: GraphologyViewGraph,
@@ -127,20 +128,24 @@ export class GraphLayoutSession {
         this.#dependencies = dependencies;
         this.#onSettled = options.onSettled;
         const engine = settleInitialLayout(graph, options.engine);
-        if (
+        this.#usesWorker = !(
             options.reducedMotion ||
             !options.useWorker ||
             engine !== "forceAtlas2" ||
             graph.order < 2 ||
             graph.size === 0
-        )
-            return;
+        );
+        if (!this.#usesWorker) return;
 
         this.#supervisor = dependencies.createSupervisor(graph, forceAtlas2Settings(graph.order));
         this.#supervisor.start();
         this.#timer = dependencies.schedule(() => {
             this.#finish();
         }, options.settleDurationMs);
+    }
+
+    get usesWorker(): boolean {
+        return this.#usesWorker;
     }
 
     stop(): void {

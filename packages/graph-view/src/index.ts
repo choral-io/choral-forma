@@ -24,6 +24,7 @@ export {
     type GraphEdgeInput,
     type GraphLayoutEngine,
     type GraphLayoutOptions,
+    type GraphLayoutSettleMode,
     type GraphNodeInput,
     type GraphNodeState,
     type GraphNodeVisualRole,

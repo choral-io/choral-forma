@@ -181,6 +181,29 @@ describe("SigmaGraphRuntime lifecycle", () => {
         expect(cancelAnimationFrame).toHaveBeenCalledWith(41);
     });
 
+    it("reports the first renderer frame and synchronous layout completion once", () => {
+        const onFirstRender = vi.fn();
+        const onLayoutSettled = vi.fn();
+        const runtime = createGraphRuntime({
+            container: fakeContainer(),
+            projection: projection(),
+            theme: theme(),
+            layout: { engine: "force", reducedMotion: true },
+            onFirstRender,
+            onLayoutSettled,
+        });
+        const renderer = sigmaMocks.instances[0];
+        if (!renderer) throw new Error("Expected Sigma renderer.");
+
+        renderer.emit("afterRender", undefined);
+        renderer.emit("afterRender", undefined);
+
+        expect(onFirstRender).toHaveBeenCalledOnce();
+        expect(onLayoutSettled).toHaveBeenCalledOnce();
+        expect(onLayoutSettled).toHaveBeenCalledWith("synchronous");
+        runtime.destroy();
+    });
+
     it("supports shared Enter, Escape, and fit keyboard actions", () => {
         const container = fakeContainer();
         const onOpenNode = vi.fn();

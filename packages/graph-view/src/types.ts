@@ -140,6 +140,8 @@ export type GraphRuntimeSnapshot = GraphViewSnapshot & {
     positions: ReadonlyMap<string, GraphPosition>;
 };
 
+export type GraphLayoutSettleMode = "synchronous" | "worker";
+
 export type GraphRuntimeOptions = {
     container: HTMLElement;
     projection: GraphProjection;
@@ -150,6 +152,8 @@ export type GraphRuntimeOptions = {
     ariaLabel?: string;
     onOpenNode?: (node: GraphNodeInput) => void;
     onSelectionChange?: (snapshot: GraphViewSnapshot) => void;
+    onFirstRender?: () => void;
+    onLayoutSettled?: (mode: GraphLayoutSettleMode) => void;
 };
 
 export type GraphRuntimeUpdate = {
