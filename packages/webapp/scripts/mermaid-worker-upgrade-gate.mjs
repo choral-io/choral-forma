@@ -9,6 +9,7 @@ import { createServer } from "vite";
 import { terminateChildProcess } from "./child-process.mjs";
 
 const webappRoot = fileURLToPath(new URL("..", import.meta.url));
+const chromeStartupTimeoutMilliseconds = 30_000;
 const profileDirectory = await mkdtemp(join(tmpdir(), "forma-mermaid-upgrade-"));
 const server = await createServer({
     configFile: join(webappRoot, "vite.config.mjs"),
@@ -31,22 +32,22 @@ try {
 
     const gateUrl = new URL("scripts/mermaid-worker-upgrade-gate.html", origin).href;
     const chromePath = await findChrome();
-    chrome = spawn(
-        chromePath,
-        [
-            "--headless=new",
-            "--disable-background-networking",
-            "--disable-default-apps",
-            "--disable-extensions",
-            "--disable-sync",
-            "--no-default-browser-check",
-            "--no-first-run",
-            "--remote-debugging-port=0",
-            `--user-data-dir=${profileDirectory}`,
-            gateUrl,
-        ],
-        { stdio: ["ignore", "ignore", "pipe"] },
-    );
+    const chromeArguments = [
+        "--headless=new",
+        "--disable-background-networking",
+        "--disable-default-apps",
+        "--disable-extensions",
+        "--disable-sync",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--remote-debugging-port=0",
+        `--user-data-dir=${profileDirectory}`,
+        gateUrl,
+    ];
+    if (process.platform === "linux") {
+        chromeArguments.splice(-1, 0, "--disable-dev-shm-usage");
+    }
+    chrome = spawn(chromePath, chromeArguments, { stdio: ["ignore", "ignore", "pipe"] });
 
     const browserEndpoint = await waitForDevtoolsEndpoint(chrome);
     const target = await waitForPageTarget(browserEndpoint, gateUrl);
@@ -136,7 +137,7 @@ function waitForDevtoolsEndpoint(process) {
         let stderr = "";
         const timeout = setTimeout(() => {
             reject(new Error(`Chrome did not expose a DevTools endpoint.\n${stderr}`));
-        }, 10_000);
+        }, chromeStartupTimeoutMilliseconds);
         const finish = (callback, value) => {
             clearTimeout(timeout);
             process.stderr.off("data", onData);

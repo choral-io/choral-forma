@@ -302,6 +302,8 @@ test("keeps the reusable release matrix and public asset contract exact", async 
         "every release CLI target must run the self-update contract tests",
     );
     const cliCommands = stepRunCommandsForTest(cliBuildJob).join("\n");
+    assert.match(cliCommands, /bash -c 'cargo (?:test|build)/su);
+    assert.doesNotMatch(cliCommands, /bash -lc 'cargo/su);
     assert.match(cliCommands, /check-linux-gnu-abi\.mjs/su);
     assert.match(cliCommands, /debian:11-slim/su);
     assert.match(cliCommands, /debian:12-slim/su);

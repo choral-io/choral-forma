@@ -131,7 +131,7 @@ jobs:
             --env RUSTUP_TOOLCHAIN=1.95.0 \
             --env TARGET="${{ matrix.target }}" \
             "${{ matrix.build_image }}" \
-            bash -lc 'cargo test --release --locked -p forma-cli self_update --target "$TARGET"'
+            bash -c 'cargo test --release --locked -p forma-cli self_update --target "$TARGET"'
 
       - name: Build Forma CLI
         if: steps.existing.outputs.present != 'true' && !endsWith(matrix.target, '-unknown-linux-gnu')
@@ -151,7 +151,7 @@ jobs:
             --env RUSTUP_TOOLCHAIN=1.95.0 \
             --env TARGET="${{ matrix.target }}" \
             "${{ matrix.build_image }}" \
-            bash -lc 'cargo build --release --locked --bin forma --target "$TARGET"'
+            bash -c 'cargo build --release --locked --bin forma --target "$TARGET"'
 
       - name: Verify Linux GNU ABI compatibility
         if: steps.existing.outputs.present != 'true' && endsWith(matrix.target, '-unknown-linux-gnu')
