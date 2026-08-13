@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Graph refresh movement gate</title>
+    </head>
+    <body>
+        <main id="measurements"></main>
+        <script type="module">
+            import { createGraphRuntime } from "@choral-forma/graph-view";
+            import { graphFixtureProfile } from "@choral-forma/graph-view/fixtures";
+
+            const theme = {
+                background: "#ffffff",
+                surface: "#f4f4f5",
+                border: "#d4d4d8",
+                node: "#52525b",
+                nodeSelected: "#2563eb",
+                nodeNeighbor: "#0284c7",
+                nodeMuted: "#d4d4d8",
+                edge: "#a1a1aa",
+                edgeSelected: "#2563eb",
+                edgeMuted: "#e4e4e7",
+                label: "#18181b",
+                labelMuted: "#71717a",
+                focusRing: "#2563eb",
+            };
+            const budgets = {
+                p95: 0.01,
+                rearrangedPercent: 1,
+            };
+
+            const nextFrame = () =>
+                new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            const delay = (durationMs) => new Promise((resolve) => setTimeout(resolve, durationMs));
+
+            function refreshedProjection(projection, percentage = 0.02) {
+                const replacementCount = Math.max(1, Math.round(projection.nodes.length * percentage));
+                const survivingNodes = projection.nodes.slice(0, -replacementCount);
+                const survivingIds = new Set(survivingNodes.map((node) => node.id));
+                const survivingEdges = projection.edges.filter(
+                    (edge) => survivingIds.has(edge.source) && survivingIds.has(edge.target),
+                );
+                const addedNodes = Array.from({ length: replacementCount }, (_value, index) => {
+                    const id = `notes/refresh-node-${String(index + 1).padStart(5, "0")}.md`;
+                    return { id, path: id, title: `Refresh node ${String(index + 1)}`, kind: "page" };
+                });
+                const addedEdges = addedNodes.flatMap((node, index) => {
+                    const anchors = [
+                        survivingNodes[index % survivingNodes.length],
+                        survivingNodes[(index * 17 + 7) % survivingNodes.length],
+                        survivingNodes[(index * 31 + 13) % survivingNodes.length],
+                    ].filter(Boolean);
+                    return anchors.map((anchor, anchorIndex) => ({
+                        id: `${anchor.id}->${node.id}:${String(anchorIndex)}`,
+                        source: anchor.id,
+                        target: node.id,
+                        sourcePath: anchor.path,
+                        targetPath: node.path,
+                        intent: "link",
+                        referenceSource: "body",
+                        label: "links to",
+                    }));
+                });
+                return { nodes: [...survivingNodes, ...addedNodes], edges: [...survivingEdges, ...addedEdges] };
+            }
+
+            function percentile(sorted, fraction) {
+                if (sorted.length === 0) return 0;
+                return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
+            }
+
+            function normalizedPositionMap(positions, survivingIds, anchorId) {
+                const points = [...survivingIds].map((id) => positions.get(id)).filter(Boolean);
+                const xs = points.map((point) => point.x);
+                const ys = points.map((point) => point.y);
+                const span = Math.max(
+                    Number.EPSILON,
+                    Math.max(...xs) - Math.min(...xs),
+                    Math.max(...ys) - Math.min(...ys),
+                );
+                const anchor = positions.get(anchorId) ?? { x: 0, y: 0 };
+                return new Map(
+                    [...survivingIds].map((id) => {
+                        const point = positions.get(id);
+                        return [
+                            id,
+                            point ? { x: (point.x - anchor.x) / span, y: (point.y - anchor.y) / span } : undefined,
+                        ];
+                    }),
+                );
+            }
+
+            function movement(before, after, survivingIds, anchorId) {
+                const normalizedBefore = normalizedPositionMap(before, survivingIds, anchorId);
+                const normalizedAfter = normalizedPositionMap(after, survivingIds, anchorId);
+                const normalized = [...survivingIds]
+                    .map((id) => {
+                        const start = normalizedBefore.get(id);
+                        const finish = normalizedAfter.get(id);
+                        return start && finish ? Math.hypot(finish.x - start.x, finish.y - start.y) : NaN;
+                    })
+                    .filter(Number.isFinite)
+                    .sort((left, right) => left - right);
+                return {
+                    finitePositions: normalized.length === survivingIds.size,
+                    p50: percentile(normalized, 0.5),
+                    p95: percentile(normalized, 0.95),
+                    maximum: normalized.at(-1) ?? 0,
+                    rearrangedPercent: (normalized.filter((value) => value > 0.05).length / normalized.length) * 100,
+                };
+            }
+
+            async function measure(host, profile) {
+                const projection = graphFixtureProfile(profile, 42);
+                const refreshed = refreshedProjection(projection);
+                const survivingIds = new Set(
+                    refreshed.nodes.filter((node) => projection.nodes.includes(node)).map((node) => node.id),
+                );
+                const selectedNodeId = survivingIds.values().next().value;
+                const container = document.createElement("section");
+                container.style.width = "1200px";
+                container.style.height = "800px";
+                document.querySelector("#measurements").append(container);
+
+                let resolveSettled;
+                const settled = new Promise((resolve) => {
+                    resolveSettled = resolve;
+                });
+                const runtime = createGraphRuntime({
+                    container,
+                    projection,
+                    theme,
+                    activeNodeId: selectedNodeId,
+                    layout: {
+                        reducedMotion: false,
+                        settleDurationMs: 1_200,
+                        useWorker: host === "webapp",
+                    },
+                    onLayoutSettled: resolveSettled,
+                });
+
+                try {
+                    await settled;
+                    await nextFrame();
+                    const before = runtime.snapshot();
+                    runtime.update({ projection: refreshed });
+                    if (host === "webapp") await delay(1_300);
+                    await nextFrame();
+                    const after = runtime.snapshot();
+                    const result = {
+                        host,
+                        profile,
+                        nodes: projection.nodes.length,
+                        edgesBefore: projection.edges.length,
+                        edgesAfter: refreshed.edges.length,
+                        replacementPercent: 2,
+                        selectionRetained: after.selectedNodeId === selectedNodeId,
+                        ...movement(before.positions, after.positions, survivingIds, selectedNodeId),
+                    };
+                    return {
+                        ...result,
+                        passed:
+                            result.selectionRetained &&
+                            result.finitePositions &&
+                            result.p95 <= budgets.p95 &&
+                            result.rearrangedPercent <= budgets.rearrangedPercent,
+                    };
+                } finally {
+                    runtime.destroy();
+                    container.remove();
+                }
+            }
+
+            try {
+                const results = [];
+                for (const host of ["webapp", "vscode"]) {
+                    for (const profile of ["medium", "large"]) {
+                        results.push(await measure(host, profile));
+                    }
+                }
+                window.__formaGraphRefreshMovementResult = {
+                    ok: results.every((result) => result.passed),
+                    budgets,
+                    results,
+                };
+            } catch (error) {
+                window.__formaGraphRefreshMovementResult = {
+                    ok: false,
+                    error: error instanceof Error ? `${error.message}\n${error.stack ?? ""}` : String(error),
+                };
+            }
+        </script>
+    </body>
+</html>
