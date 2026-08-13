@@ -9,21 +9,26 @@ priority: P1
 value: H
 module: adapter
 effort: M
-status: backlog
+status: reviewing
 readiness: ready
 owners:
     - "members/tiscs"
-assignees: []
-reviewers: []
+assignees:
+    - "members/tiscs"
+reviewers:
+    - "members/tiscs"
 tags:
     - forma
     - product-value
     - compatibility
     - editor-extension
+    - protocol
+    - release
 blockedBy: []
 relatedTo:
     - "planning/forma-product-value-gap-roadmap"
     - "architecture/editor-extension-adapter-contract"
+    - "decisions/define-cli-editor-compatibility-window"
     - "tasks/manage-vscode-forma-cli-lifecycle"
     - "tasks/implement-zed-extension-mvp"
 severity: ""
@@ -64,3 +69,30 @@ VS Code and Zed compare `forma --version` with the adapter package version. VS C
 - The staged sequence proves current/current, current/previous, previous/current, and rejected combinations.
 - Release verification retains exact artifact identity while adding protocol/capability checks.
 - The accepted design unblocks [[tasks/define-cross-surface-capability-matrix]].
+
+## Proposed Contract
+
+The workspace-independent probe is `forma compatibility --json`. Its versioned response reports the package version and release tag, independent `forma.cli.json` and `forma.lsp` protocol ranges, and immutable capability identifiers with schema versions. The adapter declares its own supported ranges plus required and optional capabilities. Package equality remains release identity and a diagnostic hint, not the negotiated compatibility decision.
+
+Compatibility requires an overlap for every required protocol and a supported version for every required capability. The selected protocol is the highest common revision; optional capabilities are enabled only when present. Every subsequent CLI JSON result and LSP message remains validated against its own operation schema.
+
+## Selection And Fallback Matrix
+
+| Adapter | CLI | Result |
+| --- | --- | --- |
+| N | N | compatible |
+| N+1 | N | compatible when ranges/capabilities overlap; warn about previous package |
+| N | N+1 | compatible when the adapter range still overlaps; warn about newer package |
+| N+1 | N-1 | reject when the two-release bridge no longer overlaps |
+| any | legacy equal package | accept through exact-version fallback with a legacy warning |
+| any | malformed, unknown, or missing required data | reject safely with an actionable instruction |
+
+Managed acquisition still prefers the exact extension release and keeps exact asset/checksum identity. A previously installed compatible candidate requires explicit user selection; negotiation must not introduce automatic downgrades, remote manifests, telemetry, or revocation.
+
+## Validation Sequence
+
+The first implementation must add fixtures for current/current, current/previous, previous/current, rejected, legacy-equal, and malformed responses in VS Code and Zed adapter tests. Release verification must run the probe against each shipped CLI artifact and exercise LSP initialization with the selected revision, while retaining the existing exact artifact and SHA-256 checks. Package-version tests alone are insufficient evidence.
+
+## Result
+
+The compatibility contract, safe fallback, two-release bridge, managed-binary boundary, and release evidence matrix are defined. Negotiation and the `forma compatibility --json` command remain intentionally unimplemented and are the next implementation slice after this design review.

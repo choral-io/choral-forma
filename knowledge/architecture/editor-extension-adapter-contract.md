@@ -239,7 +239,7 @@ The Zed Dev Extension resolves the CLI from the worktree `PATH` and starts `form
 
 When the configured or discovered CLI is missing or has a different version, the extension may offer a user-initiated installation of the matching release. Downloads use the exact `v<extension-version>` tag rather than `latest`, install into a versioned directory under extension global storage, and preserve external `forma.path` and `PATH` installations. In a remote workspace, acquisition and execution occur in the remote workspace Extension Host; environments without outbound release access retain the explicit-path and manual-install fallbacks.
 
-Longer term, a structured capability operation may replace exact version equality after the compatibility contract can describe supported operations and schema revisions directly.
+The bounded compatibility-window design records a workspace-independent `forma compatibility --json` probe, protocol ranges, capability identifiers, a two-release bridge, and a safe exact-version fallback in [[decisions/define-cli-editor-compatibility-window]]. Its negotiation command and adapter fixtures remain unimplemented and are tracked by [[tasks/design-cli-editor-compatibility-window]].
 
 The initial managed lifecycle implementation and release validation are tracked in [[tasks/manage-vscode-forma-cli-lifecycle]].
 
