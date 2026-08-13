@@ -241,6 +241,8 @@ test("keeps the reusable release matrix and public asset contract exact", async 
             archive: "tar.gz",
             asset: "linux-arm64",
             binary: "forma",
+            build_image: "rust:1.95-bullseye",
+            glibc_minimum: 2.31,
             managed_binary: "forma-linux-arm64",
             os: "ubuntu-24.04-arm",
             target: "aarch64-unknown-linux-gnu",
@@ -249,6 +251,8 @@ test("keeps the reusable release matrix and public asset contract exact", async 
             archive: "tar.gz",
             asset: "linux-x64",
             binary: "forma",
+            build_image: "rust:1.95-bullseye",
+            glibc_minimum: 2.31,
             managed_binary: "forma-linux-x64",
             os: "ubuntu-24.04",
             target: "x86_64-unknown-linux-gnu",
@@ -296,6 +300,19 @@ test("keeps the reusable release matrix and public asset contract exact", async 
                 command.includes("--target ${{ matrix.target }}"),
         ),
         "every release CLI target must run the self-update contract tests",
+    );
+    const cliCommands = stepRunCommandsForTest(cliBuildJob).join("\n");
+    assert.match(cliCommands, /check-linux-gnu-abi\.mjs/su);
+    assert.match(cliCommands, /debian:11-slim/su);
+    assert.match(cliCommands, /debian:12-slim/su);
+    assert.deepEqual(
+        rows
+            .filter(({ target }) => target.endsWith("-unknown-linux-gnu"))
+            .map(({ build_image, glibc_minimum }) => ({ build_image, glibc_minimum })),
+        [
+            { build_image: "rust:1.95-bullseye", glibc_minimum: 2.31 },
+            { build_image: "rust:1.95-bullseye", glibc_minimum: 2.31 },
+        ],
     );
 
     const publishedNames = rows.flatMap(({ archive, asset, managed_binary }) => {
