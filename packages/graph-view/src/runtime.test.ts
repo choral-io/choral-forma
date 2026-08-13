@@ -398,6 +398,43 @@ describe("SigmaGraphRuntime lifecycle", () => {
         runtime.destroy();
     });
 
+    it("preserves surviving coordinates when a projection refresh adds a neighboring node", () => {
+        const runtime = createGraphRuntime({
+            container: fakeContainer(),
+            projection: projection(),
+            theme: theme(),
+            layout: { engine: "force", reducedMotion: true },
+        });
+        const before = runtime.snapshot().positions;
+        const base = projection();
+
+        runtime.update({
+            projection: {
+                nodes: [...base.nodes, { id: "new.md", path: "new.md", title: "New" }],
+                edges: [
+                    ...base.edges,
+                    {
+                        id: "a-new",
+                        source: "a.md",
+                        target: "new.md",
+                        sourcePath: "a.md",
+                        targetPath: "new.md",
+                        intent: "link",
+                        referenceSource: "body",
+                        label: "links to",
+                    },
+                ],
+            },
+        });
+
+        const after = runtime.snapshot().positions;
+        for (const nodeId of ["a.md", "b.md", "c.md"]) {
+            expect(after.get(nodeId)).toEqual(before.get(nodeId));
+        }
+        expect(positionDistance(after.get("a.md"), after.get("new.md"))).toBeLessThan(0.12);
+        runtime.destroy();
+    });
+
     it("keeps selection visible and applies theme settings before refreshing reducers", () => {
         const runtime = createGraphRuntime({
             container: fakeContainer(),
@@ -762,4 +799,12 @@ function theme(): GraphTheme {
         labelMuted: "#777777",
         focusRing: "#0066ff",
     };
+}
+
+function positionDistance(
+    left: Readonly<{ x: number; y: number }> | undefined,
+    right: Readonly<{ x: number; y: number }> | undefined,
+): number {
+    if (!left || !right) return Number.POSITIVE_INFINITY;
+    return Math.hypot(left.x - right.x, left.y - right.y);
 }

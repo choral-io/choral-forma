@@ -257,13 +257,17 @@ class SigmaGraphRuntime implements GraphRuntime {
     #replaceGraph(graph: GraphologyViewGraph): void {
         this.#layout.destroy();
         this.#graph = graph;
-        this.#layout = this.#createLayoutSession(graph);
+        // A projection refresh already carries forward every surviving coordinate,
+        // while new nodes are seeded near known neighbors. Running another full
+        // settle here would turn a small content edit into a whole-graph jump.
+        this.#layout = this.#createLayoutSession(graph, false);
         this.#renderer.setGraph(graph);
     }
 
-    #createLayoutSession(graph: GraphologyViewGraph): GraphLayoutSession {
+    #createLayoutSession(graph: GraphologyViewGraph, runLayout = true): GraphLayoutSession {
         return new GraphLayoutSession(graph, {
             ...this.#layoutOptions,
+            runLayout,
             onSettled: () => {
                 if (this.#destroyed) return;
                 this.#renderer.refresh();

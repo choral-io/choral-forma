@@ -135,6 +135,25 @@ describe("GraphLayoutSession", () => {
         expect(createSupervisor).not.toHaveBeenCalled();
     });
 
+    it("skips both synchronous and Worker layout for a coordinate-preserving refresh", () => {
+        const graph = buildGraphologyGraph(new GraphViewModel(graphFixture(500, 1_500)).snapshot());
+        const positions = graphPositions(graph);
+        const createSupervisor = vi.fn();
+
+        new GraphLayoutSession(
+            graph,
+            { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2", runLayout: false },
+            {
+                createSupervisor,
+                schedule: setTimeout,
+                cancel: clearTimeout,
+            },
+        ).destroy();
+
+        expect(createSupervisor).not.toHaveBeenCalled();
+        expect(graphPositions(graph)).toEqual(positions);
+    });
+
     it("reports bounded Worker settling without firing after explicit disposal", () => {
         const graph = buildGraphologyGraph(new GraphViewModel(graphFixture(4, 4)).snapshot());
         const supervisor = { start: vi.fn(), stop: vi.fn(), kill: vi.fn() };

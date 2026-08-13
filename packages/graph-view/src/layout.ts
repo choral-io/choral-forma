@@ -45,6 +45,7 @@ type LayoutSessionDependencies = {
 
 type GraphLayoutSessionOptions = GraphLayoutOptions & {
     onSettled?: () => void;
+    runLayout?: boolean;
 };
 
 const DEFAULT_DEPENDENCIES: LayoutSessionDependencies = {
@@ -127,6 +128,10 @@ export class GraphLayoutSession {
     ) {
         this.#dependencies = dependencies;
         this.#onSettled = options.onSettled;
+        if (options.runLayout === false) {
+            this.#usesWorker = false;
+            return;
+        }
         const engine = settleInitialLayout(graph, options.engine);
         this.#usesWorker = !(
             options.reducedMotion ||
