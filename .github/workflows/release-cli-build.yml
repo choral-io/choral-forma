@@ -26,12 +26,16 @@ jobs:
             binary: forma
             managed_binary: forma-linux-arm64
             archive: tar.gz
+            build_image: rust:1.95-bullseye
+            glibc_minimum: 2.31
           - asset: linux-x64
             os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             binary: forma
             managed_binary: forma-linux-x64
             archive: tar.gz
+            build_image: rust:1.95-bullseye
+            glibc_minimum: 2.31
           - asset: macos-arm64
             os: macos-26
             target: aarch64-apple-darwin
@@ -91,7 +95,7 @@ jobs:
           cache: pnpm
 
       - name: Setup Rust target
-        if: steps.existing.outputs.present != 'true'
+        if: steps.existing.outputs.present != 'true' && !endsWith(matrix.target, '-unknown-linux-gnu')
         shell: bash
         run: |
           set -euo pipefail
@@ -110,12 +114,49 @@ jobs:
           pnpm --filter @choral-forma/webapp build
 
       - name: Test self-update contract
-        if: steps.existing.outputs.present != 'true'
+        if: steps.existing.outputs.present != 'true' && !endsWith(matrix.target, '-unknown-linux-gnu')
         run: cargo test --release --locked -p forma-cli self_update --target ${{ matrix.target }}
 
+      - name: Test self-update contract in the Linux GNU baseline
+        if: steps.existing.outputs.present != 'true' && endsWith(matrix.target, '-unknown-linux-gnu')
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            --env CARGO_HOME=/tmp/forma-cargo \
+            --env RUSTUP_HOME=/usr/local/rustup \
+            --env RUSTUP_TOOLCHAIN=1.95.0 \
+            --env TARGET="${{ matrix.target }}" \
+            "${{ matrix.build_image }}" \
+            bash -lc 'cargo test --release --locked -p forma-cli self_update --target "$TARGET"'
+
       - name: Build Forma CLI
-        if: steps.existing.outputs.present != 'true'
+        if: steps.existing.outputs.present != 'true' && !endsWith(matrix.target, '-unknown-linux-gnu')
         run: cargo build --release --locked --bin forma --target ${{ matrix.target }}
+
+      - name: Build Forma CLI in the Linux GNU baseline
+        if: steps.existing.outputs.present != 'true' && endsWith(matrix.target, '-unknown-linux-gnu')
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            --env CARGO_HOME=/tmp/forma-cargo \
+            --env RUSTUP_HOME=/usr/local/rustup \
+            --env RUSTUP_TOOLCHAIN=1.95.0 \
+            --env TARGET="${{ matrix.target }}" \
+            "${{ matrix.build_image }}" \
+            bash -lc 'cargo build --release --locked --bin forma --target "$TARGET"'
+
+      - name: Verify Linux GNU ABI compatibility
+        if: steps.existing.outputs.present != 'true' && endsWith(matrix.target, '-unknown-linux-gnu')
+        shell: bash
+        run: node scripts/check-linux-gnu-abi.mjs "target/${{ matrix.target }}/release/${{ matrix.binary }}" "${{ matrix.glibc_minimum }}"
 
       - name: Execute native CLI
         if: steps.existing.outputs.present != 'true'
@@ -158,6 +199,18 @@ jobs:
           "$($archiveHash.Hash.ToLower())  $asset.zip" | Set-Content -NoNewline "dist-release/$asset.zip.sha256"
           $binaryHash = Get-FileHash -Algorithm SHA256 "dist-release/${{ matrix.managed_binary }}"
           "$($binaryHash.Hash.ToLower())  ${{ matrix.managed_binary }}" | Set-Content -NoNewline "dist-release/${{ matrix.managed_binary }}.sha256"
+
+      - name: Smoke test Linux artifacts on supported glibc runtimes
+        if: steps.existing.outputs.present != 'true' && endsWith(matrix.target, '-unknown-linux-gnu')
+        shell: bash
+        run: |
+          set -euo pipefail
+          for image in debian:11-slim debian:12-slim; do
+            docker run --rm \
+              --volume "$GITHUB_WORKSPACE/dist-release/${{ matrix.managed_binary }}:/usr/local/bin/forma:ro" \
+              "$image" \
+              /usr/local/bin/forma --version
+          done
 
       - name: Upload immutable CLI artifact
         if: steps.existing.outputs.present != 'true'

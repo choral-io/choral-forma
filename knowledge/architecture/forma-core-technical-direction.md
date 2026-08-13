@@ -371,6 +371,8 @@ P0 distribution should use:
 - Compatibility with mise's GitHub backend.
 - Release checksums for downloaded artifacts.
 
+Linux GNU release artifacts use a fixed Debian 11/glibc 2.31 build baseline and must enforce that ABI ceiling in release CI; the release gate is tracked in [[tasks/stabilize-linux-gnu-prebuilt-compatibility]]. Managed Linux editor binaries share the same floor; musl/Alpine requires a separate asset decision rather than an implicit fallback.
+
 Initial release targets should include macOS arm64, macOS x64, Linux x64, and Windows x64. Package-manager-specific distribution such as Homebrew, Scoop, Chocolatey, npm wrappers, system installers, or auto-updaters can wait until product demand justifies them.
 
 Use predictable release asset names:

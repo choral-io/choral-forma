@@ -40,7 +40,14 @@ describe("managed CLI target resolution", () => {
         ["linux", "x64", "forma-linux-x64", "forma"],
         ["win32", "x64", "forma-windows-x64.exe", "forma.exe"],
     ] as const)("maps %s/%s", (platform, arch, assetName, binaryName) => {
-        expect(resolveManagedCliTarget(platform, arch, platform === "linux" ? "glibc" : undefined)).toEqual({
+        expect(
+            resolveManagedCliTarget(
+                platform,
+                arch,
+                platform === "linux" ? "glibc" : undefined,
+                platform === "linux" ? "2.36" : undefined,
+            ),
+        ).toEqual({
             assetName,
             binaryName,
         });
@@ -51,6 +58,20 @@ describe("managed CLI target resolution", () => {
             expect.objectContaining<Partial<ManagedCliInstallError>>({ kind: "unsupportedPlatform" }),
         );
         expect(() => resolveManagedCliTarget("linux", "x64", "musl")).toThrow(/musl/u);
+    });
+
+    it("rejects Linux GNU runtimes below the published glibc floor", () => {
+        expect(() => resolveManagedCliTarget("linux", "x64", "glibc", "2.30")).toThrow(
+            expect.objectContaining<Partial<ManagedCliInstallError>>({ kind: "incompatibleRuntime" }),
+        );
+        expect(() => resolveManagedCliTarget("linux", "x64", "glibc", "2.30")).toThrow(/glibc >= 2\.31.*2\.30/u);
+    });
+
+    it.each(["2.31", "2.36", "2.39"])("accepts Linux GNU glibc %s", (version) => {
+        expect(resolveManagedCliTarget("linux", "x64", "glibc", version)).toEqual({
+            assetName: "forma-linux-x64",
+            binaryName: "forma",
+        });
     });
 
     it.each([

@@ -7,6 +7,7 @@ const DEFAULT_REPOSITORY = "choral-io/choral-forma";
 const DEFAULT_MAX_BINARY_BYTES = 128 * 1024 * 1024;
 const DEFAULT_MAX_CHECKSUM_BYTES = 8 * 1024;
 const DEFAULT_TIMEOUT_MS = 120_000;
+export const MINIMUM_LINUX_GLIBC_VERSION = "2.31";
 
 export type ManagedCliLibc = "glibc" | "musl";
 
@@ -48,6 +49,7 @@ export type InstallManagedCliOptions = {
     platform?: NodeJS.Platform;
     arch?: string;
     libc?: ManagedCliLibc;
+    glibcVersion?: string;
     repository?: string;
     downloader?: ManagedCliDownloader;
     fetch?: ManagedCliFetch;
@@ -81,6 +83,7 @@ export class ManagedCliInstallError extends Error {
         message: string,
         readonly kind:
             | "unsupportedPlatform"
+            | "incompatibleRuntime"
             | "invalidVersion"
             | "downloadFailed"
             | "downloadTooLarge"
@@ -98,11 +101,23 @@ export function resolveManagedCliTarget(
     platform: NodeJS.Platform,
     arch: string,
     libc: ManagedCliLibc | undefined = platform === "linux" ? detectLinuxLibc() : undefined,
+    glibcVersion: string | undefined = platform === "linux" && libc === "glibc" ? detectLinuxGlibcVersion() : undefined,
 ): ManagedCliTarget {
     if (platform === "linux" && libc === "musl") {
         throw new ManagedCliInstallError(
             "Managed Forma CLI downloads support Linux glibc only; Linux musl is not supported.",
             "unsupportedPlatform",
+        );
+    }
+    if (
+        platform === "linux" &&
+        libc === "glibc" &&
+        glibcVersion &&
+        compareVersions(glibcVersion, MINIMUM_LINUX_GLIBC_VERSION) < 0
+    ) {
+        throw new ManagedCliInstallError(
+            `Managed Forma CLI Linux GNU assets require glibc >= ${MINIMUM_LINUX_GLIBC_VERSION}; detected glibc ${glibcVersion}. Configure forma.path with a binary built for this host or upgrade the Linux runtime.`,
+            "incompatibleRuntime",
         );
     }
 
@@ -155,7 +170,7 @@ export async function installManagedCli(options: InstallManagedCliOptions): Prom
     }
     const platform = options.platform ?? process.platform;
     const arch = options.arch ?? process.arch;
-    const target = resolveManagedCliTarget(platform, arch, options.libc);
+    const target = resolveManagedCliTarget(platform, arch, options.libc, options.glibcVersion);
     const path = managedCliPath(options.globalStorage, options.version, platform);
     const key = path;
     let flight = installFlights.get(key);
@@ -273,14 +288,19 @@ export function createFetchDownloader(
 }
 
 export function detectLinuxLibc(): ManagedCliLibc {
-    const report = process.report.getReport() as unknown as {
-        header: { glibcVersionRuntime?: unknown };
-    };
-    const { header } = report;
-    if (typeof header.glibcVersionRuntime === "string" && header.glibcVersionRuntime.length > 0) {
-        return "glibc";
+    return detectLinuxGlibcVersion() ? "glibc" : "musl";
+}
+
+export function detectLinuxGlibcVersion(): string | undefined {
+    try {
+        const report = process.report.getReport() as unknown as {
+            header?: { glibcVersionRuntime?: unknown };
+        };
+        const version = report.header?.glibcVersionRuntime;
+        return typeof version === "string" && /^\d+(?:\.\d+)+$/u.test(version) ? version : undefined;
+    } catch {
+        return undefined;
     }
-    return "musl";
 }
 
 async function installManagedCliOnce(
@@ -522,6 +542,17 @@ function validateVersion(version: string): void {
     if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u.test(version)) {
         throw new ManagedCliInstallError(`Invalid Forma version: ${version}`, "invalidVersion");
     }
+}
+
+function compareVersions(left: string, right: string): number {
+    const leftParts = left.split(".").map(Number);
+    const rightParts = right.split(".").map(Number);
+    const length = Math.max(leftParts.length, rightParts.length);
+    for (let index = 0; index < length; index += 1) {
+        const difference = (leftParts[index] ?? 0) - (rightParts[index] ?? 0);
+        if (difference !== 0) return difference;
+    }
+    return 0;
 }
 
 function abortError(reason: unknown): DOMException {

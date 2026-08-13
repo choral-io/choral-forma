@@ -164,6 +164,8 @@ The release workflow builds standalone `forma` archives for:
 
 Each artifact is paired with a `.sha256` checksum file.
 
+Linux GNU release archives and editor-managed Linux binaries are built against a fixed Debian 11/glibc 2.31 baseline and are expected to run on hosts with glibc 2.31 or newer. Linux musl/Alpine is not supported by these prebuilt assets. On an older-glibc host, build Forma locally against that host or configure an editor integration with a host-compatible `forma.path` binary.
+
 The same Release also publishes editor-managed single-binary assets and checksums:
 
 - `forma-linux-arm64`;

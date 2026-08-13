@@ -19,7 +19,7 @@ After installation:
 
 ## Requirements
 
-Forma for VS Code expects a CLI from the same coordinated release as the extension. It first honors the machine-level `forma.path` setting, then a matching binary managed inside extension storage, and finally `forma` on the Extension Host `PATH`. A compatible running Forma language server reports a package-version difference as an advisory diagnostic on `.forma.md`; the diagnostic links to installation guidance and offers native Quick Fix actions. Structured CLI operations remain protected by their operation schema even when package versions differ.
+Forma for VS Code expects a CLI from the same coordinated release as the extension. It first honors the machine-level `forma.path` setting, then a matching binary managed inside extension storage, and finally `forma` on the Extension Host `PATH`. The published Linux GNU binaries and managed Linux assets require glibc **2.31 or newer**; Linux musl/Alpine is not supported by the managed download path. On an older glibc host, configure `forma.path` with a host-compatible build or use a locally built CLI. A compatible running Forma language server reports a package-version difference as an advisory diagnostic on `.forma.md`; the diagnostic links to installation guidance and offers native Quick Fix actions. Structured CLI operations remain protected by their operation schema even when package versions differ.
 
 When no matching CLI is available, the extension can download the exact release-aligned binary after explicit user confirmation. The download is checksum-verified, stored in a versioned extension directory, and does not modify `PATH` or overwrite an externally managed binary. The extension never executes a binary path supplied by workspace content.
 
