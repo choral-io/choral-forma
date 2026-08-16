@@ -5,7 +5,7 @@ title: "Forma v0.1.31"
 summary: "Cross-Host Graph lifecycle hardening, Linux GNU release compatibility, and a coordinated dependency refresh."
 scope: project
 type: release
-status: planned
+status: released
 version: "v0.1.31"
 date: 2026-08-16
 owners:
@@ -55,13 +55,21 @@ Required candidate evidence:
 6. The protected Release workflow builds the expected cross-platform archives, standalone binaries, VSIX, and sibling SHA-256 assets from the exact source.
 7. After publication, `mise run release:verify -- v0.1.31` verifies the published asset inventory, checksums, CLI version, VSIX identity, and managed CLI installation.
 
+## Published Evidence
+
+- **Candidate:** `b616ff041e6a48b994e1ac53a7158167d4928e6f`.
+- **Exact main CI:** [run 31942133543](https://github.com/choral-io/choral-forma/actions/runs/31942133543) passed Knowledge, Web, Rust, installer, static-site, VS Code, five-target CLI release-build, and source-bound deployment jobs for the exact candidate.
+- **Release workflow:** [run 31942685118](https://github.com/choral-io/choral-forma/actions/runs/31942685118) validated the exact candidate, assembled and promoted the source-bound 22-asset release, verified the published payloads, and published or verified the Marketplace VSIX.
+- **GitHub Release:** [Forma v0.1.31](https://github.com/choral-io/choral-forma/releases/tag/v0.1.31) is published as the coordinated Public Preview release.
+- **Independent verification:** `mise run release:verify -- v0.1.31` passed for 22 assets and 11 payloads. The native macOS Arm64 CLI reported `forma 0.1.31` with SHA-256 `2a0b4fd587d2b8195ab753f857a5187c4229b79967284534fb1421130290e159`; the VSIX reported `choral-io.forma@0.1.31`, engine `^1.110.0`, and SHA-256 `caf7621c065c8c7f07e4cde1f608907ef06628e5bee2152c73a55b731e1d53c6`.
+- **Managed installation:** the production editor-extension installation implementation downloaded, checksum-verified, installed, and executed the published `forma-macos-arm64` payload as `forma 0.1.31`.
+
 ## Rollout Plan
 
-1. Complete and commit the aligned `0.1.31` candidate after the local release gates pass.
-2. Push the candidate only after explicit maintainer approval and require green main CI for that exact commit.
-3. Create and push the annotated `v0.1.31` tag only after exact-source main CI succeeds and explicit tag approval is given.
-4. Observe the protected Release workflow and run independent published-release verification before recording immutable publication evidence.
-5. Keep this record planned until the published GitHub assets and any editor distribution artifacts have been independently verified.
+1. Completed the aligned candidate commit and local release gates.
+2. Pushed the candidate, passed exact-source main CI, and created the annotated `v0.1.31` tag.
+3. Promoted the source-bound candidate through the protected Release workflow and verified the published GitHub assets.
+4. Published or verified the matching VS Code Marketplace extension and completed independent published-release verification.
 
 ## Migration Or Operations Notes
 
@@ -79,5 +87,5 @@ Do not move or overwrite a published tag or asset. Before publication, return a 
 
 ## Post-Release Follow-Up
 
-- Record exact main-CI, tag, published-asset, managed-install, and editor-distribution evidence before changing this record to `released`.
 - Keep remaining Host-specific and distribution-specific acceptance boundaries explicit in the next release review.
+- Continue tracking any correction through a higher coordinated version; do not move or overwrite the `v0.1.31` tag or published assets.

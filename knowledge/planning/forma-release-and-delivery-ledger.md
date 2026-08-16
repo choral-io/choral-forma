@@ -71,12 +71,12 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.28         | [[releases/forma-v0.1.28]]         | Released corrective Public Preview milestone.       |
 | v0.1.29         | [[releases/forma-v0.1.29]]         | Released managed CLI self-update milestone.         |
 | v0.1.30         | [[releases/forma-v0.1.30]]         | Released receipt-free update and editor milestone.  |
-| v0.1.31         | [[releases/forma-v0.1.31]]         | Active coordinated Public Preview patch candidate.  |
+| v0.1.31         | [[releases/forma-v0.1.31]]         | Released coordinated Public Preview patch.          |
 
 ## Current Delivery Cutline
 
-- **Current released baseline:** [[releases/forma-v0.1.30]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, receipt-free self-update transition, and known-boundary evidence.
-- **Active release candidate:** [[releases/forma-v0.1.31]] is the coordinated Public Preview patch candidate. Exact-source main CI, tagging, publication, and post-publication verification remain pending.
+- **Current released baseline:** [[releases/forma-v0.1.31]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
+- **Previous released baseline:** [[releases/forma-v0.1.30]] records the receipt-free update and editor milestone that preceded this patch.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.
 - **Active validation:** [[tasks/validate-shared-graph-view-cross-host-parity]] remains the active cross-Host Graph evidence boundary.
