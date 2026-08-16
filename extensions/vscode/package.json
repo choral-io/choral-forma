@@ -2,7 +2,7 @@
   "name": "forma",
   "displayName": "Forma by Choral",
   "description": "Navigate and preview repository-backed Forma Markdown workspaces in VS Code.",
-  "version": "0.1.30",
+  "version": "0.1.31",
   "publisher": "choral-io",
   "icon": "media/icon.png",
   "private": true,

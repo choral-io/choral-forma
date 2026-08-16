@@ -1,6 +1,6 @@
 id = "forma"
 name = "Forma"
-version = "0.1.30"
+version = "0.1.31"
 schema_version = 1
 authors = ["Choral <hello@choral.io>"]
 description = "Forma navigation and language intelligence for Markdown workspaces."

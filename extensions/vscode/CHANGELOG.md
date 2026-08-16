@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.31
+
+- Complete the shared Graph View cross-Host milestone with frontmatter-field colors, preserved positions, and deterministic resource disposal across WebApp and VS Code.
+- Harden Linux GNU release compatibility and portable installer checksum handling so release and installation gates fail clearly before incompatible artifacts ship.
+- Refresh the compatible pnpm and Cargo dependency sets, regenerate the bundled Lucide link icons, and keep deployment-contract tests aligned with the updated Wrangler version.
+
 ## 0.1.30
 
 - Add Core-owned completion, hover, diagnostics, and references for Forma workspace links, with matching VS Code and Zed initialization contracts.
