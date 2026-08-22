@@ -33,7 +33,6 @@
 
             const nextFrame = () =>
                 new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-            const delay = (durationMs) => new Promise((resolve) => setTimeout(resolve, durationMs));
 
             function refreshedProjection(projection, percentage = 0.02) {
                 const replacementCount = Math.max(1, Math.round(projection.nodes.length * percentage));
@@ -128,25 +127,43 @@
                 const settled = new Promise((resolve) => {
                     resolveSettled = resolve;
                 });
-                const runtime = createGraphRuntime({
+                let resolveFirstRender;
+                const firstRendered = new Promise((resolve) => {
+                    resolveFirstRender = resolve;
+                });
+                let firstSnapshot;
+                let runtime;
+                const startedAt = performance.now();
+                runtime = createGraphRuntime({
                     container,
                     projection,
                     theme,
                     activeNodeId: selectedNodeId,
                     layout: {
                         reducedMotion: false,
-                        settleDurationMs: 1_200,
                         useWorker: host === "webapp",
+                    },
+                    onFirstRender: () => {
+                        queueMicrotask(() => {
+                            firstSnapshot = runtime.snapshot();
+                            resolveFirstRender();
+                        });
                     },
                     onLayoutSettled: resolveSettled,
                 });
 
                 try {
-                    await settled;
+                    await Promise.all([settled, firstRendered]);
                     await nextFrame();
+                    const initial = runtime.snapshot();
+                    const initialMovement = movement(
+                        firstSnapshot.positions,
+                        initial.positions,
+                        new Set(projection.nodes.map((node) => node.id)),
+                        selectedNodeId,
+                    );
                     const before = runtime.snapshot();
                     runtime.update({ projection: refreshed });
-                    if (host === "webapp") await delay(1_300);
                     await nextFrame();
                     const after = runtime.snapshot();
                     const result = {
@@ -157,6 +174,9 @@
                         edgesAfter: refreshed.edges.length,
                         replacementPercent: 2,
                         selectionRetained: after.selectedNodeId === selectedNodeId,
+                        initialReadyMs: Math.round(performance.now() - startedAt),
+                        initialP95: initialMovement.p95,
+                        initialRearrangedPercent: initialMovement.rearrangedPercent,
                         ...movement(before.positions, after.positions, survivingIds, selectedNodeId),
                     };
                     return {
@@ -164,6 +184,8 @@
                         passed:
                             result.selectionRetained &&
                             result.finitePositions &&
+                            result.initialP95 <= budgets.p95 &&
+                            result.initialRearrangedPercent <= budgets.rearrangedPercent &&
                             result.p95 <= budgets.p95 &&
                             result.rearrangedPercent <= budgets.rearrangedPercent,
                     };

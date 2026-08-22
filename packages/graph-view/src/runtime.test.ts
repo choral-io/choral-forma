@@ -204,6 +204,21 @@ describe("SigmaGraphRuntime lifecycle", () => {
         runtime.destroy();
     });
 
+    it("publishes the initial synchronous layout without an animated camera reset", () => {
+        const runtime = createGraphRuntime({
+            container: fakeContainer(),
+            projection: projection(),
+            theme: theme(),
+            layout: { engine: "force", reducedMotion: false, useWorker: false },
+        });
+        const renderer = sigmaMocks.instances[0];
+        if (!renderer) throw new Error("Expected Sigma renderer.");
+
+        expect(renderer.camera.animatedReset).not.toHaveBeenCalled();
+        expect(renderer.camera.setState).toHaveBeenCalledWith({ x: 0.5, y: 0.5, ratio: 1 });
+        runtime.destroy();
+    });
+
     it("explicitly releases retained WebGL contexts after renderer disposal", () => {
         const loseContext = vi.fn();
         const getExtension = vi.fn((name: string) => (name === "WEBGL_lose_context" ? { loseContext } : null));

@@ -7,6 +7,7 @@ import type {
     GraphDisplayEdgeState,
     GraphLayoutEngine,
     GraphLayoutOptions,
+    GraphLayoutSettleMode,
     GraphPosition,
     GraphViewSnapshot,
 } from "./types.ts";
@@ -38,18 +39,37 @@ type LayoutSupervisor = {
 };
 
 type LayoutSessionDependencies = {
-    createSupervisor: (graph: GraphologyViewGraph, settings: ForceAtlas2Settings) => LayoutSupervisor;
-    schedule: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
-    cancel: (timer: ReturnType<typeof setTimeout>) => void;
+    createSupervisor: (
+        graph: GraphologyViewGraph,
+        settings: ForceAtlas2Settings,
+        onIteration: () => void,
+    ) => LayoutSupervisor;
+    schedule?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
+    cancel?: (timer: ReturnType<typeof setTimeout>) => void;
 };
 
 type GraphLayoutSessionOptions = GraphLayoutOptions & {
-    onSettled?: () => void;
+    onSettled?: (mode: GraphLayoutSettleMode) => void;
     runLayout?: boolean;
 };
 
 const DEFAULT_DEPENDENCIES: LayoutSessionDependencies = {
-    createSupervisor: (graph, settings) => new ForceAtlas2LayoutSupervisor(graph, { settings }),
+    createSupervisor: (graph, settings, onIteration) => {
+        const supervisor = new ForceAtlas2LayoutSupervisor(graph, { settings });
+        graph.on("eachNodeAttributesUpdated", onIteration);
+        return {
+            start: () => {
+                supervisor.start();
+            },
+            stop: () => {
+                supervisor.stop();
+            },
+            kill: () => {
+                graph.removeListener("eachNodeAttributesUpdated", onIteration);
+                supervisor.kill();
+            },
+        };
+    },
     schedule: (callback, delayMs) => setTimeout(callback, delayMs),
     cancel: (timer) => {
         clearTimeout(timer);
@@ -87,22 +107,15 @@ export function buildGraphologyGraph(
     return graph;
 }
 
-export function settleInitialLayout(graph: GraphologyViewGraph, requestedEngine: GraphLayoutEngine): GraphLayoutEngine {
+export function settleInitialLayout(
+    graph: GraphologyViewGraph,
+    requestedEngine: GraphLayoutEngine,
+    requestedIterations?: number,
+): GraphLayoutEngine {
     const engine = resolveLayoutEngine(requestedEngine, graph.order);
     if (graph.order < 2 || graph.size === 0) return engine;
-    if (engine === "force") {
-        forceLayout.assign(graph, {
-            maxIterations: Math.min(80, 24 + graph.order),
-            settings: { attraction: 0.0008, gravity: 0.002, inertia: 0.5, maxMove: 24, repulsion: 0.12 },
-        });
-    } else {
-        const iterations = graph.order <= 500 ? 12 : graph.order <= 2_000 ? 4 : 0;
-        if (iterations === 0) return engine;
-        forceAtlas2.assign(graph, {
-            iterations,
-            settings: forceAtlas2Settings(graph.order),
-        });
-    }
+    const iterations = requestedIterations ?? resolveLayoutIterations(graph.order);
+    runLayoutIterations(graph, engine, iterations);
     return engine;
 }
 
@@ -110,15 +123,28 @@ export function resolveLayoutEngine(requestedEngine: GraphLayoutEngine, nodeCoun
     return requestedEngine === "auto" ? (nodeCount <= 64 ? "force" : "forceAtlas2") : requestedEngine;
 }
 
+export function resolveLayoutIterations(nodeCount: number): number {
+    if (nodeCount <= 64) return Math.min(80, 24 + Math.max(0, nodeCount));
+    if (nodeCount <= 500) return 128;
+    if (nodeCount <= 2_000) return 64;
+    return 32;
+}
+
 export function graphPositions(graph: GraphologyViewGraph): ReadonlyMap<string, GraphPosition> {
     return new Map(graph.mapNodes((node, attributes) => [node, { x: attributes.x, y: attributes.y }] as const));
 }
 
 export class GraphLayoutSession {
-    readonly #dependencies: LayoutSessionDependencies;
-    readonly #onSettled: (() => void) | undefined;
+    readonly #onSettled: ((mode: GraphLayoutSettleMode) => void) | undefined;
     #supervisor: LayoutSupervisor | null = null;
     #timer: ReturnType<typeof setTimeout> | null = null;
+    #iterationCount = 0;
+    #targetIterations = 0;
+    #finishScheduled = false;
+    #settled = false;
+    #disposed = false;
+    readonly #dependencies: LayoutSessionDependencies;
+    readonly #mode: GraphLayoutSettleMode;
     readonly #usesWorker: boolean;
 
     constructor(
@@ -130,32 +156,57 @@ export class GraphLayoutSession {
         this.#onSettled = options.onSettled;
         if (options.runLayout === false) {
             this.#usesWorker = false;
+            this.#mode = "synchronous";
+            this.#settled = true;
             return;
         }
-        const engine = settleInitialLayout(graph, options.engine);
-        this.#usesWorker = !(
+        const engine = resolveLayoutEngine(options.engine, graph.order);
+        const workerEligible = !(
             options.reducedMotion ||
             !options.useWorker ||
             engine !== "forceAtlas2" ||
             graph.order < 2 ||
             graph.size === 0
         );
-        if (!this.#usesWorker) return;
-
-        this.#supervisor = dependencies.createSupervisor(graph, forceAtlas2Settings(graph.order));
+        const iterations = options.iterations ?? resolveLayoutIterations(graph.order);
+        this.#usesWorker = workerEligible && iterations > 0;
+        this.#mode = this.#usesWorker
+            ? "worker"
+            : shouldUseCooperativeLayout(options, engine, graph.order, iterations)
+              ? "cooperative"
+              : "synchronous";
+        if (this.#mode === "synchronous") {
+            if (iterations > 0) settleInitialLayout(graph, engine, iterations);
+            this.#settled = true;
+            return;
+        }
+        this.#targetIterations = iterations;
+        if (this.#mode === "cooperative") {
+            this.#scheduleCooperativeChunk(graph, engine);
+            return;
+        }
+        this.#supervisor = dependencies.createSupervisor(graph, forceAtlas2Settings(graph.order), () => {
+            this.#iterationCount += 1;
+            if (this.#iterationCount >= iterations) this.#scheduleFinish();
+        });
         this.#supervisor.start();
-        this.#timer = dependencies.schedule(() => {
-            this.#finish();
-        }, options.settleDurationMs);
     }
 
     get usesWorker(): boolean {
         return this.#usesWorker;
     }
 
+    get isSettled(): boolean {
+        return this.#settled;
+    }
+
+    get mode(): GraphLayoutSettleMode {
+        return this.#mode;
+    }
+
     stop(): void {
         if (this.#timer) {
-            this.#dependencies.cancel(this.#timer);
+            (this.#dependencies.cancel ?? clearTimeout)(this.#timer);
             this.#timer = null;
         }
         if (this.#supervisor) {
@@ -166,13 +217,66 @@ export class GraphLayoutSession {
     }
 
     destroy(): void {
+        this.#disposed = true;
         this.stop();
     }
 
-    #finish(): void {
-        this.stop();
-        this.#onSettled?.();
+    #scheduleFinish(): void {
+        if (this.#finishScheduled) return;
+        this.#finishScheduled = true;
+        queueMicrotask(() => {
+            this.#finishScheduled = false;
+            this.#finish();
+        });
     }
+
+    #finish(): void {
+        if (this.#disposed || this.#settled) return;
+        this.#settled = true;
+        this.stop();
+        this.#onSettled?.(this.#mode);
+    }
+
+    #scheduleCooperativeChunk(graph: GraphologyViewGraph, engine: GraphLayoutEngine): void {
+        this.#timer = (this.#dependencies.schedule ?? setTimeout)(() => {
+            this.#timer = null;
+            const chunk = Math.min(this.#targetIterations - this.#iterationCount, cooperativeChunkSize(graph.order));
+            runLayoutIterations(graph, engine, chunk);
+            this.#iterationCount += chunk;
+            if (this.#iterationCount >= this.#targetIterations) this.#finish();
+            else this.#scheduleCooperativeChunk(graph, engine);
+        }, 0);
+    }
+}
+
+function runLayoutIterations(graph: GraphologyViewGraph, engine: GraphLayoutEngine, iterations: number): void {
+    if (iterations <= 0 || graph.order < 2 || graph.size === 0) return;
+    if (engine === "force") {
+        forceLayout.assign(graph, {
+            maxIterations: Math.min(iterations, 80),
+            settings: { attraction: 0.0008, gravity: 0.002, inertia: 0.5, maxMove: 24, repulsion: 0.12 },
+        });
+    } else {
+        forceAtlas2.assign(graph, {
+            iterations,
+            settings: forceAtlas2Settings(graph.order),
+        });
+    }
+}
+
+function shouldUseCooperativeLayout(
+    options: GraphLayoutSessionOptions,
+    engine: GraphLayoutEngine,
+    nodeCount: number,
+    iterations: number,
+): boolean {
+    return (
+        !options.useWorker && !options.reducedMotion && engine === "forceAtlas2" && nodeCount > 500 && iterations > 0
+    );
+}
+
+function cooperativeChunkSize(nodeCount: number): number {
+    return nodeCount > 2_000 ? 1 : 8;
 }
 
 function forceAtlas2Settings(nodeCount: number): ForceAtlas2Settings {

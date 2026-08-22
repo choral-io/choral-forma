@@ -72,14 +72,13 @@ export type GraphLayoutEngine = "auto" | "force" | "forceAtlas2";
 export type GraphLayoutOptions = {
     engine: GraphLayoutEngine;
     reducedMotion: boolean;
-    settleDurationMs: number;
     useWorker: boolean;
+    iterations?: number;
 };
 
 export const DEFAULT_GRAPH_LAYOUT_OPTIONS: Readonly<GraphLayoutOptions> = Object.freeze({
     engine: "auto",
     reducedMotion: false,
-    settleDurationMs: 1_200,
     useWorker: true,
 });
 
@@ -140,7 +139,7 @@ export type GraphRuntimeSnapshot = GraphViewSnapshot & {
     positions: ReadonlyMap<string, GraphPosition>;
 };
 
-export type GraphLayoutSettleMode = "synchronous" | "worker";
+export type GraphLayoutSettleMode = "synchronous" | "cooperative" | "worker";
 
 export type GraphRuntimeOptions = {
     container: HTMLElement;

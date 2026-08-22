@@ -6,12 +6,23 @@ import {
     GraphLayoutSession,
     graphPositions,
     resolveLayoutEngine,
+    resolveLayoutIterations,
     settleInitialLayout,
 } from "./layout.ts";
 import { GraphViewModel } from "./model.ts";
 import { DEFAULT_GRAPH_LAYOUT_OPTIONS, type GraphPosition } from "./types.ts";
 
 describe("graph layout", () => {
+    it("selects a deterministic iteration budget by graph size", () => {
+        expect(resolveLayoutIterations(64)).toBe(80);
+        expect(resolveLayoutIterations(65)).toBe(128);
+        expect(resolveLayoutIterations(500)).toBe(128);
+        expect(resolveLayoutIterations(501)).toBe(64);
+        expect(resolveLayoutIterations(2_000)).toBe(64);
+        expect(resolveLayoutIterations(2_001)).toBe(32);
+        expect(resolveLayoutIterations(5_000)).toBe(32);
+    });
+
     it("selects a bounded main-thread layout by graph size", () => {
         expect(resolveLayoutEngine("auto", 64)).toBe("force");
         expect(resolveLayoutEngine("auto", 65)).toBe("forceAtlas2");
@@ -77,28 +88,80 @@ describe("graph layout", () => {
 });
 
 describe("GraphLayoutSession", () => {
-    it("stops, kills, and cancels a ForceAtlas2 worker on destroy", () => {
+    it("stops and kills a ForceAtlas2 worker on destroy", () => {
         const graph = buildGraphologyGraph(new GraphViewModel(graphFixture(4, 4)).snapshot());
         const supervisor = { start: vi.fn(), stop: vi.fn(), kill: vi.fn() };
-        const cancel = vi.fn();
-        const timer = setTimeout(() => undefined, 60_000);
         const session = new GraphLayoutSession(
             graph,
             { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2" },
             {
                 createSupervisor: () => supervisor,
-                schedule: () => timer,
-                cancel,
             },
         );
 
         session.destroy();
-        clearTimeout(timer);
 
         expect(supervisor.start).toHaveBeenCalledOnce();
         expect(supervisor.stop).toHaveBeenCalledOnce();
         expect(supervisor.kill).toHaveBeenCalledOnce();
-        expect(cancel).toHaveBeenCalledWith(timer);
+    });
+
+    it("settles a Worker after its fixed iteration budget", async () => {
+        const graph = buildGraphologyGraph(new GraphViewModel(graphFixture(4, 4)).snapshot());
+        const supervisor = { start: vi.fn(), stop: vi.fn(), kill: vi.fn() };
+        const onSettled = vi.fn();
+        let onIteration: (() => void) | undefined;
+        const session = new GraphLayoutSession(
+            graph,
+            { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2", iterations: 3, onSettled },
+            {
+                createSupervisor: (_graph, _settings, callback) => {
+                    onIteration = callback;
+                    return supervisor;
+                },
+            },
+        );
+
+        onIteration?.();
+        onIteration?.();
+        expect(onSettled).not.toHaveBeenCalled();
+        onIteration?.();
+        await Promise.resolve();
+
+        expect(onSettled).toHaveBeenCalledOnce();
+        expect(supervisor.stop).toHaveBeenCalledOnce();
+        expect(supervisor.kill).toHaveBeenCalledOnce();
+        session.destroy();
+    });
+
+    it("cooperatively settles a large non-Worker layout in scheduled chunks", () => {
+        const graph = buildGraphologyGraph(new GraphViewModel(graphFixture(501, 1_500)).snapshot());
+        const onSettled = vi.fn();
+        const cancel = vi.fn();
+        let nextChunk: (() => void) | undefined;
+        const timer = setTimeout(() => undefined, 60_000);
+        const session = new GraphLayoutSession(
+            graph,
+            { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2", useWorker: false, iterations: 24, onSettled },
+            {
+                createSupervisor: vi.fn(),
+                schedule: (callback) => {
+                    nextChunk = callback;
+                    return timer;
+                },
+                cancel,
+            },
+        );
+
+        expect(onSettled).not.toHaveBeenCalled();
+        nextChunk?.();
+        expect(onSettled).not.toHaveBeenCalled();
+        nextChunk?.();
+        nextChunk?.();
+        expect(onSettled).toHaveBeenCalledOnce();
+        expect(cancel).not.toHaveBeenCalled();
+        session.destroy();
+        clearTimeout(timer);
     });
 
     it("does not create a worker in reduced-motion mode", () => {
@@ -110,8 +173,6 @@ describe("GraphLayoutSession", () => {
             { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2", reducedMotion: true },
             {
                 createSupervisor,
-                schedule: setTimeout,
-                cancel: clearTimeout,
             },
         ).destroy();
 
@@ -127,8 +188,6 @@ describe("GraphLayoutSession", () => {
             { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2", useWorker: false },
             {
                 createSupervisor,
-                schedule: setTimeout,
-                cancel: clearTimeout,
             },
         ).destroy();
 
@@ -145,8 +204,6 @@ describe("GraphLayoutSession", () => {
             { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2", runLayout: false },
             {
                 createSupervisor,
-                schedule: setTimeout,
-                cancel: clearTimeout,
             },
         ).destroy();
 
@@ -154,26 +211,24 @@ describe("GraphLayoutSession", () => {
         expect(graphPositions(graph)).toEqual(positions);
     });
 
-    it("reports bounded Worker settling without firing after explicit disposal", () => {
+    it("reports bounded Worker settling without firing after explicit disposal", async () => {
         const graph = buildGraphologyGraph(new GraphViewModel(graphFixture(4, 4)).snapshot());
         const supervisor = { start: vi.fn(), stop: vi.fn(), kill: vi.fn() };
         const onSettled = vi.fn();
-        let settle: (() => void) | undefined;
-        const timer = setTimeout(() => undefined, 60_000);
+        let onIteration: (() => void) | undefined;
         const session = new GraphLayoutSession(
             graph,
-            { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2", onSettled },
+            { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, engine: "forceAtlas2", iterations: 1, onSettled },
             {
-                createSupervisor: () => supervisor,
-                schedule: (callback) => {
-                    settle = callback;
-                    return timer;
+                createSupervisor: (_graph, _settings, callback) => {
+                    onIteration = callback;
+                    return supervisor;
                 },
-                cancel: clearTimeout,
             },
         );
 
-        settle?.();
+        onIteration?.();
+        await Promise.resolve();
         session.destroy();
 
         expect(onSettled).toHaveBeenCalledOnce();

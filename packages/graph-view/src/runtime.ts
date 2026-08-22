@@ -61,11 +61,14 @@ class SigmaGraphRuntime implements GraphRuntime {
     readonly #onSelectionChange: ((snapshot: GraphViewSnapshot) => void) | undefined;
     #destroyed = false;
     #firstRenderReported = false;
+    #initialLayoutReady = false;
+    #initialVisibility = "";
     #layoutSettledReported = false;
     #edgeFocusCanvas: HTMLCanvasElement;
     #edgeFocusContext: CanvasRenderingContext2D | null;
     #edgeFocusEdges: readonly GraphDisplayEdgeState[] = [];
     #graph: GraphologyViewGraph;
+    #layoutGraph: GraphologyViewGraph | null;
     #layout: GraphLayoutSession;
     #edgeStates = new Map<string, GraphDisplayEdgeState>();
     #nodeStates = new Map<string, GraphNodeState>();
@@ -94,7 +97,15 @@ class SigmaGraphRuntime implements GraphRuntime {
         if (options.activeNodeId !== undefined) this.#snapshot = this.#model.setActiveNode(options.activeNodeId);
 
         this.#graph = buildGraphologyGraph(this.#snapshot);
-        this.#layout = this.#createLayoutSession(this.#graph);
+        this.#layoutGraph = buildGraphologyGraph(this.#snapshot);
+        this.#layout = this.#createLayoutSession(this.#layoutGraph);
+        this.#initialLayoutReady = this.#layout.isSettled;
+        if (this.#initialLayoutReady) copyGraphPositions(this.#layoutGraph, this.#graph);
+        else {
+            this.#initialVisibility = this.#container.style.visibility;
+            this.#container.style.visibility = "hidden";
+            this.#container.setAttribute("aria-busy", "true");
+        }
         this.#renderer = this.#createRenderer(this.#graph);
         this.#edgeFocusCanvas = this.#renderer.createCanvas("forma-edge-focus", {
             afterLayer: "nodes",
@@ -110,8 +121,8 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#resizeObserver.observe(this.#container);
         this.#bindRendererEvents();
         this.#applySnapshot(this.#snapshot);
-        if (this.#snapshot.selectedNodeId) this.#centerNode(this.#snapshot.selectedNodeId);
-        else this.fit();
+        if (this.#snapshot.selectedNodeId) this.#centerNode(this.#snapshot.selectedNodeId, false);
+        else this.#fit(false);
     }
 
     update(update: GraphRuntimeUpdate): void {
@@ -142,9 +153,13 @@ class SigmaGraphRuntime implements GraphRuntime {
     }
 
     fit(): void {
+        this.#fit(true);
+    }
+
+    #fit(animate: boolean): void {
         if (this.#destroyed) return;
         const camera = this.#renderer.getCamera();
-        if (this.#layoutOptions.reducedMotion) camera.setState({ x: 0.5, y: 0.5, ratio: 1 });
+        if (this.#layoutOptions.reducedMotion || !animate) camera.setState({ x: 0.5, y: 0.5, ratio: 1 });
         else void camera.animatedReset({ duration: 250 });
     }
 
@@ -170,6 +185,8 @@ class SigmaGraphRuntime implements GraphRuntime {
         this.#windowEventTarget?.removeEventListener("blur", this.#clearModifierKeys);
         this.#resizeObserver.disconnect();
         this.#layout.destroy();
+        this.#layoutGraph = null;
+        this.#restoreInitialVisibility();
         this.#renderer.kill();
         for (const context of canvasResources.webGlContexts) context.getExtension("WEBGL_lose_context")?.loseContext();
         for (const canvas of canvasResources.canvases) {
@@ -232,6 +249,7 @@ class SigmaGraphRuntime implements GraphRuntime {
         });
         this.#renderer.on("afterRender", () => {
             this.#drawEdgeFocus();
+            if (!this.#initialLayoutReady) return;
             if (!this.#firstRenderReported) {
                 this.#firstRenderReported = true;
                 this.#onFirstRender?.();
@@ -256,6 +274,9 @@ class SigmaGraphRuntime implements GraphRuntime {
 
     #replaceGraph(graph: GraphologyViewGraph): void {
         this.#layout.destroy();
+        this.#layoutGraph = null;
+        this.#initialLayoutReady = true;
+        this.#restoreInitialVisibility();
         this.#graph = graph;
         // A projection refresh already carries forward every surviving coordinate,
         // while new nodes are seeded near known neighbors. Running another full
@@ -268,14 +289,20 @@ class SigmaGraphRuntime implements GraphRuntime {
         return new GraphLayoutSession(graph, {
             ...this.#layoutOptions,
             runLayout,
-            onSettled: () => {
+            onSettled: (mode) => {
                 if (this.#destroyed) return;
+                if (this.#layoutGraph) {
+                    copyGraphPositions(this.#layoutGraph, this.#graph);
+                    this.#layoutGraph = null;
+                }
+                this.#initialLayoutReady = true;
+                this.#restoreInitialVisibility();
                 this.#renderer.refresh();
-                if (this.#snapshot.selectedNodeId) this.#centerNode(this.#snapshot.selectedNodeId);
-                else this.fit();
+                if (this.#snapshot.selectedNodeId) this.#centerNode(this.#snapshot.selectedNodeId, false);
+                else this.#fit(false);
                 if (!this.#layoutSettledReported) {
                     this.#layoutSettledReported = true;
-                    this.#onLayoutSettled?.("worker");
+                    this.#onLayoutSettled?.(mode);
                 }
             },
         });
@@ -338,12 +365,18 @@ class SigmaGraphRuntime implements GraphRuntime {
         };
     }
 
-    #centerNode(nodeId: string): void {
+    #centerNode(nodeId: string, animate = true): void {
         const data = this.#renderer.getNodeDisplayData(nodeId);
         if (!data) return;
         const state = { x: data.x, y: data.y, ratio: Math.min(this.#renderer.getCamera().ratio, 0.65) };
-        if (this.#layoutOptions.reducedMotion) this.#renderer.getCamera().setState(state);
+        if (this.#layoutOptions.reducedMotion || !animate) this.#renderer.getCamera().setState(state);
         else void this.#renderer.getCamera().animate(state, { duration: 250 });
+    }
+
+    #restoreInitialVisibility(): void {
+        if (!this.#container.hasAttribute("aria-busy")) return;
+        this.#container.style.visibility = this.#initialVisibility;
+        this.#container.removeAttribute("aria-busy");
     }
 
     #handleResize = (): void => {
@@ -394,6 +427,13 @@ class SigmaGraphRuntime implements GraphRuntime {
             this.fit();
         }
     };
+}
+
+function copyGraphPositions(source: GraphologyViewGraph, target: GraphologyViewGraph): void {
+    target.updateEachNodeAttributes((node, attributes) => {
+        const position = source.getNodeAttributes(node);
+        return { ...attributes, x: position.x, y: position.y };
+    });
 }
 
 function graphCanvasResources(container: HTMLElement): {

@@ -31,6 +31,8 @@ The exact `d57079e3e734206cee8f34a169837ea8c3a74727` candidate was already pushe
 
 The Graph parity implementation is commit `868b868`. The aggregate delivery gate was rerun successfully after the independent dependency-refresh commit `6342e24`.
 
+The 2026-08-22 deterministic initial-layout follow-up is implemented in the current candidate and has not been pushed. It supersedes the initial-layout execution policy described below while preserving the Host projection and refresh-position contracts.
+
 The 2026-08-12 follow-up adds bounded VS Code workspace-output handling in `89f3f1a`, runtime timing marks in `2d18798`, and explicit Graph WebGL and canvas disposal in `8ae1b68`, `258090e`, and `b139b82`.
 
 ## Shared Contract Evidence
@@ -44,7 +46,7 @@ The WebApp and VS Code adapters now run the same empty, small, medium, and large
 
 Shared runtime tests cover Enter activation, Escape clearing, fit/reset keyboard behavior, selected-node summaries, taxonomy legends, reduced-motion policy, theme-derived presentation, and disposal. The WebApp adapter test title now describes the comparison it actually performs instead of claiming an unexecuted VS Code comparison.
 
-Final layout coordinates are not claimed to be identical across Hosts. The WebApp enables Worker layout by default, while VS Code Preview intentionally disables it. For more than 2,000 nodes, the synchronous policy performs zero ForceAtlas2 iterations and supplies deterministic seed coordinates before the WebApp Worker settles the layout. This is an explicit Host-adapter difference, not evidence of duplicate Graph semantics.
+Final layout coordinates are not claimed to be identical across Hosts. The WebApp enables Worker layout by default, while VS Code Preview intentionally disables it. The current policy runs a bounded, shared iteration budget on a detached layout graph: 128 iterations for 65–500 nodes, 64 for 501–2,000 nodes, and 32 above 2,000 nodes (small graphs use a capped 24-plus-node-count budget). WebApp publishes the Worker result atomically after settlement; VS Code uses cooperative main-thread chunks for large graphs. This is an explicit Host execution difference, not evidence of duplicate Graph semantics.
 
 ## Automated And Packaged Verification
 
@@ -127,6 +129,25 @@ The first measurement found a shared-runtime defect: projection refresh reused c
 | VS Code synchronous | about 5,000 nodes | 0% / 0% / 0% | 0% | 100% | Pass |
 
 The compact raw summary remains intentionally uncommitted under `target/performance/`; the reproducible browser harness is tracked at `packages/webapp/scripts/graph-refresh-movement-gate.html`. The runtime contract is preserved by focused tests that assert refresh sessions start neither synchronous nor Worker layout, surviving positions remain exact, and a new linked node is seeded near its existing neighbor.
+
+## 2026-08-22 Deterministic Initial Layout Follow-Up
+
+The visible Graph no longer receives intermediate initial-layout coordinates. `packages/graph-view` now owns one deterministic iteration policy and exposes the settlement mode (`synchronous`, `cooperative`, or `worker`). Runtime construction copies the projection into a detached layout graph, keeps the visible container hidden and `aria-busy` until the layout session settles, then publishes all coordinates in one update and performs an immediate (non-animated) initial fit. Explicit user resets remain animated unless reduced motion is active; initial settlement never applies a second camera animation.
+
+Worker settlement is iteration-counted rather than time-counted. Its final graph-update callback is finished in a microtask after the Worker message stack returns, so the supervisor is not killed while it is still dispatching its last update. This closes the previously observed `Cannot set properties of null (setting 'nodes')` race during page disposal. The non-Worker large-graph path yields between bounded chunks instead of blocking the main thread in one synchronous call.
+
+The tracked browser gate at `packages/webapp/scripts/graph-refresh-movement-gate.html` now measures both initial stability and projection-refresh stability. The rebuilt gate passed all four combinations with 500 and 5,000 nodes:
+
+| Host policy         |     Fixture | Initial ready | Initial P95 / rearranged | Refresh P95 / rearranged | Result |
+| ------------------- | ----------: | ------------: | -----------------------: | -----------------------: | ------ |
+| WebApp Worker       |   500 nodes |        291 ms |                   0 / 0% |                   0 / 0% | Pass   |
+| WebApp Worker       | 5,000 nodes |        989 ms |                   0 / 0% |                   0 / 0% | Pass   |
+| VS Code cooperative |   500 nodes |        226 ms |                   0 / 0% |                   0 / 0% | Pass   |
+| VS Code cooperative | 5,000 nodes |        990 ms |                   0 / 0% |                   0 / 0% | Pass   |
+
+The gate also confirmed finite coordinates and selection retention in every case. A production WebApp build served by the real Forma backend rendered the current 205-item Workspace Graph; after settlement it exposed no `aria-busy` container, eight Sigma canvases, and no server or browser console errors during the short recorded observation. Scene-change inspection of the 2.7-second recording found one initial visual transition rather than repeated layout movement.
+
+Focused verification for this follow-up passed 49 shared Graph tests, 15 WebApp/VS Code adapter tests, Graph View type-check and lint, both Graph View and WebApp builds, and `forma check --json` plus `workspace health --json` with zero errors and warnings. The complete `mise run check` gate also passed, including 67 pnpm test files and 404 tests, the Rust workspace, formatting, lint, type checks, production builds, and Zed WASM validation.
 
 ## 2026-08-12 Local Host Follow-Up
 
