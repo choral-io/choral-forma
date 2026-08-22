@@ -73,13 +73,12 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.29 | [[releases/forma-v0.1.29]] | Released managed CLI self-update milestone. |
 | v0.1.30 | [[releases/forma-v0.1.30]] | Released receipt-free update and editor milestone. |
 | v0.1.31 | [[releases/forma-v0.1.31]] | Released coordinated Public Preview patch. |
-| v0.1.32 | [[releases/forma-v0.1.32]] | Prepared deterministic Graph-layout stability candidate; not yet published. |
+| v0.1.32 | [[releases/forma-v0.1.32]] | Released deterministic Graph-layout stability Public Preview patch. |
 
 ## Current Delivery Cutline
 
-- **Current released baseline:** [[releases/forma-v0.1.31]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
-- **Current prepared candidate:** [[releases/forma-v0.1.32]] aligns the next coordinated version and records the deterministic Graph-layout stability cutline; it is not pushed, tagged, or published yet.
-- **Previous released baseline:** [[releases/forma-v0.1.30]] records the receipt-free update and editor milestone that preceded this patch.
+- **Current released baseline:** [[releases/forma-v0.1.32]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
+- **Previous released baseline:** [[releases/forma-v0.1.31]] records the cross-Host Graph hardening, Linux GNU compatibility, and coordinated dependency refresh that preceded this patch.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.
 - **Active validation:** [[tasks/validate-shared-graph-view-cross-host-parity]] remains the active cross-Host Graph evidence boundary.

@@ -5,7 +5,7 @@ title: "Forma v0.1.32"
 summary: "Deterministic Graph initial-layout stability and a coordinated dependency refresh."
 scope: project
 type: release
-status: planned
+status: released
 version: "v0.1.32"
 date: 2026-08-22
 owners:
@@ -52,18 +52,27 @@ Prepare the next coordinated Public Preview patch after [[releases/forma-v0.1.31
 
 ## Preparation Evidence
 
-This record is a release candidate plan, not publication evidence. The publication candidate is the exact `main` commit selected after the final local gates and before the protected Release workflow is dispatched. The final candidate SHA and remote CI evidence will be recorded after those gates complete.
+The exact `main` candidate passed the local release gates before the protected Release workflow was dispatched.
 
-- **Local candidate gates:** `mise run version:check -- v0.1.32`, `mise run release:record-check -- v0.1.32`, Forma `check --json`, and workspace health passed with zero errors and zero warnings on the version-aligned source candidate. `CI=true mise run check` passed with 67 pnpm test files/404 tests, a green Rust workspace, Zed WASM, TypeScript, ESLint, Prettier, WebApp, and VS Code builds; the final exact-HEAD run is repeated before push.
-- **VSIX:** `forma-0.1.32.vsix` packaged 57 files and passed isolated installation, activation, and LSP smoke validation as `choral-io.forma@0.1.32`; the disposable artifact SHA-256 was `4964a36eb0d6791fa241ef03c82dca6d66c3f02f697e7aef3e0282c6256a117c` and was removed after verification.
-- **External gates still pending:** main CI for the exact pushed candidate, the protected Release workflow, published assets, Marketplace state, and `release:verify` remain pending until their respective authorized steps are executed.
+- **Local candidate gates:** `mise run version:check -- v0.1.32`, `mise run release:record-check -- v0.1.32`, Forma `check --json`, and workspace health passed with zero errors and zero warnings. `CI=true mise run check` passed with 67 pnpm test files/404 tests, a green Rust workspace, Zed WASM, TypeScript, ESLint, Prettier, WebApp, and VS Code builds.
+- **VSIX:** `forma-0.1.32.vsix` packaged 57 files and passed isolated installation, activation, and LSP smoke validation as `choral-io.forma@0.1.32`; the disposable local artifact was removed after verification. The protected workflow rebuilt and verified the source-bound asset used for publication.
+
+## Published Evidence
+
+- **Candidate:** `2b20e1f07ca457765bcbecac0ebeac9fa02a844e`.
+- **Exact main CI:** [run 32553039600](https://github.com/choral-io/choral-forma/actions/runs/32553039600) passed the repository checks, installers, Knowledge, WebApp, VS Code, five-target CLI release builds, Linux GNU compatibility, and deployment jobs for the exact candidate.
+- **Release workflow:** [run 32553525121](https://github.com/choral-io/choral-forma/actions/runs/32553525121) validated the exact candidate, assembled and promoted the source-bound 22-asset release, verified the published payloads, and published the matching Marketplace VSIX.
+- **GitHub Release:** [Forma v0.1.32](https://github.com/choral-io/choral-forma/releases/tag/v0.1.32) is published as the coordinated Public Preview release. The annotated `v0.1.32` tag resolves to the candidate commit.
+- **Independent verification:** `mise run release:verify -- v0.1.32` passed for 22 assets and 11 payloads. The native macOS Arm64 CLI reported `forma 0.1.32` with SHA-256 `34d23889ec396f69e6fb31579b064a1d21239b69e8810ef49d7da32be6c839ca`; the VSIX reported `choral-io.forma@0.1.32`, engine `^1.110.0`, and SHA-256 `80c6bbab28a71b521b013200e9c24fc6ab705c4754d5bdc54cbb502001a7490c`.
+- **Managed installation:** the production editor-extension installation implementation downloaded, checksum-verified, installed, and executed the published `forma-macos-arm64` payload as `forma 0.1.32`.
+- **Marketplace:** the protected Marketplace job published `choral-io.forma v0.1.32`; the public listing is [Forma on Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=choral-io.forma).
 
 ## Rollout Plan
 
-1. Complete and commit the aligned `0.1.32` candidate and its local validation evidence.
-2. Push the exact candidate and require green main CI before any tag decision.
-3. Create and push the annotated `v0.1.32` tag only after explicit maintainer approval and exact-source CI success.
-4. Observe the protected Release workflow and run the executable published-release verification gate.
+1. Completed the aligned candidate commit and local release gates.
+2. Pushed the candidate and passed exact-source main CI before tag creation.
+3. Promoted the source-bound candidate through the protected Release workflow and verified the published GitHub assets.
+4. Published the matching VS Code Marketplace extension and completed independent published-release verification.
 
 ## Migration Or Operations Notes
 
@@ -83,3 +92,4 @@ Do not move or overwrite a published tag or asset. Before publication, return a 
 
 - Keep the remaining Host-specific and distribution-specific acceptance boundaries explicit in the next release review.
 - Continue separating product-value validation from renderer hardening; the next adoption slice remains guided knowledge modeling and external value validation.
+- Track any correction through a higher coordinated version; do not move or overwrite the immutable `v0.1.32` tag or published assets.
