@@ -18,15 +18,6 @@ graph:
           intent: embed
           label: embeds
         - source: fields
-          field: owners
-          label: owned by
-        - source: fields
-          field: assignees
-          label: assigned to
-        - source: fields
-          field: reviewers
-          label: reviewed by
-        - source: fields
           field: blockedBy
           label: blocked by
         - source: fields
