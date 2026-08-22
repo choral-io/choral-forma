@@ -52,9 +52,9 @@ Prepare the next coordinated Public Preview patch after [[releases/forma-v0.1.31
 
 ## Preparation Evidence
 
-This record is a release candidate plan, not publication evidence. The current source candidate is `96e78573279f76d1967b42a47aa7725629cb6c67`; it is version-aligned and remains unpushed, untagged, and unpublished.
+This record is a release candidate plan, not publication evidence. The publication candidate is the exact `main` commit selected after the final local gates and before the protected Release workflow is dispatched. The final candidate SHA and remote CI evidence will be recorded after those gates complete.
 
-- **Local candidate gates:** `mise run version:check -- v0.1.32`, `mise run release:record-check -- v0.1.32`, Forma `check --json`, and workspace health passed with zero errors and zero warnings. `CI=true mise run check` passed from the exact candidate with 67 pnpm test files/404 tests, a green Rust workspace, Zed WASM, TypeScript, ESLint, Prettier, WebApp, and VS Code builds.
+- **Local candidate gates:** `mise run version:check -- v0.1.32`, `mise run release:record-check -- v0.1.32`, Forma `check --json`, and workspace health passed with zero errors and zero warnings on the version-aligned source candidate. `CI=true mise run check` passed with 67 pnpm test files/404 tests, a green Rust workspace, Zed WASM, TypeScript, ESLint, Prettier, WebApp, and VS Code builds; the final exact-HEAD run is repeated before push.
 - **VSIX:** `forma-0.1.32.vsix` packaged 57 files and passed isolated installation, activation, and LSP smoke validation as `choral-io.forma@0.1.32`; the disposable artifact SHA-256 was `4964a36eb0d6791fa241ef03c82dca6d66c3f02f697e7aef3e0282c6256a117c` and was removed after verification.
 - **External gates still pending:** main CI for the exact pushed candidate, the protected Release workflow, published assets, Marketplace state, and `release:verify` remain pending until their respective authorized steps are executed.
 
