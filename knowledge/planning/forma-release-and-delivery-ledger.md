@@ -32,6 +32,7 @@ sources:
     - "releases/forma-v0.1.29"
     - "releases/forma-v0.1.30"
     - "releases/forma-v0.1.31"
+    - "releases/forma-v0.1.32"
     - "planning/release-artifact-promotion-pipeline-redesign"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
@@ -51,31 +52,33 @@ Each referenced release record remains the canonical source for its scope and va
 
 ## Release Chain
 
-| Version         | Record                             | Position                                            |
-| --------------- | ---------------------------------- | --------------------------------------------------- |
-| v0.1.0-alpha.13 | [[releases/forma-v0.1.0-alpha.13]] | First editor-extension alpha cutline.               |
-| v0.1.0-alpha.14 | [[releases/forma-v0.1.0-alpha.14]] | Historical alpha release evidence.                  |
-| v0.1.0-alpha.15 | [[releases/forma-v0.1.0-alpha.15]] | Historical editor-experience release evidence.      |
-| v0.1.0-alpha.16 | [[releases/forma-v0.1.0-alpha.16]] | Historical performance release evidence.            |
-| v0.1.0-alpha.17 | [[releases/forma-v0.1.0-alpha.17]] | Historical release-verification evidence.           |
-| v0.1.0-alpha.18 | [[releases/forma-v0.1.0-alpha.18]] | Historical LSP navigation release evidence.         |
-| v0.1.0-alpha.19 | [[releases/forma-v0.1.0-alpha.19]] | Historical graph and editor validation evidence.    |
-| v0.1.0-alpha.20 | [[releases/forma-v0.1.0-alpha.20]] | Shared Graph milestone.                             |
-| v0.1.0-alpha.21 | [[releases/forma-v0.1.0-alpha.21]] | Internal branding and Graph-parity release.         |
-| v0.1.22         | [[releases/forma-v0.1.22]]         | First Marketplace-ready Public Preview candidate.   |
-| v0.1.23         | [[releases/forma-v0.1.23]]         | Previous released Public Preview record.            |
-| v0.1.24         | [[releases/forma-v0.1.24]]         | Previous released Public Preview record.            |
-| v0.1.25         | [[releases/forma-v0.1.25]]         | Released View navigation and Marketplace milestone. |
-| v0.1.26         | [[releases/forma-v0.1.26]]         | Failed before publication in the Windows asset job. |
-| v0.1.27         | [[releases/forma-v0.1.27]]         | Failed before publication in later release gates.   |
-| v0.1.28         | [[releases/forma-v0.1.28]]         | Released corrective Public Preview milestone.       |
-| v0.1.29         | [[releases/forma-v0.1.29]]         | Released managed CLI self-update milestone.         |
-| v0.1.30         | [[releases/forma-v0.1.30]]         | Released receipt-free update and editor milestone.  |
-| v0.1.31         | [[releases/forma-v0.1.31]]         | Released coordinated Public Preview patch.          |
+| Version | Record | Position |
+| --- | --- | --- |
+| v0.1.0-alpha.13 | [[releases/forma-v0.1.0-alpha.13]] | First editor-extension alpha cutline. |
+| v0.1.0-alpha.14 | [[releases/forma-v0.1.0-alpha.14]] | Historical alpha release evidence. |
+| v0.1.0-alpha.15 | [[releases/forma-v0.1.0-alpha.15]] | Historical editor-experience release evidence. |
+| v0.1.0-alpha.16 | [[releases/forma-v0.1.0-alpha.16]] | Historical performance release evidence. |
+| v0.1.0-alpha.17 | [[releases/forma-v0.1.0-alpha.17]] | Historical release-verification evidence. |
+| v0.1.0-alpha.18 | [[releases/forma-v0.1.0-alpha.18]] | Historical LSP navigation release evidence. |
+| v0.1.0-alpha.19 | [[releases/forma-v0.1.0-alpha.19]] | Historical graph and editor validation evidence. |
+| v0.1.0-alpha.20 | [[releases/forma-v0.1.0-alpha.20]] | Shared Graph milestone. |
+| v0.1.0-alpha.21 | [[releases/forma-v0.1.0-alpha.21]] | Internal branding and Graph-parity release. |
+| v0.1.22 | [[releases/forma-v0.1.22]] | First Marketplace-ready Public Preview candidate. |
+| v0.1.23 | [[releases/forma-v0.1.23]] | Previous released Public Preview record. |
+| v0.1.24 | [[releases/forma-v0.1.24]] | Previous released Public Preview record. |
+| v0.1.25 | [[releases/forma-v0.1.25]] | Released View navigation and Marketplace milestone. |
+| v0.1.26 | [[releases/forma-v0.1.26]] | Failed before publication in the Windows asset job. |
+| v0.1.27 | [[releases/forma-v0.1.27]] | Failed before publication in later release gates. |
+| v0.1.28 | [[releases/forma-v0.1.28]] | Released corrective Public Preview milestone. |
+| v0.1.29 | [[releases/forma-v0.1.29]] | Released managed CLI self-update milestone. |
+| v0.1.30 | [[releases/forma-v0.1.30]] | Released receipt-free update and editor milestone. |
+| v0.1.31 | [[releases/forma-v0.1.31]] | Released coordinated Public Preview patch. |
+| v0.1.32 | [[releases/forma-v0.1.32]] | Prepared deterministic Graph-layout stability candidate; not yet published. |
 
 ## Current Delivery Cutline
 
 - **Current released baseline:** [[releases/forma-v0.1.31]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
+- **Current prepared candidate:** [[releases/forma-v0.1.32]] aligns the next coordinated version and records the deterministic Graph-layout stability cutline; it is not pushed, tagged, or published yet.
 - **Previous released baseline:** [[releases/forma-v0.1.30]] records the receipt-free update and editor milestone that preceded this patch.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.

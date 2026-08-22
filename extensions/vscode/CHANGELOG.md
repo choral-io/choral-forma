@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.32
+
+- Stabilize the initial Graph layout across WebApp and VS Code by bounding layout work and publishing settled coordinates atomically, eliminating the visible multi-step layout jitter.
+- Preserve existing positions across projection refreshes, keep reset and reduced-motion behavior responsive, and retain deterministic disposal and accessibility state while the shared layout settles.
+- Refresh the coordinated dependency set and narrow Forma's own Workspace Graph ownership edges so repository profile documents do not dominate project relationships.
+
 ## 0.1.31
 
 - Complete the shared Graph View cross-Host milestone with frontmatter-field colors, preserved positions, and deterministic resource disposal across WebApp and VS Code.
