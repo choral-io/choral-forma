@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.33
+
+- Add strict `number` and `integer` Schema scalar validation with YAML-native type semantics and no coercion of quoted or zero-padded values.
+- Document numeric Schema fields for workspace authors and Agents, and add an executable workspace fixture and CLI contract coverage.
+- Preserve lexical configuration such as `ordinalWidth` as a string so zero-padded output remains stable.
+
 ## 0.1.32
 
 - Stabilize the initial Graph layout across WebApp and VS Code by bounding layout work and publishing settled coordinates atomically, eliminating the visible multi-step layout jitter.

@@ -5,22 +5,22 @@ taxonomy: spaces
 id: measurements
 title: Measurements
 include:
-  - "measurements/**/*.md"
+    - "measurements/**/*.md"
 schema:
-  type: object
-  fields:
-    title:
-      type: string
-      required: true
-    ratio:
-      type: number
-      required: true
-    count:
-      type: integer
-      required: true
-    ordinalWidth:
-      type: string
-      required: true
+    type: object
+    fields:
+        title:
+            type: string
+            required: true
+        ratio:
+            type: number
+            required: true
+        count:
+            type: integer
+            required: true
+        ordinalWidth:
+            type: string
+            required: true
 ---
 
 # Measurements

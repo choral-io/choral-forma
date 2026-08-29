@@ -48,7 +48,7 @@ Common field shapes:
 | Shape                 | Use for                                                    |
 | --------------------- | ---------------------------------------------------------- |
 | `type: string`        | titles, summaries, statuses, short labels                  |
-| `type: number`        | measurements that may contain fractions (`1`, `1.5`)      |
+| `type: number`        | measurements that may contain fractions (`1`, `1.5`)       |
 | `type: integer`       | whole-number counts (`2`, `-1`)                            |
 | `type: date`          | due dates, publication dates, review dates                 |
 | `type: datetime`      | event times and timestamped records                        |
