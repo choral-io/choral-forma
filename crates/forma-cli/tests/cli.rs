@@ -1143,6 +1143,10 @@ fn docs_list_and_get_expose_embedded_product_docs() {
     assert!(schemas.stderr.is_empty());
     let schemas_stdout = String::from_utf8_lossy(&schemas.stdout);
     assert!(schemas_stdout.contains("type: person"));
+    assert!(schemas_stdout.contains("type: number"));
+    assert!(schemas_stdout.contains("type: integer"));
+    assert!(schemas_stdout.contains("does not coerce strings to numbers"));
+    assert!(schemas_stdout.contains("zero padding"));
     assert!(schemas_stdout.contains("configured `entryRef` named type"));
     assert!(schemas_stdout.contains("currentUserId"));
     assert!(schemas_stdout.contains("Do not infer entry reference paths from directory names"));
@@ -1784,6 +1788,82 @@ fn starter_workspace_config_exposes_expected_spaces_and_excludes_removed_spaces(
     for space in ["todos", "users", "decisions", "proposals"] {
         assert!(!config_spaces.contains_key(space));
     }
+}
+
+#[test]
+fn numeric_schema_fixture_checks_yaml_scalar_types() {
+    let repository_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let workspace_root = repository_root.join("crates/forma-core/tests/fixtures/numeric-schema");
+    let workspace = workspace_root
+        .to_str()
+        .expect("numeric schema fixture path should be valid UTF-8");
+
+    let check = forma(&repository_root)
+        .args(["--workspace", workspace, "check", "--json"])
+        .output()
+        .expect("numeric schema fixture check should run");
+    assert!(
+        check.status.success(),
+        "{}",
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let check_result: Value =
+        serde_json::from_slice(&check.stdout).expect("fixture check output should be JSON");
+    assert_eq!(check_result["status"], "passed");
+    assert_eq!(check_result["summary"]["errors"], 0);
+
+    let inspect = forma(&repository_root)
+        .args([
+            "--workspace",
+            workspace,
+            "inspect",
+            "measurements/reading.md",
+            "--json",
+        ])
+        .output()
+        .expect("numeric schema fixture inspect should run");
+    assert!(
+        inspect.status.success(),
+        "{}",
+        String::from_utf8_lossy(&inspect.stderr)
+    );
+    let inspect_result: Value =
+        serde_json::from_slice(&inspect.stdout).expect("fixture inspect output should be JSON");
+    assert_eq!(inspect_result["status"], "passed");
+    assert_eq!(inspect_result["entry"]["metadata"]["ratio"], 1.5);
+    assert_eq!(inspect_result["entry"]["metadata"]["count"], -2);
+    assert_eq!(inspect_result["entry"]["metadata"]["ordinalWidth"], "2");
+
+    let invalid_root = fixture_root("numeric-schema-invalid");
+    copy_dir_recursive(&workspace_root, &invalid_root);
+    let entry_path = invalid_root.join("measurements/reading.md");
+    let entry = std::fs::read_to_string(&entry_path).unwrap();
+    std::fs::write(entry_path, entry.replace("count: -2", "count: \"2\""))
+        .expect("invalid fixture entry should be writable");
+    let invalid_workspace = invalid_root
+        .to_str()
+        .expect("invalid fixture path should be valid UTF-8");
+
+    let invalid_check = forma(&repository_root)
+        .args(["--workspace", invalid_workspace, "check", "--json"])
+        .output()
+        .expect("invalid numeric schema fixture check should run");
+    assert!(!invalid_check.status.success());
+    let invalid_result: Value =
+        serde_json::from_slice(&invalid_check.stdout).expect("invalid check output should be JSON");
+    assert_eq!(invalid_result["status"], "failed");
+    assert!(
+        invalid_result["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|diagnostic| {
+                diagnostic["code"] == "schema.type.invalid"
+                    && diagnostic["location"]["field"] == "count"
+            })
+    );
+
+    std::fs::remove_dir_all(invalid_root).unwrap();
 }
 
 #[test]

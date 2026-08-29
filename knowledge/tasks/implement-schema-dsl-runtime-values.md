@@ -78,3 +78,5 @@ Blocked by config/path model. Downstream work can be derived from task items who
 ## Follow-up Notes
 
 `date` and `datetime` lexical formats were fixed during implementation: persisted `date` values use `YYYY-MM-DD`, and persisted `datetime` values use RFC3339 with explicit `Z` or numeric offset.
+
+Numeric Schema closure (2026-08-29) documents and tests strict YAML scalar semantics for `number` and `integer`, including the no-coercion rule and zero-padded lexical values. The workspace fixture and CLI contract are recorded in [[test-cases/forma-starter-kit/numeric-schema-type-contract]]. Numeric range constraints, finite-value policy, and WebApp/RPC cross-surface behavior remain deferred follow-up work. `ordinalWidth` remains a string with the value `"2"`.

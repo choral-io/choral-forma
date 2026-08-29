@@ -33,6 +33,7 @@ sources:
     - "releases/forma-v0.1.30"
     - "releases/forma-v0.1.31"
     - "releases/forma-v0.1.32"
+    - "releases/forma-v0.1.33"
     - "planning/release-artifact-promotion-pipeline-redesign"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
@@ -74,10 +75,12 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.30 | [[releases/forma-v0.1.30]] | Released receipt-free update and editor milestone. |
 | v0.1.31 | [[releases/forma-v0.1.31]] | Released coordinated Public Preview patch. |
 | v0.1.32 | [[releases/forma-v0.1.32]] | Released deterministic Graph-layout stability Public Preview patch. |
+| v0.1.33 | [[releases/forma-v0.1.33]] | Planned numeric Schema contract Public Preview patch. |
 
 ## Current Delivery Cutline
 
 - **Current released baseline:** [[releases/forma-v0.1.32]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
+- **Next release candidate:** [[releases/forma-v0.1.33]] is planned for the strict numeric Schema scalar contract and its Core, CLI, documentation, and workspace-fixture coverage. Keep the released baseline at v0.1.32 until the exact candidate is published and independently verified.
 - **Previous released baseline:** [[releases/forma-v0.1.31]] records the cross-Host Graph hardening, Linux GNU compatibility, and coordinated dependency refresh that preceded this patch.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.

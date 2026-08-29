@@ -37,6 +37,10 @@ schema:
             type: person
         status:
             type: noteStatus
+        progress:
+            type: number
+        retryCount:
+            type: integer
 ```
 
 Common field shapes:
@@ -44,12 +48,25 @@ Common field shapes:
 | Shape                 | Use for                                                    |
 | --------------------- | ---------------------------------------------------------- |
 | `type: string`        | titles, summaries, statuses, short labels                  |
+| `type: number`        | measurements that may contain fractions (`1`, `1.5`)       |
+| `type: integer`       | whole-number counts (`2`, `-1`)                            |
 | `type: date`          | due dates, publication dates, review dates                 |
 | `type: datetime`      | event times and timestamped records                        |
 | `type: list`          | tags, participants, related entries                        |
 | `type: person`        | one reference through a configured `entryRef` named type   |
 | `type: list` of named | many references through a configured `entryRef` named type |
 | `type: noteStatus`    | constrained value through a configured enum type           |
+
+### Numeric values and YAML typing
+
+Keep values for `number` and `integer` fields as unquoted YAML numbers:
+
+```yaml
+progress: 1.5
+retryCount: 2
+```
+
+Forma does not coerce strings to numbers. `progress: "1.5"` and `retryCount: "2"` are strings and fail numeric Schema validation. `type: integer` also rejects decimal notation such as `2.0`. Use `type: string` for lexical values that need zero padding, such as `"01"`; P0 numeric types currently validate the scalar type but do not define range constraints.
 
 Define named types before using them in schemas. Use `kind: entryRef` named types for references to configured content groups, and `kind: enum` named types for constrained scalar values. The low-level `type: entryRef` and `type: enum` primitives are implementation shapes; workspace-authored schemas should prefer named types because they make the relationship or value meaning explicit.
 
@@ -62,5 +79,7 @@ When defining templates or create defaults for entry reference fields, inspect t
 ## Agent Skill
 
 Keep schema fields minimal and aligned with the human workflow. Prefer camelCase field names unless the existing workspace uses another convention.
+
+When a field uses `type: number` or `type: integer`, write frontmatter values as unquoted YAML numbers. Do not rely on implicit conversion from quoted strings; use `type: string` for zero-padded or otherwise lexical values such as `"01"`.
 
 Do not add fields only because they might be useful someday. Add the few fields needed for the first list, table, create template, or Agent workflow, then verify with `forma check --json`. Do not infer entry reference paths from directory names or runtime value names; use configured named types and existing workspace references.
