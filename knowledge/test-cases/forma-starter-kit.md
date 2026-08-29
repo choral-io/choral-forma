@@ -38,6 +38,7 @@ This suite is reusable evidence for internal release review through [[metrics/kn
 - [[test-cases/forma-starter-kit/starter-guideline-discovery-contract]]
 - [[test-cases/forma-starter-kit/starter-skill-interface-contract]]
 - [[test-cases/forma-starter-kit/starter-schema-quality-contract]]
+- [[test-cases/forma-starter-kit/numeric-schema-type-contract]]
 
 ## Agent Pressure Tests
 

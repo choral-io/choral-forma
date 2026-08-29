@@ -17,4 +17,6 @@ Bootstrap:
 
 Use `forma-cli-core` and workspace-projected skills for command details and workflow guidance. Use `forma workspace explain <path> --json` instead of inferring path meaning from directory names. Use `forma config inspect --json` only when the resolved summary is insufficient and authored effective configuration must be debugged. Do not assume repository layout, guideline paths, space ids, or local-only paths beyond Forma output and repository instructions.
 
+When authoring Schema fields, load `workspace.schemas`; numeric fields require unquoted YAML numbers, while quoted or zero-padded values remain strings and should use `type: string`.
+
 Do not modify shared content, task metadata, Forma config, guidelines, or repository operating state without explicit human approval. Before an approved `forma create`, run the same inputs with `--preview`. After approved writes, run `forma check --json` and `forma workspace health --json`.

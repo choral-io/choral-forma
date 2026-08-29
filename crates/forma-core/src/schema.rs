@@ -1647,6 +1647,103 @@ scheduledAt: "2026-05-19T10:30:00"
     }
 
     #[test]
+    fn validates_yaml_numeric_types_without_string_coercion() {
+        let config = config_with_task_schema(
+            r#"
+type: object
+fields:
+  ratio:
+    type: number
+    required: true
+  count:
+    type: integer
+    required: true
+  ordinal:
+    type: string
+    required: true
+"#,
+        );
+        let schema = parse_space_schema(&config.spaces["tasks"]).unwrap();
+
+        let valid = serde_yml::from_str(
+            r#"
+ratio: 1.5
+count: -2
+ordinal: 01
+"#,
+        )
+        .unwrap();
+        assert!(validate_schema_value(&config, &schema, &valid, "tasks/valid.md").is_empty());
+
+        let quoted_number = serde_yml::from_str(
+            r#"
+ratio: "1.5"
+count: 2
+ordinal: 01
+"#,
+        )
+        .unwrap();
+        let diagnostics =
+            validate_schema_value(&config, &schema, &quoted_number, "tasks/quoted-number.md");
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "schema.type.invalid");
+        assert_eq!(diagnostics[0].expected.as_deref(), Some("number"));
+        assert_eq!(
+            diagnostics[0].location,
+            Some(DiagnosticLocation::Frontmatter {
+                field: "ratio".to_string(),
+                index: None,
+            })
+        );
+
+        let fractional_integer = serde_yml::from_str(
+            r#"
+ratio: 1.5
+count: 2.0
+ordinal: 01
+"#,
+        )
+        .unwrap();
+        let diagnostics = validate_schema_value(
+            &config,
+            &schema,
+            &fractional_integer,
+            "tasks/fractional-integer.md",
+        );
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "schema.type.invalid");
+        assert_eq!(diagnostics[0].expected.as_deref(), Some("integer"));
+        assert_eq!(
+            diagnostics[0].location,
+            Some(DiagnosticLocation::Frontmatter {
+                field: "count".to_string(),
+                index: None,
+            })
+        );
+
+        let quoted_integer = serde_yml::from_str(
+            r#"
+ratio: 1.5
+count: "2"
+ordinal: 01
+"#,
+        )
+        .unwrap();
+        let diagnostics =
+            validate_schema_value(&config, &schema, &quoted_integer, "tasks/quoted-integer.md");
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "schema.type.invalid");
+        assert_eq!(diagnostics[0].expected.as_deref(), Some("integer"));
+        assert_eq!(
+            diagnostics[0].location,
+            Some(DiagnosticLocation::Frontmatter {
+                field: "count".to_string(),
+                index: None,
+            })
+        );
+    }
+
+    #[test]
     fn resolves_runtime_values_from_const_and_workspace_root() {
         let mut config = config_with_task_schema("type: object\nfields: {}\n");
         config.runtime.values.insert(
