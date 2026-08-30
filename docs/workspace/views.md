@@ -19,7 +19,7 @@ Views are configured Markdown nodes that describe read-only projections such as 
 
 View config uses `mode` to select the projection and `source` to choose the candidate pages. Do not use `projection` or `query.source`; those are not the current view DSL.
 
-View parameters and embedded view comments such as `<!-- forma-view: ... -->` are future design targets, not current workspace view syntax. Current views are directly rendered page views, and `forma view render` does not evaluate `{{ params.* }}` placeholders in view definitions.
+View parameters and embedded view comments such as `<!-- forma-view: ... -->` are not workspace view syntax. Views are directly rendered page views, and `forma view render` does not evaluate `{{ params.* }}` placeholders in view definitions.
 
 Minimal table view:
 
@@ -115,4 +115,4 @@ For a Table column whose values should open the source Page for that row, declar
 
 Fields resolved from schema-declared entry references render automatically as links to their target Pages. A scalar reference renders as its target title; a reference list renders one target-title link per item. Their target links take precedence over `link.target: entry`, so do not configure that option on reference columns.
 
-`view.render.items[].fields` is a tagged contract: ordinary values use `{ "kind": "value", "value": ... }`, one resolved reference uses `{ "kind": "reference", "reference": { "path", "title" } }`, and a resolved reference list uses `{ "kind": "referenceList", "references": [...] }`. Hosts must render reference targets from this structure rather than re-resolving frontmatter paths.
+For the public `forma view render --json` output contract, see [forma view](../cli/view.md) (`cli.view`).

@@ -19,6 +19,9 @@ schema:
             type: integer
             required: true
         ordinalWidth:
+            type: integer
+            required: true
+        ordinal:
             type: string
             required: true
 ---

@@ -55,7 +55,7 @@ P0 supports these schema node kinds:
 - `entryRef`
 - `list`
 
-Numeric fields use YAML scalar types without implicit coercion. `number` accepts YAML numeric scalars, including integers and fractions; `integer` accepts integral numeric scalars only. Quoted values such as `"2"`, decimal notation such as `2.0` for an integer field, and zero-padded lexical values such as `"01"` are not converted automatically. P0 defines type checking for these nodes but does not yet define numeric range or finite-value constraints.
+Numeric fields use YAML scalar types without implicit coercion. `number` accepts YAML numeric scalars, including integers and fractions; `integer` accepts integral numeric scalars only. Quoted values such as `"2"`, decimal notation such as `2.0` for an integer field, and zero-padded lexical values such as `"01"` are not converted automatically. A numeric formatting control such as `ordinalWidth: 2` therefore uses `type: integer`, while a rendered zero-padded identifier such as `ordinal: "01"` uses `type: string`. P0 defines type checking for these nodes but does not yet define positivity, numeric range, or finite-value constraints; those rules may remain workspace-specific until a range contract exists.
 
 The DSL uses field-local `required: true` instead of JSON Schema-style `required: [...]` arrays. This keeps overrides and partial config composition simple because the required flag travels with the field it describes.
 

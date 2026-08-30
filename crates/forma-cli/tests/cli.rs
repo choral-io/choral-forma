@@ -1024,22 +1024,44 @@ fn skills_get_builtin_core_prints_markdown_without_workspace_config() {
         .args(["skills", "get", "forma-cli-core"])
         .output()
         .expect("forma skills get forma-cli-core should run");
+    let json_output = forma(&root)
+        .args(["skills", "get", "forma-cli-core", "--json"])
+        .output()
+        .expect("forma skills get --json should run");
 
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(output.stderr.is_empty());
+    for result in [&output, &json_output] {
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        assert!(result.stderr.is_empty());
+    }
+
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let json: Value = serde_json::from_slice(&json_output.stdout).unwrap();
+    assert_eq!(json["operation"], "skills.get");
+    assert_eq!(json["status"], "passed");
+    assert_eq!(json["skill"]["id"], "forma-cli-core");
+    assert_eq!(json["skill"]["source"], "builtIn");
+    assert_eq!(json["skill"]["projection"], "section");
+    assert_eq!(
+        stdout.trim_end(),
+        json["skill"]["content"].as_str().unwrap().trim_end()
+    );
     assert!(stdout.contains("forma-source-ref: docs:agents.forma-cli-core"));
-    assert!(stdout.contains("## Agent Skill"));
-    assert!(stdout.contains("Run `forma` commands from the target workspace root, or pass"));
-    assert!(stdout.contains("Only If Designing Or Authoring Workspace Config"));
-    assert!(stdout.contains("Do not create `skills/forma-cli/SKILL.md`"));
-    assert!(stdout.contains("forma skills list --json"));
+
+    let source = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("docs/agents/forma-cli-core.md"),
+    )
+    .unwrap();
+    let (_, section) = source.split_once("\n## Agent Skill\n").unwrap();
+    let section = section.split_once("\n## ").unwrap().0;
+    let (_, projected) = stdout.split_once("\n## Agent Skill\n").unwrap();
+    assert_eq!(projected.trim_end(), section.trim_end());
     assert!(!stdout.contains("## Reference"));
-    assert!(!stdout.contains(r#""operation":"skills.get""#));
 
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -1060,130 +1082,68 @@ fn docs_list_and_get_expose_embedded_product_docs() {
         String::from_utf8_lossy(&list.stderr)
     );
     assert!(list.stderr.is_empty());
-    let list_stdout = String::from_utf8_lossy(&list.stdout);
-    assert!(list_stdout.contains(r#""operation":"docs.list""#));
-    assert!(list_stdout.contains(r#""id":"workspace.configuration""#));
-    assert!(list_stdout.contains(r#""id":"workspace.first-slice-config""#));
-    assert!(list_stdout.contains(r#""id":"cli.view""#));
-    assert!(list_stdout.contains(r#""id":"cli.site""#));
-    assert!(list_stdout.contains(r#""id":"agents.forma-cli-core""#));
-    assert!(list_stdout.contains(r#""id":"agents.workspace-example-accelerator""#));
-    assert!(list_stdout.contains(r#""id":"agents.workspace-troubleshooting""#));
-    assert!(list_stdout.contains(r#""id":"cli.docs""#));
+    let result: Value = serde_json::from_slice(&list.stdout).unwrap();
+    assert_eq!(result["operation"], "docs.list");
+    assert_eq!(result["status"], "passed");
+    let docs = result["docs"].as_array().unwrap();
+    for id in [
+        "workspace.configuration",
+        "workspace.first-slice-config",
+        "cli.view",
+        "cli.site",
+        "agents.forma-cli-core",
+        "agents.workspace-example-accelerator",
+        "agents.workspace-troubleshooting",
+        "cli.docs",
+    ] {
+        assert!(docs.iter().any(|doc| doc["id"] == id), "missing {id}");
+    }
 
-    let get = forma(&root)
-        .args(["docs", "get", "workspace.configuration"])
-        .output()
-        .expect("forma docs get should run");
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    for listed in docs {
+        let id = listed["id"].as_str().unwrap();
+        let markdown = forma(&root)
+            .args(["docs", "get", id])
+            .output()
+            .expect("forma docs get should run");
+        let json = forma(&root)
+            .args(["docs", "get", id, "--json"])
+            .output()
+            .expect("forma docs get --json should run");
 
-    assert!(
-        get.status.success(),
-        "{}",
-        String::from_utf8_lossy(&get.stderr)
-    );
-    assert!(get.stderr.is_empty());
-    let get_stdout = String::from_utf8_lossy(&get.stdout);
-    assert!(get_stdout.contains("# Workspace Configuration"));
-    assert!(get_stdout.contains("workspace-relative POSIX paths"));
-    assert!(get_stdout.contains("currentUserId"));
-    assert!(get_stdout.contains("currentDate"));
-    assert!(get_stdout.contains("kind: gitConfig"));
-    assert!(get_stdout.contains("kind: const"));
-    assert!(get_stdout.contains("required: true"));
-    assert!(get_stdout.contains("workspace.timezone"));
-    assert!(get_stdout.contains("keep runtime values as identity inputs"));
-    assert!(get_stdout.contains("source: .forma/spaces/people"));
-    assert!(get_stdout.contains("duplicate type names"));
-    assert!(!get_stdout.contains(r#""operation":"docs.get""#));
+        for output in [&markdown, &json] {
+            assert!(
+                output.status.success(),
+                "{id}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(output.stderr.is_empty(), "{id}");
+        }
 
-    let first_slice = forma(&root)
-        .args(["docs", "get", "workspace.first-slice-config"])
-        .output()
-        .expect("forma docs get workspace.first-slice-config should run");
+        let result: Value = serde_json::from_slice(&json.stdout).unwrap();
+        assert_eq!(result["operation"], "docs.get", "{id}");
+        assert_eq!(result["status"], "passed", "{id}");
+        let doc = &result["doc"];
+        for key in [
+            "id", "path", "title", "summary", "audience", "surfaces", "skill", "order",
+        ] {
+            assert_eq!(doc[key], listed[key], "{id}: {key}");
+        }
 
-    assert!(
-        first_slice.status.success(),
-        "{}",
-        String::from_utf8_lossy(&first_slice.stderr)
-    );
-    assert!(first_slice.stderr.is_empty());
-    let first_slice_stdout = String::from_utf8_lossy(&first_slice.stdout);
-    assert!(first_slice_stdout.contains("# First-Slice Config"));
-    assert!(first_slice_stdout.contains("kind: taxonomy"));
-    assert!(first_slice_stdout.contains("kind: term"));
-    assert!(first_slice_stdout.contains("not Forma built-ins"));
-
-    let templates = forma(&root)
-        .args(["docs", "get", "workspace.templates"])
-        .output()
-        .expect("forma docs get workspace.templates should run");
-
-    assert!(
-        templates.status.success(),
-        "{}",
-        String::from_utf8_lossy(&templates.stderr)
-    );
-    assert!(templates.stderr.is_empty());
-    let templates_stdout = String::from_utf8_lossy(&templates.stdout);
-    assert!(templates_stdout.contains("people/{{ runtime.values.currentUserId }}"));
-    assert!(templates_stdout.contains("Do not assume a built-in directory"));
-    assert!(templates_stdout.contains("use `currentUserId` as an identity input"));
-    assert!(templates_stdout.contains("runtime.values.currentDateTime"));
-
-    let schemas = forma(&root)
-        .args(["docs", "get", "workspace.schemas"])
-        .output()
-        .expect("forma docs get workspace.schemas should run");
-
-    assert!(
-        schemas.status.success(),
-        "{}",
-        String::from_utf8_lossy(&schemas.stderr)
-    );
-    assert!(schemas.stderr.is_empty());
-    let schemas_stdout = String::from_utf8_lossy(&schemas.stdout);
-    assert!(schemas_stdout.contains("type: person"));
-    assert!(schemas_stdout.contains("type: number"));
-    assert!(schemas_stdout.contains("type: integer"));
-    assert!(schemas_stdout.contains("does not coerce strings to numbers"));
-    assert!(schemas_stdout.contains("zero padding"));
-    assert!(schemas_stdout.contains("configured `entryRef` named type"));
-    assert!(schemas_stdout.contains("currentUserId"));
-    assert!(schemas_stdout.contains("Do not infer entry reference paths from directory names"));
-
-    let agent_get = forma(&root)
-        .args(["docs", "get", "agents.workspace-example-accelerator"])
-        .output()
-        .expect("forma docs get should run for agent docs");
-
-    assert!(
-        agent_get.status.success(),
-        "{}",
-        String::from_utf8_lossy(&agent_get.stderr)
-    );
-    assert!(agent_get.stderr.is_empty());
-    let agent_get_stdout = String::from_utf8_lossy(&agent_get.stdout);
-    assert!(agent_get_stdout.contains("# Workspace Example Accelerator"));
-    assert!(agent_get_stdout.contains("explicitly asks"));
-    assert!(agent_get_stdout.contains("copy`, `adapt`, or `skip"));
-
-    let site_get = forma(&root)
-        .args(["docs", "get", "cli.site"])
-        .output()
-        .expect("forma docs get should run for site build docs");
-
-    assert!(
-        site_get.status.success(),
-        "{}",
-        String::from_utf8_lossy(&site_get.stderr)
-    );
-    assert!(site_get.stderr.is_empty());
-    let site_get_stdout = String::from_utf8_lossy(&site_get.stdout);
-    assert!(site_get_stdout.contains("# forma site build"));
-    assert!(site_get_stdout.contains(".forma-site-artifact"));
-    assert!(site_get_stdout.contains("Trusted-Author Publication Boundary"));
-    assert!(site_get_stdout.contains("does not call Forma RPC"));
-    assert!(site_get_stdout.contains("named `local`"));
+        let source = std::fs::read_to_string(repo.join(listed["path"].as_str().unwrap()))
+            .expect("listed doc source should exist");
+        let (_, body) = source
+            .split_once("\n---\n")
+            .expect("doc source should have YAML frontmatter");
+        let body = body.trim_start_matches('\n').trim_end();
+        assert!(!body.is_empty(), "{id}");
+        assert_eq!(doc["body"].as_str().unwrap().trim_end(), body, "{id}");
+        assert_eq!(
+            String::from_utf8_lossy(&markdown.stdout).trim_end(),
+            body,
+            "{id}"
+        );
+    }
 
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -1832,7 +1792,8 @@ fn numeric_schema_fixture_checks_yaml_scalar_types() {
     assert_eq!(inspect_result["status"], "passed");
     assert_eq!(inspect_result["entry"]["metadata"]["ratio"], 1.5);
     assert_eq!(inspect_result["entry"]["metadata"]["count"], -2);
-    assert_eq!(inspect_result["entry"]["metadata"]["ordinalWidth"], "2");
+    assert_eq!(inspect_result["entry"]["metadata"]["ordinalWidth"], 2);
+    assert_eq!(inspect_result["entry"]["metadata"]["ordinal"], "01");
 
     let invalid_root = fixture_root("numeric-schema-invalid");
     copy_dir_recursive(&workspace_root, &invalid_root);
@@ -1864,6 +1825,40 @@ fn numeric_schema_fixture_checks_yaml_scalar_types() {
     );
 
     std::fs::remove_dir_all(invalid_root).unwrap();
+
+    let invalid_width_root = fixture_root("numeric-schema-invalid-width");
+    copy_dir_recursive(&workspace_root, &invalid_width_root);
+    let entry_path = invalid_width_root.join("measurements/reading.md");
+    let entry = std::fs::read_to_string(&entry_path).unwrap();
+    std::fs::write(
+        entry_path,
+        entry.replace("ordinalWidth: 2", "ordinalWidth: \"2\""),
+    )
+    .expect("invalid ordinal width fixture should be writable");
+    let invalid_width_workspace = invalid_width_root
+        .to_str()
+        .expect("invalid ordinal width fixture path should be valid UTF-8");
+
+    let invalid_width_check = forma(&repository_root)
+        .args(["--workspace", invalid_width_workspace, "check", "--json"])
+        .output()
+        .expect("invalid ordinal width fixture check should run");
+    assert!(!invalid_width_check.status.success());
+    let invalid_width_result: Value = serde_json::from_slice(&invalid_width_check.stdout)
+        .expect("invalid ordinal width check output should be JSON");
+    assert_eq!(invalid_width_result["status"], "failed");
+    assert!(
+        invalid_width_result["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|diagnostic| {
+                diagnostic["code"] == "schema.type.invalid"
+                    && diagnostic["location"]["field"] == "ordinalWidth"
+            })
+    );
+
+    std::fs::remove_dir_all(invalid_width_root).unwrap();
 }
 
 #[test]

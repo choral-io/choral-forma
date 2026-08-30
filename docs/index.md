@@ -14,22 +14,29 @@ order: 0
 
 ## Overview
 
-Forma helps teams keep Markdown workspace content readable, structured, and inspectable through explicit configuration.
+Forma organizes Markdown content through explicit configuration. Spaces, schemas, templates, views, and guidelines describe your workflow; domain names and directory layouts come from your workspace, not a built-in project model.
 
-## Abstract Core, Concrete Workflows
+Start with [Getting Started](getting-started.md).
 
-Forma's core model is intentionally small: workspaces, entries, spaces, schemas, templates, views, guidelines, and relations. These are building blocks, not a fixed domain model.
+## Workspace Guides
 
-Start from a concrete workflow instead of from the abstract model. A workspace may organize client work, product planning, research notes, runbooks, writing projects, decisions, tasks, or something else. Those names come from the user's context and configuration; they are examples, not Forma built-ins.
+- [First content group](workspace/first-slice-config.md)
+- [Configuration](workspace/configuration.md) and [spaces](workspace/spaces.md)
+- [Schemas](workspace/schemas.md) and [templates](workspace/templates.md)
+- [Views](workspace/views.md) and [guidelines](workspace/guidelines.md)
 
-## Documentation Surfaces
+## Commands
 
-Product docs are the source for Human documentation, embedded docs, CLI help excerpts, and built-in Agent skill output. A docs page may include diagrams, screenshots, Mermaid charts, or other rich Markdown when that helps Human readers.
+- Set up: [init](cli/init.md), [config](cli/config.md)
+- Maintain content: [create](cli/create.md), [check](cli/check.md), [workspace](cli/workspace.md)
+- Browse and publish: [view](cli/view.md), [serve](cli/serve.md), [site build](cli/site.md)
+- Discover guidance: [docs](cli/docs.md), [skills](cli/skills.md)
+- Update the CLI: [self-update](cli/self-update.md)
 
-Help and skill projections must remain usable as plain text. Keep any CLI or Agent-critical instructions in stable text sections such as `## CLI Help`, `## Agent Skill`, and `## Reference`.
+## Agent Workflows
 
-Use `forma docs list --json` to discover the embedded canonical pages. This works before workspace configuration is available; workspace guidance is discovered separately through `forma skills list --json`.
+Start with [Forma CLI Core](agents/forma-cli-core.md), then load the relevant workflow: [design](agents/workspace-design-discovery.md), [bootstrap](agents/workspace-bootstrap.md), [maintenance](agents/workspace-maintenance.md), or [troubleshooting](agents/workspace-troubleshooting.md). [Example-backed setup](agents/workspace-example-accelerator.md) is optional.
 
-## Reference
+## Read From The CLI
 
-Start with `getting-started`, then use the CLI and workspace reference docs for details. Install-script users can use `cli.self-update` for explicit, checksum-verified CLI updates.
+Use `forma docs list --json` to discover the documentation embedded in your installed binary, then `forma docs get <id>` to read a page. Built-in docs work without workspace configuration. Use `forma skills list --json` to discover built-in skills and the current workspace's configured guideline skills.

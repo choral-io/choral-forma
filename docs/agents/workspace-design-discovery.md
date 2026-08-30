@@ -21,44 +21,19 @@ order: 205
 
 Use this only when the human asks to design a workspace, understand a business domain, or plan a content system. Do not load this doc for read-only health, list, inspect, or view tasks.
 
-The goal is to produce a short workspace design brief before configuring Forma. Keep the conversation focused on real work, not abstract taxonomy design.
+Use an already accepted brief or requirements directly. Ask only questions whose answers could change the approved first slice; do not reopen decisions or expand the scope.
 
-### Discovery Sequence
+Clarify, when still uncertain:
 
-Ask questions in small batches. Stop when the next answer would not change the first slice.
+- the durable content people need to create, find, compare, or review;
+- fields or lifecycle values needed now;
+- relationships that must exist now versus those that can wait;
+- repository inclusion or access boundaries. A path name is not a privacy guarantee.
 
-1. Business outcome: what decisions, coordination, audit trail, or reuse should this workspace support?
-2. Durable objects: what records, assets, entities, or recurring artifacts must survive beyond a single conversation?
-3. Events and lifecycle: what statuses or stages do those objects move through?
-4. Users and responsibilities: who creates, edits, reviews, reads, or archives the content?
-5. Retrieval needs: what will people search, filter, compare, group, or sort during normal work?
-6. Relationship candidates: which objects refer to each other, and which relationships can wait?
-7. Repository inclusion and publication boundary: which files should be configured or shared, and which must stay outside configured workspace inputs until Git, hosting, and access controls define their handling? Forma path names do not provide a privacy guarantee.
+Summarize the resulting first slice in the human's language: its purpose, configured space, minimal fields, deferred relationships or slices, and verification path. Recommend a small independently useful slice when helpful, but do not require a fixed number of entries, templates, or follow-up stages.
 
-### Design Brief
-
-Before writing config, summarize:
-
-| Field                 | Required content                                                    |
-| --------------------- | ------------------------------------------------------------------- |
-| Business outcome      | The practical result the workspace supports                         |
-| Content candidates    | Candidate spaces in the human's language                            |
-| First slice           | One content group to implement first and why                        |
-| Deferred slices       | Content groups not implemented in the first pass                    |
-| Lifecycle fields      | Status or date fields needed now                                    |
-| Retrieval fields      | Fields needed for lists, tables, filters, or review                 |
-| Relationship strategy | Entry references now, Markdown links now, or deferred relationships |
-| Operating rules       | Guidelines needed now or deferred                                   |
-| Verification path     | Commands that will prove the first slice works                      |
-
-### First-Slice Selection Rules
-
-Choose the first slice that has real examples, clear fields, and immediate verification value. Prefer a record type the human can create two examples for now.
-
-Do not choose a relationship-heavy object first if it requires several missing spaces. Use scalar fields and Markdown links until the target space exists and the relationship has clear validation value.
-
-After the design brief is accepted, load `forma-workspace-bootstrap` and produce the first-slice dry run.
+When the implementation scope is authorized, load `forma-workspace-bootstrap`.
 
 ### Completion Criteria
 
-Stop discovery only when the Human has accepted a brief that names the business outcome, one first content group, deferred content, required fields, relationship strategy, operating rules, and exact verification path. Do not edit configuration during discovery.
+Stop when the first slice is sufficiently specified to configure and verify within the user's scope. Do not edit configuration during discovery.

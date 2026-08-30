@@ -199,6 +199,10 @@ Use the effective config, not path memory:
 
 Product documentation under `docs/` is the product-facing source for Human docs, embedded CLI docs, help excerpts, and built-in Agent skill output. Source documents may include rich Human-facing material such as diagrams, screenshots, Mermaid charts, and structured visual examples.
 
+Keep repository-specific workflows, official-site deployment policy, contributor instructions, and delivery milestones in `knowledge/`, not in the product docs. The official site's publication and hosting choices are recorded in [[planning/forma-static-site-generation-plan]]; they are not defaults for other Forma workspaces.
+
+Document general behavior with a minimal neutral example. Preserve domain-specific cases in fixtures and test-case records rather than accumulating special cases in the main reference. State current capabilities and limitations without turning internal milestones, naming preferences, or default scaffolding into product requirements. Keep one full explanation per rule and route other pages to it; independently projected skills must still retain their essential execution and safety boundaries.
+
 Treat rich material as supplemental unless the same concept also has a complete plain-text explanation. Any information needed by `forma help`, `forma skills`, Agent guidance, or other text-only projections must be available in ordinary Markdown prose, lists, tables, or code blocks.
 
 Use stable projection sections:
@@ -214,7 +218,9 @@ When editing docs:
 - keep `## CLI Help` and `## Agent Skill` text-only, using Markdown prose, lists, tables, and fenced code blocks;
 - allow rich diagrams and screenshots in docs-oriented sections only when the text around them explains the same facts;
 - ensure any document with `surfaces: [help]` has a useful `## CLI Help` section;
-- ensure any document with `surfaces: [skill]` has exactly one useful `## Agent Skill` section.
+- preserve existing document and built-in skill ids so CLI and Agent routes remain valid;
+- ensure each document declaring built-in `skill` metadata has exactly one useful top-level `## Agent Skill` section; an Agent-facing reference is not automatically a registered skill;
+- when changing skill metadata, projection, section extraction, or generated frontmatter, verify built-in validation, workspace validation, CLI output, and the canonical `cli.skills` contract together.
 
 Run the docs-backed Agent bootstrap pressure gate when a change affects:
 

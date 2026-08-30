@@ -17,7 +17,7 @@ order: 110
 
 A space is a configured content group: a set of Markdown entries plus include patterns, schema, create behavior, display conventions, optional guidelines, and optional views.
 
-Forma core does not have built-in task, note, member, or guideline domain concepts. Those are ordinary content groups defined by configuration. The product may call this pattern a "space" because it is useful for navigation and UI, but the durable source of truth is the config node that projects into the effective `spaces` map.
+A content group is a term in a taxonomy with `projection: contentGroups`. Its domain meaning, content fields, and create behavior are configured, not built-in note, collection, or project types.
 
 ## Reference
 
@@ -37,6 +37,8 @@ description: Primary content groups for this workspace.
 ```
 
 Use `kind: term` with the selected taxonomy id to declare a content group in an included Markdown config node. `taxonomy: spaces` below references this example's taxonomy; the id itself is not reserved.
+
+A term uses its explicit `id`, or the config filename without its extension when `id` is omitted. For example, `.forma/spaces/notes.md` defaults to `notes`; an explicit id remains stable when the file is renamed.
 
 ```yaml
 ---
@@ -71,8 +73,6 @@ schema:
             type: string
         summary:
             type: string
-        type:
-            type: string
         tags:
             type: list
             items:
@@ -83,7 +83,7 @@ schema:
 Shared reference notes.
 ```
 
-The `create.template` value points to the template used by `forma create`. It is nested under `create`, not a top-level field in the authored config node.
+The example's `title`, `summary`, and `tags` are configured fields, not required Forma metadata. `create.template` points to the template used by `forma create`; it belongs under `create`, not at the top level of the config node.
 
 ## Agent Skill
 
@@ -94,8 +94,8 @@ Before adding the first term for a taxonomy, add the taxonomy config node with a
 After adding or changing a content group, run:
 
 ```sh
-forma config inspect --json
+forma config summary --sources --json
 forma check --json
 ```
 
-Confirm that the effective config reports the expected entry under `spaces` before creating content.
+Confirm that the resolved config reports the expected entry in `contentGroups` before creating content. Use `config inspect` only to debug the authored effective configuration.

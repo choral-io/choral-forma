@@ -17,7 +17,7 @@ order: 105
 
 Use this doc when creating the first content group after `forma init`. It is the short path for a small no-example workspace slice.
 
-Stay on this doc for one simple content group with scalar fields. Load `workspace.configuration` before writing if the first slice needs custom runtime values, named types, `entryRef` fields, migration diagnostics, local identity defaults, or full reference behavior.
+Stay on this doc for one simple content group with scalar fields. Read [Workspace Configuration](configuration.md) (`workspace.configuration`) before adding runtime values, named types, entry references, or migration corrections.
 
 ## Root Config
 
@@ -32,12 +32,6 @@ workspace:
     supportedLanguages:
         - "en"
     timezone: "UTC"
-runtime:
-    values:
-        currentDateTime:
-            kind: currentDateTime
-        workspaceRoot:
-            kind: workspaceRoot
 imports:
     - ".forma/spaces/*.md"
 ---
@@ -45,11 +39,9 @@ imports:
 # Lab Calibration
 ```
 
-Top-level field order: `schemaVersion`, `workspace`, `runtime`, `imports`, `guidelines`, then `types`.
-
 ## Taxonomy And Space
 
-Declare the primary taxonomy before its terms:
+Declare the primary taxonomy in `.forma/spaces/index.md` before adding its terms:
 
 ```md
 ---
@@ -62,7 +54,7 @@ mode: primary
 ---
 ```
 
-Declare one first content group as a `kind: term` node:
+Save the first content group as `.forma/spaces/calibrations.md`. The filename supplies its id when `id` is omitted:
 
 ```md
 ---
@@ -92,15 +84,15 @@ schema:
 ---
 ```
 
-The taxonomy-level `projection: contentGroups` projects its terms into the compatibility `spaces` map in `forma config inspect --json`. `taxonomy: spaces` only references this example's configured taxonomy id. Names such as tasks, members, notes, or projects are user-defined terms, not Forma built-ins.
+The taxonomy-level `projection: contentGroups` makes its terms appear in `forma config summary --json` under `contentGroups`. `taxonomy: spaces` only references this example's configured taxonomy id. Names such as notes or collections are user-defined terms, not Forma built-ins.
 
 ## Verify
 
 After editing config, run:
 
 ```sh
-forma config inspect --json
+forma config summary --sources --json
 forma check --json
 ```
 
-Then create two sample entries, run `forma list --space <space-id> --json`, inspect one entry, and finish with `forma workspace health --json`.
+Use `forma config inspect --json` only when debugging the authored effective configuration. Finish with `forma workspace health --json` when placement, links, or configured relationships need validation.

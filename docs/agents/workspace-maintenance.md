@@ -19,9 +19,9 @@ order: 220
 
 ## Agent Skill
 
-Before editing shared workspace content, run `forma config summary --json` and inspect the relevant entries. Use `forma workspace explain <path> --json` when placement, content-group selection, taxonomy membership, or provenance is unclear. Use configured schemas and guidelines. Report planned multi-file edits before making them.
+Start read-only: run `forma config summary --json`, inspect the relevant entries, and read applicable configured guidelines. Use `forma workspace explain <path> --json` when placement, content-group selection, or provenance is unclear.
 
-Before an approved `forma create`, run the same command with `--preview`. Confirm `target.writable`, the resolved path, rendered metadata, and diagnostics before writing. `target.writable` records the current preview's boundary and conflict checks; rerun the preview if config, permissions, or the target may have changed.
+Do not change shared content or configuration without approval. Keep the edit within the approved scope; state a multi-file plan when its boundaries are not already clear. Before an approved `forma create`, run the same command with `--preview`, confirm the resolved path, metadata, and diagnostics, and rerun it if the target or configuration changed.
 
 Run `forma check --json` after config or content changes, and run `forma workspace health --json` when relationships or references matter.
 

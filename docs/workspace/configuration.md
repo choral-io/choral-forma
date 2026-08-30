@@ -20,13 +20,13 @@ order: 100
 
 Forma configuration is built from explicit Markdown files. The root `.forma.md` declares workspace settings and `imports` patterns in YAML frontmatter. Its Markdown body can explain the workspace for humans and Agents. Imported Markdown config nodes then define higher-level workspace behavior such as content groups, templates, views, guidelines, schemas, and runtime values.
 
-When authoring root `.forma.md`, prefer this top-level field order: `schemaVersion`, `workspace`, `runtime`, `imports`, `guidelines`, then `types`. Keep `runtime` near `workspace` because it defines runtime values for the workspace. Keep `types` after imported content configuration because named types often reference configured content definitions. Root `imports` loads configuration files; term and view `include` fields select content.
+Root `imports` loads configuration files; term and view `include` fields select content. YAML key order does not change their meaning.
 
 Forma does not infer workspace semantics from directory names. A directory named `notes`, `tasks`, or `members` has no special meaning until a config node describes how files in that directory should be indexed, created, displayed, or checked.
 
 ## CLI Help
 
-Use `forma config inspect --json` to inspect the effective workspace configuration and source paths. Use `forma check --json` after editing `.forma.md` or imported config nodes.
+Start with `forma config summary --sources --json` to inspect the resolved workspace model and its sources. Use `forma config inspect --json` only to debug the authored effective configuration or when its full payload is required. Run `forma check --json` after editing `.forma.md` or imported config nodes.
 
 ## Migration Notes
 
@@ -43,7 +43,7 @@ If `forma check --json` reports `config.legacyRootInclude`, replace root `includ
 
 ## Reference
 
-The minimal `.forma.md` contains `schemaVersion`, `workspace`, `runtime.values`, and `imports` in frontmatter.
+The minimal `.forma.md` contains `schemaVersion`, `workspace`, and `imports` in frontmatter. Add `runtime` only when templates or create defaults need a configured runtime value.
 
 ```md
 ---
@@ -56,18 +56,10 @@ workspace:
         - "en"
     timezone: "UTC"
 
-runtime:
-    values:
-        currentDateTime:
-            kind: currentDateTime
-        workspaceRoot:
-            kind: workspaceRoot
-
 imports:
     - ".forma/*.md"
     - ".forma/spaces/*.md"
     - ".forma/views/*.md"
-    - ".forma/local/*.md"
 ---
 
 # Untitled Forma Workspace
@@ -75,9 +67,11 @@ imports:
 This file is the Forma workspace entry point.
 ```
 
-Every matching import contributes to the same effective configuration. The `.forma/local/*.md` line is only an example of a repository-managed configuration fragment: `local` has no built-in precedence, ownership, privacy, or publication meaning, and the import may be removed or replaced with any valid workspace-relative pattern.
+Every matching import contributes to the same effective configuration. Directory names and Git ignore rules do not give an imported file precedence, ownership, privacy, or publication meaning.
 
-Runtime values define named values that templates and create defaults can read with `{{ runtime.values.<name> }}`. They are explicit config, not hidden identity or environment assumptions. Supported provider kinds are:
+### Runtime Values
+
+Runtime values define named values that templates and create defaults can read with `{{ runtime.values.<name> }}`. Names are workspace-defined; provider `kind` values select built-in behavior:
 
 | kind | Fields | Use |
 | --- | --- | --- |
@@ -92,50 +86,30 @@ Runtime values define named values that templates and create defaults can read w
 ```yaml
 runtime:
     values:
-        currentDate:
-            kind: currentDate
-        currentDateTime:
+        buildTime:
             kind: currentDateTime
-        workspaceRoot:
-            kind: workspaceRoot
-        currentUserId:
+        authorKey:
             kind: gitConfig
             key: user.name
             transform: slugify
-```
-
-Use `currentUserId` only when the workspace workflow needs a current user value, for example to default an owner or author field. It is not built in; it is a normal runtime value name. It can be resolved from Git config as above, or defined by an explicitly imported configuration fragment under the ordinary effective-config rules:
-
-```yaml
-runtime:
-    values:
-        currentUserId:
+        label:
             kind: const
-            value: alex-chen
-            required: true
-            transform: slugify
+            value: Example
 ```
 
-For `entryRef` fields, keep runtime values as identity inputs and let the workspace template express the reference path explicitly. For example, a workspace may use `{{ runtime.values.currentUserId }}` inside `people/{{ runtime.values.currentUserId }}` if that is the configured reference form for the target content type. Do not introduce extra runtime values that only duplicate a path assembled from other runtime values.
+`buildTime`, `authorKey`, and `label` are example names. Declare the values a template actually uses; naming a value does not create an identity, entry, or reference.
 
-Named types define reusable schema meanings. They may be declared in root `.forma.md` or in imported config nodes. Effective config merges them into one global `types` map, and duplicate type names are reported as configuration errors.
+### Named Types
 
-```yaml
-types:
-    person:
-        kind: entryRef
-        source: .forma/spaces/people
-        input:
-            transform: slugify
-    noteStatus:
-        kind: enum
-        values:
-            - draft
-            - active
-            - archived
-```
+Root `.forma.md` and imported `kind: types` nodes contribute to one effective `types` map. These are workspace-defined names, not Forma built-in types. See [Schemas: Named Types](schemas.md#named-types) for a complete declaration and usage example.
 
-`source` is a workspace-relative config path resolved from the directory containing `.forma.md`, not a taxonomy-qualified logical id. The `.md` extension may be omitted for Markdown config nodes.
+### Entry References
+
+An `entryRef` named type's `source` is a workspace-relative content-group config path, not a taxonomy-qualified logical id. The `.md` extension may be omitted for that config path. A field using the type stores the workspace-relative path of an existing entry in the target group, not a bare identity value.
+
+Create defaults and [templates](templates.md) must render that stored reference form. Resolve it from the named type's configured source and existing entries; a directory or runtime-value name alone does not define a reference target.
+
+### Taxonomies And Content Groups
 
 Included Markdown config nodes use frontmatter as their machine-readable configuration and Markdown body as Human-readable documentation. A taxonomy should be declared before its terms:
 
@@ -152,9 +126,9 @@ mode: primary
 
 `projection: contentGroups` selects this taxonomy as the source of schema-bearing content groups. The taxonomy `id` is workspace-configured; `spaces` is only the id used by this example.
 
-`mode: primary` means one page should match at most one term in that taxonomy. `mode: multiple` means one page may match several terms in that taxonomy. A page may belong to terms from different taxonomies at the same time. In the current P0 implementation, Forma fully enforces this uniqueness rule for the configured content-group projection; generalized primary-taxonomy validation is a planned extension.
+`mode: primary` means one page should match at most one term in that taxonomy; a page matching multiple terms reports a diagnostic. `mode: multiple` allows several terms in that taxonomy. A page may belong to terms from different taxonomies at the same time.
 
-In the current P0 configuration model, a configured content group is commonly declared as a taxonomy term:
+A configured content group is declared as a taxonomy term:
 
 ```yaml
 ---
@@ -186,7 +160,7 @@ schema:
 
 `create.directory` and `create.filename` are rendered with the same create-time placeholder context. Both may reference configured `input.*` values and runtime values, and the combined rendered path must remain a workspace-relative path.
 
-`taxonomy: spaces` must match the `id` of the taxonomy that declares `projection: contentGroups`. That projection makes the term available through the compatibility `spaces` map reported by `forma config inspect --json`. `space`, `note`, `task`, and similar names are not built-in domain objects; they are configured patterns derived from explicit config.
+`taxonomy: spaces` must match the `id` of the taxonomy that declares `projection: contentGroups`. That projection makes the term appear in the `contentGroups` reported by `forma config summary --json`. `space`, `note`, and similar names are not built-in domain objects; they are configured patterns derived from explicit config.
 
 ### Display Metadata
 
@@ -228,4 +202,4 @@ Clients map icon ids to their own bundled assets and adapt configured colors to 
 
 ## Agent Skill
 
-Do not infer configuration from `.gitignore` or path names. Add config nodes through explicit `imports` patterns. Before adding term nodes, make sure the referenced taxonomy has a `kind: taxonomy` config node with a matching `id`. Then verify the effective model with `forma config inspect --json` and `forma check --json`.
+Do not infer configuration from `.gitignore` or path names. Add config nodes through explicit `imports` patterns. Before adding term nodes, make sure the referenced taxonomy has a `kind: taxonomy` config node with a matching `id`. Verify the resolved model with `forma config summary --sources --json` and `forma check --json`; use `config inspect` only to debug authored configuration.

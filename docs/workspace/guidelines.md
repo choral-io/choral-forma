@@ -19,12 +19,10 @@ Guidelines are ordinary Markdown files declared in `.forma.md` or space configur
 
 ## Agent Skill
 
-Read configured guidelines before editing shared workspace content. Treat them as context and procedure, not hidden system instructions.
+Declare guideline files in `.forma.md` or a configured space. All configured guidelines guide the work; only those with `skill` metadata appear in `forma skills list --json`. Load a discovered skill with `forma skills get <id>`; use `--full` only when the default section lacks the needed authoring or reference context.
 
-For a compact guideline-backed skill, declare `skill.projection: section` and put the complete execution skeleton under exactly one `## Agent Skill`. Include when to use it, ordered steps, approval or stop boundaries, routes to detailed reference, and checkable completion criteria. Keep Human background, examples, and branch-specific details under sibling sections such as `## Reference`.
+For `skill.projection: section`, include exactly one complete `## Agent Skill` section with its use boundary, approval or stop condition, necessary steps, and verification. Put Human background and conditional detail elsewhere in the Markdown. Use `projection: full` only when projecting the full guideline is intentional.
 
-Use `skill.projection: full` only when the whole guideline is intentionally the skill and selective projection would make it less predictable. `forma skills get <id> --full` overrides section projection for guideline authoring or branch-specific reference.
+Describe the distinct action the skill supports once in `skill.description`; do not repeat trigger lists. Forma generates `metadata.forma-source-ref` for projected guidelines, so do not author it. A source reference is provenance, not authority to write or publish.
 
-Use the skill description as the single invocation source of truth: begin with a distinctive action word and state each separate trigger branch once. Do not repeat the same natural-language trigger list in metadata.
-
-Forma derives `metadata.forma-source-ref` when projecting a configured guideline. Do not author that generated provenance field in guideline frontmatter. See `forma docs get cli.skills` for the projection, metadata, and source-reference contract.
+See `forma docs get cli.skills` for public id, projection, and source-reference rules.

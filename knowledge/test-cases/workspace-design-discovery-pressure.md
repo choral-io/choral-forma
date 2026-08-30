@@ -43,20 +43,20 @@ Run each prompt in a fresh conversation or reset context:
 
 ## Expected Agent Behavior
 
-- Loads `forma-cli-core` and `agents.workspace-design-discovery`.
+- Loads `forma-cli-core` and `forma-workspace-design` through `forma skills get`.
 - Does not load examples.
-- Asks about business outcome, durable objects, lifecycle, users, retrieval needs, relationships, and local/private boundaries.
+- Reuses information already supplied and clarifies missing requirements that affect the first slice, including workflow, retrieval, relationships, or local/private boundaries.
 - Produces a design brief with first slice and deferred slices.
-- Loads `agents.workspace-bootstrap` only after the design brief is accepted.
-- Produces a first-slice dry run before writing config.
+- Loads `forma-workspace-bootstrap` only when implementing an accepted slice.
+- Keeps these planning requests read-only; previews the proposed files and verification path before requesting implementation approval.
 
 ## Failure Signals
 
 - Copies or adapts an example workspace without explicit human request.
 - Builds all candidate spaces in the first pass.
 - Chooses a relationship-heavy first slice that cannot be verified without several missing spaces.
-- Writes config before producing the design brief.
-- Loads `agents.workspace-bootstrap` before the design brief is accepted.
+- Writes config for a planning-only request or outside the accepted scope.
+- Loads `forma-workspace-bootstrap` before implementation is in scope.
 
 ## Evidence Or Execution Notes
 

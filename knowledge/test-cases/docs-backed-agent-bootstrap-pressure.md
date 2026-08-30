@@ -43,10 +43,10 @@ Run these scenarios separately:
 
 1. Empty bootstrap: initialize an empty directory and inspect the generated files.
 2. Wrong assumption baseline: try a naive content group config that treats `space` as an intrinsic object or puts `template` at the top level; confirm `check` reports the expected diagnostic.
-3. Guided first content group: load `forma-cli-core`, then `workspace.configuration`, `workspace.spaces`, `workspace.schemas`, `workspace.templates`, and `agents.workspace-bootstrap`; define a `notes` content group and template from those docs.
+3. Guided first content group: load `forma-cli-core` and `forma-workspace-bootstrap`; use `workspace.first-slice-config` and further references as needed to define a `notes` content group and template.
 4. First content write: create notes, list the `notes` content group, inspect one note, and render a configured notes view.
 5. Health interpretation: observe isolated-page health warnings before links exist; add explicit links and confirm health passes.
-6. Scenario-driven design: given a human request such as "I run a small consulting practice and need to track clients, engagements, meeting notes, and decisions", the Agent asks clarifying questions and proposes only the first slice instead of building a full taxonomy immediately.
+6. Scenario-driven design: given a human request such as "I run a small consulting practice and need to track clients, engagements, meeting notes, and decisions", the Agent clarifies missing requirements and proposes only the first slice instead of building a full taxonomy immediately.
 7. Domain-language mapping: for the accepted first slice, the Agent maps human terms to a configured space, schema fields, template inputs, and optional guideline without using `notes`, `tasks`, `members`, or `project` unless the human chose those terms.
 
 ## Steps
@@ -54,26 +54,26 @@ Run these scenarios separately:
 1. Run `forma init --name "Zero Start Knowledge" --json` against an empty directory.
 2. Run `forma skills get forma-cli-core`.
 3. Confirm the built-in skill tells the Agent to load relevant embedded docs before authoring the first content group.
-4. Run `forma docs get workspace.configuration`, `forma docs get workspace.spaces`, `forma docs get workspace.schemas`, `forma docs get workspace.templates`, and `forma docs get agents.workspace-bootstrap`.
-5. Confirm `agents.workspace-bootstrap` asks for real examples, useful fields, relationships, operating rules, and local/private boundaries before writing config.
+4. Run `forma skills get forma-workspace-bootstrap` and `forma docs get workspace.first-slice-config`; load schema, template, view, or full configuration references as needed for the accepted slice.
+5. Confirm bootstrap guidance reuses accepted requirements and approval, clarifies unresolved choices, and keeps proposed writes within the accepted scope.
 6. For the baseline scenario, write an intentionally wrong config and confirm `forma check --json` reports the expected diagnostic.
-7. For the guided scenario, write a `kind: term` + `taxonomy: spaces` config node and a template referenced by `create.template`.
-8. Run `forma config inspect --json` and confirm the effective config reports the expected entry under `spaces`.
+7. For the guided scenario, define a taxonomy with `projection: contentGroups`, a `kind: term` + `taxonomy: spaces` node, and a template referenced by `create.template`.
+8. Run `forma config summary --json` and confirm the resolved config reports the expected entry under `contentGroups`. Use `config inspect --json` only if the summary is insufficient or authored configuration needs debugging.
 9. Run `forma check --json`.
-10. Create two notes with `forma create notes --input ... --json`.
+10. Preview creation with `forma create notes --input ... --preview --json`, then create the two approved notes without `--preview`.
 11. Run `forma list --space notes --json`, `forma inspect notes/first-note.md --json`, and `forma view render .forma/views/notes --json`.
 12. Run `forma workspace health --json` before links exist and record isolated-page warnings as relationship feedback.
 13. Add links between the notes and rerun `forma workspace health --json`.
-14. For the scenario-driven design case, require the Agent to propose one first content group, one template, one optional view, and one verification path before adding additional spaces.
+14. For the scenario-driven design case, require an accepted first-slice scope and verification path before adding content groups or supporting files.
 
 ## Expected Results
 
 - `forma init` creates only `.forma.md` and `.agents/skills/forma-cli/SKILL.md`.
 - The Agent does not assume `notes`, `tasks`, `members`, or `space` are built-in domain concepts.
-- The wrong config reports a clear diagnostic, proving the pressure scenario catches the previous top-level `template` mistake.
-- The Agent asks clarifying questions and confirms the first slice before writing config.
+- The wrong config reports `config.unknownNodeKind`; a warning still counts as detecting the unsupported node, even when the command exits successfully.
+- The Agent clarifies missing requirements and implements only an approved first slice without asking again about settled choices.
 - The Agent maps human domain language to Forma artifacts without presenting `task`, `member`, `note`, or `project` as built-ins.
-- The guided content group appears under `spaces` in `config inspect`.
+- The guided content group appears under `contentGroups` in `config summary`.
 - `check`, `create`, `list`, `inspect`, and `view render` pass for the guided content group.
 - Isolated-page `workspace health` warnings are treated as relationship feedback, not failed bootstrap.
 - After adding explicit links, `workspace health` passes.

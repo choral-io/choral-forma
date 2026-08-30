@@ -22,7 +22,7 @@ order: 35
 Use `--preview` to run the same planning path without creating directories or files. `--dry-run` is an alias for `--preview`.
 
 ```sh
-forma create notes --input title="Release notes" --preview --json
+forma create notes --input title="Sample entry" --preview --json
 ```
 
 The preview returns:
@@ -33,7 +33,7 @@ The preview returns:
 - the rendered Markdown source, frontmatter, and body;
 - Markdown and schema diagnostics.
 
-`target.writable` records that the resolved path passed the preview's current workspace-boundary and conflict checks. It is not a guarantee against later permission changes or another writer winning a race. The top-level status reports rendered-content validation. A preview can therefore be writable while still failing schema validation. Treat that as a content problem to fix before creating; it does not redefine the compatibility behavior of an existing `forma create` installation.
+`target.writable` records that the resolved path passed the preview's current workspace-boundary and conflict checks. It is not a guarantee against later permission changes or another writer winning a race. The top-level status reports rendered-content validation. A preview can therefore be writable while still failing schema validation; fix those diagnostics before creating.
 
 ## Agent Skill
 

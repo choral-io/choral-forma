@@ -15,7 +15,7 @@ order: 130
 
 ## Overview
 
-Templates are Markdown files referenced by a configured content group's `create.template` setting. They use `{{ input.title }}`, `{{ input.summary }}`, or other configured input placeholders resolved by `forma create`.
+Templates are Markdown files referenced by a configured content group's `create.template` setting. `forma create` resolves `{{ input.<name> }}` placeholders from the group's declared `create.inputs`; input names are not built in.
 
 ## Reference
 
@@ -39,31 +39,24 @@ A minimal template can define frontmatter and body content:
 ```markdown
 ---
 title: "{{ input.title }}"
-summary: "{{ input.summary }}"
-type: note
-tags: []
 ---
 
 # {{ input.title }}
-
-{{ input.summary }}
 ```
 
-Create input defaults and templates can also read configured runtime values:
+Create input defaults and templates can also read configured runtime values. For the `buildTime` value declared in [Runtime Values](configuration.md#runtime-values), an input default can use:
 
 ```yaml
 create:
     inputs:
-        owner:
-            default: "people/{{ runtime.values.currentUserId }}"
         createdAt:
-            default: "{{ runtime.values.currentDateTime }}"
+            default: "{{ runtime.values.buildTime }}"
 ```
 
-Define those names under `runtime.values` in `.forma.md` or an explicitly imported config file before using them in defaults or templates.
+Define each referenced runtime name before using it; provider kinds do not automatically create variables with the same names.
 
-When a schema field uses an `entryRef` named type or a list of `entryRef` values, read that field's schema and the corresponding `types` definition before choosing a default. Store the workspace reference path expected by that named type, not only the raw runtime id. Do not assume a built-in directory such as `members/`, and do not assume the example `people/` prefix applies to other workspaces. If a workflow needs a current-user reference, use `currentUserId` as an identity input and let the template explicitly assemble the workspace's configured reference path.
+For a schema field using a named type, inspect its declaration before choosing a default. [Schemas](schemas.md#named-types) explains the declaration; [Entry References](configuration.md#entry-references) defines the stored path for a reference or list of references.
 
 ## Agent Skill
 
-Keep templates small, readable, and aligned with the configured schema. Verify template paths with `forma check --json`. For entryRef defaults, inspect the named type definition and existing entries before writing the template.
+Keep templates small, readable, and aligned with the configured schema. Verify template paths with `forma check --json`. For entry-reference defaults, inspect the named type and read `forma docs get workspace.configuration` before writing the template.

@@ -47,14 +47,14 @@ Use these prompts against fresh empty directories after `forma init`. Each promp
 
 ## Expected Agent Behavior
 
-- Loads `forma-cli-core`, then `workspace.configuration`, `workspace.spaces`, `workspace.schemas`, `workspace.templates`, and `agents.workspace-bootstrap`.
-- Asks short clarification questions before editing config.
+- Loads `forma-cli-core` and the design skill, then the bootstrap skill when implementing an accepted slice. Starts with `workspace.first-slice-config` and loads other references only as needed.
+- Reuses stated requirements and approval; asks short questions only about unresolved scope before editing config.
 - Restates one proposed first slice with directory, key fields, and template shape.
 - Does not create all requested categories in the first pass.
 - Does not treat `tasks`, `members`, `notes`, or `project` as built-in Forma concepts.
 - Uses the human's domain terms for the chosen space id and title.
-- Adds only the accepted first space, template, and one or two sample entries.
-- Runs `forma config inspect --json`, `forma check --json`, `forma list --space <space-id> --json`, and `forma inspect <path> --json`.
+- Adds only the accepted content group, supporting configuration, and approved sample entries.
+- Previews creation, then runs `forma config summary --json`, `forma check --json`, `forma list --space <space-id> --json`, and `forma inspect <path> --json`. Uses `config inspect` only when the summary is insufficient or authored config needs debugging.
 - Explains `workspace health` warnings as relationship feedback unless the human expected a connected graph.
 
 ## Failure Signals

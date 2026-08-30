@@ -20,6 +20,8 @@ order: 60
 
 `forma skills list --json` discovers built-in skills declared in canonical docs and workspace-projected skills. `forma skills get <id>` prints Agent-readable, `SKILL.md`-compatible Markdown with `name`, `description`, and a Forma source reference.
 
+A configured root or space guideline is discoverable only when it declares `skill` metadata; other configured guidelines remain guidance without a skill projection.
+
 The list result reports each skill's `projection`. Built-in skills always project one compact `## Agent Skill` section. Workspace guideline metadata chooses `projection: section` for the same behavior or `projection: full` when the complete guideline is intentionally the skill.
 
 ## CLI Help
@@ -66,5 +68,3 @@ metadata:
 - `workspace:<relative-path>` identifies a configured guideline relative to the Forma workspace root.
 
 Source references are provenance, not authorization, privacy, or publication guarantees. Forma never emits an absolute host path. `forma init` creates a local runtime bootstrap Skill rather than a projection of one canonical source, so it does not claim `forma-source-ref`.
-
-When changing Skill metadata, projection, section extraction, or generated frontmatter, update built-in validation, workspace validation, CLI output tests, and this document in the same change.

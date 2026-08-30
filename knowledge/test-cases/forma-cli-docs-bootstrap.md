@@ -53,7 +53,7 @@ Minimum evidence:
 
 - wrong-config baseline reports the expected diagnostic;
 - guided `kind: term` + `taxonomy: spaces` content group setup passes;
-- scenario-driven bootstrap asks clarifying questions and implements only the first confirmed slice;
+- scenario-driven bootstrap clarifies missing requirements, reuses settled choices, and implements only the first approved slice;
 - ordinary workspace operations load the lightweight Skill and core guide without pulling all bootstrap docs into context;
 - `check`, `create`, `list`, `inspect`, and `view render` pass for the guided content group;
 - isolated-page health warnings are reported as relationship feedback and can be cleared by adding explicit links.
@@ -68,7 +68,7 @@ Context budget targets:
 - `agents.workspace-bootstrap` stays under 1,100 words unless a split reference doc is introduced;
 - `workspace.first-slice-config` stays under 700 words and is the default first-slice config reference;
 - context-pressure optimizations do not hide escalation conditions: load full `workspace.configuration` for runtime values, named types, `entryRef`, migration/debug, local identity defaults, or full reference behavior;
-- ordinary read or health workflows load only the project-local skill and `forma-cli-core`.
+- ordinary read or health workflows load the project-local skill, `forma-cli-core`, and applicable configured guidelines without loading setup references.
 - example acceleration remains optional and is never required for empty-workspace bootstrap, read-only health, or default discovery.
 
 Phase 2 entry gate:
@@ -164,3 +164,19 @@ Context budget evidence:
 ```
 
 Full `workspace.configuration` remains available as a 999-word reference for runtime values, named types, migration details, and full configuration behavior, but it is no longer the default first-slice config doc.
+
+### 2026-08-30 Public Docs And Agent Routing Run
+
+The public docs keep product behavior and reusable examples; repository authoring and deployment guidance remains in internal knowledge. Documentation IDs and builtin skill IDs are unchanged.
+
+- Offline inventory: 26 docs, 36 valid relative documentation links; whitespace word count reduced from 10,476 to 8,818. This is a size proxy, not tokenizer usage.
+- Entry skill: 106 words. Default generated core/design/bootstrap skills: 367/210/314 words. All 5 builtin and 10 configured guideline skills were discovered and read successfully, including the two guidelines with full projection.
+- Independent read-only health scenario loaded the entry, core, and applicable audit guideline, without design/bootstrap/schema/template/example references; config, check, and health passed with zero diagnostics.
+- Independent no-example bootstrap created one `captures` content group, template, table view, and two approved interlinked records. Preview, create, list, inspect, view render, explain, check, and health passed. Integers and fractions retained numeric types; quoted zero-padded identifiers retained string values.
+- Quoted numeric inputs and decimal notation for an integer field failed preview with `schema.type.invalid`; no invalid records were written.
+- Removing the links produced four isolated-page warnings; restoring them returned health to zero diagnostics and restored both files byte-for-byte.
+- An imported `kind: space` node with top-level `template` produced `config.unknownNodeKind` with warning status and exit 0. This proves unknown-kind detection, not independent validation of the top-level template field.
+- A separate explicit example request loaded the accelerator, inspected only relevant config/template files, and proposed what to reuse or omit without writing files.
+- `CI=true mise run check` passed, covering package checks/lint/builds, 404 frontend tests, 48 script tests, Rust tests, and the Zed target check. No browser, server, deployment, or release acceptance was performed.
+
+Temporary fixtures were retained at `/private/tmp/forma-forward-captures.1cBnj3` and `/private/tmp/forma-invalid-space.iqdNSQ`. The forward run exposed missing term-id naming guidance, now documented; default entry listing was verified with `--space`, while field values were verified through inspect and the configured table.

@@ -4759,26 +4759,36 @@ schema:
     }
 
     #[test]
-    fn builtin_design_and_bootstrap_skills_keep_required_completion_criteria() {
+    fn builtin_skills_project_complete_agent_guidance() {
         let root = fixture_root("skills-builtin-workspace-authoring");
         fs::create_dir_all(&root).unwrap();
 
-        let design = skills_get(&root, "forma-workspace-design", false)
-            .unwrap()
-            .skill
-            .expect("design skill should be returned");
-        assert!(design.content.contains("### Discovery Sequence"));
-        assert!(design.content.contains("### Design Brief"));
-        assert!(design.content.contains("### Completion Criteria"));
+        let docs = docs_list().unwrap().docs;
+        assert!(docs.iter().any(|doc| doc.skill.is_some()));
+        for doc in docs {
+            let Some(metadata) = doc.skill else {
+                continue;
+            };
+            let result = skills_get(&root, &metadata.id, false).unwrap();
+            assert_eq!(result.status, OperationStatus::Passed, "{}", metadata.id);
+            let skill = result.skill.expect("built-in skill should be returned");
+            assert_eq!(skill.id, metadata.id);
+            assert_eq!(skill.source, SkillSource::BuiltIn);
+            assert_eq!(skill.projection, SkillProjection::Section);
 
-        let bootstrap = skills_get(&root, "forma-workspace-bootstrap", false)
-            .unwrap()
-            .skill
-            .expect("bootstrap skill should be returned");
-        assert!(bootstrap.content.contains("### Required Dry Run"));
-        assert!(bootstrap.content.contains("### Execution Sequence"));
-        assert!(bootstrap.content.contains("### Completion Criteria"));
-        assert!(!bootstrap.content.contains("### Optional Pattern"));
+            let source = docs_get(&doc.id).unwrap().doc.unwrap().body;
+            let (_, section) = source.split_once("\n## Agent Skill\n").unwrap();
+            let section = section
+                .split_once("\n## ")
+                .map_or(section, |(body, _)| body);
+            let (_, projected) = skill.content.split_once("\n## Agent Skill\n").unwrap();
+            assert_eq!(projected.trim_end(), section.trim_end(), "{}", skill.id);
+            assert!(
+                projected.contains("### Completion Criteria"),
+                "{}",
+                skill.id
+            );
+        }
 
         fs::remove_dir_all(root).unwrap();
     }

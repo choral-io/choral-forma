@@ -17,11 +17,11 @@ order: 20
 
 ## Overview
 
-`forma init` creates only the minimum files needed for Forma and an Agent runtime to continue setup.
+`forma init` writes the default bootstrap for Forma and an Agent runtime to continue setup. Its generated `.forma.md` includes `currentDateTime` and `workspaceRoot` runtime providers. A hand-written minimal configuration can omit `runtime` until templates or create defaults need a configured runtime value.
 
 ## CLI Help
 
-Run `forma init` from the target project directory. The command writes `.forma.md` and `.agents/skills/forma-cli/SKILL.md` when those paths do not already exist.
+Run `forma init` from the target project directory. The command writes `.forma.md` and `.agents/skills/forma-cli/SKILL.md` when those paths do not already exist. The generated Agent guide is a default helper, not a required workspace configuration input.
 
 ## Agent Skill
 

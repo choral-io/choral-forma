@@ -41,7 +41,7 @@ The result distinguishes:
 
 A missing path can still be explained from configured patterns. Multiple content groups may match while none is selected. View-related output describes configured classification and candidates; it does not claim that an arbitrary document is included by a view evaluator.
 
-Path names, ignored directories, and conventions such as `.forma/local/**` do not create privacy or publication guarantees.
+Directory names and ignored paths do not create privacy or publication guarantees.
 
 ## Agent Skill
 

@@ -17,7 +17,7 @@ order: 60
 
 ## Overview
 
-`forma site build` exports the shared, managed content of a Forma workspace as a static, multi-page HTML artifact. It does not start a server, create a second content store, or change workspace sources. Serve the completed output with an ordinary static-file host; every generated route has its own HTML file, including `404.html`, `sitemap.xml`, and `robots.txt`.
+`forma site build` exports the configured workspace projection as a static, multi-page HTML artifact. It does not start a server, create a second content store, or change workspace sources. Serve the completed output with an ordinary static-file host; every generated route has its own HTML file, including `404.html`, `sitemap.xml`, and `robots.txt`.
 
 The initial HTML contains readable entry bodies and ordinary links. JavaScript is progressive enhancement: it adds richer Markdown rendering, navigation, themes, Graphs, and Quick Open. The static WebApp reads `data/dashboard.json` plus entry and View JSON files from the artifact; it does not call Forma RPC. Quick Open searches the loaded dashboard's paths, titles, spaces, entries, and Views. It is not server-side or full-text search.
 
@@ -39,20 +39,20 @@ The root page always renders the Markdown body of `.forma.md`. Its frontmatter r
 
 The output directory is disposable and owned by Forma. A new output is written through a staging directory. An existing output can be replaced only when it contains the `.forma-site-artifact` marker, preventing accidental replacement of an unrelated directory. A successful build replaces the complete artifact tree, including stale files. If staging fails, the previous artifact remains untouched; if activation fails after the old artifact was moved aside, Forma attempts to restore it. After a successful activation, no automatic rollback copy is retained: host operators should retain the prior artifact or rebuild from a known source commit for rollback.
 
-The artifact contains static HTML, hashed WebApp assets, dashboard and route data, copied referenced resources under `raw/`, and hosting support files. It needs no SPA fallback rule, long-running Forma process, database, or `/rpc` endpoint. Its `_headers` file provides a strict Cloudflare Static Assets baseline, including a CSP that permits same-origin scripts but no executable inline script. Hosts that do not recognize `_headers` ignore it; configure equivalent headers there. Deployment, DNS, custom-domain changes, provider credentials, and production publication are separate approval gates; producing or uploading a CI artifact does not publish a site.
+The artifact contains static HTML, hashed WebApp assets, dashboard and route data, copied referenced resources under `raw/`, and hosting support files. It needs no SPA fallback rule, long-running Forma process, database, or `/rpc` endpoint. Its `_headers` file supplies a restrictive response-header baseline, including a CSP that permits same-origin scripts but no executable inline script. Static hosts differ in whether they apply `_headers`; configure equivalent headers when yours does not. Building an artifact is separate from any hosting or publication operation.
 
 ## Publication And Resource Boundary
 
-The builder exports the effective workspace projection and configured routes, not a repository copy. Every valid configured import participates, including paths whose directory happens to be named `local`; Forma does not assign privacy or publication semantics to path names or `.gitignore`. In this open-source repository, project, release, member, task, and other configured workspace records are eligible to be public because the repository itself is public. Authors who need to keep material out of an artifact must leave it outside the configured workspace inputs.
+The builder exports the effective workspace projection and configured routes, not a repository copy. Every valid configured import participates regardless of directory name or `.gitignore`; neither creates privacy or publication semantics. Keep material that requires a privacy guarantee outside configured workspace inputs.
 
-Only resources referenced by exported content or declared workspace presentation are copied, under `raw/`. Forma rejects path traversal, symlinks, non-regular resource files, hidden path components, and configuration-source documents; it does not copy arbitrary workspace or repository files. A directory component named `local` is an ordinary path component and is copied when referenced by exported content.
+Only resources referenced by exported content or declared workspace presentation are copied, under `raw/`. Forma rejects path traversal, symlinks, non-regular resource files, hidden path components, and configuration-source documents; it does not copy arbitrary workspace or repository files. Names suggesting private or local content do not exclude otherwise eligible referenced resources.
 
 ### Trusted-Author Publication Boundary
 
-Referenced SVG files are currently copied as bytes after path-safety checks. They are not sanitized. The official Cloudflare Worker disables `workers.dev` and generated preview URLs, serves only the reviewed Custom Domain, and applies a restrictive response-header baseline. This reduces exposure, but it does not turn untrusted SVG or untrusted workspace content into an accepted input class. The site remains limited to artifacts published by trusted maintainers. An untrusted pull-request preview must not be deployed to the production origin or receive production credentials.
+Referenced SVG files are copied as bytes after path-safety checks; they are not sanitized. This does not make untrusted SVG or workspace content an accepted input class. Static artifacts must be built and published by trusted authors, and untrusted artifacts must not receive production credentials or be served from a production origin.
 
 Before accepting untrusted authors, add a security boundary such as SVG sanitization or rasterization, or place active assets on an independent no-credentials origin, together with an appropriate CSP and `Content-Disposition` policy. Do not treat static hosting alone as a safe boundary for active same-origin resources.
 
 ## Deliberately Omitted
 
-The first static target does not provide authenticated or partially private content, a CMS or hosted editing surface, server-side search, comments, analytics, deployment-provider APIs, DNS management, custom-domain management, draft approvals, user-defined publication fields, multiple independently configured site targets, versioned documentation, or localized-route negotiation.
+`site build` is a static export, not an interactive publishing service. It does not provide authentication, hosted editing, server-side features, deployment-provider management, or per-entry publication filtering and authorization policy.
