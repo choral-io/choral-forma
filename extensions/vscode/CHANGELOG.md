@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.34
+
+- Add the read-only `forma tools` registry and `schema.validate` for explicit JSON, YAML, and JSONL artifacts with local JSON Schema references and structured diagnostics.
+- Clarify the public workspace and Agent contracts, route CLI documentation through the new tools reference, and add executable documentation and fixture coverage.
+- Refresh the coordinated Node, pnpm, frontend, and Wrangler toolchain while keeping the CLI and editor-extension release contract aligned.
+
 ## 0.1.33
 
 - Add strict `number` and `integer` Schema scalar validation with YAML-native type semantics and no coercion of quoted or zero-padded values.
