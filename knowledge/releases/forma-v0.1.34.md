@@ -5,7 +5,7 @@ title: "Forma v0.1.34"
 summary: "Explicit structured-artifact schema validation through forma tools, clarified workspace contracts, and a coordinated toolchain refresh."
 scope: project
 type: release
-status: planned
+status: released
 version: "v0.1.34"
 date: 2026-08-30
 owners:
@@ -55,13 +55,28 @@ Automatic artifact declarations and workspace-wide `forma check` integration rem
 6. The protected Release workflow builds the expected cross-platform archives, standalone binaries, VSIX, and sibling SHA-256 assets from the exact source.
 7. After publication, `mise run release:verify -- v0.1.34` verifies the published asset inventory, checksums, CLI version, VSIX identity, and managed CLI installation.
 
+## Preparation Evidence
+
+- **Exact release source:** candidate commit `299fdcc1578d422848aee5fc06c4873de6d06d51`; annotated tag object `0cdd540b8519aa1047db6cfb5c1052b7f7cb9a82` peels to that commit.
+- **Local candidate gates:** `mise run version:check -- v0.1.34`, `mise run release:record-check -- v0.1.34`, Forma `check --json`, and workspace health passed with zero errors and zero warnings. `CI=true mise run check` passed with 67 pnpm test files/404 tests, 48 Node script tests, 462 Rust tests, Zed WASM, TypeScript, ESLint, Prettier, WebApp, and VS Code builds.
+- **VSIX:** `forma-0.1.34.vsix` packaged 57 files and passed isolated installation, activation, and LSP smoke validation as `choral-io.forma@0.1.34`.
+- **Exact main CI:** [run 33304258943](https://github.com/choral-io/choral-forma/actions/runs/33304258943) passed all jobs for the exact candidate commit, including the five-platform CLI release-build verification, VSIX smoke, static site, Web, Knowledge, and installer gates.
+
+## Published Evidence
+
+- **Release workflow:** [run 33304744556](https://github.com/choral-io/choral-forma/actions/runs/33304744556) passed exact-source validation, all five CLI artifact builds, VS Code packaging, source-bound assembly and promotion, published-release verification, and Marketplace publication.
+- **GitHub Release:** [Forma v0.1.34](https://github.com/choral-io/choral-forma/releases/tag/v0.1.34) is published as a non-draft, non-prerelease release with the expected 22 uploaded assets.
+- **Independent verification:** `mise run release:verify -- v0.1.34` passed for 22 assets and 11 payloads. The native macOS Arm64 CLI reported `forma 0.1.34` with SHA-256 `d216b5598c37795deefb85601266cbe67f4aaa49382f4604fb399f00bff8298a`; the VSIX reported `choral-io.forma@0.1.34`, engine `^1.110.0`, and SHA-256 `fc9e8c7d0fdfbddc91d1af0dc49c29f327f20925236574c9132e79c7a5d101aa`.
+- **Managed installation:** the production editor-extension installation implementation downloaded, checksum-verified, installed, and executed the published `forma-macos-arm64` payload as `forma 0.1.34`.
+- **Marketplace:** the protected Marketplace job published [choral-io.forma v0.1.34](https://marketplace.visualstudio.com/items?itemName=choral-io.forma).
+
 ## Rollout Plan
 
-1. Complete and commit the aligned `0.1.34` candidate and its release metadata without publishing external artifacts.
-2. Push the candidate and require green main CI for the exact commit.
-3. Create and push annotated tag `v0.1.34` only after the exact candidate is green.
-4. Observe the tag-triggered Release workflow and run the executable published-release verification gate.
-5. Record immutable publication evidence in a separate post-release commit before marking this release `released`.
+1. Completed and committed the aligned `0.1.34` candidate and its release metadata.
+2. Pushed the candidate and passed exact-source main CI before tag creation.
+3. Created and pushed the annotated tag `v0.1.34` after the exact candidate was green.
+4. Dispatched the protected Release workflow, approved its release-production and Marketplace environment gates, and published the source-bound GitHub Release and matching Marketplace extension.
+5. Completed independent published-release verification and recorded the immutable evidence in a separate post-release commit.
 
 ## Migration Or Operations Notes
 

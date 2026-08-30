@@ -77,13 +77,12 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.31 | [[releases/forma-v0.1.31]] | Released coordinated Public Preview patch. |
 | v0.1.32 | [[releases/forma-v0.1.32]] | Released deterministic Graph-layout stability Public Preview patch. |
 | v0.1.33 | [[releases/forma-v0.1.33]] | Released strict numeric Schema contract Public Preview patch. |
-| v0.1.34 | [[releases/forma-v0.1.34]] | Planned explicit structured-artifact schema validation and coordinated toolchain Public Preview patch. |
+| v0.1.34 | [[releases/forma-v0.1.34]] | Released explicit structured-artifact schema validation and coordinated toolchain Public Preview patch. |
 
 ## Current Delivery Cutline
 
-- **Current released baseline:** [[releases/forma-v0.1.33]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
-- **Next release candidate:** [[releases/forma-v0.1.34]] is planned for explicit, read-only structured-artifact schema validation through `forma tools`, clarified workspace and Agent contracts, and a coordinated toolchain refresh. Keep the released baseline at v0.1.33 until the exact candidate is published and independently verified.
-- **Previous released baseline:** [[releases/forma-v0.1.32]] records the deterministic Graph-layout stability Public Preview patch that preceded this release.
+- **Current released baseline:** [[releases/forma-v0.1.34]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
+- **Previous released baseline:** [[releases/forma-v0.1.33]] records the strict numeric Schema contract Public Preview patch that preceded this release.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.
 - **Active validation:** [[tasks/validate-shared-graph-view-cross-host-parity]] remains the active cross-Host Graph evidence boundary.
