@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Acknowledgement window fixture configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile", "ackWindowSeconds", "rejectReplay"],
+  "properties": {
+    "profile": {
+      "type": "string",
+      "enum": ["staging", "production-naive", "production-adjusted"]
+    },
+    "ackWindowSeconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rejectReplay": {
+      "type": "boolean"
+    }
+  }
+}

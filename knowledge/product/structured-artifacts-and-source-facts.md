@@ -184,6 +184,8 @@ For example, moving an opportunity, work order, incident, or service case from o
 
 Do not implement this yet. Treat it as product reference for future structured-artifact, low-code business-system, view-source, and action-design discussions.
 
+The current manual CLI boundary and the criteria for reopening automatic artifact checks are recorded in [[decisions/defer-automatic-schema-check-integration]].
+
 The near-term product principle is:
 
 ```text

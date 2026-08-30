@@ -58,6 +58,12 @@ pub enum Operation {
     DocsList,
     #[serde(rename = "docs.get")]
     DocsGet,
+    #[serde(rename = "tools.list")]
+    ToolsList,
+    #[serde(rename = "tools.describe")]
+    ToolsDescribe,
+    #[serde(rename = "tools.schema.validate")]
+    ToolsSchemaValidate,
 }
 
 impl Operation {
@@ -85,6 +91,9 @@ impl Operation {
             Self::SkillsGet => "skills.get",
             Self::DocsList => "docs.list",
             Self::DocsGet => "docs.get",
+            Self::ToolsList => "tools.list",
+            Self::ToolsDescribe => "tools.describe",
+            Self::ToolsSchemaValidate => "tools.schema.validate",
         }
     }
 }
@@ -113,6 +122,9 @@ pub enum OperationRequest {
     SkillsGet(SkillsGetRequest),
     DocsList(DocsListRequest),
     DocsGet(DocsGetRequest),
+    ToolsList(ToolsListRequest),
+    ToolsDescribe(ToolsDescribeRequest),
+    ToolsSchemaValidate(ToolsSchemaValidateRequest),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -291,6 +303,28 @@ pub struct DocsListRequest {}
 #[serde(rename_all = "camelCase")]
 pub struct DocsGetRequest {
     pub id: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolsListRequest {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolsDescribeRequest {
+    pub id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolsSchemaValidateRequest {
+    pub path: String,
+    pub schema: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -489,6 +523,18 @@ impl Dispatcher {
             OperationRequest::DocsGet(request) => forma_core::docs_get(&request.id)
                 .map(OperationResult::from)
                 .or_else(|error| Ok(core_error_result(Operation::DocsGet, error))),
+            OperationRequest::ToolsList(_) => Ok(OperationResult::from(forma_core::list_tools())),
+            OperationRequest::ToolsDescribe(request) => Ok(OperationResult::from(
+                forma_core::describe_tool(&request.id),
+            )),
+            OperationRequest::ToolsSchemaValidate(request) => forma_core::validate_structured_data(
+                root,
+                &request.path,
+                &request.schema,
+                request.format.as_deref(),
+            )
+            .map(OperationResult::from)
+            .or_else(|error| Ok(core_error_result(Operation::ToolsSchemaValidate, error))),
         }
     }
 
@@ -804,6 +850,33 @@ fn operation_from_method(
                     "params.invalid",
                 )
             }),
+        "tools.list" => serde_json::from_value::<ToolsListRequest>(params)
+            .map(OperationRequest::ToolsList)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "tools.describe" => serde_json::from_value::<ToolsDescribeRequest>(params)
+            .map(OperationRequest::ToolsDescribe)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
+        "tools.schema.validate" => serde_json::from_value::<ToolsSchemaValidateRequest>(params)
+            .map(OperationRequest::ToolsSchemaValidate)
+            .map_err(|_| {
+                JsonRpcFailure::without_id(
+                    JsonRpcErrorCode::InvalidParams,
+                    "Invalid params.",
+                    "params.invalid",
+                )
+            }),
         "workspace.dashboard" => serde_json::from_value::<WorkspaceDashboardRequest>(params)
             .map(OperationRequest::WorkspaceDashboard)
             .map_err(|_| {
@@ -872,6 +945,60 @@ impl From<forma_core::CheckResult> for OperationResult {
             diagnostics: result.diagnostics,
             path: None,
             data: BTreeMap::new(),
+        }
+    }
+}
+
+impl From<forma_core::ToolsListResult> for OperationResult {
+    fn from(result: forma_core::ToolsListResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("tools".to_string(), json!(result.tools));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::ToolsDescribeResult> for OperationResult {
+    fn from(result: forma_core::ToolsDescribeResult) -> Self {
+        let mut data = BTreeMap::new();
+        if let Some(tool) = result.tool {
+            data.insert("tool".to_string(), json!(tool));
+        }
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: None,
+            data,
+        }
+    }
+}
+
+impl From<forma_core::SchemaValidateResult> for OperationResult {
+    fn from(result: forma_core::SchemaValidateResult) -> Self {
+        let mut data = BTreeMap::new();
+        data.insert("schema".to_string(), json!(result.schema));
+        data.insert("format".to_string(), json!(result.format));
+        data.insert("documents".to_string(), json!(result.documents));
+        data.insert("validDocuments".to_string(), json!(result.valid_documents));
+        data.insert("valid".to_string(), json!(result.valid));
+        Self {
+            schema_version: result.schema_version,
+            operation: result.operation,
+            status: result.status,
+            summary: Some(result.summary),
+            diagnostics: result.diagnostics,
+            path: Some(result.path),
+            data,
         }
     }
 }
@@ -2103,6 +2230,54 @@ imports:
     }
 
     #[test]
+    fn json_rpc_lists_and_describes_built_in_tools() {
+        let root = fixture_root("tools-registry-rpc");
+        fs::create_dir_all(&root).unwrap();
+
+        let list = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"tools.list","params":{}}"#,
+        );
+        assert_eq!(list["result"]["operation"], "tools.list");
+        assert_eq!(list["result"]["tools"][0]["id"], "schema.validate");
+
+        let describe = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"2","method":"tools.describe","params":{"id":"schema.validate"}}"#,
+        );
+        assert_eq!(describe["result"]["operation"], "tools.describe");
+        assert_eq!(describe["result"]["tool"]["readOnly"], true);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_rpc_validates_structured_data_with_schema_diagnostics() {
+        let root = fixture_root("tools-schema-rpc");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("entry.json"), r#"{"name":4}"#).unwrap();
+        fs::write(
+            root.join("schema.json"),
+            r#"{"type":"object","properties":{"name":{"type":"string"}}}"#,
+        )
+        .unwrap();
+
+        let response = handle_json_rpc(
+            &root,
+            br#"{"jsonrpc":"2.0","id":"1","method":"tools.schema.validate","params":{"path":"entry.json","schema":"schema.json"}}"#,
+        );
+        assert_eq!(response["result"]["operation"], "tools.schema.validate");
+        assert_eq!(response["result"]["status"], "failed");
+        assert_eq!(
+            response["result"]["diagnostics"][0]["instancePath"],
+            "/name"
+        );
+        assert_eq!(response["result"]["diagnostics"][0]["keyword"], "type");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn json_rpc_rejects_task_specific_legacy_methods() {
         let root = fixture_root("legacy-task-methods-rpc");
         fs::create_dir_all(&root).unwrap();
@@ -2212,6 +2387,18 @@ imports:
         assert_eq!(
             serde_json::to_value(super::Operation::WorkspaceHealth).unwrap(),
             "workspace.health"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::ToolsList).unwrap(),
+            "tools.list"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::ToolsDescribe).unwrap(),
+            "tools.describe"
+        );
+        assert_eq!(
+            serde_json::to_value(super::Operation::ToolsSchemaValidate).unwrap(),
+            "tools.schema.validate"
         );
     }
 

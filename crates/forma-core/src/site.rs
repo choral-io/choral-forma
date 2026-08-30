@@ -556,6 +556,9 @@ fn build_static_site_snapshot_from_loaded(
             location: diagnostic.location.clone(),
             actual: diagnostic.actual.clone(),
             expected: diagnostic.expected.clone(),
+            instance_path: None,
+            schema_path: None,
+            keyword: None,
         })
         .collect::<Vec<_>>();
     let diagnostic_summary = DiagnosticSummary::from_diagnostics(&diagnostic_values);
@@ -1544,6 +1547,9 @@ fn status_for_route(
             location: diagnostic.location.clone(),
             actual: diagnostic.actual.clone(),
             expected: diagnostic.expected.clone(),
+            instance_path: None,
+            schema_path: None,
+            keyword: None,
         })
         .collect::<Vec<_>>();
     DiagnosticSummary::from_diagnostics(&diagnostics).status()

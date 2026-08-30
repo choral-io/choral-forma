@@ -14,11 +14,13 @@ camino = "1.2.2"
 chrono = { version = "0.4.44", default-features = false, features = ["clock", "serde", "std"] }
 chrono-tz = "0.10.4"
 globset = "0.4.18"
+jsonschema = { version = "0.52.0", default-features = false, features = ["resolve-file"] }
 markdown = "1.0.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 serde_yml = "0.0.12"
 thiserror = "2.0.18"
+url = "2.5.8"
 
 [build-dependencies]
 markdown = "1.0.0"

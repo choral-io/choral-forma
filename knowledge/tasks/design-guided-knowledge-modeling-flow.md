@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: product
 effort: M
-status: ready
+status: reviewing
 readiness: ready
 owners:
     - "members/tiscs"
@@ -68,3 +68,7 @@ Forma can bootstrap an empty workspace and its embedded guidance can help an Age
 ## Sequencing
 
 This is the first recommended roadmap item. [[tasks/design-markdown-import-normalization-flow]] depends on the modeling vocabulary and review boundary established here.
+
+## Design Record
+
+The accepted product contract is recorded in [[planning/forma-guided-knowledge-modeling-flow]]. It defines the shared proposal semantics, review boundary, representative fixtures, and follow-up implementation slices without implementing the flow.

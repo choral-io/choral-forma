@@ -3528,6 +3528,9 @@ fn workspace_health_diagnostic(finding: &WorkspaceHealthFinding) -> Diagnostic {
             location: None,
             actual: None,
             expected: None,
+            instance_path: None,
+            schema_path: None,
+            keyword: None,
         },
     };
 

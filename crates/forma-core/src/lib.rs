@@ -16,6 +16,7 @@ pub mod render;
 pub mod scan;
 pub mod schema;
 pub mod site;
+pub mod tools;
 pub mod workspace_explain;
 
 pub use boundary::{PreparedWorkspaceFile, WorkspaceBoundary, WorkspaceBoundaryError};
@@ -97,6 +98,10 @@ pub use site::{
     StaticSiteSnapshot, StaticSiteSnapshotSummary, StaticSiteSpace, StaticSiteTaxonomy,
     StaticSiteTaxonomyTerm, StaticSiteView, StaticSiteWorkspace, StaticSiteWorkspaceLogo,
     build_static_site_snapshot, build_static_site_snapshot_with_root_path,
+};
+pub use tools::{
+    SchemaValidateResult, StructuredFormat, ToolDescriptor, ToolsDescribeResult, ToolsListResult,
+    describe_tool, list_tools, validate_structured_data,
 };
 pub use workspace_explain::{
     WorkspaceExplainContentGroupCandidate, WorkspaceExplainEffective, WorkspaceExplainProvenance,

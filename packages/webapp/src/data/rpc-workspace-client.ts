@@ -588,6 +588,9 @@ function mapDiagnostic(diagnostic: Diagnostic): DashboardDiagnostic {
         location: diagnostic.location,
         actual: diagnostic.actual,
         expected: diagnostic.expected,
+        instancePath: diagnostic.instancePath,
+        schemaPath: diagnostic.schemaPath,
+        keyword: diagnostic.keyword,
     };
 }
 

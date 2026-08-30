@@ -39,6 +39,9 @@ export type Diagnostic = {
     location?: DiagnosticLocation;
     actual?: unknown;
     expected?: unknown;
+    instancePath?: string;
+    schemaPath?: string;
+    keyword?: string;
     suggestions?: Array<{ label: string; value: unknown }>;
 };
 
@@ -91,6 +94,35 @@ export type DocsListResult = BaseOperationResult & {
 export type DocsGetResult = BaseOperationResult & {
     operation: "docs.get";
     doc?: EmbeddedDoc;
+};
+
+export type ToolDescriptor = {
+    id: string;
+    title: string;
+    description: string;
+    readOnly: boolean;
+    workspaceRequired: boolean;
+    inputFormats: Array<"json" | "yaml" | "jsonl">;
+};
+
+export type ToolsListResult = BaseOperationResult & {
+    operation: "tools.list";
+    tools: ToolDescriptor[];
+};
+
+export type ToolsDescribeResult = BaseOperationResult & {
+    operation: "tools.describe";
+    tool?: ToolDescriptor;
+};
+
+export type SchemaValidateResult = BaseOperationResult & {
+    operation: "tools.schema.validate";
+    path: string;
+    schema: string;
+    format: "json" | "yaml" | "jsonl";
+    documents: number;
+    validDocuments: number;
+    valid: boolean;
 };
 
 export type IndexSpace = {
@@ -948,6 +980,22 @@ export class FormaRpcClient {
 
     workspaceHealth() {
         return this.call<WorkspaceHealthResult>("workspace.health");
+    }
+
+    toolsList() {
+        return this.call<ToolsListResult>("tools.list");
+    }
+
+    toolsDescribe(id: string) {
+        return this.call<ToolsDescribeResult>("tools.describe", { id });
+    }
+
+    validateSchema(path: string, schema: string, format: "auto" | "json" | "yaml" | "jsonl" = "auto") {
+        return this.call<SchemaValidateResult>("tools.schema.validate", {
+            path,
+            schema,
+            format,
+        });
     }
 
     renderView(view: string) {

@@ -4,6 +4,8 @@ This is a runnable, synthetic example of one customer project workspace. It demo
 
 The folders are team conventions. Each stable record type has an explicitly configured Forma content group with its own include pattern, schema, create template, and partition guidance; Forma does not provide customer, ask, issue, or engineering domain types. Read `guidelines/partition-contracts.md` before routing a new record. The `.mjs` and `.json` files under `engineering/fixture/` are ordinary unmanaged engineering assets; the Markdown engineering cards do not replace them.
 
+The fixture also keeps explicit JSON Schema contracts beside the structured data. They are ordinary workspace files, not hidden Forma configuration. `schema.validate` checks their shape and types; the regression runner remains responsible for the behavior-specific expectations.
+
 `ENG-SYN-001` is a narrative association key only. This workspace does not import, join, authorize, synchronize, or promote content across workspaces.
 
 ## Run
@@ -19,6 +21,21 @@ cargo run -q -p forma-cli -- --workspace examples/fde-customer-project-workspace
 ```
 
 The preview must report `status: passed`, zero errors/warnings, `target.writable: true`, `target.conflict: false`, and `target.path: asks/synthetic-preview-ask.md`; it must not create a file. `asks` is the configured content group for the `asks/` partition, not a Forma built-in domain.
+
+Validate the structured fixture files explicitly from the repository root:
+
+```sh
+cargo run -q -p forma-cli -- \
+  --workspace examples/fde-customer-project-workspace \
+  tools schema validate engineering/fixture/config/staging.json \
+  --schema engineering/fixture/schemas/config.schema.json --json
+cargo run -q -p forma-cli -- \
+  --workspace examples/fde-customer-project-workspace \
+  tools schema validate engineering/fixture/fixtures/staging-events.json \
+  --schema engineering/fixture/schemas/events.schema.json --json
+```
+
+Both commands should return `status: "passed"`, `valid: true`, and one valid document. The command is explicit and read-only; it does not scan the other JSON files or make `forma check` treat them as managed content.
 
 Run from this workspace root for the engineering fixture:
 

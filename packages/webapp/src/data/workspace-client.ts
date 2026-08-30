@@ -134,6 +134,9 @@ export interface DashboardDiagnostic {
     };
     actual?: unknown;
     expected?: unknown;
+    instancePath?: string;
+    schemaPath?: string;
+    keyword?: string;
 }
 
 export type DashboardHealthCategory =

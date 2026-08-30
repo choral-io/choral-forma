@@ -1883,6 +1883,56 @@ fn repository_check_json_reports_no_reference_regressions() {
 }
 
 #[test]
+fn tools_schema_validate_checks_the_fde_structured_fixture() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let workspace = root.join("examples/fde-customer-project-workspace");
+    let workspace = workspace
+        .to_str()
+        .expect("FDE example workspace path should be valid UTF-8");
+    let cases = [
+        (
+            "engineering/fixture/config/staging.json",
+            "engineering/fixture/schemas/config.schema.json",
+        ),
+        (
+            "engineering/fixture/fixtures/staging-events.json",
+            "engineering/fixture/schemas/events.schema.json",
+        ),
+    ];
+
+    for (path, schema) in cases {
+        let output = forma(&root)
+            .args([
+                "--workspace",
+                workspace,
+                "tools",
+                "schema",
+                "validate",
+                path,
+                "--schema",
+                schema,
+                "--json",
+            ])
+            .output()
+            .expect("forma tools schema validate should run");
+
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.stderr.is_empty());
+        let result: Value = serde_json::from_slice(&output.stdout)
+            .expect("schema validation output should be valid JSON");
+        assert_eq!(result["operation"], "tools.schema.validate");
+        assert_eq!(result["status"], "passed");
+        assert_eq!(result["valid"], true);
+        assert_eq!(result["documents"], 1);
+        assert_eq!(result["validDocuments"], 1);
+    }
+}
+
+#[test]
 fn list_and_inspect_read_configured_task_like_metadata() {
     let root = fixture_root("generic-task-like-list-and-inspect");
     std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();

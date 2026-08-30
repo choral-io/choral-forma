@@ -50,6 +50,12 @@ pub struct Diagnostic {
     pub actual: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instance_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keyword: Option<String>,
 }
 
 impl Diagnostic {
@@ -62,6 +68,9 @@ impl Diagnostic {
             location: None,
             actual: None,
             expected: None,
+            instance_path: None,
+            schema_path: None,
+            keyword: None,
         }
     }
 
@@ -74,6 +83,9 @@ impl Diagnostic {
             location: None,
             actual: None,
             expected: None,
+            instance_path: None,
+            schema_path: None,
+            keyword: None,
         }
     }
 
@@ -94,6 +106,21 @@ impl Diagnostic {
 
     pub fn with_expected(mut self, expected: impl Into<String>) -> Self {
         self.expected = Some(expected.into());
+        self
+    }
+
+    pub fn with_instance_path(mut self, instance_path: impl Into<String>) -> Self {
+        self.instance_path = Some(instance_path.into());
+        self
+    }
+
+    pub fn with_schema_path(mut self, schema_path: impl Into<String>) -> Self {
+        self.schema_path = Some(schema_path.into());
+        self
+    }
+
+    pub fn with_keyword(mut self, keyword: impl Into<String>) -> Self {
+        self.keyword = Some(keyword.into());
         self
     }
 }

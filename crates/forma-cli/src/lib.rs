@@ -24,8 +24,9 @@ use forma_rpc::{
     CheckRequest, ConfigInspectRequest, ConfigSummaryRequest, CreatePreviewRequest, CreateRequest,
     Dispatcher, DocsGetRequest, DocsListRequest, InitRequest, InspectRequest, ListRequest,
     OperationRequest, ReferenceResolveRequest, SkillsGetRequest, SkillsListRequest,
-    ViewRenderRequest, WorkspaceDashboardRequest, WorkspaceExplainRequest,
-    WorkspaceExplorerEntriesRequest, WorkspaceExplorerRequest, WorkspaceHealthRequest,
+    ToolsDescribeRequest, ToolsListRequest, ToolsSchemaValidateRequest, ViewRenderRequest,
+    WorkspaceDashboardRequest, WorkspaceExplainRequest, WorkspaceExplorerEntriesRequest,
+    WorkspaceExplorerRequest, WorkspaceHealthRequest,
 };
 use include_dir::{Dir, include_dir};
 use serde_json::Value as JsonValue;
@@ -429,6 +430,10 @@ enum Command {
         #[command(subcommand)]
         command: SkillsCommand,
     },
+    Tools {
+        #[command(subcommand)]
+        command: ToolsCommand,
+    },
     Site {
         #[command(subcommand)]
         command: SiteCommand,
@@ -590,6 +595,58 @@ enum SkillsCommand {
         #[arg(long)]
         json: bool,
     },
+}
+
+#[derive(Debug, Subcommand)]
+enum ToolsCommand {
+    /// List the compiled-in, read-only governance tools.
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show the contract for one compiled-in governance tool.
+    Describe {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Schema {
+        #[command(subcommand)]
+        command: ToolsSchemaCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ToolsSchemaCommand {
+    /// Validate one explicit JSON, YAML, or JSONL file against a JSON Schema.
+    Validate {
+        path: String,
+        #[arg(long)]
+        schema: String,
+        #[arg(long, value_enum, default_value_t = StructuredFormatArg::Auto)]
+        format: StructuredFormatArg,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum StructuredFormatArg {
+    Auto,
+    Json,
+    Yaml,
+    Jsonl,
+}
+
+impl StructuredFormatArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Json => "json",
+            Self::Yaml => "yaml",
+            Self::Jsonl => "jsonl",
+        }
+    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -921,6 +978,41 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 Ok(())
             }
         },
+        Some(Command::Tools { command }) => match command {
+            ToolsCommand::List { json } => {
+                let result = dispatcher
+                    .dispatch(OperationRequest::ToolsList(ToolsListRequest::default()))?;
+                print_tools_list_result(&result, json)?;
+                exit_if_failed(&result);
+                Ok(())
+            }
+            ToolsCommand::Describe { id, json } => {
+                let result = dispatcher
+                    .dispatch(OperationRequest::ToolsDescribe(ToolsDescribeRequest { id }))?;
+                print_tools_describe_result(&result, json)?;
+                exit_if_failed(&result);
+                Ok(())
+            }
+            ToolsCommand::Schema { command } => match command {
+                ToolsSchemaCommand::Validate {
+                    path,
+                    schema,
+                    format,
+                    json,
+                } => {
+                    let result = dispatcher.dispatch(OperationRequest::ToolsSchemaValidate(
+                        ToolsSchemaValidateRequest {
+                            path,
+                            schema,
+                            format: Some(format.as_str().to_string()),
+                        },
+                    ))?;
+                    print_result(&result, json, "tools schema validate")?;
+                    exit_if_failed(&result);
+                    Ok(())
+                }
+            },
+        },
         Some(Command::Site { command }) => match command {
             SiteCommand::Build {
                 out,
@@ -996,6 +1088,9 @@ fn print_site_build_result(result: &site::SiteBuildResult, json: bool) -> io::Re
             location: diagnostic.location.clone(),
             actual: diagnostic.actual.clone(),
             expected: diagnostic.expected.clone(),
+            instance_path: None,
+            schema_path: None,
+            keyword: None,
         };
         print_diagnostic(&diagnostic)?;
     }
@@ -1062,6 +1157,61 @@ fn print_skills_list_result(result: &forma_rpc::OperationResult, json: bool) -> 
                 .unwrap_or("");
             stdout_println!("{id}\t{title}\t{source}")?;
         }
+    }
+    Ok(())
+}
+
+fn print_tools_list_result(result: &forma_rpc::OperationResult, json: bool) -> io::Result<()> {
+    if json {
+        stdout_println!("{}", result.to_json_string())?;
+        return Ok(());
+    }
+
+    stdout_println!("tools list {}", result.status_label())?;
+    for diagnostic in &result.diagnostics {
+        print_diagnostic(diagnostic)?;
+    }
+    if let Some(tools) = result.data.get("tools").and_then(|value| value.as_array()) {
+        for tool in tools {
+            let id = tool
+                .get("id")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            let title = tool
+                .get("title")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            stdout_println!("{id}\t{title}")?;
+        }
+    }
+    Ok(())
+}
+
+fn print_tools_describe_result(result: &forma_rpc::OperationResult, json: bool) -> io::Result<()> {
+    if json {
+        stdout_println!("{}", result.to_json_string())?;
+        return Ok(());
+    }
+
+    stdout_println!("tools describe {}", result.status_label())?;
+    for diagnostic in &result.diagnostics {
+        print_diagnostic(diagnostic)?;
+    }
+    if let Some(tool) = result.data.get("tool") {
+        let id = tool
+            .get("id")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        let title = tool
+            .get("title")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        let description = tool
+            .get("description")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        stdout_println!("{id}\t{title}")?;
+        stdout_println!("{description}")?;
     }
     Ok(())
 }
@@ -1724,18 +1874,47 @@ mod tests {
 
     use axum::body::{Body, Bytes, to_bytes};
     use axum::http::{HeaderMap, Method, Request, StatusCode, header};
+    use clap::Parser;
     use forma_rpc::Dispatcher;
     use serde_json::json;
     use tower::ServiceExt;
 
     use super::{
-        AppState, RpcCacheRuntime, cacheable_rpc_request, complete_rpc_request, finish_cli_run,
-        inject_base_href, is_mutating_rpc_request, normalize_root_path, response_with_rpc_id,
-        rpc_handler, rpc_router, rpc_router_with_dispatcher,
-        rpc_router_with_dispatcher_and_workspace, rpc_router_with_options,
-        rpc_router_with_options_and_root_path, should_serve_spa_index, workspace_fingerprint,
-        workspace_watch_set, write_stdout_to,
+        AppState, Cli, Command, RpcCacheRuntime, ToolsCommand, ToolsSchemaCommand,
+        cacheable_rpc_request, complete_rpc_request, finish_cli_run, inject_base_href,
+        is_mutating_rpc_request, normalize_root_path, response_with_rpc_id, rpc_handler,
+        rpc_router, rpc_router_with_dispatcher, rpc_router_with_dispatcher_and_workspace,
+        rpc_router_with_options, rpc_router_with_options_and_root_path, should_serve_spa_index,
+        workspace_fingerprint, workspace_watch_set, write_stdout_to,
     };
+
+    #[test]
+    fn cli_parses_tools_schema_validate_contract() {
+        let cli = Cli::try_parse_from([
+            "forma",
+            "--workspace",
+            ".",
+            "tools",
+            "schema",
+            "validate",
+            "records.jsonl",
+            "--schema",
+            "record.schema.json",
+            "--format",
+            "jsonl",
+            "--json",
+        ])
+        .expect("tools schema validate should parse");
+
+        assert!(matches!(
+            cli.command,
+            Some(Command::Tools {
+                command: ToolsCommand::Schema {
+                    command: ToolsSchemaCommand::Validate { .. }
+                }
+            })
+        ));
+    }
 
     struct FailingWriter {
         kind: io::ErrorKind,
