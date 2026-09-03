@@ -32,18 +32,17 @@ describe("renderMarkdown", () => {
         markedMocks.use.mockReset();
     });
 
-    it("retries once when Markdown rendering fails transiently", async () => {
-        markedMocks.parse.mockRejectedValueOnce(new Error("transient render failure"));
+    it("parses Markdown once so a shared Mermaid scope is not consumed twice", async () => {
         markedMocks.parse.mockResolvedValueOnce("<p>Rendered</p>");
 
         await expect(renderMarkdown("# Source")).resolves.toBe("<p>Rendered</p>");
-        expect(markedMocks.parse).toHaveBeenCalledTimes(2);
+        expect(markedMocks.parse).toHaveBeenCalledTimes(1);
     });
 
-    it("reports the failure after both render attempts fail", async () => {
+    it("reports a render failure without silently retrying", async () => {
         markedMocks.parse.mockRejectedValue(new Error("persistent render failure"));
 
         await expect(renderMarkdown("# Source")).rejects.toThrow("persistent render failure");
-        expect(markedMocks.parse).toHaveBeenCalledTimes(2);
+        expect(markedMocks.parse).toHaveBeenCalledTimes(1);
     });
 });

@@ -1,16 +1,48 @@
-import katex from "katex";
-import type { MarkedExtension } from "marked";
+import type katex from "katex";
+import type { MarkedExtension, Token } from "marked";
 
-interface InlineMathToken {
-    type: "inlineMath";
+interface MathToken {
+    type: "blockMath" | "inlineMath";
     raw: string;
     math: string;
+    html?: string;
 }
 
-interface BlockMathToken {
+interface InlineMathToken extends MathToken {
+    type: "inlineMath";
+}
+
+interface BlockMathToken extends MathToken {
     type: "blockMath";
-    raw: string;
-    math: string;
+}
+
+type KatexRenderer = typeof katex;
+
+let katexPromise: Promise<KatexRenderer> | undefined;
+
+/**
+ * KaTeX and its stylesheet are the largest part of the reader pipeline and most
+ * documents contain no math, so they load on the first math token rather than
+ * with the reader. Tokenizing decides that, which keeps the loading rule and the
+ * math syntax rule in one place.
+ */
+function loadKatex() {
+    katexPromise ??= Promise.all([import("katex"), import("./markdown-katex-styles")])
+        .then(([module]) => module.default)
+        .catch((error: unknown) => {
+            katexPromise = undefined;
+            throw error;
+        });
+
+    return katexPromise;
+}
+
+function isMathToken(token: Token): token is Token & MathToken {
+    return token.type === "blockMath" || token.type === "inlineMath";
+}
+
+function escapeMathSource(raw: string) {
+    return raw.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
 function findUnescapedDollar(source: string, start: number) {
@@ -63,7 +95,7 @@ function tokenizeInlineMath(source: string): InlineMathToken | undefined {
     };
 }
 
-function renderFormula(math: string, displayMode: boolean) {
+function renderFormula(katex: KatexRenderer, math: string, displayMode: boolean) {
     return katex.renderToString(math, {
         displayMode,
         throwOnError: false,
@@ -76,6 +108,18 @@ function renderFormula(math: string, displayMode: boolean) {
 }
 
 export const markedKatex: MarkedExtension = {
+    async walkTokens(token) {
+        if (!isMathToken(token)) {
+            return;
+        }
+
+        try {
+            const katex = await loadKatex();
+            token.html = renderFormula(katex, token.math, token.type === "blockMath");
+        } catch (error: unknown) {
+            console.warn("Math rendering failed; rendering the source text.", error);
+        }
+    },
     extensions: [
         {
             name: "blockMath",
@@ -97,7 +141,8 @@ export const markedKatex: MarkedExtension = {
                 } satisfies BlockMathToken;
             },
             renderer(token) {
-                return `${renderFormula((token as BlockMathToken).math, true)}\n`;
+                const mathToken = token as BlockMathToken;
+                return `${mathToken.html ?? escapeMathSource(mathToken.raw)}\n`;
             },
         },
         {
@@ -110,7 +155,8 @@ export const markedKatex: MarkedExtension = {
                 return tokenizeInlineMath(source);
             },
             renderer(token) {
-                return renderFormula((token as InlineMathToken).math, false);
+                const mathToken = token as InlineMathToken;
+                return mathToken.html ?? escapeMathSource(mathToken.raw);
             },
         },
     ],
