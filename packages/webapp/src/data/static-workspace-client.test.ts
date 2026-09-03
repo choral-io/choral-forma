@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { StaticWorkspaceClient, type StaticDashboardData } from "./static-workspace-client";
+import { createWorkspaceDashboardContext } from "./workspace-client";
+
+async function contextFor(client: StaticWorkspaceClient) {
+    return createWorkspaceDashboardContext(await client.getDashboard());
+}
 
 const localizedVariant = {
     id: "notes--one.zh-hans",
@@ -108,14 +113,14 @@ describe("StaticWorkspaceClient", () => {
             title: "Static fixture",
             omitLeadingTitle: true,
         });
-        await expect(client.getEntry("notes--one")).resolves.toMatchObject({ title: "One" });
-        await expect(client.getEntry("notes--one.zh-hans")).resolves.toMatchObject({
+        await expect(client.getEntry("notes--one", await contextFor(client))).resolves.toMatchObject({ title: "One" });
+        await expect(client.getEntry("notes--one.zh-hans", await contextFor(client))).resolves.toMatchObject({
             id: "notes--one.zh-hans",
             path: "notes/one.zh-Hans.md",
             routePath: "/pages/notes/one.zh-Hans",
             title: "一",
         });
-        await expect(client.getViewRender("notes")).resolves.toMatchObject({
+        await expect(client.getViewRender("notes", await contextFor(client))).resolves.toMatchObject({
             document: { path: ".forma/views/notes.md" },
             projection: { kind: "list" },
         });
@@ -133,10 +138,10 @@ describe("StaticWorkspaceClient", () => {
             ),
         );
         const client = new StaticWorkspaceClient("/data");
-        await expect(client.getEntry("notes--one")).rejects.toThrow(
+        await expect(client.getEntry("notes--one", await contextFor(client))).rejects.toThrow(
             "Static artifact data missing: /data/entries/notes--one.json (HTTP 404)",
         );
-        await expect(client.getViewRender("notes")).rejects.toThrow(
+        await expect(client.getViewRender("notes", await contextFor(client))).rejects.toThrow(
             "Static artifact data missing: /data/views/notes.json (HTTP 404)",
         );
         vi.stubGlobal(
@@ -175,7 +180,7 @@ describe("StaticWorkspaceClient", () => {
         );
         const client = new StaticWorkspaceClient("/data");
 
-        await expect(client.getViewRender("notes")).resolves.toMatchObject({
+        await expect(client.getViewRender("notes", await contextFor(client))).resolves.toMatchObject({
             projection: { items: [], kind: "list" },
         });
     });
@@ -223,7 +228,7 @@ describe("StaticWorkspaceClient", () => {
         );
         const client = new StaticWorkspaceClient("/data");
 
-        const render = await client.getViewRender("notes");
+        const render = await client.getViewRender("notes", await contextFor(client));
         if (render.projection.kind !== "kanban") throw new Error("expected Kanban projection");
         const firstColumn = render.projection.columns[0];
         const firstItem = firstColumn?.items[0];
@@ -256,7 +261,9 @@ describe("StaticWorkspaceClient", () => {
         );
         const client = new StaticWorkspaceClient("/data");
 
-        await expect(client.getEntry("notes--one")).resolves.toMatchObject({ title: "notes/one.md" });
+        await expect(client.getEntry("notes--one", await contextFor(client))).resolves.toMatchObject({
+            title: "notes/one.md",
+        });
     });
 });
 

@@ -1,15 +1,18 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router";
+import { RouterProvider } from "react-router/dom";
 
 import { prepareStaticEnhancement } from "./data/static-enhancement";
-import { staticRouterBasename } from "./data/static-runtime";
 import { isStaticWorkspaceClient } from "./data/workspace-client-source";
 import { applyThemePreference, readThemePreference } from "./lib/theme-preference";
-import { routes } from "./router";
+import { createAppRouter, preloadDashboardRoutes } from "./router";
 import "./styles/globals.css";
 
 applyThemePreference(readThemePreference(), false);
+
+// Fetch the route chunk alongside the workspace request instead of after it. A
+// failure here surfaces through the route error boundary when the route mounts.
+void preloadDashboardRoutes().catch(() => undefined);
 
 const root = document.getElementById("root");
 
@@ -30,7 +33,7 @@ async function mountApplication() {
 
     createRoot(rootElement).render(
         <StrictMode>
-            <BrowserRouter basename={staticRouterBasename()}>{routes}</BrowserRouter>
+            <RouterProvider router={createAppRouter()} />
         </StrictMode>,
     );
 }

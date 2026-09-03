@@ -33,11 +33,12 @@ import type {
     DashboardViewRender,
     WorkspaceClient,
     WorkspaceDashboard,
+    WorkspaceDashboardContext,
     WorkspaceHealth,
 } from "./workspace-client";
+import { latestUpdatedAt } from "./workspace-client";
 
 export class RpcWorkspaceClient implements WorkspaceClient {
-    #dashboard: WorkspaceDashboard | undefined;
     readonly #rpc: FormaRpcClient;
 
     constructor(endpoint = "/rpc") {
@@ -49,13 +50,12 @@ export class RpcWorkspaceClient implements WorkspaceClient {
             this.#rpc.workspaceDashboard(),
             this.#rpc.workspaceHealth(),
         ]);
-        this.#dashboard = mapWorkspaceDashboard(dashboardResult, healthResult);
-        return this.#dashboard;
+        return mapWorkspaceDashboard(dashboardResult, healthResult);
     }
 
-    async getEntry(entryId: string): Promise<DashboardEntry> {
-        const dashboard = this.#dashboard ?? (await this.getDashboard());
-        const entry = dashboard.entries.find((item) => item.id === entryId);
+    async getEntry(entryId: string, context: WorkspaceDashboardContext): Promise<DashboardEntry> {
+        const { entriesById, entriesByPath } = context;
+        const entry = entriesById.get(entryId);
 
         if (!entry) {
             throw new Error(`Entry not found: ${entryId}`);
@@ -70,11 +70,11 @@ export class RpcWorkspaceClient implements WorkspaceClient {
             this.#rpc.listFileReferences(entry.path),
         ]);
 
-        return mapEntryDetail(entry, renderResult, referencesResult, dashboard.entries);
+        return mapEntryDetail(entry, renderResult, referencesResult, entriesByPath);
     }
 
-    async getViewRender(viewId: string): Promise<DashboardViewRender> {
-        const dashboard = this.#dashboard ?? (await this.getDashboard());
+    async getViewRender(viewId: string, context: WorkspaceDashboardContext): Promise<DashboardViewRender> {
+        const { entriesByPath } = context;
         const result = await this.#rpc.renderView(viewId);
 
         if (!result.render) {
@@ -83,7 +83,7 @@ export class RpcWorkspaceClient implements WorkspaceClient {
 
         return {
             document: mapViewDocument(result, viewId),
-            projection: mapViewProjection(result.render, dashboard.entries),
+            projection: mapViewProjection(result.render, entriesByPath),
         };
     }
 }
@@ -116,7 +116,8 @@ function mapWorkspaceDashboard(
     healthResult: WorkspaceHealthResult,
 ): WorkspaceDashboard {
     const entries = [mapWorkspaceRootEntry(result.home, result.workspace.name), ...result.entries.map(mapEntry)];
-    const health = mapDashboardHealth(healthResult, entries);
+    const entriesByPath = new Map(entries.map((entry) => [entry.path, entry]));
+    const health = mapDashboardHealth(healthResult, entriesByPath);
     const diagnostics = mergeDiagnostics(result.diagnostics, healthResult.diagnostics);
 
     return {
@@ -124,7 +125,7 @@ function mapWorkspaceDashboard(
         workspaceLogo: result.workspace.logo,
         tagline: "Markdown-backed workspace content.",
         status: maxHealth(mapStatus(result.status), health.status),
-        taxonomies: result.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entries)),
+        taxonomies: result.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entriesByPath)),
         spaces: result.spaces.map((space) => mapSpace(space, entries)),
         entries,
         diagnostics,
@@ -168,7 +169,7 @@ function isReaderHeading(heading: {
 
 function mapTaxonomy(
     taxonomy: WorkspaceDashboardResult["taxonomies"][number],
-    entries: DashboardEntry[],
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
 ): DashboardTaxonomy {
     return {
         id: taxonomy.id,
@@ -183,7 +184,7 @@ function mapTaxonomy(
             description: term.description ?? "Configured classification term.",
             entryCount: term.entryCount,
             entries: term.entries.map((termEntry) => {
-                const entry = entries.find((candidate) => candidate.path === termEntry.path);
+                const entry = entriesByPath.get(termEntry.path);
                 return entry ?? mapEntry(termEntry);
             }),
             status: mapStatus(term.status),
@@ -191,16 +192,22 @@ function mapTaxonomy(
     };
 }
 
-function mapDashboardHealth(result: WorkspaceHealthResult, entries: DashboardEntry[]): DashboardHealth {
+function mapDashboardHealth(
+    result: WorkspaceHealthResult,
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
+): DashboardHealth {
     return {
         status: mapStatus(result.status),
         diagnostics: (result.diagnostics ?? []).map(mapDiagnostic),
-        findings: result.findings.map((finding) => mapHealthFinding(finding, entries)),
+        findings: result.findings.map((finding) => mapHealthFinding(finding, entriesByPath)),
     };
 }
 
-function mapHealthFinding(finding: WorkspaceHealthFinding, entries: DashboardEntry[]): DashboardHealthFinding {
-    const entry = entries.find((item) => item.path === finding.path);
+function mapHealthFinding(
+    finding: WorkspaceHealthFinding,
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
+): DashboardHealthFinding {
+    const entry = entriesByPath.get(finding.path);
 
     return {
         category: finding.category,
@@ -271,7 +278,7 @@ function mapEntryDetail(
     entry: DashboardEntry,
     renderResult: FileRenderResult,
     referencesResult: FileReferencesResult,
-    entries: DashboardEntry[],
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
 ): DashboardEntry {
     return {
         ...entry,
@@ -280,11 +287,11 @@ function mapEntryDetail(
         summary: entry.summary,
         space: renderResult.file.space ?? entry.space,
         status: mapStatus(renderResult.status),
-        body: mapRenderedBody(renderResult, entries),
+        body: mapRenderedBody(renderResult, entriesByPath),
         diagnostics: mergeDiagnostics(renderResult.diagnostics, referencesResult.diagnostics),
         relations: {
-            outgoing: referencesResult.outgoing.map((edge) => mapReferenceEdge(edge, "outgoing", entries)),
-            backlinks: referencesResult.backlinks.map((edge) => mapReferenceEdge(edge, "backlink", entries)),
+            outgoing: referencesResult.outgoing.map((edge) => mapReferenceEdge(edge, "outgoing", entriesByPath)),
+            backlinks: referencesResult.backlinks.map((edge) => mapReferenceEdge(edge, "backlink", entriesByPath)),
         },
     };
 }
@@ -294,7 +301,10 @@ function nonBlankText(value: string | undefined): string | undefined {
     return trimmed === "" ? undefined : trimmed;
 }
 
-function mapRenderedBody(result: FileRenderResult, entries: DashboardEntry[]): DashboardEntryBlock[] {
+function mapRenderedBody(
+    result: FileRenderResult,
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
+): DashboardEntryBlock[] {
     if (result.render.markdown) {
         return [
             {
@@ -311,7 +321,7 @@ function mapRenderedBody(result: FileRenderResult, entries: DashboardEntry[]): D
                 result.render.html,
                 result.render.headings ?? [],
                 result.file.path,
-                entries,
+                entriesByPath,
                 result.file.omitLeadingTitle ?? false,
             ),
         ];
@@ -339,7 +349,7 @@ function htmlToEntryBlock(
     html: string,
     headings: DashboardEntryHeading[],
     currentPath: string,
-    entries: DashboardEntry[],
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
     omitLeadingTitle: boolean,
 ): DashboardEntryBlock {
     const parser = new DOMParser();
@@ -357,6 +367,7 @@ function htmlToEntryBlock(
         }
     }
 
+    const entries = Array.from(entriesByPath.values());
     for (const anchor of document.body.querySelectorAll("a[href]")) {
         const href = anchor.getAttribute("href");
         if (!href || isExternalHref(href) || href.startsWith("#")) {
@@ -364,7 +375,7 @@ function htmlToEntryBlock(
         }
 
         const targetPath = normalizeWorkspaceHref(href, currentPath, entries);
-        const targetEntry = entries.find((entry) => entry.path === targetPath.path);
+        const targetEntry = entriesByPath.get(targetPath.path);
         if (targetEntry) {
             anchor.setAttribute("href", `${targetEntry.routePath}${targetPath.hash}`);
         }
@@ -380,12 +391,12 @@ function htmlToEntryBlock(
 function mapReferenceEdge(
     edge: ReferenceEdge,
     direction: "outgoing" | "backlink",
-    entries: DashboardEntry[],
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
 ): DashboardEntryLink {
     const targetPath = direction === "outgoing" ? edge.targetPath : edge.sourcePath;
     const targetTitle =
         direction === "outgoing" ? (edge.targetTitle ?? edge.targetPath) : (edge.sourceTitle ?? edge.sourcePath);
-    const targetEntry = entries.find((entry) => entry.path === targetPath);
+    const targetEntry = entriesByPath.get(targetPath);
 
     return {
         kind: mapReferenceKind(edge, targetEntry),
@@ -416,11 +427,14 @@ function mapView(view: WorkspaceDashboardResult["views"][number]): DashboardView
     };
 }
 
-function mapViewProjection(render: ViewRenderOutput, entries: DashboardEntry[]): DashboardViewProjection {
+function mapViewProjection(
+    render: ViewRenderOutput,
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
+): DashboardViewProjection {
     if (render.kind === "list") {
         return {
             kind: "list",
-            items: render.items.map((item) => mapViewProjectionItem(item, entries)),
+            items: render.items.map((item) => mapViewProjectionItem(item, entriesByPath)),
         };
     }
 
@@ -436,7 +450,7 @@ function mapViewProjection(render: ViewRenderOutput, entries: DashboardEntry[]):
                 id: column.id,
                 icon: column.icon,
                 label: column.label,
-                items: column.items.map((item) => mapViewProjectionItem(item, entries)),
+                items: column.items.map((item) => mapViewProjectionItem(item, entriesByPath)),
             })),
         };
     }
@@ -446,7 +460,7 @@ function mapViewProjection(render: ViewRenderOutput, entries: DashboardEntry[]):
             kind: "graph",
             legend: render.legend ?? [],
             nodes: render.nodes.map((node) => {
-                const entry = entries.find((entry) => entry.path === node.path);
+                const entry = entriesByPath.get(node.path);
 
                 return {
                     space: node.space,
@@ -479,12 +493,15 @@ function mapViewProjection(render: ViewRenderOutput, entries: DashboardEntry[]):
     return {
         kind: "table",
         columns: render.columns,
-        items: render.items.map((item) => mapViewProjectionItem(item, entries)),
+        items: render.items.map((item) => mapViewProjectionItem(item, entriesByPath)),
     };
 }
 
-function mapViewProjectionItem(item: ViewRenderItem, entries: DashboardEntry[]): DashboardViewProjectionItem {
-    const entry = entries.find((entry) => entry.path === item.path);
+function mapViewProjectionItem(
+    item: ViewRenderItem,
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
+): DashboardViewProjectionItem {
+    const entry = entriesByPath.get(item.path);
 
     return {
         entryId: entry?.id,
@@ -493,17 +510,20 @@ function mapViewProjectionItem(item: ViewRenderItem, entries: DashboardEntry[]):
             Object.entries(item.fields ?? {}).map(([key, value]) => [key, formatViewField(key, value)]),
         ),
         rawFields: Object.fromEntries(
-            Object.entries(item.fields ?? {}).map(([key, value]) => [key, mapViewField(value, entries)]),
+            Object.entries(item.fields ?? {}).map(([key, value]) => [key, mapViewField(value, entriesByPath)]),
         ),
         path: item.path,
         title: item.title ?? entry?.title ?? item.path,
     };
 }
 
-function mapViewField(value: ViewRenderFieldValue, entries: DashboardEntry[]): DashboardViewFieldValue {
+function mapViewField(
+    value: ViewRenderFieldValue,
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
+): DashboardViewFieldValue {
     const mapReference = (reference: { path: string; title: string }) => ({
         ...reference,
-        routePath: entries.find((entry) => entry.path === reference.path)?.routePath,
+        routePath: entriesByPath.get(reference.path)?.routePath,
     });
 
     if (value.kind === "reference") {
@@ -612,11 +632,4 @@ function maxHealth(left: WorkspaceHealth, right: WorkspaceHealth): WorkspaceHeal
 
 function mapViewKind(kind: string): DashboardView["kind"] {
     return kind === "table" || kind === "kanban" || kind === "graph" || kind === "list" ? kind : "list";
-}
-
-function latestUpdatedAt(entries: DashboardEntry[]): string | undefined {
-    return entries
-        .map((entry) => entry.updatedAt)
-        .filter((value): value is string => Boolean(value))
-        .sort((left, right) => new Date(right).valueOf() - new Date(left).valueOf())[0];
 }

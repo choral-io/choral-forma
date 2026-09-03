@@ -6,6 +6,7 @@ import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { WorkspaceHealthPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { ThemeCycleButton, ThemeDropdown } from "@/features/workspace/ThemeDropdown";
+import { useRouteContentFocusTarget } from "@/lib/route-focus";
 import { applyThemePreference, readThemePreference, type ThemePreference } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
 import { subscribeWorkspaceInteractionLayer } from "@/lib/workspace-interaction-layer";
@@ -33,6 +34,9 @@ export function WorkspaceRouteFrame({
     title,
     titleAs = "h1",
 }: WorkspaceRouteFrameProps) {
+    // Entry routes render their own <h1>; this frame only owns the heading when
+    // it is the page heading, so the ref stays unattached for titleAs="div".
+    const titleRef = useRouteContentFocusTarget<HTMLHeadingElement>();
     const [themePreference, setThemePreference] = useState(readThemePreference);
     const [isFabOpen, setIsFabOpen] = useState(false);
     const [isMobileFabSuppressed, setIsMobileFabSuppressed] = useState(false);
@@ -96,6 +100,7 @@ export function WorkspaceRouteFrame({
                             <p className="text-base-content/60 text-sm">{eyebrow}</p>
                             <Title
                                 className="line-clamp-2 text-2xl font-semibold tracking-normal lg:line-clamp-1"
+                                ref={titleAs === "h1" ? titleRef : undefined}
                                 tabIndex={-1}
                                 title={title}
                             >

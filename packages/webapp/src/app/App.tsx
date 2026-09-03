@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 
 import { syncStaticDocumentMetadata } from "@/data/static-document-metadata";
@@ -8,6 +8,7 @@ import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
 import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
 import { WorkspaceSidebar } from "@/features/workspace/WorkspaceSidebar";
+import { requestRouteContentFocus } from "@/lib/route-focus";
 
 import { resolveDesktopSidebarOpen } from "./workspace-sidebar-state";
 
@@ -24,7 +25,6 @@ export function App() {
     const desktopDrawerRef = useRef<HTMLInputElement>(null);
     const desktopDrawerManuallyChangedRef = useRef(false);
     const { pathname } = useLocation();
-    const previousPathnameRef = useRef(pathname);
 
     useEffect(() => {
         if (dashboard) return;
@@ -49,12 +49,6 @@ export function App() {
     useEffect(() => {
         if (navigationDialogRef.current?.open) {
             navigationDialogRef.current.close("navigate");
-        }
-        if (previousPathnameRef.current !== pathname) {
-            previousPathnameRef.current = pathname;
-            requestAnimationFrame(() => {
-                document.querySelector<HTMLElement>('h1[tabindex="-1"]')?.focus();
-            });
         }
     }, [pathname]);
 
@@ -85,9 +79,7 @@ export function App() {
         if (navigationDialogRef.current?.open) {
             navigationDialogRef.current.close("navigate");
         }
-        requestAnimationFrame(() => {
-            document.querySelector<HTMLElement>('h1[tabindex="-1"]')?.focus();
-        });
+        requestRouteContentFocus();
     }
 
     if (error) {
@@ -157,7 +149,9 @@ export function App() {
                 </aside>
             </div>
             <div className="drawer-content bg-base-100 text-base-content min-h-0 min-w-0 overflow-hidden">
-                <Outlet context={dashboard} />
+                <Suspense fallback={<RouteLoadingState />}>
+                    <Outlet context={dashboard} />
+                </Suspense>
             </div>
             <dialog
                 className="modal modal-start bg-neutral/40 p-0 backdrop-blur-xs outline-none motion-reduce:transition-none lg:hidden"
@@ -185,5 +179,23 @@ export function App() {
             </dialog>
             <QuickOpenDialog dashboard={dashboard} />
         </div>
+    );
+}
+
+function RouteLoadingState() {
+    return (
+        <main
+            aria-busy="true"
+            aria-label="Loading workspace route"
+            className="bg-base-100 text-base-content min-h-full p-8"
+            role="status"
+        >
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pt-12">
+                <div className="skeleton h-8 w-2/5" />
+                <div className="skeleton h-4 w-3/5" />
+                <div className="skeleton mt-6 h-4 w-full" />
+                <div className="skeleton h-4 w-11/12" />
+            </div>
+        </main>
     );
 }

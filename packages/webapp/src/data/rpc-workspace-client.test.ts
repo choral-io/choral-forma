@@ -7,6 +7,11 @@ import type {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RpcWorkspaceClient } from "./rpc-workspace-client";
+import { createWorkspaceDashboardContext } from "./workspace-client";
+
+async function contextFor(client: RpcWorkspaceClient) {
+    return createWorkspaceDashboardContext(await client.getDashboard());
+}
 
 describe("RpcWorkspaceClient View rendering", () => {
     afterEach(() => {
@@ -22,7 +27,7 @@ describe("RpcWorkspaceClient View rendering", () => {
 
         const client = new RpcWorkspaceClient("/rpc");
 
-        await expect(client.getViewRender(".forma/views/release-scope")).resolves.toEqual({
+        await expect(client.getViewRender(".forma/views/release-scope", await contextFor(client))).resolves.toEqual({
             document: {
                 afterProjection: "\n\nAfter projection.\n",
                 beforeProjection:
@@ -43,7 +48,9 @@ describe("RpcWorkspaceClient View rendering", () => {
 
         const client = new RpcWorkspaceClient("/rpc");
 
-        await expect(client.getViewRender(".forma/views/release-scope")).resolves.toMatchObject({
+        await expect(
+            client.getViewRender(".forma/views/release-scope", await contextFor(client)),
+        ).resolves.toMatchObject({
             document: {
                 afterProjection: "",
                 beforeProjection: bodySource,
@@ -84,7 +91,7 @@ describe("RpcWorkspaceClient View rendering", () => {
 
         const client = new RpcWorkspaceClient("/rpc");
 
-        await expect(client.getViewRender(".forma/views/task-board")).resolves.toMatchObject({
+        await expect(client.getViewRender(".forma/views/task-board", await contextFor(client))).resolves.toMatchObject({
             projection: {
                 kind: "kanban",
                 card: {
@@ -133,7 +140,7 @@ describe("RpcWorkspaceClient View rendering", () => {
 
         const client = new RpcWorkspaceClient("/rpc");
 
-        await expect(client.getViewRender(".forma/views/table")).resolves.toMatchObject({
+        await expect(client.getViewRender(".forma/views/table", await contextFor(client))).resolves.toMatchObject({
             projection: {
                 kind: "table",
                 columns: [

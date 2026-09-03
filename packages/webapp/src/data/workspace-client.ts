@@ -298,8 +298,53 @@ export interface WorkspaceDashboard {
     views: DashboardView[];
 }
 
+/**
+ * The read model a detail request resolves against, built once by the caller.
+ *
+ * Clients hold no dashboard of their own, so the caller owns how long this stays
+ * valid. `dashboard` carries the parts that are not entry lookups, such as the
+ * configured Views a View render resolves its summary from.
+ */
+export interface WorkspaceDashboardContext {
+    dashboard: WorkspaceDashboard;
+    entriesById: ReadonlyMap<string, DashboardEntry>;
+    entriesByPath: ReadonlyMap<string, DashboardEntry>;
+}
+
+export function createWorkspaceDashboardContext(dashboard: WorkspaceDashboard): WorkspaceDashboardContext {
+    const entriesById = new Map<string, DashboardEntry>();
+    const entriesByPath = new Map<string, DashboardEntry>();
+
+    for (const entry of dashboard.entries) {
+        entriesById.set(entry.id, entry);
+        entriesByPath.set(entry.path, entry);
+    }
+
+    return { dashboard, entriesById, entriesByPath };
+}
+
+/**
+ * Latest `updatedAt` across the given entries, or undefined when none is dated.
+ * Independent of iteration order so both runtimes report the same value.
+ */
+export function latestUpdatedAt(entries: Iterable<DashboardEntry>): string | undefined {
+    let latest: string | undefined;
+    let latestValue = Number.NEGATIVE_INFINITY;
+
+    for (const entry of entries) {
+        if (!entry.updatedAt) continue;
+        // Compare instants rather than text so a mixed UTC offset cannot reorder them.
+        const value = new Date(entry.updatedAt).valueOf();
+        if (Number.isNaN(value) || value <= latestValue) continue;
+        latest = entry.updatedAt;
+        latestValue = value;
+    }
+
+    return latest;
+}
+
 export interface WorkspaceClient {
     getDashboard(): Promise<WorkspaceDashboard>;
-    getEntry(entryId: string): Promise<DashboardEntry>;
-    getViewRender(viewId: string): Promise<DashboardViewRender>;
+    getEntry(entryId: string, context: WorkspaceDashboardContext): Promise<DashboardEntry>;
+    getViewRender(viewId: string, context: WorkspaceDashboardContext): Promise<DashboardViewRender>;
 }

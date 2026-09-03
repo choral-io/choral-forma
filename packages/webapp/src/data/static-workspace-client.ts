@@ -16,8 +16,10 @@ import type {
     DashboardViewRender,
     WorkspaceClient,
     WorkspaceDashboard,
+    WorkspaceDashboardContext,
     WorkspaceHealth,
 } from "./workspace-client";
+import { latestUpdatedAt } from "./workspace-client";
 
 type StaticStatus = "passed" | "warning" | "failed";
 
@@ -145,7 +147,6 @@ type KanbanProjection = Extract<DashboardViewProjection, { kind: "kanban" }>;
 type GraphProjection = Extract<DashboardViewProjection, { kind: "graph" }>;
 
 export class StaticWorkspaceClient implements WorkspaceClient {
-    #dashboard: WorkspaceDashboard | undefined;
     private readonly dataBaseUrl: string;
 
     constructor(dataBaseUrl: string) {
@@ -153,12 +154,12 @@ export class StaticWorkspaceClient implements WorkspaceClient {
     }
 
     async getDashboard(): Promise<WorkspaceDashboard> {
-        if (this.#dashboard) return this.#dashboard;
         const data = await this.readJson<StaticDashboardData>("dashboard.json");
         const entries = [
             mapWorkspaceRootEntry(data.workspace.home, data.workspace.name),
             ...data.entries.map(mapEntrySummary),
         ];
+        const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
         const diagnostics = data.diagnostics;
         const health: DashboardHealth = {
             status: mapStatus(data.status),
@@ -166,15 +167,15 @@ export class StaticWorkspaceClient implements WorkspaceClient {
             findings: [],
         };
 
-        this.#dashboard = {
+        return {
             workspaceName: data.workspace.name,
             workspaceLogo: data.workspace.logo
                 ? { url: data.workspace.logo.publicPath, alt: data.workspace.logo.alt }
                 : undefined,
             tagline: "Markdown-backed workspace content.",
             status: maxHealth(mapStatus(data.status), health.status),
-            spaces: data.spaces.map((space) => mapSpace(space, entries)),
-            taxonomies: data.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entries)),
+            spaces: data.spaces.map((space) => mapSpace(space, entriesById)),
+            taxonomies: data.taxonomies.map((taxonomy) => mapTaxonomy(taxonomy, entriesById)),
             entries,
             diagnostics,
             health,
@@ -188,12 +189,11 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                 space: view.space,
             })),
         };
-        return this.#dashboard;
     }
 
-    async getEntry(entryId: string): Promise<DashboardEntry> {
-        const dashboard = this.#dashboard ?? (await this.getDashboard());
-        const summary = dashboard.entries.find((entry) => entry.id === entryId);
+    async getEntry(entryId: string, context: WorkspaceDashboardContext): Promise<DashboardEntry> {
+        const { dashboard, entriesById, entriesByPath } = context;
+        const summary = entriesById.get(entryId);
         if (summary?.id === "workspace-root") return summary;
         if (summary) {
             const data = await this.readJson<StaticEntryData>(`entries/${entryId}.json`);
@@ -208,8 +208,8 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                 ],
                 diagnostics: data.diagnostics ?? [],
                 relations: {
-                    outgoing: data.outgoing.map((edge) => mapReference(edge, dashboard.entries)),
-                    backlinks: data.backlinks.map((edge) => mapReference(edge, dashboard.entries)),
+                    outgoing: data.outgoing.map((edge) => mapReference(edge, entriesByPath)),
+                    backlinks: data.backlinks.map((edge) => mapReference(edge, entriesByPath)),
                 },
             };
         }
@@ -242,8 +242,8 @@ export class StaticWorkspaceClient implements WorkspaceClient {
         };
     }
 
-    async getViewRender(viewId: string): Promise<DashboardViewRender> {
-        const dashboard = this.#dashboard ?? (await this.getDashboard());
+    async getViewRender(viewId: string, context: WorkspaceDashboardContext): Promise<DashboardViewRender> {
+        const { dashboard, entriesByPath } = context;
         const summary = dashboard.views.find((view) => view.id === viewId);
         if (!summary) {
             throw new Error(`Static artifact View was not listed: ${viewId}`);
@@ -251,7 +251,7 @@ export class StaticWorkspaceClient implements WorkspaceClient {
         const data = await this.readJson<StaticViewData>(`views/${viewId}.json`);
         return {
             document: mapViewDocument(data, viewId),
-            projection: mapViewProjection(data.projection, dashboard.entries),
+            projection: mapViewProjection(data.projection, entriesByPath),
         };
     }
 
@@ -334,9 +334,14 @@ function mapEntrySummary(entry: StaticEntrySummary): DashboardEntry {
     };
 }
 
-function mapSpace(space: StaticDashboardData["spaces"][number], entries: DashboardEntry[]): DashboardSpace {
-    const matchingEntries = entries.filter((entry) => space.entryIds.includes(entry.id));
-    const updatedAt = matchingEntries.map((entry) => entry.updatedAt).find(Boolean);
+function mapSpace(
+    space: StaticDashboardData["spaces"][number],
+    entriesById: ReadonlyMap<string, DashboardEntry>,
+): DashboardSpace {
+    const matchingEntries = space.entryIds
+        .map((entryId) => entriesById.get(entryId))
+        .filter((entry): entry is DashboardEntry => Boolean(entry));
+    const updatedAt = latestUpdatedAt(matchingEntries);
     return {
         id: space.id,
         title: space.title,
@@ -352,7 +357,7 @@ function mapSpace(space: StaticDashboardData["spaces"][number], entries: Dashboa
 
 function mapTaxonomy(
     taxonomy: StaticDashboardData["taxonomies"][number],
-    entries: DashboardEntry[],
+    entriesById: ReadonlyMap<string, DashboardEntry>,
 ): DashboardTaxonomy {
     return {
         id: taxonomy.id,
@@ -366,15 +371,20 @@ function mapTaxonomy(
             display: term.display,
             description: term.description ?? "Configured classification term.",
             entryCount: term.entryIds.length,
-            entries: entries.filter((entry) => term.entryIds.includes(entry.id)),
+            entries: term.entryIds
+                .map((entryId) => entriesById.get(entryId))
+                .filter((entry): entry is DashboardEntry => Boolean(entry)),
             status: "healthy",
         })),
     };
 }
 
-function mapReference(edge: StaticReferenceEdge, entries: DashboardEntry[]): DashboardEntryLink {
+function mapReference(
+    edge: StaticReferenceEdge,
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
+): DashboardEntryLink {
     const targetPath = edge.targetPath ?? edge.target ?? "";
-    const target = entries.find((entry) => entry.path === targetPath);
+    const target = entriesByPath.get(targetPath);
     return {
         kind: edge.targetRoutePath || target ? "internal" : "unresolved",
         label: edge.label ?? targetPath,
@@ -399,14 +409,17 @@ function mapViewDocument(data: StaticViewData, viewId: string): DashboardViewRen
     };
 }
 
-function mapViewProjection(value: unknown, entries: DashboardEntry[]): DashboardViewProjection {
+function mapViewProjection(
+    value: unknown,
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
+): DashboardViewProjection {
     const projection = readProjection(value);
     if (!projection) {
         return { kind: "list", items: [] };
     }
     if (projection.kind === "list") {
         const items = Array.isArray(projection.items) ? projection.items : [];
-        return { kind: "list", items: mapViewItems(items, entries) };
+        return { kind: "list", items: mapViewItems(items, entriesByPath) };
     }
     if (projection.kind === "table") {
         const columns = Array.isArray(projection.columns) ? (projection.columns as TableProjection["columns"]) : [];
@@ -414,7 +427,7 @@ function mapViewProjection(value: unknown, entries: DashboardEntry[]): Dashboard
         return {
             kind: "table",
             columns,
-            items: mapViewItems(items, entries),
+            items: mapViewItems(items, entriesByPath),
         };
     }
     if (projection.kind === "kanban") {
@@ -427,7 +440,10 @@ function mapViewProjection(value: unknown, entries: DashboardEntry[]): Dashboard
         return {
             kind: "kanban",
             card: projection.card as KanbanProjection["card"],
-            columns: columns.map((column) => ({ ...column, items: mapViewItems(column.items ?? [], entries) })),
+            columns: columns.map((column) => ({
+                ...column,
+                items: mapViewItems(column.items ?? [], entriesByPath),
+            })),
         };
     }
     if (projection.kind === "graph") {
@@ -448,10 +464,13 @@ function readProjection(value: unknown): { kind?: string; [key: string]: unknown
     return value as { kind?: string; [key: string]: unknown };
 }
 
-function mapViewItems(items: unknown[], entries: DashboardEntry[]): DashboardViewProjectionItem[] {
+function mapViewItems(
+    items: unknown[],
+    entriesByPath: ReadonlyMap<string, DashboardEntry>,
+): DashboardViewProjectionItem[] {
     return items.map((item) => {
         const value = item as { path: string; title?: string; fields?: Record<string, DashboardViewFieldValue> };
-        const entry = entries.find((candidate) => candidate.path === value.path);
+        const entry = entriesByPath.get(value.path);
         const rawFields = value.fields ?? {};
         return {
             entryId: entry?.id,

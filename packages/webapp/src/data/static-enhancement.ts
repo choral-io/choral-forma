@@ -3,6 +3,7 @@ import { viewRoutePath } from "@/lib/workspace-routes";
 import { resolveDashboardEntryTarget } from "./static-route-target";
 import { logicalPathname } from "./static-runtime";
 import type { DashboardEntry, DashboardViewRender, WorkspaceDashboard } from "./workspace-client";
+import { createWorkspaceDashboardContext } from "./workspace-client";
 import { isStaticWorkspaceClient, workspaceClient } from "./workspace-client-source";
 
 export interface PreparedStaticEnhancement {
@@ -17,6 +18,7 @@ export async function prepareStaticEnhancement(pathname: string) {
     if (!isStaticWorkspaceClient) return undefined;
 
     const dashboard = await workspaceClient.getDashboard();
+    const dashboardContext = createWorkspaceDashboardContext(dashboard);
     const routePath = logicalPathname(pathname);
     const seed: PreparedStaticEnhancement = { dashboard };
 
@@ -24,14 +26,14 @@ export async function prepareStaticEnhancement(pathname: string) {
         const target = resolveDashboardEntryTarget(dashboard, routePath);
         if (!target) throw new Error(`Static artifact route was not listed: ${routePath}`);
         seed.entry = {
-            detail: await workspaceClient.getEntry(target.entryId),
+            detail: await workspaceClient.getEntry(target.entryId, dashboardContext),
             routePath,
         };
     } else if (routePath.startsWith("/views/")) {
         const view = dashboard.views.find((candidate) => viewRoutePath(candidate.id) === routePath);
         if (!view) throw new Error(`Static artifact View route was not listed: ${routePath}`);
         seed.view = {
-            render: await workspaceClient.getViewRender(view.id),
+            render: await workspaceClient.getViewRender(view.id, dashboardContext),
             viewId: view.id,
         };
     } else if (!isDashboardOnlyRoute(dashboard, routePath)) {

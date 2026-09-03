@@ -16,6 +16,7 @@ import {
     Suspense,
     useEffect,
     useId,
+    useMemo,
     useRef,
     useState,
     type MouseEvent,
@@ -30,56 +31,53 @@ import { rootAwareHref } from "@/data/static-runtime";
 import type {
     DashboardDiagnostic,
     DashboardEntry,
-    DashboardEntryBlock,
     DashboardEntryLink,
     DashboardTaxonomy,
     DashboardTaxonomyTerm,
-    DashboardViewFieldValue,
     DashboardViewProjection,
     DashboardViewProjectionItem,
     DashboardViewRender,
     WorkspaceDashboard,
     WorkspaceHealth,
 } from "@/data/workspace-client";
+import { createWorkspaceDashboardContext } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
-import {
-    tableColumnEntryRoute,
-    tableColumnStyle,
-    tableColumnWraps,
-} from "@/features/dashboard/table-column-presentation";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { WorkspaceDefaultContextPanel, WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
-import { createMermaidRenderScope } from "@/lib/mermaid";
 import { scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
+import { useRouteContentFocusTarget } from "@/lib/route-focus";
 import { cn } from "@/lib/utils";
 import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 
 import { formatEntrySupportedLanguages } from "./entry-languages";
-import { syncKanbanStickyRailGeometry, syncKanbanStickyRailScroll } from "./kanban-sticky-header";
+import { getEntryOutline, getEntryOutlineTree, type EntryOutlineItem, type EntryOutlineNode } from "./entry-outline";
 import { prewarmMarkdownHighlighter } from "./markdown-shiki";
-import { MarkdownReader } from "./MarkdownReader";
-import {
-    createProjectionStickyBoundaryController,
-    projectionStickyHeaderClassName,
-    projectionStickyHeaderSurfaceClassName,
-} from "./projection-sticky-boundary";
+
+const EntryReader = lazy(async () => {
+    const module = await import("./EntryReader");
+    return { default: module.EntryReader };
+});
+
+const ViewDocumentMarkdown = lazy(async () => {
+    const module = await import("./ViewDocumentMarkdown");
+    return { default: module.ViewDocumentMarkdown };
+});
 
 const ViewGraphProjection = lazy(async () => {
     const module = await import("./ViewGraphProjection");
     return { default: module.ViewGraphProjection };
 });
 
-function useMermaidScope(key: string) {
-    const reactId = useId();
-    const [scope] = useState(() => createMermaidRenderScope(`${key}-${reactId}`));
-    useEffect(() => {
-        return () => {
-            scope.dispose();
-        };
-    }, [scope]);
-    return scope;
-}
+const ViewKanbanProjection = lazy(async () => {
+    const module = await import("./ViewKanbanProjection");
+    return { default: module.ViewKanbanProjection };
+});
+
+const ViewTableProjection = lazy(async () => {
+    const module = await import("./ViewTableProjection");
+    return { default: module.ViewTableProjection };
+});
 
 export function DashboardRoute() {
     return <EntryRouteContent routePath="/" />;
@@ -128,6 +126,7 @@ function EntryRouteContent({
     summaryOverride?: DashboardEntry;
 }) {
     const dashboard = useWorkspaceDashboard();
+    const dashboardContext = useMemo(() => createWorkspaceDashboardContext(dashboard), [dashboard]);
     const outlineDialogId = useId();
     const outlineDialogRef = useRef<HTMLDialogElement>(null);
     const outlineTriggerRef = useRef<HTMLElement>(null);
@@ -170,7 +169,7 @@ function EntryRouteContent({
         void prewarmMarkdownHighlighter();
         let cancelled = false;
         workspaceClient
-            .getEntry(entryId)
+            .getEntry(entryId, dashboardContext)
             .then((result) => {
                 if (!cancelled) {
                     setEntryDetail({ entry: result, routePath });
@@ -203,7 +202,7 @@ function EntryRouteContent({
         return () => {
             cancelled = true;
         };
-    }, [entryDetail?.routePath, entryId, routePath, summaryEntry]);
+    }, [dashboardContext, entryDetail?.routePath, entryId, routePath, summaryEntry]);
 
     useEffect(() => {
         const wideDesktopMedia = window.matchMedia("(min-width: 80rem)");
@@ -364,6 +363,7 @@ export function ViewsRoute() {
 
 export function ViewRoute() {
     const dashboard = useWorkspaceDashboard();
+    const dashboardContext = useMemo(() => createWorkspaceDashboardContext(dashboard), [dashboard]);
     const params = useParams();
     const viewId = params["*"]?.replace(/\/+$/u, "");
     const view = dashboard.views.find((item) => item.id === viewId);
@@ -395,7 +395,7 @@ export function ViewRoute() {
 
         let cancelled = false;
         workspaceClient
-            .getViewRender(viewId)
+            .getViewRender(viewId, dashboardContext)
             .then((render) => {
                 if (!cancelled) {
                     setRenderState({ render, status: "ready", viewId });
@@ -415,7 +415,7 @@ export function ViewRoute() {
         return () => {
             cancelled = true;
         };
-    }, [hasPreparedRender, renderRequestVersion, viewId]);
+    }, [dashboardContext, hasPreparedRender, renderRequestVersion, viewId]);
 
     if (!view) {
         return (
@@ -546,72 +546,6 @@ function PagesContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
     );
 }
 
-interface EntryOutlineItem {
-    blockIndex: number;
-    id: string;
-    level: 2 | 3;
-    text: string;
-}
-
-interface EntryOutlineNode extends EntryOutlineItem {
-    children: EntryOutlineItem[];
-}
-
-function getEntryOutline(blocks: DashboardEntryBlock[]): EntryOutlineItem[] {
-    const seen = new Map<string, number>();
-
-    return blocks.flatMap((block, blockIndex) => {
-        if (block.type === "html" || block.type === "markdown") {
-            return block.outline.map((item) => ({
-                ...item,
-                blockIndex,
-            }));
-        }
-
-        if (block.type !== "heading") {
-            return [];
-        }
-
-        const baseId = slugifyHeading(block.text);
-        const count = seen.get(baseId) ?? 0;
-        seen.set(baseId, count + 1);
-
-        return [
-            {
-                blockIndex,
-                id: count === 0 ? baseId : `${baseId}-${String(count + 1)}`,
-                level: block.level,
-                text: block.text,
-            },
-        ];
-    });
-}
-
-function getEntryOutlineTree(outline: EntryOutlineItem[]): EntryOutlineNode[] {
-    const tree: EntryOutlineNode[] = [];
-
-    for (const item of outline) {
-        if (item.level === 2 || tree.length === 0) {
-            tree.push({ ...item, children: [] });
-            continue;
-        }
-
-        tree[tree.length - 1]?.children.push(item);
-    }
-
-    return tree;
-}
-
-function slugifyHeading(text: string) {
-    const slug = text
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-
-    return slug || "section";
-}
-
 function getEntryDiagnostics(entry: DashboardEntry): DashboardDiagnostic[] {
     const diagnostics: DashboardDiagnostic[] = [...(entry.diagnostics ?? [])];
     const unresolvedLinks = entry.relations.outgoing.filter((link) => link.kind === "unresolved");
@@ -656,6 +590,7 @@ function EntryPage({
     onOutlineDialogClose: () => void;
     routePath: string;
 }) {
+    const titleRef = useRouteContentFocusTarget<HTMLHeadingElement>();
     const diagnostics = getEntryDiagnostics(entry);
     const outlineTree = getEntryOutlineTree(outline);
     const hasOutline = outlineTree.length > 0;
@@ -679,7 +614,9 @@ function EntryPage({
             <div className="group/entry mx-auto flex w-full max-w-6xl flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,48rem)_16rem] xl:gap-x-12">
                 <div className="mx-auto flex w-full min-w-0 flex-col gap-6 xl:mx-0">
                     <header className="mx-auto flex w-full max-w-3xl scroll-m-8 flex-col gap-3 xl:mx-0" id="entry-top">
-                        <h1 className="text-3xl font-semibold tracking-normal">{entry.title}</h1>
+                        <h1 className="text-3xl font-semibold tracking-normal" ref={titleRef} tabIndex={-1}>
+                            {entry.title}
+                        </h1>
                         {entry.summary ? <p className="text-base-content/60 text-sm/6">{entry.summary}</p> : null}
                         <div className="text-base-content/60 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
                             <span className="flex min-w-0 basis-full items-center gap-1 sm:basis-auto">
@@ -708,29 +645,22 @@ function EntryPage({
 
                     <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-12 xl:mx-0">
                         {isLoadingDetail ? (
-                            <div
-                                aria-busy="true"
-                                aria-label="Loading page content"
-                                className="flex flex-col gap-5 py-4"
-                                role="status"
-                            >
-                                <div className="skeleton h-4 w-full" />
-                                <div className="skeleton h-4 w-11/12" />
-                                <div className="skeleton mt-4 h-7 w-2/5" />
-                                <div className="skeleton h-4 w-full" />
-                                <div className="skeleton h-4 w-4/5" />
-                            </div>
+                            <EntryContentSkeleton />
                         ) : (
                             <>
-                                <EntryReader
-                                    blocks={entry.body}
-                                    currentPath={entry.path}
-                                    currentRoutePath={routePath}
-                                    entries={entries}
-                                    key={entry.path}
-                                    omitLeadingTitle={entry.omitLeadingTitle}
-                                    outline={outline}
-                                />
+                                {/* A local boundary keeps the page header, and with it the focus
+                                    target, mounted while the reader chunk loads. */}
+                                <Suspense fallback={<EntryContentSkeleton />}>
+                                    <EntryReader
+                                        blocks={entry.body}
+                                        currentPath={entry.path}
+                                        currentRoutePath={routePath}
+                                        entries={entries}
+                                        key={entry.path}
+                                        omitLeadingTitle={entry.omitLeadingTitle}
+                                        outline={outline}
+                                    />
+                                </Suspense>
                                 <details
                                     className="collapse-arrow border-base-300 collapse scroll-m-8 border-t group-has-data-reader-loading/entry:hidden"
                                     id="document-details"
@@ -831,167 +761,6 @@ function EntryPage({
                     </form>
                 </dialog>
             ) : null}
-        </div>
-    );
-}
-
-function EntryReader({
-    blocks,
-    currentPath,
-    currentRoutePath,
-    entries,
-    omitLeadingTitle,
-    outline,
-}: {
-    blocks: DashboardEntryBlock[];
-    currentPath: string;
-    currentRoutePath: string;
-    entries: DashboardEntry[];
-    omitLeadingTitle: boolean;
-    outline: EntryOutlineItem[];
-}) {
-    const mermaidScope = useMermaidScope(currentPath);
-
-    return (
-        <div className="w-full py-2 md:py-4">
-            <article className="flex w-full flex-col gap-5">
-                {blocks.map((block, index) => {
-                    const headingId = outline.find((item) => item.blockIndex === index)?.id;
-
-                    return (
-                        <EntryBlockView
-                            block={block}
-                            currentPath={currentPath}
-                            currentRoutePath={currentRoutePath}
-                            entries={entries}
-                            headingId={headingId}
-                            mermaidScope={mermaidScope}
-                            omitLeadingTitle={omitLeadingTitle && index === 0}
-                            key={`${block.type}-${String(index)}`}
-                        />
-                    );
-                })}
-            </article>
-        </div>
-    );
-}
-
-function EntryBlockView({
-    block,
-    currentPath,
-    currentRoutePath,
-    entries,
-    headingId,
-    mermaidScope,
-    omitLeadingTitle = false,
-}: {
-    block: DashboardEntryBlock;
-    currentPath: string;
-    currentRoutePath: string;
-    entries: DashboardEntry[];
-    headingId?: string;
-    mermaidScope: ReturnType<typeof createMermaidRenderScope>;
-    omitLeadingTitle?: boolean;
-}) {
-    if (block.type === "markdown") {
-        return (
-            <MarkdownReader
-                currentPath={currentPath}
-                currentRoutePath={currentRoutePath}
-                entries={entries}
-                headings={block.outline}
-                markdown={block.markdown}
-                mermaidScope={mermaidScope}
-                omitLeadingTitle={omitLeadingTitle}
-            />
-        );
-    }
-
-    if (block.type === "html") {
-        return (
-            <div
-                data-reader="markdown"
-                // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
-                dangerouslySetInnerHTML={{ __html: block.html }}
-            />
-        );
-    }
-
-    if (block.type === "heading") {
-        const Heading = block.level === 2 ? "h2" : "h3";
-        const className =
-            block.level === 2
-                ? "text-base-content mt-2 scroll-m-20 text-xl font-semibold tracking-normal first:mt-0"
-                : "text-base-content mt-2 scroll-m-20 text-base font-semibold tracking-normal first:mt-0";
-
-        return (
-            <Heading className={className} id={headingId}>
-                {block.text}
-            </Heading>
-        );
-    }
-
-    if (block.type === "paragraph") {
-        return <p className="text-base-content/90 text-sm/7">{block.text}</p>;
-    }
-
-    if (block.type === "list") {
-        return (
-            <ul className="text-base-content/90 flex list-disc flex-col gap-2 ps-5 text-sm/7">
-                {block.items.map((item) => (
-                    <li key={item}>{item}</li>
-                ))}
-            </ul>
-        );
-    }
-
-    if (block.type === "quote") {
-        return (
-            <blockquote className="border-base-300 text-base-content/60 bg-base-200/30 rounded-r-lg border-s-4 px-4 py-3 text-sm/7">
-                {block.text}
-            </blockquote>
-        );
-    }
-
-    if (block.type === "code") {
-        return (
-            <figure className="border-base-300 bg-base-200/50 overflow-hidden rounded-lg border">
-                <figcaption className="border-base-300 text-base-content/60 border-b px-4 py-2 text-xs">
-                    {block.language}
-                </figcaption>
-                <pre className="overflow-x-auto p-4 text-sm/6">
-                    <code>{block.code}</code>
-                </pre>
-            </figure>
-        );
-    }
-
-    return (
-        <div className="border-base-300 overflow-hidden rounded-lg border">
-            <div className="overflow-x-auto">
-                <table className="table-sm table min-w-xl">
-                    <thead className="bg-base-200 text-base-content/60">
-                        <tr>
-                            {block.columns.map((column) => (
-                                <th className="font-medium" key={column}>
-                                    {column}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {block.rows.map((row) => (
-                            <tr key={row.join("|")}>
-                                {row.map((cell, cellIndex) => (
-                                    <td className="align-top" key={`${block.columns[cellIndex] ?? "cell"}-${cell}`}>
-                                        {cell}
-                                    </td>
-                                ))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
         </div>
     );
 }
@@ -1165,6 +934,18 @@ function EntryOutlineLink({
         >
             <span className="min-w-0 truncate">{item.text}</span>
         </a>
+    );
+}
+
+function EntryContentSkeleton() {
+    return (
+        <div aria-busy="true" aria-label="Loading page content" className="flex flex-col gap-5 py-4" role="status">
+            <div className="skeleton h-4 w-full" />
+            <div className="skeleton h-4 w-11/12" />
+            <div className="skeleton mt-4 h-7 w-2/5" />
+            <div className="skeleton h-4 w-full" />
+            <div className="skeleton h-4 w-4/5" />
+        </div>
     );
 }
 
@@ -1402,10 +1183,13 @@ function ViewPage({
     renderError?: string;
     view: WorkspaceDashboard["views"][number];
 }) {
-    const mermaidScope = useMermaidScope(render?.document.path ?? view.path);
     const projection = render?.projection;
     const entries = entriesForView(dashboard, view);
     const itemCount = projection ? projectionItemCount(projection) : entries.length;
+    const hasDocumentMarkdown = Boolean(
+        render && (render.document.beforeProjection.trim() || render.document.afterProjection.trim()),
+    );
+    const projectionElement = <ViewProjectionRenderer error={renderError} onRetry={onRetry} projection={projection} />;
 
     return (
         <div className="flex min-w-0 flex-col gap-6">
@@ -1428,27 +1212,15 @@ function ViewPage({
                     </button>
                 </span>
             </div>
-            {render?.document.beforeProjection.trim() ? (
-                <div className="[&_[data-reader=markdown]>h1:first-child]:hidden">
-                    <MarkdownReader
-                        currentPath={render.document.path}
-                        entries={dashboard.entries}
-                        headings={[]}
-                        markdown={render.document.beforeProjection}
-                        mermaidScope={mermaidScope}
-                    />
-                </div>
-            ) : null}
-            <ViewProjectionRenderer error={renderError} onRetry={onRetry} projection={projection} />
-            {render?.document.afterProjection.trim() ? (
-                <MarkdownReader
-                    currentPath={render.document.path}
-                    entries={dashboard.entries}
-                    headings={[]}
-                    markdown={render.document.afterProjection}
-                    mermaidScope={mermaidScope}
-                />
-            ) : null}
+            {hasDocumentMarkdown && render ? (
+                <Suspense fallback={<ProjectionLoadingState />}>
+                    <ViewDocumentMarkdown document={render.document} entries={dashboard.entries}>
+                        {projectionElement}
+                    </ViewDocumentMarkdown>
+                </Suspense>
+            ) : (
+                projectionElement
+            )}
         </div>
     );
 }
@@ -1611,23 +1383,21 @@ function ViewProjectionRenderer({
         return <ProjectionLoadingState />;
     }
 
-    if (projection.kind === "graph") {
-        return (
-            <Suspense fallback={<ProjectionLoadingState />}>
-                <ViewGraphProjection projection={projection} />
-            </Suspense>
-        );
-    }
-
     if (projection.kind === "list") {
         return <ViewListProjection projection={projection} />;
     }
 
-    if (projection.kind === "kanban") {
-        return <ViewKanbanProjection projection={projection} />;
-    }
-
-    return <ViewTableProjection projection={projection} />;
+    return (
+        <Suspense fallback={<ProjectionLoadingState />}>
+            {projection.kind === "graph" ? (
+                <ViewGraphProjection projection={projection} />
+            ) : projection.kind === "kanban" ? (
+                <ViewKanbanProjection projection={projection} />
+            ) : (
+                <ViewTableProjection projection={projection} />
+            )}
+        </Suspense>
+    );
 }
 
 function entriesForView(dashboard: WorkspaceDashboard, view: WorkspaceDashboard["views"][number]) {
@@ -1737,475 +1507,6 @@ function ViewListProjectionRow({ item }: { item: DashboardViewProjectionItem }) 
             {content}
         </Link>
     );
-}
-
-function ViewTableProjection({ projection }: { projection: Extract<DashboardViewProjection, { kind: "table" }> }) {
-    const boundaryRef = useRef<HTMLDivElement>(null);
-    const headerRef = useRef<HTMLTableSectionElement>(null);
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const stickyHeaderRef = useRef<HTMLDivElement>(null);
-    const stickyTableRef = useRef<HTMLTableElement>(null);
-    const tableRef = useRef<HTMLTableElement>(null);
-
-    useEffect(() => {
-        const boundary = boundaryRef.current;
-        const header = headerRef.current;
-        const scroll = scrollRef.current;
-        const stickyHeader = stickyHeaderRef.current;
-        const stickyTable = stickyTableRef.current;
-        const table = tableRef.current;
-        if (!boundary || !header || !scroll || !stickyHeader || !stickyTable || !table) return;
-
-        return createProjectionStickyBoundaryController({
-            boundary,
-            observe: [table, ...header.querySelectorAll("th")],
-            source: header,
-            sticky: stickyHeader,
-            syncPresentation: () => {
-                syncTableStickyHeaderGeometry({ header, scroll, stickyHeader, stickyTable, table });
-            },
-        });
-    }, [projection]);
-
-    return (
-        <div className="relative grid" ref={boundaryRef}>
-            <div
-                aria-hidden="true"
-                className={projectionStickyHeaderClassName}
-                data-view-sticky-header=""
-                ref={stickyHeaderRef}
-            >
-                <table className="table-sm table min-w-0 table-fixed" ref={stickyTableRef}>
-                    <colgroup>
-                        {projection.columns.map((column) => (
-                            <col key={column.field} />
-                        ))}
-                    </colgroup>
-                    <thead className="bg-base-200 text-base-content/60">
-                        <tr className="border-base-300 border-b">
-                            {projection.columns.map((column) => (
-                                <th
-                                    className={cn(
-                                        "font-medium",
-                                        tableColumnWraps(column)
-                                            ? "wrap-break-word whitespace-normal"
-                                            : "whitespace-nowrap",
-                                    )}
-                                    key={column.field}
-                                >
-                                    {column.label}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                </table>
-            </div>
-            <div className="border-base-300 col-start-1 row-start-1 overflow-hidden rounded-lg border">
-                <div
-                    aria-label="Table view"
-                    className="focus-visible:ring-primary/40 overflow-x-auto overscroll-x-contain outline-none focus-visible:ring-3"
-                    data-view-table-scroll=""
-                    onScroll={(event) => {
-                        if (stickyHeaderRef.current)
-                            stickyHeaderRef.current.scrollLeft = event.currentTarget.scrollLeft;
-                    }}
-                    ref={scrollRef}
-                    role="region"
-                    tabIndex={0}
-                >
-                    <table className="table-sm table min-w-max" ref={tableRef}>
-                        <thead className="bg-base-200 text-base-content/60" ref={headerRef}>
-                            <tr className="border-base-300 border-b">
-                                {projection.columns.map((column) => (
-                                    <th
-                                        className={cn(
-                                            "font-medium",
-                                            tableColumnWraps(column)
-                                                ? "wrap-break-word whitespace-normal"
-                                                : "whitespace-nowrap",
-                                        )}
-                                        key={column.field}
-                                        scope="col"
-                                        style={tableColumnStyle(column)}
-                                    >
-                                        {column.label}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {projection.items.map((item) => (
-                                <tr
-                                    className="border-base-300 hover:bg-base-200/50 border-b last:border-b-0"
-                                    key={item.path}
-                                >
-                                    {projection.columns.map((column) => (
-                                        <td
-                                            className={cn("align-top", tableColumnStyle(column) ? null : "max-w-80")}
-                                            key={`${item.path}-${column.field}`}
-                                            style={tableColumnStyle(column)}
-                                        >
-                                            <ViewProjectionCell column={column} item={item} />
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function syncTableStickyHeaderGeometry({
-    header,
-    scroll,
-    stickyHeader,
-    stickyTable,
-    table,
-}: {
-    header: HTMLTableSectionElement;
-    scroll: HTMLDivElement;
-    stickyHeader: HTMLDivElement;
-    stickyTable: HTMLTableElement;
-    table: HTMLTableElement;
-}) {
-    const headerCells = header.querySelectorAll("th");
-    const stickyColumns = stickyTable.querySelectorAll("col");
-    headerCells.forEach((cell, index) => {
-        const stickyColumn = stickyColumns.item(index);
-        stickyColumn.style.width = `${cell.getBoundingClientRect().width.toString()}px`;
-    });
-    stickyTable.style.width = `${table.getBoundingClientRect().width.toString()}px`;
-    stickyHeader.scrollLeft = scroll.scrollLeft;
-}
-
-function ViewProjectionCell({
-    column,
-    item,
-}: {
-    column: Extract<DashboardViewProjection, { kind: "table" }>["columns"][number];
-    item: DashboardViewProjectionItem;
-}) {
-    const value = rawViewFieldValue(item, column.field);
-
-    if (value === undefined || value === null || plainViewFieldValue(value) === "") {
-        return <span className="text-base-content/50">—</span>;
-    }
-
-    if (isReferenceViewField(value)) {
-        return <ViewReferenceFieldContent column={column} value={value} />;
-    }
-
-    const rawValue = isValueViewField(value) ? value.value : value;
-    const routePath = tableColumnEntryRoute(column, item);
-    const textClassName = routePath ? "text-primary" : "text-base-content/70";
-    const content = Array.isArray(rawValue) ? (
-        <ul className="space-y-1">
-            {rawValue.map((entry, index) => {
-                const label = plainViewFieldValue(entry);
-                return (
-                    <li
-                        className={cn(
-                            textClassName,
-                            tableColumnWraps(column) ? "wrap-break-word whitespace-normal" : "max-w-72 truncate",
-                        )}
-                        key={`${label}-${String(index)}`}
-                        title={label}
-                    >
-                        {label}
-                    </li>
-                );
-            })}
-        </ul>
-    ) : (
-        <span
-            className={cn(
-                textClassName,
-                "block",
-                tableColumnWraps(column) ? "wrap-break-word whitespace-normal" : "max-w-80 truncate",
-            )}
-            title={plainViewFieldValue(rawValue)}
-        >
-            {plainViewFieldValue(rawValue)}
-        </span>
-    );
-
-    if (!routePath) return content;
-
-    return (
-        <Link
-            aria-label={`Open source entry ${item.title}`}
-            className="link link-primary link-hover block"
-            to={routePath}
-        >
-            {content}
-        </Link>
-    );
-}
-
-function ViewReferenceFieldContent({
-    column,
-    value,
-}: {
-    column: Extract<DashboardViewProjection, { kind: "table" }>["columns"][number];
-    value: Extract<DashboardViewFieldValue, { kind: "reference" | "referenceList" }>;
-}) {
-    const references = value.kind === "reference" ? [value.reference] : value.references;
-    const referenceLink = (reference: (typeof references)[number]) => {
-        const className = cn(
-            "link link-primary link-hover",
-            tableColumnWraps(column) ? "wrap-break-word whitespace-normal" : "block max-w-72 truncate",
-        );
-        return reference.routePath ? (
-            <Link className={className} key={reference.path} title={reference.title} to={reference.routePath}>
-                {reference.title}
-            </Link>
-        ) : (
-            <span className={className} key={reference.path} title={reference.title}>
-                {reference.title}
-            </span>
-        );
-    };
-
-    return value.kind === "reference" ? (
-        referenceLink(value.reference)
-    ) : (
-        <ul className="space-y-1">
-            {references.map((reference) => (
-                <li key={reference.path}>{referenceLink(reference)}</li>
-            ))}
-        </ul>
-    );
-}
-
-function ViewKanbanProjection({ projection }: { projection: Extract<DashboardViewProjection, { kind: "kanban" }> }) {
-    const boundaryRef = useRef<HTMLDivElement>(null);
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const sourceRef = useRef<HTMLDivElement>(null);
-    const stickyHeaderRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const boundary = boundaryRef.current;
-        const scroll = scrollRef.current;
-        const source = sourceRef.current;
-        const stickyHeader = stickyHeaderRef.current;
-        if (!boundary || !scroll || !source || !stickyHeader) return;
-        const sources = [...boundary.querySelectorAll<HTMLElement>("[data-view-kanban-column-heading]")];
-        const stickyColumns = [...stickyHeader.querySelectorAll<HTMLElement>("[data-view-kanban-sticky-column]")];
-
-        return createProjectionStickyBoundaryController({
-            boundary,
-            observe: [scroll, ...boundary.querySelectorAll("[data-view-kanban-column]"), ...sources],
-            source,
-            sticky: stickyHeader,
-            syncPresentation: () => {
-                syncKanbanStickyRailGeometry({
-                    scrollLeft: scroll.scrollLeft,
-                    sources,
-                    stickyColumns,
-                    stickyRail: stickyHeader,
-                });
-            },
-        });
-    }, [projection]);
-
-    return (
-        <div className="relative grid" ref={boundaryRef}>
-            <div
-                aria-hidden="true"
-                className={cn(projectionStickyHeaderClassName, "rounded-none border-0 bg-transparent")}
-                data-view-kanban-sticky-header=""
-                ref={stickyHeaderRef}
-            >
-                <div className={kanbanTrackClassName}>
-                    {projection.columns.map((column) => (
-                        <div
-                            className={cn(
-                                kanbanColumnClassName,
-                                kanbanColumnHeaderBoxClassName,
-                                projectionStickyHeaderSurfaceClassName,
-                                "bg-base-200 ring-base-300 ring-1 ring-inset",
-                            )}
-                            data-view-kanban-sticky-column=""
-                            key={column.id}
-                        >
-                            <div className={kanbanColumnHeadingClassName}>
-                                <h3 className="min-w-0 truncate font-medium">
-                                    {column.icon ? <span aria-hidden="true">{column.icon} </span> : null}
-                                    {column.label}
-                                </h3>
-                                <span className="badge badge-ghost badge-sm shrink-0">{column.items.length}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <div
-                aria-label="Kanban board"
-                className="focus-visible:ring-primary/40 col-start-1 row-start-1 max-w-full min-w-0 overflow-x-auto overscroll-x-contain pb-3 outline-none focus-visible:ring-3"
-                data-view-kanban-scroll=""
-                onScroll={(event) => {
-                    syncKanbanStickyRailScroll(stickyHeaderRef.current, event.currentTarget.scrollLeft);
-                }}
-                ref={scrollRef}
-                role="region"
-                tabIndex={0}
-            >
-                <div className={kanbanTrackClassName}>
-                    {projection.columns.map((column, index) => (
-                        <section
-                            className={cn(
-                                kanbanColumnClassName,
-                                "border-base-300 bg-base-200 min-h-60 rounded-lg border",
-                            )}
-                            data-view-kanban-column=""
-                            key={column.id}
-                        >
-                            <div
-                                className={kanbanColumnHeaderBoxClassName}
-                                data-view-kanban-column-heading=""
-                                ref={index === 0 ? sourceRef : undefined}
-                            >
-                                <div className={kanbanColumnHeadingClassName}>
-                                    <h3 className="min-w-0 truncate font-medium" title={column.label}>
-                                        {column.icon ? <span aria-hidden="true">{column.icon} </span> : null}
-                                        {column.label}
-                                    </h3>
-                                    <span className="badge badge-ghost badge-sm shrink-0">{column.items.length}</span>
-                                </div>
-                            </div>
-                            <div className="flex flex-col gap-3 px-3 pb-3">
-                                {column.items.map((item) => (
-                                    <ViewKanbanCard card={projection.card} item={item} key={item.path} />
-                                ))}
-                                {column.items.length === 0 ? (
-                                    <p className="border-base-300 text-base-content/60 rounded-md border border-dashed p-3 text-sm">
-                                        No entries
-                                    </p>
-                                ) : null}
-                            </div>
-                        </section>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-const kanbanTrackClassName = "flex min-w-max flex-nowrap items-start gap-3";
-const kanbanColumnClassName = "w-[min(20rem,85vw)] flex-none";
-const kanbanColumnHeaderBoxClassName = "p-3";
-const kanbanColumnHeadingClassName = "flex items-center justify-between gap-3";
-
-function ViewKanbanCard({
-    card,
-    item,
-}: {
-    card: Extract<DashboardViewProjection, { kind: "kanban" }>["card"];
-    item: DashboardViewProjectionItem;
-}) {
-    const title = formattedViewFieldValue(item, card.titleField) || item.title || item.path;
-    const subtitles = card.subtitleFields
-        .map((field) => ({ field, value: formattedViewFieldValue(item, field) }))
-        .filter(({ value }) => value !== "");
-    const badges = card.badgeFields
-        .map((field) => ({ field, value: formattedViewFieldValue(item, field) }))
-        .filter(({ value }) => value !== "");
-    const content = (
-        <div className="card-body gap-2 p-3">
-            <span className="card-title block truncate text-base" title={title}>
-                {title}
-            </span>
-            {subtitles.length > 0 ? (
-                <div className="grid gap-1">
-                    {subtitles.map(({ field, value }) => (
-                        <p className="text-base-content/60 line-clamp-2 text-sm" key={field} title={value}>
-                            <span className="sr-only">{viewFieldLabel(field)}: </span>
-                            {value}
-                        </p>
-                    ))}
-                </div>
-            ) : null}
-            <div className="flex flex-wrap gap-1.5">
-                {badges.map(({ field, value }) => (
-                    <span
-                        className="badge badge-soft badge-sm max-w-full"
-                        key={field}
-                        title={`${viewFieldLabel(field)}: ${value}`}
-                    >
-                        <span className="sr-only">{viewFieldLabel(field)}: </span>
-                        <span className="truncate">{value}</span>
-                    </span>
-                ))}
-            </div>
-        </div>
-    );
-
-    if (!item.routePath) {
-        return (
-            <article className="card card-sm card-border border-base-300 bg-base-100 overflow-hidden">
-                {content}
-            </article>
-        );
-    }
-
-    return (
-        <Link
-            className="card card-sm card-border border-base-300 bg-base-100 hover:bg-base-300 focus-visible:ring-primary/50 overflow-hidden transition-colors outline-none focus-visible:ring-3"
-            to={item.routePath}
-        >
-            {content}
-        </Link>
-    );
-}
-
-function rawViewFieldValue(item: DashboardViewProjectionItem, field: string): unknown {
-    if (field === "path" || field === "entry.path") return item.path;
-    if (field === "title" || field === "entry.title") return item.title;
-    const key = field.replace(/^fields\./u, "");
-    return item.rawFields[field] ?? item.rawFields[key];
-}
-
-function formattedViewFieldValue(item: DashboardViewProjectionItem, field: string): string {
-    if (field === "path" || field === "entry.path") return item.path;
-    if (field === "title" || field === "entry.title") return item.title;
-    const key = field.replace(/^fields\./u, "");
-    return item.fields[field] ?? item.fields[key] ?? "";
-}
-
-function plainViewFieldValue(value: unknown): string {
-    if (value === undefined || value === null) return "";
-    if (isValueViewField(value)) return plainViewFieldValue(value.value);
-    if (isReferenceViewField(value)) {
-        return value.kind === "reference"
-            ? value.reference.title
-            : value.references.map((reference) => reference.title).join(", ");
-    }
-    if (Array.isArray(value)) return value.map(plainViewFieldValue).filter(Boolean).join(", ");
-    if (typeof value === "string") return value;
-    if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
-    return JSON.stringify(value);
-}
-
-function isValueViewField(value: unknown): value is Extract<DashboardViewFieldValue, { kind: "value" }> {
-    return typeof value === "object" && value !== null && "kind" in value && value.kind === "value";
-}
-
-function isReferenceViewField(
-    value: unknown,
-): value is Extract<DashboardViewFieldValue, { kind: "reference" | "referenceList" }> {
-    return (
-        typeof value === "object" &&
-        value !== null &&
-        "kind" in value &&
-        (value.kind === "reference" || value.kind === "referenceList")
-    );
-}
-
-function viewFieldLabel(field: string): string {
-    return field.replace(/^fields\./u, "");
 }
 
 function TaxonomyTermsGrid({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
