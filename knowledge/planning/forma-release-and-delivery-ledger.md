@@ -35,6 +35,7 @@ sources:
     - "releases/forma-v0.1.32"
     - "releases/forma-v0.1.33"
     - "releases/forma-v0.1.34"
+    - "releases/forma-v0.1.35"
     - "planning/release-artifact-promotion-pipeline-redesign"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
@@ -78,9 +79,11 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.32 | [[releases/forma-v0.1.32]] | Released deterministic Graph-layout stability Public Preview patch. |
 | v0.1.33 | [[releases/forma-v0.1.33]] | Released strict numeric Schema contract Public Preview patch. |
 | v0.1.34 | [[releases/forma-v0.1.34]] | Released explicit structured-artifact schema validation and coordinated toolchain Public Preview patch. |
+| v0.1.35 | [[releases/forma-v0.1.35]] | Planned guideline-glob and editor-compatibility Public Preview candidate. |
 
 ## Current Delivery Cutline
 
+- **Prepared candidate:** [[releases/forma-v0.1.35]]; publication and acceptance evidence remain pending.
 - **Current released baseline:** [[releases/forma-v0.1.34]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
 - **Previous released baseline:** [[releases/forma-v0.1.33]] records the strict numeric Schema contract Public Preview patch that preceded this release.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.

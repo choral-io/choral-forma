@@ -49,13 +49,13 @@ Follow the common bootstrap in `skills get workspace-operations` ([[guidelines/f
 
 ### Candidate Gates
 
-Before creating a tag:
+Before dispatching the protected Release workflow:
 
 1. Align Cargo workspace, Cargo lockfile, CLI, VS Code extension, changelog, README, release record, and expected tag through the repository version tasks.
 2. Run `mise run version:check -- <tag>`.
 3. Run the complete local gate with the repository-pinned tools: `CI=true mise run check`.
 4. Run Forma content checks and workspace health.
-5. Package and smoke-test the VSIX locally when the release changes the extension or its distribution path.
+5. Package and smoke-test the VSIX locally when the release changes the extension or its distribution path. Review `extensions/vscode/API_COMPATIBILITY.md` during monthly release preparation; keep the declared minimum, types, and test targets aligned.
 6. Commit and push the complete candidate.
 7. Confirm that main CI passes for the exact candidate commit.
 
@@ -75,9 +75,9 @@ Do not bypass a failed check, reuse stale CI evidence, or continue publication b
 
 ### Tag And Publication Rules
 
-- Create an annotated `v<version>` tag only after the exact candidate commit is green.
+- Dispatch `.github/workflows/release.yml` (`workflow_dispatch`) on the exact green main candidate with its unprefixed version. The `release-production` promotion job creates or verifies the annotated `v<version>` tag after source-bound artifact verification and required approval.
 - Never move, overwrite, or republish a released tag. Publish a new version for corrective changes.
-- Observe the tag-triggered Release workflow through concise status queries. Retrieve detailed job logs only when a job fails or stalls.
+- Observe the dispatched Release workflow and its protected promotion/Marketplace gates through concise status queries. Retrieve detailed job logs only when a job fails or stalls.
 - Do not mark a release `released` merely because the GitHub Release workflow completed.
 
 ### Published Release Verification

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.35
+
+- Support deterministic guideline glob declarations, source diagnostics, and file-change watching across Forma CLI, RPC, and skill projections.
+- Make workspace glob matching respect directory boundaries: use `**` for recursive selection where older patterns relied on `*` crossing directories.
+- Improve WebApp dashboard/router data flow, enable React Compiler, and defer Markdown math loading.
+- Refresh the coordinated pnpm/Cargo dependencies and generated editor icons.
+- Reuse exact matching installed VS Code versions for isolated tests and retain the minimum-version cache between runs.
 - Raise the minimum supported VS Code version to 1.123.2 under a 90-day compatibility window, reviewed monthly and applied with Forma releases. Older editors must upgrade to install this release.
 
 ## 0.1.34
