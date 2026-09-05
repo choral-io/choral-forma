@@ -3,6 +3,7 @@ import { chmod, cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { minimumVSCodeVersion } from "./vscode-compatibility.mjs";
 
 import { downloadAndUnzipVSCode } from "@vscode/test-electron";
 
@@ -35,7 +36,7 @@ try {
         process.env.VSCODE_EXECUTABLE_PATH ??
         (await downloadAndUnzipVSCode({
             cachePath: resolve(extensionRoot, ".vscode-test"),
-            version: "1.110.0",
+            version: minimumVSCodeVersion,
         }));
     const options = JSON.stringify({
         colorDefault: true,

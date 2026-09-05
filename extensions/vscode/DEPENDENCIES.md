@@ -9,7 +9,7 @@ The dependency bundles the Microsoft `vscode-jsonrpc`, `vscode-languageserver-pr
 Development dependencies stay inside `extensions/vscode`:
 
 - `esbuild`: build-only bundler for the single CommonJS extension-host entrypoint; selected by the accepted architecture and removable if the repository adopts another extension bundler.
-- `@types/vscode`, `@types/node`, `@types/mocha`: compile-time contracts only. The VS Code type version is pinned to the declared minimum compatibility floor.
+- `@types/vscode`, `@types/node`, `@types/mocha`: compile-time contracts only. The VS Code types use the minimum supported API series, or the closest earlier published series when declarations are unavailable; they never target a newer API than the declared editor floor. See [API compatibility](./API_COMPATIBILITY.md).
 - `@vscode/test-cli` and `@vscode/test-electron`: official VS Code Extension Host test path for the minimum and stable desktop versions; removable together if the project changes its official integration harness.
 - `@vscode/vsce`: official VSIX packaging tool, used for local validation and CI packaging. Marketplace publication remains a separately authorized maintainer operation.
 - `mocha`: test-only runner required by the official Extension Host test CLI.

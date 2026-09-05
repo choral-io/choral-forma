@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Raise the minimum supported VS Code version to 1.123.2 under a 90-day compatibility window, reviewed monthly and applied with Forma releases. Older editors must upgrade to install this release.
+
 ## 0.1.34
 
 - Add the read-only `forma tools` registry and `schema.validate` for explicit JSON, YAML, and JSONL artifacts with local JSON Schema references and structured diagnostics.

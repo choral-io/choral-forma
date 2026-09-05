@@ -3,6 +3,7 @@ import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { minimumVSCodeVersion } from "./vscode-compatibility.mjs";
 
 import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } from "@vscode/test-electron";
 
@@ -27,7 +28,7 @@ const vscodeExecutablePath =
     process.env.VSCODE_EXECUTABLE_PATH ??
     (await downloadAndUnzipVSCode({
         cachePath: resolve(extensionRoot, ".vscode-test"),
-        version: process.env.VSCODE_VERSION ?? "1.110.0",
+        version: process.env.VSCODE_VERSION ?? minimumVSCodeVersion,
     }));
 const [cli, ...cliPrefixArgs] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath, {
     reuseMachineInstall: true,

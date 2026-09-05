@@ -2,6 +2,7 @@ import { defineConfig } from "@vscode/test-cli";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { minimumVSCodeVersion } from "./scripts/vscode-compatibility.mjs";
 
 import {
     createFormaTestEnvironment,
@@ -26,7 +27,7 @@ export default defineConfig([
         files: "dist/test/extension.test.cjs",
         launchArgs,
         mocha: { ui: "tdd", timeout: 20_000 },
-        version: "1.110.0",
+        version: minimumVSCodeVersion,
         workspaceFolder: "./test-fixtures/basic",
     },
     {
