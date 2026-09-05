@@ -43,7 +43,7 @@ impl WorkspacePatternSet {
             .into_iter()
             .map(|pattern| {
                 builder.add(
-                    globset::Glob::new(pattern.as_str())
+                    crate::path::compile_workspace_glob(pattern.as_str())
                         .expect("WorkspaceGlob contains a validated glob"),
                 );
                 scan_roots.push(pattern.scan_root(root));
@@ -78,7 +78,7 @@ impl WorkspacePatternSet {
         self.patterns
             .iter()
             .filter(|pattern| {
-                globset::Glob::new(pattern)
+                crate::path::compile_workspace_glob(pattern)
                     .expect("WorkspacePatternSet contains validated globs")
                     .compile_matcher()
                     .is_match(path)
@@ -584,6 +584,37 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("forma-scan-{name}-{unique}"))
+    }
+
+    #[test]
+    fn single_component_globs_exclude_nested_local_handoffs() {
+        let root = fixture_root("handoff-boundary");
+        let pattern = "knowledge/workspace/*/handoffs/**/*.md";
+        let shared = "knowledge/workspace/alex/handoffs/current.md";
+        let nested = "knowledge/workspace/alex/handoffs/archive/previous.md";
+        let local = "knowledge/workspace/alex/local/handoffs/private.md";
+        for path in [shared, nested, local] {
+            write(&root.join(path), "# Handoff\n");
+        }
+        let glob = crate::path::WorkspaceGlob::parse_config(pattern).unwrap();
+        let set = super::WorkspacePatternSet::from_validated(&root, [glob.clone()]);
+        let paths = set.matching_files().unwrap();
+        assert_eq!(paths.len(), 2, "only shared handoffs should be scanned");
+        for path in [shared, nested] {
+            assert!(paths.contains(&root.join(path)));
+            assert!(glob.matcher().is_match(path));
+            assert!(set.is_match(path));
+            assert_eq!(set.matching_patterns(path), [pattern]);
+        }
+        assert!(!glob.matcher().is_match(local));
+        assert!(!set.is_match(local));
+        assert!(set.matching_patterns(local).is_empty());
+
+        // Local is an ordinary name: explicit recursive configuration includes it.
+        let recursive = crate::path::WorkspaceGlob::parse_config("knowledge/**/*.md").unwrap();
+        let set = super::WorkspacePatternSet::from_validated(&root, [recursive]);
+        assert_eq!(set.matching_files().unwrap().len(), 3);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

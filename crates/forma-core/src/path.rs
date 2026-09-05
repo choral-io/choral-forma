@@ -1,11 +1,16 @@
 use std::fmt;
 use std::path::{Component, Path, PathBuf};
 
-use globset::{Glob, GlobMatcher};
+use globset::{Glob, GlobBuilder, GlobMatcher};
 use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 
 pub const FORMA_CONFIG_PATH: &str = ".forma.md";
+
+/// Match workspace paths by directory component; only `**` crosses separators.
+pub(crate) fn compile_workspace_glob(pattern: &str) -> Result<Glob, globset::Error> {
+    GlobBuilder::new(pattern).literal_separator(true).build()
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
@@ -53,7 +58,8 @@ pub struct WorkspaceGlob {
 impl WorkspaceGlob {
     pub fn parse_config(value: impl AsRef<str>) -> Result<Self, PathError> {
         let pattern = WorkspacePath::parse_config(value)?;
-        Glob::new(pattern.as_str()).map_err(|error| PathError::InvalidGlob(error.to_string()))?;
+        compile_workspace_glob(pattern.as_str())
+            .map_err(|error| PathError::InvalidGlob(error.to_string()))?;
 
         let prefix = pattern
             .as_str()
@@ -82,7 +88,7 @@ impl WorkspaceGlob {
     }
 
     pub fn matcher(&self) -> GlobMatcher {
-        Glob::new(self.as_str())
+        compile_workspace_glob(self.as_str())
             .expect("WorkspaceGlob validates its glob pattern when constructed")
             .compile_matcher()
     }

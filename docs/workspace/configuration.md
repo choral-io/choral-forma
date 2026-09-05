@@ -69,6 +69,14 @@ This file is the Forma workspace entry point.
 
 Every matching import contributes to the same effective configuration. Directory names and Git ignore rules do not give an imported file precedence, ownership, privacy, or publication meaning.
 
+### Path Patterns
+
+Glob patterns use workspace-relative POSIX paths. `*` and `?` match within one directory component; `**` matches across directories. These rules apply to imports, content selection, taxonomy membership, and View include/exclude filters.
+
+For example, `people/*/notes/**/*.md` includes `people/alex/notes/current.md` and `people/alex/notes/archive/previous.md`, but not `people/alex/local/notes/private.md`. A broader explicit pattern such as `people/**/*.md` includes all three; `local` is not a reserved privacy boundary.
+
+Earlier builds allowed `*` to cross directory separators. Replace it with `**` where recursive selection was intended, including nested configuration imports, and recheck the effective sources and path classification before sharing or exporting content.
+
 ### Runtime Values
 
 Runtime values define named values that templates and create defaults can read with `{{ runtime.values.<name> }}`. Names are workspace-defined; provider `kind` values select built-in behavior:

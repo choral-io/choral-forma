@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
-use globset::{Glob, GlobSetBuilder};
+use globset::GlobSetBuilder;
 use markdown::{Options, to_html_with_options};
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
@@ -1251,7 +1251,7 @@ fn view_source_is_valid(
 ) -> bool {
     let mut valid = true;
     for pattern in source.include.iter().chain(source.exclude.iter()) {
-        if Glob::new(pattern).is_err() {
+        if crate::path::compile_workspace_glob(pattern).is_err() {
             diagnostics.push(
                 Diagnostic::error("view.sourceInvalid", "View source glob is invalid.")
                     .with_path(path)
@@ -2089,7 +2089,7 @@ fn path_matches_any(path: &str, patterns: &[String]) -> bool {
     }
     let mut builder = GlobSetBuilder::new();
     for pattern in patterns {
-        let Ok(glob) = Glob::new(pattern) else {
+        let Ok(glob) = crate::path::compile_workspace_glob(pattern) else {
             return false;
         };
         builder.add(glob);

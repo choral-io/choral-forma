@@ -2114,6 +2114,14 @@ mod tests {
     fn broad_space_includes_do_not_index_config_source_nodes_as_entries() {
         let root = fixture_root("broad-include-excludes-config-sources");
         write_workspace(&root);
+        // This test excludes imported sources, including nested template sources.
+        let config_path = root.join(FORMA_CONFIG_PATH);
+        let config = fs::read_to_string(&config_path).unwrap();
+        fs::write(
+            config_path,
+            config.replace("  - .forma/spaces/*.md", "  - .forma/spaces/**/*.md"),
+        )
+        .unwrap();
         fs::write(
             root.join(".forma/spaces/notes.md"),
             "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Notes\ninclude:\n  - \"**/*.md\"\ncreate:\n  directory: notes\n  filename: \"{{ input.slug }}.md\"\n  template: .forma/spaces/templates/note.md\n  inputs:\n    title:\n      required: true\nconventions:\n  titleField: fields.title\n  summaryField: fields.summary\nschema:\n  type: object\n  fields:\n    kind:\n      type: string\n---\n\n# Notes\n",
