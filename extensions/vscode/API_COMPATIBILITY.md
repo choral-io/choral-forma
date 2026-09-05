@@ -22,6 +22,10 @@ This is a product support decision, not a newly required extension API. The exte
 
 Run trusted Extension Host integration tests on the exact minimum and current stable, plus untrusted-workspace tests and packaged-VSIX installation/activation at the minimum. Record the actual stable version resolved for release evidence. Supported intermediate versions are not all included in routine CI; investigate reported regressions within the supported window and add targeted coverage when needed. Download or runner failures are blocked runtime evidence, not a compatibility pass.
 
+For each target, reuse an installed official stable VS Code only when its exact version matches the target. Resolve `stable` through the official release API before comparing; a failed lookup must not silently substitute an older editor. Standard macOS, Windows, and Linux installation locations are checked without launching or modifying the user application. Reuse only the executable, with isolated test user-data and extension directories. If no exact match is found, use the test cache or download the target. The explicit `VSCODE_EXECUTABLE_PATH` override remains available for untrusted and VSIX diagnostics; callers are responsible for its version.
+
+Downloaded VS Code binaries are retained in the Git-ignored `extensions/vscode/.vscode-test/` cache across test runs, including the minimum supported version. Reuse the cached binary during ordinary iteration; do not remove this cache as part of test cleanup. Only disposable test workspaces, extension installations, and user-data directories are removed after a run. Remove cached binaries only during an explicit cache-maintenance operation.
+
 Older editors cannot install the new extension release. Users must upgrade VS Code to receive it; this policy does not change the compatibility metadata of previously published Forma releases.
 
 References:

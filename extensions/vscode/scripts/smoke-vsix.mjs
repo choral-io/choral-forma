@@ -4,8 +4,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { minimumVSCodeVersion } from "./vscode-compatibility.mjs";
+import { resolveVSCodeExecutable } from "./vscode-installation.mjs";
 
-import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } from "@vscode/test-electron";
+import { resolveCliArgsFromVSCodeExecutablePath } from "@vscode/test-electron";
 
 import {
     createFormaTestEnvironment,
@@ -24,12 +25,7 @@ const formaTestBin = resolveFormaTestBin(
     process.env,
     resolve(extensionRoot, "../..", "target/debug", process.platform === "win32" ? "forma.exe" : "forma"),
 );
-const vscodeExecutablePath =
-    process.env.VSCODE_EXECUTABLE_PATH ??
-    (await downloadAndUnzipVSCode({
-        cachePath: resolve(extensionRoot, ".vscode-test"),
-        version: process.env.VSCODE_VERSION ?? minimumVSCodeVersion,
-    }));
+const vscodeExecutablePath = await resolveVSCodeExecutable(process.env.VSCODE_VERSION ?? minimumVSCodeVersion);
 const [cli, ...cliPrefixArgs] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath, {
     reuseMachineInstall: true,
 });

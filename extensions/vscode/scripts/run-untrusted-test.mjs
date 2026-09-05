@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { minimumVSCodeVersion } from "./vscode-compatibility.mjs";
 
-import { downloadAndUnzipVSCode } from "@vscode/test-electron";
+import { resolveVSCodeExecutable } from "./vscode-installation.mjs";
 
 import { createFormaTestEnvironment, resolveFormaTestBin } from "./test-environment.mjs";
 
@@ -32,12 +32,7 @@ try {
         await writeFile(sentinel, `#!/bin/sh\nprintf invoked > '${invocationMarker.replaceAll("'", "'\\''")}'\n`);
         await chmod(sentinel, 0o755);
     }
-    const executable =
-        process.env.VSCODE_EXECUTABLE_PATH ??
-        (await downloadAndUnzipVSCode({
-            cachePath: resolve(extensionRoot, ".vscode-test"),
-            version: minimumVSCodeVersion,
-        }));
+    const executable = await resolveVSCodeExecutable(minimumVSCodeVersion);
     const options = JSON.stringify({
         colorDefault: true,
         files: [testFile],

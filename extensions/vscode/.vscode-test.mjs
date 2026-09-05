@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { minimumVSCodeVersion } from "./scripts/vscode-compatibility.mjs";
+import { installedTestConfiguration, resolveVSCodeVersion } from "./scripts/vscode-installation.mjs";
 
 import {
     createFormaTestEnvironment,
@@ -20,6 +21,9 @@ process.once("exit", () => rmSync(userDataDirectory, { force: true, recursive: t
 await writeFormaTestSettings(userDataDirectory, formaTestBin);
 const launchArgs = ["--disable-extensions", "--disable-workspace-trust", `--user-data-dir=${userDataDirectory}`];
 
+const stableVersion = await resolveVSCodeVersion("stable");
+console.log(`VS Code test targets: minimum ${minimumVSCodeVersion}, stable ${stableVersion}`);
+
 export default defineConfig([
     {
         label: "minimumTrusted",
@@ -27,7 +31,7 @@ export default defineConfig([
         files: "dist/test/extension.test.cjs",
         launchArgs,
         mocha: { ui: "tdd", timeout: 20_000 },
-        version: minimumVSCodeVersion,
+        ...installedTestConfiguration(minimumVSCodeVersion),
         workspaceFolder: "./test-fixtures/basic",
     },
     {
@@ -36,7 +40,7 @@ export default defineConfig([
         files: "dist/test/extension.test.cjs",
         launchArgs,
         mocha: { ui: "tdd", timeout: 20_000 },
-        version: "stable",
+        ...installedTestConfiguration(stableVersion),
         workspaceFolder: "./test-fixtures/basic",
     },
 ]);
