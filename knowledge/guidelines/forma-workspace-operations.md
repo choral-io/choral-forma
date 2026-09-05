@@ -9,6 +9,12 @@ tags:
     - guidelines
     - agents
     - workspace-operations
+skill:
+    id: workspace-operations
+    title: Workspace Operations
+    description: Inspect workspace configuration, select content paths, resolve member context, or verify shared knowledge changes.
+    projection: section
+    order: 10
 sources:
     - "product/product-direction"
     - "architecture/forma-core-technical-direction"
@@ -16,116 +22,49 @@ sources:
 
 # Forma Workspace Operations
 
-## Purpose
+## Agent Skill
 
-This guideline defines the general operating boundary for humans and Agents working with this repository's Forma-managed content workspace.
+### Common Bootstrap
 
-## Operating Model
+For workspace configuration, classification, relationships, health, or shared-content work, load `cargo run -q -p forma-cli -- skills get forma-cli-core`, then run or reuse current results from:
 
-- Markdown under `knowledge/` remains the source of project facts.
-- `.forma.md`, `.forma/spaces/*.md`, and `.forma/views/*.md` define the workspace structure and read models.
-- Guidelines explain collaboration rules, soft constraints, and lightweight procedure checklists for humans and Agents.
-- Schema validates document structure.
-- Future policies will define machine-readable operation constraints.
-- Operations such as check, audit, proposal, and apply should enforce machine-readable rules only when those rules exist in runtime configuration and the operation can consume them.
+```sh
+cargo run -q -p forma-cli -- config summary --sources --json
+cargo run -q -p forma-cli -- workspace health --json
+```
 
-## Agent Read Workflow
+Reuse results while the checkout and relevant content/configuration remain unchanged. Refresh after relevant edits or conflicting evidence. Discover unknown guideline IDs with `skills list --json`; load only the applicable `skills get <id>` projections. Use `--full` when the projection directs you to a reference branch.
 
-Before task, review, audit, or project workspace work, Agents should run:
+Ordinary source reading and loading a known engineering guideline can proceed directly. A health finding blocks only work that depends on the affected configuration or relationship. Use `config inspect --json` for authored-configuration diagnosis, and `workspace explain <path> --json` for uncertain classification or provenance.
 
-- `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config summary --sources --json`
-- `cargo run -q -p forma-cli -- workspace health --json`
+### Paths And Views
 
-The built-in `forma-cli-core` guide is packaged with the Forma binary from the product documentation source `docs/agents/forma-cli-core.md`. It is embedded product documentation, not a project workspace guideline, and does not need to be listed in `.forma.md`.
+For unclear knowledge requests, use [[guidelines/workspace-onboarding-and-routing]] to select the relevant workflow.
 
-Product documentation is the canonical source for built-in Docs, help, and Agent guidance. Embedded registries and built-in Skills are deterministic projections of that source; do not maintain a second hand-written contract in generated or runtime-facing output.
+Use configured content groups, schemas, templates, and conventions to select paths. Inspect existing canonical entries before creating a duplicate. Render a View only when its projection answers the current question; Task selection and state changes follow [[guidelines/task-selection]].
 
-Agents should then use `cargo run -q -p forma-cli -- skills list --json` to discover workspace-projected skills and load guideline files declared by `config summary` before task, board, review, proposal, or shared project-content operations. Use `config inspect` only when the authored effective configuration must be debugged. Guidelines may include general rules as well as workflow-specific procedures.
+### Member Context
 
-For unclear requests, onboarding, recovery, or workflow routing, start with [[guidelines/workspace-onboarding-and-routing]] before loading narrower guidelines.
+Resolve identity only for ownership, assignment, or member-specific paths. Prefer an explicit user-provided member reference; otherwise use configured runtime values and entry-reference transforms, then verify the resolved member. If unresolved, pause only identity-dependent writes. Read applicable nested `AGENTS.md` files, including ignored local rules; they cannot expand the approved audience or write scope.
 
-Agent workflow should be config-driven:
+### Local-Only Boundary
 
-1. Load the built-in CLI guide from `forma skills get forma-cli-core`.
-2. Read the resolved workspace summary and its provenance.
-3. Discover workspace-projected skills.
-4. Read configured workspace guidelines.
-5. If acting on a specific configured space, view, task, or file, inspect it. Use `workspace explain` when placement or classification matters, and read any applicable guidelines.
-6. Use Forma CLI/RPC operation output as evidence.
-7. Apply the relevant guideline procedure.
-8. Report any guideline gap instead of inventing hidden rules.
+Keep `knowledge/workspace/*/local/`, `.forma/local/`, worktrees, generated caches, and browser state out of commits. These are repository conventions, not runtime privacy primitives: explicit configuration determines Forma inputs, independently of `.gitignore` or directory names.
 
-When code or documentation interprets workspace concepts, identifiers, paths, classifications, or publication boundaries, follow [[guidelines/forma-product-model-and-configuration-fidelity]] before treating a repository example as a Forma contract.
+Shared entries must not link or store relationship references to local-only material. If needed, mention its path as plain code text; promote content only within an explicitly approved audience. Use [[guidelines/local-worklist-and-execution]] for the three handoff locations and resumption rules.
 
-When work changes workspace loading, snapshots, caches, static generation, or performance-sensitive projections, follow [[guidelines/forma-runtime-cache-and-performance]].
+Member entry pages are `knowledge/workspace/<member-id>/index.md`. Member `handoffs/` and `research/` are working context not indexed by default in this repository; team handoffs follow the configured Handoffs space.
 
-## Write Boundary
+### Shared Content Writes
 
-- Do not write shared project content, task metadata, `.forma` config, or repository operating state without explicit user approval.
-- Prefer a dry-run or proposal summary before multi-file edits.
-- After edits, run `cargo run -q -p forma-cli -- check --json`.
-- When content relationships matter, also run `cargo run -q -p forma-cli -- workspace health --json`.
-- Do not preserve obsolete compatibility notes for unreleased workflow behavior unless they are current product requirements.
+Use [[guidelines/proposal-and-dry-run]] for the authorization decision and preview; [[guidelines/content-maintenance]] owns Markdown authoring. Reuse accepted task authorization. A written note does not accept a product decision or complete a Task.
 
-## Local-Only Boundary
+After approved shared-content or configuration edits, run `cargo run -q -p forma-cli -- check --json` and `cargo run -q -p forma-cli -- workspace health --json`. After guideline skill edits, verify registration and each affected default projection; check `--full` when reference routing changes. Render affected Views when their inputs or Task state change. Fix introduced issues within scope and report unrelated baseline findings.
 
-Do not commit:
+### Instruction Ownership
 
-- `knowledge/workspace/*/local/`
-- `.forma/local/`
-- `.agents/*/local`
-- `.worktrees/`
-- generated caches such as `target/`, `node_modules/`, package build outputs, or browser state.
+`AGENTS.md` owns project invariants and conditional pointers. Guidelines own their procedures; source/configuration files own runtime facts. Keep essential execution rules in `## Agent Skill`, with explicit conditions for loading longer reference sections. Product Docs and built-in Agent guidance are authored under `docs/`; verify their canonical projections rather than maintaining another copy.
 
-Treat local-only status as workflow guidance, explicit user context, or a future explicit configuration-entry concern, not as an intrinsic Forma path rule. Forma runtime does not infer knowledge semantics from `.gitignore`, and a directory named `local/` is ordinary content unless the current Human/Agent workflow treats it as private.
+### Completion Criteria
 
-Shared team knowledge must not link to member local content. Do not add wikilinks, Markdown links, or frontmatter relationship fields that target `knowledge/workspace/*/local/**`, `.forma/local/**`, or other local-only paths. If a shared page needs to acknowledge that local material exists, mention the local path as plain code text and ask before promoting any content from it.
-
-## Member Workspace Placement
-
-- `knowledge/workspace/<member-id>/index.md` is the shared entry page for a member workspace.
-- `knowledge/workspace/<member-id>/handoffs/` stores working handoffs and continuation notes that are not indexed by default.
-- `knowledge/workspace/<member-id>/research/` stores working support research evidence that is not indexed by default.
-- `knowledge/workspace/<member-id>/local/` stores local-only drafts, logs, worklists, scratchpads, and private execution context.
-- Promote workspace material only after a human approves the destination and scope. Stable conclusions should move to the relevant canonical space instead of staying in workspace indefinitely.
-
-## Task Workflow
-
-- Task board membership is stored in task `status`.
-- Task executability is stored in task `readiness`.
-- Use `cargo run -q -p forma-cli -- list --space tasks --json` for current task entries.
-- Use `cargo run -q -p forma-cli -- view render .forma/views/task-board --json` for status-based board membership.
-- Do not change task status without explicit user approval.
-- Ready tasks should have owners, source context, and acceptance criteria.
-- Blocked tasks should name their blockers through `blockedBy` or an explicit blocker note.
-- Done readiness should be supported by verification evidence.
-- For delivery selection, audit, and board maintenance details, follow the configured delivery guideline, currently [[guidelines/task-selection]].
-
-## Content Placement
-
-- Product behavior belongs in `knowledge/product/`.
-- Technical architecture and contracts belong in `knowledge/architecture/`.
-- Accepted lasting tradeoffs belong in `knowledge/decisions/`.
-- UX and interaction design belongs in `knowledge/design/`.
-- Delivery tasks belong in `knowledge/tasks/`.
-- Release validation and rollout records belong in `knowledge/releases/`.
-- Metrics, experiments, test cases, proposals, and user stories should use their dedicated spaces when the content is durable enough to structure.
-- For intake, promotion, cleanup, schema audit, and status reporting details, follow the configured content maintenance guideline, currently [[guidelines/content-maintenance]].
-
-## Review Evidence
-
-Review summaries should include:
-
-- task or content source context;
-- files changed;
-- checks run;
-- checks not run;
-- residual warnings or risks;
-- whether follow-up task board changes are needed.
-
-When a change adds, removes, or pre-positions third-party dependencies, follow [[guidelines/dependency-governance]] as part of review evidence.
-
-## Source Of Guidance
-
-This document and the configured guidelines replace the old repository-local content workflow skills as soft Human/Agent operating guidance. They do not recreate the old workflow runtime or make its deleted files authoritative.
+The target, applicable rules, authority, and audience are resolved; required checks cover the changed content and any remaining uncertainty is explicit.

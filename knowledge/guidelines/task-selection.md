@@ -13,7 +13,7 @@ tags:
 skill:
     id: task-selection
     title: Task Selection
-    description: Select, inspect, refine, or report configured delivery tasks while preserving approval boundaries around task and board state.
+    description: Select or refine configured Tasks, review Task implementation or delivery, and report readiness while preserving Task and board authorization.
     projection: section
     order: 30
 sources:
@@ -33,20 +33,13 @@ It guides humans and Agents. It is not a machine-enforced policy and does not au
 
 ### When To Use
 
-Use this skill when an Agent needs to choose the next task, inspect task readiness, review delivery state, or prepare a task for execution.
+Use this skill to choose the next Task, inspect readiness, prepare execution, or review Task implementation or delivery, including read-only review.
 
 ### Required Bootstrap
 
-Run:
+Follow the common bootstrap in `skills get workspace-operations` ([[guidelines/forma-workspace-operations]]) using this repository's CLI invocation. Reuse current results and load only the guideline needed for this request.
 
-- `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- skills get proposal-and-dry-run`
-- `cargo run -q -p forma-cli -- list --space tasks --json`
-- `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
-
-Inspect candidate tasks with `cargo run -q -p forma-cli -- inspect <task-path> --json` or `cargo run -q -p forma-cli -- inspect --space tasks <entry-id> --json` before recommending or changing status.
-
-Use [[guidelines/proposal-and-dry-run]] before any task status, readiness, blocker, owner, assignee, reviewer, release evidence, or board membership change. Task and board recommendations are proposals until the human explicitly approves the exact change.
+Inspect the named Task with `cargo run -q -p forma-cli -- inspect <task-path> --json`. List Tasks and render the board when selecting candidates or checking state/dependencies. Load [[guidelines/proposal-and-dry-run]] before metadata writes; Task execution alone does not expand its lifecycle authority.
 
 ### Task Selection Workflow
 
@@ -82,15 +75,15 @@ Use `priority` for urgency or ordering pressure, `value` for expected delivery v
 
 ### Report
 
-Report the selected task, why it is next, what evidence supports the recommendation, and what must change before execution if it is not ready.
+For selection, report the selected Task, rationale, supporting evidence, and unmet execution prerequisites. For Task implementation or delivery review, load the full reference and report findings first, acceptance-criteria coverage, and verification gaps; state explicitly when no issues are found.
 
 ### Reference Routing
 
-Load this skill with `--full` when selection needs detailed evidence gathering, assignment partitioning, metadata audit, board writes, implementation review, or the complete recommendation format.
+Load this skill with `--full` for Task implementation or delivery review (including read-only review), detailed evidence gathering, assignment comparison, metadata audit, board writes, or the complete recommendation format. Review is an independent trigger and does not require task selection or a write.
 
 ### Completion Criteria
 
-Finish selection or refinement only when the recommendation is grounded in current task and board evidence, blockers and acceptance criteria are explicit, assignment boundaries are respected, and any state change is either approved exactly or left as a proposal.
+For selection or refinement, ground the recommendation in current Task and board evidence and make blockers and acceptance criteria explicit. For review, report findings, acceptance-criteria coverage, and unverified checks. In either case, respect assignment boundaries and apply state changes only with explicit authorization; a review report does not itself accept delivery.
 
 ## Reference
 

@@ -13,7 +13,7 @@ tags:
 skill:
     id: proposal-and-dry-run
     title: Proposal And Dry Run
-    description: Gate shared Forma workspace changes through an explicit fast path, dry run, proposal, or Human approval boundary.
+    description: Decide write authority, preview scope, and proposal needs for shared content, Task state, configuration, or private-to-shared promotion.
     projection: section
     order: 15
 sources:
@@ -25,158 +25,82 @@ sources:
 
 # Proposal And Dry-Run Guidance
 
-## Purpose
-
-This guideline is the short Agent-facing checkpoint for reviewable workspace changes. Use it before the broader authoring guideline when a request may require a dry run, proposal, or explicit human approval.
-
-It is soft guidance. It does not replace Forma checks, Git review, or future product-level write operations.
-
-Pressure coverage is tracked in [[test-cases/proposal-and-dry-run-guideline-pressure]].
-
 ## Agent Skill
 
 ### When To Use
 
-Use this skill before editing when the change may:
-
-- create, move, reorganize, or delete shared workspace content;
-- promote local-only or private notes into shared content;
-- change task `status`, `readiness`, blockers, owners, assignees, or reviewers;
-- change release evidence, product direction, architecture, decisions, metrics, experiments, user stories, or validation records;
-- change `.forma.md`, `.forma/**`, guidelines, schemas, views, templates, or skill metadata;
-- add cross-file links, backlinks, embeds, or frontmatter references whose target may be ambiguous;
-- modify more than one shared file;
-- depend on conversation-only, inferred, generated, or conflicting evidence.
+Before shared content, Task metadata, product decisions, guidelines, schemas, Views, templates, or Forma configuration writes; also before increasing the audience of local or private material.
 
 ### Bootstrap
 
-Run or confirm current output from:
-
-- `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config summary --sources --json`
-- `cargo run -q -p forma-cli -- workspace health --json`
-- `cargo run -q -p forma-cli -- skills get proposal-and-dry-run`
-
-If the task targets a specific entry or space, inspect it before planning the edit.
+Follow `skills get workspace-operations` ([[guidelines/forma-workspace-operations]]) using this repository's CLI invocation. Reuse its current baseline.
 
 ### Stop Rules
 
-Stop and ask for confirmation before writing when:
+Compare the concrete change with the latest user authorization. A request to implement or optimize authorizes necessary reversible edits within its accepted scope. A preview makes those edits reviewable; it is not an automatic second approval round.
 
-- the target path or configured space is uncertain;
-- the change affects task board state or release evidence;
-- local-only material would become shared;
-- the edit changes `.forma` config, guidelines, schemas, views, templates, or skill metadata;
-- the user asked for an evaluation, recommendation, or plan but did not ask to write;
-- the dry run says `Requires confirmation: yes`.
+Pause only the dependent action when its target remains ambiguous, it expands scope or visibility, or it requires authority not yet given. Evaluation, selection, and recommendation requests remain read-only. Continue independent work while a required decision is pending.
 
-Do not treat a proposed board move, release decision, or content promotion as approved only because it appears useful.
+Task and board changes require explicit approval for their target state and metadata. Selection or code implementation alone does not approve a board move.
 
 ### Direct Edit Fast Path
 
-Skip the dry run only when all are true:
-
-- the user explicitly approved the exact target and scope;
-- the edit is single-file, low-risk wording or narrow metadata cleanup;
-- the configured space is already known;
-- no local-only, private, release, task-board, guideline, config, dependency, or cross-file evidence is being promoted;
-- no new ambiguous reference is added.
-
-Even on the fast path, run `cargo run -q -p forma-cli -- check --json` after editing.
+For an approved, unambiguous single-file wording or narrow metadata edit without new references, promotion, or lifecycle changes, proceed directly to authoring and verification. Use the preview below for broader edits or changed constraints.
 
 ### Configured Create Preview
 
-Before an approved `forma create`, run the same content group and inputs with `--preview --json`. Treat preview output as advisory evidence, not approval, authorization, a filesystem lock, or a guarantee that the later write will succeed.
-
-Keep these decisions separate:
-
-- `target.writable` describes the target at preview time;
-- rendered content and schema diagnostics describe the proposed entry;
-- explicit Human approval authorizes the write.
-
-Repeat the preview if the inputs, effective configuration, template, or target changed before creation.
+Before an approved CLI create, run the same inputs with `--preview --json`. A writable path and valid preview are evidence, not authorization or a lock. Repeat when inputs or effective configuration change.
 
 ### Dry-Run Output
 
-Use this compact format before any non-fast-path write:
+State target paths and configured space, source evidence, intended changes and references, audience, material risks, verification, and any decision still needed. Reuse a concrete plan already given; a short paragraph or table is sufficient.
 
-| Field                 | Value                                                     |
-| --------------------- | --------------------------------------------------------- |
-| Decision              | create, update, promote, reorganize, cleanup, or proposal |
-| Target space          | configured space id                                       |
-| Target path           | workspace-relative path or unresolved                     |
-| Source evidence       | files, command output, or conversation summary            |
-| Planned changes       | concise file-by-file changes                              |
-| Links/refs            | references to add, remove, or verify                      |
-| Risk class            | low, medium, high                                         |
-| Checks before write   | commands or inspections already run                       |
-| Checks after write    | `check`, `workspace health`, tests, or none with reason   |
-| Requires confirmation | yes/no and why                                            |
-
-After presenting a dry run with `Requires confirmation: yes`, wait. Do not edit in the same response unless the user already explicitly approved that exact dry run.
+End with `Requires confirmation: no — within the approved scope` or `Requires confirmation: yes — <specific unresolved decision>`. In the latter case, wait for that decision before the dependent write; elapsed time is not approval.
 
 ### Proposal Choice
 
-Create or recommend a proposal instead of editing canonical content when:
-
-- the fact, decision, or scope is valuable but not accepted;
-- multiple target spaces are plausible;
-- a task or release decision needs review before it becomes operational truth;
-- the change is broad enough that direct editing would hide review context;
-- the user asks for options, critique, evaluation, or a plan rather than implementation.
-
-A proposal should include source evidence, the proposed canonical target, review questions, and acceptance criteria. Do not present a proposal as delivered work.
+Use a proposal when a valuable product or architecture direction is not accepted or evidence conflicts. Distinguish observed facts, inferences, assumptions, and acceptance questions. Routine fixes to accepted behavior do not require a new proposal or design record.
 
 ### Reference Routing
 
-Load this skill with `--full` when the change matches a detailed task/board, local promotion, proposal, release, or guideline/config scenario. Apply only the matching scenario template.
+For Task, promotion, product, release, or guideline/config scenarios, load this skill with `--full` for the relevant reference below.
 
 ### Completion Criteria
 
-Complete this gate only when the decision, target, evidence, file-level scope, risks, verification, and approval requirement are explicit. If confirmation is required and has not already been granted for that exact scope, stop without editing.
+The write target, scope, audience, evidence, and verification are concrete. Every required authorization is already present or its dependent action remains pending. Follow [[guidelines/content-maintenance]] to author and [[guidelines/forma-workspace-operations]] to verify.
 
 ## Reference
 
+When changing this procedure or its projections, walk through [[test-cases/proposal-and-dry-run-guideline-pressure]] to verify both approval boundaries and authorized continuation.
+
 ### Scenario Templates
+
+These are decision branches, not additional approval rounds. Reuse authorization for the same target, audience, and scope.
 
 #### Task Or Board Change
 
-- Inspect the task and task board.
-- State the current `status`, `readiness`, blockers, owners, and reviewers.
-- Propose exactly one state or metadata change.
-- Require confirmation unless the user explicitly requested that exact change.
-- After approved edits, run `check --json` and render the task board.
+Inspect the Task and board, verify its current state and acceptance criteria, and apply [[guidelines/task-selection]]. Preserve metadata outside the approved transition. Completion requires acceptance evidence, not merely an execution report.
 
 #### Local-To-Shared Promotion
 
-- Identify the local source as local-only.
-- Summarize only the durable facts to promote.
-- Choose the canonical target space and path.
-- Exclude private notes, command chatter, credentials, and sensitive data.
-- Require confirmation before writing.
-- After approved edits, run `check --json` and `workspace health --json`.
+Identify the private source, destination audience, and approved selection of durable facts. Exclude secrets and unnecessary personal/customer data. Do not publish existing private context merely because new handoffs default to team shared.
 
 #### Proposal Creation
 
-- Explain why a proposal is safer than direct canonical capture.
-- Choose the `proposals` space unless a more specific configured proposal path exists.
-- Link sources and proposed canonical targets.
-- Set status as proposed or draft according to existing local convention.
-- After approved edits, run `check --json` and `workspace health --json`.
+Record the proposed canonical target, supporting sources, tradeoffs, open decisions, and acceptance criteria. Keep the proposal visibly unaccepted until a decision authorizes canonical updates.
+
+#### Product Or Architecture Decision
+
+Reuse accepted design and inspect later decisions before changing it. Propose unresolved behavior rather than presenting generated or conversation-only assumptions as accepted facts.
 
 #### Release Evidence Or Cutline Change
 
-- Inspect the release record and related task or validation evidence first.
-- For release candidate gates, tag publication, published-asset verification, and closure evidence, follow [[guidelines/release-execution-and-verification]].
-- State whether the user asked for evaluation, release recommendation, record update, tag/push action, or all of them.
-- Treat release readiness, cutline, tag movement, rollout status, and validation history changes as high risk.
-- Require confirmation before writing release records unless the user explicitly requested that exact update.
-- Never push, tag, move a tag, or publish based only on a release dry run.
-- After approved edits, run `check --json` and `workspace health --json`; before push or tag actions, run the project validation gate requested by the maintainer.
+Release work must additionally load `release-execution-and-verification`; inspect the exact candidate and follow its local, CI, and publication gates.
+
+#### Milestone Or Release Evidence
+
+Apply the release branch above; preserve historical validation records and distinguish local checks from published-release evidence.
 
 #### Guideline Or Config Change
 
-- Show the current skill or config discovery impact.
-- Name any new or changed workspace-projected skill id.
-- Require confirmation before writing unless the user explicitly approved the exact change.
-- After approved edits, run `skills list --json`, `skills get <id>`, `check --json`, and `workspace health --json`.
+Identify affected paths, skill IDs, projections, and consumers. Preserve stable identifiers and machine anchors. Verify discovery and default/required full projections through the workspace-operations procedure.

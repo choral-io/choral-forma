@@ -1,77 +1,55 @@
 # Repository Guidelines
 
-## Project Overview
+## Product Boundaries
 
-Choral Forma is a project for exploring a lightweight, editor-independent Markdown content workspace. The repository remains intentionally files-first: product direction, concepts, decisions, task planning, and delivery workflow should be captured in `knowledge/`, while application code should keep Markdown files and explicit schemas as the source of truth.
+Choral Forma is a files-first Markdown workspace in Public Preview. Markdown and explicit configuration own content and semantics; derived indexes and caches must be rebuildable. Core owns behavior shared by CLI, RPC, WebApp, static export, and editor integrations.
 
-The product should treat repository Markdown as the source of truth. Application code should read from and write to explicit files and schemas rather than creating a hidden proprietary content store.
+This repository's `knowledge/`, Task, member, and handoff conventions are configurable examples, not Forma built-ins. Product-facing docs and interfaces use neutral content-organization language. Explicit configuration determines inputs; `.gitignore` and a directory named `local` do not provide runtime privacy.
 
-The current `knowledge/` directory is this repository's project content workspace. It guides Choral Forma project development, planning, and delivery; it is not the same thing as a future Choral Forma user workspace, and its repository-specific operating guidance should not be treated as automatic product requirements.
+Reuse accepted design and inspect relevant later decisions before changing it. Routine fixes need no new proposal; unresolved product behavior, external contracts, or architecture decisions need a concrete proposal within the user's authorized scope.
 
-Product-facing Forma docs, examples, UI copy, and CLI guidance should use neutral content-organization language: workspace, content, entry, space, view, template, schema, and guideline. Terms like `knowledge`, `task`, `member`, or `project` are allowed when describing this repository's dogfooding workspace or an example configuration, but they must not be presented as Forma built-ins.
+## Navigation
 
-## Current Repository Layout
+- `crates/`: Core, RPC, CLI/server, and LSP; `packages/`: shared contracts, graph rendering, and WebApp.
+- `docs/`: canonical product docs and built-in help/skill projections; `knowledge/`: repository product, architecture, and delivery records.
+- `extensions/`: editor adapters; `examples/`: runnable workspace fixtures; `scripts/`: build, validation, and release tooling.
+- `skills/`: canonical project skill sources; `.agents/skills/`: installed entrypoints.
 
-- `knowledge/`: repository-backed project content, schemas, task items, planning notes, proposals, and member workspaces.
-- `skills/`: canonical project-local Agent skill sources that follow the skills.sh-style `skills/<name>/SKILL.md` layout.
-- `.agents/skills/`: installed Agent runtime entrypoints aligned with the canonical skill sources.
-- `.worktrees/`: local-only worktrees; `.worktrees/.gitignore` remains trackable.
-- `.claude/skills`: symlink to `.agents/skills` for Claude Code compatibility.
-- `CLAUDE.md`: symlink to `AGENTS.md` for Claude Code compatibility.
-- `crates/`: Rust workspace crates for the Forma core, RPC model, CLI, local HTTP server, and embedded WebApp serving.
-- `packages/`: pnpm workspace packages for shared TypeScript code and the WebApp.
-- `.vscode/` and `.zed/`: editor integration for Markdown and Prettier.
-- `mise.toml`: project tool and task configuration.
+Read applicable nested `AGENTS.md` files before editing their scope, including ignored local rules.
 
-## Tooling
+## Guideline Routing
 
-Use mise for project tools and tasks:
+Use the repository source CLI: `cargo run -q -p forma-cli -- <arguments>` (through `mise exec --` when needed). In pointers below, `skills get <id>` means arguments to that invocation. Load the default projection first; use `--full` for its referenced branch. Discover unknown IDs with `skills list --json`.
 
-```sh
-mise install
-pnpm install
-mise run check:pnpm
-mise run format:pnpm
-mise run check:rust
-mise run test:rust
-mise run build:pnpm
-mise run check
-```
+| Task condition | Guideline skill ID |
+| --- | --- |
+| Configuration semantics, paths, classification, or cross-surface contracts | `forma-product-model-and-configuration-fidelity` |
+| Workspace loading, snapshots, caches, performance, or static generation | `forma-runtime-cache-and-performance` |
+| WebApp components, state, layout, interaction, or visual verification | `webapp-engineering-and-visual-validation` |
+| Workspace inspection, content placement, or shared knowledge writes | `workspace-operations` |
+| Unclear knowledge request | `workspace-onboarding-and-routing` |
+| Shared Markdown authoring / write authorization | `markdown-authoring` / `proposal-and-dry-run` |
+| Named Task selection, execution, review, or state changes | `task-selection` |
+| Handoff, resumption, or personal worklists | `local-worklist-and-execution` |
+| Release version, candidate, tag, publication, or release evidence | `release-execution-and-verification` |
 
-Tool versions are declared in the idiomatic project files: the exact Node.js version in `.node-version`, the supported Node.js range and exact pnpm version in root `package.json`, and Rust in `rust-toolchain.toml` plus `Cargo.toml` `rust-version`. CI and mise use `.node-version` so local and hosted builds run the same Node.js release; `package.json#engines.node` remains the compatibility contract. `mise.toml` enables mise to read those files and provides project tasks. Prettier is a project-local dev dependency in root `package.json`, installed through pnpm.
+Ordinary source reading and known engineering skill loading need no full workspace bootstrap. Follow `workspace-operations` for configuration/health baselines, selective loading, member resolution, and shared-content verification. Dependency changes additionally read `knowledge/guidelines/dependency-governance.md`.
 
-## Coding And Product Work
+## Verification
 
-- Prefer small, explicit files and schemas over hidden application state.
-- Keep product assumptions, requirements, design notes, and decisions in `knowledge/` before implementation.
-- Keep Rust crates aligned with the accepted architecture in `knowledge/decisions/forma-p0-core-architecture.md`.
-- Keep Web packages aligned with the accepted architecture in `knowledge/architecture/forma-core-technical-direction.md`.
-- Do not commit secrets, local worklists, local Agent state, or personal editor caches.
-- Keep `knowledge/` readable as plain Markdown, but do not rely on editor-specific plugin syntax for project facts.
+Use `mise run <task>` and `mise exec -- pnpm <command>`; current scripts and version authorities are in `mise.toml`, `package.json`, `.node-version`, `rust-toolchain.toml`, and `Cargo.toml`. Installation and whole-repository formatting are deliberate setup/maintenance actions, not default checks.
 
-## Git And Commits
+| Change | Evidence |
+| --- | --- |
+| Markdown or Agent instructions | Targeted formatting and references; workspace checks and affected skill projections when managed content changes |
+| Core/RPC/LSP | Affected crate tests and consumer/operation contracts; broaden to `mise run check` for shared behavior or complete code delivery |
+| WebApp | Affected type/lint/behavior checks and build; visual validation follows its guideline |
+| Release | Exact-candidate local and CI gates plus platform/artifact evidence from the release guideline; local success does not replace publication verification |
 
-- Commit messages must start with a type-enum prefix such as `chore:`, `docs:`, `feat:`, `fix:`, `refactor:`, or `test:`.
+Reuse passing evidence until changes, failures, or unresolved risks justify rerunning. Report unrelated baseline failures and environmental limits separately.
 
-## Forma Workspace Management
+## Authority And Delivery
 
-This repository uses Forma-managed workspace runtime in the repository Markdown and `.forma` config.
+Shared knowledge, configuration, Task state, commits, and publication require task authorization. Reuse existing approval within the same scope; a preview is not an extra approval round. Preserve unrelated changes and private material. Keep `knowledge/workspace/*/local/`, `.forma/local/`, worktrees, generated caches, and browser state out of commits.
 
-- Source of truth:
-    - Markdown documents under `knowledge/`
-    - `.forma.md`
-    - `.forma/spaces/*.md` (as configured workspace spaces)
-    - `.forma/views/*.md` (where applicable)
-- Use these bootstrap checks before project workspace reads or workflow actions:
-    - `cargo run -q -p forma-cli -- config summary --sources --json`
-    - `cargo run -q -p forma-cli -- workspace health --json`
-- Use `config inspect --json` only when the resolved summary is insufficient and the authored effective configuration must be debugged.
-- Use `workspace explain <path> --json` when a path's configured classification, content-group selection, taxonomy membership, or provenance matters.
-- Before task, review, proposal, or shared project content write operations, read configured guideline files declared in `.forma.md`.
-- Before release version, tag, GitHub Release, published-asset verification, or post-release evidence operations, inspect the target release and follow the configured Releases space guideline. Verify the exact candidate commit through its required local and main CI gates; never create or move a tag to bypass a failed gate.
-- Use the project-local `forma-cli` skill for:
-    - workspace health checks;
-    - task list/inspect and board review;
-    - review prep and content-readability diagnosis.
-- Do not write shared project content, task metadata, `.forma` config, or repository operating state without explicit user approval.
-- Keep local-only state out of commits according to repository workflow guidance and Git hygiene. In this repository that includes `knowledge/workspace/*/local/`, `.forma/local/` when present, generated caches, worktrees, and browser state. Forma runtime should not infer knowledge semantics from `.gitignore`.
+Use Conventional Commit prefixes. Report the outcome, verification, and remaining work; a handoff does not accept a Task. Follow its existing audience and location when updating it.

@@ -29,7 +29,7 @@ sources:
 
 This guideline consolidates the old read-only audit and status-report role. It helps Agents diagnose workspace structure, task quality, content health, and delivery state without silently changing files.
 
-Audits are read-only unless the user separately approves a specific repair through [[guidelines/proposal-and-dry-run]].
+Audits are read-only unless the user has authorized the repair scope through [[guidelines/proposal-and-dry-run]].
 
 ## Agent Skill
 
@@ -45,19 +45,9 @@ Use this skill when the user asks for:
 
 ### Bootstrap
 
-Run or confirm current output from:
+Follow the common bootstrap in `skills get workspace-operations` ([[guidelines/forma-workspace-operations]]) using this repository's CLI invocation. Reuse current results and load only the guideline needed for this request.
 
-- `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config summary --sources --json`
-- `cargo run -q -p forma-cli -- check --json`
-- `cargo run -q -p forma-cli -- workspace health --json`
-
-For task audits, also run:
-
-- `cargo run -q -p forma-cli -- list --space tasks --json`
-- `cargo run -q -p forma-cli -- view render .forma/views/task-board --json`
-
-Inspect specific entries before reporting item-level findings.
+Run `cargo run -q -p forma-cli -- check --json` for validation findings. Inspect affected entries; for Task audits also list candidate Tasks and render the board. Reuse unchanged results.
 
 ### Audit Rules
 
@@ -67,7 +57,7 @@ Inspect specific entries before reporting item-level findings.
 - Treat proposals as unaccepted until their status and related canonical target show acceptance.
 - Treat repository-excluded local files as workflow-local context unless the user selected them for review. Do not claim that Forma paths provide privacy.
 - Report stale or contradictory claims with source paths instead of choosing silently.
-- Do not repair files during an audit unless a confirmed dry run already approved the exact change.
+- Apply repairs only within user-authorized scope, using the preview decision in [[guidelines/proposal-and-dry-run]].
 
 ### Report Shape
 
@@ -88,7 +78,7 @@ When an audit finds repair work:
 
 1. Summarize the smallest coherent fix.
 2. Point to the target guideline: [[guidelines/content-maintenance]], [[guidelines/task-selection]], or [[guidelines/proposal-and-dry-run]].
-3. Stop unless the user explicitly approves the exact repair scope.
+3. Continue if the user already authorized the repair scope; otherwise present the concrete repair for approval.
 
 ### Completion Criteria
 

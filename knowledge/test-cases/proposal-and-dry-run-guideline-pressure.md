@@ -60,7 +60,7 @@ Expected behavior:
 - Identify the source as local-only.
 - Produce a dry run with target space, target path, source evidence, planned changes, risk class, and required confirmation.
 - Exclude private notes, command chatter, credentials, and sensitive data.
-- Do not write before confirmation.
+- When destination or audience is unresolved, stop that write for confirmation. Reuse explicit approval once the concrete target and audience are settled.
 
 ### Task Board Change
 
@@ -86,7 +86,7 @@ Expected behavior:
 
 - Separate release record evaluation from writing, push, tag, or publish actions.
 - Treat release readiness, cutline, tag movement, rollout status, and validation history as high risk.
-- Require confirmation before writing release records.
+- Require confirmation for unresolved targets or authority; reuse approval for the same exact release-record change.
 - Never push, tag, move a tag, or publish from the dry run alone.
 - Name the validation gate needed before any approved push or tag action.
 
@@ -117,9 +117,29 @@ Expected behavior:
 - Require confirmation before writing unless the exact change was already approved.
 - After approved edits, verify `skills list`, `skills get <id>`, `check`, and `workspace health`.
 
+## Authorized Continuation Scenarios
+
+### Approved Guideline Cleanup
+
+Prompt: "Implement the guideline cleanup we agreed on; preserve Task and release state."
+
+Expected: reuse the accepted scope, state the concrete files and verification, proceed without a second approval round, and leave Task/release state unchanged.
+
+### Source-Only Bug Fix
+
+Prompt: "Fix this parsing bug and verify it."
+
+Expected: load the applicable engineering guidance, repair accepted behavior, and run affected checks. Do not require full workspace bootstrap, member identity, a new design proposal, or a Task board move merely because source code changes.
+
+### Explicit Local Handoff
+
+Prompt: "Resume from this existing personal local handoff."
+
+Expected: preserve its location/audience and revalidate current scope and checkout. The team default for new handoffs does not authorize promotion. Workspace identity resolution blocks only dependent work.
+
 ## Pass Criteria
 
-- The retrieved skill content contains stop points for all five scenarios.
+- The default projection contains the authority boundary and routes specialized scenarios to `--full`; the full projection covers all five scenarios.
 - The task and authoring skills route Agents to `proposal-and-dry-run` before higher-risk writes.
 - The guideline set keeps dry-run guidance discoverable without requiring Agents to parse all of `content-maintenance` first.
 - Targeted checks and full project checks pass after guideline edits.

@@ -45,14 +45,7 @@ Use this skill for:
 
 ### Bootstrap
 
-Run or confirm:
-
-- `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config summary --sources --json`
-- `cargo run -q -p forma-cli -- workspace health --json`
-- `cargo run -q -p forma-cli -- skills get release-execution-and-verification`
-
-Inspect the target release record and related tasks before changing the candidate, status, tag, or evidence. Follow [[guidelines/proposal-and-dry-run]] for authorization and write boundaries.
+Follow the common bootstrap in `skills get workspace-operations` ([[guidelines/forma-workspace-operations]]) with the source CLI. Reuse current results. Inspect the exact target release record and related Tasks before changing candidate, status, tag, or evidence. Apply [[guidelines/proposal-and-dry-run]] for authorization; the candidate and publication gates below remain mandatory.
 
 ### Candidate Gates
 

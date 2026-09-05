@@ -44,23 +44,17 @@ Use this skill when:
 
 ### Bootstrap
 
-Run or confirm current output from:
-
-- `cargo run -q -p forma-cli -- skills get forma-cli-core`
-- `cargo run -q -p forma-cli -- config summary --sources --json`
-- `cargo run -q -p forma-cli -- skills list --json`
-- `cargo run -q -p forma-cli -- workspace health --json`
-
-Load only the narrower workspace-projected skill needed for the current request. Do not preload every guideline when routing is enough.
+Follow the common bootstrap in `skills get workspace-operations` ([[guidelines/forma-workspace-operations]]) using this repository's CLI invocation. Reuse current results and load only the guideline needed for this request.
 
 ### Routing Rules
 
 - Use [[guidelines/proposal-and-dry-run]] when the request may change shared content, task state, release evidence, config, schemas, views, guidelines, or skill metadata.
 - Use [[guidelines/content-maintenance]] when the user approved Markdown authoring, content placement, capture, cleanup, or promotion.
-- Use [[guidelines/task-selection]] when the user asks about next tasks, readiness, task metadata, delivery state, board moves, implementation, or review.
+- Use [[guidelines/task-selection]] when the user asks about next tasks, readiness, task metadata, delivery state, board moves, or a named Task implementation/review.
 - Use [[guidelines/workspace-audit-and-reporting]] when the user asks for workspace status, health, schema consistency, stale content, task metadata issues, or a report.
 - Use [[guidelines/local-worklist-and-execution]] when the user asks to manage member-local work, logs, drafts, or execution notes.
 - Use [[guidelines/forma-product-model-and-configuration-fidelity]] when a request changes or interprets Forma concepts, configuration, reserved identifiers, path behavior, classification, or publication boundaries.
+- Use [[guidelines/forma-runtime-cache-and-performance]] for workspace loading, caches, snapshots, static generation, or performance changes.
 - Use project-specific guidelines such as [[guidelines/dependency-governance]] only when their topic appears in the task or inspected target.
 
 ### Stop Rules
@@ -69,7 +63,7 @@ Stop at routing guidance when:
 
 - the user asked for evaluation, explanation, onboarding, or a recommendation only;
 - the target configured space is ambiguous;
-- the operation would promote local-only material;
+- the operation would promote local-only material without approval for that audience;
 - the next action requires approval under [[guidelines/proposal-and-dry-run]].
 
 ### Output
