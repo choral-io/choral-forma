@@ -1,9 +1,11 @@
 use std::collections::BTreeMap;
 use std::fmt;
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::config::{SemanticType, SpaceDefinition, WorkspaceConfig};
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
+use crate::guidelines::{GuidelineSource, resolve_guidelines};
 use crate::path::WorkspacePath;
 use crate::scan::WorkspaceScanPlan;
 
@@ -478,17 +480,45 @@ fn add_source_aliases(
 }
 
 pub(crate) fn resolve_workspace_model(
+    root: &Path,
     config_graph: TypedConfigGraph,
     config: &WorkspaceConfig,
     bootstrap_scan_plan: WorkspaceScanPlan,
     config_sources: impl IntoIterator<Item = String>,
+    guideline_sources: &mut Vec<GuidelineSource>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> (
     BTreeMap<String, SpaceDefinition>,
     Arc<ResolvedWorkspaceModel>,
 ) {
-    let relationships =
+    let mut relationships =
         ResolvedWorkspaceRelationships::resolve(config_graph, &config.types, diagnostics);
+    for (term_id, group_id) in &relationships.content_group_terms {
+        let source = relationships
+            .config_graph
+            .terms
+            .get(term_id)
+            .expect("resolved term exists")
+            .provenance
+            .source_path();
+        let group = relationships
+            .content_groups
+            .get_mut(group_id)
+            .expect("resolved group exists");
+        group.guidelines = resolve_guidelines(
+            root,
+            &group.guidelines,
+            source,
+            Some(group_id.as_str()),
+            guideline_sources,
+            diagnostics,
+        );
+    }
+    let bootstrap_scan_plan = bootstrap_scan_plan.with_guideline_patterns(
+        guideline_sources
+            .iter()
+            .map(|source| source.pattern.clone()),
+    );
     let compatibility_spaces = relationships.compatibility_spaces();
     let scan_plan =
         WorkspaceScanPlan::resolve(bootstrap_scan_plan, config, &relationships, config_sources);

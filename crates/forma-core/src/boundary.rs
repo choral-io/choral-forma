@@ -59,6 +59,14 @@ impl WorkspaceBoundary {
         &self.root
     }
 
+    /// Validate a scan prefix before enumerating any of its children.
+    pub(crate) fn resolve_scan_root(
+        &self,
+        path: &WorkspacePath,
+    ) -> Result<PathBuf, WorkspaceBoundaryError> {
+        self.validate_existing_components(path, false)
+    }
+
     pub fn resolve_existing_file(
         &self,
         path: &WorkspacePath,

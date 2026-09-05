@@ -10,6 +10,7 @@ use thiserror::Error;
 
 use crate::boundary::{WorkspaceBoundary, WorkspaceBoundaryError};
 use crate::diagnostics::{Diagnostic, DiagnosticLocation};
+use crate::guidelines::{GuidelineSource, resolve_guidelines};
 use crate::markdown::FormaMarkdownDocument;
 use crate::model::{
     ConfigProjection, ConfigProvenance, ResolvedWorkspaceModel, SemanticTypeId, TaxonomyId,
@@ -26,6 +27,7 @@ pub struct FormaWorkspace {
     pub config: WorkspaceConfig,
     pub config_sources: Vec<ConfigSourcePath>,
     pub config_source_patterns: Vec<String>,
+    pub guideline_sources: Vec<GuidelineSource>,
     pub diagnostics: Vec<Diagnostic>,
     pub model: Arc<ResolvedWorkspaceModel>,
 }
@@ -352,6 +354,7 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
     let mut diagnostics = Vec::new();
     let mut types = BTreeMap::new();
     let mut type_sources = BTreeMap::new();
+    let mut guideline_source_path = FORMA_CONFIG_PATH.to_string();
     let root_types = take_types_from_value(&mut config_value, FORMA_CONFIG_PATH)?;
     merge_type_definitions(
         &mut types,
@@ -385,6 +388,9 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
             public_path,
             &mut diagnostics,
         );
+        if local_value.get("guidelines").is_some() {
+            guideline_source_path = public_path.clone();
+        }
         deep_merge(&mut config_value, local_value);
     }
 
@@ -395,6 +401,15 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
         })?;
     reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
 
+    let mut guideline_sources = Vec::new();
+    let guidelines = resolve_guidelines(
+        root,
+        &config_file.guidelines,
+        &guideline_source_path,
+        None,
+        &mut guideline_sources,
+        &mut diagnostics,
+    );
     let (taxonomies, terms, config_graph, node_diagnostics) =
         load_config_nodes(root, &imported_config_paths, &mut types, &mut type_sources)?;
     diagnostics.extend(node_diagnostics);
@@ -403,7 +418,7 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
         schema_version: config_file.schema_version,
         workspace: config_file.workspace,
         runtime: config_file.runtime,
-        guidelines: config_file.guidelines,
+        guidelines,
         dashboard: config_file.dashboard,
         taxonomies,
         terms,
@@ -427,13 +442,16 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
     config_sources.dedup_by(|left, right| left.path == right.path);
 
     let (spaces, model) = resolve_workspace_model(
+        root,
         config_graph,
         &config,
         bootstrap_scan_plan,
         config_sources.iter().map(|source| source.path.clone()),
+        &mut guideline_sources,
         &mut diagnostics,
     );
     config.spaces = spaces;
+    validate_guideline_sources(root, &guideline_sources, &mut diagnostics);
     diagnostics.extend(validate_config_paths(root, &config, &model));
     diagnostics.extend(validate_content_group_schemas(&config, &model));
 
@@ -442,6 +460,7 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
         config,
         config_sources,
         config_source_patterns,
+        guideline_sources,
         diagnostics,
         model,
     })
@@ -918,31 +937,6 @@ fn validate_config_paths(
         }
     }
 
-    for (index, guideline) in config.guidelines.iter().enumerate() {
-        match WorkspacePath::parse_config(guideline) {
-            Ok(path) => push_guideline_file_diagnostic(
-                &mut diagnostics,
-                root,
-                &format!("guidelines[{index}]"),
-                guideline,
-                &path,
-            ),
-            Err(error) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "config.pathInvalid",
-                        format!("Guideline path is invalid: {error}."),
-                    )
-                    .with_path(FORMA_CONFIG_PATH)
-                    .with_location(DiagnosticLocation::Config {
-                        field: format!("guidelines[{index}]"),
-                    })
-                    .with_actual(guideline.clone()),
-                );
-            }
-        }
-    }
-
     for (space_id, space) in model.content_groups() {
         let space_id = space_id.as_str();
         for (index, include) in space.include_patterns.iter().enumerate() {
@@ -990,21 +984,6 @@ fn validate_config_paths(
                 &create.directory,
                 WorkspacePath::parse_config(&create.directory),
             );
-        }
-        for (index, guideline) in space.guidelines.iter().enumerate() {
-            let field = format!("guidelines[{index}]");
-            match WorkspacePath::parse_config(guideline) {
-                Ok(path) => push_guideline_file_diagnostic(
-                    &mut diagnostics,
-                    root,
-                    &format!("spaces.{space_id}.{field}"),
-                    guideline,
-                    &path,
-                ),
-                Err(error) => {
-                    push_path_diagnostic(&mut diagnostics, space_id, &field, guideline, Err(error));
-                }
-            }
         }
     }
 
@@ -1068,9 +1047,42 @@ fn mapping_get<'a>(value: &'a Value, key: &str) -> Option<&'a Value> {
     value.as_mapping()?.get(Value::String(key.to_string()))
 }
 
+fn validate_guideline_sources(
+    root: &Path,
+    sources: &[GuidelineSource],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for source in sources {
+        for value in &source.paths {
+            match WorkspacePath::parse_config(value) {
+                Ok(path) => push_guideline_file_diagnostic(
+                    diagnostics,
+                    root,
+                    &source.source_path,
+                    &source.field,
+                    value,
+                    &path,
+                ),
+                Err(error) => diagnostics.push(
+                    Diagnostic::error(
+                        "config.pathInvalid",
+                        format!("Guideline path is invalid: {error}."),
+                    )
+                    .with_path(&source.source_path)
+                    .with_location(DiagnosticLocation::Config {
+                        field: source.field.clone(),
+                    })
+                    .with_actual(value.clone()),
+                ),
+            }
+        }
+    }
+}
+
 fn push_guideline_file_diagnostic(
     diagnostics: &mut Vec<Diagnostic>,
     root: &Path,
+    source_path: &str,
     field: &str,
     value: &str,
     path: &WorkspacePath,
@@ -1082,7 +1094,7 @@ fn push_guideline_file_diagnostic(
                     "config.guidelineNotMarkdown",
                     "Configured guideline path must point to a Markdown file.",
                 )
-                .with_path(FORMA_CONFIG_PATH)
+                .with_path(source_path)
                 .with_location(DiagnosticLocation::Config {
                     field: field.to_string(),
                 })
@@ -1097,7 +1109,7 @@ fn push_guideline_file_diagnostic(
                     "config.guidelineNotFile",
                     "Configured guideline path does not point to a file.",
                 )
-                .with_path(FORMA_CONFIG_PATH)
+                .with_path(source_path)
                 .with_location(DiagnosticLocation::Config {
                     field: field.to_string(),
                 })
@@ -1110,7 +1122,7 @@ fn push_guideline_file_diagnostic(
                     "config.guidelineMissing",
                     "Configured guideline file is missing.",
                 )
-                .with_path(FORMA_CONFIG_PATH)
+                .with_path(source_path)
                 .with_location(DiagnosticLocation::Config {
                     field: field.to_string(),
                 })
@@ -1119,7 +1131,8 @@ fn push_guideline_file_diagnostic(
         }
         Err(WorkspaceBoundaryError::Symlink { .. })
         | Err(WorkspaceBoundaryError::OutsideWorkspace { .. }) => {
-            diagnostics.push(configured_path_boundary_diagnostic(field, value));
+            diagnostics
+                .push(configured_path_boundary_diagnostic(field, value).with_path(source_path));
         }
         Err(error) => {
             diagnostics.push(
@@ -1127,7 +1140,7 @@ fn push_guideline_file_diagnostic(
                     "config.guidelineUnreadable",
                     format!("Configured guideline file could not be read: {error}."),
                 )
-                .with_path(FORMA_CONFIG_PATH)
+                .with_path(source_path)
                 .with_location(DiagnosticLocation::Config {
                     field: field.to_string(),
                 })
@@ -2045,7 +2058,7 @@ mod tests {
         assert_eq!(
             workspace.diagnostics[0].location,
             Some(crate::diagnostics::DiagnosticLocation::Config {
-                field: "spaces.notes.guidelines[0]".to_string()
+                field: "guidelines[0]".to_string()
             })
         );
 

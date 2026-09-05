@@ -1191,6 +1191,9 @@ impl From<forma_core::ConfigSummaryResult> for OperationResult {
         data.insert("views".to_string(), json!(result.views));
         data.insert("guidelines".to_string(), json!(result.guidelines));
         data.insert("runtimeValues".to_string(), json!(result.runtime_values));
+        if let Some(sources) = result.guideline_sources {
+            data.insert("guidelineSources".to_string(), json!(sources));
+        }
         if let Some(sources) = result.sources {
             data.insert("sources".to_string(), json!(sources));
         }
@@ -1687,6 +1690,24 @@ mod tests {
     fn json_rpc_dispatches_config_summary_with_opt_in_sources() {
         let root = fixture_root("config-summary-rpc");
         copy_starter_workspace(&root);
+        let config_path = root.join(".forma.md");
+        let config = fs::read_to_string(&config_path).unwrap();
+        fs::write(
+            config_path,
+            config.replacen(
+                "schemaVersion: 1",
+                "schemaVersion: 1\nguidelines: ['guidelines/*.md']",
+                1,
+            ),
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("guidelines")).unwrap();
+        fs::write(root.join("guidelines/task-selection.md"), "# Selection\n").unwrap();
+        fs::write(
+            root.join("guidelines/workspace-operations.md"),
+            "# Operations\n",
+        )
+        .unwrap();
 
         let response = handle_json_rpc(
             &root,
@@ -1697,6 +1718,21 @@ mod tests {
         assert_eq!(response["result"]["contentGroups"][0]["id"], "tasks");
         assert_eq!(response["result"]["overview"]["contentGroups"], 1);
         assert!(response["result"]["sources"].is_array());
+        assert!(response["result"]["guidelineSources"].is_array());
+        let source = response["result"]["guidelineSources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|source| source["pattern"] == "guidelines/*.md")
+            .unwrap();
+        assert_eq!(
+            source["paths"],
+            json!([
+                "guidelines/task-selection.md",
+                "guidelines/workspace-operations.md"
+            ])
+        );
+        assert_eq!(response["result"]["guidelines"], source["paths"]);
         assert!(response["result"]["config"].is_null());
 
         fs::remove_dir_all(root).unwrap();
@@ -1712,6 +1748,7 @@ mod tests {
             br#"{"jsonrpc":"2.0","id":"1","method":"config.summary","params":{}}"#,
         );
         assert!(response["result"].get("sources").is_none());
+        assert!(response["result"].get("guidelineSources").is_none());
 
         let missing = handle_json_rpc(
             &root,

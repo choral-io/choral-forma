@@ -155,6 +155,8 @@ Configuration sections such as workspace identity, runtime values, taxonomies, t
 
 The Forma config model should support `guidelines` as workspace-relative references to ordinary Markdown guidance. Workspace-level config can reference global guidance, and taxonomy terms or views can reference guidance for the content or projection they define. Guidelines are read by humans, Agents, and future UI surfaces. They may include collaboration principles, soft constraints, and lightweight procedure checklists, but they are not a machine-enforced policy engine.
 
+Root and content-group guideline declarations support exact file paths and globs resolved by Core. Consumers share concrete paths; configuration summaries can expose declaration-to-file provenance, while authored inspection retains the patterns. Deterministic expansion, path deduplication, duplicate skill-ID validation, and watcher invalidation are part of this contract. An unmatched glob is a warning; a missing exact file is an error. Product matching and diagnostic details are maintained in `docs/workspace/guidelines.md`; pattern selection does not imply full Agent loading or write authority.
+
 Machine-readable `policies` should remain a future configuration area. A policy should only be introduced when an operation can consume it and produce diagnostics or apply-time decisions. The first likely policy domain is task workflow, covering status values, status transitions, readiness gates, and review gates.
 
 P0 entry frontmatter should parse into a generic YAML value before configured schema validation. Taxonomy terms, page types, and future user-defined classification systems are workspace-defined, so space-specific Rust structs are not appropriate.

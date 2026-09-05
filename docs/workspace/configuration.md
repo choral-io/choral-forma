@@ -71,7 +71,7 @@ Every matching import contributes to the same effective configuration. Directory
 
 ### Path Patterns
 
-Glob patterns use workspace-relative POSIX paths. `*` and `?` match within one directory component; `**` matches across directories. These rules apply to imports, content selection, taxonomy membership, and View include/exclude filters.
+Glob patterns use workspace-relative POSIX paths. `*` and `?` match within one directory component; `**` matches across directories. These rules apply to imports, content selection, taxonomy membership, guideline selection, and View include/exclude filters. See `forma docs get workspace.guidelines` for guideline-specific resolution and diagnostics.
 
 For example, `people/*/notes/**/*.md` includes `people/alex/notes/current.md` and `people/alex/notes/archive/previous.md`, but not `people/alex/local/notes/private.md`. A broader explicit pattern such as `people/**/*.md` includes all three; `local` is not a reserved privacy boundary.
 

@@ -1317,7 +1317,22 @@ pub fn inspect_config(
         )
     });
     let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
-    let config = inspect_config_value(root.as_ref(), path.as_deref(), &workspace.config)?;
+    // Inspection keeps authored declarations; summary and runtime consumers use resolved paths.
+    let mut authored_config = workspace.config;
+    authored_config.guidelines.clear();
+    for space in authored_config.spaces.values_mut() {
+        space.guidelines.clear();
+    }
+    for source in &workspace.guideline_sources {
+        if let Some(group) = &source.content_group {
+            if let Some(space) = authored_config.spaces.get_mut(group) {
+                space.guidelines.push(source.pattern.clone());
+            }
+        } else {
+            authored_config.guidelines.push(source.pattern.clone());
+        }
+    }
+    let config = inspect_config_value(root.as_ref(), path.as_deref(), &authored_config)?;
 
     Ok(ConfigInspectResult {
         schema_version: 1,
@@ -1325,7 +1340,7 @@ pub fn inspect_config(
         status: summary.status(),
         workspace: WorkspaceSummary {
             root: ".".to_string(),
-            name: workspace.config.workspace.name.clone(),
+            name: authored_config.workspace.name.clone(),
             logo: None,
         },
         config,
@@ -2128,6 +2143,7 @@ impl WorkspaceSnapshot {
         let source_path = WorkspacePath::parse_cli(source_path)?.as_str().to_string();
         Ok(self.view_paths.contains(&source_path)
             || self.configuration_paths.contains(&source_path)
+            || self.scan_plan.guideline_patterns().is_match(&source_path)
             || self.scan_plan.config_patterns().is_match(&source_path))
     }
 

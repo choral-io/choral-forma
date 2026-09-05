@@ -7,6 +7,7 @@ pub mod diagnostics;
 pub mod docs;
 pub mod document;
 mod frontmatter;
+pub mod guidelines;
 pub mod index;
 pub mod markdown;
 pub mod model;

@@ -557,6 +557,13 @@ export type ConfigSummaryResult = BaseOperationResult & {
     views: ConfigSummaryView[];
     guidelines: string[];
     runtimeValues: ConfigSummaryRuntimeValue[];
+    guidelineSources?: Array<{
+        sourcePath: string;
+        contentGroup?: string;
+        field: string;
+        pattern: string;
+        paths: string[];
+    }>;
     sources?: Array<{
         path: string;
         present: boolean;

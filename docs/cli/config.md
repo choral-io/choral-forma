@@ -34,6 +34,8 @@ forma config summary --group notes --sources --json
 
 The summary reports whether a create input has a default, but not the default value. It reports runtime provider kinds and transforms, but not resolved values, provider keys, or constant values. Template paths are included; template bodies are not.
 
+Guideline lists contain resolved file paths. With `--sources`, `guidelineSources` maps each authored declaration to its `sourcePath`, optional `contentGroup`, indexed `field`, `pattern`, and resolved `paths`. See `forma docs get workspace.guidelines` for ordering, deduplication, and no-match diagnostics. `config inspect` retains the authored exact paths and patterns.
+
 Use `forma config inspect --json` when debugging the authored effective configuration or when the complete configuration payload is specifically required.
 
 ## Agent Skill

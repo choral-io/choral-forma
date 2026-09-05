@@ -32,7 +32,10 @@ impl PartialEq for WorkspacePatternSet {
 impl Eq for WorkspacePatternSet {}
 
 impl WorkspacePatternSet {
-    fn from_validated(root: &Path, patterns: impl IntoIterator<Item = WorkspaceGlob>) -> Self {
+    pub(crate) fn from_validated(
+        root: &Path,
+        patterns: impl IntoIterator<Item = WorkspaceGlob>,
+    ) -> Self {
         let mut patterns = patterns.into_iter().collect::<Vec<_>>();
         patterns.sort_by(|left, right| left.as_str().cmp(right.as_str()));
         patterns.dedup_by(|left, right| left.as_str() == right.as_str());
@@ -89,7 +92,20 @@ impl WorkspacePatternSet {
 
     pub fn matching_files(&self) -> io::Result<Vec<PathBuf>> {
         let mut files = BTreeSet::new();
+        let boundary = WorkspaceBoundary::new(&self.root)
+            .map_err(|error| io::Error::new(io::ErrorKind::PermissionDenied, error))?;
         for scan_root in &self.scan_roots {
+            let prefix = scan_root
+                .strip_prefix(&self.root)
+                .expect("scan roots are workspace-relative");
+            if !prefix.as_os_str().is_empty() {
+                let prefix = prefix.to_string_lossy().replace('\\', "/");
+                let prefix = WorkspacePath::parse_config(prefix)
+                    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+                if boundary.resolve_scan_root(&prefix).is_err() {
+                    continue;
+                }
+            }
             collect_regular_files(&self.root, scan_root, &self.matcher, &mut files)?;
         }
         Ok(files.into_iter().collect())
@@ -116,6 +132,7 @@ impl WorkspacePatternSet {
 pub struct WorkspaceScanPlan {
     root: PathBuf,
     config_patterns: WorkspacePatternSet,
+    guideline_patterns: WorkspacePatternSet,
     content_patterns: WorkspacePatternSet,
     taxonomy_patterns: WorkspacePatternSet,
     space_patterns: BTreeMap<String, WorkspacePatternSet>,
@@ -148,6 +165,7 @@ impl WorkspaceScanPlan {
         );
         Self {
             root: root.to_path_buf(),
+            guideline_patterns: WorkspacePatternSet::from_validated(root, []),
             config_patterns,
             content_patterns: WorkspacePatternSet::from_validated(root, []),
             taxonomy_patterns: WorkspacePatternSet::from_validated(root, []),
@@ -185,6 +203,7 @@ impl WorkspaceScanPlan {
         Self {
             root: root.to_path_buf(),
             config_patterns,
+            guideline_patterns: WorkspacePatternSet::from_validated(root, []),
             content_patterns,
             taxonomy_patterns: WorkspacePatternSet::from_validated(root, []),
             space_patterns: BTreeMap::new(),
@@ -194,6 +213,14 @@ impl WorkspaceScanPlan {
             resource_paths,
             diagnostics: Vec::new(),
         }
+    }
+
+    pub(crate) fn with_guideline_patterns(
+        mut self,
+        patterns: impl IntoIterator<Item = String>,
+    ) -> Self {
+        self.guideline_patterns = pattern_set_skipping_invalid(&self.root, patterns);
+        self
     }
 
     pub(crate) fn resolve(
@@ -299,10 +326,19 @@ impl WorkspaceScanPlan {
             &control_paths,
             &resource_paths,
         );
+        let watch_patterns = WorkspacePatternSet::from_validated(
+            root,
+            watch_patterns
+                .patterns()
+                .iter()
+                .chain(bootstrap.guideline_patterns.patterns())
+                .filter_map(|pattern| WorkspaceGlob::parse_config(pattern).ok()),
+        );
 
         Arc::new(Self {
             root: root.clone(),
             config_patterns: bootstrap.config_patterns,
+            guideline_patterns: bootstrap.guideline_patterns,
             content_patterns,
             taxonomy_patterns,
             space_patterns,
@@ -342,6 +378,10 @@ impl WorkspaceScanPlan {
 
     pub fn watch_patterns(&self) -> &WorkspacePatternSet {
         &self.watch_patterns
+    }
+
+    pub fn guideline_patterns(&self) -> &WorkspacePatternSet {
+        &self.guideline_patterns
     }
 
     pub fn control_paths(&self) -> &BTreeSet<String> {

@@ -8,6 +8,7 @@ use crate::config::{
     CreateDefinition, CreateInput, DisplayOptions, RuntimeValueProvider, SemanticType,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticSummary, OperationStatus};
+use crate::guidelines::GuidelineSource;
 use crate::index::{IndexView, IndexViewSource, discover_loaded_workspace};
 use crate::load_workspace;
 use crate::model::{ConfigProjection, ResolvedWorkspaceModel};
@@ -30,6 +31,8 @@ pub struct ConfigSummaryResult {
     pub runtime_values: Vec<RuntimeValueSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sources: Option<Vec<ConfigSource>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guideline_sources: Option<Vec<GuidelineSource>>,
     pub summary: DiagnosticSummary,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -338,6 +341,7 @@ pub fn summarize_config(
         views,
         guidelines: workspace.config.guidelines,
         runtime_values,
+        guideline_sources: include_sources.then_some(workspace.guideline_sources),
         sources: include_sources.then(|| {
             workspace
                 .config_sources

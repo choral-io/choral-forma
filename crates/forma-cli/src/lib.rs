@@ -2396,6 +2396,25 @@ mod tests {
     }
 
     #[test]
+    fn workspace_fingerprint_tracks_guideline_glob_additions_and_removals() {
+        let root = fixture_root("workspace-guideline-glob-fingerprint");
+        fs::create_dir_all(root.join("guidance")).unwrap();
+        fs::write(
+            root.join(".forma.md"),
+            "---\nschemaVersion: 1\nworkspace:\n  name: Fixture\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nguidelines: ['guidance/*.md']\n---\n# Fixture\n",
+        )
+        .unwrap();
+        let watch_set = workspace_watch_set(&root);
+        let before = workspace_fingerprint(&root, &watch_set).unwrap();
+        fs::write(root.join("guidance/new.md"), "# New guideline\n").unwrap();
+        let added = workspace_fingerprint(&root, &watch_set).unwrap();
+        assert_ne!(before, added);
+        fs::remove_file(root.join("guidance/new.md")).unwrap();
+        assert_eq!(before, workspace_fingerprint(&root, &watch_set).unwrap());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn workspace_fingerprint_changes_when_workspace_content_changes() {
         let root = fixture_root("workspace-cache-fingerprint");
         fs::create_dir_all(&root).unwrap();
