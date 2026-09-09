@@ -5,7 +5,7 @@ title: "Forma v0.1.36"
 summary: "Guided Modeling foundation, explicit structured Markdown output, skill routing, configuration diagnostics, and toolchain refresh."
 scope: project
 type: release
-status: unreleased
+status: released
 version: "v0.1.36"
 date: 2026-09-09
 owners:
@@ -40,23 +40,32 @@ Guided Modeling remains intentionally bounded: there is no modeling RPC, existin
 
 ### Candidate And Publication
 
-- Candidate commit: to be recorded after version alignment and exact-candidate gates.
-- Local gates: `mise run version:check -- v0.1.36`, `CI=true mise run check`, Forma content checks, workspace health, and applicable VSIX packaging/smoke checks.
-- Exact-source main CI and the protected Release workflow will be recorded after publication.
+- Candidate commit: `51a0cd312c5c9014ae5e1a46ca4d65c0140f749c`.
+- Local gates passed: `mise run version:check -- v0.1.36`, `CI=true mise run check` (43.18 seconds), Forma `check` and workspace health (0 errors, 0 warnings), VSIX packaging, and disposable VSIX installation/activation/LSP smoke.
+- Exact-source [main CI run 34374131215](https://github.com/choral-io/choral-forma/actions/runs/34374131215) passed all web, knowledge, static-site, Rust, VS Code, installer, deployment, and five-platform CLI jobs.
+- [Release workflow 34375558168](https://github.com/choral-io/choral-forma/actions/runs/34375558168) passed exact-candidate validation, five-platform CLI and VSIX builds, source-bound assembly, protected promotion, published verification, and protected Marketplace publication.
+- Annotated tag object `d7fe6e860e58efc1e8276754f0ee05296d4fd438` for `v0.1.36` resolves to the exact candidate commit above.
+- [GitHub Release](https://github.com/choral-io/choral-forma/releases/tag/v0.1.36) was published at `2026-09-09T16:32:21Z`, with `draft=false` and `prerelease=false`. All 22 expected assets are present.
 
 ### Published Assets And Installation
 
-Published asset inventory, hashes, native CLI version, VSIX identity, managed-install verification, Marketplace publication, and exact workflow links will be recorded after the release workflow completes.
+`mise run release:verify -- v0.1.36` passed on macOS ARM64 after publication:
+
+- Exact asset inventory: 22 assets; all 11 payloads match their sibling SHA-256 files.
+- Native standalone CLI: `forma-macos-arm64`, reporting `forma 0.1.36`; SHA-256 `430859231b321918588e37343c036035ea8400e3c8e76fba039bd75b0092c5c3`.
+- Published VSIX: `choral-io.forma@0.1.36`, display name `Forma by Choral`, engine `^1.123.2`; SHA-256 `8bfa5d3ad15768ac0f7c93d2ba47cdc8d04d7560975312154c161503c3f02fd9`.
+- The production managed-install implementation downloaded, verified, installed, and executed the published `forma-macos-arm64` CLI as `forma 0.1.36` in disposable storage. Verification downloads and managed storage were cleaned.
+- Marketplace readback via `vsce show choral-io.forma --json` found version `0.1.36` (last updated `2026-09-09T16:34:54.320Z`); its `Microsoft.VisualStudio.Services.VsixSha256` exactly matches the published VSIX hash above.
 
 ### Editor Runtime And Remaining Boundaries
 
-Record the verified local and CI editor/runtime coverage. Remote SSH, Dev Container, WSL, signing, notarization, Zed Registry publication, non-native execution, and any other untested platform boundaries remain explicitly unverified unless evidence is added here.
+Local macOS ARM64 and Release CI packaged-VSIX smoke tests passed with the matching CLI. Release CI built and executed the native CLI jobs for Linux x64/ARM64, macOS x64/ARM64, and Windows x64. Remote SSH, Dev Container, WSL, signing, notarization, Zed Registry publication, and non-native in-place replacement remain unverified.
 
 ## Rollout Plan
 
-1. Align the coordinated version and release content, run the exact-candidate local gates, and commit and push the candidate.
-2. Confirm main CI for the exact candidate SHA, then dispatch `.github/workflows/release.yml` with version `0.1.36`.
-3. Verify the published assets and managed installation, then record closure evidence in this record and the delivery ledger in a separate post-release commit.
+1. Aligned the coordinated version and release content, ran the exact-candidate local gates, and committed and pushed candidate `51a0cd3`.
+2. Confirmed main CI for the exact candidate SHA, dispatched `.github/workflows/release.yml` with version `0.1.36`, and approved its protected `release-production` and `vscode-marketplace-publish` environments.
+3. Verified the published assets and managed installation, then recorded closure evidence in this record and the delivery ledger in a separate post-release commit.
 
 ## Migration Or Operations Notes
 
@@ -75,4 +84,4 @@ Before publication, remediate the candidate and repeat its exact-source gates. A
 
 ## Post-Release Follow-Up
 
-Complete this record and the delivery ledger only after the protected release workflow and executable post-release verification succeed. Do not change the immutable release tag.
+Publication and independent verification are complete. The separate post-release evidence commit updates this record and the delivery ledger; the immutable release tag remains on the candidate commit. Related design work remains bounded by the scope above and was not automatically marked complete.

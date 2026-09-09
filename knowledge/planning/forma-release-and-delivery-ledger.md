@@ -81,12 +81,12 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.33 | [[releases/forma-v0.1.33]] | Released strict numeric Schema contract Public Preview patch. |
 | v0.1.34 | [[releases/forma-v0.1.34]] | Released explicit structured-artifact schema validation and coordinated toolchain Public Preview patch. |
 | v0.1.35 | [[releases/forma-v0.1.35]] | Released guideline-glob, WebApp, and editor-compatibility Public Preview patch. |
-| v0.1.36 | [[releases/forma-v0.1.36]] | Guided Modeling and toolchain-refresh candidate; publication evidence pending. |
+| v0.1.36 | [[releases/forma-v0.1.36]] | Released Guided Modeling and toolchain-refresh Public Preview patch. |
 
 ## Current Delivery Cutline
 
-- **Current released baseline:** [[releases/forma-v0.1.35]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
-- **Previous released baseline:** [[releases/forma-v0.1.34]] records the explicit structured-artifact schema validation and coordinated toolchain Public Preview patch that preceded this release.
+- **Current released baseline:** [[releases/forma-v0.1.36]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
+- **Previous released baseline:** [[releases/forma-v0.1.35]] records the guideline-glob, WebApp, and editor-compatibility Public Preview patch that preceded this release.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.
 - **Active validation:** [[tasks/validate-shared-graph-view-cross-host-parity]] remains the active cross-Host Graph evidence boundary.
