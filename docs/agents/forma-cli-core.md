@@ -40,7 +40,7 @@ Use `forma workspace explain <path> --json` when classification or provenance ma
 
 ### Design or configuration
 
-If `.forma.md` is missing, explain the state and ask whether to run `forma init`. For an approved design request, load `forma skills get forma-workspace-design`; then load only the references needed for the accepted first slice, normally `workspace.first-slice-config` and any needed spaces, schema, or template reference. Load `forma skills get forma-workspace-bootstrap` when implementing that slice.
+If `.forma.md` is missing, explain the state and ask whether to run `forma init`. For an approved design request, load `forma skills get forma-workspace-design`. When implementing an accepted first slice, load `forma skills get forma-workspace-bootstrap`; it selects guided modeling for supported empty-corpus choices or explicit configuration for other requirements. For a direct request to prepare, review, apply, or recover a modeling plan, load `forma skills get forma-guided-modeling`.
 
 Do not copy an example by default. For an explicitly requested example, starter, or approved example-shaped fast path, load `forma docs get agents.workspace-example-accelerator` and retain only the approved scope.
 

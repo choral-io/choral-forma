@@ -23,11 +23,13 @@ After `forma init`, turn an accepted real content workflow into the smallest use
 
 Reuse an accepted design brief. If scope is uncertain, load `forma-workspace-design` and ask only the questions that affect this slice. Do not assume that tasks, notes, members, or guidelines are required.
 
-Load `workspace.first-slice-config` and only the needed spaces, schemas, or templates references with `forma docs get`. For an explicit example request, load `agents.workspace-example-accelerator` instead of treating examples as a default dependency.
+For an initialized workspace with an empty configured corpus, one new content group, text/date fields, and a table, load `forma skills get forma-guided-modeling` and use its prepare/review/apply workflow. Return here only if the requirements exceed that compiler's scope.
+
+For other approved configuration requirements, load `workspace.first-slice-config` and only the needed spaces, schemas, or templates references with `forma docs get`, then follow the explicit configuration steps below. Existing-content inventory or import requires its own agreed scope; do not remove existing content to qualify for modeling. For an explicit example request, load `agents.workspace-example-accelerator` instead of treating examples as a default dependency.
 
 Before a write whose boundaries are not already approved, state the proposed configured space, fields, files, deferred relationships, and verification commands, then wait for approval. Otherwise implement the approved scope without asking for duplicate confirmation.
 
-### Implementation
+### Explicit Configuration
 
 1. Add only the approved configured group, schema, template, view, or guideline needed by the slice.
 2. Run `forma config summary --group <content-group-id> --sources --json` and `forma check --json`.

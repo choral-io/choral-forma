@@ -8,6 +8,12 @@ audience:
 surfaces:
     - docs
     - help
+    - skill
+skill:
+    id: forma-guided-modeling
+    title: Forma Guided Modeling
+    description: Prepare, review, apply, and recover a first content-group file plan in an initialized empty corpus, then verify actual creation and retrieval.
+    order: 25
 commands:
     - forma model
     - forma model guide
@@ -87,4 +93,22 @@ Plans targeting `.forma/local/` include a non-blocking `modeling.reviewDistribut
 
 ## Agent Skill
 
-Prepare choices from explicit user requirements. Distinguish inferred fields from confirmed choices, present their reasons and complete file contents, and obtain authorization for the exact plan before invoking apply. Never supply the generated plan ID as self-approval. Use a fresh plan after edits or workspace changes. Report partial files and failed validation as incomplete work.
+Use this workflow for the first content group in an initialized workspace with an empty configured corpus: text/date fields, a table, and an empty destination directory. For broader schemas or an existing corpus, return to `forma-workspace-bootstrap` for scoped explicit configuration. Preserve existing content; inventory/import is a separate scope.
+
+### Prepare And Review
+
+1. Reuse accepted requirements. If the content purpose or field choices remain unresolved, load `forma skills get forma-workspace-design`. Distinguish inferred choices from confirmed ones and record each field's reason.
+2. Inspect `forma config summary --sources --json` and `forma workspace health --json`. Inspect effective imports with `forma config inspect --json` when the summary does not establish control-file reachability. Directory names and Git-ignore rules do not determine runtime scope or privacy.
+3. Read `forma docs get cli.model` for the choices JSON shape, path constraints, and recovery contract. When authoring or diagnosing structured templates, also read `forma docs get workspace.templates`. For Agents, use `model prepare/apply`; `model guide` requires an interactive terminal.
+4. Store both the choices file and generated plan outside configured inputs and the proposed content directory. Run `forma model prepare --choices <choices.json> --output <new-plan.json>`, using a fresh output path. Preparation validates a private copy; it does not apply model files to the target. If preparation fails, diagnose the reported input or configuration issue before retrying; expand write scope only with authorization.
+5. Present the plan's choices and reasons, complete file paths and contents, advisories, verification steps, and ID. Reuse existing authorization only when it covers these exact writes; otherwise obtain authorization after this concrete preview. Possession of the ID is not approval. Revise choices and prepare a new plan when the model or relevant workspace state changes; do not hand-edit generated files or remove dependencies from the plan.
+
+### Apply And Verify
+
+1. With authorization for the reviewed files, run `forma model apply --plan <plan.json> --confirm <exact-plan-id>`. Inspect both the exit status and JSON report. A rejected or stale plan requires renewed preparation and review. A `partial` or `verificationFailed` report is incomplete: preserve the reported files, inspect written paths and any incomplete target, and agree on recovery within the approved scope before retrying. There is no automatic cleanup.
+2. An `applied` report establishes that the group is ready. Read its resolved create contract with `forma config summary --group <group-id> --sources --json`. Before creating approved real content, use `forma create <group-id> --input title=...` plus every required field with `--preview --json`. Check the target, rendered metadata, and diagnostics, then use the same inputs for the authorized create. Obtain additional authorization only if that content write is outside the existing scope.
+3. Inspect the actual created path and verify that `forma list --space <group-id> --json` and `forma view render <configured-view> --json` contain it. Check operation statuses and classification, not just process success. Run `forma check --json` and `forma workspace health --json`; report failed verification and retained files accurately.
+
+### Completion Criteria
+
+Report configuration application and real-content validation separately. The model is ready only after `applied`; the first-entry journey is complete only when approved content was created and retrieved through inspect/list/table with passing checks. If no real content write was authorized, report the model as ready and entry validation as pending. These checks do not prove every future field value or filename.

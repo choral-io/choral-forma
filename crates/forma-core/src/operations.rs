@@ -3873,7 +3873,7 @@ struct SkillMetadata {
 }
 
 fn builtin_skills(full: bool) -> Vec<SkillDetail> {
-    embedded_docs()
+    let mut skills = embedded_docs()
         .expect("canonical embedded docs should parse")
         .into_iter()
         .filter_map(|doc| {
@@ -3901,7 +3901,15 @@ fn builtin_skills(full: bool) -> Vec<SkillDetail> {
                 content,
             })
         })
-        .collect()
+        .collect::<Vec<_>>();
+    // Documentation navigation order is independent of Agent workflow order.
+    skills.sort_by(|a, b| {
+        a.order
+            .unwrap_or(i64::MAX)
+            .cmp(&b.order.unwrap_or(i64::MAX))
+            .then_with(|| a.id.cmp(&b.id))
+    });
+    skills
 }
 
 fn workspace_summary_from_config_or_fallback(config: Option<&WorkspaceConfig>) -> WorkspaceSummary {

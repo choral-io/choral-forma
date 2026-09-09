@@ -35,7 +35,7 @@ Start with [Getting Started](getting-started.md).
 
 ## Agent Workflows
 
-Start with [Forma CLI Core](agents/forma-cli-core.md), then load the relevant workflow: [design](agents/workspace-design-discovery.md), [bootstrap](agents/workspace-bootstrap.md), [maintenance](agents/workspace-maintenance.md), or [troubleshooting](agents/workspace-troubleshooting.md). [Example-backed setup](agents/workspace-example-accelerator.md) is optional.
+Start with [Forma CLI Core](agents/forma-cli-core.md), then load the relevant workflow: [design](agents/workspace-design-discovery.md), [bootstrap](agents/workspace-bootstrap.md), [guided modeling](cli/model.md), [maintenance](agents/workspace-maintenance.md), or [troubleshooting](agents/workspace-troubleshooting.md). [Example-backed setup](agents/workspace-example-accelerator.md) is optional.
 
 ## Read From The CLI
 

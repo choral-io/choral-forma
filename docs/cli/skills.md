@@ -24,6 +24,8 @@ A configured root or space guideline is discoverable only when it declares `skil
 
 Guideline declarations may use exact paths or globs. Core resolves them before discovery; duplicate paths are read once, while duplicate skill IDs in different files remain errors. Use `config summary --sources --json` to inspect declaration-to-file provenance; matching semantics are documented in `workspace.guidelines`.
 
+The list places built-in skills before workspace skills. Within each group, skills sort by `skill.order` (unspecified values last), then by id; documentation navigation order is independent.
+
 The list result reports each skill's `projection`. Built-in skills always project one compact `## Agent Skill` section. Workspace guideline metadata chooses `projection: section` for the same behavior or `projection: full` when the complete guideline is intentionally the skill.
 
 ## CLI Help
