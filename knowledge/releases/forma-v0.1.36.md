@@ -29,7 +29,7 @@ Publish the next coordinated Public Preview patch after [[releases/forma-v0.1.35
 
 ## Included Changes
 
-- Add the `model`, `prepare`, and `apply` Guided Modeling flow for an initialized empty corpus, one content group, and `Text`, `Date`, and `table` fields.
+- Add the `forma model guide`, `forma model prepare`, and `forma model apply` Guided Modeling flow for an initialized empty corpus, one content group, `Text` and `Date` fields, and a table view.
 - Make `structuredMarkdown` explicit in the model output contract and make the `forma-guided-modeling` Skill discoverable with deterministic routing and ordering.
 - Preserve configuration-error provenance so diagnostics identify the authored source and location.
 - Refresh dependencies and migrate the Vitest benchmark baseline.
@@ -70,7 +70,7 @@ Local macOS ARM64 and Release CI packaged-VSIX smoke tests passed with the match
 ## Migration Or Operations Notes
 
 - The frontmatter closing marker must begin in the first column; indented closing markers are not compatible with this release.
-- Guided Modeling currently initializes only an empty corpus with one content group and `Text`, `Date`, and `table` fields. Existing-content inventory/import, modeling RPC, GUI, and complete natural-language inference remain future work.
+- Guided Modeling currently initializes only an empty corpus with one content group, `Text` and `Date` fields, and a table view. Existing-content inventory/import, modeling RPC, GUI, and complete natural-language inference remain future work.
 - `gm1` is a development intermediate and is not a published compatibility format.
 - The release remains a Public Preview.
 
@@ -85,3 +85,5 @@ Before publication, remediate the candidate and repeat its exact-source gates. A
 ## Post-Release Follow-Up
 
 Publication and independent verification are complete. The separate post-release evidence commit updates this record and the delivery ledger; the immutable release tag remains on the candidate commit. Related design work remains bounded by the scope above and was not automatically marked complete.
+
+The post-release evidence commit is `daf126a75cadc69b499b0e43422d8a9375177cf5`; its [CI run 34377954966](https://github.com/choral-io/choral-forma/actions/runs/34377954966) passed. A subsequent documentation correction clarifies the command names and distinguishes field types from the table view. Published tags and assets, including the changelog embedded in the v0.1.36 VSIX, remain unchanged.
