@@ -1,5 +1,6 @@
 .git/
 .worktrees/
+**/worktrees/
 
 .agents/skills/
 .claude/skills/

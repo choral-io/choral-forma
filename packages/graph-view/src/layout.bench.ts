@@ -1,4 +1,4 @@
-import { bench, describe } from "vitest";
+import { describe, test } from "vitest";
 
 import { graphFixtureProfile, type GraphFixtureProfile } from "./fixtures.ts";
 import { buildGraphologyGraph, settleInitialLayout } from "./layout.ts";
@@ -18,43 +18,30 @@ describe("shared graph pipeline", () => {
         const snapshot = new GraphViewModel(projection).snapshot();
         const options = { iterations, time: 0 };
 
-        bench(
-            `${profile} projection normalization (${label})`,
-            () => {
-                normalizeGraphProjection(projection);
-            },
-            options,
-        );
+        test(`${profile} projection normalization (${label})`, async ({ bench }) => {
+            await bench("normalize", () => normalizeGraphProjection(projection)).run(options);
+        });
 
-        bench(
-            `${profile} model construction (${label})`,
-            () => {
-                new GraphViewModel(projection).snapshot();
-            },
-            options,
-        );
+        test(`${profile} model construction (${label})`, async ({ bench }) => {
+            await bench("model", () => new GraphViewModel(projection).snapshot()).run(options);
+        });
 
-        bench(
-            `${profile} Graphology construction (${label})`,
-            () => {
-                buildGraphologyGraph(snapshot);
-            },
-            options,
-        );
+        test(`${profile} Graphology construction (${label})`, async ({ bench }) => {
+            await bench("graph", () => buildGraphologyGraph(snapshot)).run(options);
+        });
 
-        let graph = buildGraphologyGraph(snapshot);
-        bench(
-            `${profile} synchronous layout (${label})`,
-            () => {
-                settleInitialLayout(graph, engine);
-            },
-            {
-                ...options,
-                setup: () => {
-                    graph = buildGraphologyGraph(snapshot);
+        test(`${profile} synchronous layout (${label})`, async ({ bench }) => {
+            let graph = buildGraphologyGraph(snapshot);
+            await bench(
+                "layout",
+                {
+                    beforeEach: () => {
+                        graph = buildGraphologyGraph(snapshot);
+                    },
                 },
-            },
-        );
+                () => settleInitialLayout(graph, engine),
+            ).run(options);
+        });
     }
 });
 

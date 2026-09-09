@@ -3,6 +3,12 @@ import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
     test: {
+        include: [
+            "extensions/vscode/src",
+            "packages/graph-view/src",
+            "packages/shared/src",
+            "packages/webapp/src",
+        ].flatMap((directory) => configDefaults.include.map((pattern) => `${directory}/${pattern}`)),
         exclude: [...configDefaults.exclude, "**/.worktrees/**"],
     },
     resolve: {
