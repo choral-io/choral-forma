@@ -36,6 +36,7 @@ sources:
     - "releases/forma-v0.1.33"
     - "releases/forma-v0.1.34"
     - "releases/forma-v0.1.35"
+    - "releases/forma-v0.1.36"
     - "planning/release-artifact-promotion-pipeline-redesign"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
@@ -80,6 +81,7 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.33 | [[releases/forma-v0.1.33]] | Released strict numeric Schema contract Public Preview patch. |
 | v0.1.34 | [[releases/forma-v0.1.34]] | Released explicit structured-artifact schema validation and coordinated toolchain Public Preview patch. |
 | v0.1.35 | [[releases/forma-v0.1.35]] | Released guideline-glob, WebApp, and editor-compatibility Public Preview patch. |
+| v0.1.36 | [[releases/forma-v0.1.36]] | Guided Modeling and toolchain-refresh candidate; publication evidence pending. |
 
 ## Current Delivery Cutline
 

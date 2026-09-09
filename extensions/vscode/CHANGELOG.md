@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.36
+
+- Add the first reviewed Guided Modeling slice with model/prepare/apply documentation and an explicit `structuredMarkdown` output contract.
+- Make the discoverable `forma-guided-modeling` Skill route and order consistently, and preserve configuration-error provenance for actionable diagnostics.
+- Refresh the coordinated dependency and Vitest 5 baseline toolchain.
+- Guided Modeling currently initializes an empty corpus with one content group and `Text`/`Date`/`table` fields; it does not yet provide modeling RPC, existing-content inventory/import, or full natural-language inference.
+- The frontmatter closing marker must begin in the first column for compatibility. The `gm1` format remains an unpublished development intermediate and receives no compatibility implementation.
+
 ## 0.1.35
 
 - Support deterministic guideline glob declarations, source diagnostics, and file-change watching across Forma CLI, RPC, and skill projections.
