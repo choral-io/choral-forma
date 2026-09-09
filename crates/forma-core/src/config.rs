@@ -86,27 +86,8 @@ pub struct RuntimeConfig {
     pub values: BTreeMap<String, RuntimeValueProvider>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
-pub enum RuntimeValueProvider {
-    Const {
-        value: Value,
-        #[serde(default)]
-        required: bool,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        transform: Option<String>,
-    },
-    GitConfig {
-        key: String,
-        #[serde(default)]
-        required: bool,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        transform: Option<String>,
-    },
-    CurrentDate,
-    CurrentDateTime,
-    WorkspaceRoot,
-}
+mod runtime_provider;
+pub use runtime_provider::RuntimeValueProvider;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -382,6 +363,7 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
             source,
         })?;
     reject_legacy_root_include(&base_config_file, FORMA_CONFIG_PATH)?;
+    let mut merge_provenance = MergeProvenance::default();
     let bootstrap_scan_plan =
         WorkspaceScanPlan::from_imports(root, &base_config_file.imports, &mut diagnostics);
     let config_source_patterns = bootstrap_scan_plan.config_patterns().patterns().to_vec();
@@ -389,6 +371,11 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
     for public_path in &imported_config_paths {
         let imported_path = resolve_config_file(root, public_path)?;
         let mut local_value = read_markdown_frontmatter_value(&imported_path, public_path)?;
+        // An imported file without mapping frontmatter carries no configuration. Merging
+        // it would replace the effective configuration with a non-mapping value.
+        if !local_value.is_mapping() {
+            continue;
+        }
         if config_node_kind(&local_value).is_some() {
             continue;
         }
@@ -403,13 +390,40 @@ pub fn load_workspace(root: impl AsRef<Path>) -> Result<FormaWorkspace, ConfigEr
         if local_value.get("guidelines").is_some() {
             guideline_source_path = public_path.clone();
         }
-        deep_merge(&mut config_value, local_value);
+        deep_merge_tracked(
+            &mut config_value,
+            local_value,
+            public_path,
+            &[],
+            &mut merge_provenance,
+        );
     }
 
     let config_file: ConfigFile =
-        serde_yml::from_value(config_value).map_err(|source| ConfigError::Parse {
-            path: FORMA_CONFIG_PATH.to_string(),
-            source,
+        serde_path_to_error::deserialize(&config_value).map_err(|error| {
+            let mut key_path = error
+                .path()
+                .iter()
+                .filter_map(|segment| match segment {
+                    serde_path_to_error::Segment::Map { key } => Some(key.clone()),
+                    serde_path_to_error::Segment::Seq { index } => Some(index.to_string()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            let mut source = error.into_inner();
+            // Internally tagged enums buffer their payload in serde, so the outer
+            // tracker ends at the provider. Resolve its typed fields at that boundary.
+            if let Some(error) = runtime_provider_field_error(&config_value, &key_path) {
+                key_path.extend(error.path);
+                source = error.source;
+            }
+            ConfigError::Parse {
+                path: merge_provenance
+                    .writer_of(&key_path)
+                    .unwrap_or(FORMA_CONFIG_PATH)
+                    .to_string(),
+                source,
+            }
         })?;
     reject_legacy_root_include(&config_file, FORMA_CONFIG_PATH)?;
 
@@ -535,9 +549,12 @@ fn load_config_nodes(
         .collect::<BTreeSet<_>>();
 
     for (public_path, mut frontmatter, node) in parsed_nodes {
-        let has_top_level_types = !node.types.is_empty();
         let has_explicit_type_kind = node.kind.as_deref() == Some("types");
-        if has_explicit_type_kind || has_top_level_types {
+        // A plain configuration file without `kind` already contributed its types while
+        // imported configuration was assembled, so merging them again would report a
+        // false duplicate. Only configuration nodes still need their types merged here.
+        let declares_types_as_node = node.kind.is_some() && !node.types.is_empty();
+        if has_explicit_type_kind || declares_types_as_node {
             merge_type_definitions(
                 types,
                 type_sources,
@@ -889,28 +906,111 @@ fn read_markdown_frontmatter<T: for<'de> Deserialize<'de>>(
     })
 }
 
+/// Recover the precise payload path across serde's buffered enum boundary by
+/// calling the same parser used by RuntimeValueProvider::deserialize.
+fn runtime_provider_field_error(
+    config: &Value,
+    path: &[String],
+) -> Option<runtime_provider::ProviderParseError> {
+    if path.len() != 3 || path[0] != "runtime" || path[1] != "values" {
+        return None;
+    }
+    runtime_provider::parse(config["runtime"]["values"][&path[2]].clone()).err()
+}
+
 fn read_markdown_frontmatter_value(path: &Path, public_path: &str) -> Result<Value, ConfigError> {
     let contents = fs::read_to_string(path).map_err(|source| ConfigError::Read {
         path: public_path.to_string(),
         source,
     })?;
     let document = FormaMarkdownDocument::parse(&contents);
-    Ok(document.frontmatter.value.unwrap_or(Value::Null))
+    match document.frontmatter.value {
+        Some(value) => Ok(value),
+        // Frontmatter is present but did not parse. Re-parse it so the failure is
+        // reported against this file instead of the configuration entry point.
+        None => match document.frontmatter.raw {
+            Some(raw) => match serde_yml::from_str::<Value>(&raw) {
+                Ok(value) => Ok(value),
+                Err(source) => Err(ConfigError::Parse {
+                    path: public_path.to_string(),
+                    source,
+                }),
+            },
+            None => Ok(Value::Null),
+        },
+    }
 }
 
-fn deep_merge(base: &mut Value, overlay: Value) {
+/// Records which configuration file last wrote each merged key.
+///
+/// Merging is destructive: once an overlay overwrites a key, nothing in the
+/// merged value says where it came from. Attribution used to recover that by
+/// replaying the merge and guessing from the order in which validity changed,
+/// which is only ever an approximation. Recording the writer at merge time makes
+/// the answer exact.
+#[derive(Debug, Default)]
+struct MergeProvenance {
+    /// Key segments to the public path of the file that last wrote it.
+    writers: BTreeMap<Vec<String>, String>,
+}
+
+impl MergeProvenance {
+    fn record(&mut self, key_path: &[String], public_path: &str) {
+        if key_path.is_empty() {
+            return;
+        }
+        // Writing this path replaces everything under it, so records for the old
+        // descendants describe values that no longer exist. Left behind, they
+        // outrank this one, because lookup prefers the most specific match.
+        self.writers
+            .retain(|recorded, _| !recorded.starts_with(key_path));
+        self.writers
+            .insert(key_path.to_vec(), public_path.to_string());
+    }
+
+    /// Resolves the file that wrote `key_path`, falling back to the nearest
+    /// recorded ancestor when a whole subtree was written at once.
+    fn writer_of(&self, key_path: &[String]) -> Option<&str> {
+        let mut candidate = key_path;
+        loop {
+            if let Some(public_path) = self.writers.get(candidate) {
+                return Some(public_path.as_str());
+            }
+            candidate = candidate.get(..candidate.len().checked_sub(1)?)?;
+        }
+    }
+}
+
+/// Merges `overlay` into `base` while recording which file wrote each key.
+fn deep_merge_tracked(
+    base: &mut Value,
+    overlay: Value,
+    public_path: &str,
+    key_path: &[String],
+    provenance: &mut MergeProvenance,
+) {
     match (base, overlay) {
         (Value::Mapping(base), Value::Mapping(overlay)) => {
             for (key, value) in overlay {
+                let mut child_path = key_path.to_vec();
+                if let Some(name) = key.as_str() {
+                    child_path.push(name.to_string());
+                }
                 match base.get_mut(&key) {
-                    Some(base_value) => deep_merge(base_value, value),
+                    Some(base_value) => {
+                        deep_merge_tracked(base_value, value, public_path, &child_path, provenance);
+                    }
                     None => {
+                        provenance.record(&child_path, public_path);
                         base.insert(key, value);
                     }
                 }
             }
         }
-        (base, overlay) => *base = overlay,
+        (base, overlay) => {
+            provenance.record(key_path, public_path);
+            *base = overlay;
+        }
     }
 }
 
@@ -1311,7 +1411,7 @@ mod tests {
 
     use serde_yml::Value;
 
-    use super::load_workspace;
+    use super::{ConfigError, load_workspace};
     use crate::path::FORMA_CONFIG_PATH;
 
     #[test]
@@ -1616,6 +1716,348 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.code == "config.type.duplicate")
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn merges_types_from_an_imported_config_file_without_kind_only_once() {
+        let root = fixture_root("imported-types-without-kind");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/*.md\n  - .forma/spaces/*.md",
+        );
+        write_config_node(
+            &root,
+            ".forma/types.md",
+            "---\nschemaVersion: 1\ntypes:\n  steward:\n    kind: entryRef\n    source: .forma/spaces/people\n---\n\n# Types\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/spaces/people.md",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: People\ninclude:\n  - people/**/*.md\n---\n\n# People\n",
+        );
+
+        let workspace = load_workspace(&root).unwrap();
+
+        assert!(
+            !workspace
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "config.type.duplicate"),
+            "a type declared once must not be reported as a duplicate"
+        );
+        assert!(workspace.config.types.contains_key("steward"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn identifies_the_failing_field_when_two_fields_share_an_error_message() {
+        let root = fixture_root("imported-config-shared-error-text");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/*.md",
+        );
+        // Both produce "invalid type: sequence, expected a string", so the message
+        // cannot distinguish them.
+        write_config_node(
+            &root,
+            ".forma/a.md",
+            "---\nschemaVersion: 1\nworkspace:\n  name: [bad]\n---\n\n# A\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/b.md",
+            "---\nschemaVersion: 1\nworkspace:\n  timezone: [bad]\n---\n\n# B\n",
+        );
+
+        let error = load_workspace(&root).unwrap_err();
+
+        match error {
+            ConfigError::Parse { path, .. } => {
+                assert_ne!(
+                    path, FORMA_CONFIG_PATH,
+                    "the entry point is valid and must not be blamed"
+                );
+                assert!(
+                    path == ".forma/a.md" || path == ".forma/b.md",
+                    "expected one of the broken imports, got {path}"
+                );
+            }
+            other => panic!("expected a parse failure naming a broken import, got {other:?}"),
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn tagged_providers_return_parse_errors_at_their_source() {
+        for imported in [false, true] {
+            let root = fixture_root("tagged-provider");
+            let provider = "runtime:\n  values:\n    probe: !outer {kind: const, value: 42}\n";
+            let mut config = "schemaVersion: 1\nworkspace:\n  name: Test\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\n".to_string();
+            let source = if imported {
+                config.push_str("imports: [\".forma/*.md\"]\n");
+                write_config_node(
+                    &root,
+                    ".forma/providers.md",
+                    &format!("---\n{provider}---\n"),
+                );
+                ".forma/providers.md"
+            } else {
+                config.push_str(provider);
+                FORMA_CONFIG_PATH
+            };
+            write_root_config(&root, &config);
+            match load_workspace(&root).unwrap_err() {
+                ConfigError::Parse { path, .. } => assert_eq!(path, source),
+                other => panic!("expected a parse diagnostic, got {other:?}"),
+            }
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn attributes_errors_to_exact_imported_keys() {
+        for (label, first, second) in [
+            (
+                "provider-kind",
+                "runtime:\n  values:\n    team:\n      kind: const\n      value: anything",
+                "runtime:\n  values:\n    team:\n      kind: unknown",
+            ),
+            (
+                "provider-kind-switch",
+                "runtime:\n  values:\n    team:\n      kind: const\n      value: anything",
+                "runtime:\n  values:\n    team:\n      kind: gitConfig",
+            ),
+            (
+                "new-parent",
+                "runtime:\n  values:\n    team:\n      kind: gitConfig\n      key: user.name",
+                "runtime:\n  values:\n    team:\n      key: [bad]",
+            ),
+            (
+                "dotted-name",
+                "runtime:\n  values:\n    team.name:\n      kind: gitConfig\n      key: user.name",
+                "runtime:\n  values:\n    team.name:\n      required: [bad]",
+            ),
+            (
+                "provider-transform",
+                "runtime:\n  values:\n    team:\n      kind: const\n      value: anything",
+                "runtime:\n  values:\n    team:\n      transform: [bad]",
+            ),
+            (
+                "new-logo",
+                "workspace:\n  logo:\n    path: logo.svg",
+                "workspace:\n  logo:\n    alt: [bad]",
+            ),
+        ] {
+            let root = fixture_root(label);
+            write_root_config(
+                &root,
+                "schemaVersion: 1\nworkspace:\n  name: Test\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: UTC\nimports: [\".forma/*.md\"]",
+            );
+            write_config_node(&root, ".forma/a.md", &format!("---\n{first}\n---\n"));
+            write_config_node(&root, ".forma/b.md", &format!("---\n{second}\n---\n"));
+            match load_workspace(&root).unwrap_err() {
+                ConfigError::Parse { path, .. } => assert_eq!(path, ".forma/b.md", "{label}"),
+                other => panic!("{other:?}"),
+            }
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_replaced_subtree_does_not_keep_its_old_descendant_sources() {
+        let root = fixture_root("imported-config-replaced-subtree");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nruntime:\n  values:\n    who:\n      kind: gitConfig\n      key: user.name\nimports:\n  - .forma/*.md",
+        );
+        // a writes the key path, b replaces the whole subtree, c rebuilds it and
+        // breaks that same key. Only c's write still exists.
+        write_config_node(
+            &root,
+            ".forma/a.md",
+            "---\nschemaVersion: 1\nruntime:\n  values:\n    who:\n      key: user.email\n---\n\n# A\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/b.md",
+            "---\nschemaVersion: 1\nruntime: null\n---\n\n# B\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/c.md",
+            "---\nschemaVersion: 1\nruntime:\n  values:\n    who:\n      kind: gitConfig\n      key: [bad]\n---\n\n# C\n",
+        );
+
+        let error = load_workspace(&root).unwrap_err();
+
+        match error {
+            ConfigError::Parse { path, .. } => {
+                assert_eq!(
+                    path, ".forma/c.md",
+                    "a source record for a value that was replaced must not survive"
+                );
+            }
+            other => panic!("expected a parse failure naming the rebuilding import, got {other:?}"),
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn ignores_a_broken_import_that_a_later_import_repairs() {
+        let root = fixture_root("imported-config-repaired-then-broken");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/*.md",
+        );
+        // a breaks it, b repairs it, c breaks it again and is the real cause.
+        write_config_node(
+            &root,
+            ".forma/a.md",
+            "---\nschemaVersion: 1\nworkspace:\n  supportedLanguages: overridden\n---\n\n# A\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/b.md",
+            "---\nschemaVersion: 1\nworkspace:\n  supportedLanguages:\n    - en\n---\n\n# B\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/c.md",
+            "---\nschemaVersion: 1\nguidelines: 42\n---\n\n# C\n",
+        );
+
+        let error = load_workspace(&root).unwrap_err();
+
+        match error {
+            ConfigError::Parse { path, source } => {
+                assert_eq!(
+                    path, ".forma/c.md",
+                    "a value a later import overrode must not be reported as the cause"
+                );
+                let message = source.to_string();
+                assert!(
+                    !message.contains("overridden"),
+                    "reported the repaired file's error: {message}"
+                );
+            }
+            other => panic!("expected the failure to name the unrepaired import, got {other:?}"),
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_the_import_that_wrote_the_reported_error() {
+        let root = fixture_root("imported-config-multiple-failures");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/*.md",
+        );
+        write_config_node(
+            &root,
+            ".forma/a-first.md",
+            "---\nschemaVersion: 1\nguidelines: 42\n---\n\n# First\n",
+        );
+        write_config_node(
+            &root,
+            ".forma/b-second.md",
+            "---\nschemaVersion: 1\nworkspace:\n  supportedLanguages: wrong\n---\n\n# Second\n",
+        );
+
+        let error = load_workspace(&root).unwrap_err();
+
+        match error {
+            ConfigError::Parse { path, source } => {
+                // `serde` reports the first field it cannot deserialize, and
+                // `workspace` precedes `guidelines`, so the reported error is the
+                // one `b-second.md` caused. The path must name that same file.
+                let message = source.to_string();
+                assert_eq!(path, ".forma/b-second.md");
+                assert!(
+                    message.contains("wrong"),
+                    "path and message must describe the same file: {message}"
+                );
+            }
+            other => {
+                panic!("expected a parse failure naming the reported error's file, got {other:?}")
+            }
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_a_merged_type_failure_against_the_imported_config_file() {
+        let root = fixture_root("imported-config-type-failure");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/*.md",
+        );
+        write_config_node(
+            &root,
+            ".forma/broken.md",
+            "---\nschemaVersion: 1\nworkspace:\n  supportedLanguages: wrong-type\n---\n\n# Broken\n",
+        );
+
+        let error = load_workspace(&root).unwrap_err();
+
+        match error {
+            ConfigError::Parse { path, .. } => {
+                assert_eq!(path, ".forma/broken.md");
+            }
+            other => panic!("expected the failure to name the imported file, got {other:?}"),
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_frontmatter_parse_failure_against_the_imported_config_file() {
+        let root = fixture_root("imported-config-parse-failure");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/spaces/*.md",
+        );
+        write_config_node(
+            &root,
+            ".forma/spaces/broken.md",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: [broken\n---\n\n# Broken\n",
+        );
+
+        let error = load_workspace(&root).unwrap_err();
+
+        match error {
+            ConfigError::Parse { path, .. } => {
+                assert_eq!(path, ".forma/spaces/broken.md");
+            }
+            other => panic!("expected a parse error for the imported file, got {other:?}"),
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn ignores_an_imported_config_file_without_mapping_frontmatter() {
+        let root = fixture_root("imported-config-without-frontmatter");
+        write_root_config(
+            &root,
+            "schemaVersion: 1\nworkspace:\n  name: Acme Workspace\n  canonicalLanguage: en\n  supportedLanguages:\n    - en\n  timezone: UTC\nimports:\n  - .forma/*.md\n  - .forma/spaces/*.md",
+        );
+        write_config_node(&root, ".forma/notes.md", "# Plain Notes\n");
+        write_config_node(
+            &root,
+            ".forma/spaces/people.md",
+            "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: People\ninclude:\n  - people/**/*.md\n---\n\n# People\n",
+        );
+
+        let workspace = load_workspace(&root).unwrap();
+
+        assert_eq!(workspace.config.workspace.name, "Acme Workspace");
 
         fs::remove_dir_all(root).unwrap();
     }

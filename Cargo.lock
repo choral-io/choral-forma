@@ -652,6 +652,7 @@ dependencies = [
  "markdown",
  "serde",
  "serde_json",
+ "serde_path_to_error",
  "serde_yml",
  "sha2",
  "thiserror",

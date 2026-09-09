@@ -780,6 +780,8 @@ pub enum OperationError {
     CreateNotConfigured(String),
     #[error("invalid input `{0}`")]
     InvalidInput(String),
+    #[error("operation blocked by an existing diagnostic")]
+    Blocked(Box<Diagnostic>),
     #[error("invalid workspace path: {0}")]
     InvalidPath(#[from] PathError),
     #[error("workspace boundary rejected the path: {0}")]
@@ -959,6 +961,15 @@ fn plan_create_entry(
     let resolved = resolve_create_inputs(&create.inputs, &provided, &runtime);
     let mut diagnostics = workspace.diagnostics.clone();
     diagnostics.extend(runtime.diagnostics.clone());
+    // Configuration and runtime failures are not input failures. Report the diagnostic
+    // that actually blocks the operation so the caller is not told their inputs are wrong
+    // when the workspace configuration is. Input errors keep reporting as input errors.
+    if let Some(blocking) = diagnostics
+        .iter()
+        .find(|diagnostic| matches!(diagnostic.severity, DiagnosticSeverity::Error))
+    {
+        return Err(OperationError::Blocked(Box::new(blocking.clone())));
+    }
     diagnostics.extend(resolved.diagnostics);
     if DiagnosticSummary::from_diagnostics(&diagnostics).errors > 0 {
         return Err(OperationError::InvalidInput("create inputs".to_string()));
@@ -4481,6 +4492,7 @@ pub fn operation_error_diagnostic(error: OperationError) -> Diagnostic {
             Diagnostic::error("operation.inputInvalid", "Operation input is invalid.")
                 .with_actual(input)
         }
+        OperationError::Blocked(diagnostic) => *diagnostic,
         OperationError::InvalidPath(error) => Diagnostic::error(
             "path.invalid",
             "Workspace-relative path parameter is invalid.",
@@ -4529,14 +4541,15 @@ mod tests {
     use serde_yml::Value;
 
     use super::{
-        CreateInputSource, ManagedDocumentKind, OperationError, SkillProjection, SkillSource,
-        WorkspaceFileFeature, WorkspaceHealthCategory, WorkspaceSession, WorkspaceSnapshot,
-        agent_skill_description_error, agent_skill_name_error, build_workspace_health_result,
-        create_entry, create_preview, dashboard_entry_summary_from_file, docs_get, docs_list,
-        inspect_config, inspect_entry_by_path, is_public_workspace_path_allowed,
-        is_raw_workspace_path_allowed, list_file_references, list_files, resolve_reference,
-        skills_get, skills_list, workspace_dashboard, workspace_explorer,
-        workspace_explorer_entries, workspace_file_from_path, workspace_health,
+        CreateInputSource, DiagnosticSeverity, ManagedDocumentKind, OperationError,
+        SkillProjection, SkillSource, WorkspaceFileFeature, WorkspaceHealthCategory,
+        WorkspaceSession, WorkspaceSnapshot, agent_skill_description_error, agent_skill_name_error,
+        build_workspace_health_result, create_entry, create_preview,
+        dashboard_entry_summary_from_file, docs_get, docs_list, inspect_config,
+        inspect_entry_by_path, is_public_workspace_path_allowed, is_raw_workspace_path_allowed,
+        list_file_references, list_files, resolve_reference, skills_get, skills_list,
+        workspace_dashboard, workspace_explorer, workspace_explorer_entries,
+        workspace_file_from_path, workspace_health,
     };
     use crate::boundary::WorkspaceBoundaryError;
     use crate::config::load_workspace;
@@ -6024,6 +6037,36 @@ imports:
     }
 
     #[test]
+    fn create_preview_reports_the_configuration_diagnostic_that_blocks_it() {
+        let root = fixture_root("create-blocked-by-config");
+        copy_starter_workspace(&root);
+        fs::create_dir_all(root.join(".forma/local")).unwrap();
+        fs::write(
+            root.join(".forma/local/duplicate-types.md"),
+            "---\nschemaVersion: 1\ntypes:\n  member:\n    kind: entryRef\n    source: .forma/spaces/members\n---\n\n# Duplicate Types\n",
+        )
+        .unwrap();
+
+        let error = create_preview(
+            &root,
+            "notes",
+            [("title".to_string(), Value::String("Blocked".to_string()))].into(),
+        )
+        .unwrap_err();
+
+        let OperationError::Blocked(diagnostic) = error else {
+            panic!("expected the blocking configuration diagnostic to be reported");
+        };
+        assert_eq!(diagnostic.code, "config.type.duplicate");
+        assert_eq!(
+            diagnostic.path.as_deref(),
+            Some(".forma/local/duplicate-types.md")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn create_preview_reports_conflicts_and_matches_create_source() {
         let root = fixture_root("create-preview-conflict");
         fs::create_dir_all(&root).unwrap();
@@ -6373,10 +6416,14 @@ conventions:
         )
         .unwrap_err();
 
-        assert!(matches!(
-            error,
-            OperationError::InvalidInput(field) if field == "create inputs"
-        ));
+        let OperationError::Blocked(diagnostic) = error else {
+            panic!("expected the blocking diagnostic to be reported");
+        };
+        assert!(matches!(diagnostic.severity, DiagnosticSeverity::Error));
+        assert_eq!(
+            diagnostic.code, "config.pathBoundary",
+            "the rejection must be the symlink boundary, not any unrelated workspace error"
+        );
         assert!(!root.join("notes/unsafe-template.md").exists());
 
         fs::remove_dir_all(root).unwrap();
