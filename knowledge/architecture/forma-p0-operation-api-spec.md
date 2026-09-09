@@ -112,6 +112,10 @@ The JSON result field `workspace.root` must be a display-safe workspace locator,
 
 Human-oriented CLI output can be concise and non-JSON. JSON output is the contract surface.
 
+### Explicit Modeling File-plan Artifact
+
+The experimental `model prepare` export is a versioned confirmation artifact, not an index or general read-operation projection. As specified in [[decisions/guided-modeling-slice-compiler-and-file-plan]], it may contain a content-bound plan id, a non-path workspace binding, and content-digest preconditions needed for stale-plan rejection. This is a narrow exception to the general prohibition on internal hashes above. Absolute host paths, mtimes, cache paths, credentials, and secrets remain excluded. Version-2 plans use `schemaVersion: 2`; old experimental plans must be prepared and reviewed again. This does not introduce modeling RPC methods.
+
 ## CLI Confirmation Policy
 
 CLI adapters should gate write operations by risk and predictability.

@@ -19,6 +19,10 @@ Choral Forma P0 needs stable read, check, inspect, list, and serve behavior over
 
 This specification refines the P0 check/index pipeline described in [../product/product-direction.md](../product/product-direction.md), [forma-core-technical-direction.md](forma-core-technical-direction.md), and the accepted decision [../decisions/forma-p0-core-architecture.md](../decisions/forma-p0-core-architecture.md).
 
+## Frontmatter Delimiter Compatibility
+
+2026-09-09: The frontmatter closing delimiter `---` must begin at the start of the line; trailing whitespace remains allowed. Indented `---` no longer closes frontmatter because it may belong to a YAML block scalar. Existing documents using indented closing delimiters must move the actual closing delimiter to column 1. The rationale, compatibility impact, and test requirements for this shared parsing behavior are recorded in [[decisions/guided-modeling-slice-compiler-and-file-plan]].
+
 ## Goals
 
 - Define one shared pipeline for CLI commands, `forma serve`, and the shared RPC operation dispatcher.

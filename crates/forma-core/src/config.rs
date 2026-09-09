@@ -231,7 +231,17 @@ pub struct CreateDefinition {
     pub directory: String,
     pub filename: String,
     #[serde(default)]
+    pub template_mode: TemplateMode,
+    #[serde(default)]
     pub inputs: BTreeMap<String, CreateInput>,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TemplateMode {
+    #[default]
+    Text,
+    StructuredMarkdown,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -342,6 +352,8 @@ struct TermCreateDefinition {
     directory: String,
     filename: String,
     template: String,
+    #[serde(default)]
+    template_mode: TemplateMode,
     #[serde(default)]
     inputs: BTreeMap<String, CreateInput>,
 }
@@ -612,6 +624,7 @@ fn load_config_nodes(
                 create: node.create.as_ref().map(|create| CreateDefinition {
                     directory: create.directory.clone(),
                     filename: create.filename.clone(),
+                    template_mode: create.template_mode,
                     inputs: create.inputs.clone(),
                 }),
                 conventions: node.conventions.clone(),

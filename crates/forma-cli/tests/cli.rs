@@ -2504,3 +2504,127 @@ fn tree_digest(root: &Path) -> u64 {
     }
     hasher.finish()
 }
+
+#[test]
+fn model_prepare_apply_and_create_are_a_real_cli_journey() {
+    let root = fixture_root("guided-modeling-cli");
+    let files = fixture_root("guided-modeling-inputs");
+    std::fs::create_dir_all(&files).unwrap();
+    let run = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_forma"))
+            .arg("--workspace")
+            .arg(&root)
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    assert!(
+        run(&[
+            "init",
+            "--name",
+            "Study",
+            "--language",
+            "en",
+            "--timezone",
+            "UTC"
+        ])
+        .status
+        .success()
+    );
+    let choices = serde_json::json!({
+        "outcome":"Compare observations", "taxonomyId":"collections", "groupId":"observations", "title":"Observations",
+        "fields":{"method":{"kind":"text","label":"Method","required":false,"reason":"Compare methods"}},
+        "viewColumns":["method"],
+        "layout":{"taxonomyFile":".forma/collections.md","groupFile":".forma/spaces/observations.md","templateFile":"scaffolds/observation.md","viewFile":".forma/views/observations.md","contentDirectory":"records"}
+    });
+    let choice_file = files.join("choices.json");
+    let plan_file = files.join("plan.json");
+    std::fs::write(&choice_file, serde_json::to_vec(&choices).unwrap()).unwrap();
+    let prepared = run(&[
+        "model",
+        "prepare",
+        "--choices",
+        choice_file.to_str().unwrap(),
+        "--output",
+        plan_file.to_str().unwrap(),
+    ]);
+    assert!(
+        prepared.status.success(),
+        "{}",
+        String::from_utf8_lossy(&prepared.stderr)
+    );
+    assert!(!root.join(".forma/collections.md").exists());
+    let plan: Value = serde_json::from_slice(&std::fs::read(&plan_file).unwrap()).unwrap();
+    assert_eq!(plan["schemaVersion"], 2);
+    assert!(plan.get("workspace").is_none());
+    assert!(plan["workspaceId"].as_str().unwrap().starts_with("ws2-"));
+    let stdout_plan = run(&[
+        "model",
+        "prepare",
+        "--choices",
+        choice_file.to_str().unwrap(),
+    ]);
+    assert!(stdout_plan.status.success());
+    let serialized = String::from_utf8(stdout_plan.stdout).unwrap();
+    assert!(!serialized.contains(std::fs::canonicalize(&root).unwrap().to_str().unwrap()));
+    assert_eq!(serde_json::from_str::<Value>(&serialized).unwrap(), plan);
+    let rejected = run(&[
+        "model",
+        "apply",
+        "--plan",
+        plan_file.to_str().unwrap(),
+        "--confirm",
+        "yes",
+    ]);
+    assert!(!rejected.status.success());
+    assert!(!root.join(".forma/collections.md").exists());
+    let applied = run(&[
+        "model",
+        "apply",
+        "--plan",
+        plan_file.to_str().unwrap(),
+        "--confirm",
+        plan["id"].as_str().unwrap(),
+    ]);
+    assert!(
+        applied.status.success(),
+        "{}",
+        String::from_utf8_lossy(&applied.stderr)
+    );
+    assert_eq!(
+        serde_json::from_slice::<Value>(&applied.stdout).unwrap()["status"],
+        "applied"
+    );
+    assert!(
+        run(&[
+            "create",
+            "observations",
+            "--input",
+            "title=First record",
+            "--json"
+        ])
+        .status
+        .success()
+    );
+    let inspected = run(&["inspect", "records/first-record.md", "--json"]);
+    assert!(inspected.status.success());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&inspected.stdout).unwrap()["entry"]["metadata"]["title"],
+        "First record"
+    );
+    let listed = run(&["list", "--space", "observations", "--json"]);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&listed.stdout).unwrap()["entries"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(
+        run(&["view", "render", ".forma/views/observations", "--json"])
+            .status
+            .success()
+    );
+    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(files).unwrap();
+}

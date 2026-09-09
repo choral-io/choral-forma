@@ -32,6 +32,7 @@ use include_dir::{Dir, include_dir};
 use serde_json::Value as JsonValue;
 use serde_yml::Value;
 
+mod modeling;
 mod self_update;
 mod site;
 mod static_html;
@@ -370,6 +371,11 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Build and review a first content group in an initialized empty workspace.
+    Model {
+        #[command(subcommand)]
+        command: modeling::ModelCommand,
+    },
     Check {
         #[arg(long)]
         json: bool,
@@ -745,6 +751,7 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     };
     let dispatcher = Dispatcher::new(&workspace);
     match command {
+        Some(Command::Model { command }) => modeling::execute(&workspace, command),
         None => {
             stdout_println!("forma {}", forma_core::version())?;
             Ok(())

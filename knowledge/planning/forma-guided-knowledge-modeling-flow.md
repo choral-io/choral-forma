@@ -32,6 +32,12 @@ The flow is product-level and surface-independent. CLI, Agent guidance, and a fu
 
 The default path starts from the user's language and a first useful content group. It does not copy an example workspace, require prior Schema DSL knowledge, or treat this repository's `knowledge/`, task, member, or project vocabulary as Forma built-ins.
 
+## First-slice Implementation Amendment
+
+2026-09-09: The first empty-corpus implementation uses the structured slice compiler and file plan defined in [[decisions/guided-modeling-slice-compiler-and-file-plan]], rather than fixing the generic proposal/artifact sketches below as implementation interfaces. That record defines the supersession scope, retained user value, templateMode, CLI command surface, confirmation and validation, dependencies, and parser compatibility impact.
+
+The generic model shapes, existing/mixed inventory, and complete cross-surface journey below remain inputs to future design; they do not establish that the first implementation covers every goal. Pre-commit acceptance of the first implementation uses the vertical creation/retrieval checks and review counterexamples in that decision. This amendment does not change the original design Task status.
+
 ## Goals And Non-goals
 
 ### Goals

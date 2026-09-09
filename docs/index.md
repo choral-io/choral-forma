@@ -27,7 +27,7 @@ Start with [Getting Started](getting-started.md).
 
 ## Commands
 
-- Set up: [init](cli/init.md), [config](cli/config.md)
+- Set up: [init](cli/init.md), [model](cli/model.md), [config](cli/config.md)
 - Maintain content: [create](cli/create.md), [check](cli/check.md), [workspace](cli/workspace.md), [tools](cli/tools.md)
 - Browse and publish: [view](cli/view.md), [serve](cli/serve.md), [site build](cli/site.md)
 - Discover guidance: [docs](cli/docs.md), [skills](cli/skills.md)

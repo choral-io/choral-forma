@@ -505,6 +505,7 @@ export type ConfigSummaryContentGroup = {
     includePatterns: string[];
     schemaFields: ConfigSummarySchemaField[];
     create?: {
+        templateMode?: "text" | "structuredMarkdown";
         directory: string;
         filename: string;
         template: string;

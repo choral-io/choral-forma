@@ -19,7 +19,7 @@ pub(crate) fn split_frontmatter_slices(source: &str) -> FrontmatterSlices<'_> {
             .map(|index| offset + index)
             .unwrap_or(source.len());
         let line = source[offset..line_end].trim_end_matches('\r');
-        if line.trim() == "---" {
+        if line.trim_end() == "---" {
             let body_start = if line_end < source.len() {
                 line_end + 1
             } else {
@@ -82,5 +82,17 @@ mod tests {
 
         assert_eq!(split.frontmatter, None);
         assert_eq!(split.body, source);
+    }
+}
+
+#[cfg(test)]
+mod structured_value_tests {
+    #[test]
+    fn indented_block_scalar_delimiters_do_not_close_frontmatter() {
+        let source = "---\ntitle: |-\n  first\n  ---\n  second\n---\nBody\n";
+        let split = super::split_frontmatter_slices(source);
+        assert_eq!(split.body, "Body\n");
+        let value: serde_yml::Value = serde_yml::from_str(split.frontmatter.unwrap()).unwrap();
+        assert_eq!(value["title"], "first\n---\nsecond");
     }
 }

@@ -72,3 +72,5 @@ This is the first recommended roadmap item. [[tasks/design-markdown-import-norma
 ## Design Record
 
 The accepted product contract is recorded in [[planning/forma-guided-knowledge-modeling-flow]]. It defines the shared proposal semantics, review boundary, representative fixtures, and follow-up implementation slices without implementing the flow.
+
+2026-09-09: The first empty-corpus implementation's concrete choices relative to the generic sketches are recorded in [[decisions/guided-modeling-slice-compiler-and-file-plan]]. This adds implementation and compatibility evidence without changing this design Task's status or acceptance scope.

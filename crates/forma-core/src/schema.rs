@@ -476,6 +476,111 @@ pub fn render_placeholder_template(
     }
 }
 
+/// Opt-in Markdown rendering: YAML values are substituted before serialization.
+/// Missing optional inputs may omit a mapping value, never a list item or text fragment.
+pub(crate) fn render_structured_markdown_template(
+    template: &str,
+    context: &PlaceholderContext,
+    inputs: &BTreeMap<String, CreateInput>,
+) -> RenderedTemplate {
+    fn render_value(
+        value: &Value,
+        context: &PlaceholderContext,
+        inputs: &BTreeMap<String, CreateInput>,
+        may_omit: bool,
+    ) -> Result<Option<Value>, String> {
+        match value {
+            Value::String(text) => {
+                if let Some(expression) = text.strip_prefix("{{").and_then(|s| s.strip_suffix("}}"))
+                    && !expression.contains("{{")
+                    && !expression.contains("}}")
+                {
+                    let expression = expression.trim();
+                    if let Some(name) = expression.strip_prefix("input.") {
+                        if !inputs.contains_key(name) {
+                            return Err(format!("Undeclared input `{name}`."));
+                        }
+                        if let Some(value) = context.input.get(name) {
+                            return Ok(Some(value.clone()));
+                        }
+                        if may_omit && inputs.get(name).is_some_and(|input| !input.required) {
+                            return Ok(None);
+                        }
+                        return Err(format!("Unresolved input `{name}`."));
+                    }
+                    if let Some(name) = expression.strip_prefix("runtime.values.") {
+                        return context
+                            .runtime_values
+                            .get(name)
+                            .cloned()
+                            .map(Some)
+                            .ok_or_else(|| format!("Unresolved runtime value `{name}`."));
+                    }
+                }
+                render_placeholder_template(text, context)
+                    .value
+                    .map(|v| Some(Value::String(v)))
+                    .ok_or_else(|| "Unresolved string placeholder.".into())
+            }
+            Value::Mapping(mapping) => {
+                let mut rendered = serde_yml::Mapping::new();
+                for (key, value) in mapping {
+                    let Some(key_text) = key.as_str() else {
+                        return Err(
+                            "Structured template mapping keys must be literal strings.".into()
+                        );
+                    };
+                    if key_text.contains("{{") {
+                        return Err(
+                            "Structured template mapping keys cannot contain placeholders.".into(),
+                        );
+                    }
+                    if let Some(value) = render_value(value, context, inputs, true)? {
+                        rendered.insert(key.clone(), value);
+                    }
+                }
+                Ok(Some(Value::Mapping(rendered)))
+            }
+            Value::Sequence(sequence) => sequence
+                .iter()
+                .map(|v| {
+                    render_value(v, context, inputs, false)?
+                        .ok_or_else(|| "Cannot omit a list item.".into())
+                })
+                .collect::<Result<Vec<_>, String>>()
+                .map(|v| Some(Value::Sequence(v))),
+            Value::Tagged(_) => Err("YAML tags are not supported in structured templates.".into()),
+            value => Ok(Some(value.clone())),
+        }
+    }
+    let result = (|| -> Result<String, String> {
+        let split = crate::frontmatter::split_frontmatter_slices(template);
+        let raw = split
+            .frontmatter
+            .ok_or("Structured templates require YAML frontmatter.")?;
+        let value: Value = serde_yml::from_str(raw).map_err(|e| e.to_string())?;
+        if !value.is_mapping() {
+            return Err("Structured template frontmatter must be a mapping.".into());
+        }
+        let value = render_value(&value, context, inputs, false)?.ok_or("Missing frontmatter.")?;
+        let yaml = serde_yml::to_string(&value).map_err(|e| e.to_string())?;
+        let body = render_placeholder_template(split.body, context)
+            .value
+            .ok_or("Unresolved body placeholder.")?;
+        Ok(format!("---\n{yaml}---\n{body}"))
+    })();
+    match result {
+        Ok(value) => RenderedTemplate {
+            value: Some(value),
+            diagnostics: vec![],
+        },
+        Err(message) => RenderedTemplate {
+            value: None,
+            diagnostics: vec![Diagnostic::error("template.structuredInvalid", message)],
+        },
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RenderedTemplate {
     pub value: Option<String>,
@@ -2073,6 +2178,76 @@ ordinal: 01
                 .diagnostics
                 .iter()
                 .any(|diagnostic| diagnostic.code == "placeholder.unresolved")
+        );
+    }
+}
+
+#[cfg(test)]
+mod structured_template_tests {
+    use super::*;
+    #[test]
+    fn optional_absence_is_not_null_or_a_missing_text_fragment() {
+        let inputs = BTreeMap::from([("value".into(), CreateInput::default())]);
+        let mut context = PlaceholderContext {
+            input: BTreeMap::new(),
+            runtime_values: BTreeMap::new(),
+        };
+        let source = "---\nvalue: '{{ input.value }}'\n---\nBody";
+        let rendered = render_structured_markdown_template(source, &context, &inputs)
+            .value
+            .unwrap();
+        assert!(
+            !crate::FormaMarkdownDocument::parse(&rendered)
+                .frontmatter
+                .value
+                .unwrap()
+                .as_mapping()
+                .unwrap()
+                .contains_key(Value::String("value".into()))
+        );
+        context.input.insert("value".into(), Value::Null);
+        let rendered = render_structured_markdown_template(source, &context, &inputs)
+            .value
+            .unwrap();
+        let document = crate::FormaMarkdownDocument::parse(&rendered);
+        assert!(
+            document
+                .frontmatter
+                .value
+                .unwrap()
+                .as_mapping()
+                .unwrap()
+                .contains_key(Value::String("value".into()))
+        );
+        context.input.clear();
+        for invalid in [
+            "---\nvalue: 'prefix {{ input.value }}'\n---\n",
+            "---\nvalue: ['{{ input.value }}']\n---\n",
+            "---\nvalue: '{{ input.unknown }}'\n---\n",
+            "---\nvalue: '{{ input.value }}'\n---\n{{ input.value }}",
+        ] {
+            assert!(
+                render_structured_markdown_template(invalid, &context, &inputs)
+                    .value
+                    .is_none()
+            );
+        }
+    }
+    #[test]
+    fn legacy_text_rendering_remains_literal() {
+        let context = PlaceholderContext {
+            input: [(
+                "value".into(),
+                Value::String("a\"b\n{{ input.other }}".into()),
+            )]
+            .into(),
+            runtime_values: BTreeMap::new(),
+        };
+        assert_eq!(
+            render_placeholder_template("\"{{ input.value }}\"", &context)
+                .value
+                .as_deref(),
+            Some("\"a\"b\n{{ input.other }}\"")
         );
     }
 }

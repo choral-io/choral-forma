@@ -987,7 +987,18 @@ fn plan_create_entry(
             path: template_path.as_str().to_string(),
             source,
         })?;
-    let rendered = render_placeholder_template(&template_source, &context);
+    let rendered = match create.template_mode {
+        crate::config::TemplateMode::Text => {
+            render_placeholder_template(&template_source, &context)
+        }
+        crate::config::TemplateMode::StructuredMarkdown => {
+            crate::schema::render_structured_markdown_template(
+                &template_source,
+                &context,
+                &create.inputs,
+            )
+        }
+    };
     diagnostics.extend(rendered.diagnostics);
     let Some(source) = rendered.value else {
         return Err(OperationError::InvalidInput("template".to_string()));

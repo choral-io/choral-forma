@@ -70,6 +70,8 @@ pub struct ContentGroupSummary {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateSummary {
+    #[serde(default)]
+    pub template_mode: crate::config::TemplateMode,
     pub directory: String,
     pub filename: String,
     pub template: String,
@@ -387,6 +389,7 @@ fn content_group_source_path<'a>(
 
 fn summarize_create(create: &CreateDefinition, template: &str) -> CreateSummary {
     CreateSummary {
+        template_mode: create.template_mode,
         directory: create.directory.clone(),
         filename: create.filename.clone(),
         template: template.to_string(),
@@ -797,5 +800,14 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.root);
         }
+    }
+}
+
+#[cfg(test)]
+mod create_summary_compatibility {
+    #[test]
+    fn old_summary_defaults_to_text_templates() {
+        let value: super::CreateSummary = serde_json::from_str(r#"{"directory":"notes","filename":"one.md","template":"templates/one.md","inputs":[]}"#).unwrap();
+        assert_eq!(value.template_mode, crate::config::TemplateMode::Text);
     }
 }
