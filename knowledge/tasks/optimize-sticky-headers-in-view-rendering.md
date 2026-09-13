@@ -13,7 +13,8 @@ status: "reviewing"
 readiness: "ready"
 owners:
     - "members/tiscs"
-assignees: []
+assignees:
+    - "members/tiscs"
 reviewers:
     - "members/tiscs"
 tags:

@@ -10,7 +10,7 @@ value: H
 module: core
 effort: M
 status: backlog
-readiness: blocked
+readiness: needs-refinement
 owners:
     - "members/tiscs"
 assignees: []

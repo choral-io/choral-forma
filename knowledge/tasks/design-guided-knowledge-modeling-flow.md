@@ -9,13 +9,14 @@ priority: P1
 value: H
 module: product
 effort: M
-status: reviewing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
 assignees:
     - "members/tiscs"
-reviewers: []
+reviewers:
+    - "members/tiscs"
 tags:
     - forma
     - product-value
