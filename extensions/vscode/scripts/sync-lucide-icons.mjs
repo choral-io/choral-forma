@@ -19,9 +19,13 @@ for (const [theme, stroke] of Object.entries(themes)) {
         await unlink(new URL(file, directory));
     }
     for (const icon of iconIds) {
-        const module = await import(`lucide-react/dist/esm/icons/${icon}.mjs`);
+        const { __iconData } = await import(`lucide-react/dist/esm/icons/${icon}.mjs`);
+        // lucide-react exposes the node array under `__iconData.node`; it was a bare
+        // `__iconNode` export before v1.45. Fail with the shape named, because the
+        // symptom of an unexpected shape is an unhelpful TypeError further down.
+        if (!__iconData?.node) throw new Error(`Unsupported lucide-react icon module shape: ${icon}`);
         const target = new URL(`${icon}.svg`, directory);
-        const expectedSource = serializeIcon(module.__iconNode, stroke);
+        const expectedSource = serializeIcon(__iconData.node, stroke);
         if (checkOnly) {
             const actualSource = await readFile(target, "utf8");
             if (actualSource !== expectedSource)
