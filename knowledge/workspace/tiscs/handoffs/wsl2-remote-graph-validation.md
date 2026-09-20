@@ -21,16 +21,16 @@ tags:
 
 ## Purpose
 
-在一台资源充足的 Windows 主机上，通过 VS Code Remote - WSL 和 WSL 2 完成当前 Graph 候选的真实 Remote Extension Host 功能验收，并采集剩余的视觉、交互和资源证据。
+Complete functional acceptance of the current Graph candidate in a real Remote Extension Host using VS Code Remote - WSL and WSL 2 on a Windows host with sufficient resources, and collect the remaining visual, interaction, and resource evidence.
 
-本轮验收绑定以下精确候选，不得用旧 VSIX、旧二进制或 2026-08-11 的 Podman/Remote SSH 结果替代：
+This acceptance run targets the exact candidate below. Do not substitute an older VSIX, older binaries, or the Podman/Remote SSH results from 2026-08-11:
 
 - repository: `choral-io/choral-forma`
 - commit: `3804d589eaac85f835f513772115012cce05bbcd`
 - extension identity: `choral-io.forma@0.1.30`
 - extension kind: `workspace`
 
-开始前阅读：
+Read before starting:
 
 - [Validate Shared Graph View Cross-Host Parity](../../../tasks/validate-shared-graph-view-cross-host-parity.md)
 - [Shared Graph View Cross-Host Parity Validation — 2026-08-11](../../../discovery/shared-graph-view-cross-host-parity-validation-2026-08-11.md)
