@@ -79,6 +79,11 @@ const ViewTableProjection = lazy(async () => {
     return { default: module.ViewTableProjection };
 });
 
+const ViewCalendarProjection = lazy(async () => {
+    const module = await import("./ViewCalendarProjection");
+    return { default: module.ViewCalendarProjection };
+});
+
 export function DashboardRoute() {
     return <EntryRouteContent routePath="/" />;
 }
@@ -1389,7 +1394,9 @@ function ViewProjectionRenderer({
 
     return (
         <Suspense fallback={<ProjectionLoadingState />}>
-            {projection.kind === "graph" ? (
+            {projection.kind === "calendar" ? (
+                <ViewCalendarProjection key={projection.timeZone} projection={projection} />
+            ) : projection.kind === "graph" ? (
                 <ViewGraphProjection projection={projection} />
             ) : projection.kind === "kanban" ? (
                 <ViewKanbanProjection projection={projection} />
@@ -1405,6 +1412,7 @@ function entriesForView(dashboard: WorkspaceDashboard, view: WorkspaceDashboard[
 }
 
 function projectionItemCount(projection: DashboardViewProjection) {
+    if (projection.kind === "calendar") return projection.counts.candidates;
     if (projection.kind === "kanban") {
         return projection.columns.reduce((total, column) => total + column.items.length, 0);
     }

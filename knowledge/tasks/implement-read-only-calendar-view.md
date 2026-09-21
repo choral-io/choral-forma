@@ -72,4 +72,10 @@ Implement a read-only Calendar month view and Agenda after temporal contract rev
 
 ## Readiness
 
-Backlog / blocked: depends on the reviewed contract from [[tasks/define-temporal-view-contract]]; owner/reviewer assignments are pending. Task creation does not indicate implementation has started or a release version has been promised.
+The user approved the Calendar contract and implementation on 2026-09-21. Implementation has started under that explicit approval. Existing backlog / blocked board metadata is retained pending an explicit lifecycle update; it no longer describes the code's implementation progress. Owner/reviewer assignments and final host acceptance remain pending. No release is promised.
+
+## Execution Progress — 2026-09-21
+
+The user approved [[proposals/calendar-temporal-view-contract]] and authorized implementation. Core normalization, shared output, WebApp month/Agenda, static Agenda, and VS Code Agenda are implemented with zero new dependencies. The getting-started Calendar example uses a schema-declared date and an optional structured-template input; missing dates are not stored as empty strings.
+
+See [[design/calendar-view-validation-2026-09-21]] for tests, production-browser checks, static navigation, scale measurements, and outstanding host/review limits. The WebApp uses native Grid, equal-height measured event previews, and a native dialog styled with existing DaisyUI controls as a full-day drawer. Lifecycle metadata and unassigned review roles are preserved; this update does not claim release or final task acceptance.

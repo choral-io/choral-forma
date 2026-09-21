@@ -1443,11 +1443,13 @@ fn create_list_and_inspect_use_operation_json() {
     assert!(create_stdout.contains(r#""operation":"create""#));
     assert!(create_stdout.contains(r#""status":"passed""#));
     assert!(root.join("tasks/user-registration.md").is_file());
-    assert!(
-        std::fs::read_to_string(root.join("tasks/user-registration.md"))
-            .unwrap()
-            .contains("priority: \"medium\"")
-    );
+    let source = std::fs::read_to_string(root.join("tasks/user-registration.md")).unwrap();
+    let fields = forma_core::FormaMarkdownDocument::parse(&source)
+        .frontmatter
+        .value
+        .unwrap();
+    assert_eq!(fields["priority"].as_str(), Some("medium"));
+    assert!(fields.get("dueDate").is_none());
 
     let list = forma(&root)
         .args(["list", "--space", "tasks", "--json"])

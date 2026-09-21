@@ -14,6 +14,30 @@ async function contextFor(client: RpcWorkspaceClient) {
 }
 
 describe("RpcWorkspaceClient View rendering", () => {
+    it("preserves Calendar temporal values and counts without treating them as Table data", async () => {
+        const projection: ViewRenderOutput = {
+            kind: "calendar",
+            timeZone: "Asia/Shanghai",
+            firstDayOfWeek: "monday",
+            counts: { candidates: 1, scheduled: 1, unscheduled: 0, invalid: 0 },
+            events: [
+                {
+                    path: "tasks/one.md",
+                    title: "One",
+                    classification: { label: "Painting", color: "#123456" },
+                    firstDate: "2028-02-29",
+                    afterLastDate: "2028-03-01",
+                    temporal: { kind: "date", start: "2028-02-29", endExclusive: "2028-03-01" },
+                },
+            ],
+            unscheduled: [],
+        };
+        stubRpc("", undefined, undefined, projection);
+        const client = new RpcWorkspaceClient("/rpc");
+        const result = await client.getViewRender(".forma/views/release-scope", await contextFor(client));
+        expect(result.projection).toMatchObject(projection);
+        expect(result.projection.kind).toBe("calendar");
+    });
     afterEach(() => {
         vi.unstubAllGlobals();
     });

@@ -34,7 +34,7 @@ schema:
       items:
         type: task
     dueDate:
-      type: string
+      type: date
 guidelines:
   - "guidelines/workspace-operations.md"
 include:
@@ -43,6 +43,7 @@ create:
   directory: "tasks"
   filename: "{{ input.slug }}.md"
   template: ".forma/spaces/templates/task.md"
+  templateMode: structuredMarkdown
   inputs:
     title:
       required: true
@@ -92,7 +93,6 @@ create:
       default: []
     dueDate:
       type: date
-      default: ""
     createdAt:
       default: "{{ runtime.values.currentDateTime }}"
     updatedAt:

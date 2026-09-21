@@ -1,4 +1,6 @@
 import displayIconIds from "../../../crates/forma-core/src/display-icon-registry.json" with { type: "json" };
+import type { CalendarProjection } from "./calendar";
+export * from "./calendar";
 
 export const schemaVersion = 1 as const;
 
@@ -397,6 +399,7 @@ export type GraphRenderEdge = {
 };
 
 export type ViewRenderOutput =
+    | CalendarProjection
     | {
           kind: "list";
           items: ViewRenderItem[];

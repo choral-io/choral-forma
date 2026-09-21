@@ -80,4 +80,12 @@ The earlier plan needs these corrections: date arithmetic must not substitute a 
 
 ## Readiness
 
-The scope and deliverables are defined. Owner/reviewer assignments are pending, and the specific temporal contract still needs design and review, so the task remains backlog / needs-refinement. This task does not depend on Calendar implementation.
+The Calendar contract was approved by the user on 2026-09-21. Owner/reviewer assignments and formal lifecycle promotion remain pending; existing board metadata is preserved rather than inferred from execution approval. Gantt-specific design remains a separate follow-up.
+
+## Execution Progress — 2026-09-21
+
+The user authorized the Calendar-first sequence and subsequently approved the concrete contract in [[proposals/calendar-temporal-view-contract]]. The English contract defines DSL and typed output, civil-date and instant semantics, endpoint normalization, schema conflicts, diagnostics, cross-surface fallbacks, compatibility handling, fixture oracles, and a performance measurement plan.
+
+Source inspection found two boundaries that the earlier plan had not made concrete: schema date validation currently checks lexical shape only, and configured named semantic types support enum/entryRef rather than date aliases. The draft accounts for both without expanding global schema semantics. It also addresses the WebApp mapper's Table fallback for unrecognized projections.
+
+Implementation and measured evidence are recorded in [[design/calendar-view-validation-2026-09-21]]. User approval is not represented as independent review, task acceptance, or publication. Gantt-specific contracts remain deferred to their validation task. Unchecked acceptance criteria and ownership remain explicit review follow-up rather than an automatic Done transition.

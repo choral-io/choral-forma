@@ -431,6 +431,12 @@ function mapViewProjection(
     render: ViewRenderOutput,
     entriesByPath: ReadonlyMap<string, DashboardEntry>,
 ): DashboardViewProjection {
+    if (render.kind === "calendar") {
+        return {
+            ...render,
+            routes: Object.fromEntries([...entriesByPath].map(([path, entry]) => [path, entry.routePath])),
+        };
+    }
     if (render.kind === "list") {
         return {
             kind: "list",
@@ -490,11 +496,16 @@ function mapViewProjection(
         };
     }
 
-    return {
-        kind: "table",
-        columns: render.columns,
-        items: render.items.map((item) => mapViewProjectionItem(item, entriesByPath)),
-    };
+    // The wire may come from a newer backend than this client's type union.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (render.kind === "table") {
+        return {
+            kind: "table",
+            columns: render.columns,
+            items: render.items.map((item) => mapViewProjectionItem(item, entriesByPath)),
+        };
+    }
+    throw new Error("Unsupported View projection. Update the client to match the backend.");
 }
 
 function mapViewProjectionItem(
@@ -631,5 +642,7 @@ function maxHealth(left: WorkspaceHealth, right: WorkspaceHealth): WorkspaceHeal
 }
 
 function mapViewKind(kind: string): DashboardView["kind"] {
-    return kind === "table" || kind === "kanban" || kind === "graph" || kind === "list" ? kind : "list";
+    return kind === "table" || kind === "kanban" || kind === "graph" || kind === "list" || kind === "calendar"
+        ? kind
+        : "list";
 }

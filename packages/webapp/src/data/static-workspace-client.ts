@@ -1,4 +1,5 @@
 import { formatRelativeDateTime } from "@/lib/date-time";
+import type { CalendarProjection } from "@choral-forma/shared";
 
 import { stringifyStaticFieldValue } from "./static-field-value";
 import type {
@@ -417,6 +418,12 @@ function mapViewProjection(
     if (!projection) {
         return { kind: "list", items: [] };
     }
+    if (projection.kind === "calendar") {
+        return {
+            ...(projection as unknown as CalendarProjection),
+            routes: Object.fromEntries([...entriesByPath].map(([path, entry]) => [path, entry.routePath])),
+        };
+    }
     if (projection.kind === "list") {
         const items = Array.isArray(projection.items) ? projection.items : [];
         return { kind: "list", items: mapViewItems(items, entriesByPath) };
@@ -454,7 +461,7 @@ function mapViewProjection(
             legend: Array.isArray(projection.legend) ? (projection.legend as GraphProjection["legend"]) : [],
         };
     }
-    return { kind: "list", items: [] };
+    throw new Error("Unsupported View projection. Update the client to match the static export.");
 }
 
 function readProjection(value: unknown): { kind?: string; [key: string]: unknown } | undefined {
@@ -500,5 +507,7 @@ function maxHealth(left: WorkspaceHealth, right: WorkspaceHealth): WorkspaceHeal
 }
 
 function mapViewKind(kind: string): DashboardView["kind"] {
-    return kind === "table" || kind === "kanban" || kind === "graph" || kind === "list" ? kind : "list";
+    return kind === "table" || kind === "kanban" || kind === "graph" || kind === "list" || kind === "calendar"
+        ? kind
+        : "list";
 }

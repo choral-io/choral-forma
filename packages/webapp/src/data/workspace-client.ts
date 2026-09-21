@@ -1,3 +1,5 @@
+import type { CalendarProjection } from "@choral-forma/shared";
+
 export type WorkspaceHealth = "healthy" | "warning" | "failed";
 
 export interface DashboardEntry {
@@ -164,7 +166,7 @@ export interface DashboardView {
     title: string;
     display?: DisplayOptions;
     description: string;
-    kind: "list" | "table" | "kanban" | "graph";
+    kind: "list" | "table" | "kanban" | "graph" | "calendar";
     space?: string;
 }
 
@@ -243,6 +245,7 @@ export interface DashboardViewColumn {
 }
 
 export type DashboardViewProjection =
+    | (CalendarProjection & { routes: Record<string, string> })
     | {
           kind: "list";
           items: DashboardViewProjectionItem[];

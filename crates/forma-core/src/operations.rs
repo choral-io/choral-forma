@@ -5985,7 +5985,12 @@ imports:
         )
         .unwrap();
         let source = fs::read_to_string(root.join("tasks/review-starter-create.md")).unwrap();
-        assert!(source.contains("title: \"Review Starter Create\""));
+        let fields = FormaMarkdownDocument::parse(&source)
+            .frontmatter
+            .value
+            .unwrap();
+        assert_eq!(fields["title"].as_str(), Some("Review Starter Create"));
+        assert!(fields.get("dueDate").is_none());
         assert!(source.contains("assignees: []"));
 
         assert_eq!(result.status, OperationStatus::Passed);
@@ -6253,7 +6258,12 @@ imports:
         let task = fs::read_to_string(root.join("tasks/created-task.md")).unwrap();
         assert!(root.join("notes/created-note.md").is_file());
         assert!(root.join("members/created-member.md").is_file());
-        assert!(task.contains("priority: \"medium\""));
+        let fields = FormaMarkdownDocument::parse(&task)
+            .frontmatter
+            .value
+            .unwrap();
+        assert_eq!(fields["priority"].as_str(), Some("medium"));
+        assert!(fields.get("dueDate").is_none());
         assert!(root.join(".forma/views/tasks.md").is_file());
         assert!(root.join(".forma/spaces/templates/guideline.md").is_file());
         assert!(root.join("tasks").is_dir());

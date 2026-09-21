@@ -15,7 +15,7 @@ order: 140
 
 ## Overview
 
-Views are configured Markdown nodes that describe read-only projections such as lists, tables, kanban boards, and graphs.
+Views are configured Markdown nodes that describe read-only projections such as lists, tables, kanban boards, graphs, and calendars.
 
 View config uses `mode` to select the projection and `source` to choose the candidate pages. Do not use `projection` or `query.source`; those are not the current view DSL.
 
@@ -103,13 +103,61 @@ query:
           value: active
 ```
 
+## Calendar
+
+Calendar binds explicitly configured scalar `date` or `datetime` schema fields. Field names and directories have no built-in scheduling meaning; strings that resemble dates are not inferred as temporal fields.
+
+```yaml
+schemaVersion: 1
+kind: view
+title: Exhibition Calendar
+mode: calendar
+source:
+    type: pages
+calendar:
+    start:
+        field: fields.opensOn
+    end:
+        field: fields.closesOn
+    firstDayOfWeek: monday
+```
+
+The end binding is optional. Start and end must have the same schema type. `firstDayOfWeek` accepts `monday` (default) or `sunday`. Existing source, query, and sort rules apply before projection; runtime range parameters are not introduced.
+
+- Civil dates remain calendar dates, independently of the host timezone. An authored end date is inclusive; no end means one day.
+- Datetimes require an RFC 3339 offset. Core normalizes instants and derives covered calendar dates in `workspace.timezone`. Datetime ends are exclusive; a missing or equal end is a point event.
+- Missing starts without ends appear in Unscheduled. Invalid dates, reversed ranges, orphan ends, and unsupported field types produce source-locatable diagnostics instead of inferred events. Dates must remain within years 0001–9999, including the normalized exclusive boundary.
+- Existing ambiguous schema-membership errors still exclude affected pages before Calendar candidate selection.
+
+WebApp provides a month grid, local month controls, expandable crowded dates, and Agenda (the narrow-screen default). Static HTML and VS Code provide complete date-grouped Agendas rather than interactive month grids. Events navigate to their source pages; no surface edits dates or schedules work. Static output does not depend on today's date.
+
+The WebApp month grid uses four to six complete weeks, from the week containing the first day through the week containing the last day. Rows retain equal height. Date-header counts open the complete day list in a drawer.
+
+Select the month heading to jump across months or years. The panel uses the browser's native month input, falling back to a date input when the month type is unsupported; a selected date opens its containing month. Choose or type a value, then press Enter or select Jump to apply it. Escape or clicking outside cancels the draft. Native picker appearance and navigation vary by browser and operating system.
+
+Calendar can reuse Graph's classification color rules:
+
+```yaml
+calendar:
+    start: { field: fields.opensOn }
+    presentation:
+        events:
+            colorBy:
+                taxonomy: areas
+                # Alternatively: field: fields.category
+```
+
+Configure exactly one taxonomy or scalar frontmatter field. Taxonomy colors use the term's `display.color`, falling back to the taxonomy's color; unclassified or multiply classified entries remain neutral. Field values use the same deterministic palette and explicit `#RRGGBB` handling as Graph. Missing or unsupported values remain neutral. Omitting `colorBy` preserves the uncolored presentation. Invalid sources report `view.calendarColorByInvalid` or `view.calendarTaxonomyMissing`; more than 24 classified field values reports `view.calendarColorCardinalityHigh`.
+
+Core projects the classification label and optional color. WebApp uses a uniform left border in month previews, Agenda, and the day drawer. The border retains its neutral theme color unless a valid classification color overrides it; text and backgrounds retain theme colors. Agenda and drawer entries also show classification text. Static HTML and VS Code preserve classification labels without requiring decorative color. Color never provides the only classification cue.
+
 ## Agent Skill
 
 Add views after the underlying spaces and fields exist. Treat views as projections, not as hidden state.
 
 Use `<!-- forma:content -->` when the rendered projection needs an explicit position in the Markdown body. When the marker is absent, clients append the projection to the end of the document. Multiple markers are invalid, and the legacy `<!-- forma-view -->` directive produces a migration diagnostic.
 
-Render configured views with `forma view render <view-id-or-path> --json`. Use this for lists, tables, kanban boards, and graphs instead of introducing workflow-specific read commands.
+Render configured views with `forma view render <view-id-or-path> --json`. Use this for lists, tables, kanban boards, graphs, and calendars instead of introducing workflow-specific read commands.
 
 For a Table column whose values should open the source Page for that row, declare `link.target: entry`. The current target set contains only `entry`.
 

@@ -6,7 +6,7 @@ import type {
     ViewRenderOutput,
     ViewRenderResult,
 } from "@choral-forma/shared";
-import { normalizedTableColumnLength } from "@choral-forma/shared";
+import { calendarEventLabel, normalizedTableColumnLength } from "@choral-forma/shared";
 
 import { relativePreviewHref } from "./preview-links.ts";
 
@@ -40,6 +40,27 @@ function renderProjection(
     }
 
     switch (render.kind) {
+        case "calendar": {
+            const groups = new Map<string, string[]>();
+            for (const event of render.events) {
+                const items = groups.get(event.firstDate) ?? [];
+                items.push(
+                    `<li>${sourceLink(event.path, sourcePath, escapeHtml(event.title))}${event.classification ? `<p>${escapeHtml(event.classification.label)}</p>` : ""}<p>${escapeHtml(calendarEventLabel(event, render.timeZone, options.locale))}</p></li>`,
+                );
+                groups.set(event.firstDate, items);
+            }
+            const agenda = [...groups]
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([date, items]) => `<section><h3>${escapeHtml(date)}</h3><ul>${items.join("")}</ul></section>`)
+                .join("");
+            const unscheduled = render.unscheduled
+                .map(
+                    (entry) =>
+                        `<li>${sourceLink(entry.path, sourcePath, escapeHtml(entry.title))}${entry.classification ? `<p>${escapeHtml(entry.classification.label)}</p>` : ""}</li>`,
+                )
+                .join("");
+            return `<section aria-label="Calendar agenda"><h2>Agenda</h2><p>${String(render.counts.scheduled)} events · ${String(render.counts.unscheduled)} unscheduled · ${String(render.counts.invalid)} invalid · ${escapeHtml(render.timeZone)}</p>${agenda}<h3>Unscheduled</h3><ul>${unscheduled}</ul></section>`;
+        }
         case "list":
             return render.items.length === 0
                 ? emptyState("No entries match this view.")
@@ -50,6 +71,8 @@ function renderProjection(
             return renderKanban(render, sourcePath, options);
         case "graph":
             return renderGraph(render, sourcePath, options.activePath);
+        default:
+            return emptyState("Unsupported View projection. Update the extension to match the CLI.");
     }
 }
 

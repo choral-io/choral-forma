@@ -26,6 +26,11 @@ use crate::operations::{
 };
 use crate::path::WorkspacePath;
 
+mod calendar;
+pub use calendar::{
+    CalendarClassification, CalendarCounts, CalendarEntry, CalendarEvent, CalendarTemporal,
+};
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileRenderResult {
@@ -131,6 +136,15 @@ pub struct RenderedView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ViewRenderOutput {
+    Calendar {
+        #[serde(rename = "timeZone")]
+        time_zone: String,
+        #[serde(rename = "firstDayOfWeek")]
+        first_day_of_week: String,
+        counts: CalendarCounts,
+        events: Vec<CalendarEvent>,
+        unscheduled: Vec<CalendarEntry>,
+    },
     List {
         items: Vec<ViewRenderItem>,
     },
@@ -314,6 +328,7 @@ struct ViewDefinition {
     table: Option<TableDefinition>,
     kanban: Option<KanbanDefinition>,
     graph: Option<GraphDefinition>,
+    calendar: Option<Value>,
     #[serde(default)]
     sort: Vec<SortDefinition>,
 }
@@ -916,6 +931,7 @@ fn render_view_from_loaded(
                 root,
                 definition,
                 &workspace.config,
+                &workspace.model,
                 &discovery.index.entries,
                 &view_path,
                 &mut diagnostics,
@@ -927,7 +943,7 @@ fn render_view_from_loaded(
     let render_required = view_definition.as_ref().is_some_and(|definition| {
         matches!(
             definition.mode.as_str(),
-            "list" | "table" | "kanban" | "graph"
+            "list" | "table" | "kanban" | "graph" | "calendar"
         )
     });
     if definition_is_valid && render_required && render.is_none() {
@@ -1015,6 +1031,9 @@ fn view_definition_is_valid(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
     let mut valid = true;
+    if definition.mode == "calendar" {
+        valid &= calendar::validate(definition.calendar.as_ref(), config, path, diagnostics);
+    }
     if definition.surface != "page" {
         valid = false;
     }
@@ -1372,6 +1391,7 @@ fn render_view_definition(
     root: &Path,
     definition: &ViewDefinition,
     config: &WorkspaceConfig,
+    model: &ResolvedWorkspaceModel,
     entries: &[IndexEntry],
     view_path: &str,
     diagnostics: &mut Vec<Diagnostic>,
@@ -1384,9 +1404,13 @@ fn render_view_definition(
         .filter_map(|entry| RenderCandidate::from_index_entry(root, entry))
         .filter(|item| view_candidate_matches(item, definition))
         .collect::<Vec<_>>();
+    if definition.mode == "calendar" {
+        items.sort_by(|left, right| left.path.cmp(&right.path));
+    }
     apply_sort(&mut items, &definition.sort);
 
     match definition.mode.as_str() {
+        "calendar" => calendar::render(&items, definition, config, model, view_path, diagnostics),
         "list" => Some(ViewRenderOutput::List {
             items: items
                 .into_iter()

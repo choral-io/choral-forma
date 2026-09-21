@@ -71,6 +71,39 @@ const dashboard: StaticDashboardData = {
 describe("StaticWorkspaceClient", () => {
     afterEach(() => vi.unstubAllGlobals());
 
+    it("preserves Calendar semantics and resolves source navigation", async () => {
+        const projection = {
+            kind: "calendar",
+            timeZone: "Pacific/Auckland",
+            firstDayOfWeek: "sunday",
+            counts: { candidates: 1, scheduled: 1, unscheduled: 0, invalid: 0 },
+            events: [
+                {
+                    path: "notes/one.md",
+                    title: "One",
+                    classification: { label: "Painting", color: "#123456" },
+                    temporal: { kind: "date", start: "2028-02-29", endExclusive: "2028-03-02" },
+                    firstDate: "2028-02-29",
+                    afterLastDate: "2028-03-02",
+                },
+            ],
+            unscheduled: [],
+        };
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((path: string) => {
+                if (path === "/data/dashboard.json") return json(dashboard);
+                return json({ ...dashboard.views[0], mode: "calendar", document: { bodySource: "" }, projection });
+            }),
+        );
+        const client = new StaticWorkspaceClient("/data");
+        const result = await client.getViewRender("notes", await contextFor(client));
+        expect(result.projection).toEqual({
+            ...projection,
+            routes: { "notes/one.md": "/pages/notes/one", ".forma.md": "/" },
+        });
+    });
+
     it("uses generated local data with an explicit artifact base", async () => {
         const fetch = vi.fn((path: string) => {
             if (path === "/preview/data/dashboard.json") return json(dashboard);

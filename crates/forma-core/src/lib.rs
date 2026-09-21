@@ -82,6 +82,7 @@ pub use path::{
     slugify_path_segment,
 };
 pub use render::{
+    CalendarClassification, CalendarCounts, CalendarEntry, CalendarEvent, CalendarTemporal,
     FileRenderOutput, FileRenderResult, GraphRenderEdge, GraphRenderLegendItem, GraphRenderNode,
     GraphRenderNodeClassification, KanbanRenderCard, KanbanRenderColumn, RenderedFile,
     RenderedHeading, RenderedView, ViewContentMount, ViewRenderDocument, ViewRenderItem,

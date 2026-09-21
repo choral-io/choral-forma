@@ -7,6 +7,39 @@ import { renderViewProjectionHtml, tableColumnPresentationAttributes } from "./p
 const workspace = { root: ".", name: "Preview fixture" };
 
 describe("view projection rendering", () => {
+    it("renders a complete Calendar Agenda with escaped titles and source navigation", () => {
+        const result: ViewRenderResult = {
+            schemaVersion: 1,
+            operation: "view.render",
+            status: "passed",
+            workspace,
+            view: { id: "calendar", path: "config/calendar.md", surface: "page", mode: "calendar" },
+            render: {
+                kind: "calendar",
+                timeZone: "UTC",
+                firstDayOfWeek: "monday",
+                counts: { candidates: 2, scheduled: 1, unscheduled: 1, invalid: 0 },
+                events: [
+                    {
+                        path: "entries/one.md",
+                        title: "One <script>",
+                        classification: { label: "Art <script>", color: "#123456" },
+                        firstDate: "2028-02-28",
+                        afterLastDate: "2028-03-02",
+                        temporal: { kind: "date", start: "2028-02-28", endExclusive: "2028-03-02" },
+                    },
+                ],
+                unscheduled: [{ path: "entries/later.md", title: "Later" }],
+            },
+        };
+        const html = renderViewProjectionHtml(result);
+        expect(html).toContain("2028-02-28 – 2028-03-01 · All day");
+        expect(html).toContain("One &lt;script&gt;");
+        expect(html).toContain("Art &lt;script&gt;");
+        expect(html).toContain('data-open-source="entries/one.md"');
+        expect(html).toContain('data-open-source="entries/later.md"');
+        expect(html).toContain("Unscheduled");
+    });
     it("renders list links through the native Markdown preview", () => {
         const result = {
             schemaVersion: 1,

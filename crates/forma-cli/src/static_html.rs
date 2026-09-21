@@ -436,6 +436,23 @@ fn projection_html(
     root_path: &str,
 ) -> String {
     match projection {
+        ViewRenderOutput::Calendar { time_zone, events, unscheduled, counts, .. } => {
+            let mut groups = BTreeMap::<&str, String>::new();
+            let entries_by_path: BTreeMap<&str, &StaticSiteEntry> = entries_by_id.values().map(|entry| (entry.path.as_str(), *entry)).collect();
+            let link = |path: &str, title: &str| entries_by_path.get(path).map_or_else(
+                || escape_html(title),
+                |entry| format!("<a class=\"link\" href=\"{}\">{}</a>", escape_attribute(&public_href(root_path, &entry.route_path)), escape_html(title)));
+            for event in events {
+                let classification = event.classification.as_ref().map(|c| format!("<p>{}</p>", escape_html(&c.label))).unwrap_or_default();
+                groups.entry(&event.first_date).or_default().push_str(&format!("<li>{}{classification}<p>{}</p></li>", link(&event.path, &event.title), escape_html(&event.range_label(time_zone))));
+            }
+            let agenda = groups.into_iter().map(|(date, items)| format!("<section><h3>{}</h3><ul>{items}</ul></section>", escape_html(date))).collect::<String>();
+            let unplanned = unscheduled.iter().map(|entry| {
+                let classification = entry.classification.as_ref().map(|c| format!("<p>{}</p>", escape_html(&c.label))).unwrap_or_default();
+                format!("<li>{}{classification}</li>", link(&entry.path, &entry.title))
+            }).collect::<String>();
+            format!("<section aria-label=\"Calendar agenda\"><h2>Agenda</h2><p>{} events · {} unscheduled · {} invalid · {}</p>{agenda}<h3>Unscheduled</h3><ul>{unplanned}</ul></section>", counts.scheduled, counts.unscheduled, counts.invalid, escape_html(time_zone))
+        }
         ViewRenderOutput::List { items } => format!(
             "<ul class=\"list\">{}</ul>",
             projection_items(items, entries_by_id, root_path)
@@ -787,11 +804,13 @@ pub(crate) fn sitemap_xml(base_url: &str, root_path: &str, pages: &[StaticPage])
 #[cfg(test)]
 mod tests {
     use super::{
-        PageShellOptions, StaticPage, display_value, escape_html, page_shell, public_href,
-        root_embedded_url, validated_language_tag,
+        PageShellOptions, StaticPage, display_value, escape_html, page_shell, projection_html,
+        public_href, root_embedded_url, validated_language_tag,
     };
+    use forma_core::ViewRenderOutput;
     use serde::Deserialize;
     use serde_yml::Value;
+    use std::collections::BTreeMap;
 
     #[derive(Deserialize)]
     struct StaticFieldDisplayFixture {
@@ -864,5 +883,22 @@ mod tests {
         for language in ["", "en_US", "en\"><script>", "../en", "en--US"] {
             assert!(validated_language_tag(language).is_err(), "{language}");
         }
+    }
+
+    #[test]
+    fn calendar_agenda_is_complete_deterministic_and_escapes_titles() {
+        let projection: ViewRenderOutput = serde_json::from_value(serde_json::json!({
+            "kind": "calendar", "timeZone": "UTC", "firstDayOfWeek": "monday",
+            "counts": {"candidates": 2, "scheduled": 1, "unscheduled": 1, "invalid": 0},
+            "events": [{"path": "exhibit.md", "title": "<script>unsafe</script>", "temporal": {"kind": "date", "start": "2028-02-29", "endExclusive": "2028-03-02"}, "firstDate": "2028-02-29", "afterLastDate": "2028-03-02"}],
+            "unscheduled": [{"path": "later.md", "title": "Later"}]
+        })).unwrap();
+        let html = projection_html(&projection, &BTreeMap::new(), "/");
+        assert_eq!(html, projection_html(&projection, &BTreeMap::new(), "/"));
+        assert!(html.contains("2028-02-29 – 2028-03-01 · All day"));
+        assert!(html.contains("&lt;script&gt;unsafe&lt;/script&gt;"));
+        assert!(!html.contains("<script>"));
+        assert!(html.contains("Later"));
+        assert!(html.contains("1 events · 1 unscheduled · 0 invalid"));
     }
 }
