@@ -15,6 +15,24 @@ export const TITLE_WIDTH = 220;
 // Deliberately below measured engine clamps; actual layout is also checked.
 export const SIZE_BUDGET = 1_000_000;
 export const DAY_WIDTHS = [4, 10, 28, 48] as const;
+/**
+ * Above this row count only the selected row's edges are drawn.
+ *
+ * A judgement, not a measurement: at 1000 rows only 3.3 percent of edges joined
+ * two points that could share a screen, so drawing them all was noise, but no
+ * intermediate size was measured. 60 rows is about three viewports of track, so
+ * a connector still reads as a thread a viewer can follow by scrolling. Revisit
+ * against real workspaces rather than treating it as derived.
+ */
+export const ALL_EDGES_MAX_ROWS = 60;
+/**
+ * Day columns kept to the left of a located bar's start.
+ *
+ * Measured in columns rather than pixels, so the lead-in is the same amount of
+ * time at every day width: a viewer always sees two days before the bar begins,
+ * whether a day is four pixels or forty-eight.
+ */
+export const LOCATE_LEAD_COLUMNS = 2;
 export interface GanttRange {
     start: number;
     end: number;

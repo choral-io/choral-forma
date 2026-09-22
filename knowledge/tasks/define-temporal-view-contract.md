@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: views
 effort: M
-status: backlog
+status: reviewing
 readiness: needs-refinement
 owners: []
 assignees: []
@@ -80,7 +80,11 @@ The earlier plan needs these corrections: date arithmetic must not substitute a 
 
 ## Readiness
 
-The Calendar contract was approved by the user on 2026-09-21. Owner/reviewer assignments and formal lifecycle promotion remain pending; existing board metadata is preserved rather than inferred from execution approval. Gantt-specific design remains a separate follow-up.
+Calendar is implemented in `afc3bc7`; the Gantt contract, shared temporal normalization, and cross-surface implementation are recorded in `217fa2e`. The user authorized governance reconciliation on 2026-09-22, moving this task to reviewing. Readiness remains needs-refinement for owner/reviewer assignment and final acceptance reconciliation, not missing implementation. Both proposals are accepted; the user explicitly approved Gantt proposal acceptance on 2026-09-22. This does not complete task acceptance.
+
+## Acceptance Reconciliation — 2026-09-22
+
+The specifications, fixtures, neutral-domain examples, dependency-free reuse boundaries, and benchmark plans are evidenced by [[proposals/calendar-temporal-view-contract]], [[proposals/gantt-temporal-view-contract]], [[design/calendar-view-validation-2026-09-21]], and [[planning/gantt-view-implementation-plan]]. The checklist remains a formal acceptance inventory, not a claim that these deliverables are missing. Responsibility assignment and overall acceptance are still open; this task is not done. Historical progress sections below describe their original stage only.
 
 ## Execution Progress — 2026-09-21
 

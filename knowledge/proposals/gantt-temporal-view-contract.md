@@ -3,9 +3,9 @@ schemaVersion: 1
 kind: proposal
 scope: project
 type: proposal
-status: proposed
+status: accepted
 title: Gantt Temporal View Contract
-summary: Proposed read-only Gantt interval, milestone, and dependency semantics with cross-surface capabilities and seeded validation fixtures.
+summary: Accepted read-only Gantt interval, milestone, and dependency semantics with cross-surface capabilities and seeded validation fixtures.
 owners: []
 assignees: []
 reviewers: []
@@ -29,11 +29,13 @@ relatedTo:
 
 Add a read-only `gantt` View mode that projects explicitly configured intervals as day-resolution timeline rows, and explicitly configured frontmatter references as finish-to-start dependency edges. Core owns schema binding, temporal normalization, dependency resolution, deduplication, cycle detection, and diagnostics. Hosts own geometry. Reuse the accepted Calendar temporal semantics rather than introducing a second temporal evaluator, and add no Gantt, charting, date, timezone, or virtualization dependency.
 
-This contract's metadata remains **proposed, not accepted**. Initial validation approval did not authorize production implementation; the user subsequently authorized implementation on 2026-09-22, as recorded in [[planning/gantt-view-implementation-plan]]. That later authorization does not itself change proposal or Task lifecycle metadata. Existing Views, including Calendar, retain their current meaning and wire format.
+This contract is **accepted** by explicit user approval on 2026-09-22, following design review, authorized implementation, and commit `217fa2e`. Acceptance applies to the design and its stated boundaries; it does not declare final task acceptance, installed-host validation, or release completion. Existing Views, including Calendar, retain their current meaning and wire format.
 
-### What this review is asking
+### Acceptance Record — 2026-09-22
 
-This document defines a public View DSL and a wire projection, so it needs a decision from someone other than its author. The **Review Decision** section at the end lists the specific choices requiring an answer; the short version is: day resolution only, milestones from an explicit boolean binding with no inference, finish-to-start as the only relation, six dependency target states whose counts must close, connectors scoped to a selected row, no configured range or zoom keys, and reuse of Calendar's temporal normalization unchanged.
+The user explicitly approved moving this proposal to accepted after evaluating its status against the completed review and implementation. Related tasks remain reviewing; owner/reviewer metadata remains unassigned. The historical preparation and review sections below remain evidence of their original stages, not a pending proposal-status decision. Remaining validation and test-coverage gaps are tracked in [[planning/gantt-view-implementation-plan]] and [[tasks/validate-lightweight-gantt-view]].
+
+The accepted scope is day resolution only, milestones from an explicit boolean binding with no inference, finish-to-start as the only relation, six dependency target states whose counts must close, connectors bounded by a row-count threshold, no configured range or zoom keys, and reuse of Calendar's temporal normalization unchanged. The **Review Decision** section preserves the earlier review record.
 
 Assertions of the form "measurement showed" or "measurement confirmed" refer to the prototype and fixture work recorded in [[design/gantt-view-validation-2026-09-22]], which also carries the go recommendation and the list of what remains unproven. That record is evidence, not review.
 
@@ -72,6 +74,8 @@ gantt:
         field: fields.endsOn
     milestone:
         field: fields.isMilestone
+    progress:
+        field: fields.percentComplete
     dependencies:
         field: fields.predecessors
         relation: finishToStart
@@ -81,7 +85,7 @@ gantt:
                 taxonomy: stages
 ```
 
-`gantt.start.field` is required. `gantt.end`, `gantt.milestone`, `gantt.dependencies`, and `gantt.presentation` are optional. All bindings use the existing `fields.<path>` syntax, matching Calendar rather than Graph's bare field name. `relation` accepts exactly `finishToStart` in this contract and defaults to it; any other value is a binding error rather than a silently ignored key. Reserving the key keeps later relation types additive.
+`gantt.start.field` is required. `gantt.end`, `gantt.milestone`, `gantt.progress`, `gantt.dependencies`, and `gantt.presentation` are optional. All bindings use the existing `fields.<path>` syntax, matching Calendar rather than Graph's bare field name. `relation` accepts exactly `finishToStart` in this contract and defaults to it; any other value is a binding error rather than a silently ignored key. Reserving the key keeps later relation types additive.
 
 The timeline has no configured range. Continuous scrolling makes the visible window a viewer concern, not a View setting, so this contract adds no range, zoom, or window keys. Day width is host presentation state with a small fixed set of steps, and Today and date jump are scroll operations rather than range changes.
 
@@ -96,6 +100,12 @@ Resolve every binding against the candidate's applicable effective content-group
 `start` and `end` follow the accepted Calendar rules unchanged: each must resolve to a scalar `date` or `datetime` schema field; nested object paths are permitted; traversal through a list is rejected; declarations that disagree across applicable schemas are an error rather than an arbitrary pick; and start and end must resolve to the same temporal type within one entry.
 
 `milestone` must resolve to a scalar `boolean` schema field. Only a literal boolean `true` marks a milestone. Missing field, null, absent binding, and any non-boolean value leave the row unmarked; a truthy string or a nonzero number is not a milestone.
+
+`progress` must resolve to a scalar `integer` schema field holding whole percent, `0` through `100` inclusive. Requiring `integer` rather than `number` is deliberate: a ratio convention would make `0.4` silently mean less than one percent, whereas under this binding the same value is rejected by existing schema validation before Gantt sees it. No unit is inferred and no other scale is accepted.
+
+A value outside `0`–`100` leaves the entry without progress and reports `view.ganttProgressInvalid` against that entry; it is never clamped, because clamping would present invented data as authored. A missing field, a null value, and an absent binding all mean no progress, which is distinct from an authored `0`.
+
+Progress belongs to the entry, not to its schedule, so it appears on the node rather than the row. An unscheduled or temporally invalid entry can carry progress and surfaces state it; only a scheduled row can render it as a bar fill.
 
 `dependencies` must resolve to an `entryRef`, a `Named` type whose configured semantic type is `entryRef`, or a list whose items are either of those. A list of lists, an object, or any scalar type is a binding error. Because list schemas flatten onto the same reference path, a scalar reference field and a list reference field are both addressed by the same `fields.<path>` binding.
 
@@ -169,7 +179,7 @@ Missing or null dependency values declare zero items; a scalar non-null value de
 
 What the spike did settle is that drawing every edge would not be useful. Rows are ordered by start date, so a dependency lands anywhere in the list: the median edge spans 297 rows in a 1,000-row projection and 1,356 rows in a 5,000-row one, and both endpoints fall on one screen for 3.3 percent and 0.8 percent of edges respectively. Ninety-seven percent or more of all-edge connectors would be vertical lines leaving the viewport at both ends.
 
-The lever for graphical dependency reading is therefore **row ordering**, not connector rendering or routing. Dependency-aware ordering is deferred: the existing field-based `sort` is not a graph-ordering algorithm. A future graph-aware sort needs its own semantics and review, although this node/row projection does not prevent it. Connectors for a selected row remain the proposed initial capability.
+The lever for graphical dependency reading is therefore **row ordering**, not connector rendering or routing. Dependency-aware ordering is deferred: the existing field-based `sort` is not a graph-ordering algorithm. A future graph-aware sort needs its own semantics and review, although this node/row projection does not prevent it. Connector scope is now bounded by row count rather than fixed to the selection: below the threshold every anchored edge is drawn, above it only the selected row's. The threshold is a judgement, not a measurement, and belongs in the implementation as a named constant with its reasoning.
 
 ### Projection
 
@@ -224,6 +234,7 @@ Add a `gantt` member to the existing render union. The projection is normalised 
             "path": "preparation/venue-hold.md",
             "title": "Venue hold",
             "status": "scheduled",
+            "progress": 40,
             "dependencies": {
                 "declared": 3,
                 "outsideSelection": 1,
@@ -271,6 +282,8 @@ Add a `gantt` member to the existing render union. The projection is normalised 
 
 This complete example is meant to be checked: four nodes against `candidates: 4`, two rows against `scheduled: 2`, two scheduled nodes and one each unscheduled and invalid, both edge endpoints present in `nodes`, an `unanchored` edge into the unscheduled node, and `declared` closing against the five buckets on every node. An implementation must reproduce it from an equivalent authored fixture.
 
+`progress` is a whole percent from `0` through `100`, omitted when no progress binding is configured, when the field is absent or null, or when the authored value fell outside the range. An omitted `progress` and an authored `0` are different states and must not be conflated.
+
 `status` is `scheduled`, `unscheduled`, or `invalid`, and partitions `nodes` exactly. A node with status `invalid` carries its path, title, and dependencies but never appears in `rows`; its temporal failure is reported through diagnostics, not through the projection. `rows` is ordered by the contract's row ordering and holds no title, because the node owns identity.
 
 `temporal` reuses the accepted Calendar shape exactly, including `{kind: "datetime", start, endExclusive}` with a null end denoting a point. `classification` reuses the accepted Calendar classification shape on the node when `presentation.rows.colorBy` is configured, and is omitted otherwise. Neither list carries pixel coordinates, per-day copies, preformatted localized text, or arbitrary frontmatter.
@@ -287,6 +300,8 @@ Require `candidates` to equal `nodes` length, and `scheduled` plus `unscheduled`
 | `view.ganttDateInvalid` | Warning on candidate field; malformed or nonexistent date or instant; count candidate as invalid |
 | `view.ganttIntervalInvalid` | Warning on candidate field; reversed or mixed interval, orphan end, or normalization overflow; count candidate as invalid |
 | `view.ganttMilestoneFieldInvalid` | Warning on the View binding; the milestone binding does not resolve to a scalar `boolean` schema field. Never emitted for a non-boolean **value**, which workspace schema validation already rejects as `schema.type.invalid`. Rows keep their intervals and stay unmarked |
+| `view.ganttProgressFieldInvalid` | Warning on the View binding; the progress binding does not resolve to a scalar `integer` schema field. Collapsed like other binding-type failures. Never emitted for a non-integer **value**, which schema validation already rejects |
+| `view.ganttProgressInvalid` | Warning on the candidate field; an integer outside `0`–`100`. The entry keeps its interval and carries no progress |
 | `view.ganttDependencyFieldInvalid` | Warning on candidate field; dependency binding does not resolve to a reference or list of references; row keeps its interval with no dependencies |
 | `view.ganttDependencySelf` | Warning on candidate field; entry declares itself as a predecessor; edge dropped, row retained |
 | `view.ganttDependencyCycle` | Warning on the View, listing participating paths in stable order; all rows and edges retained |
@@ -309,7 +324,7 @@ A binding-type failure is a View configuration problem even when it manifests pe
 | Surface | Initial capability | Range and dependency behavior |
 | --- | --- | --- |
 | Core / CLI / RPC | Complete typed node list, row geometry, edges, counts, diagnostics | Deterministic for the same snapshot; no injected current timestamp |
-| WebApp | Sticky title column and date header in one local scroll region, day-resolution bars, continuous horizontal scrolling, Today, date jump, day-width selection | One uninterrupted track over the whole data extent, extended on demand at either edge; per-row predecessor list; optional connectors for the selected row only; complete list reachable at every width |
+| WebApp | Sticky title column and date header in one local scroll region, day-resolution bars, continuous horizontal scrolling, Today, date jump, day-width selection | One uninterrupted track over the whole data extent, extended on demand at either edge; per-row predecessor list; connectors for every anchored edge in a small projection and for the selected row above a row-count threshold; complete list reachable at every width |
 | Static HTML | Deterministic interval and predecessor list for every node, with unscheduled and invalid nodes stated as such | Complete data, no timeline geometry, no dependence on build date, no broken links to unavailable targets |
 | VS Code | Same complete interval and predecessor list | Host navigation and theme adaptation |
 
@@ -344,6 +359,26 @@ The subsequent presentation review retained native two-dimensional scrolling but
 Row titles are single-line and truncated, so row height is fixed. This is what makes hand-written windowing sufficient and keeps the dependency budget at zero.
 
 **Not rendered is not the same as not anchorable.** `unanchored` means at least one endpoint has no usable interval. An edge with two scheduled endpoints remains `anchored` even when either row is outside the render window: geometry is arithmetic and needs no element. The initial selected-row connector slice may omit off-window connectors while retaining their navigable list entries; this must never change the edge status. No connector is drawn for an `unanchored` edge.
+
+**A bar carries its entry's title, and the title is decoration.** The row's accessible name already states the title and date range, so a visible in-bar label is redundant to assistive technology and must be hidden from it. Clip the label to the bar rather than letting it overflow, and do not widen a bar to fit its text: bar geometry answers to dates only. A bar too narrow to show anything readable shows nothing, because the sticky title column already names every row.
+
+**Progress must be stated as text, not only drawn.** The fill lives inside a decorative, assistive-technology-hidden bar, so on its own it reaches neither a screen reader nor any surface without a timeline. An unscheduled or temporally invalid entry has no bar at all. State the percent in the row's accessible name, in any selection detail, and in the complete list, using one phrasing across surfaces, and render nothing at all when no progress was authored so that an absent value never reads as zero.
+
+**Progress renders as a fill inside the bar, never as a change to its extent.** The fill covers the authored percent of the bar's width and must not alter where the bar starts or ends, so a reader cannot mistake progress for schedule. It must also not degrade the bar's own label. A fill behind the title changes the background the text sits on, so the title is drawn once for the unfilled background and again clipped to the fill, each copy coloured to contrast with what is behind it. Sharing one box keeps the glyphs aligned, and the seam falls exactly where the fill ends. This is what allows a fill strong enough to read at a glance. An entry with no progress renders an ordinary bar. Progress is presentation over an authored number; it is never derived from dates, from today, or from dependency state.
+
+**Selecting and locating are separate gestures.** A continuous track can place a row's bar years from the current viewport, so a viewer needs a way to jump to it; but selection happens on every single click and on every keyboard arrow press, and a viewport that moved each time would be unusable while browsing. Selection therefore never scrolls horizontally, and locating is an explicit double-click.
+
+Single-clicking a row's title or its bar selects that row and moves nothing. Double-clicking either one, or pressing Enter with the grid focused, puts the bar's start two day columns in from the left edge of the track and centres the row under the sticky header. Locating is unconditional: a bar already partly visible still moves, so the gesture always does the same thing and the bar head always lands in the same place. A conditional version was tried first and rejected, because a gesture that sometimes does nothing is harder to trust than one that always repositions.
+
+Connectors are confined to the track. The connector layer is positioned in content space, so it slides under the sticky title column and the sticky header, and it paints over both rather than behind them; raising the sticky cells above it does not change that. The layer is therefore clipped at the current scroll offsets, on the same frame that repositions the month labels rather than from render state, so a connector never appears to cross an entry's title or a date heading.
+
+Locating reserves the track it needs before it scrolls. The offset a bar near the right edge of the range asks for can lie past the end of the current track, and a scroll offset written past the track only moves as far as the track reaches; because the clamped write leaves the offset unchanged, the edge extension that widens the range on scrolling never fires, and repeating the gesture cannot recover. Anchoring the widening on the lead-in column reserves both the columns before the bar and a viewport of track after it, so one gesture is always enough. Vertical centring has no such step: the row list is fixed, so at the ends of the list the clamp is the answer.
+
+**A marker must not sit on top of the title.** A point or milestone marker is drawn at the bar's start, which is exactly where the label begins. Reserve room for it in the text rather than letting it cover the first characters, and do not widen the bar to make space: bar extent answers to dates only.
+
+**Connectors convey direction.** A connector without an arrowhead states that two entries are related but not which one precedes the other, which is the whole content of a finish-to-start edge. Draw the direction explicitly.
+
+An edge whose endpoints are both anchored remains drawable when either row is outside the rendered window, because the geometry is arithmetic. A host that chooses not to draw such a connector must not leave the reader to infer that no dependency exists; the predecessor list is the authoritative statement and stays complete regardless.
 
 Use native HTML and CSS with existing DaisyUI controls; evaluate minimal inline SVG only for connectors. Reuse existing chrono and chrono-tz in Core and Intl in hosts. Today is computed only in the interactive host from the supplied timezone and is never cached in the projection. Human-facing labels follow the host UI locale with the workspace canonical language as fallback; locale never changes bar placement, ordering, or column width.
 
@@ -388,6 +423,12 @@ Each fixture records its expected counts, expected row order, and expected edge 
 | offset-free datetime, reversed interval, mixed types, orphan end | Invalid with one primary source-locatable reason each |
 | scalar string field containing `2028-02-29` | Unsupported field type; no date inference |
 | `isMilestone: true` with a seven-day interval | Bar and marker both rendered; no diagnostic |
+| `percentComplete: 40` with an integer binding | Node carries `progress: 40`; the bar renders a 40 percent fill without changing its extent |
+| `percentComplete: 0` | Node carries `progress: 0`, which is distinct from an omitted progress |
+| `percentComplete: 140` or `-5` | No progress on the node; `view.ganttProgressInvalid` against that entry; interval retained |
+| `percentComplete: 0.4` under an integer binding | Rejected by existing schema validation; Gantt adds no diagnostic |
+| progress bound to a `string` or `number` field | Collapsed `view.ganttProgressFieldInvalid`; every entry keeps its interval and carries no progress |
+| progress on an unscheduled entry | Node carries the value; no bar exists to fill |
 | `isMilestone: "yes"` or `isMilestone: 1` | Unmarked row; interval retained; the existing `schema.type.invalid` error is the only diagnostic, and Gantt adds none |
 | point without a milestone binding | Point marker, `milestone` false; not labeled a milestone anywhere |
 | dependency field bound to a list of `task` semantic type | Edges resolve through the named type |
@@ -443,13 +484,13 @@ Dependency state confusion is the most likely way this feature misleads a reader
 
 Cycle detection over a filtered graph is sound only as a statement about the selected graph. Reporting it as a workspace-wide guarantee would be wrong whenever targets outside selection exist; the contract requires the narrower claim.
 
-Connector rendering is the least certain element. It is scoped to the selected row precisely so that a negative result degrades to a timeline with dependency lists rather than invalidating the feature. A failed connector experiment must be reported as reduced capability, never presented as full graphical Gantt support.
+Connector rendering is the least certain element. Its scope is bounded so that a negative result degrades to a timeline with dependency lists rather than invalidating the feature. A failed connector experiment must be reported as reduced capability, never presented as full graphical Gantt support.
 
 Confidence is high in reuse of the accepted temporal semantics. Prototype evidence supports the layout approach at the measured scale; production Gantt Core cost, cross-browser size budgets, real paint performance, and installed-host accessibility remain implementation verification gates, not completed evidence.
 
 ## Review Decision
 
-Status: proposed, revised after external design review on 2026-09-22. No reviewer is recorded in metadata yet, and authoring this document does not satisfy its own review requirement.
+Historical review-stage status: proposed, revised after external design review on 2026-09-22. The later explicit user acceptance is recorded above; no reviewer identity is inferred or added to metadata.
 
 ### External review round 1 — 2026-09-22
 
@@ -475,25 +516,26 @@ Three findings, all reproduced before being accepted.
 | The revised classification and graph scope were reported as verified, but the generator still walked only scheduled entries with the superseded per-target counting and emitted no node list, so the claim had no reproducible artifact | A conformance checker now builds the projection from real Core output under these rules and asserts every invariant, against fixture entries for a repeated self reference, a repeated outside-selection target, a repeated unresolved target, and cycles through an unscheduled and a temporally invalid entry. The scope correction is measurable: three cycles are found where the superseded logic found one |
 | "No maximum range" was not a substitute for a supported date range and boundary behaviour, and windowing reduces node count without reducing track width | Both hard limits are now specified: the four-digit-year temporal domain Core already enforces, and a measured renderer clamp of 16,777,214 px in Chrome 152 that makes the full domain representable only at the smallest day width. Extension must stop at either limit and say so; a date jump outside the domain is rejected rather than clamped |
 
-Validation has since exercised these semantics against real Core output and an isolated prototype, and the corrections they produced are folded in above. [[design/gantt-view-validation-2026-09-22]] holds that evidence and concludes **go** for this contract and the layout approach. Validation evidence is not review: the decisions below still need an explicit answer from someone other than the author.
+At this review stage, validation had exercised these semantics against real Core output and an isolated prototype, and the corrections were folded in above. [[design/gantt-view-validation-2026-09-22]] holds that evidence and concludes **go** for this contract and the layout approach. Validation evidence alone did not accept the design; the later explicit user acceptance recorded above resolved the design decisions listed below.
 
 On 2026-09-22 the user replaced the bounded-month range with a continuously scrolling timeline and permitted a virtualization dependency if performance required one. That change is folded in above and re-measured. It simplifies the contract: bar clipping, continuation cues, the out-of-range row state, and the visible-range dependency state all disappear, because every bar sits at a real position on one track. It also introduces the two-axis windowing requirement and its accessibility obligation.
 
-The decisions requiring an explicit answer are: day-resolution columns as the only initial resolution; milestones exclusively from an explicit boolean binding with no inference; finish-to-start as the only relation, with the key reserved; six dependency target states, with outside-selection, unresolved, duplicate, and self reference reduced to counts that must close against `declared`; connectors scoped to the selected row as an experiment against the list baseline; no configured range, zoom, or window keys; and reuse of Calendar normalization without modifying Calendar's wire format.
+The decisions presented for review, and subsequently accepted, were: day-resolution columns as the only initial resolution; milestones exclusively from an explicit boolean binding with no inference; finish-to-start as the only relation, with the key reserved; six dependency target states, with outside-selection, unresolved, duplicate, and self reference reduced to counts that must close against `declared`; connectors scoped to the selected row as an experiment against the list baseline; no configured range, zoom, or window keys; and reuse of Calendar normalization without modifying Calendar's wire format.
 
 The virtualization question is settled. On 2026-09-22 the user chose single-line truncated titles, hand-written windowing, and no dependency, which the measurements support: two-axis windowing without any library held range extension flat at 3 ms across 34 years of span at 4832 rows, and 12 ms once the always-present complete list is included. Fixed row height is now a contract constraint, and an implementation that lets titles wrap must revisit this decision rather than work around it.
 
-Outstanding beyond this contract: owner and reviewer assignment on [[tasks/validate-lightweight-gantt-view]], which remains `status: backlog` and `readiness: blocked`, and whose lifecycle metadata this document does not change.
+Outstanding beyond this contract: owner and reviewer assignment on [[tasks/validate-lightweight-gantt-view]]. That task moved to reviewing during the 2026-09-22 governance reconciliation; this document does not change its lifecycle metadata, and design acceptance does not imply task acceptance.
 
 ## Follow-Up
 
-1. Use the independent review closure below as the design handoff; explicit implementation authorization remains separate from this proposed document's status.
-2. Assign owner and reviewer on [[tasks/validate-lightweight-gantt-view]], and decide whether implementation runs under that Task or a new one.
-3. Implement against [[planning/gantt-view-implementation-plan]], which carries the two-axis windowing requirement, the accessibility obligation, the collapsed binding diagnostic, and the six-state dependency accounting as per-slice acceptance criteria.
-4. Before claiming cross-surface parity, validate what this contract specifies but nothing has exercised: static HTML output, the installed VS Code host, RPC and shared wire round-tripping, real Safari and mobile, and a real screen reader against the windowed row grid.
+This document was accepted by the user on 2026-09-22 and implemented in `217fa2e` against [[planning/gantt-view-implementation-plan]], whose Implementation Record holds the delivery evidence. What remains:
 
-### Independent review closure — 2026-09-22
+1. Assign owner and reviewer on [[tasks/validate-lightweight-gantt-view]], and decide whether further work runs under that Task or a new one. Design acceptance does not accept the delivery.
+2. Revisit the connector row-count threshold against real workspaces. It is a judgement rather than a measurement, and no intermediate projection size has been measured.
+3. Before claiming cross-surface parity, exercise what remains untested outside automated suites: real Safari and mobile, a real screen reader against the windowed row grid, and the installed VS Code host rather than its renderer unit tests. Static HTML output, the VS Code renderer, and shared wire round-tripping against real Core output now have committed tests.
+
+### Historical Independent Review Closure — 2026-09-22
 
 The follow-up review corrected the remaining contract inconsistencies directly: anchorability now requires two scheduled endpoints; the exclusive upper date boundary matches Calendar; oversized timelines have an explicit complete-list fallback and atomic rejection of unsupported navigation; edge identities are collision-free; cycle participants are strongly connected components; and the implementation plan now agrees on locale handling, invalid-node visibility, and off-window connectors. The complete JSON example and strengthened local conformance checker pass, including negative controls and mixed dependency cases. The checker is a fixture adapter over saved Core outputs, not production Gantt verification; its limitations are recorded in the validation report.
 
-No unresolved design blocker was found after these corrections. This is an engineering handoff assessment, not a Task lifecycle transition, product acceptance, commit authorization, or permission to skip the implementation gates. Keep the scope read-only, dependency-free, and Core-owned as specified. Owner/reviewer assignment and the user's implementation dispatch remain separate.
+No unresolved design blocker was found after these corrections. At that stage this was an engineering handoff assessment, not Task acceptance or implementation authorization. Implementation was subsequently authorized and committed in `217fa2e`, and the design is now explicitly accepted. Keep the scope read-only, dependency-free, and Core-owned as specified. Current remaining work is listed in Follow-Up above; owner/reviewer assignment and final delivery acceptance remain open.

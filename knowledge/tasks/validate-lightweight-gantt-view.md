@@ -9,8 +9,8 @@ priority: P2
 value: H
 module: views
 effort: M
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: needs-refinement
 owners: []
 assignees: []
 reviewers: []
@@ -18,9 +18,9 @@ tags:
     - views
     - gantt
     - validation
-blockedBy:
-    - tasks/define-temporal-view-contract
+blockedBy: []
 relatedTo:
+    - tasks/define-temporal-view-contract
     - tasks/implement-read-only-calendar-view
 sources:
     - architecture/forma-view-query-model
@@ -74,7 +74,11 @@ The lightweight technical direction passed assessment for validation; product fi
 
 ## Readiness
 
-The Calendar portion of [[tasks/define-temporal-view-contract]] is accepted and implemented at `afc3bc7`; its temporal semantics are available for reuse. Gantt validation and independent design review are recorded below, with the corrected contract ready for implementation handoff. Owner/reviewer assignments and explicit implementation dispatch remain pending. Existing backlog / blocked metadata is preserved until an explicit lifecycle decision. Calendar release or full host acceptance is not a prerequisite for isolated Gantt validation. Gantt production implementation has not begun or passed delivery review.
+Validation, design review, and the subsequently authorized production implementation are committed in `217fa2e`, following Calendar's `afc3bc7`. The user authorized governance reconciliation on 2026-09-22, moving this task to reviewing and clearing the obsolete temporal-contract execution blocker; the prerequisite remains under relatedTo. Readiness is needs-refinement for responsibility assignment and final acceptance reconciliation. Gantt's proposal was subsequently accepted by explicit user approval on 2026-09-22, not inferred from the implementation commit. Task acceptance remains separate.
+
+## Acceptance Reconciliation — 2026-09-22
+
+The validation task's layout, dependency semantics, scale, zero-new-dependency evidence, and go recommendation are recorded in [[design/gantt-view-validation-2026-09-22]]. The resulting implementation plan and production verification are in [[planning/gantt-view-implementation-plan]]. These deliverables exist; unchecked composite criteria are not a claim that execution has not started. The dedicated temporal-binding diagnostic aggregation regressions identified by the external review are now covered by tests. Enhanced connectors, bar labels, and progress fills are implemented in the working tree, with their review and corrections recorded below; they are no longer deferred enhancements. Owner/reviewer assignment, final acceptance, and installed-host and assistive-technology validation remain open. The connector row-count threshold remains a judgment to revisit against real workspaces. These updates do not change Task lifecycle metadata or imply release completion.
 
 ## Independent Review Closure — 2026-09-22
 
@@ -84,7 +88,7 @@ No unresolved design blocker remains for handoff. This is not production deliver
 
 ## Development Preparation — 2026-09-21
 
-Historical stage notes below are preserved as evidence. The latest assessment is the Independent Review Closure section immediately above them.
+Historical stage notes below are preserved as evidence. Current lifecycle and acceptance boundaries are in Readiness and Acceptance Reconciliation above; subsequent production evidence is in Implementation Review below. Statements about absent implementation or commit authority describe their original stage, not the current state.
 
 The user requested development preparation after the Calendar implementation commits. This section records a proposed validation sequence, not approval of a new public DSL or production implementation. No library installation, prototype execution, production code change, task-state change, commit, or publication is part of this preparation.
 
@@ -269,3 +273,105 @@ Fixing the second required running the checker with `--write`, which changed fil
 The user subsequently authorized taking over implementation. Core projection, shared contracts, consumer dispatch, static and VS Code lists, the windowed WebApp timeline, selected-row connectors, examples, and product documentation are implemented in the working tree with no new runtime dependencies. Detailed evidence and remaining validation boundaries are recorded in [[planning/gantt-view-implementation-plan#Implementation Record — 2026-09-22]].
 
 Full repository checks, example checks, workspace diagnostics, deterministic static builds, and real-backend Chromium/Firefox/WebKit checks passed. This records implementation progress only: Task lifecycle metadata, ownership, product acceptance, and commit authorization remain unchanged. Installed-host and real screen-reader acceptance are still separate from the completed local checks.
+
+## Implementation Review — 2026-09-22
+
+The Gantt implementation was reviewed against [[proposals/gantt-temporal-view-contract]] and [[planning/gantt-view-implementation-plan]]. All eight planned slices are present and wired, no dependency manifest or lockfile changed, and `mise run check` passes.
+
+Core matches the contract on every rule that earlier review rounds had to correct. Unresolved dependencies are counted by subtraction and the retained references are classified by the contract's precedence; the node list spans every selected candidate rather than only entries with usable intervals; edge identity is the compact JSON pair; anchoring requires both endpoints to be scheduled; cycles are reported as strongly connected components, using an iterative Kosaraju that avoids the recursion limits and the quadratic reachability of the local checker; binding-type failures collapse into one View-level diagnostic carrying the affected count with at most ten samples; a non-boolean milestone value produces no Gantt diagnostic; and no conflict between a relation and the dates is computed anywhere.
+
+Rendering the 40-entry oracle fixture through the real `gantt` mode satisfies every contract invariant, reproduces all three named dependency combinations, and reports all three cycles including the two that route through an unscheduled and a temporally invalid entry.
+
+That run also settled a rule the local checker had explicitly been unable to prove. Bound to `fields.predecessors`, Core assigns the nested-path entry zero declared dependencies; bound to `fields.plan.predecessors`, it assigns exactly that entry one and ignores every top-level declaration. Exact-field matching holds in both directions. The discrepancy surfaced as a phantom seventeenth edge from the checker, whose fixture adapter combined both field names; the checker has been narrowed to a single bound field and now agrees with Core at sixteen edges.
+
+The WebApp meets the rendering rules and improves on two of them. Keyboard support uses a roving `aria-activedescendant` grid with focus held on the scroller, which removes by construction the focus-loss failure that windowing caused in the prototype, and `aria-rowcount` and `aria-rowindex` describe the full row list rather than the window. The complete list is an always-present disclosure rendered lazily, which is the allowed form. Left-edge extension compensates the scroll offset in a layout effect before paint. Beyond the contract, the component validates measured track geometry after layout and falls back rather than displaying a distorted track, and when the extent cannot fit it disables navigation and states that the timeline is unavailable while keeping every entry reachable.
+
+The original review overstated a geometry divergence: bars use fixed-epoch day values in CSS calc expressions with --gantt-origin and --gantt-day; they are not positioned solely by JavaScript. Track width is derived in JavaScript, and month-label visible-intersection positioning is a separate imperative DOM concern. This is not evidence that the bar-position contract should be relaxed. The materialized-width budget is deliberately below measured engine clamps, bounding a 28-pixel-per-day timeline to roughly a century; unavailable states are reported explicitly.
+
+A suspected off-by-one at the upper date boundary was investigated and does not exist. Rejecting a jump to `9999-12-31` is correct, because interval ends are exclusive and Core already rejects a date-only entry ending on that day. The contract states this more precisely than the review did, including that a datetime interval ending at local midnight on that boundary can still be valid, and requires the renderer budget to be validated across engines rather than generalised from one measured Chrome threshold.
+
+One coverage gap was found by tracing the collapse paths rather than the tests, and has since been closed. `render` routes two temporal binding failures into the aggregated form — an unsupported start or end schema type, and start and end types that disagree — but the collapse test exercises only the dependency and milestone bindings. Both temporal paths were probed directly against a fifteen-candidate workspace and behave correctly, emitting one View-level diagnostic carrying `actual` of fifteen plus ten samples, with every candidate counted invalid. The behaviour is right; the test was missing.
+
+`temporal_binding_failures_collapse_like_auxiliary_bindings` now covers both. It asserts one View-level diagnostic located on the View carrying the affected count, at most ten samples, that every sample keeps a frontmatter location, and that a set smaller than the cap is sampled completely. Its effectiveness was checked by mutation rather than by a passing run: removing the sample cap and routing temporal failures per candidate each make it fail, and the source was restored byte-identically afterwards. `mise run check` passes.
+
+Static output and the shared contract were checked as well. The static list covers every node rather than only rows, states unscheduled and invalid entries as such, links only to nodes the projection contains so no broken link can be produced, reports hidden dependency counts without naming their targets, escapes titles under an injection test, and states that no scheduling conflicts are computed.
+
+Committed as `217fa2e`.
+
+## Bar Labels, Progress And Connector Routing — 2026-09-22
+
+The user requested three additions and corrected an inaccuracy: the documentation had grouped dependency routing with bar titles and progress fills as "not included in this initial implementation", which understated connectors, since selected-row polylines already existed. That sentence is removed and the surrounding text now describes what each surface actually does.
+
+**Bar labels.** A bar carries its entry title, clipped to the bar and hidden from assistive technology, because the row's accessible name already states title and range and the sticky column names every row. Bar geometry still answers to dates only, so a bar too narrow to read shows nothing rather than widening.
+
+**Progress.** This extends an accepted public DSL, so the contract was amended first. `gantt.progress.field` binds a scalar `integer` holding whole percent from `0` through `100`. The integer requirement is what makes the range safe: under a ratio convention `0.4` would silently mean less than one percent, whereas here existing schema validation rejects it before Gantt sees it, exactly as it already does for a non-boolean milestone. A value outside the range is diagnosed through `view.ganttProgressInvalid` and dropped, never clamped, and an authored `0` is a value while an absent field is not. Progress describes the entry rather than its schedule, so it sits on the node: an unscheduled entry carries it and the read-only surfaces state it, while only a scheduled row can render a fill. The fill covers part of the bar and never changes where the bar starts or ends, so progress cannot be misread as schedule. The getting-started example gains no progress data, on the same grounds that it gained no invented dates.
+
+**Connectors.** The audit found three real gaps rather than an absence. Connectors had no arrowhead, which leaves a finish-to-start edge stating that two entries are related without stating which precedes; they are now directed. Any endpoint outside the rendered row window dropped the whole connector, although the geometry is arithmetic and the overlay already spans the full height, so an absent connector could be read as an absent dependency; off-window endpoints are now drawn. A fixed elbow doubled back through both bars whenever a successor started before its predecessor ended, which is ordinary data because no conflict is computed; that case now routes around.
+
+Verification: ten Core tests including range, zero, absence, out-of-range diagnostics, the schema-rejected ratio, unscheduled carriage, and collapsed binding failure; thirteen WebApp tests including label decoration, fill independence from bar extent, the zero-versus-absent distinction, arrowhead presence, off-window drawing, and both routing shapes. `mise run check` passes. End-to-end CLI rendering of a four-entry workspace reproduced every case, including an out-of-range entry that keeps its interval and loses only its progress.
+
+## Browser Review Findings — 2026-09-22
+
+Three observations from viewing the running WebApp against a fifteen-entry demonstration workspace. One was a defect, two were designed behaviour whose consequences are worth stating.
+
+**The progress fill cost the bar label its contrast, and is fixed.** The fill was a full-height wash behind the title, so the label sat on a darkened background wherever progress had been authored. A bottom band was tried first and rejected on review: it read poorly, and the full fill is what makes progress legible at a glance. The fill is therefore full height again, and the label is drawn twice instead — once for the unfilled background and once clipped to the fill, each copy coloured to contrast with what is behind it. Both copies share a box, so the glyphs align exactly and the seam falls where the fill ends.
+
+Measured across all thirteen filled bars: every fill width matches its authored percent within one percent, and every clip boundary matches its own fill exactly. Both themes invert correctly, with a dark fill carrying white text on light and a light fill carrying dark text on dark. The contract states the constraint and a test pins the two-layer label and its clip.
+
+**The connector scoping is now opened up by row count.** Below sixty rows every anchored edge is drawn without a selection; above it only the selected row's edges are, as before. Sixty is a judgement rather than a measurement and is named and reasoned about in the source: the 1000-row measurement showed that drawing every edge was noise, no intermediate size was measured, and sixty rows is roughly three viewports of track, so a connector still reads as a thread a viewer can follow. It should be revisited against real workspaces rather than treated as derived. A test pins both sides of the threshold, and the small-projection case incidentally confirms that off-window endpoints draw, since only about half the rows are in the document at that size.
+
+**Before that change, fewer connectors than expected was the design, not a rendering fault.** Connectors render only for the selected row, so the count follows the selection: a row with one edge draws one. That scoping came from a measurement at one and five thousand rows, where ninety-nine percent of all-edge connectors would have joined two points that cannot share a screen. At fifteen rows that justification does not apply and every edge would be readable, so the restriction is right for the workspaces it was measured against and arguably over-restrictive for small ones. Worth revisiting as a threshold or a toggle rather than leaving as a silent constant.
+
+**Sub-day resolution stays out of scope by decision.** The behaviour below is what the day-resolution contract specifies, and it will not be changed.
+
+**Sub-day tasks are supported in data and rounded to whole columns in the bar, by design.** Day resolution means a bar occupies the calendar dates its interval covers. A two-hour task and an eight-hour task within one day both occupy one column, and a four-hour task crossing midnight occupies two, so it draws wider than the eight-hour task. The exact instants are preserved in `temporal` and stated in the range label, so nothing is lost, but the bar does not express duration below a day. If sub-day extent ever needs to be visible, that is a resolution decision rather than a rendering fix, and it is currently out of scope.
+
+Four demonstration entries with long titles and progress of ten, twenty-five, fifty and eighty-five percent were added so the label-over-fill seam could be judged directly. Measured across them, both label layers align on each axis to within half a pixel, and the seam falls inside the glyphs at ten and twenty-five percent, fifty-seven and one hundred seventy-five pixels into labels of roughly two hundred fifty pixels. At fifty and eighty-five percent the fill is wider than the text, so the whole label sits on it.
+
+## Review Round On Labels, Progress And Connectors — 2026-09-22
+
+Four findings, all reproduced before being accepted, all fixed.
+
+**Progress existed only as a fill and therefore only as decoration.** The fill lives inside an `aria-hidden` bar, so it reached no screen reader, no selection detail, and no complete list; an unscheduled entry, which has no bar at all, showed nothing. The percent is now stated in the row's accessible name, the selection detail, and the complete list. The WebApp and the VS Code preview share one formatter and so cannot drift apart; the static export builds the same sentence independently in Rust, where the shared formatter cannot reach it, and nothing pins that phrasing, so the two can drift. The static export's Gantt arm is tested for determinism, escaping and link safety, but through the shared wire fixture, whose source view configures no progress binding, so the percent string is the one part of that arm no test reaches. The same absence runs through every consumer of that fixture: progress is a new field on the wire contract and the fixture does not carry it. Recorded here rather than closed, because giving it coverage means configuring progress in the example workspace and regenerating the fixture, which is a product-example change of its own. The formatter returns an empty string when no progress was authored, which is what keeps an absent value from reading as zero.
+
+**The milestone marker covered the start of the bar's title.** The marker is drawn at the bar's start, which is exactly where the label begins. The label now reserves room for it. The indent is text-only: bar extent still answers to dates, and a test asserts both the indent and that the width expression is unchanged.
+
+**The off-window connector test did not test an off-window endpoint.** It built two rows, both inside the render window, so it asserted nothing about windowing. It now builds a projection past the all-edges threshold with endpoints far enough apart that row windowing cannot mount both, and asserts that the far row is absent from the document while the connector still exists. Its effectiveness was checked by mutation: reinstating the endpoint-window guard makes it and the threshold test fail, and the source was restored byte-identically.
+
+**The contract had drifted from the implementation in two places.** The surface matrix and two supporting statements still described connectors as scoped to the selected row, which the row-count threshold replaced, and a follow-up item still called the two temporal binding collapse paths untested although those tests had been added. Both are corrected, and the follow-up now carries the real open item, which is revisiting the threshold against real workspaces. The contract also gained the two rules this round produced: progress must be stated as text and not only drawn, and a marker must reserve room rather than cover the title.
+
+Seventeen WebApp tests pass and `mise run check` passes.
+
+## Selecting And Locating A Row — 2026-09-22
+
+The user asked whether clicking a row title should scroll its bar into view. A first attempt tied locating to a single click and skipped bars that were already partly visible. The user rejected both parts: a gesture that sometimes does nothing is harder to trust than one that always repositions, and putting it on single click collides with selection.
+
+The separation is now explicit. Single-clicking a row's title or its bar selects that row and moves nothing, and keyboard arrow traversal does not scroll horizontally either, so browsing rows never sends the viewport chasing bars across years. Double-clicking a title or a bar locates that row, putting its bar start two day columns in from the left edge of the track. Locating is unconditional, so a partly visible bar still moves and the bar head always lands in the same place. The lead-in is counted in columns rather than pixels, so it is the same span of time at every day width: the viewer always sees the two days before the bar begins, whether a day is four pixels or forty-eight. A fixed pixel lead-in was written first and changed on the user's instruction, because at four pixels per day it left no readable context and at forty-eight it left only one column.
+
+Three tests cover it, and the mutation pass caught a real gap in one of them. The first version of the unconditional assertion moved the viewport far enough that the bar had left the screen entirely, so reinstating a visibility guard did not fail it: the test looked correct but proved nothing. Nudging the viewport to where the bar is still partly visible is what distinguishes the two behaviours, and with that change the guard mutation fails as it should. Adding a locate call to the single-click path fails its own test.
+
+The move to columns produced a second self-referential test, caught the same way. The new assertion derived its expected offset from the very constant the implementation reads, so changing the lead from two columns to three moved both sides of the equation together and twenty tests still passed; only the unrelated mutation back to fixed pixels failed. Writing the column count as a literal in the expectation fixes it, and both mutations now fail. The lesson is narrower than the earlier one: an assertion that imports a constant to describe a value that constant defines is not a test of that value, however much arithmetic surrounds it.
+
+Verified in the running WebApp: a single click selected without moving the offset, a double-click located the bar, repeating it from a different offset landed on the identical value, and clicking a bar selected its row. The column lead was then measured at three day widths by double-clicking the same far-right row and reading the rendered gap between the track's left edge and the bar's left edge: nine pixels at four per day, fifty-seven at twenty-eight, ninety-seven at forty-eight. Each is two columns plus one pixel, the extra pixel being the title column's right border, which sits outside the measured rect.
+
+## Locate Review Round — 2026-09-22
+
+An external review raised two P2 findings against locating, both confirmed.
+
+**Locating could not reach a bar lying past the end of the current track.** Reproduced at four pixels a day on the last row of the demo workspace: the offset the lead-in asked for was 2112 while the track allowed 1696, so the write clamped and the bar head sat 616 pixels into the track instead of nine. Repeating never improved it, and the reason is worth recording, because it is the part the review had not identified: the scroll handler only extends the range when the offset actually changed, and a clamped write leaves the offset exactly where it was, so the extension never fires and no number of repeats gets closer. The review saw two different values because their first attempt did move the offset and bought one extension; the underlying trap is the same. Locating now widens the range first, anchored on the lead-in column so that both the columns before the bar and a viewport of track after it exist, and applies the offset through the pending-scroll path the date jump already used. One gesture is now enough. Where the range cannot widen — at the end of the supported domain, or against the size budget — the clamp stays, because that is the real boundary.
+
+**Locating had no keyboard equivalent.** Enter with the grid focused now locates the selected row. Arrow, page, Home and End keep selecting only, so traversal still never scrolls horizontally, and the help line under the grid says what Enter does.
+
+The user then asked whether locating should place the row vertically as well. It now centres the row in the band the sticky header leaves, on both the double-click and the Enter path, which is the same rule the horizontal axis already followed: always the same landing place, never a conditional nudge. Near the ends of the list the browser clamps, and unlike the date range there is nothing to extend, so that clamp is the honest answer.
+
+Three tests cover the round and each was checked by mutation. Reverting to the direct write fails the boundary test with the exact pair of numbers the browser produced; removing the Enter branch fails the keyboard test; removing the vertical write, or centring without accounting for the sticky header, each fail the centring test. The boundary test needed a scroller that clamps, since jsdom has no layout and keeps whatever offset it is given, and it asserts that the target really does exceed the reachable offset so that a future fixture cannot let it pass while exercising nothing.
+
+Two method notes. Measuring in the browser by clicking at computed screen coordinates produced three wrong readings in a row: a row misidentified by twenty-three pixels, a double-click that landed on a link and navigated away, and a measurement taken on a different row's bar than the one that had been located. Each looked like a fresh defect and none was. Dispatching the event on the resolved element and reading back the row the component reports as active removed the noise. Separately, a stale viewport width was suspected and fixed on the way — the observed width lags a layout change until the observer or a scroll fires, and reserving track against it left too little — but that fix alone did not change the reading; the real defect was the clamp. The three range anchors now measure the live client width regardless, since none of them can afford a stale number.
+
+Verified in the running WebApp after the fix: at four pixels a day, both Enter and double-click put the last row's bar head nine pixels into the track in one gesture, with the range extended from 453 to 1085 reachable pixels. Vertical centring was measured in a shortened viewport, since the demo workspace's nineteen rows otherwise fit without scrolling: the located row's centre landed at 201 pixels from the grid top against a band centre of 200.
+
+**Connectors were drawn across the sticky title column.** The user spotted it on the row below Environmental monitoring. A dependency whose successor starts before its predecessor ends routes backwards, and that leftward run lies at a row boundary and extends to wherever the successor's bar begins; once the view is scrolled past that point the run sits under the title column, and it was painted over it. The same happens vertically against the sticky header, which was reproduced by shortening the viewport until the row list could scroll that far.
+
+Stacking order does not fix it. The title cells already carry a higher z-index than the connector layer and an opaque background, and raising them further, to thirty, changed nothing. The layer is now clipped to the track instead, at the current scroll offsets on both axes, which needs no assumption about paint order. The clip is applied on the same scroll frame that repositions the month labels rather than from render state, so a fast scroll cannot flash a connector across a sticky edge; a first attempt asserted this through a horizontal scroll, and the mutation pass showed that a horizontal scroll also re-runs the render path, which was covering for the frame. Scrolling only vertically isolates the frame, because nothing the render path watches changes.
+
+Verification followed the same pattern as the rest of the round. The clip module has unit tests for the offsets, the header band, overscroll and a timeline with no connector layer, and the component has one test for mount and scroll. Removing either call site, dropping the header band, and clipping only one axis each fail. In the browser the connector that previously ran the full width of the title column now stops at its right edge, at the same scroll offset, and the same holds for the header after the viewport is shortened.

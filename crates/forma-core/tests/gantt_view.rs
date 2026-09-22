@@ -17,7 +17,7 @@ impl Fixture {
         )));
         f.write(".forma.md", &format!("---\nworkspace:\n  name: Gantt\n  canonicalLanguage: en\n  supportedLanguages: [en]\n  timezone: {zone}\nimports: [config/*.md]\n---\n"));
         f.write("config/collections.md", "---\nkind: taxonomy\nid: collections\nprojection: contentGroups\ntitle: Collections\n---\n");
-        f.write("config/exhibitions.md", &format!("---\nkind: term\ntaxonomy: collections\nid: exhibitions\ntitle: Exhibitions\ninclude: ['exhibitions/*.md']\nschema:\n  type: object\n  fields:\n    opensOn:\n      type: {kind}\n    closesOn:\n      type: {kind}\n    isMilestone: {{type: boolean}}\n    predecessors:\n      type: list\n      items: {{type: entryRef}}\n    otherRefs:\n      type: list\n      items: {{type: entryRef}}\n---\n"));
+        f.write("config/exhibitions.md", &format!("---\nkind: term\ntaxonomy: collections\nid: exhibitions\ntitle: Exhibitions\ninclude: ['exhibitions/*.md']\nschema:\n  type: object\n  fields:\n    opensOn:\n      type: {kind}\n    closesOn:\n      type: {kind}\n    isMilestone: {{type: boolean}}\n    percentComplete: {{type: integer}}\n    predecessors:\n      type: list\n      items: {{type: entryRef}}\n    otherRefs:\n      type: list\n      items: {{type: entryRef}}\n---\n"));
         f.view("start: {field: fields.opensOn}\n  end: {field: fields.closesOn}");
         f
     }
@@ -91,6 +91,28 @@ fn projection(f: &Fixture) -> serde_json::Value {
     let decoded: ViewRenderOutput = serde_json::from_value(value.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), value);
     value
+}
+
+/// One View-level diagnostic carrying the affected count, then at most ten
+/// path-ordered samples.
+fn assert_collapsed(f: &Fixture, code: &str, affected: usize) {
+    let result = f.render();
+    let ds: Vec<_> = result
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == code)
+        .collect();
+    assert_eq!(ds.len(), 1 + affected.min(10), "{code}: {result:?}");
+    let view_level: Vec<_> = ds.iter().filter(|d| d.actual.is_some()).collect();
+    assert_eq!(view_level.len(), 1, "{code} needs exactly one aggregate");
+    assert_eq!(
+        view_level[0].actual.as_deref(),
+        Some(affected.to_string().as_str())
+    );
+    assert_eq!(view_level[0].path.as_deref(), Some("config/gantt.md"));
+    for sample in ds.iter().filter(|d| d.actual.is_none()) {
+        assert!(sample.location.is_some(), "samples stay locatable");
+    }
 }
 
 #[test]
@@ -289,4 +311,119 @@ fn scalar_dependencies_and_json_pair_edge_ids_are_preserved() {
         "[\"exhibitions/a->b.md\",\"exhibitions/c.md\"]"
     );
     assert_eq!(p["edges"][0]["status"], "anchored");
+}
+
+#[test]
+fn temporal_binding_failures_collapse_like_auxiliary_bindings() {
+    // An unsupported start type fails identically for every candidate, so one
+    // configuration mistake must not emit one warning per entry.
+    let f = Fixture::new("string", "UTC");
+    for i in 0..15 {
+        f.entry(&format!("row-{i:02}"), "opensOn: '2028-01-01'");
+    }
+    f.view("start: {field: fields.opensOn}");
+    let p = projection(&f);
+    assert_eq!(p["counts"]["scheduled"], 0);
+    assert_eq!(p["counts"]["invalid"], 15);
+    assert_eq!(p["counts"]["candidates"], 15);
+    assert_collapsed(&f, "view.ganttFieldTypeInvalid", 15);
+
+    // Start and end resolving to different temporal types is also a single
+    // configuration mistake expressed per candidate.
+    let f = Fixture::new("date", "UTC");
+    f.write(
+        "config/exhibitions.md",
+        "---\nkind: term\ntaxonomy: collections\nid: exhibitions\ntitle: Exhibitions\ninclude: ['exhibitions/*.md']\nschema:\n  type: object\n  fields:\n    opensOn: {type: date}\n    closesOn: {type: datetime}\n---\n",
+    );
+    for i in 0..15 {
+        f.entry(
+            &format!("row-{i:02}"),
+            "opensOn: '2028-01-01'\nclosesOn: '2028-01-05T00:00:00Z'",
+        );
+    }
+    f.view("start: {field: fields.opensOn}\n  end: {field: fields.closesOn}");
+    let p = projection(&f);
+    assert_eq!(p["counts"]["scheduled"], 0);
+    assert_eq!(p["counts"]["invalid"], 15);
+    assert_collapsed(&f, "view.ganttIntervalInvalid", 15);
+
+    // Below the cap every affected candidate is still sampled.
+    let f = Fixture::new("string", "UTC");
+    for i in 0..3 {
+        f.entry(&format!("row-{i}"), "opensOn: '2028-01-01'");
+    }
+    f.view("start: {field: fields.opensOn}");
+    assert_collapsed(&f, "view.ganttFieldTypeInvalid", 3);
+}
+
+#[test]
+fn progress_is_whole_percent_on_the_node_and_never_clamped() {
+    let f = Fixture::new("date", "UTC");
+    f.view("start: {field: fields.opensOn}\n  progress: {field: fields.percentComplete}");
+    f.entry("mid", "opensOn: '2028-01-01'\npercentComplete: 40");
+    f.entry("zero", "opensOn: '2028-01-02'\npercentComplete: 0");
+    f.entry("full", "opensOn: '2028-01-03'\npercentComplete: 100");
+    f.entry("absent", "opensOn: '2028-01-04'");
+    f.entry("over", "opensOn: '2028-01-05'\npercentComplete: 140");
+    f.entry("under", "opensOn: '2028-01-06'\npercentComplete: -5");
+    f.entry("unscheduled", "percentComplete: 30");
+    let p = projection(&f);
+    let progress = |name: &str| {
+        p["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["path"] == format!("exhibitions/{name}.md"))
+            .unwrap()["progress"]
+            .clone()
+    };
+    assert_eq!(progress("mid"), 40);
+    // An authored zero is a value; an absent field is not.
+    assert_eq!(progress("zero"), 0);
+    assert_eq!(progress("full"), 100);
+    assert!(progress("absent").is_null());
+    // Out of range is reported and dropped, never clamped to a boundary.
+    assert!(progress("over").is_null());
+    assert!(progress("under").is_null());
+    assert_eq!(p["counts"]["scheduled"], 6);
+    // Progress belongs to the entry, so an unscheduled node still carries it.
+    assert_eq!(progress("unscheduled"), 30);
+
+    let result = f.render();
+    let invalid: Vec<_> = result
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "view.ganttProgressInvalid")
+        .collect();
+    assert_eq!(invalid.len(), 2);
+    assert!(invalid.iter().all(|d| d.location.is_some()));
+
+    // A non-integer value is rejected by schema validation before Gantt sees it.
+    let f = Fixture::new("date", "UTC");
+    f.view("start: {field: fields.opensOn}\n  progress: {field: fields.percentComplete}");
+    f.entry("ratio", "opensOn: '2028-01-01'\npercentComplete: 0.4");
+    let result = f.render();
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "schema.type.invalid")
+    );
+    assert!(
+        !result
+            .diagnostics
+            .iter()
+            .any(|d| d.code.starts_with("view.ganttProgress"))
+    );
+
+    // A binding that resolves to the wrong type collapses like other bindings.
+    let f = Fixture::new("date", "UTC");
+    for i in 0..15 {
+        f.entry(&format!("row-{i:02}"), "opensOn: '2028-01-01'");
+    }
+    f.view("start: {field: fields.opensOn}\n  progress: {field: fields.opensOn}");
+    let p = projection(&f);
+    assert_eq!(p["counts"]["scheduled"], 15);
+    assert!(p["nodes"][0]["progress"].is_null());
+    assert_collapsed(&f, "view.ganttProgressFieldInvalid", 15);
 }

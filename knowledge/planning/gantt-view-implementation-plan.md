@@ -220,7 +220,7 @@ Before the final slice is considered complete: `mise run check`, `pnpm check:exa
 
 ## Implementation Record — 2026-09-22
 
-The implementation covers all eight slices in the working tree, without adding runtime dependencies. No commit, Task lifecycle transition, or metadata assignment was made. The checklist above remains the detailed acceptance inventory; the following evidence does not claim that every individual case has a dedicated automated assertion.
+The implementation covers all eight slices and was committed as `217fa2e`, without adding runtime dependencies. The user subsequently authorized governance reconciliation on 2026-09-22: the related tasks move to reviewing, while responsibility assignment and final acceptance remain open. The checklist above remains the detailed acceptance inventory; the following evidence does not claim that every individual case has a dedicated automated assertion.
 
 - Core now shares temporal normalization with Calendar and emits Gantt nodes, scheduled rows, deterministic dependency edges, aggregate reference counts, and strongly connected component diagnostics. Existing Calendar integration tests remain unchanged and the getting-started Calendar JSON was byte-identical before and after extraction.
 - Shared wire types, live and static WebApp clients, static HTML, and the VS Code preview explicitly support Gantt. A repository fixture is checked against actual Core output, not just hand-written TypeScript data. Static HTML and VS Code provide complete semantic lists rather than claiming timeline capability.
@@ -252,6 +252,10 @@ The follow-up review retained the implemented scope and added no runtime depende
 
 This is local implementation evidence, not release acceptance. Real screen-reader announcements, installed Safari/mobile browser behavior, and an installed VS Code host remain unverified. Keyboard checks cover representative navigation and both extremes, not exhaustive traversal of every row. The earlier spike's latency numbers are not production performance claims; a production median/p95 benchmark has not been established. Browser scripts, screenshots, and synthetic workspace data remain local-only.
 
+## Follow-On Delivery — 2026-09-22
+
+Bar titles, progress fills, and directed connector routing were added after the initial eight slices, under a contract amendment for the progress binding. Progress is a scalar `integer` percent on the node; connectors gained arrowheads, off-window endpoint drawing, and a route-around for successors that start before their predecessor ends. Details and verification are in [[tasks/validate-lightweight-gantt-view]]; behavioural rules are in [[proposals/gantt-temporal-view-contract]].
+
 ## Out Of Scope
 
 Write-back and drag-to-reschedule, automatic scheduling, resource load, critical paths, working-day and holiday engines, progress percentages, relation types beyond finish-to-start, lag, time resolutions other than days, all-edge connector rendering, dependency-aware row ordering, and any new runtime dependency.
@@ -260,6 +264,8 @@ Dependency-aware row ordering is deliberately deferred. Existing field-based sor
 
 ## Remaining Governance Decisions
 
-1. Independent review is recorded in [[proposals/gantt-temporal-view-contract]]. The corrected contract and Core/consumer regressions are implemented in the working tree; committing them and product acceptance remain separate authorized actions. The prototype alone is not production acceptance.
+The Gantt design proposal was explicitly accepted by the user on 2026-09-22. Related tasks remain reviewing; the following delivery and assignment decisions are not implied by design acceptance.
+
+1. Independent review is recorded in [[proposals/gantt-temporal-view-contract]]. The corrected contract and Core/consumer regressions are committed as `217fa2e`; product acceptance remains a separate decision. The prototype alone is not production acceptance.
 2. Owner and reviewer assignment, and whether implementation runs under [[tasks/validate-lightweight-gantt-view]] or a new implementation Task. Both need explicit authorization.
 3. Nothing in this repository's own Tasks gains date fields as part of this work.

@@ -9,6 +9,7 @@ import type {
 import {
     calendarEventLabel,
     ganttDependencySummary,
+    ganttProgressLabel,
     ganttRowLabel,
     normalizedTableColumnLength,
 } from "@choral-forma/shared";
@@ -56,13 +57,14 @@ function renderProjection(
                         : node.status === "invalid"
                           ? "Invalid interval"
                           : "Unscheduled";
+                    const progress = ganttProgressLabel(node.progress);
                     const predecessors = node.dependencies.predecessors
                         .map((path) => {
                             const target = nodes.get(path);
                             return target ? `<li>${sourceLink(path, sourcePath, escapeHtml(target.title))}</li>` : "";
                         })
                         .join("");
-                    return `<li>${sourceLink(node.path, sourcePath, escapeHtml(node.title))}<p>${escapeHtml(interval)}</p><p>Predecessors (finish to start)</p><ul>${predecessors}</ul><p>${escapeHtml(ganttDependencySummary(node.dependencies))}</p></li>`;
+                    return `<li>${sourceLink(node.path, sourcePath, escapeHtml(node.title))}<p>${escapeHtml(interval + progress)}</p><p>Predecessors (finish to start)</p><ul>${predecessors}</ul><p>${escapeHtml(ganttDependencySummary(node.dependencies))}</p></li>`;
                 })
                 .join("");
             return `<section aria-label="Gantt complete list"><h2>Timeline entries</h2><p>${String(render.counts.scheduled)} scheduled · ${String(render.counts.unscheduled)} unscheduled · ${String(render.counts.invalid)} invalid · ${escapeHtml(render.timeZone)}</p><p>Dependencies describe the selected graph only. No scheduling conflicts are computed.</p><ul>${items}</ul></section>`;

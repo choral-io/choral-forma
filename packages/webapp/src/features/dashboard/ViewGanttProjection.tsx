@@ -1,11 +1,15 @@
 import type { DashboardViewProjection } from "@/data/workspace-client";
-import { ganttDependencySummary, ganttRowLabel, type GanttNode } from "@choral-forma/shared";
+import { ganttDependencySummary, ganttProgressLabel, ganttRowLabel, type GanttNode } from "@choral-forma/shared";
 import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router";
 import { dateInZone } from "./calendar-layout";
+import { clipConnectors } from "./gantt-connector-clip";
 import {
+    ALL_EDGES_MAX_ROWS,
     DAY_WIDTHS,
+    FIRST_DAY,
     HEADER_HEIGHT,
+    LOCATE_LEAD_COLUMNS,
     ROW_HEIGHT,
     TITLE_WIDTH,
     dayIndex,
@@ -46,6 +50,7 @@ const CompleteList = memo(function CompleteList({ projection, locale }: { projec
                                 : node.status === "invalid"
                                   ? "Invalid interval"
                                   : "Unscheduled"}
+                            {ganttProgressLabel(node.progress)}
                         </p>
                         {node.classification && <p className="text-sm">{node.classification.label}</p>}
                         <p className="mt-2 text-sm">Predecessors · finish to start</p>
@@ -102,12 +107,17 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
     if (projection.rows.length && !rowIndices.includes(active)) rowIndices.push(active);
     const selected = projection.rows[active];
     const selectedNode = selected ? nodes.get(selected.path) : undefined;
+    // Small enough to read every thread; above that, only the selected row's, or
+    // the view fills with lines joining points that cannot share a screen.
+    const allEdgesReadable = projection.rows.length <= ALL_EDGES_MAX_ROWS;
     const selectedEdges = useMemo(
         () =>
             projection.edges.filter(
-                (edge) => edge.status === "anchored" && (edge.from === selected?.path || edge.to === selected?.path),
+                (edge) =>
+                    edge.status === "anchored" &&
+                    (allEdgesReadable || edge.from === selected?.path || edge.to === selected?.path),
             ),
-        [projection.edges, selected?.path],
+        [projection.edges, selected?.path, allEdgesReadable],
     );
     const label = (row: Projection["rows"][number]) => ganttRowLabel(row, projection.timeZone, locale);
     const monthFormatter = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric", timeZone: "UTC" });
@@ -155,7 +165,9 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
 
     // Run after pending scroll compensation and whenever React mounts new bands.
     useLayoutEffect(() => {
-        if (scrollerRef.current) positionMonthLabels(scrollerRef.current);
+        if (!scrollerRef.current) return;
+        positionMonthLabels(scrollerRef.current);
+        clipConnectors(scrollerRef.current);
     }, [available, range, width, dayWindow.start, dayWindow.end, viewport.width]);
     useEffect(() => {
         const element = scrollerRef.current;
@@ -166,6 +178,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
             frame = requestAnimationFrame(() => {
                 frame = undefined;
                 positionMonthLabels(element);
+                clipConnectors(element);
             });
         };
         element.addEventListener("scroll", schedule, { passive: true });
@@ -178,13 +191,20 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
         };
     }, [available]);
 
+    /**
+     * The observed width lags a layout change until the observer or a scroll
+     * fires, and reserving track against a stale, smaller width leaves too
+     * little of it. Anything that has to land on an exact offset measures now;
+     * only the render window, which the observer already drives, reads state.
+     */
+    const trackWidth = () => scrollerRef.current?.clientWidth ?? viewport.width;
     function jumpTo(value: string) {
         const day = jumpDay(value);
         if (day === undefined) {
             setMessage("Choose a date from 0001-01-01 through 9999-12-30.");
             return false;
         }
-        const next = rangeForAnchor(range, day, width, viewport.width, projection.rows.length);
+        const next = rangeForAnchor(range, day, width, trackWidth(), projection.rows.length);
         if (!next) {
             setMessage(
                 "That jump exceeds the timeline size limit. Choose a smaller day width or use the complete list.",
@@ -197,6 +217,47 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
         if (dateInputRef.current) dateInputRef.current.value = value;
         setMessage("");
         return true;
+    }
+    /**
+     * Put a row's bar head at a predictable place, on Enter or a double-click.
+     *
+     * Unconditional: a partly visible bar still moves, so the gesture always
+     * does the same thing. It is deliberately not attached to selection, which
+     * single-click and keyboard traversal both perform and which must be able
+     * to happen without the viewport moving. The lead-in is counted in columns,
+     * so the bar head lands two days in regardless of day width.
+     *
+     * The range is widened before the offset is applied. Writing `scrollLeft`
+     * past the current track only moves as far as the track reaches, and the
+     * clamped write leaves the offset unchanged, so the scroll handler's
+     * edge extension never fires and repeating the gesture cannot recover.
+     * Anchoring on the lead-in column reserves both the columns before the bar
+     * and a viewport of track after it, which is what makes one gesture enough.
+     *
+     * Both axes move, for the same reason: the row is centred under the sticky
+     * header rather than nudged to the nearest edge, so an entry reached by
+     * keyboard and one reached by double-click end up in the same place. Near
+     * the ends of the list the browser clamps, which is the honest answer since
+     * the row list, unlike the date range, has nothing left to extend.
+     */
+    function locateRow(index: number) {
+        const element = scrollerRef.current;
+        const row = projection.rows[index];
+        if (!element || !row) return;
+        element.scrollTop = Math.max(
+            0,
+            Math.round(index * ROW_HEIGHT + ROW_HEIGHT / 2 + HEADER_HEIGHT / 2 - element.clientHeight / 2),
+        );
+        setViewport((v) => ({ ...v, top: element.scrollTop }));
+        const lead = Math.max(FIRST_DAY, dayIndex(row.firstDate) - LOCATE_LEAD_COLUMNS);
+        const next = rangeForAnchor(range, lead, width, trackWidth(), projection.rows.length);
+        if (!next || (next.start === range.start && next.end === range.end)) {
+            // Already wide enough, or too wide to widen; a clamp here is the real boundary.
+            element.scrollLeft = Math.max(0, (lead - range.start) * width);
+            return;
+        }
+        pendingScrollRef.current = Math.max(0, (lead - next.start) * width);
+        setRange(next);
     }
     function moveRow(index: number) {
         const next = Math.max(0, Math.min(projection.rows.length - 1, index));
@@ -257,13 +318,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                         onChange={(event) => {
                             const next = Number(event.target.value);
                             const anchor = range.start + (scrollerRef.current?.scrollLeft ?? 0) / width;
-                            const nextRange = rangeForAnchor(
-                                range,
-                                anchor,
-                                next,
-                                viewport.width,
-                                projection.rows.length,
-                            );
+                            const nextRange = rangeForAnchor(range, anchor, next, trackWidth(), projection.rows.length);
                             if (!nextRange) {
                                 setMessage(
                                     "That day width exceeds the timeline size limit; the previous width is retained.",
@@ -318,9 +373,17 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                             Home: 0,
                             End: projection.rows.length - 1,
                         };
-                        if (event.target === event.currentTarget && event.key in movements) {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key in movements) {
                             event.preventDefault();
                             moveRow(movements[event.key] ?? active);
+                            return;
+                        }
+                        // The keyboard equivalent of double-click. Traversal stays
+                        // selection-only, so locating remains a deliberate act.
+                        if (event.key === "Enter") {
+                            event.preventDefault();
+                            locateRow(active);
                         }
                     }}
                     onScroll={(event) => {
@@ -414,6 +477,10 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                             const duration = dayIndex(row.afterLastDate) - first;
                             const color = node.classification?.color;
                             const validColor = color && /^#[0-9a-f]{6}$/i.test(color) ? color : undefined;
+                            // A marker sits over the bar's start, so the title reserves room for it.
+                            const marker =
+                                row.milestone ||
+                                (row.temporal.kind === "datetime" && row.temporal.endExclusive === null);
                             return (
                                 <div
                                     key={row.path}
@@ -438,13 +505,23 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                                 setActive(index);
                                                 scrollerRef.current?.focus({ preventScroll: true });
                                             }}
+                                            onDoubleClick={() => {
+                                                locateRow(index);
+                                            }}
                                         >
                                             {node.title}
                                         </button>
                                     </div>
                                     <div
                                         role="gridcell"
-                                        aria-label={`${node.title}: ${label(row)}`}
+                                        aria-label={`${node.title}: ${label(row)}${ganttProgressLabel(node.progress)}`}
+                                        onClick={() => {
+                                            setActive(index);
+                                            scrollerRef.current?.focus({ preventScroll: true });
+                                        }}
+                                        onDoubleClick={() => {
+                                            locateRow(index);
+                                        }}
                                         className="relative flex-1"
                                         style={{
                                             backgroundImage:
@@ -453,16 +530,46 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                     >
                                         <div
                                             aria-hidden="true"
-                                            className="bg-base-300 border-base-content/30 absolute top-2 h-5 rounded-sm border border-l-2"
+                                            className="bg-base-300 border-base-content/30 absolute top-2 flex h-5 items-center overflow-hidden rounded-sm border border-l-2"
                                             style={{
                                                 left: `calc((${String(first)} - var(--gantt-origin)) * var(--gantt-day))`,
                                                 width: `calc(${String(duration)} * var(--gantt-day))`,
                                                 borderLeftColor: validColor,
                                             }}
-                                        />
-                                        {(row.milestone ||
-                                            (row.temporal.kind === "datetime" &&
-                                                row.temporal.endExclusive === null)) && (
+                                        >
+                                            {node.progress !== undefined && (
+                                                // Fills part of the bar and never changes where the bar
+                                                // starts or ends, so progress cannot be read as schedule.
+                                                <div
+                                                    data-gantt-progress={node.progress}
+                                                    className="bg-base-content/70 absolute inset-y-0 left-0"
+                                                    style={{ width: `${String(node.progress)}%` }}
+                                                />
+                                            )}
+                                            {/* Decoration only: the gridcell's accessible name already
+                                                states the title and range, and the sticky column names
+                                                every row, so a bar too narrow to read simply clips.
+                                                The title is drawn twice and the second copy is clipped to
+                                                the fill, so each half of the label sits on a background it
+                                                contrasts with. Both copies share a box, so the glyphs align
+                                                exactly and the seam falls wherever the fill ends. */}
+                                            <span
+                                                className={`text-base-content/80 absolute inset-0 truncate py-0 pr-1 text-[10px]/5 ${marker ? "pl-4" : "pl-1"}`}
+                                            >
+                                                {node.title}
+                                            </span>
+                                            {node.progress !== undefined && (
+                                                <span
+                                                    className={`text-base-100 absolute inset-0 truncate py-0 pr-1 text-[10px]/5 ${marker ? "pl-4" : "pl-1"}`}
+                                                    style={{
+                                                        clipPath: `inset(0 ${String(100 - node.progress)}% 0 0)`,
+                                                    }}
+                                                >
+                                                    {node.title}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {marker && (
                                             <span
                                                 aria-hidden="true"
                                                 className="text-base-content absolute top-1 text-lg"
@@ -479,32 +586,50 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                         })}
                         <svg
                             aria-hidden="true"
+                            data-gantt-connectors=""
                             className="pointer-events-none absolute top-0"
                             style={{ left: TITLE_WIDTH }}
                             width={columns * width}
                             height={projection.rows.length * ROW_HEIGHT + HEADER_HEIGHT}
                         >
+                            <defs>
+                                <marker
+                                    id={`${id}-arrow`}
+                                    markerWidth="6"
+                                    markerHeight="6"
+                                    refX="5"
+                                    refY="3"
+                                    orient="auto-start-reverse"
+                                >
+                                    <path d="M 0 0 L 6 3 L 0 6 z" fill="currentColor" />
+                                </marker>
+                            </defs>
                             {selectedEdges.map((edge) => {
                                 const from = positions.get(edge.from);
                                 const to = positions.get(edge.to);
-                                if (
-                                    !from ||
-                                    !to ||
-                                    [from.index, to.index].some(
-                                        (index) => index < rowWindow.start || index >= rowWindow.end,
-                                    )
-                                )
-                                    return null;
+                                // Geometry is arithmetic over row index and day offset, so an endpoint
+                                // outside the rendered row window is still drawable.
+                                if (!from || !to) return null;
                                 const x1 = (dayIndex(from.row.afterLastDate) - range.start) * width;
                                 const x2 = (dayIndex(to.row.firstDate) - range.start) * width;
                                 const y1 = HEADER_HEIGHT + (from.index + 0.5) * ROW_HEIGHT;
                                 const y2 = HEADER_HEIGHT + (to.index + 0.5) * ROW_HEIGHT;
+                                // A successor that starts before its predecessor ends is ordinary data,
+                                // because no conflict is computed. Route around it instead of drawing a
+                                // segment that doubles back through both bars.
+                                const gap = 8;
+                                const lane = y2 + (y1 < y2 ? -ROW_HEIGHT / 2 : ROW_HEIGHT / 2);
+                                const d =
+                                    x2 >= x1 + gap * 2
+                                        ? `M ${String(x1)} ${String(y1)} H ${String(x1 + gap)} V ${String(y2)} H ${String(x2)}`
+                                        : `M ${String(x1)} ${String(y1)} H ${String(x1 + gap)} V ${String(lane)} H ${String(x2 - gap)} V ${String(y2)} H ${String(x2)}`;
                                 return (
                                     <path
                                         key={edge.id}
-                                        d={`M ${String(x1)} ${String(y1)} H ${String(x1 + 8)} V ${String(y2)} H ${String(x2)}`}
+                                        d={d}
                                         fill="none"
                                         stroke="currentColor"
+                                        markerEnd={`url(#${id}-arrow)`}
                                         className="text-base-content/60"
                                     />
                                 );
@@ -516,7 +641,14 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
             {selectedNode && (
                 <div className="text-sm">
                     <EntryLink node={selectedNode} routes={projection.routes} />
-                    <p>{selected ? label(selected) : ""}</p>
+                    <p>
+                        {selected
+                            ? label(selected)
+                            : selectedNode.status === "invalid"
+                              ? "Invalid interval"
+                              : "Unscheduled"}
+                        {ganttProgressLabel(selectedNode.progress)}
+                    </p>
                     <p>Predecessors · finish to start</p>
                     <ul className="list-inside list-disc">
                         {selectedNode.dependencies.predecessors.map((path) => {
@@ -533,7 +665,8 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
             )}
             <p className="text-base-content/60 text-xs">
                 Dependencies describe the selected graph only. No scheduling conflicts are computed. Use arrow, page,
-                Home and End keys in the timeline to select entries.
+                Home and End keys in the timeline to select entries, and Enter to bring the selected entry's bar into
+                view.
             </p>
             <details
                 className="collapse-arrow border-base-300 collapse border"

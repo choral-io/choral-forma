@@ -443,9 +443,10 @@ fn projection_html(
             let link = |path: &str, title: &str| entries_by_path.get(path).map_or_else(|| escape_html(title), |entry| format!("<a class=\"link\" href=\"{}\">{}</a>", escape_attribute(&public_href(root_path, &entry.route_path)), escape_html(title)));
             let items = nodes.iter().map(|node| {
                 let interval = rows_by_path.get(node.path.as_str()).map(|row| format!("{}{}", escape_html(&row.range_label(time_zone)), if row.milestone { " · Milestone" } else { "" })).unwrap_or_else(|| match node.status { forma_core::GanttStatus::Invalid => "Invalid interval", _ => "Unscheduled" }.into());
+                let progress = node.progress.map_or_else(String::new, |value| format!(" · {value}% complete"));
                 let deps = &node.dependencies;
                 let predecessors = deps.predecessors.iter().filter_map(|path| by_path.get(path.as_str())).map(|target| format!("<li>{}</li>", link(&target.path, &target.title))).collect::<String>();
-                format!("<li>{}<p>{interval}</p><p>Predecessors (finish to start)</p><ul>{predecessors}</ul><p>{} outside selection · {} unresolved · {} duplicates · {} self references</p></li>", link(&node.path, &node.title), deps.outside_selection, deps.unresolved, deps.duplicates, deps.self_references)
+                format!("<li>{}<p>{interval}{progress}</p><p>Predecessors (finish to start)</p><ul>{predecessors}</ul><p>{} outside selection · {} unresolved · {} duplicates · {} self references</p></li>", link(&node.path, &node.title), deps.outside_selection, deps.unresolved, deps.duplicates, deps.self_references)
             }).collect::<String>();
             format!("<section aria-label=\"Gantt complete list\"><h2>Timeline entries</h2><p>{} scheduled · {} unscheduled · {} invalid · {}</p><p>Dependencies describe the selected graph only. No scheduling conflicts are computed.</p><ul>{items}</ul></section>", counts.scheduled, counts.unscheduled, counts.invalid, escape_html(time_zone))
         }

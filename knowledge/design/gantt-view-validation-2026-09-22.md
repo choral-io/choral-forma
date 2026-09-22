@@ -31,6 +31,8 @@ Assessment: no unresolved design blocker after the corrections; the design is su
 
 ## Candidate
 
+Historical scope: this section and the prototype measurements below describe the pre-implementation baseline. Production Gantt now exists in commit `217fa2e`; its later evidence and remaining limits are recorded in [[planning/gantt-view-implementation-plan]]. Prototype measurements must not be relabeled as production benchmarks.
+
 Stages B and C of [[tasks/validate-lightweight-gantt-view]], run against the contract in [[proposals/gantt-temporal-view-contract]] under the user's approval of the bounded A–C validation effort. Baseline `afc3bc7`. No production View mode was registered, no dependency was added, no production source file was changed, and nothing was committed. The working tree carries only Markdown: this record, the contract, and the Task's own progress sections.
 
 Gantt Core does not exist. Everything measured here is either the existing Core behavior the contract reuses, or an isolated prototype. No number in this record is a Gantt implementation benchmark.
@@ -336,4 +338,4 @@ Not validated by this work: touch-drag scrolling, orthogonal connector routing w
 
 ## Evidence
 
-Working files, fixtures, seeded manifests, oracle results, projections, prototype, and raw measurements are under `knowledge/workspace/tiscs/local/scratch/gantt-validation-20260922/`, which is local-only and outside commits.
+Working files, fixtures, seeded manifests, oracle results, projections, prototype, and raw measurements are under `knowledge/workspace/tiscs/local/scratch/gantt-validation-20260922/`, which is local-only and outside commits. The generated prototype pages were deleted afterwards as regenerable output; `build-scale-prototype.py` and the templates beside it remain, and the note above already records that those pages predated the corrected wire shape and were never a measurement of it.

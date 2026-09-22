@@ -31,6 +31,9 @@ pub struct GanttNode {
     pub status: GanttStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub classification: Option<CalendarClassification>,
+    /// Whole percent, 0 through 100. Absent and `Some(0)` are different states.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub progress: Option<u8>,
     pub dependencies: GanttDependencies,
 }
 
@@ -80,6 +83,7 @@ struct Definition {
     start: Binding,
     end: Option<Binding>,
     milestone: Option<Binding>,
+    progress: Option<Binding>,
     dependencies: Option<DependencyBinding>,
     presentation: Option<Presentation>,
 }
@@ -104,6 +108,7 @@ fn definition(value: Option<&Value>) -> Option<Definition> {
     (def.start.valid()
         && def.end.as_ref().is_none_or(Binding::valid)
         && def.milestone.as_ref().is_none_or(Binding::valid)
+        && def.progress.as_ref().is_none_or(Binding::valid)
         && def.dependencies.as_ref().is_none_or(|d| {
             Binding {
                 field: d.field.clone(),
@@ -175,12 +180,19 @@ fn reference_kind(node: &SchemaNode, config: &WorkspaceConfig) -> Option<bool> {
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum AuxKind {
+    Boolean,
+    Integer,
+    Reference,
+}
+
 fn auxiliary_binding(
     item: &RenderCandidate,
     field: &str,
     schemas: &Schemas,
     config: &WorkspaceConfig,
-    dependency: bool,
+    expected: AuxKind,
 ) -> Result<(), &'static str> {
     let mut found = None;
     for (taxonomy, terms) in &item.taxonomies {
@@ -195,10 +207,10 @@ fn auxiliary_binding(
                 &field[7..],
             )?;
             let Some(node) = node else { continue };
-            let kind = if dependency {
-                reference_kind(node, config)
-            } else {
-                matches!(node, SchemaNode::Boolean { .. }).then_some(false)
+            let kind = match expected {
+                AuxKind::Reference => reference_kind(node, config),
+                AuxKind::Boolean => matches!(node, SchemaNode::Boolean { .. }).then_some(false),
+                AuxKind::Integer => matches!(node, SchemaNode::Integer { .. }).then_some(false),
             }
             .ok_or("Binding has an unsupported schema type.")?;
             if found.is_some_and(|previous| previous != kind) {
@@ -335,7 +347,7 @@ pub(super) fn render(
     for item in items {
         let mut milestone = false;
         if let Some(binding) = &def.milestone {
-            match auxiliary_binding(item, &binding.field, &schemas, config, false) {
+            match auxiliary_binding(item, &binding.field, &schemas, config, AuxKind::Boolean) {
                 Ok(()) => {
                     milestone = value_for_target(item, &binding.field).and_then(|v| v.as_bool())
                         == Some(true)
@@ -350,9 +362,39 @@ pub(super) fn render(
                     .push(item.path.clone()),
             }
         }
+        // Progress describes the entry, so it is read for every candidate rather
+        // than only for entries that turn out to be schedulable.
+        let mut progress = None;
+        if let Some(binding) = &def.progress {
+            match auxiliary_binding(item, &binding.field, &schemas, config, AuxKind::Integer) {
+                Ok(()) => match value_for_target(item, &binding.field).and_then(|v| v.as_i64()) {
+                    Some(value) if (0..=100).contains(&value) => progress = Some(value as u8),
+                    Some(_) => diagnostics.push(
+                        Diagnostic::warning(
+                            "view.ganttProgressInvalid",
+                            "Progress must be a whole percent from 0 through 100.",
+                        )
+                        .with_path(&item.path)
+                        .with_location(DiagnosticLocation::Frontmatter {
+                            field: binding.field[7..].into(),
+                            index: None,
+                        }),
+                    ),
+                    None => {}
+                },
+                Err(reason) => grouped
+                    .entry((
+                        "view.ganttProgressFieldInvalid".into(),
+                        binding.field.clone(),
+                        reason.into(),
+                    ))
+                    .or_default()
+                    .push(item.path.clone()),
+            }
+        }
         let mut deps = GanttDependencies::default();
         if let Some(binding) = &def.dependencies {
-            match auxiliary_binding(item, &binding.field, &schemas, config, true) {
+            match auxiliary_binding(item, &binding.field, &schemas, config, AuxKind::Reference) {
                 Ok(()) => deps = dependencies(item, &binding.field, &selected),
                 Err(reason) => grouped
                     .entry((
@@ -412,6 +454,7 @@ pub(super) fn render(
             path: item.path.clone(),
             title: item.title.clone().unwrap_or_else(|| item.path.clone()),
             status,
+            progress,
             classification: calendar::classify(
                 item,
                 def.presentation

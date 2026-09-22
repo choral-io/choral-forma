@@ -9,8 +9,8 @@ priority: P1
 value: H
 module: views
 effort: L
-status: backlog
-readiness: blocked
+status: reviewing
+readiness: needs-refinement
 owners: []
 assignees: []
 reviewers: []
@@ -19,9 +19,9 @@ tags:
     - calendar
     - core
     - webapp
-blockedBy:
-    - tasks/define-temporal-view-contract
+blockedBy: []
 relatedTo:
+    - tasks/define-temporal-view-contract
     - tasks/validate-lightweight-gantt-view
 sources:
     - product/product-direction
@@ -72,7 +72,11 @@ Implement a read-only Calendar month view and Agenda after temporal contract rev
 
 ## Readiness
 
-The user approved the Calendar contract and implementation on 2026-09-21. Implementation has started under that explicit approval. Existing backlog / blocked board metadata is retained pending an explicit lifecycle update; it no longer describes the code's implementation progress. Owner/reviewer assignments and final host acceptance remain pending. No release is promised.
+Calendar was committed as `afc3bc7`. The user authorized governance reconciliation on 2026-09-22, moving this task to reviewing and removing the resolved temporal-contract execution blocker. The prerequisite remains linked under relatedTo. Readiness is needs-refinement for owner/reviewer assignment and final acceptance, not blocked on the already implemented contract. No release or final acceptance is implied.
+
+## Acceptance Reconciliation — 2026-09-22
+
+[[design/calendar-view-validation-2026-09-21]] records Core and consumer coverage, WebApp behavior, static output and scale evidence. The implementation adds no runtime dependency, and the subsequent shared temporal extraction in `217fa2e` passed existing Calendar regressions. Unchecked composite criteria remain pending formal acceptance reconciliation, especially owner/reviewer assignment, installed VS Code host validation and real assistive-technology checks. Historical progress below predates the current lifecycle update.
 
 ## Execution Progress — 2026-09-21
 
