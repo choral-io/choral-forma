@@ -83,7 +83,8 @@ pub use path::{
 };
 pub use render::{
     CalendarClassification, CalendarCounts, CalendarEntry, CalendarEvent, CalendarTemporal,
-    FileRenderOutput, FileRenderResult, GraphRenderEdge, GraphRenderLegendItem, GraphRenderNode,
+    FileRenderOutput, FileRenderResult, GanttDependencies, GanttEdge, GanttEdgeStatus, GanttNode,
+    GanttRow, GanttStatus, GraphRenderEdge, GraphRenderLegendItem, GraphRenderNode,
     GraphRenderNodeClassification, KanbanRenderCard, KanbanRenderColumn, RenderedFile,
     RenderedHeading, RenderedView, ViewContentMount, ViewRenderDocument, ViewRenderItem,
     ViewRenderOutput, ViewRenderResult, render_file, render_view,

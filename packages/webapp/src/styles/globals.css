@@ -350,3 +350,13 @@
 .diagram-viewer-control-button > svg {
     @apply size-4;
 }
+
+/* Hide timeline scrollbars without changing native wheel, touch, or keyboard scrolling. */
+[data-gantt-timeline] {
+    scrollbar-width: none;
+}
+
+/* Fallback for older Chromium/WebKit engines. */
+[data-gantt-timeline]::-webkit-scrollbar {
+    display: none;
+}

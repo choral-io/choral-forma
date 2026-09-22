@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import ganttFixture from "../../../shared/src/fixtures/gantt-core.json";
 import { StaticWorkspaceClient, type StaticDashboardData } from "./static-workspace-client";
 import { createWorkspaceDashboardContext } from "./workspace-client";
 
@@ -69,6 +70,25 @@ const dashboard: StaticDashboardData = {
 };
 
 describe("StaticWorkspaceClient", () => {
+    it("preserves Gantt nodes, rows and edges without a Table fallback", async () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((path: string) =>
+                path === "/data/dashboard.json"
+                    ? json(dashboard)
+                    : json({
+                          ...dashboard.views[0],
+                          mode: "gantt",
+                          document: { bodySource: "" },
+                          projection: ganttFixture,
+                      }),
+            ),
+        );
+        const client = new StaticWorkspaceClient("/data");
+        const result = await client.getViewRender("notes", await contextFor(client));
+        expect(result.projection).toMatchObject(ganttFixture);
+        expect(result.projection.kind).toBe("gantt");
+    });
     afterEach(() => vi.unstubAllGlobals());
 
     it("preserves Calendar semantics and resolves source navigation", async () => {

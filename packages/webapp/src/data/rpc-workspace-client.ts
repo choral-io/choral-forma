@@ -81,9 +81,15 @@ export class RpcWorkspaceClient implements WorkspaceClient {
             throw new Error(`View render output not found: ${viewId}`);
         }
 
+        const projection = mapViewProjection(result.render, entriesByPath);
+        if (projection.kind === "gantt") {
+            const config = await this.#rpc.configInspect();
+            projection.canonicalLanguage = config.config.workspace?.canonicalLanguage;
+        }
+
         return {
             document: mapViewDocument(result, viewId),
-            projection: mapViewProjection(result.render, entriesByPath),
+            projection,
         };
     }
 }
@@ -431,7 +437,7 @@ function mapViewProjection(
     render: ViewRenderOutput,
     entriesByPath: ReadonlyMap<string, DashboardEntry>,
 ): DashboardViewProjection {
-    if (render.kind === "calendar") {
+    if (render.kind === "calendar" || render.kind === "gantt") {
         return {
             ...render,
             routes: Object.fromEntries([...entriesByPath].map(([path, entry]) => [path, entry.routePath])),
@@ -642,7 +648,12 @@ function maxHealth(left: WorkspaceHealth, right: WorkspaceHealth): WorkspaceHeal
 }
 
 function mapViewKind(kind: string): DashboardView["kind"] {
-    return kind === "table" || kind === "kanban" || kind === "graph" || kind === "list" || kind === "calendar"
+    return kind === "table" ||
+        kind === "kanban" ||
+        kind === "graph" ||
+        kind === "list" ||
+        kind === "calendar" ||
+        kind === "gantt"
         ? kind
         : "list";
 }

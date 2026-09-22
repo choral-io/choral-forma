@@ -1,0 +1,180 @@
+{
+  "counts": {
+    "candidates": 7,
+    "invalid": 0,
+    "scheduled": 6,
+    "unscheduled": 1
+  },
+  "edges": [
+    {
+      "from": "tasks/review-getting-started-workspace.md",
+      "id": "[\"tasks/review-getting-started-workspace.md\",\"tasks/add-team-notes.md\"]",
+      "relation": "finishToStart",
+      "status": "anchored",
+      "to": "tasks/add-team-notes.md"
+    }
+  ],
+  "kind": "gantt",
+  "nodes": [
+    {
+      "dependencies": {
+        "declared": 1,
+        "duplicates": 0,
+        "outsideSelection": 0,
+        "predecessors": ["tasks/review-getting-started-workspace.md"],
+        "selfReferences": 0,
+        "unresolved": 0
+      },
+      "path": "tasks/add-team-notes.md",
+      "status": "scheduled",
+      "title": "Add Team Notes"
+    },
+    {
+      "dependencies": {
+        "declared": 0,
+        "duplicates": 0,
+        "outsideSelection": 0,
+        "predecessors": [],
+        "selfReferences": 0,
+        "unresolved": 0
+      },
+      "path": "tasks/collect-onboarding-questions.md",
+      "status": "scheduled",
+      "title": "Collect Onboarding Questions"
+    },
+    {
+      "dependencies": {
+        "declared": 0,
+        "duplicates": 0,
+        "outsideSelection": 0,
+        "predecessors": [],
+        "selfReferences": 0,
+        "unresolved": 0
+      },
+      "path": "tasks/connect-related-pages.md",
+      "status": "scheduled",
+      "title": "Connect Related Pages"
+    },
+    {
+      "dependencies": {
+        "declared": 0,
+        "duplicates": 0,
+        "outsideSelection": 0,
+        "predecessors": [],
+        "selfReferences": 0,
+        "unresolved": 0
+      },
+      "path": "tasks/prepare-first-team-overview.md",
+      "status": "scheduled",
+      "title": "Prepare First Team Overview"
+    },
+    {
+      "dependencies": {
+        "declared": 0,
+        "duplicates": 0,
+        "outsideSelection": 0,
+        "predecessors": [],
+        "selfReferences": 0,
+        "unresolved": 0
+      },
+      "path": "tasks/publish-read-only-workspace.md",
+      "status": "scheduled",
+      "title": "Publish Read-only Workspace"
+    },
+    {
+      "dependencies": {
+        "declared": 0,
+        "duplicates": 0,
+        "outsideSelection": 0,
+        "predecessors": [],
+        "selfReferences": 0,
+        "unresolved": 0
+      },
+      "path": "tasks/review-getting-started-workspace.md",
+      "status": "scheduled",
+      "title": "Review Getting Started Workspace"
+    },
+    {
+      "dependencies": {
+        "declared": 0,
+        "duplicates": 0,
+        "outsideSelection": 0,
+        "predecessors": [],
+        "selfReferences": 0,
+        "unresolved": 0
+      },
+      "path": "tasks/validate-editor-link-navigation.md",
+      "status": "unscheduled",
+      "title": "Validate Editor Link Navigation"
+    }
+  ],
+  "rows": [
+    {
+      "afterLastDate": "2026-06-02",
+      "firstDate": "2026-06-01",
+      "milestone": false,
+      "path": "tasks/publish-read-only-workspace.md",
+      "temporal": {
+        "endExclusive": "2026-06-02",
+        "kind": "date",
+        "start": "2026-06-01"
+      }
+    },
+    {
+      "afterLastDate": "2026-06-06",
+      "firstDate": "2026-06-05",
+      "milestone": false,
+      "path": "tasks/review-getting-started-workspace.md",
+      "temporal": {
+        "endExclusive": "2026-06-06",
+        "kind": "date",
+        "start": "2026-06-05"
+      }
+    },
+    {
+      "afterLastDate": "2026-06-11",
+      "firstDate": "2026-06-10",
+      "milestone": false,
+      "path": "tasks/prepare-first-team-overview.md",
+      "temporal": {
+        "endExclusive": "2026-06-11",
+        "kind": "date",
+        "start": "2026-06-10"
+      }
+    },
+    {
+      "afterLastDate": "2026-06-13",
+      "firstDate": "2026-06-12",
+      "milestone": false,
+      "path": "tasks/add-team-notes.md",
+      "temporal": {
+        "endExclusive": "2026-06-13",
+        "kind": "date",
+        "start": "2026-06-12"
+      }
+    },
+    {
+      "afterLastDate": "2026-06-15",
+      "firstDate": "2026-06-14",
+      "milestone": false,
+      "path": "tasks/connect-related-pages.md",
+      "temporal": {
+        "endExclusive": "2026-06-15",
+        "kind": "date",
+        "start": "2026-06-14"
+      }
+    },
+    {
+      "afterLastDate": "2026-06-17",
+      "firstDate": "2026-06-16",
+      "milestone": false,
+      "path": "tasks/collect-onboarding-questions.md",
+      "temporal": {
+        "endExclusive": "2026-06-17",
+        "kind": "date",
+        "start": "2026-06-16"
+      }
+    }
+  ],
+  "timeZone": "UTC"
+}

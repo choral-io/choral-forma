@@ -15,7 +15,7 @@ order: 140
 
 ## Overview
 
-Views are configured Markdown nodes that describe read-only projections such as lists, tables, kanban boards, graphs, and calendars.
+Views are configured Markdown nodes that describe read-only projections such as lists, tables, kanban boards, graphs, calendars, and Gantt timelines.
 
 View config uses `mode` to select the projection and `source` to choose the candidate pages. Do not use `projection` or `query.source`; those are not the current view DSL.
 
@@ -103,6 +103,42 @@ query:
           value: active
 ```
 
+## Gantt
+
+Gantt is a read-only, day-resolution timeline over explicitly bound schema fields. It adds no scheduling engine and never writes dates back to Markdown.
+
+```yaml
+schemaVersion: 1
+kind: view
+title: Exhibition Timeline
+mode: gantt
+source:
+    type: pages
+    include: ["exhibitions/**/*.md"]
+gantt:
+    start: { field: fields.opensOn }
+    end: { field: fields.closesOn }
+    milestone: { field: fields.isMilestone }
+    dependencies:
+        field: fields.predecessors
+        relation: finishToStart
+    presentation:
+        rows:
+            colorBy: { taxonomy: stages }
+```
+
+All names in this example are configured, not built-in fields. `start` is required; the other bindings are optional. Start/end reuse Calendar's scalar `date`/`datetime`, timezone, inclusive date-end, exclusive datetime-end and point semantics. A milestone requires a boolean schema field with literal `true`; points and missing ends do not imply milestones. A multi-day milestone retains its bar and adds a start marker.
+
+Dependencies require an `entryRef`, a configured reference semantic type, or a list of either. A declaring entry lists its predecessors; A → B means A is B's declared finish-to-start predecessor. This version does not calculate date conflicts, lag, critical paths or schedules. Self references are diagnosed and omitted; cycles are diagnosed over the selected graph without dropping entries or edges.
+
+Core emits identity/dependencies for every selected node, including unscheduled and invalid intervals. Only scheduled nodes receive temporal rows. Edges are `anchored` only when both endpoints have valid intervals. Filtered-out targets expose counts only, never target identity. Unresolved, duplicate and self-reference counts are separate. Existing index/schema errors remain authoritative; repeated binding failures are summarized on the View with at most ten candidate samples.
+
+WebApp provides continuous local scrolling, sticky row titles and date headers, Today, date jump, day-width selection, keyboard row traversal and selected-row connectors. Titles stay single-line. Off-window connectors may be omitted without changing dependency status. The complete node/interval/predecessor list is available at every screen width. Static HTML and VS Code provide that complete list, not an interactive timeline.
+
+The timeline hides both scrollbars while retaining native horizontal and vertical scrolling. Use a trackpad or wheel to browse, date jump or Today to locate dates, and arrow keys, Page Up/Down, Home and End while the timeline is focused to navigate rows. Month/year headings occupy a separate band and center within the visible part of each month. Bar titles, progress fills, and enhanced dependency routing are not included in this initial implementation.
+
+Navigation and materialized layout have explicit limits: renderable days span `0001-01-01` through `9999-12-30`, with `9999-12-31` reserved as the exclusive upper boundary. Unsupported jumps/width changes preserve the previous state and explain the limit. A data extent too large for the timeline falls back to the complete list rather than losing distant entries. Range, zoom and window are viewer state, not configuration keys.
+
 ## Calendar
 
 Calendar binds explicitly configured scalar `date` or `datetime` schema fields. Field names and directories have no built-in scheduling meaning; strings that resemble dates are not inferred as temporal fields.
@@ -157,7 +193,7 @@ Add views after the underlying spaces and fields exist. Treat views as projectio
 
 Use `<!-- forma:content -->` when the rendered projection needs an explicit position in the Markdown body. When the marker is absent, clients append the projection to the end of the document. Multiple markers are invalid, and the legacy `<!-- forma-view -->` directive produces a migration diagnostic.
 
-Render configured views with `forma view render <view-id-or-path> --json`. Use this for lists, tables, kanban boards, graphs, and calendars instead of introducing workflow-specific read commands.
+Render configured views with `forma view render <view-id-or-path> --json`. Use this for lists, tables, kanban boards, graphs, calendars, and Gantt timelines instead of introducing workflow-specific read commands.
 
 For a Table column whose values should open the source Page for that row, declare `link.target: entry`. The current target set contains only `entry`.
 

@@ -1,4 +1,4 @@
-import type { CalendarProjection } from "@choral-forma/shared";
+import type { CalendarProjection, GanttProjection } from "@choral-forma/shared";
 
 export type WorkspaceHealth = "healthy" | "warning" | "failed";
 
@@ -166,7 +166,7 @@ export interface DashboardView {
     title: string;
     display?: DisplayOptions;
     description: string;
-    kind: "list" | "table" | "kanban" | "graph" | "calendar";
+    kind: "list" | "table" | "kanban" | "graph" | "calendar" | "gantt";
     space?: string;
 }
 
@@ -246,6 +246,7 @@ export interface DashboardViewColumn {
 
 export type DashboardViewProjection =
     | (CalendarProjection & { routes: Record<string, string> })
+    | (GanttProjection & { routes: Record<string, string>; canonicalLanguage?: string })
     | {
           kind: "list";
           items: DashboardViewProjectionItem[];
@@ -287,6 +288,7 @@ export interface DashboardViewRender {
 
 export interface WorkspaceDashboard {
     workspaceName: string;
+    canonicalLanguage?: string;
     workspaceLogo?: {
         url: string;
         alt: string;

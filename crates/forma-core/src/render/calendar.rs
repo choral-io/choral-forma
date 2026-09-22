@@ -1,6 +1,7 @@
+use super::temporal::{Binding, civil, normalize};
 use super::*;
-use crate::schema::{SchemaNode, parse_space_schema};
-use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, SecondsFormat, Utc};
+use crate::schema::parse_space_schema;
+use chrono::DateTime;
 use chrono_tz::Tz;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,11 +113,6 @@ struct Presentation {
     events: GraphNodePresentationDefinition,
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Binding {
-    field: String,
-}
 fn monday() -> String {
     "monday".into()
 }
@@ -193,7 +189,21 @@ fn classification(
     def: &Definition,
     config: &WorkspaceConfig,
 ) -> Option<CalendarClassification> {
-    let source = def.presentation.as_ref()?.events.color_by.as_ref()?;
+    classify(
+        item,
+        def.presentation
+            .as_ref()
+            .and_then(|p| p.events.color_by.as_ref()),
+        config,
+    )
+}
+
+pub(super) fn classify(
+    item: &RenderCandidate,
+    source: Option<&GraphNodeColorByDefinition>,
+    config: &WorkspaceConfig,
+) -> Option<CalendarClassification> {
+    let source = source?;
     let (classification, color) = match (&source.taxonomy, &source.field) {
         (Some(taxonomy), None) => {
             let classification = graph_taxonomy_classification(item, config, taxonomy);
@@ -215,209 +225,6 @@ fn classification(
         label: classification.label,
         color,
     })
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum TemporalType {
-    Date,
-    Datetime,
-}
-
-fn field_node<'a>(
-    schema: &'a SchemaNode,
-    path: &str,
-) -> Result<Option<&'a SchemaNode>, &'static str> {
-    let mut node = schema;
-    for part in path.split('.') {
-        let SchemaNode::Object { fields, .. } = node else {
-            return Err("Calendar binding cannot traverse a scalar or list.");
-        };
-        let Some(next) = fields.get(part) else {
-            return Ok(None);
-        };
-        node = next;
-    }
-    Ok(Some(node))
-}
-
-fn field_type(
-    item: &RenderCandidate,
-    binding: &Binding,
-    schemas: &BTreeMap<(String, String), Result<SchemaNode, String>>,
-) -> Result<TemporalType, &'static str> {
-    let mut found = None;
-    for (taxonomy, terms) in &item.taxonomies {
-        for term in terms {
-            let Some(schema) = schemas.get(&(taxonomy.clone(), term.clone())) else {
-                continue;
-            };
-            let schema = schema
-                .as_ref()
-                .map_err(|_| "Applicable schema is invalid.")?;
-            let Some(node) = field_node(schema, &binding.field[7..])? else {
-                continue;
-            };
-            let kind = match node {
-                SchemaNode::Date { .. } => TemporalType::Date,
-                SchemaNode::DateTime { .. } => TemporalType::Datetime,
-                _ => {
-                    return Err(
-                        "Calendar binding must resolve to a scalar date or datetime schema field.",
-                    );
-                }
-            };
-            if found.is_some_and(|previous| previous != kind) {
-                return Err("Calendar field types conflict across applicable schemas.");
-            }
-            found = Some(kind);
-        }
-    }
-    found.ok_or("Calendar field has no date or datetime schema declaration.")
-}
-
-type Failure = (&'static str, String, &'static str);
-fn failure(code: &'static str, field: &str, message: &'static str) -> Failure {
-    (code, field.into(), message)
-}
-
-fn civil(value: &str) -> Option<NaiveDate> {
-    if value.len() != 10 || value.as_bytes()[4] != b'-' || value.as_bytes()[7] != b'-' {
-        return None;
-    }
-    let date = NaiveDate::parse_from_str(value, "%Y-%m-%d").ok()?;
-    ((1..=9999).contains(&date.year()) && date.to_string() == value).then_some(date)
-}
-fn next(date: NaiveDate) -> Option<NaiveDate> {
-    date.succ_opt().filter(|date| date.year() <= 9999)
-}
-
-fn normalize(
-    item: &RenderCandidate,
-    def: &Definition,
-    schemas: &BTreeMap<(String, String), Result<SchemaNode, String>>,
-    zone: Tz,
-) -> Result<Option<CalendarEvent>, Failure> {
-    let start_field = &def.start.field;
-    let end_field = def.end.as_ref().map_or(start_field, |end| &end.field);
-    let kind = field_type(item, &def.start, schemas)
-        .map_err(|msg| failure("view.calendarFieldTypeInvalid", start_field, msg))?;
-    if let Some(end) = &def.end {
-        let end_kind = field_type(item, end, schemas)
-            .map_err(|msg| failure("view.calendarFieldTypeInvalid", end_field, msg))?;
-        if kind != end_kind {
-            return Err(failure(
-                "view.calendarIntervalInvalid",
-                end_field,
-                "Start and end schema types must agree.",
-            ));
-        }
-    }
-    let start = value_for_target(item, start_field).filter(|value| !value.is_null());
-    let end = def
-        .end
-        .as_ref()
-        .and_then(|end| value_for_target(item, &end.field))
-        .filter(|value| !value.is_null());
-    let Some(start) = start else {
-        return if end.is_some() {
-            Err(failure(
-                "view.calendarIntervalInvalid",
-                end_field,
-                "End has no start.",
-            ))
-        } else {
-            Ok(None)
-        };
-    };
-    let invalid_start = || {
-        failure(
-            "view.calendarDateInvalid",
-            start_field,
-            "Start is not a valid date or offset datetime.",
-        )
-    };
-    let invalid_end = || {
-        failure(
-            "view.calendarDateInvalid",
-            end_field,
-            "End is not a valid date or offset datetime.",
-        )
-    };
-    let invalid_interval = || {
-        failure(
-            "view.calendarIntervalInvalid",
-            end_field,
-            "Interval is reversed or exceeds the supported date range.",
-        )
-    };
-    let start = start.as_str().ok_or_else(invalid_start)?;
-    let end = end
-        .as_ref()
-        .map(|value| value.as_str().ok_or_else(invalid_end))
-        .transpose()?;
-    let (temporal, first_date, after_last_date) = match kind {
-        TemporalType::Date => {
-            let start = civil(start).ok_or_else(invalid_start)?;
-            let end = end
-                .map(|value| civil(value).ok_or_else(invalid_end))
-                .transpose()?
-                .unwrap_or(start);
-            if end < start {
-                return Err(invalid_interval());
-            }
-            let after = next(end).ok_or_else(invalid_interval)?;
-            (
-                CalendarTemporal::Date {
-                    start: start.to_string(),
-                    end_exclusive: after.to_string(),
-                },
-                start,
-                after,
-            )
-        }
-        TemporalType::Datetime => {
-            let start = DateTime::parse_from_rfc3339(start)
-                .map_err(|_| invalid_start())?
-                .with_timezone(&Utc);
-            let end = end
-                .map(|value| {
-                    DateTime::parse_from_rfc3339(value)
-                        .map(|dt| dt.with_timezone(&Utc))
-                        .map_err(|_| invalid_end())
-                })
-                .transpose()?;
-            if end.is_some_and(|end| end < start) {
-                return Err(invalid_interval());
-            }
-            let end = end.filter(|end| *end != start);
-            let first = start.with_timezone(&zone).date_naive();
-            let last = end.unwrap_or(start).with_timezone(&zone);
-            let after = if end.is_some() && last.time() == NaiveTime::MIN {
-                last.date_naive()
-            } else {
-                next(last.date_naive()).ok_or_else(invalid_interval)?
-            };
-            if !(1..=9999).contains(&first.year()) || !(1..=9999).contains(&after.year()) {
-                return Err(invalid_interval());
-            }
-            (
-                CalendarTemporal::Datetime {
-                    start: start.to_rfc3339_opts(SecondsFormat::AutoSi, true),
-                    end_exclusive: end.map(|end| end.to_rfc3339_opts(SecondsFormat::AutoSi, true)),
-                },
-                first,
-                after,
-            )
-        }
-    };
-    Ok(Some(CalendarEvent {
-        path: item.path.clone(),
-        title: item.title.clone().unwrap_or_else(|| item.path.clone()),
-        classification: None,
-        temporal,
-        first_date: first_date.to_string(),
-        after_last_date: after_last_date.to_string(),
-    }))
 }
 
 pub(super) fn render(
@@ -471,9 +278,16 @@ pub(super) fn render(
     let mut events = Vec::new();
     let mut unscheduled = Vec::new();
     for item in items {
-        match normalize(item, &def, &schemas, zone) {
-            Ok(Some(mut event)) => {
-                event.classification = classification(item, &def, config);
+        match normalize(item, &def.start, def.end.as_ref(), &schemas, zone) {
+            Ok(Some(value)) => {
+                let event = CalendarEvent {
+                    path: item.path.clone(),
+                    title: item.title.clone().unwrap_or_else(|| item.path.clone()),
+                    classification: classification(item, &def, config),
+                    temporal: value.temporal,
+                    first_date: value.first_date,
+                    after_last_date: value.after_last_date,
+                };
                 events.push(event);
             }
             Ok(None) => unscheduled.push(CalendarEntry {
@@ -484,12 +298,18 @@ pub(super) fn render(
             Err((code, field, message)) => {
                 counts.invalid += 1;
                 diagnostics.push(
-                    Diagnostic::warning(code, format!("{message} Calendar View: {view_path}."))
-                        .with_path(&item.path)
-                        .with_location(DiagnosticLocation::Frontmatter {
-                            field: field.trim_start_matches("fields.").into(),
-                            index: None,
-                        }),
+                    Diagnostic::warning(
+                        format!("view.calendar{}", code.suffix()),
+                        format!(
+                            "{} Calendar View: {view_path}.",
+                            message.replace("Temporal", "Calendar")
+                        ),
+                    )
+                    .with_path(&item.path)
+                    .with_location(DiagnosticLocation::Frontmatter {
+                        field: field.trim_start_matches("fields.").into(),
+                        index: None,
+                    }),
                 );
             }
         }

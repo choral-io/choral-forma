@@ -436,6 +436,19 @@ fn projection_html(
     root_path: &str,
 ) -> String {
     match projection {
+        ViewRenderOutput::Gantt { time_zone, nodes, rows, counts, .. } => {
+            let entries_by_path: BTreeMap<&str, &StaticSiteEntry> = entries_by_id.values().map(|entry| (entry.path.as_str(), *entry)).collect();
+            let by_path: BTreeMap<_, _> = nodes.iter().map(|node| (node.path.as_str(), node)).collect();
+            let rows_by_path: BTreeMap<_, _> = rows.iter().map(|row| (row.path.as_str(), row)).collect();
+            let link = |path: &str, title: &str| entries_by_path.get(path).map_or_else(|| escape_html(title), |entry| format!("<a class=\"link\" href=\"{}\">{}</a>", escape_attribute(&public_href(root_path, &entry.route_path)), escape_html(title)));
+            let items = nodes.iter().map(|node| {
+                let interval = rows_by_path.get(node.path.as_str()).map(|row| format!("{}{}", escape_html(&row.range_label(time_zone)), if row.milestone { " · Milestone" } else { "" })).unwrap_or_else(|| match node.status { forma_core::GanttStatus::Invalid => "Invalid interval", _ => "Unscheduled" }.into());
+                let deps = &node.dependencies;
+                let predecessors = deps.predecessors.iter().filter_map(|path| by_path.get(path.as_str())).map(|target| format!("<li>{}</li>", link(&target.path, &target.title))).collect::<String>();
+                format!("<li>{}<p>{interval}</p><p>Predecessors (finish to start)</p><ul>{predecessors}</ul><p>{} outside selection · {} unresolved · {} duplicates · {} self references</p></li>", link(&node.path, &node.title), deps.outside_selection, deps.unresolved, deps.duplicates, deps.self_references)
+            }).collect::<String>();
+            format!("<section aria-label=\"Gantt complete list\"><h2>Timeline entries</h2><p>{} scheduled · {} unscheduled · {} invalid · {}</p><p>Dependencies describe the selected graph only. No scheduling conflicts are computed.</p><ul>{items}</ul></section>", counts.scheduled, counts.unscheduled, counts.invalid, escape_html(time_zone))
+        }
         ViewRenderOutput::Calendar { time_zone, events, unscheduled, counts, .. } => {
             let mut groups = BTreeMap::<&str, String>::new();
             let entries_by_path: BTreeMap<&str, &StaticSiteEntry> = entries_by_id.values().map(|entry| (entry.path.as_str(), *entry)).collect();
@@ -803,6 +816,25 @@ pub(crate) fn sitemap_xml(base_url: &str, root_path: &str, pages: &[StaticPage])
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn gantt_list_is_complete_deterministic_and_has_no_unavailable_links() {
+        let mut projection: forma_core::ViewRenderOutput = serde_json::from_str(include_str!(
+            "../../../packages/shared/src/fixtures/gantt-core.json"
+        ))
+        .unwrap();
+        if let forma_core::ViewRenderOutput::Gantt { nodes, .. } = &mut projection {
+            nodes[0].title = "<script>unsafe</script>".into();
+        }
+        let entries = std::collections::BTreeMap::new();
+        let html = super::projection_html(&projection, &entries, "/");
+        assert_eq!(html, super::projection_html(&projection, &entries, "/"));
+        assert!(html.contains("Gantt complete list"));
+        assert!(html.contains("Unscheduled"));
+        assert!(html.contains("&lt;script&gt;unsafe&lt;/script&gt;"));
+        assert!(!html.contains("<script>"));
+        assert!(!html.contains("href="));
+        assert!(html.contains("Review Getting Started Workspace"));
+    }
     use super::{
         PageShellOptions, StaticPage, display_value, escape_html, page_shell, projection_html,
         public_href, root_embedded_url, validated_language_tag,

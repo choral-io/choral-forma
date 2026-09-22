@@ -1,5 +1,5 @@
 import { formatRelativeDateTime } from "@/lib/date-time";
-import type { CalendarProjection } from "@choral-forma/shared";
+import type { CalendarProjection, GanttProjection } from "@choral-forma/shared";
 
 import { stringifyStaticFieldValue } from "./static-field-value";
 import type {
@@ -170,6 +170,7 @@ export class StaticWorkspaceClient implements WorkspaceClient {
 
         return {
             workspaceName: data.workspace.name,
+            canonicalLanguage: data.workspace.canonicalLanguage,
             workspaceLogo: data.workspace.logo
                 ? { url: data.workspace.logo.publicPath, alt: data.workspace.logo.alt }
                 : undefined,
@@ -250,9 +251,11 @@ export class StaticWorkspaceClient implements WorkspaceClient {
             throw new Error(`Static artifact View was not listed: ${viewId}`);
         }
         const data = await this.readJson<StaticViewData>(`views/${viewId}.json`);
+        const projection = mapViewProjection(data.projection, entriesByPath);
+        if (projection.kind === "gantt") projection.canonicalLanguage = dashboard.canonicalLanguage;
         return {
             document: mapViewDocument(data, viewId),
-            projection: mapViewProjection(data.projection, entriesByPath),
+            projection,
         };
     }
 
@@ -418,9 +421,9 @@ function mapViewProjection(
     if (!projection) {
         return { kind: "list", items: [] };
     }
-    if (projection.kind === "calendar") {
+    if (projection.kind === "calendar" || projection.kind === "gantt") {
         return {
-            ...(projection as unknown as CalendarProjection),
+            ...(projection as unknown as CalendarProjection | GanttProjection),
             routes: Object.fromEntries([...entriesByPath].map(([path, entry]) => [path, entry.routePath])),
         };
     }
@@ -507,7 +510,12 @@ function maxHealth(left: WorkspaceHealth, right: WorkspaceHealth): WorkspaceHeal
 }
 
 function mapViewKind(kind: string): DashboardView["kind"] {
-    return kind === "table" || kind === "kanban" || kind === "graph" || kind === "list" || kind === "calendar"
+    return kind === "table" ||
+        kind === "kanban" ||
+        kind === "graph" ||
+        kind === "list" ||
+        kind === "calendar" ||
+        kind === "gantt"
         ? kind
         : "list";
 }

@@ -21,7 +21,9 @@ order: 70
 
 ## CLI Help
 
-Use this command for configured lists, tables, kanban boards, graphs, and calendars. A view locator may be a configured view id such as `.forma/views/task-board`, or the matching Markdown path such as `.forma/views/task-board.md`.
+Use this command for configured lists, tables, kanban boards, graphs, calendars, and Gantt timelines. A view locator may be a configured view id such as `.forma/views/task-board`, or the matching Markdown path such as `.forma/views/task-board.md`.
+
+Gantt returns `render.kind: gantt`, `timeZone`, `counts`, `nodes`, `rows`, and `edges`. Nodes cover every selected candidate and own identity, status, optional classification, and dependency counts. Rows cover scheduled nodes only and contain the Calendar-compatible temporal value, `firstDate`, exclusive `afterLastDate`, and explicit `milestone`. Edges contain `from`, `to`, `relation: finishToStart`, and `anchored`/`unanchored` status; their stable ID is a compact JSON-encoded path pair. Both endpoints always resolve to nodes. Each node's `declared` count equals `predecessors.length + outsideSelection + unresolved + duplicates + selfReferences`. Core performs no pagination, implicit current-date filter, scheduling conflict evaluation or write-back. See [Gantt configuration](../workspace/views.md#gantt).
 
 ## Reference
 

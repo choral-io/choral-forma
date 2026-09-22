@@ -2,11 +2,39 @@ import { describe, expect, it } from "vitest";
 
 import type { ViewRenderResult } from "@choral-forma/shared";
 
+import ganttFixture from "../../../packages/shared/src/fixtures/gantt-core.json";
 import { renderViewProjectionHtml, tableColumnPresentationAttributes } from "./preview-renderer.ts";
 
 const workspace = { root: ".", name: "Preview fixture" };
 
 describe("view projection rendering", () => {
+    it("renders the complete Gantt list with escaped source titles", () => {
+        const projection = structuredClone(ganttFixture) as Extract<
+            NonNullable<ViewRenderResult["render"]>,
+            { kind: "gantt" }
+        >;
+        const first = projection.nodes[0];
+        if (!first) throw new Error("Expected a nonempty fixture");
+        first.title = '<script>alert("x")</script>';
+        const html = renderViewProjectionHtml(
+            {
+                schemaVersion: 1,
+                operation: "view.render",
+                status: "passed",
+                workspace,
+                summary: { errors: 0, warnings: 0, infos: 0 },
+                diagnostics: [],
+                render: projection,
+            },
+            { locale: "en" },
+        );
+        expect(html).toContain("Gantt complete list");
+        expect(html).toContain("Unscheduled");
+        expect(html).toContain("Predecessors");
+        expect(html).toContain("&lt;script&gt;");
+        expect(html).not.toContain("<script>");
+        for (const node of projection.nodes.slice(1)) expect(html).toContain(node.title);
+    });
     it("renders a complete Calendar Agenda with escaped titles and source navigation", () => {
         const result: ViewRenderResult = {
             schemaVersion: 1,

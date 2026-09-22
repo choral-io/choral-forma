@@ -27,9 +27,12 @@ use crate::operations::{
 use crate::path::WorkspacePath;
 
 mod calendar;
+mod gantt;
+mod temporal;
 pub use calendar::{
     CalendarClassification, CalendarCounts, CalendarEntry, CalendarEvent, CalendarTemporal,
 };
+pub use gantt::{GanttDependencies, GanttEdge, GanttEdgeStatus, GanttNode, GanttRow, GanttStatus};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -136,6 +139,14 @@ pub struct RenderedView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ViewRenderOutput {
+    Gantt {
+        #[serde(rename = "timeZone")]
+        time_zone: String,
+        counts: CalendarCounts,
+        nodes: Vec<GanttNode>,
+        rows: Vec<GanttRow>,
+        edges: Vec<GanttEdge>,
+    },
     Calendar {
         #[serde(rename = "timeZone")]
         time_zone: String,
@@ -329,6 +340,7 @@ struct ViewDefinition {
     kanban: Option<KanbanDefinition>,
     graph: Option<GraphDefinition>,
     calendar: Option<Value>,
+    gantt: Option<Value>,
     #[serde(default)]
     sort: Vec<SortDefinition>,
 }
@@ -943,7 +955,7 @@ fn render_view_from_loaded(
     let render_required = view_definition.as_ref().is_some_and(|definition| {
         matches!(
             definition.mode.as_str(),
-            "list" | "table" | "kanban" | "graph" | "calendar"
+            "list" | "table" | "kanban" | "graph" | "calendar" | "gantt"
         )
     });
     if definition_is_valid && render_required && render.is_none() {
@@ -1033,6 +1045,9 @@ fn view_definition_is_valid(
     let mut valid = true;
     if definition.mode == "calendar" {
         valid &= calendar::validate(definition.calendar.as_ref(), config, path, diagnostics);
+    }
+    if definition.mode == "gantt" {
+        valid &= gantt::validate(definition.gantt.as_ref(), config, path, diagnostics);
     }
     if definition.surface != "page" {
         valid = false;
@@ -1404,12 +1419,13 @@ fn render_view_definition(
         .filter_map(|entry| RenderCandidate::from_index_entry(root, entry))
         .filter(|item| view_candidate_matches(item, definition))
         .collect::<Vec<_>>();
-    if definition.mode == "calendar" {
+    if matches!(definition.mode.as_str(), "calendar" | "gantt") {
         items.sort_by(|left, right| left.path.cmp(&right.path));
     }
     apply_sort(&mut items, &definition.sort);
 
     match definition.mode.as_str() {
+        "gantt" => gantt::render(&items, definition, config, model, view_path, diagnostics),
         "calendar" => calendar::render(&items, definition, config, model, view_path, diagnostics),
         "list" => Some(ViewRenderOutput::List {
             items: items
