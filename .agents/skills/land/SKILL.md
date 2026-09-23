@@ -30,7 +30,7 @@ git remote get-url origin
 git worktree list --porcelain
 ```
 
-These checks protect unrelated local material and worktrees, as required by the repository delivery guidance (`AGENTS.md:51-55`).
+These checks protect unrelated local material and worktrees, as required by the repository delivery guidance (`AGENTS.md:51-57`).
 
 Determine the source branch and destination:
 
@@ -39,9 +39,9 @@ Determine the source branch and destination:
 - If the current branch is a topic branch, use the topic-branch PR path for a remote landing.
 - If the user explicitly says “local only”, “do not push”, or equivalent, use the local-only path and do not perform any remote mutation.
 
-If the worktree contains changes, classify every path before staging it. Stage only paths within the approved change. Keep repository worktrees, generated caches, browser state, and local workspace material out of commits (`AGENTS.md:51-55`). If the scope of an untracked or modified path is unclear, stop and report it instead of staging broadly.
+If the worktree contains changes, classify every path before staging it. Stage only paths within the approved change. Keep repository worktrees, generated caches, browser state, and local workspace material out of commits (`AGENTS.md:51-57`). If the scope of an untracked or modified path is unclear, stop and report it instead of staging broadly.
 
-When approved changes are uncommitted, create the necessary Conventional Commit without opening an interactive editor. Do not squash, reset, or rewrite existing commits merely to make the landing convenient; Conventional Commit format is a repository requirement (`AGENTS.md:51-55`).
+When approved changes are uncommitted, create the necessary Conventional Commit without opening an interactive editor. Do not squash, reset, or rewrite existing commits merely to make the landing convenient; Conventional Commit format is a repository requirement (`AGENTS.md:51-57`).
 
 Before committing or merging, run:
 
@@ -144,7 +144,7 @@ Use this path when the approved source is not `main`:
     git push --set-upstream origin <topic-branch>
     ```
 
-2. Create or locate one pull request from that branch to `main`. Use the repository's Conventional Commit title and summarize the verified scope and checks in the body:
+2. Create or locate one pull request from that branch to `main`. Use the repository's Conventional Commit title and summarize the verified scope and checks in the body; the title and body describe the change only and carry no authorship, attribution, or tooling metadata (`AGENTS.md:51-57`).
 
     ```sh
     gh pr create --repo choral-io/choral-forma \
