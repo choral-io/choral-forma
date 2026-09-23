@@ -354,6 +354,38 @@ The move to columns produced a second self-referential test, caught the same way
 
 Verified in the running WebApp: a single click selected without moving the offset, a double-click located the bar, repeating it from a different offset landed on the identical value, and clicking a bar selected its row. The column lead was then measured at three day widths by double-clicking the same far-right row and reading the rendered gap between the track's left edge and the bar's left edge: nine pixels at four per day, fifty-seven at twenty-eight, ninety-seven at forty-eight. Each is two columns plus one pixel, the extra pixel being the title column's right border, which sits outside the measured rect.
 
+## Connector Overlap — 2026-09-23
+
+The user asked whether dense timelines could be improved, and then whether a layout library would help. Both were answered by measuring rather than by argument, on synthetic dense fixtures of 8 through 56 rows and on the demo workspace, replicating the component's path geometry exactly.
+
+Two things the earlier record got wrong are corrected here. Long horizontal runs were described as overlapping in dense charts; they do not. A long run sits on its target row's centre line, so only edges arriving at that same row can share it, and overlap between different successors measured zero on every fixture. What does overlap is the horizontal stub at the source, which is eight pixels long and leaves the same bar, so it reads as one line correctly.
+
+What the measurement found, and what it turned out to mean, are two different things, and the difference is the most useful part of this round.
+
+A riser passes straight through whatever bar sits between its endpoints, and that scales: one crossing per edge on the demo, 7.3 at 56 rows. That is a genuine defect and it is recorded below as unfixed.
+
+The first connector sweep reported that 21 to 27 percent of riser centerline length was covered by more than one edge. This is shared coverage, not a collision rate: it combines expected fan-out trunks with overlap between independent routes. Edges from one predecessor whose target rows lie on the same side share the riser from their origin to the nearer target; “same direction” here means vertical direction in rendered row order, not date order. Risers from different origins can share a positive-length segment only when they occupy the same track coordinate and their row intervals overlap by positive length. Opposite-side branches from one origin meet only at their common endpoint on the centerline. The historical analysis did not preserve a repeatable classifier or an explicit denominator for these classes, so the previously reported split is not reproducible and no revised percentage is claimed.
+
+The aggregate metric therefore overstates the problem if read as the proportion of defective routing. Retire it as a collision measure and optimisation target; a future comparison must state its geometric classification and denominator.
+
+Lanes were introduced after that aggregate metric and remain for a separate presentation rationale: they are intended to make the fan-out at a bar easier to distinguish, not to correct a measured collision defect. The six-lane limit and three-pixel step survive because they follow geometric boundaries rather than the retired percentage: eight lanes reached past a successor's start, and a four-pixel step realigned connectors from different predecessors by resonating with the four-pixel day, measuring worse than no lanes at all. The earlier lane-versus-overlap percentages described the pre-clamp implementation and counted shared trunks, so they are retired rather than used as a quality score. The clamp and its narrow-gap invariant are recorded below.
+
+One further claim in the original record was wrong. Six lanes were said not to overshoot at any day width, which held only for overshoot defined as passing a successor's start. Measured against the eight-pixel approach the clamp now reserves, six ate three to eight pixels of that approach on two fixtures. The narrow-gap correction below is what makes the invariant hold rather than merely happen to hold.
+
+### Narrow-Gap Correction — 2026-09-23
+
+Review found a case the original fixture missed. At four pixels per day, a successor starting four days after its predecessor ends places the direct-route endpoints exactly sixteen pixels apart. The fourth lane (lane index 3) would sit one pixel beyond the successor start, making the final arrow approach run backward. Direct lanes are now capped to the available corridor after retaining an eight-pixel approach; if only the base riser fits, those edges share it. Routes around overlapping or closer-starting successors use the base riser so lane offsets do not worsen the return segment.
+
+Three component regressions cover the minimum direct gap, a short corridor with partial lane capacity, and overlapping-successor detours. Each failed before the correction and passed afterward. Existing fan-out, selection-stable lane assignment, and ordinary direct/detour route checks remain green; the code change only constrains lane offsets, not route selection or dependency semantics.
+
+The lane is numbered over every anchored edge, not the drawn subset, so selecting a row cannot move a connector already on screen. The mutation that checks this took three attempts to write honestly: the first was a temporal dead zone error that broke unrelated tests rather than testing anything, the second was neutralised by the memo's dependency list so the stale lane map still held the right answer, and only the third — filtering inside the loop and adding the selection to the dependencies — actually failed. Removing lanes, changing the count, and changing the step each fail as well.
+
+Riser-through-bar is recorded as a known limitation, not fixed. Obstacle-avoiding routing was assessed and rejected on evidence: in the corridor between a predecessor's end and a successor's start, 69 and 70 percent of edges on the dense fixtures have no column free of bars in every row the riser passes, and 33 percent even on the demo. Canvas occupancy is only a quarter; the constraint is that routing needs one column free across many rows at once, and that intersection empties as charts grow taller. A router would convert a clean one-pixel crossing into a long detour for most edges.
+
+Dagre and ELK were considered by name and do not apply. Their value is deciding where nodes go, and both Gantt axes are already determined by contract: x by the configured date bindings, y by the configured sort. ELK's orthogonal routing is tied to the layered algorithm's own node placement, and its fixed-position algorithm does not route that way; Dagre has no fixed-position mode at all. This is not a dependency-budget objection — the graph View uses graphology and forceatlas2 precisely because node positions are the unknown there, and elkjs is already in the tree through `beautiful-mermaid`. The objection is that the libraries solve a problem this View does not have.
+
+One earlier note remains unrevised on purpose. `ALL_EDGES_MAX_ROWS` still describes itself as a judgement rather than a measurement. There is now data bearing on it — 7.3 crossings per edge at 56 rows — but changing the threshold was not in this change's scope, and the note already asks for real workspaces rather than synthetic ones.
+
 ## Locate Review Round — 2026-09-22
 
 An external review raised two P2 findings against locating, both confirmed.

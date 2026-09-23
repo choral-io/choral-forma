@@ -6,6 +6,8 @@ import { dateInZone } from "./calendar-layout";
 import { clipConnectors } from "./gantt-connector-clip";
 import {
     ALL_EDGES_MAX_ROWS,
+    CONNECTOR_LANES,
+    CONNECTOR_LANE_STEP,
     DAY_WIDTHS,
     FIRST_DAY,
     HEADER_HEIGHT,
@@ -110,6 +112,19 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
     // Small enough to read every thread; above that, only the selected row's, or
     // the view fills with lines joining points that cannot share a screen.
     const allEdgesReadable = projection.rows.length <= ALL_EDGES_MAX_ROWS;
+    // Lane per edge over every anchored edge rather than the drawn subset, so
+    // selecting a row cannot move a connector that was already on screen.
+    const connectorLane = useMemo(() => {
+        const used = new Map<string, number>();
+        const lanes = new Map<string, number>();
+        for (const edge of projection.edges) {
+            if (edge.status !== "anchored") continue;
+            const next = used.get(edge.from) ?? 0;
+            lanes.set(edge.id, next % CONNECTOR_LANES);
+            used.set(edge.from, next + 1);
+        }
+        return lanes;
+    }, [projection.edges]);
     const selectedEdges = useMemo(
         () =>
             projection.edges.filter(
@@ -618,11 +633,21 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                 // because no conflict is computed. Route around it instead of drawing a
                                 // segment that doubles back through both bars.
                                 const gap = 8;
-                                const lane = y2 + (y1 < y2 ? -ROW_HEIGHT / 2 : ROW_HEIGHT / 2);
-                                const d =
-                                    x2 >= x1 + gap * 2
-                                        ? `M ${String(x1)} ${String(y1)} H ${String(x1 + gap)} V ${String(y2)} H ${String(x2)}`
-                                        : `M ${String(x1)} ${String(y1)} H ${String(x1 + gap)} V ${String(lane)} H ${String(x2 - gap)} V ${String(y2)} H ${String(x2)}`;
+                                const direct = x2 >= x1 + gap * 2;
+                                // Keep an 8px approach before the successor. Narrow direct gaps
+                                // share the remaining lanes; detours use the base riser so their
+                                // longer return segment is not made worse by lane offsets.
+                                const lane = direct
+                                    ? Math.min(
+                                          connectorLane.get(edge.id) ?? 0,
+                                          Math.floor((x2 - x1 - gap * 2) / CONNECTOR_LANE_STEP),
+                                      )
+                                    : 0;
+                                const riser = x1 + gap + CONNECTOR_LANE_STEP * lane;
+                                const detour = y2 + (y1 < y2 ? -ROW_HEIGHT / 2 : ROW_HEIGHT / 2);
+                                const d = direct
+                                    ? `M ${String(x1)} ${String(y1)} H ${String(riser)} V ${String(y2)} H ${String(x2)}`
+                                    : `M ${String(x1)} ${String(y1)} H ${String(riser)} V ${String(detour)} H ${String(x2 - gap)} V ${String(y2)} H ${String(x2)}`;
                                 return (
                                     <path
                                         key={edge.id}

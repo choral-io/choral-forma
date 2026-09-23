@@ -26,6 +26,31 @@ export const DAY_WIDTHS = [4, 10, 28, 48] as const;
  */
 export const ALL_EDGES_MAX_ROWS = 60;
 /**
+ * Lanes that separate the connectors leaving one predecessor.
+ *
+ * Without lanes, edges from one predecessor whose target rows lie on the same
+ * side share an initial riser. This is expected trunk geometry, not a collision;
+ * direction means vertical target-row order, not date order. Aggregate line
+ * coverage cannot distinguish shared trunks from independent overlaps, so its
+ * percentage does not establish a collision defect. Lanes are a visual cue
+ * intended to make fan-out arity easier to distinguish at the source.
+ *
+ * Two measured boundaries fix the numbers rather than taste. Eight lanes
+ * reached past a successor's start on the fixtures, and six reach into the
+ * eight-pixel approach at the smallest gap that still takes the direct route,
+ * which is why rendering clamps. And the step must not divide a day width, or
+ * connectors from different predecessors realign on one offset: three divides
+ * none of the configured widths, while four resonates with the four-pixel day
+ * and measured worse than no lanes at all.
+ *
+ * Where the corridor between two bars is shorter than the fan, the clamp puts
+ * the surplus edges back onto a shared riser. Spreading lanes evenly across
+ * whatever room exists was measured as an alternative and recovered nothing,
+ * because a finish-to-start successor starting immediately leaves no corridor.
+ */
+export const CONNECTOR_LANES = 6;
+export const CONNECTOR_LANE_STEP = 3;
+/**
  * Day columns kept to the left of a located bar's start.
  *
  * Measured in columns rather than pixels, so the lead-in is the same amount of

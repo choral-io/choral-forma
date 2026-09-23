@@ -368,6 +368,137 @@ it("routes around a successor that starts before its predecessor ends", async ()
     expect(commands.join("")).toBe("HVHVH");
 });
 
+function fanOut(count: number, rows = 0) {
+    const projection = fixture();
+    for (let i = 0; i < rows; i++) {
+        const path = `filler${String(i)}.md`;
+        projection.nodes.push({ ...at(fixture().nodes, 0), path, title: `Filler ${String(i)}` });
+        projection.rows.push({ ...at(fixture().rows, 0), path });
+    }
+    for (let i = 0; i < count; i++) {
+        const path = `s${String(i)}.md`;
+        projection.nodes.push({ ...at(fixture().nodes, 0), path, title: `Successor ${String(i)}` });
+        projection.rows.push({
+            ...at(fixture().rows, 0),
+            path,
+            firstDate: "2027-06-01",
+            afterLastDate: "2027-07-01",
+            temporal: { kind: "date" as const, start: "2027-06-01", endExclusive: "2027-07-01" },
+        });
+        projection.edges.push({
+            id: JSON.stringify(["a.md", path]),
+            from: "a.md",
+            to: path,
+            relation: "finishToStart",
+            status: "anchored",
+        });
+    }
+    const total = projection.rows.length;
+    projection.counts = { candidates: total, scheduled: total, unscheduled: 0, invalid: 0 };
+    return projection;
+}
+/** The riser is the first horizontal target in `M x y H riser V ...`. */
+function risers() {
+    return [...host.querySelectorAll("svg path[marker-end]")].map((path) =>
+        Number(/^M [\d.-]+ [\d.-]+ H ([\d.-]+)/.exec(path.getAttribute("d") ?? "")?.[1]),
+    );
+}
+function riserOrigin(projection: Projection) {
+    const grid = element('[role="grid"] > div');
+    const day = Number.parseFloat(grid.style.getPropertyValue("--gantt-day"));
+    return (dayIndex(at(projection.rows, 0).afterLastDate) - Number(origin())) * day;
+}
+
+it("spreads the connectors leaving one predecessor across lanes", async () => {
+    // Seven successors: six lanes, then a wrap, so both numbers are pinned.
+    const projection = fanOut(7);
+    await render(projection);
+    // Lane counts and the step are literals here: reading them from the
+    // constants would move the expectation with the value under test.
+    const x1 = riserOrigin(projection);
+    expect(risers()).toEqual([0, 1, 2, 3, 4, 5, 0].map((lane) => x1 + 8 + 3 * lane));
+});
+
+it("keeps lane risers inside the direct corridor at the narrowest day width", async () => {
+    const projection = fanOut(4);
+    for (const row of projection.rows.slice(1)) {
+        row.firstDate = "2027-01-05";
+        row.temporal = { kind: "date", start: row.firstDate, endExclusive: "2027-02-01" };
+    }
+    await render(projection);
+    await flush(() => {
+        const select = element("select");
+        select.value = "4";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const path = at([...host.querySelectorAll<SVGPathElement>("svg path[marker-end]")], 3);
+    const direct = /^M [\d.-]+ [\d.-]+ H ([\d.-]+) V [\d.-]+ H ([\d.-]+)$/.exec(path.getAttribute("d") ?? "");
+    expect(direct).not.toBeNull();
+    const riser = Number(direct?.[1]);
+    const targetStart = Number(direct?.[2]);
+    // Four days at 4px/day is the direct-route threshold: only the base 8px
+    // riser fits while preserving an 8px forward approach into the target.
+    expect(targetStart - riser).toBeGreaterThanOrEqual(8);
+});
+
+it("uses only the available lane offsets in a short direct corridor", async () => {
+    const projection = fanOut(4);
+    for (const row of projection.rows.slice(1)) {
+        row.firstDate = "2027-01-07";
+        row.temporal = { kind: "date", start: row.firstDate, endExclusive: "2027-02-01" };
+    }
+    await render(projection);
+    await flush(() => {
+        const select = element("select");
+        select.value = "4";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const x1 = riserOrigin(projection);
+    // Six days leave room for lanes 0–2, but not lane 3. Keep the full lane
+    // order where possible and share the last available riser thereafter.
+    expect(risers()).toEqual([0, 1, 2, 2].map((lane) => x1 + 8 + 3 * lane));
+});
+
+it("keeps overlapping-successor detours on the base riser", async () => {
+    const projection = fanOut(4);
+    for (const row of projection.rows.slice(1)) {
+        row.firstDate = "2026-12-29";
+        row.temporal = { kind: "date", start: row.firstDate, endExclusive: "2027-01-20" };
+    }
+    await render(projection);
+    await flush(() => {
+        const select = element("select");
+        select.value = "4";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const x1 = riserOrigin(projection);
+    expect(risers()).toEqual([x1 + 8, x1 + 8, x1 + 8, x1 + 8]);
+    expect(
+        [...host.querySelectorAll<SVGPathElement>("svg path[marker-end]")].map((path) =>
+            (path.getAttribute("d")?.match(/[HV]/g) ?? []).join(""),
+        ),
+    ).toEqual(["HVHVH", "HVHVH", "HVHVH", "HVHVH"]);
+});
+
+it("keeps a connector's lane when only the selected row's edges are drawn", async () => {
+    // Above the threshold the drawn set is filtered. Selecting the last
+    // successor leaves one edge on screen, and only a lane numbered over every
+    // anchored edge still knows it is the third one out of that predecessor;
+    // a lane numbered over the drawn edges would restart at zero.
+    const projection = fanOut(3, ALL_EDGES_MAX_ROWS);
+    await render(projection);
+    const scroller = element('[role="grid"]');
+    await flush(() => {
+        scroller.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    });
+    const drawn = risers();
+    expect(drawn).toHaveLength(1);
+    expect(drawn).toEqual([riserOrigin(projection) + 8 + 3 * 2]);
+});
+
 it("keeps the direct route when the successor starts after its predecessor ends", async () => {
     const projection = fixture();
     projection.counts = { candidates: 2, scheduled: 2, unscheduled: 0, invalid: 0 };
