@@ -27,6 +27,8 @@ tags:
 
 ## Scope And Authority
 
+Completion update — 2026-09-24: the maintainer accepted all four temporal Tasks and separately approved pushing and publication. Version 0.1.37 is released from `12c7dd69a9ce5b96ebb05718adc87b2839ca6df6`; exact-candidate CI, Release workflow, Marketplace publication, all published payload hashes and native managed installation passed. [[releases/forma-v0.1.37]] owns the immutable identities and final evidence. The preparation sequence and authority snapshots below describe their original stages; pending acceptance/publication wording is superseded by this completion update. Accepted presentation and deferred real-device/accessibility boundaries remain unchanged. No further feature work is part of this release.
+
 The user authorized autonomous preparation following review of the release path, including bounded parallel implementation and verification. The maintainer owns Task responsibility and final acceptance. The planned coordinated version is 0.1.37, following the released 0.1.36 baseline; publication remains a distinct step after a concrete candidate has passed its gates.
 
 Calendar provides a WebApp month view and Agenda, with semantic Agendas in static HTML and VS Code. Gantt provides a read-only day-resolution WebApp timeline with labels, progress, milestones, dependency connectors, selection, and locating; static HTML and VS Code provide complete semantic lists. Core owns temporal and dependency semantics. No runtime dependency is added for this release preparation.
