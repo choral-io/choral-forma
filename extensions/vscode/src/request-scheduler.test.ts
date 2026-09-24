@@ -74,4 +74,38 @@ describe("RequestScheduler", () => {
         scheduler.invalidate();
         await expect(result).rejects.toMatchObject({ name: "AbortError" });
     });
+
+    it.each([1, 2])("replaces cancelled same-key work before it settles with concurrency %i", async (concurrency) => {
+        const scheduler = new RequestScheduler<number>(concurrency);
+        const caller = new AbortController();
+        let rejectOld!: (error: Error) => void;
+        let underlyingSignal!: AbortSignal;
+        let markStarted!: () => void;
+        const started = new Promise<void>((resolve) => {
+            markStarted = resolve;
+        });
+        const oldTask = vi.fn(async (signal: AbortSignal) => {
+            underlyingSignal = signal;
+            markStarted();
+            return await new Promise<number>((_resolve, reject) => {
+                rejectOld = reject;
+                // Model process cancellation: abort is observable before process exit.
+            });
+        });
+        const old = scheduler.schedule("view.render", oldTask, caller.signal);
+        const oldResult = expect(old).rejects.toMatchObject({ name: "AbortError" });
+        await started;
+        caller.abort();
+        await oldResult;
+        expect(underlyingSignal.aborted).toBe(true);
+
+        const freshTask = vi.fn(async () => 42);
+        const fresh = scheduler.schedule("view.render", freshTask);
+        const freshResult = expect(fresh).resolves.toBe(42);
+        // The old process reports cancellation after the replacement subscribes.
+        rejectOld(new DOMException("cancelled", "AbortError"));
+        await freshResult;
+        expect(oldTask).toHaveBeenCalledTimes(1);
+        expect(freshTask).toHaveBeenCalledTimes(1);
+    });
 });

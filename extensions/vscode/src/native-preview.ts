@@ -26,7 +26,7 @@ export class NativePreviewManager implements vscode.Disposable {
         string,
         { result: ViewRenderResult; enhancement: Omit<MarkdownEnhancement, "projection"> }
     >();
-    private readonly refreshes = new Map<string, { controller: AbortController; generation: number }>();
+    private readonly refreshes = new Map<string, AbortController>();
     private readonly restoration: PreviewRestorationCoordinator<vscode.TextDocument>;
 
     constructor(private readonly runtime: FormaRuntime) {
@@ -48,10 +48,9 @@ export class NativePreviewManager implements vscode.Disposable {
     async refresh(document: vscode.TextDocument, refreshPreview = true): Promise<boolean> {
         const key = document.uri.toString();
         const previous = this.refreshes.get(key);
-        previous?.controller.abort();
+        previous?.abort();
         const controller = new AbortController();
-        const generation = (previous?.generation ?? 0) + 1;
-        this.refreshes.set(key, { controller, generation });
+        this.refreshes.set(key, controller);
         let result: ViewRenderResult | undefined;
         let inspected: InspectEntry | undefined;
         let bodyLinks: PreviewBodyLink[] = [];
@@ -67,7 +66,7 @@ export class NativePreviewManager implements vscode.Disposable {
                 this.runtime.logResult({ nativePreviewError: error instanceof Error ? error.message : String(error) });
             }
         }
-        if (this.refreshes.get(key)?.generation !== generation) return false;
+        if (this.refreshes.get(key) !== controller) return false;
         const enhancement = {
             ...(this.runtime.isFormaDocument(document)
                 ? { frontmatterDefaultState: this.frontmatterDefaultState(document) }
@@ -145,7 +144,7 @@ export class NativePreviewManager implements vscode.Disposable {
 
     dispose(): void {
         this.restoration.dispose();
-        for (const refresh of this.refreshes.values()) refresh.controller.abort();
+        for (const refresh of this.refreshes.values()) refresh.abort();
         this.refreshes.clear();
         this.graphPreviews.clear();
         clearMarkdownProjections();

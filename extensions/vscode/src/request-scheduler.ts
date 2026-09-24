@@ -25,7 +25,9 @@ export class RequestScheduler<T> {
         if (signal?.aborted) return Promise.reject(cancelledError());
         const generationKey = `${String(this.generation)}\0${key}`;
         let request = this.requests.get(generationKey);
-        if (!request) {
+        // Cancellation can precede process exit. A fresh subscriber must not
+        // inherit that cancelled process while its request is still in the map.
+        if (!request || request.controller.signal.aborted) {
             request = this.createRequest(generationKey, task);
             this.requests.set(generationKey, request);
             this.queued.push(request);
