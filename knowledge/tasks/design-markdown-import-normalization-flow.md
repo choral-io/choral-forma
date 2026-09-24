@@ -20,8 +20,7 @@ tags:
     - product-value
     - import
     - normalization
-blockedBy:
-    - "tasks/design-guided-knowledge-modeling-flow"
+blockedBy: []
 relatedTo:
     - "planning/forma-product-value-gap-roadmap"
     - "product/product-direction"

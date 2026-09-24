@@ -22,7 +22,6 @@ tags:
     - adapters
 blockedBy:
     - "tasks/generalize-taxonomy-neutral-page-model"
-    - "tasks/design-cli-editor-compatibility-window"
 relatedTo:
     - "planning/forma-product-value-gap-roadmap"
     - "architecture/editor-extension-adapter-contract"
