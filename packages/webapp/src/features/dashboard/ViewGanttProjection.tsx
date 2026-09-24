@@ -5,7 +5,6 @@ import { Link } from "react-router";
 import { dateInZone } from "./calendar-layout";
 import { clipConnectors } from "./gantt-connector-clip";
 import {
-    ALL_EDGES_MAX_ROWS,
     CONNECTOR_LANES,
     CONNECTOR_LANE_STEP,
     DAY_WIDTHS,
@@ -109,11 +108,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
     if (projection.rows.length && !rowIndices.includes(active)) rowIndices.push(active);
     const selected = projection.rows[active];
     const selectedNode = selected ? nodes.get(selected.path) : undefined;
-    // Small enough to read every thread; above that, only the selected row's, or
-    // the view fills with lines joining points that cannot share a screen.
-    const allEdgesReadable = projection.rows.length <= ALL_EDGES_MAX_ROWS;
-    // Lane per edge over every anchored edge rather than the drawn subset, so
-    // selecting a row cannot move a connector that was already on screen.
+    // Lane per edge over every anchored edge so selection never changes connector geometry.
     const connectorLane = useMemo(() => {
         const used = new Map<string, number>();
         const lanes = new Map<string, number>();
@@ -125,14 +120,9 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
         }
         return lanes;
     }, [projection.edges]);
-    const selectedEdges = useMemo(
-        () =>
-            projection.edges.filter(
-                (edge) =>
-                    edge.status === "anchored" &&
-                    (allEdgesReadable || edge.from === selected?.path || edge.to === selected?.path),
-            ),
-        [projection.edges, selected?.path, allEdgesReadable],
+    const anchoredEdges = useMemo(
+        () => projection.edges.filter((edge) => edge.status === "anchored"),
+        [projection.edges],
     );
     const label = (row: Projection["rows"][number]) => ganttRowLabel(row, projection.timeZone, locale);
     const monthFormatter = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric", timeZone: "UTC" });
@@ -619,7 +609,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                     <path d="M 0 0 L 6 3 L 0 6 z" fill="currentColor" />
                                 </marker>
                             </defs>
-                            {selectedEdges.map((edge) => {
+                            {anchoredEdges.map((edge) => {
                                 const from = positions.get(edge.from);
                                 const to = positions.get(edge.to);
                                 // Geometry is arithmetic over row index and day offset, so an endpoint

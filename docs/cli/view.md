@@ -27,11 +27,13 @@ Gantt returns `render.kind: gantt`, `timeZone`, `counts`, `nodes`, `rows`, and `
 
 ## Reference
 
+Gantt nodes carry optional `progress` from an explicitly configured binding. Values are integer percentages from 0 to 100; an absent value is not zero. Node classification is optional and uses the configured label and nullable color. Scheduled rows reference their node by `path` rather than duplicating these fields. Neither field implies automatic scheduling or write-back.
+
 `view.render.items[].fields` is a tagged result contract. Ordinary values use `{ "kind": "value", "value": ... }`; one resolved reference uses `{ "kind": "reference", "reference": { "path", "title" } }`; and a resolved reference list uses `{ "kind": "referenceList", "references": [...] }`. Clients must render resolved reference targets from this structure rather than re-resolving frontmatter paths.
 
 ## Agent Skill
 
-Calendar returns `render.kind: calendar`, `timeZone`, `firstDayOfWeek`, `counts`, `events`, and `unscheduled`. Each event contains only `path`, `title`, `temporal`, `firstDate`, and `afterLastDate`. The latter two delimit a half-open range of workspace civil dates. `temporal.kind: date` contains civil `start` and `endExclusive`; `temporal.kind: datetime` contains UTC offset instants with a nullable `endExclusive` (null means a point). Unscheduled entries contain `path` and `title`.
+Calendar returns `render.kind: calendar`, `timeZone`, `firstDayOfWeek`, `counts`, `events`, and `unscheduled`. Each event contains `path`, `title`, `temporal`, `firstDate`, and `afterLastDate`, plus optional `classification` when configured. The latter two date fields delimit a half-open range of workspace civil dates. `temporal.kind: date` contains civil `start` and `endExclusive`; `temporal.kind: datetime` contains UTC offset instants with a nullable `endExclusive` (null means a point). Unscheduled entries contain `path`, `title`, and optional `classification`. Classification provides a `label` and nullable `color`; it does not change temporal semantics.
 
 Counts satisfy `candidates = scheduled + unscheduled + invalid` after source/query selection and existing workspace indexing validation. The projection includes all scheduled and unscheduled candidates without hidden truncation or a current-month filter. Invalid candidates have source-locatable diagnostics. Clients must use the normalized dates rather than reinterpret frontmatter. See [Calendar configuration](../workspace/views.md#calendar).
 

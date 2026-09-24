@@ -16,16 +16,6 @@ export const TITLE_WIDTH = 220;
 export const SIZE_BUDGET = 1_000_000;
 export const DAY_WIDTHS = [4, 10, 28, 48] as const;
 /**
- * Above this row count only the selected row's edges are drawn.
- *
- * A judgement, not a measurement: at 1000 rows only 3.3 percent of edges joined
- * two points that could share a screen, so drawing them all was noise, but no
- * intermediate size was measured. 60 rows is about three viewports of track, so
- * a connector still reads as a thread a viewer can follow by scrolling. Revisit
- * against real workspaces rather than treating it as derived.
- */
-export const ALL_EDGES_MAX_ROWS = 60;
-/**
  * Lanes that separate the connectors leaving one predecessor.
  *
  * Without lanes, edges from one predecessor whose target rows lie on the same

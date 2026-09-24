@@ -5,7 +5,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ALL_EDGES_MAX_ROWS, HEADER_HEIGHT, ROW_HEIGHT, dayIndex } from "./gantt-layout";
+import { HEADER_HEIGHT, ROW_HEIGHT, dayIndex } from "./gantt-layout";
 import { ViewGanttProjection } from "./ViewGanttProjection";
 
 type Projection = Extract<DashboardViewProjection, { kind: "gantt" }>;
@@ -295,9 +295,8 @@ it("distinguishes an authored zero from absent progress", async () => {
 });
 
 it("draws a directed connector to an endpoint whose row is not mounted", async () => {
-    // Past the all-edges threshold, so only the selection's edges draw, and far
-    // enough apart that row windowing cannot have both endpoints mounted.
-    const count = ALL_EDGES_MAX_ROWS + 40;
+    // Far enough apart that row windowing cannot have both endpoints mounted.
+    const count = 100;
     const projection = fixture();
     projection.nodes = [];
     projection.rows = [];
@@ -483,20 +482,16 @@ it("keeps overlapping-successor detours on the base riser", async () => {
     ).toEqual(["HVHVH", "HVHVH", "HVHVH", "HVHVH"]);
 });
 
-it("keeps a connector's lane when only the selected row's edges are drawn", async () => {
-    // Above the threshold the drawn set is filtered. Selecting the last
-    // successor leaves one edge on screen, and only a lane numbered over every
-    // anchored edge still knows it is the third one out of that predecessor;
-    // a lane numbered over the drawn edges would restart at zero.
-    const projection = fanOut(3, ALL_EDGES_MAX_ROWS);
+it("keeps all connector lanes visible when selection changes in a large view", async () => {
+    const projection = fanOut(3, 80);
     await render(projection);
     const scroller = element('[role="grid"]');
     await flush(() => {
         scroller.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
     });
     const drawn = risers();
-    expect(drawn).toHaveLength(1);
-    expect(drawn).toEqual([riserOrigin(projection) + 8 + 3 * 2]);
+    expect(drawn).toHaveLength(3);
+    expect(drawn).toEqual([0, 1, 2].map((lane) => riserOrigin(projection) + 8 + 3 * lane));
 });
 
 it("keeps the direct route when the successor starts after its predecessor ends", async () => {
@@ -558,14 +553,16 @@ function chain(count: number) {
     return projection;
 }
 
-it("draws every edge in a small projection and only the selected row's in a large one", async () => {
-    // At the threshold every thread is followable, so nothing is hidden behind a selection.
-    await render(chain(ALL_EDGES_MAX_ROWS));
-    expect(host.querySelectorAll("svg path[marker-end]").length).toBe(ALL_EDGES_MAX_ROWS - 1);
-    // One row past it, the same view would fill with lines joining points that
-    // cannot share a screen, so only the selection's edges remain.
-    await render(chain(ALL_EDGES_MAX_ROWS + 1));
-    expect(host.querySelectorAll("svg path[marker-end]").length).toBe(1);
+it("draws every anchored edge at and above the former row threshold", async () => {
+    await render(chain(60));
+    expect(host.querySelectorAll("svg path[marker-end]").length).toBe(59);
+
+    const large = chain(61);
+    await render(large);
+    await flush(() => {
+        element('[role="grid"]').dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    });
+    expect(host.querySelectorAll("svg path[marker-end]").length).toBe(60);
 });
 
 it("states progress as text wherever the fill cannot be seen", async () => {
