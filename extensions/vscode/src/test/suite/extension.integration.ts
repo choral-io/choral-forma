@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as vscode from "vscode";
 
 import { assertNativeMarkdownLink } from "../link-assertions.ts";
+import { assertTemporalViewPreview, withCleanViewDiagnostics } from "../view-preview-assertions.ts";
 
 suite("Forma for VS Code extension", () => {
     test("activates in a Forma workspace", async () => {
@@ -96,19 +97,49 @@ suite("Forma for VS Code extension", () => {
         await vscode.commands.executeCommand("forma.openSource", targetUri);
         assert.equal(vscode.window.activeTextEditor?.document.uri.toString(), targetUri.toString());
 
-        const view = (await vscode.workspace.findFiles(".forma/views/list.md", undefined, 1))[0];
-        assert.ok(view);
-        const viewDocument = await vscode.workspace.openTextDocument(view);
-        await vscode.window.showTextDocument(viewDocument);
-        await vscode.commands.executeCommand("forma.openViewPreviewToSide", view);
-        assert.equal(viewDocument.isDirty, false);
-        assert.ok(viewDocument.getText().includes("<!-- forma:content -->"));
-
-        for (const path of [".forma/views/table.md", ".forma/views/kanban.md", ".forma/views/graph.md"]) {
-            const uri = (await vscode.workspace.findFiles(path, undefined, 1))[0];
-            assert.ok(uri);
-            await vscode.commands.executeCommand("forma.openViewPreviewToSide", uri);
-        }
+        await withCleanViewDiagnostics(document, async () => {
+            for (const path of [
+                ".forma/views/list.md",
+                ".forma/views/table.md",
+                ".forma/views/kanban.md",
+                ".forma/views/graph.md",
+                ".forma/views/calendar.md",
+                ".forma/views/gantt.md",
+            ]) {
+                const uri = (await vscode.workspace.findFiles(path, undefined, 1))[0];
+                assert.ok(uri, `${path} should be discoverable`);
+                const viewDocument = await vscode.workspace.openTextDocument(uri);
+                await vscode.window.showTextDocument(viewDocument);
+                const existingTabs = new Set(vscode.window.tabGroups.all.flatMap((group) => group.tabs));
+                await vscode.commands.executeCommand("forma.openViewPreviewToSide", uri);
+                let preview: vscode.Tab | undefined;
+                const previewOpened = await waitFor(() => {
+                    preview = vscode.window.tabGroups.all
+                        .flatMap((group) => group.tabs)
+                        .find((tab) => !existingTabs.has(tab) && isNativeMarkdownPreview(tab));
+                    return preview !== undefined;
+                });
+                assert.equal(previewOpened, true, `${path} should open a native Markdown Preview tab`);
+                assert.ok(preview, `${path} native Markdown Preview tab should be available for cleanup`);
+                assert.equal(viewDocument.isDirty, false, path);
+                assert.ok(viewDocument.getText().includes("<!-- forma:content -->"), path);
+                if (path.endsWith("/calendar.md")) {
+                    assert.ok(viewDocument.getText().includes("mode: calendar"));
+                    assert.ok(viewDocument.getText().includes("Extension Calendar"));
+                    await assertTemporalViewPreview(viewDocument, "calendar");
+                }
+                if (path.endsWith("/gantt.md")) {
+                    assert.ok(viewDocument.getText().includes("mode: gantt"));
+                    assert.ok(viewDocument.getText().includes("Extension Timeline"));
+                    await assertTemporalViewPreview(viewDocument, "gantt");
+                }
+                assert.equal(
+                    await vscode.window.tabGroups.close(preview),
+                    true,
+                    `${path} preview should close cleanly`,
+                );
+            }
+        });
 
         const folder = vscode.workspace.workspaceFolders?.[0];
         assert.ok(folder);
@@ -128,6 +159,11 @@ suite("Forma for VS Code extension", () => {
         }
     });
 });
+
+function isNativeMarkdownPreview(tab: vscode.Tab): boolean {
+    const input = tab.input;
+    return input instanceof vscode.TabInputWebview && /(?:^|-)markdown\.preview$/u.test(input.viewType);
+}
 
 async function waitFor(predicate: () => boolean): Promise<boolean> {
     for (let attempt = 0; attempt < 40; attempt += 1) {

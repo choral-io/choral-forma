@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ViewRenderResult } from "@choral-forma/shared";
 
+import calendarFixture from "../../../packages/shared/src/fixtures/calendar-core.json";
 import ganttFixture from "../../../packages/shared/src/fixtures/gantt-core.json";
 import { renderViewProjectionHtml, tableColumnPresentationAttributes } from "./preview-renderer.ts";
 
@@ -33,7 +34,32 @@ describe("view projection rendering", () => {
         expect(html).toContain("Predecessors");
         expect(html).toContain("&lt;script&gt;");
         expect(html).not.toContain("<script>");
+        expect(html).toContain("Invalid interval");
+        expect(html).toContain("Milestone");
+        expect(html).toContain(" · 0% complete");
+        expect(html).toContain(" · 100% complete");
         for (const node of projection.nodes.slice(1)) expect(html).toContain(node.title);
+    });
+    it("renders the complete Core Calendar fixture with mixed temporal values", () => {
+        const html = renderViewProjectionHtml(
+            {
+                schemaVersion: 1,
+                operation: "view.render",
+                status: "passed",
+                workspace,
+                summary: { errors: 0, warnings: 0, infos: 0 },
+                diagnostics: [],
+                render: calendarFixture as NonNullable<ViewRenderResult["render"]>,
+            },
+            { locale: "en-US" },
+        );
+        expect(html).toContain("2028-02-28 – 2028-03-01 · All day");
+        expect(html).toContain("end exclusive");
+        for (const entry of [...calendarFixture.events, ...calendarFixture.unscheduled]) {
+            expect(html).toContain(entry.title);
+            expect(html).toContain(`data-open-source="${entry.path}"`);
+            expect(html).toContain(entry.classification.label);
+        }
     });
     it("renders a complete Calendar Agenda with escaped titles and source navigation", () => {
         const result: ViewRenderResult = {

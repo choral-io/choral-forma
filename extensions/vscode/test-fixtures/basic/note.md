@@ -2,6 +2,11 @@
 title: Extension fixture
 status: doing
 owner: done
+startsOn: "2026-09-22"
+endsOn: "2026-09-24"
+predecessors:
+    - done
+percentComplete: 50
 tags:
     - vscode-extension
 ---

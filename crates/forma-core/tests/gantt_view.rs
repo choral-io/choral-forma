@@ -260,9 +260,8 @@ fn empty_source_still_validates_dsl_and_timezone() {
 
 #[test]
 fn shared_wire_fixture_matches_real_core_output() {
-    let root =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/getting-started-workspace");
-    let result = render_view(root, ".forma/views/gantt", BTreeMap::new()).unwrap();
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/temporal-views");
+    let result = render_view(root, "config/gantt", BTreeMap::new()).unwrap();
     let expected: serde_json::Value = serde_json::from_str(include_str!(
         "../../../packages/shared/src/fixtures/gantt-core.json"
     ))
@@ -271,6 +270,88 @@ fn shared_wire_fixture_matches_real_core_output() {
         serde_json::to_value(result.render.unwrap()).unwrap(),
         expected
     );
+    // Keep these independent of the snapshot: regeneration must not erase coverage.
+    assert_eq!(expected["timeZone"], "Asia/Kuala_Lumpur");
+    assert_eq!(
+        expected["counts"],
+        serde_json::json!({"candidates":6,"scheduled":4,"unscheduled":1,"invalid":1})
+    );
+    let nodes = expected["nodes"].as_array().unwrap();
+    let node = |path: &str| nodes.iter().find(|n| n["path"] == path).unwrap();
+    assert_eq!(node("exhibits/all-day/installation.md")["progress"], 40);
+    assert_eq!(node("exhibits/all-day/opening.md")["progress"], 100);
+    assert_eq!(node("exhibits/timed/evening.md")["progress"], 0);
+    assert!(node("exhibits/timed/point.md").get("progress").is_none());
+    assert_eq!(node("exhibits/all-day/invalid.md")["status"], "invalid");
+    assert_eq!(node("exhibits/all-day/invalid.md")["progress"], 60);
+    assert_eq!(
+        node("exhibits/all-day/unscheduled.md")["status"],
+        "unscheduled"
+    );
+    assert_eq!(node("exhibits/all-day/unscheduled.md")["progress"], 30);
+    assert_eq!(
+        node("exhibits/all-day/opening.md")["classification"]["color"],
+        "#123456"
+    );
+    assert_eq!(
+        node("exhibits/timed/point.md")["classification"],
+        serde_json::json!({"label":"Unclassified","color":null})
+    );
+    assert_eq!(
+        node("exhibits/all-day/opening.md")["dependencies"],
+        serde_json::json!({
+            "declared":7,"duplicates":1,"outsideSelection":1,"selfReferences":1,"unresolved":1,
+            "predecessors":["exhibits/all-day/installation.md","exhibits/all-day/invalid.md","exhibits/all-day/unscheduled.md"]
+        })
+    );
+    for node in nodes {
+        let d = &node["dependencies"];
+        assert_eq!(
+            d["declared"].as_u64().unwrap(),
+            d["predecessors"].as_array().unwrap().len() as u64
+                + [
+                    "duplicates",
+                    "outsideSelection",
+                    "selfReferences",
+                    "unresolved"
+                ]
+                .iter()
+                .map(|key| d[key].as_u64().unwrap())
+                .sum::<u64>()
+        );
+    }
+    let rows = expected["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 4);
+    assert_eq!(
+        rows[0]["temporal"],
+        serde_json::json!({"kind":"date","start":"2028-02-28","endExclusive":"2028-03-02"})
+    );
+    assert_eq!(rows[1]["milestone"], true);
+    assert_eq!(
+        rows[2]["temporal"],
+        serde_json::json!({"kind":"datetime","start":"2028-03-02T15:00:00Z","endExclusive":"2028-03-02T16:00:00Z"})
+    );
+    assert_eq!(rows[2]["afterLastDate"], "2028-03-03");
+    assert_eq!(rows[3]["firstDate"], "2028-03-03");
+    assert_eq!(rows[3]["temporal"]["endExclusive"], serde_json::Value::Null);
+    assert_eq!(rows[3]["milestone"], false);
+    let edges = expected["edges"].as_array().unwrap();
+    assert_eq!(
+        edges.iter().filter(|e| e["status"] == "anchored").count(),
+        1
+    );
+    assert_eq!(
+        edges.iter().filter(|e| e["status"] == "unanchored").count(),
+        2
+    );
+    assert!(!expected.to_string().contains("hidden.md"));
+    for code in [
+        "entryRef.unresolved",
+        "view.ganttIntervalInvalid",
+        "view.ganttDependencySelf",
+    ] {
+        assert!(result.diagnostics.iter().any(|d| d.code == code), "{code}");
+    }
 }
 
 #[test]

@@ -51,6 +51,64 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn shared_wire_fixture_matches_real_core_output() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/temporal-views");
+    let result = render_view(root, "config/calendar", BTreeMap::new()).unwrap();
+    let expected: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../packages/shared/src/fixtures/calendar-core.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(result.render.unwrap()).unwrap(),
+        expected
+    );
+    // Independent oracles prevent a regenerated, reduced fixture from passing.
+    assert_eq!(expected["timeZone"], "Asia/Kuala_Lumpur");
+    assert_eq!(expected["firstDayOfWeek"], "sunday");
+    assert_eq!(
+        expected["counts"],
+        serde_json::json!({"candidates":6,"scheduled":4,"unscheduled":1,"invalid":1})
+    );
+    let events = expected["events"].as_array().unwrap();
+    assert_eq!(events.len(), 4);
+    assert_eq!(
+        events[0]["temporal"],
+        serde_json::json!({"kind":"date","start":"2028-02-28","endExclusive":"2028-03-02"})
+    );
+    assert_eq!(events[1]["classification"]["color"], "#123456");
+    assert_eq!(
+        events[2]["temporal"],
+        serde_json::json!({"kind":"datetime","start":"2028-03-02T15:00:00Z","endExclusive":"2028-03-02T16:00:00Z"})
+    );
+    assert_eq!(events[2]["firstDate"], "2028-03-02");
+    assert_eq!(events[2]["afterLastDate"], "2028-03-03");
+    assert_eq!(
+        events[3]["temporal"],
+        serde_json::json!({"kind":"datetime","start":"2028-03-02T16:30:00Z","endExclusive":null})
+    );
+    assert_eq!(events[3]["firstDate"], "2028-03-03");
+    assert_eq!(
+        events[3]["classification"],
+        serde_json::json!({"label":"Unclassified","color":null})
+    );
+    assert_eq!(
+        expected["unscheduled"],
+        serde_json::json!([{"path":"exhibits/all-day/unscheduled.md","title":"Unscheduled Exhibit","classification":{"label":"Preparation","color":"#16A34A"}}])
+    );
+    for event in events {
+        for gantt_only in ["milestone", "progress", "dependencies"] {
+            assert!(event.get(gantt_only).is_none(), "{gantt_only}");
+        }
+    }
+    assert!(expected.get("nodes").is_none());
+    assert!(expected.get("edges").is_none());
+    assert!(!expected.to_string().contains("hidden.md"));
+    for code in ["entryRef.unresolved", "view.calendarIntervalInvalid"] {
+        assert!(result.diagnostics.iter().any(|d| d.code == code), "{code}");
+    }
+}
+
+#[test]
 fn calendar_field_colors_reuse_graph_palette_and_preserve_neutral_values() {
     let f = Fixture::new("date", "UTC");
     for (name, value) in [

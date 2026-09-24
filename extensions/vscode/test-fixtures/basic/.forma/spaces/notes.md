@@ -15,6 +15,16 @@ schema:
             type: string
         owner:
             type: noteRef
+        startsOn:
+            type: date
+        endsOn:
+            type: date
+        predecessors:
+            type: list
+            items:
+                type: noteRef
+        percentComplete:
+            type: integer
         tags:
             type: list
             items:

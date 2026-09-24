@@ -33,6 +33,22 @@ schema:
             type: list
             items:
                 type: sample
+        opensOn:
+            type: date
+        closesOn:
+            type: date
+        startsAt:
+            type: datetime
+        endsAt:
+            type: datetime
+        isMilestone:
+            type: boolean
+        percentComplete:
+            type: integer
+        predecessors:
+            type: list
+            items:
+                type: sample
 display:
     order: 20
 description: Deterministic records reused across Reader, Table, Kanban, Graph, Browse, and Quick Open validation.

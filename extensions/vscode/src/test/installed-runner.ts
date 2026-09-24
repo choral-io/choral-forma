@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 
 import { assertNativeMarkdownLink } from "./link-assertions.ts";
 import { measureWarmPerformance } from "./performance-gate.ts";
+import { assertTemporalViewPreview, withCleanViewDiagnostics } from "./view-preview-assertions.ts";
 
 export async function run(): Promise<void> {
     const formaTestBin = process.env.FORMA_TEST_BIN;
@@ -171,35 +172,41 @@ export async function run(): Promise<void> {
     await vscode.commands.executeCommand("forma.openSource", source);
     assert.equal(vscode.window.activeTextEditor?.document.uri.toString(), source.toString());
 
-    for (const path of [
-        ".forma/views/list.md",
-        ".forma/views/table.md",
-        ".forma/views/kanban.md",
-        ".forma/views/graph.md",
-    ]) {
-        const uri = (await vscode.workspace.findFiles(path, undefined, 1))[0];
-        assert.ok(uri, `${path} should be discoverable`);
-        const document = await vscode.workspace.openTextDocument(uri);
-        await vscode.window.showTextDocument(document);
-        assert.ok(
-            !(vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputWebview),
-            `${path} source should be active before opening its preview`,
-        );
-        const existingTabs = new Set(vscode.window.tabGroups.all.flatMap((group) => group.tabs));
-        await vscode.commands.executeCommand("forma.openViewPreviewToSide", uri);
-        let preview: vscode.Tab | undefined;
-        const previewOpened = await waitFor(() => {
-            preview = vscode.window.tabGroups.all
-                .flatMap((group) => group.tabs)
-                .find((tab) => !existingTabs.has(tab) && isNativeMarkdownPreview(tab));
-            return preview !== undefined;
-        });
-        assert.equal(previewOpened, true, `${path} should open the native Markdown Preview tab`);
-        assert.ok(preview, `${path} native Markdown Preview tab should be available for cleanup`);
-        assert.equal(document.isDirty, false, path);
-        assert.ok(document.getText().includes("<!-- forma:content -->"), path);
-        assert.equal(await vscode.window.tabGroups.close(preview), true, `${path} preview should close cleanly`);
-    }
+    await withCleanViewDiagnostics(noteDocument, async () => {
+        for (const path of [
+            ".forma/views/list.md",
+            ".forma/views/table.md",
+            ".forma/views/kanban.md",
+            ".forma/views/graph.md",
+            ".forma/views/calendar.md",
+            ".forma/views/gantt.md",
+        ]) {
+            const uri = (await vscode.workspace.findFiles(path, undefined, 1))[0];
+            assert.ok(uri, `${path} should be discoverable`);
+            const document = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(document);
+            assert.ok(
+                !(vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputWebview),
+                `${path} source should be active before opening its preview`,
+            );
+            const existingTabs = new Set(vscode.window.tabGroups.all.flatMap((group) => group.tabs));
+            await vscode.commands.executeCommand("forma.openViewPreviewToSide", uri);
+            let preview: vscode.Tab | undefined;
+            const previewOpened = await waitFor(() => {
+                preview = vscode.window.tabGroups.all
+                    .flatMap((group) => group.tabs)
+                    .find((tab) => !existingTabs.has(tab) && isNativeMarkdownPreview(tab));
+                return preview !== undefined;
+            });
+            assert.equal(previewOpened, true, `${path} should open the native Markdown Preview tab`);
+            assert.ok(preview, `${path} native Markdown Preview tab should be available for cleanup`);
+            assert.equal(document.isDirty, false, path);
+            assert.ok(document.getText().includes("<!-- forma:content -->"), path);
+            if (path.endsWith("/calendar.md")) await assertTemporalViewPreview(document, "calendar");
+            if (path.endsWith("/gantt.md")) await assertTemporalViewPreview(document, "gantt");
+            assert.equal(await vscode.window.tabGroups.close(preview), true, `${path} preview should close cleanly`);
+        }
+    });
 }
 
 function isNativeMarkdownPreview(tab: vscode.Tab): boolean {

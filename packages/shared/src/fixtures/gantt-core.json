@@ -1,35 +1,40 @@
 {
   "counts": {
-    "candidates": 7,
-    "invalid": 0,
-    "scheduled": 6,
+    "candidates": 6,
+    "invalid": 1,
+    "scheduled": 4,
     "unscheduled": 1
   },
   "edges": [
     {
-      "from": "tasks/review-getting-started-workspace.md",
-      "id": "[\"tasks/review-getting-started-workspace.md\",\"tasks/add-team-notes.md\"]",
+      "from": "exhibits/all-day/installation.md",
+      "id": "[\"exhibits/all-day/installation.md\",\"exhibits/all-day/opening.md\"]",
       "relation": "finishToStart",
       "status": "anchored",
-      "to": "tasks/add-team-notes.md"
+      "to": "exhibits/all-day/opening.md"
+    },
+    {
+      "from": "exhibits/all-day/invalid.md",
+      "id": "[\"exhibits/all-day/invalid.md\",\"exhibits/all-day/opening.md\"]",
+      "relation": "finishToStart",
+      "status": "unanchored",
+      "to": "exhibits/all-day/opening.md"
+    },
+    {
+      "from": "exhibits/all-day/unscheduled.md",
+      "id": "[\"exhibits/all-day/unscheduled.md\",\"exhibits/all-day/opening.md\"]",
+      "relation": "finishToStart",
+      "status": "unanchored",
+      "to": "exhibits/all-day/opening.md"
     }
   ],
   "kind": "gantt",
   "nodes": [
     {
-      "dependencies": {
-        "declared": 1,
-        "duplicates": 0,
-        "outsideSelection": 0,
-        "predecessors": ["tasks/review-getting-started-workspace.md"],
-        "selfReferences": 0,
-        "unresolved": 0
+      "classification": {
+        "color": "#16A34A",
+        "label": "Preparation"
       },
-      "path": "tasks/add-team-notes.md",
-      "status": "scheduled",
-      "title": "Add Team Notes"
-    },
-    {
       "dependencies": {
         "declared": 0,
         "duplicates": 0,
@@ -38,11 +43,16 @@
         "selfReferences": 0,
         "unresolved": 0
       },
-      "path": "tasks/collect-onboarding-questions.md",
+      "path": "exhibits/all-day/installation.md",
+      "progress": 40,
       "status": "scheduled",
-      "title": "Collect Onboarding Questions"
+      "title": "Installation"
     },
     {
+      "classification": {
+        "color": "#16A34A",
+        "label": "Preparation"
+      },
       "dependencies": {
         "declared": 0,
         "duplicates": 0,
@@ -51,11 +61,38 @@
         "selfReferences": 0,
         "unresolved": 0
       },
-      "path": "tasks/connect-related-pages.md",
-      "status": "scheduled",
-      "title": "Connect Related Pages"
+      "path": "exhibits/all-day/invalid.md",
+      "progress": 60,
+      "status": "invalid",
+      "title": "Invalid Interval"
     },
     {
+      "classification": {
+        "color": "#123456",
+        "label": "#123456"
+      },
+      "dependencies": {
+        "declared": 7,
+        "duplicates": 1,
+        "outsideSelection": 1,
+        "predecessors": [
+          "exhibits/all-day/installation.md",
+          "exhibits/all-day/invalid.md",
+          "exhibits/all-day/unscheduled.md"
+        ],
+        "selfReferences": 1,
+        "unresolved": 1
+      },
+      "path": "exhibits/all-day/opening.md",
+      "progress": 100,
+      "status": "scheduled",
+      "title": "Opening"
+    },
+    {
+      "classification": {
+        "color": "#16A34A",
+        "label": "Preparation"
+      },
       "dependencies": {
         "declared": 0,
         "duplicates": 0,
@@ -64,117 +101,92 @@
         "selfReferences": 0,
         "unresolved": 0
       },
-      "path": "tasks/prepare-first-team-overview.md",
-      "status": "scheduled",
-      "title": "Prepare First Team Overview"
-    },
-    {
-      "dependencies": {
-        "declared": 0,
-        "duplicates": 0,
-        "outsideSelection": 0,
-        "predecessors": [],
-        "selfReferences": 0,
-        "unresolved": 0
-      },
-      "path": "tasks/publish-read-only-workspace.md",
-      "status": "scheduled",
-      "title": "Publish Read-only Workspace"
-    },
-    {
-      "dependencies": {
-        "declared": 0,
-        "duplicates": 0,
-        "outsideSelection": 0,
-        "predecessors": [],
-        "selfReferences": 0,
-        "unresolved": 0
-      },
-      "path": "tasks/review-getting-started-workspace.md",
-      "status": "scheduled",
-      "title": "Review Getting Started Workspace"
-    },
-    {
-      "dependencies": {
-        "declared": 0,
-        "duplicates": 0,
-        "outsideSelection": 0,
-        "predecessors": [],
-        "selfReferences": 0,
-        "unresolved": 0
-      },
-      "path": "tasks/validate-editor-link-navigation.md",
+      "path": "exhibits/all-day/unscheduled.md",
+      "progress": 30,
       "status": "unscheduled",
-      "title": "Validate Editor Link Navigation"
+      "title": "Unscheduled Exhibit"
+    },
+    {
+      "classification": {
+        "color": "#65A30D",
+        "label": "Programme"
+      },
+      "dependencies": {
+        "declared": 0,
+        "duplicates": 0,
+        "outsideSelection": 0,
+        "predecessors": [],
+        "selfReferences": 0,
+        "unresolved": 0
+      },
+      "path": "exhibits/timed/evening.md",
+      "progress": 0,
+      "status": "scheduled",
+      "title": "Evening Exhibit"
+    },
+    {
+      "classification": {
+        "color": null,
+        "label": "Unclassified"
+      },
+      "dependencies": {
+        "declared": 0,
+        "duplicates": 0,
+        "outsideSelection": 0,
+        "predecessors": [],
+        "selfReferences": 0,
+        "unresolved": 0
+      },
+      "path": "exhibits/timed/point.md",
+      "status": "scheduled",
+      "title": "Timed Point"
     }
   ],
   "rows": [
     {
-      "afterLastDate": "2026-06-02",
-      "firstDate": "2026-06-01",
+      "afterLastDate": "2028-03-02",
+      "firstDate": "2028-02-28",
       "milestone": false,
-      "path": "tasks/publish-read-only-workspace.md",
+      "path": "exhibits/all-day/installation.md",
       "temporal": {
-        "endExclusive": "2026-06-02",
+        "endExclusive": "2028-03-02",
         "kind": "date",
-        "start": "2026-06-01"
+        "start": "2028-02-28"
       }
     },
     {
-      "afterLastDate": "2026-06-06",
-      "firstDate": "2026-06-05",
-      "milestone": false,
-      "path": "tasks/review-getting-started-workspace.md",
+      "afterLastDate": "2028-03-03",
+      "firstDate": "2028-03-02",
+      "milestone": true,
+      "path": "exhibits/all-day/opening.md",
       "temporal": {
-        "endExclusive": "2026-06-06",
+        "endExclusive": "2028-03-03",
         "kind": "date",
-        "start": "2026-06-05"
+        "start": "2028-03-02"
       }
     },
     {
-      "afterLastDate": "2026-06-11",
-      "firstDate": "2026-06-10",
+      "afterLastDate": "2028-03-03",
+      "firstDate": "2028-03-02",
       "milestone": false,
-      "path": "tasks/prepare-first-team-overview.md",
+      "path": "exhibits/timed/evening.md",
       "temporal": {
-        "endExclusive": "2026-06-11",
-        "kind": "date",
-        "start": "2026-06-10"
+        "endExclusive": "2028-03-02T16:00:00Z",
+        "kind": "datetime",
+        "start": "2028-03-02T15:00:00Z"
       }
     },
     {
-      "afterLastDate": "2026-06-13",
-      "firstDate": "2026-06-12",
+      "afterLastDate": "2028-03-04",
+      "firstDate": "2028-03-03",
       "milestone": false,
-      "path": "tasks/add-team-notes.md",
+      "path": "exhibits/timed/point.md",
       "temporal": {
-        "endExclusive": "2026-06-13",
-        "kind": "date",
-        "start": "2026-06-12"
-      }
-    },
-    {
-      "afterLastDate": "2026-06-15",
-      "firstDate": "2026-06-14",
-      "milestone": false,
-      "path": "tasks/connect-related-pages.md",
-      "temporal": {
-        "endExclusive": "2026-06-15",
-        "kind": "date",
-        "start": "2026-06-14"
-      }
-    },
-    {
-      "afterLastDate": "2026-06-17",
-      "firstDate": "2026-06-16",
-      "milestone": false,
-      "path": "tasks/collect-onboarding-questions.md",
-      "temporal": {
-        "endExclusive": "2026-06-17",
-        "kind": "date",
-        "start": "2026-06-16"
+        "endExclusive": null,
+        "kind": "datetime",
+        "start": "2028-03-02T16:30:00Z"
       }
     }
   ],
-  "timeZone": "UTC"
+  "timeZone": "Asia/Kuala_Lumpur"
 }

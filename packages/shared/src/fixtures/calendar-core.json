@@ -1,0 +1,83 @@
+{
+  "counts": {
+    "candidates": 6,
+    "invalid": 1,
+    "scheduled": 4,
+    "unscheduled": 1
+  },
+  "events": [
+    {
+      "afterLastDate": "2028-03-02",
+      "classification": {
+        "color": "#16A34A",
+        "label": "Preparation"
+      },
+      "firstDate": "2028-02-28",
+      "path": "exhibits/all-day/installation.md",
+      "temporal": {
+        "endExclusive": "2028-03-02",
+        "kind": "date",
+        "start": "2028-02-28"
+      },
+      "title": "Installation"
+    },
+    {
+      "afterLastDate": "2028-03-03",
+      "classification": {
+        "color": "#123456",
+        "label": "#123456"
+      },
+      "firstDate": "2028-03-02",
+      "path": "exhibits/all-day/opening.md",
+      "temporal": {
+        "endExclusive": "2028-03-03",
+        "kind": "date",
+        "start": "2028-03-02"
+      },
+      "title": "Opening"
+    },
+    {
+      "afterLastDate": "2028-03-03",
+      "classification": {
+        "color": "#65A30D",
+        "label": "Programme"
+      },
+      "firstDate": "2028-03-02",
+      "path": "exhibits/timed/evening.md",
+      "temporal": {
+        "endExclusive": "2028-03-02T16:00:00Z",
+        "kind": "datetime",
+        "start": "2028-03-02T15:00:00Z"
+      },
+      "title": "Evening Exhibit"
+    },
+    {
+      "afterLastDate": "2028-03-04",
+      "classification": {
+        "color": null,
+        "label": "Unclassified"
+      },
+      "firstDate": "2028-03-03",
+      "path": "exhibits/timed/point.md",
+      "temporal": {
+        "endExclusive": null,
+        "kind": "datetime",
+        "start": "2028-03-02T16:30:00Z"
+      },
+      "title": "Timed Point"
+    }
+  ],
+  "firstDayOfWeek": "sunday",
+  "kind": "calendar",
+  "timeZone": "Asia/Kuala_Lumpur",
+  "unscheduled": [
+    {
+      "classification": {
+        "color": "#16A34A",
+        "label": "Preparation"
+      },
+      "path": "exhibits/all-day/unscheduled.md",
+      "title": "Unscheduled Exhibit"
+    }
+  ]
+}

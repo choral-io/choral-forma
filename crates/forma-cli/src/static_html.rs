@@ -818,6 +818,41 @@ pub(crate) fn sitemap_xml(base_url: &str, root_path: &str, pages: &[StaticPage])
 #[cfg(test)]
 mod tests {
     #[test]
+    fn gantt_progress_matches_the_shared_wording_fixture() {
+        #[derive(serde::Deserialize)]
+        struct ProgressLabel {
+            progress: Option<u8>,
+            label: String,
+        }
+        let labels: Vec<ProgressLabel> = serde_json::from_str(include_str!(
+            "../../../packages/shared/src/fixtures/gantt-progress-labels.json"
+        ))
+        .unwrap();
+        let mut projection: forma_core::ViewRenderOutput = serde_json::from_str(include_str!(
+            "../../../packages/shared/src/fixtures/gantt-core.json"
+        ))
+        .unwrap();
+        for expected in labels {
+            if let forma_core::ViewRenderOutput::Gantt {
+                nodes, rows, edges, ..
+            } = &mut projection
+            {
+                nodes.truncate(1);
+                nodes[0].status = forma_core::GanttStatus::Unscheduled;
+                nodes[0].progress = expected.progress;
+                nodes[0].dependencies.predecessors.clear();
+                rows.clear();
+                edges.clear();
+            }
+            let html = super::projection_html(&projection, &std::collections::BTreeMap::new(), "/");
+            assert!(html.contains(&format!("<p>Unscheduled{}</p>", expected.label)));
+            if expected.progress.is_none() {
+                assert!(!html.contains("% complete"));
+            }
+        }
+    }
+
+    #[test]
     fn gantt_list_is_complete_deterministic_and_has_no_unavailable_links() {
         let mut projection: forma_core::ViewRenderOutput = serde_json::from_str(include_str!(
             "../../../packages/shared/src/fixtures/gantt-core.json"
@@ -834,7 +869,44 @@ mod tests {
         assert!(html.contains("&lt;script&gt;unsafe&lt;/script&gt;"));
         assert!(!html.contains("<script>"));
         assert!(!html.contains("href="));
-        assert!(html.contains("Review Getting Started Workspace"));
+        assert!(html.contains("Opening"));
+        assert!(html.contains("Invalid interval"));
+        assert!(html.contains("Milestone"));
+        assert!(html.contains(" · 0% complete"));
+        assert!(html.contains(" · 100% complete"));
+        assert!(
+            html.contains("1 outside selection · 1 unresolved · 1 duplicates · 1 self references")
+        );
+    }
+
+    #[test]
+    fn calendar_core_fixture_renders_complete_mixed_agenda() {
+        let projection: forma_core::ViewRenderOutput = serde_json::from_str(include_str!(
+            "../../../packages/shared/src/fixtures/calendar-core.json"
+        ))
+        .unwrap();
+        let html = super::projection_html(&projection, &std::collections::BTreeMap::new(), "/");
+        assert!(html.contains("4 events · 1 unscheduled · 1 invalid · Asia/Kuala_Lumpur"));
+        assert!(html.contains("2028-02-28 – 2028-03-01 · All day"));
+        assert!(html.contains("end exclusive"));
+        if let forma_core::ViewRenderOutput::Calendar {
+            events,
+            unscheduled,
+            ..
+        } = &projection
+        {
+            for entry in events {
+                assert!(html.contains(&entry.title));
+                assert!(html.contains(&entry.range_label("Asia/Kuala_Lumpur")));
+                assert!(html.contains(&entry.classification.as_ref().unwrap().label));
+            }
+            for entry in unscheduled {
+                assert!(html.contains(&entry.title));
+            }
+        } else {
+            panic!("Expected Calendar projection");
+        }
+        assert!(!html.contains("href="));
     }
     use super::{
         PageShellOptions, StaticPage, display_value, escape_html, page_shell, projection_html,

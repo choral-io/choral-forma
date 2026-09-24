@@ -6,6 +6,7 @@ import type {
 } from "@choral-forma/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import calendarFixture from "../../../shared/src/fixtures/calendar-core.json";
 import ganttFixture from "../../../shared/src/fixtures/gantt-core.json";
 import { RpcWorkspaceClient } from "./rpc-workspace-client";
 import { createWorkspaceDashboardContext } from "./workspace-client";
@@ -15,13 +16,13 @@ async function contextFor(client: RpcWorkspaceClient) {
 }
 
 describe("RpcWorkspaceClient View rendering", () => {
-    it("preserves the Core Gantt wire projection and source routes", async () => {
-        const projection = ganttFixture as ViewRenderOutput;
+    it.each([calendarFixture, ganttFixture])("preserves the Core $kind wire projection", async (fixture) => {
+        const projection = fixture as ViewRenderOutput;
         stubRpc("", undefined, undefined, projection);
         const client = new RpcWorkspaceClient("/rpc");
         const result = await client.getViewRender(".forma/views/release-scope", await contextFor(client));
         expect(result.projection).toMatchObject(projection);
-        expect(result.projection.kind).toBe("gantt");
+        expect(result.projection.kind).toBe(fixture.kind);
     });
     it("preserves Calendar temporal values and counts without treating them as Table data", async () => {
         const projection: ViewRenderOutput = {
