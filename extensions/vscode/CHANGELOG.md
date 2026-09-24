@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.37
+
+- Add read-only Calendar Views with Core-owned date/timezone semantics, a WebApp month view and Agenda, native month/date jumps, classification accents, and complete day lists. VS Code and static HTML provide semantic Agendas.
+- Add read-only Gantt Views with explicit intervals, milestones, progress, and finish-to-start dependencies. The WebApp provides a windowed timeline, complete anchored-edge connectors, row selection and locating; VS Code and static HTML provide complete navigable lists.
+- Add shared temporal contract fixtures checked against real Core output, manual validation cases, and Calendar/Gantt editor-host coverage.
+- Prevent fresh editor requests from inheriting already-cancelled work and stale preview refreshes from overwriting newer content.
+- Refresh the coordinated dependencies and toolchain, fix Lucide module compatibility in the editor build, and include the Zed WASI build target.
+- Calendar and Gantt do not add scheduling, dragging, date write-back, or specialized runtime libraries. Dense connector appearance remains a known limitation.
+
 ## 0.1.36
 
 - Add the first reviewed Guided Modeling slice with `forma model guide`, `forma model prepare`, and `forma model apply` documentation and an explicit `structuredMarkdown` output contract.

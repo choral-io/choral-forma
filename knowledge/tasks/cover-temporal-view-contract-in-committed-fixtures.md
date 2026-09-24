@@ -9,11 +9,14 @@ priority: P2
 value: M
 module: views
 effort: M
-status: backlog
-readiness: needs-refinement
-owners: []
-assignees: []
-reviewers: []
+status: reviewing
+readiness: ready
+owners:
+    - members/tiscs
+assignees:
+    - members/tiscs
+reviewers:
+    - members/tiscs
 tags:
     - views
     - gantt
@@ -48,7 +51,7 @@ Make the committed fixtures exercise the temporal View contract that Core, the W
 - `examples/getting-started-workspace/.forma/views/gantt.md`: its source View.
 - `fixtures/forma-validation/`: the manual validation corpus and its `guidelines/case-authoring.md`.
 
-## Current Coverage
+## Historical Gap Assessment — 2026-09-22
 
 Measured on 2026-09-22, after the Gantt progress and connector work landed.
 
@@ -68,7 +71,7 @@ Optional fields are skipped when absent, so adding `progress` to the wire contra
 
 Calendar has a distinct projection contract and does not carry Gantt-only progress, milestone, or dependency fields. It needs its own shared wire fixture and coverage criteria: date and datetime events, optional classification from `calendar.presentation.events.colorBy`, and candidate/scheduled/unscheduled/invalid accounting.
 
-The validation corpus has active cases for kanban, table, graph, reader, mermaid, shell and workspace, and none for calendar or gantt; neither `afc3bc7` nor `217fa2e` added one. Its `caseArea` enum has no temporal value and its samples schema has no temporal fields, so a case needs both extended. Its `sample` type is already an `entryRef`, but `relatedSamples` does not mean predecessors and should not be reused as a dependency binding. The corpus passes `check` today, and its `Asia/Kuala_Lumpur` timezone is deliberately not UTC, which a temporal case should exercise.
+At this assessment, the validation corpus had no Calendar or Gantt cases and lacked temporal fields. This gap and counts describe the 2026-09-22 baseline only; the current coverage is recorded below.
 
 ## In Scope
 
@@ -83,16 +86,35 @@ The validation corpus has active cases for kanban, table, graph, reader, mermaid
 - Interactive or visual behaviour already verified under [[tasks/validate-lightweight-gantt-view]].
 - Performance fixtures and scale corpora.
 
-## Open Decisions
+## Source Workspace Decision — 2026-09-24
 
-**Where the richer wire-fixture workspace comes from.** Extending `examples/getting-started-workspace` is the smallest change, but that workspace is the product's onboarding example, and `fixtures/forma-validation/guidelines/case-authoring.md` already states that validation fixtures must not be copied into `examples/` or presented as a product default. Milestones, progress values and a deliberately invalid interval would make the first workspace a new user opens read as test data. The alternative is a dedicated contract-fixture workspace outside `examples/`, which keeps the onboarding example clean at the cost of moving the Gantt equality assertion's source. This needs a decision before either wire fixture is authored; the validation-corpus work does not depend on it.
+Use `fixtures/temporal-views/` as the dedicated source workspace for both wire fixtures. The user authorized autonomous execution of the reviewed release plan. This repository-local placement keeps intentionally invalid intervals and unresolved references out of onboarding examples and the healthy validation corpus. Shared JSON remains under `packages/shared/src/fixtures/`, with real Core equality tests binding it to the dedicated source workspace. The independent manual cases remain in `fixtures/forma-validation/`.
+
+The maintainer, `members/tiscs`, is the owner, assignee, and reviewer. Implementation is ready for review; final user review remains pending. The wire oracle workspace is `fixtures/temporal-views/`; manual interactive cases remain under `fixtures/forma-validation/`. Real Safari, physical-device, and screen-reader evidence is unverified, but the user accepted its deferral for 0.1.37 and it is not a release blocker.
+
+## Current Coverage — 2026-09-24
+
+The shared Gantt wire fixture now has six candidates, four scheduled rows, one invalid node, one unscheduled node, and three edges covering anchored and unanchored states. It exercises civil dates and datetimes, classification, explicit milestone state, progress values including authored zero and absent progress, and all dependency accounting categories. The Core equality test also pins independent counts, selected node values, and temporal boundaries so reducing the JSON snapshot cannot silently remove coverage.
+
+Calendar has a separate shared fixture with six candidates, four scheduled events, one invalid candidate, and one unscheduled entry. It covers date and datetime events, timezone projection, classification including unclassified output, and explicitly verifies that Gantt-only `milestone`, `progress`, `dependencies`, `nodes`, and `edges` do not leak into Calendar output.
+
+| Contract feature | Current evidence |
+| --- | --- |
+| Gantt progress, including absent versus zero | `gantt-core.json` plus independent Core assertions; `gantt-progress-labels.json` is consumed by both the shared formatter test and static HTML test |
+| Gantt classification, milestone, date/datetime, scheduled/invalid/unscheduled | Shared Gantt fixture and Core equality test |
+| Gantt anchored/unanchored edges and dependency count closure | Shared Gantt fixture and Core equality test |
+| Calendar date/datetime, timezone, classification, and candidate counts | Separate Calendar fixture and Core equality test |
+| Cross-consumer decoding/rendering | Core, CLI static HTML, shared TypeScript, WebApp RPC/static clients, and VS Code preview tests consume the shared fixtures |
+| Manual Calendar/Gantt coverage | Active cases with stable `CALENDAR-*` and `GANTT-*` assertions in `fixtures/forma-validation/`; dedicated `predecessors` field; non-UTC timestamps; Agenda/list and keyboard instructions |
+
+The Forma validation corpus passes `check` and `workspace health` with no diagnostics. Calendar and Gantt renders each report four candidates, three scheduled and one unscheduled, with no invalid entries. In Gantt, the unscheduled predecessor relationship remains in the complete list and produces an unanchored edge without a timeline bar or connector.
 
 ## Acceptance Criteria
 
-- [ ] Decide where the wire fixture's source workspace lives and record the reason.
-- [ ] The shared Gantt wire fixture exercises every row in its coverage table.
-- [ ] A separate Calendar wire fixture exercises date and datetime events, configured classification, and candidate/scheduled/unscheduled/invalid accounting without requiring Gantt-only fields.
-- [ ] For every listed Gantt and Calendar feature, at least one committed test fails if Core omits or changes that feature.
-- [ ] The static export and shared formatter tests both assert the progress wording against the same committed expected-text fixture.
-- [ ] The validation corpus has active calendar and gantt cases with stable assertion identifiers, and still passes `check`.
-- [ ] Assign owner and reviewer, and record the review outcome.
+- [x] Decide where the wire fixture's source workspace lives and record the reason.
+- [x] The shared Gantt wire fixture exercises every feature listed in the coverage inventory.
+- [x] A separate Calendar wire fixture exercises date and datetime events, configured classification, and candidate/scheduled/unscheduled/invalid accounting without Gantt-only fields.
+- [x] Core equality tests and consumer tests protect the listed Gantt and Calendar output features.
+- [x] Static export and shared formatter tests assert progress wording against the shared expected-text fixture.
+- [x] The validation corpus has active Calendar and Gantt cases with stable assertion identifiers and passes `check` and health.
+- [ ] Record final user review and acceptance.

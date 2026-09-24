@@ -33,9 +33,9 @@ This contract is **accepted** by explicit user approval on 2026-09-22, following
 
 ### Acceptance Record — 2026-09-22
 
-The user explicitly approved moving this proposal to accepted after evaluating its status against the completed review and implementation. Related tasks remain reviewing; owner/reviewer metadata remains unassigned. The historical preparation and review sections below remain evidence of their original stages, not a pending proposal-status decision. Remaining validation and test-coverage gaps are tracked in [[planning/gantt-view-implementation-plan]] and [[tasks/validate-lightweight-gantt-view]].
+On 2026-09-22, the user explicitly approved moving this proposal to accepted after evaluating its status against the completed review and implementation. The related tasks remained in review at that point; their current owner, assignee, reviewer, and readiness appear in each Task's frontmatter. The historical preparation and review sections below are evidence of their original stages, not a pending proposal-status decision. Remaining validation and test-coverage gaps are tracked in [[planning/gantt-view-implementation-plan]] and [[tasks/validate-lightweight-gantt-view]].
 
-The accepted scope is day resolution only, milestones from an explicit boolean binding with no inference, finish-to-start as the only relation, six dependency target states whose counts must close, connectors bounded by a row-count threshold, no configured range or zoom keys, and reuse of Calendar's temporal normalization unchanged. The **Review Decision** section preserves the earlier review record.
+The accepted scope is day resolution only, milestones from an explicit boolean binding with no inference, finish-to-start as the only relation, six dependency target states whose counts must close, all anchored connectors drawn at every row count, no configured range or zoom keys, and reuse of Calendar's temporal normalization unchanged. The user accepted the current high-density appearance on 2026-09-24; further visual optimization is deferred.
 
 Assertions of the form "measurement showed" or "measurement confirmed" refer to the prototype and fixture work recorded in [[design/gantt-view-validation-2026-09-22]], which also carries the go recommendation and the list of what remains unproven. That record is evidence, not review.
 
@@ -179,7 +179,7 @@ Missing or null dependency values declare zero items; a scalar non-null value de
 
 What the spike did settle is that drawing every edge would not be useful. Rows are ordered by start date, so a dependency lands anywhere in the list: the median edge spans 297 rows in a 1,000-row projection and 1,356 rows in a 5,000-row one, and both endpoints fall on one screen for 3.3 percent and 0.8 percent of edges respectively. Ninety-seven percent or more of all-edge connectors would be vertical lines leaving the viewport at both ends.
 
-The lever for graphical dependency reading is therefore **row ordering**, not connector rendering or routing. Dependency-aware ordering is deferred: the existing field-based `sort` is not a graph-ordering algorithm. A future graph-aware sort needs its own semantics and review, although this node/row projection does not prevent it. Connector scope is now bounded by row count rather than fixed to the selection: below the threshold every anchored edge is drawn, above it only the selected row's. The threshold is a judgement, not a measurement, and belongs in the implementation as a named constant with its reasoning.
+The lever for graphical dependency reading is therefore **row ordering**, not connector rendering or routing. Dependency-aware ordering is deferred: the existing field-based `sort` is not a graph-ordering algorithm. A future graph-aware sort needs its own semantics and review, although this node/row projection does not prevent it. The initial implementation bounded connector scope by row count, but on 2026-09-24 the user chose complete display instead: every anchored edge is drawn at every row count. The dense appearance is accepted for now; optimization may be revisited later.
 
 ### Projection
 
@@ -324,7 +324,7 @@ A binding-type failure is a View configuration problem even when it manifests pe
 | Surface | Initial capability | Range and dependency behavior |
 | --- | --- | --- |
 | Core / CLI / RPC | Complete typed node list, row geometry, edges, counts, diagnostics | Deterministic for the same snapshot; no injected current timestamp |
-| WebApp | Sticky title column and date header in one local scroll region, day-resolution bars, continuous horizontal scrolling, Today, date jump, day-width selection | One uninterrupted track over the whole data extent, extended on demand at either edge; per-row predecessor list; connectors for every anchored edge in a small projection and for the selected row above a row-count threshold; complete list reachable at every width |
+| WebApp | Sticky title column and date header in one local scroll region, day-resolution bars, continuous horizontal scrolling, Today, date jump, day-width selection | One uninterrupted track over the whole data extent, extended on demand at either edge; per-row predecessor list; all anchored connectors at every row count; complete list reachable at every width |
 | Static HTML | Deterministic interval and predecessor list for every node, with unscheduled and invalid nodes stated as such | Complete data, no timeline geometry, no dependence on build date, no broken links to unavailable targets |
 | VS Code | Same complete interval and predecessor list | Host navigation and theme adaptation |
 
@@ -358,7 +358,7 @@ The subsequent presentation review retained native two-dimensional scrolling but
 
 Row titles are single-line and truncated, so row height is fixed. This is what makes hand-written windowing sufficient and keeps the dependency budget at zero.
 
-**Not rendered is not the same as not anchorable.** `unanchored` means at least one endpoint has no usable interval. An edge with two scheduled endpoints remains `anchored` even when either row is outside the render window: geometry is arithmetic and needs no element. The initial selected-row connector slice may omit off-window connectors while retaining their navigable list entries; this must never change the edge status. No connector is drawn for an `unanchored` edge.
+**Not rendered is not the same as not anchorable.** `unanchored` means at least one endpoint has no usable interval. An edge with two scheduled endpoints remains `anchored` even when either row is outside the render window: geometry is arithmetic and needs no element, so every anchored edge is drawn independently of row windowing. No connector is drawn for an `unanchored` edge.
 
 **A bar carries its entry's title, and the title is decoration.** The row's accessible name already states the title and date range, so a visible in-bar label is redundant to assistive technology and must be hidden from it. Clip the label to the bar rather than letting it overflow, and do not widen a bar to fit its text: bar geometry answers to dates only. A bar too narrow to show anything readable shows nothing, because the sticky title column already names every row.
 
@@ -446,7 +446,7 @@ Each fixture records its expected counts, expected row order, and expected edge 
 | empty, all-unscheduled, all-invalid, and all-outside-selection sources | Correct counts and explicit empty states; no fabricated rows or edges |
 | unknown projection kind from a newer backend | Explicit unsupported-projection handling; no Table fallback |
 
-These are proposed oracles, not completed tests. Rendering validation covers 1440, 1024, 768, and 390 px in choral-light and choral-dark, long titles, overlapping spans, multi-year spans, keyboard focus and navigation, source navigation, host-local scrolling without root horizontal overflow, range continuation cues, and a clean browser console. Use playwright-cli across Chromium, Firefox, and WebKit, and report installed Safari, real mobile, and installed VS Code host gaps separately rather than implying coverage.
+These were proposed oracles, not completed tests at the preparation stage. Rendering validation covers 1440, 1024, 768, and 390 px in choral-light and choral-dark, long titles, overlapping spans, multi-year spans, keyboard focus and navigation, source navigation, host-local scrolling without root horizontal overflow, range continuation cues, and a clean browser console. Later Playwright and VS Code host results are recorded in [[tasks/validate-lightweight-gantt-view]]; installed Safari/mobile and real screen-reader gaps remain separate rather than implied by those results.
 
 ## Performance Plan
 
@@ -486,9 +486,9 @@ Dependency state confusion is the most likely way this feature misleads a reader
 
 Cycle detection over a filtered graph is sound only as a statement about the selected graph. Reporting it as a workspace-wide guarantee would be wrong whenever targets outside selection exist; the contract requires the narrower claim.
 
-Connector rendering is the least certain element. Its scope is bounded so that a negative result degrades to a timeline with dependency lists rather than invalidating the feature. A failed connector experiment must be reported as reduced capability, never presented as full graphical Gantt support.
+Connector rendering was the least certain element during design review. The implemented WebApp now draws every anchored edge at every row count; the user accepted its current routing and high-density appearance on 2026-09-24, deferring visual optimization. Legibility on additional real workspaces remains unmeasured, but it is not a reason to reintroduce a row-count cutoff. Current test evidence and limits are recorded in [[tasks/validate-lightweight-gantt-view]].
 
-Confidence is high in reuse of the accepted temporal semantics. Prototype evidence supports the layout approach at the measured scale; production Gantt Core cost, cross-browser size budgets, real paint performance, and installed-host accessibility remain implementation verification gates, not completed evidence.
+Confidence is high in reuse of the accepted temporal semantics. Prototype evidence supports the layout approach at the measured scale. Current browser, Core, and installed-host verification are recorded in [[tasks/validate-lightweight-gantt-view]] and [[planning/temporal-view-release-plan]]. Real Safari, physical-device, and screen-reader behavior remain unverified; the user accepted deferring these checks for 0.1.37. Publication and final user acceptance remain pending.
 
 ## Review Decision
 
@@ -522,22 +522,22 @@ At this review stage, validation had exercised these semantics against real Core
 
 On 2026-09-22 the user replaced the bounded-month range with a continuously scrolling timeline and permitted a virtualization dependency if performance required one. That change is folded in above and re-measured. It simplifies the contract: bar clipping, continuation cues, the out-of-range row state, and the visible-range dependency state all disappear, because every bar sits at a real position on one track. It also introduces the two-axis windowing requirement and its accessibility obligation.
 
-The decisions presented for review, and subsequently accepted, were: day-resolution columns as the only initial resolution; milestones exclusively from an explicit boolean binding with no inference; finish-to-start as the only relation, with the key reserved; six dependency target states, with outside-selection, unresolved, duplicate, and self reference reduced to counts that must close against `declared`; connectors scoped to the selected row as an experiment against the list baseline; no configured range, zoom, or window keys; and reuse of Calendar normalization without modifying Calendar's wire format.
+The decisions presented for review, and subsequently accepted, included connectors initially scoped to the selected row as an experiment against the list baseline. That connector visibility decision was superseded by the user's 2026-09-24 choice to render every anchored edge at every row count; the dense appearance is retained for now and optimization is deferred.
 
 The virtualization question is settled. On 2026-09-22 the user chose single-line truncated titles, hand-written windowing, and no dependency, which the measurements support: two-axis windowing without any library held range extension flat at 3 ms across 34 years of span at 4832 rows, and 12 ms once the always-present complete list is included. Fixed row height is now a contract constraint, and an implementation that lets titles wrap must revisit this decision rather than work around it.
 
-Outstanding beyond this contract: owner and reviewer assignment on [[tasks/validate-lightweight-gantt-view]]. That task moved to reviewing during the 2026-09-22 governance reconciliation; this document does not change its lifecycle metadata, and design acceptance does not imply task acceptance.
+At the 2026-09-22 design handoff, owner and reviewer assignment on [[tasks/validate-lightweight-gantt-view]] was still open. That is historical evidence; current ownership, lifecycle, and delivery evidence are recorded in the Task.
 
 ## Follow-Up
 
-This document was accepted by the user on 2026-09-22 and implemented in `217fa2e` against [[planning/gantt-view-implementation-plan]], whose Implementation Record holds the delivery evidence. What remains:
+This document was accepted by the user on 2026-09-22 and implemented in `217fa2e` against [[planning/gantt-view-implementation-plan]], whose Implementation Record holds the delivery evidence. Current implementation and review status:
 
-1. Assign owner and reviewer on [[tasks/validate-lightweight-gantt-view]], and decide whether further work runs under that Task or a new one. Design acceptance does not accept the delivery.
-2. Revisit the connector row-count threshold against real workspaces. It is a judgement rather than a measurement, and no intermediate projection size has been measured.
-3. Before claiming cross-surface parity, exercise what remains untested outside automated suites: real Safari and mobile, a real screen reader against the windowed row grid, and the installed VS Code host rather than its renderer unit tests. Static HTML output, the VS Code renderer, and shared wire round-tripping against real Core output now have committed tests.
+1. The owner, assignee, and reviewer of [[tasks/validate-lightweight-gantt-view]] are `members/tiscs` as of 2026-09-24. Its lifecycle remains `reviewing`; final delivery acceptance remains separate from design acceptance.
+2. The user removed the connector row-count threshold on 2026-09-24 and accepted the current high-density appearance. Future optimization is deferred and may be revisited with real-workspace evidence; no threshold decision remains open.
+3. Current browser, Core, and installed-host evidence is recorded in [[tasks/validate-lightweight-gantt-view]] and [[planning/temporal-view-release-plan]]. Final publication and user acceptance remain open. Real Safari, physical-device, and screen-reader checks remain unverified under the user's accepted 0.1.37 deferral.
 
 ### Historical Independent Review Closure — 2026-09-22
 
 The follow-up review corrected the remaining contract inconsistencies directly: anchorability now requires two scheduled endpoints; the exclusive upper date boundary matches Calendar; oversized timelines have an explicit complete-list fallback and atomic rejection of unsupported navigation; edge identities are collision-free; cycle participants are strongly connected components; and the implementation plan now agrees on locale handling, invalid-node visibility, and off-window connectors. The complete JSON example and strengthened local conformance checker pass, including negative controls and mixed dependency cases. The checker is a fixture adapter over saved Core outputs, not production Gantt verification; its limitations are recorded in the validation report.
 
-No unresolved design blocker was found after these corrections. At that stage this was an engineering handoff assessment, not Task acceptance or implementation authorization. Implementation was subsequently authorized and committed in `217fa2e`, and the design is now explicitly accepted. Keep the scope read-only, dependency-free, and Core-owned as specified. Current remaining work is listed in Follow-Up above; owner/reviewer assignment and final delivery acceptance remain open.
+No unresolved design blocker was found after these corrections. At that stage this was an engineering handoff assessment, not Task acceptance or implementation authorization. Implementation was subsequently authorized and committed in `217fa2e`, and the design is now explicitly accepted. Keep the scope read-only, dependency-free, and Core-owned as specified. Current remaining work is listed in Follow-Up above; the then-open assignment has since been resolved, while final delivery acceptance remains pending.

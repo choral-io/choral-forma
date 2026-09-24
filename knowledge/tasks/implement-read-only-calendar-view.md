@@ -10,10 +10,13 @@ value: H
 module: views
 effort: L
 status: reviewing
-readiness: needs-refinement
-owners: []
-assignees: []
-reviewers: []
+readiness: ready
+owners:
+    - members/tiscs
+assignees:
+    - members/tiscs
+reviewers:
+    - members/tiscs
 tags:
     - views
     - calendar
@@ -72,14 +75,14 @@ Implement a read-only Calendar month view and Agenda after temporal contract rev
 
 ## Readiness
 
-Calendar was committed as `afc3bc7`. The user authorized governance reconciliation on 2026-09-22, moving this task to reviewing and removing the resolved temporal-contract execution blocker. The prerequisite remains linked under relatedTo. Readiness is needs-refinement for owner/reviewer assignment and final acceptance, not blocked on the already implemented contract. No release or final acceptance is implied.
+Calendar was committed as `afc3bc7`; shared temporal extraction and current cross-surface integration followed in `217fa2e` and the current release-preparation worktree. `members/tiscs` is owner, assignee, and reviewer. Readiness is `ready`; status remains `reviewing` for final user acceptance. Release gates are tracked in [[planning/temporal-view-release-plan]].
 
-## Acceptance Reconciliation — 2026-09-22
+## Acceptance Reconciliation — 2026-09-24
 
-[[design/calendar-view-validation-2026-09-21]] records Core and consumer coverage, WebApp behavior, static output and scale evidence. The implementation adds no runtime dependency, and the subsequent shared temporal extraction in `217fa2e` passed existing Calendar regressions. Unchecked composite criteria remain pending formal acceptance reconciliation, especially owner/reviewer assignment, installed VS Code host validation and real assistive-technology checks. Historical progress below predates the current lifecycle update.
+[[design/calendar-view-validation-2026-09-21]] records the earlier Core and consumer coverage, WebApp behavior, static output and scale evidence. Current fixture/consumer coverage is recorded in [[tasks/cover-temporal-view-contract-in-committed-fixtures]]. The implementation adds no runtime dependency. Trusted VS Code source-host temporal HTML assertions passed at minimum 1.123.2 and stable 1.139.0; restricted-mode trust verification passed separately. The latest packaged-host status, artifact identity, and verification details are maintained in [[tasks/validate-lightweight-gantt-view]] and [[planning/temporal-view-release-plan]]. Real Safari, physical-device, and assistive-technology behavior remains unverified, with 0.1.37 deferral accepted; final user acceptance remains pending. Historical progress below predates this reconciliation.
 
 ## Execution Progress — 2026-09-21
 
 The user approved [[proposals/calendar-temporal-view-contract]] and authorized implementation. Core normalization, shared output, WebApp month/Agenda, static Agenda, and VS Code Agenda are implemented with zero new dependencies. The getting-started Calendar example uses a schema-declared date and an optional structured-template input; missing dates are not stored as empty strings.
 
-See [[design/calendar-view-validation-2026-09-21]] for tests, production-browser checks, static navigation, scale measurements, and outstanding host/review limits. The WebApp uses native Grid, equal-height measured event previews, and a native dialog styled with existing DaisyUI controls as a full-day drawer. Lifecycle metadata and unassigned review roles are preserved; this update does not claim release or final task acceptance.
+See [[design/calendar-view-validation-2026-09-21]] for the earlier tests, production-browser checks, static navigation, scale measurements, and host/review limits. The WebApp uses native Grid, equal-height measured event previews, and a native dialog styled with existing DaisyUI controls as a full-day drawer. At the time of this 2026-09-21 progress entry, review roles were unassigned; current assignments are recorded in frontmatter. This dated entry does not claim release or final task acceptance.

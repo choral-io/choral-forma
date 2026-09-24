@@ -10,10 +10,13 @@ value: H
 module: views
 effort: M
 status: reviewing
-readiness: needs-refinement
-owners: []
-assignees: []
-reviewers: []
+readiness: ready
+owners:
+    - members/tiscs
+assignees:
+    - members/tiscs
+reviewers:
+    - members/tiscs
 tags:
     - views
     - calendar
@@ -80,11 +83,11 @@ The earlier plan needs these corrections: date arithmetic must not substitute a 
 
 ## Readiness
 
-Calendar is implemented in `afc3bc7`; the Gantt contract, shared temporal normalization, and cross-surface implementation are recorded in `217fa2e`. The user authorized governance reconciliation on 2026-09-22, moving this task to reviewing. Readiness remains needs-refinement for owner/reviewer assignment and final acceptance reconciliation, not missing implementation. Both proposals are accepted; the user explicitly approved Gantt proposal acceptance on 2026-09-22. This does not complete task acceptance.
+Calendar is implemented in `afc3bc7`; the Gantt contract and shared temporal normalization are recorded in `217fa2e`, with current cross-surface verification detailed in the implementation and validation records. Both proposals are accepted. `members/tiscs` is owner, assignee, and reviewer. Readiness is `ready`; status remains `reviewing` pending final user acceptance. [[planning/temporal-view-release-plan]] tracks the remaining release gates.
 
-## Acceptance Reconciliation — 2026-09-22
+## Acceptance Reconciliation — 2026-09-24
 
-The specifications, fixtures, neutral-domain examples, dependency-free reuse boundaries, and benchmark plans are evidenced by [[proposals/calendar-temporal-view-contract]], [[proposals/gantt-temporal-view-contract]], [[design/calendar-view-validation-2026-09-21]], and [[planning/gantt-view-implementation-plan]]. The checklist remains a formal acceptance inventory, not a claim that these deliverables are missing. Responsibility assignment and overall acceptance are still open; this task is not done. Historical progress sections below describe their original stage only.
+The specifications, fixtures, neutral-domain examples, dependency-free reuse boundaries, and benchmark plans are evidenced by [[proposals/calendar-temporal-view-contract]], [[proposals/gantt-temporal-view-contract]], [[design/calendar-view-validation-2026-09-21]], [[planning/gantt-view-implementation-plan]], and [[tasks/cover-temporal-view-contract-in-committed-fixtures]]. The checklist is an inventory of evidence; final user acceptance remains open. The user accepted deferring real Safari, physical-device, and screen-reader checks for 0.1.37; these remain unverified limitations, not release blockers. Historical progress sections below describe their original stage only.
 
 ## Execution Progress — 2026-09-21
 
@@ -92,4 +95,4 @@ The user authorized the Calendar-first sequence and subsequently approved the co
 
 Source inspection found two boundaries that the earlier plan had not made concrete: schema date validation currently checks lexical shape only, and configured named semantic types support enum/entryRef rather than date aliases. The draft accounts for both without expanding global schema semantics. It also addresses the WebApp mapper's Table fallback for unrecognized projections.
 
-Implementation and measured evidence are recorded in [[design/calendar-view-validation-2026-09-21]]. User approval is not represented as independent review, task acceptance, or publication. Gantt-specific contracts remain deferred to their validation task. Unchecked acceptance criteria and ownership remain explicit review follow-up rather than an automatic Done transition.
+Implementation and measured evidence are recorded in [[design/calendar-view-validation-2026-09-21]]. User approval is not represented as independent review, task acceptance, or publication. Gantt-specific contracts were later accepted and implemented under [[proposals/gantt-temporal-view-contract]] and [[tasks/validate-lightweight-gantt-view]]. At the time of this 2026-09-21 entry, ownership and unchecked criteria were open; current assignments and final acceptance state are recorded above.

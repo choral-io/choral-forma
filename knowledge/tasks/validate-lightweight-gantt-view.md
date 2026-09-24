@@ -10,10 +10,13 @@ value: H
 module: views
 effort: M
 status: reviewing
-readiness: needs-refinement
-owners: []
-assignees: []
-reviewers: []
+readiness: ready
+owners:
+    - "members/tiscs"
+assignees:
+    - "members/tiscs"
+reviewers:
+    - "members/tiscs"
 tags:
     - views
     - gantt
@@ -74,21 +77,47 @@ The lightweight technical direction passed assessment for validation; product fi
 
 ## Readiness
 
-Validation, design review, and the subsequently authorized production implementation are committed in `217fa2e`, following Calendar's `afc3bc7`. The user authorized governance reconciliation on 2026-09-22, moving this task to reviewing and clearing the obsolete temporal-contract execution blocker; the prerequisite remains under relatedTo. Readiness is needs-refinement for responsibility assignment and final acceptance reconciliation. Gantt's proposal was subsequently accepted by explicit user approval on 2026-09-22, not inferred from the implementation commit. Task acceptance remains separate.
+Validation, design review, and the subsequently authorized production implementation are committed in `217fa2e`, following Calendar's `afc3bc7`. The proposal is accepted by explicit user approval on 2026-09-22. `members/tiscs` is owner, assignee, and reviewer. Readiness is `ready`; status remains `reviewing` pending final user review. Real Safari, physical-device, and screen-reader behavior remains unverified; the user accepted deferring these checks for 0.1.37, so they are documented limitations rather than release blockers.
 
-## Acceptance Reconciliation — 2026-09-22
+## Acceptance Reconciliation — 2026-09-24
 
-The validation task's layout, dependency semantics, scale, zero-new-dependency evidence, and go recommendation are recorded in [[design/gantt-view-validation-2026-09-22]]. The resulting implementation plan and production verification are in [[planning/gantt-view-implementation-plan]]. These deliverables exist; unchecked composite criteria are not a claim that execution has not started. The dedicated temporal-binding diagnostic aggregation regressions identified by the external review are now covered by tests. Enhanced connectors, bar labels, and progress fills are implemented in the working tree, with their review and corrections recorded below; they are no longer deferred enhancements. Owner/reviewer assignment, final acceptance, and installed-host and assistive-technology validation remain open. The connector row-count threshold remains a judgment to revisit against real workspaces. These updates do not change Task lifecycle metadata or imply release completion.
+The validation task's layout, dependency semantics, scale, zero-new-dependency evidence, and go recommendation are recorded in [[design/gantt-view-validation-2026-09-22]]. The resulting implementation plan and production verification are in [[planning/gantt-view-implementation-plan]]. These deliverables exist; unchecked composite criteria are not a claim that execution has not started. The dedicated temporal-binding diagnostic aggregation regressions identified by the external review are now covered by tests. Enhanced connectors, bar labels, and progress fills are implemented in the working tree, with their review and corrections recorded below; they are no longer deferred enhancements. Owner, assignee, and reviewer are `members/tiscs`; final acceptance and assistive-technology validation remain open. Current packaged-host evidence is recorded in Closeout Reconciliation below and [[planning/temporal-view-release-plan]]. On 2026-09-24 the user chose to draw every anchored connector at every row count and retain the current high-density appearance for now; future optimization is deferred. These updates do not change Task lifecycle metadata or imply release completion.
 
 ## Independent Review Closure — 2026-09-22
 
 The independent follow-up review corrected the remaining inconsistencies in [[proposals/gantt-temporal-view-contract]] and [[planning/gantt-view-implementation-plan]] and reran the strengthened local conformance checks. The complete projection example, both endpoint states, dependency accounting, cyclic components through unscheduled/invalid nodes, and negative controls pass; evidence boundaries are recorded in [[design/gantt-view-validation-2026-09-22]]. The Core temporal boundary and browser-size fallback now have explicit implementation acceptance criteria.
 
-No unresolved design blocker remains for handoff. This is not production delivery acceptance: there is no Gantt implementation yet, and production Core/consumer tests, cross-browser layout checks, and installed-host/accessibility validation remain required. Owner/reviewer assignment and implementation dispatch remain for the user. Existing lifecycle and assignment metadata is unchanged; no commit or external handoff was performed.
+At this 2026-09-22 handoff review, no unresolved design blocker remained, but this was not production delivery acceptance: Gantt implementation, production Core/consumer tests, cross-browser layout checks, and installed-host/accessibility validation were still required. Owner/reviewer assignment and implementation dispatch remained for the user at that stage. Existing lifecycle and assignment metadata was unchanged; no commit or external handoff was performed.
+
+## Closeout Reconciliation — 2026-09-24
+
+The user confirmed ownership and final acceptance responsibility. `members/tiscs` is the owner, assignee, and reviewer. The Task is `reviewing` with `ready` readiness; final user acceptance remains pending.
+
+The current full gate passed 494 TypeScript tests and 11 Calendar plus 10 Gantt Core integration tests. Current fixture and consumer coverage is recorded in [[tasks/cover-temporal-view-contract-in-committed-fixtures]]. These local checks establish code and projection behavior; browser, host, and release evidence is recorded separately below.
+
+Physical-device and installed Safari behavior and real screen-reader behavior remain unverified; the user accepted their deferral for 0.1.37, so they are documented limitations rather than release blockers. The user accepted the current high-density connector appearance on 2026-09-24 and deferred visual optimization. Fixture follow-up is now in `reviewing`; its source workspace is `fixtures/temporal-views/`, while manual cases remain in `fixtures/forma-validation/`.
+
+### Current Browser And Host Coverage — 2026-09-24
+
+Playwright exercised the production WebApp in Chromium 154, Firefox 156, and WebKit 26.6 using a 5,000-candidate Gantt projection (4,849 scheduled, 151 unscheduled, and all 1,839 anchored edges). At 1440px and 390px in light and dark themes, scrolling, keyboard navigation, and access to the complete list passed. Calendar checks passed for the native month/date control and its date-input fallback, date drawer, and Agenda.
+
+Trusted source-host tests using VS Code's built-in `markdown.api.render` passed at minimum supported VS Code 1.123.2 and stable 1.139.0. A separate restricted-mode test passed for workspace-trust behavior; temporal rendering was asserted in trusted workspaces. The installed packaged-VSIX smoke passed 3/3 at minimum supported 1.123.2, including built-in Calendar/Gantt HTML, source-link, and progress assertions. Artifact SHA-256: `5ef5f9820b75ed86de322aeb91f662d432e44e1ec71b98d38e6abc9271ddc84f`; size: 219,617 bytes. The initial package test exposed two async defects: fresh scheduler callers could join cancelled work, and an obsolete NativePreview refresh could overwrite newer state through an ABA generation match. The scheduler now replaces cancelled work; NativePreview completion checks controller identity. Both fixes passed deterministic red-green tests. Detailed gate evidence remains in [[planning/temporal-view-release-plan]]. Real Safari, physical-device, and screen-reader validation remains unverified, with 0.1.37 deferral accepted; publication and final Task acceptance remain separate. The earlier extension-package evidence below describes a previous package and is historical only.
+
+### Cross-browser And VS Code Extension Checks — 2026-09-24
+
+Playwright CLI 0.1.21 exercised the production WebApp build against a synthetic exhibition workspace in Playwright-managed Chromium, Firefox, WebKit, and installed Microsoft Edge. The branded Google Chrome app was not installed, so its channel was not tested. At 1440, 1024, 768, and 390 CSS-pixel widths, the page had no horizontal root overflow; the Gantt retained its internal scroll area, 17 progress fills, 14 connector paths, and one milestone. Arrow/Enter row selection and locating, horizontal wheel scrolling, and the native theme popover's System-to-Light-to-Dark transitions passed in all four desktop sessions. iPhone 17/WebKit and Pixel 10/Chromium emulation also had no root overflow, and a touch tap selected a different row. The iPhone preset reported zero `navigator.maxTouchPoints` despite its coarse-pointer mode, so these are browser-engine and device-emulation results, not tests on physical devices or installed Safari.
+
+There were no browser JavaScript errors. WebKit logged one non-fatal warning that a preloaded route JavaScript asset was unused within a few seconds after load. The synthetic Core projection intentionally reports one `view.ganttIntervalInvalid` diagnostic; the page still renders 17 scheduled, one unscheduled, and one invalid item. The warning and synthetic invalid entry are not counted as browser failures.
+
+Historical extension build evidence: VS Code extension verification passed 26 Vitest files (187 tests), 19 Node script tests, TypeScript/icon checks, ESLint, and the production build. A 57-file, 214.09 KB VSIX from that earlier state was packaged and passed archive integrity validation. This is an earlier artifact; current installed-package evidence is recorded above.
+
+### Earlier VS Code Host Integration Snapshot — 2026-09-24
+
+With explicit approval to open test windows and take focus, `mise exec -- pnpm test:integration` passed against minimum supported VS Code 1.123.2 and stable 1.139.0 on macOS arm64: activation/workspace behavior and command/wiki-link/view-source behavior passed in each version (2 tests each). The restricted-mode untrusted-workspace test also passed (1 test). Total: 5 passing host tests. The temporary editor sessions used isolated test profiles. VS Code emitted non-fatal environment/deprecation warnings, including an overlong temporary IPC socket path; the command exited successfully. This earlier smoke suite predates the current Markdown enhancement packaging gate and is not an unconditional installed-host release pass.
 
 ## Development Preparation — 2026-09-21
 
-Historical stage notes below are preserved as evidence. Current lifecycle and acceptance boundaries are in Readiness and Acceptance Reconciliation above; subsequent production evidence is in Implementation Review below. Statements about absent implementation or commit authority describe their original stage, not the current state.
+Historical stage notes below are preserved as evidence. Current lifecycle and acceptance boundaries are in Readiness, Acceptance Reconciliation, and Closeout Reconciliation above; subsequent production evidence is in Implementation Review below. Statements about absent implementation or commit authority describe their original stage, not the current state.
 
 The user requested development preparation after the Calendar implementation commits. This section records a proposed validation sequence, not approval of a new public DSL or production implementation. No library installation, prototype execution, production code change, task-state change, commit, or publication is part of this preparation.
 
@@ -117,7 +146,7 @@ Proposed interactive range controls are previous/next, Today, and a native month
 - Preserve source-locatable unresolved-reference diagnostics. Distinguish an unresolved target from a resolved target excluded by source/query or unavailable to the output surface. Do not reintroduce excluded entries into the projection or leak their content through labels/links.
 - Deduplicate edges deterministically. Diagnose self-edges and cycles without discarding valid temporal rows or changing their sort order. Cycle conclusions apply to the selected dependency graph only; do not claim a workspace-wide acyclicity check when filtered targets are absent.
 - A target without a usable interval remains a dependency-list entry when available, but cannot anchor a timeline connector. Distinguish temporal-invalid, unscheduled, and outside-visible-range targets.
-- Navigable predecessor lists are the accessible baseline. Compare optional SVG connectors for a selected row against lists using chains, branches, cycles, and dense graphs. Do not claim graphical dependency validation if only lists were exercised. Defer all-edge rendering and complex routing unless evidence warrants them.
+- At this preparation stage, navigable predecessor lists were the accessible baseline and selected-row SVG connectors were proposed for comparison. The 2026-09-24 decision superseded this visibility scope: all anchored edges are now rendered. Complex routing remains deferred.
 
 ### Implementation Seams After Approval
 
@@ -140,7 +169,7 @@ Stage B may use fixture data with explicit expected spans, but must not introduc
 ### Verification Plan
 
 - Correctness: leap dates, four-digit year bounds, DST 23/25-hour days, browser/workspace timezone mismatch, inclusive/exclusive endpoints, points versus milestones, missing/invalid/reversed dates, typed/named reference fields, duplicate/self/cyclic/unresolved/filtered dependencies, and selection/sort determinism. Retain Calendar regression coverage when extracting shared internals.
-- Rendering: 1440/1024/768/390 px, light/dark, long titles, multi-year spans, many rows, empty/unscheduled/all-invalid sources, local scrolling, range continuation, keyboard focus, source navigation, and clean browser logs. Use playwright-cli across Chromium, Firefox, and WebKit; report real Safari/mobile and installed VS Code host gaps separately.
+- Rendering: 1440/1024/768/390 px, light/dark, long titles, multi-year spans, many rows, empty/unscheduled/all-invalid sources, local scrolling, range continuation, keyboard focus, source navigation, and clean browser logs. Use playwright-cli across Chromium, Firefox, and WebKit; report installed Safari/mobile and real screen-reader gaps separately. Installed VS Code host results are recorded below.
 - Performance: record seed, row/edge counts and density, span distribution, machine, build, DOM/output size, and at least 20 latency samples with median/p95. Separate Core cold/warm work, initial rendering, range switching, and scrolling. Compare a small baseline before setting budgets; Calendar's prior 5000-entry timings do not establish Gantt thresholds. If row windowing is necessary, propose a bounded implementation without silently omitting accessible content.
 - Integration gates, if approved later: affected Core/shared/consumer tests, production WebApp build and real-backend checks, static no-script output/navigation, workspace/example checks, and `mise run check`. Prototype measurements are not release or installed-host acceptance.
 
@@ -220,7 +249,7 @@ Three things could have blocked it, and none does. Row windowing does not, becau
 
 The spike produced a more useful result than a feasibility answer. Drawing every edge would not help at the contract's default row order. Rows are ordered by start date, so a dependency lands anywhere in the list: the median edge spans 297 rows in a 1,000-row projection and 1,356 rows in a 5,000-row one, and both endpoints fall on one screen for 3.3 percent and 0.8 percent of edges respectively. At 5,000 rows, 99.2 percent of all-edge connectors would be vertical lines leaving the viewport at both ends.
 
-The lever for graphical dependency reading is therefore row ordering, not connector rendering or routing. A dependency-aware order is a sort concern the existing `sort` field already accommodates, so pursuing it later stays additive and needs no change to the projection, the geometry, or the layout. Connectors for a selected row remain the proposed initial capability, and deferring the rest costs nothing.
+The spike identified row ordering as a possible lever for graphical dependency reading. Graph-aware ordering would require a separate semantics review; existing field sorting does not supply it. Selected-row connectors were the proposed initial capability at this historical stage. The 2026-09-24 decision superseded that scope with complete anchored-edge display.
 
 Not tested: orthogonal routing with collision avoidance, visual legibility at high edge density over a narrow span, and connector behaviour under a dependency-aware row order, which does not exist yet.
 
@@ -270,7 +299,7 @@ Fixing the second required running the checker with `--write`, which changed fil
 
 ## Implementation Handoff — 2026-09-22
 
-The user subsequently authorized taking over implementation. Core projection, shared contracts, consumer dispatch, static and VS Code lists, the windowed WebApp timeline, selected-row connectors, examples, and product documentation are implemented in the working tree with no new runtime dependencies. Detailed evidence and remaining validation boundaries are recorded in [[planning/gantt-view-implementation-plan#Implementation Record — 2026-09-22]].
+At this handoff stage, the user authorized taking over implementation. Core projection, shared contracts, consumer dispatch, static and VS Code lists, the windowed WebApp timeline, initially selected-row connectors, examples, and product documentation were implemented with no new runtime dependencies. Later connector changes and current validation boundaries are recorded in [[planning/gantt-view-implementation-plan#Implementation Record — 2026-09-22]] and the release preparation record.
 
 Full repository checks, example checks, workspace diagnostics, deterministic static builds, and real-backend Chromium/Firefox/WebKit checks passed. This records implementation progress only: Task lifecycle metadata, ownership, product acceptance, and commit authorization remain unchanged. Installed-host and real screen-reader acceptance are still separate from the completed local checks.
 
@@ -336,9 +365,9 @@ Four findings, all reproduced before being accepted, all fixed.
 
 **The milestone marker covered the start of the bar's title.** The marker is drawn at the bar's start, which is exactly where the label begins. The label now reserves room for it. The indent is text-only: bar extent still answers to dates, and a test asserts both the indent and that the width expression is unchanged.
 
-**The off-window connector test did not test an off-window endpoint.** It built two rows, both inside the render window, so it asserted nothing about windowing. It now builds a projection past the all-edges threshold with endpoints far enough apart that row windowing cannot mount both, and asserts that the far row is absent from the document while the connector still exists. Its effectiveness was checked by mutation: reinstating the endpoint-window guard makes it and the threshold test fail, and the source was restored byte-identically.
+**The off-window connector test did not test an off-window endpoint.** It built two rows, both inside the render window, so it asserted nothing about windowing. It now builds a 100-row projection with endpoints far enough apart that row windowing cannot mount both, and asserts that the far row is absent from the document while the connector still exists. Its effectiveness was checked by mutation: reinstating the endpoint-window guard makes it and the edge-visibility test fail, and the source was restored byte-identically.
 
-**The contract had drifted from the implementation in two places.** The surface matrix and two supporting statements still described connectors as scoped to the selected row, which the row-count threshold replaced, and a follow-up item still called the two temporal binding collapse paths untested although those tests had been added. Both are corrected, and the follow-up now carries the real open item, which is revisiting the threshold against real workspaces. The contract also gained the two rules this round produced: progress must be stated as text and not only drawn, and a marker must reserve room rather than cover the title.
+**The contract had drifted from the implementation in two places.** The surface matrix and two supporting statements still described connectors as scoped to the selected row, which the row-count threshold replaced, and a follow-up item still called the two temporal binding collapse paths untested although those tests had been added. Both were corrected at that review point; the user's 2026-09-24 decision later removed the row-count threshold and restored full anchored-edge rendering. The contract also gained the two rules this round produced: progress must be stated as text and not only drawn, and a marker must reserve room rather than cover the title.
 
 Seventeen WebApp tests pass and `mise run check` passes.
 
@@ -384,7 +413,7 @@ Riser-through-bar is recorded as a known limitation, not fixed. Obstacle-avoidin
 
 Dagre and ELK were considered by name and do not apply. Their value is deciding where nodes go, and both Gantt axes are already determined by contract: x by the configured date bindings, y by the configured sort. ELK's orthogonal routing is tied to the layered algorithm's own node placement, and its fixed-position algorithm does not route that way; Dagre has no fixed-position mode at all. This is not a dependency-budget objection — the graph View uses graphology and forceatlas2 precisely because node positions are the unknown there, and elkjs is already in the tree through `beautiful-mermaid`. The objection is that the libraries solve a problem this View does not have.
 
-One earlier note remains unrevised on purpose. `ALL_EDGES_MAX_ROWS` still describes itself as a judgement rather than a measurement. There is now data bearing on it — 7.3 crossings per edge at 56 rows — but changing the threshold was not in this change's scope, and the note already asks for real workspaces rather than synthetic ones.
+At the time of this review, `ALL_EDGES_MAX_ROWS` was intentionally retained as a judgement rather than a measurement; data showed 7.3 crossings per edge at 56 rows, but changing the threshold was outside that review's scope. The user later removed the threshold on 2026-09-24 and chose complete edge display, deferring high-density visual optimization.
 
 ## Locate Review Round — 2026-09-22
 

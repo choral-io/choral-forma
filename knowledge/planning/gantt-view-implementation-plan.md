@@ -168,22 +168,22 @@ The largest slice, and the one whose rules are already measured. Everything here
 - [ ] No root horizontal overflow at 1440, 1024, 768, and 390 px in both themes; clean browser console.
 - [ ] Visual validation follows [[guidelines/webapp-engineering-and-visual-validation]] against a non-trivial workspace, not the shortest fixture.
 
-## Slice 7 — Selected-row connectors
+## Slice 7 — Dependency connectors
 
 Additive and independently revertible. The predecessor list is the baseline and must already be complete before this lands.
 
-| File                                                             | Change                                          |
-| ---------------------------------------------------------------- | ----------------------------------------------- |
-| `packages/webapp/src/features/dashboard/ViewGanttProjection.tsx` | Inline SVG overlay for the selected row's edges |
+| File                                                             | Change                                     |
+| ---------------------------------------------------------------- | ------------------------------------------ |
+| `packages/webapp/src/features/dashboard/ViewGanttProjection.tsx` | Inline SVG overlay for every anchored edge |
 
 Geometry comes from row index and date offset arithmetic, never from element rectangles. The spike measured this accurate to 1 px at a 32,428 px scroll depth, which is what makes connectors compatible with row windowing.
 
 **Acceptance**
 
-- [ ] This initial slice may omit off-window connectors but retains their navigable list entries and anchored status. An unanchored edge never draws a connector, regardless of which endpoint lacks an interval.
+- [ ] Every anchored edge remains drawn when either endpoint row is outside the mounted window. An unanchored edge never draws a connector, regardless of which endpoint lacks an interval.
 - [ ] Geometry uses arithmetic, not `getBoundingClientRect`.
 - [ ] Removing this slice leaves a working timeline with complete dependency lists.
-- [ ] All-edge rendering is not attempted; the spike showed 99.2 percent of edges at 5000 rows would join points that cannot share a screen.
+- [ ] Every anchored edge is rendered regardless of row count. The current high-density appearance is accepted for now; visual optimization is deferred.
 
 ## Slice 8 — Fixtures, documentation, examples
 
@@ -224,9 +224,17 @@ The implementation covers all eight slices and was committed as `217fa2e`, witho
 
 - Core now shares temporal normalization with Calendar and emits Gantt nodes, scheduled rows, deterministic dependency edges, aggregate reference counts, and strongly connected component diagnostics. Existing Calendar integration tests remain unchanged and the getting-started Calendar JSON was byte-identical before and after extraction.
 - Shared wire types, live and static WebApp clients, static HTML, and the VS Code preview explicitly support Gantt. A repository fixture is checked against actual Core output, not just hand-written TypeScript data. Static HTML and VS Code provide complete semantic lists rather than claiming timeline capability.
-- The WebApp provides a dependency-free, fixed-row-height timeline with one native scroller, two-axis windowing, sticky titles and date headers, native date jumps, day-width controls, keyboard navigation, selected-row connectors, classification accents, and an expandable complete node list. A conservative 1,000,000 px materialized-size budget includes title width and vertical extent; actual dimensions are checked for browser clamping.
+- The WebApp provides a dependency-free, fixed-row-height timeline with one native scroller, two-axis windowing, sticky titles and date headers, native date jumps, day-width controls, keyboard navigation, initially selected-row-scoped connectors, classification accents, and an expandable complete node list. The connector visibility policy was superseded by the 2026-09-24 decision below. A conservative 1,000,000 px materialized-size budget includes title width and vertical extent; actual dimensions are checked for browser clamping.
 - Runtime testing exposed scroll clamping after distant date jumps and after reducing day width. Reserving sufficient trailing space now preserves the requested leading date. Regression assertions cover both paths. Header labels include the visible month/year range across boundaries.
 - Product docs and the getting-started example describe explicit bindings, dependency semantics, and each surface's actual capability. No inferred Task metadata, date write-back, conflict evaluation, or scheduling engine was introduced.
+
+### Connector Visibility Decision — 2026-09-24
+
+The user chose complete connector display over the 60-row visibility cutoff: every anchored edge is rendered at every row count. The high-density appearance and current routing are retained as-is for now; optimization is deferred. This supersedes the initial selected-row scope and the scale-based recommendation in the validation evidence, without changing that historical evidence.
+
+### Release Preparation — 2026-09-24
+
+[[planning/temporal-view-release-plan]] tracks current gates for 0.1.37. Responsibility is assigned to `members/tiscs`; the related Tasks remain reviewing for final acceptance. The dedicated committed source workspace now covers the previously missing temporal wire features, while the healthy validation corpus supplies manual Calendar/Gantt cases. The updated full local gate passes, including 11 Calendar and 10 Gantt Core integration tests. Three browser engines preserve all 1,839 anchored connectors on the 5,000-entry scale workspace during selection, locating, and scrolling. Packaged editor-host verification passed three consecutive installation runs after fixing two deterministic asynchronous refresh defects. Exact artifact identity and remaining release gates are recorded in the release plan; local verification does not imply publication or final user acceptance.
 
 ### Verification Evidence
 
@@ -245,12 +253,12 @@ The follow-up review retained the implemented scope and added no runtime depende
 - `mise run check` passed after the final scrollbar implementation. No source changes followed during commit preparation; subsequent changes only synchronize documentation and evidence.
 - Playwright CLI rechecked Chromium 154.0.8037.0, Firefox 156.0, and WebKit 26.6 against the production server at 1440 and 390 px under light/dark media preferences. All twelve combinations retained hidden scrollbars with zero gutter, native wheel movement on both axes, focused Home/End row navigation, and no captured page errors. This targeted follow-up supplements, rather than repeats, the earlier full behavior matrix.
 - IAB checks covered refresh, left-edge extension, visible-month centering, date jumps, zoom, and responsive layout. Small transient title jitter remains an accepted presentation limitation, not a claim of frame-perfect synchronization.
-- The selected-row SVG paths remain the initial connector capability, not an all-edge or arrow-routing implementation. Bar labels, progress fills, and enhanced connectors are deferred; this preparation stage adds none of them.
+- At this preparation stage, selected-row SVG paths were the initial connector capability, not an all-edge or arrow-routing implementation. That visibility policy was later superseded by the decision recorded in the Implementation Record. Bar labels, progress fills, and enhanced connectors were deferred at this stage; this preparation stage added none of them.
 - Source, tests, examples, and shared English documentation form the proposed commit scope. Synthetic workspaces, screenshots, browser scripts/state, local reports, generated builds, and caches are excluded. No Task lifecycle, ownership, proposal status, commit, or publication change is implied.
 
 ### Remaining Validation Boundaries
 
-This is local implementation evidence, not release acceptance. Real screen-reader announcements, installed Safari/mobile browser behavior, and an installed VS Code host remain unverified. Keyboard checks cover representative navigation and both extremes, not exhaustive traversal of every row. The earlier spike's latency numbers are not production performance claims; a production median/p95 benchmark has not been established. Browser scripts, screenshots, and synthetic workspace data remain local-only.
+This is local implementation evidence, not release acceptance. Real screen-reader announcements and installed Safari/mobile browser behavior remain unverified. VS Code extension-host integration passed on minimum supported 1.123.2 and stable 1.139.0, including the restricted-mode test; see [[tasks/validate-lightweight-gantt-view#VS-Code-Host-Integration-—-2026-09-24]]. Keyboard checks cover representative navigation and both extremes, not exhaustive traversal of every row. The earlier spike's latency numbers are not production performance claims; a production median/p95 benchmark has not been established. Browser scripts, screenshots, and synthetic workspace data remain local-only.
 
 ## Follow-On Delivery — 2026-09-22
 
@@ -258,14 +266,14 @@ Bar titles, progress fills, and directed connector routing were added after the 
 
 ## Out Of Scope
 
-Write-back and drag-to-reschedule, automatic scheduling, resource load, critical paths, working-day and holiday engines, progress percentages, relation types beyond finish-to-start, lag, time resolutions other than days, all-edge connector rendering, dependency-aware row ordering, and any new runtime dependency.
+Write-back and drag-to-reschedule, automatic scheduling, resource load, critical paths, working-day and holiday engines, progress percentages, relation types beyond finish-to-start, lag, time resolutions other than days, dependency-aware row ordering, and any new runtime dependency.
 
 Dependency-aware row ordering is deliberately deferred. Existing field-based sorting does not implement graph ordering; any future extension requires a separate semantics review.
 
 ## Remaining Governance Decisions
 
-The Gantt design proposal was explicitly accepted by the user on 2026-09-22. Related tasks remain reviewing; the following delivery and assignment decisions are not implied by design acceptance.
+The Gantt design proposal was explicitly accepted by the user on 2026-09-22. Related tasks remain reviewing; final delivery acceptance is not implied by design acceptance.
 
 1. Independent review is recorded in [[proposals/gantt-temporal-view-contract]]. The corrected contract and Core/consumer regressions are committed as `217fa2e`; product acceptance remains a separate decision. The prototype alone is not production acceptance.
-2. Owner and reviewer assignment, and whether implementation runs under [[tasks/validate-lightweight-gantt-view]] or a new implementation Task. Both need explicit authorization.
+2. `members/tiscs` is the owner, assignee, and reviewer of [[tasks/validate-lightweight-gantt-view]] as of 2026-09-24. The Task remains `reviewing`; final delivery acceptance remains open.
 3. Nothing in this repository's own Tasks gains date fields as part of this work.

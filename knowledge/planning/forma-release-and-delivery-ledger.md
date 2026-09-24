@@ -13,6 +13,7 @@ tags:
     - delivery
     - governance
 sources:
+    - "planning/temporal-view-release-plan"
     - "releases/forma-v0.1.0-alpha.13"
     - "releases/forma-v0.1.0-alpha.14"
     - "releases/forma-v0.1.0-alpha.15"
@@ -84,6 +85,8 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.36 | [[releases/forma-v0.1.36]] | Released Guided Modeling and toolchain-refresh Public Preview patch. |
 
 ## Current Delivery Cutline
+
+- **Temporal View release preparation:** [[planning/temporal-view-release-plan]] tracks Calendar/Gantt fixture coverage, targeted host verification, candidate gates, and remaining maintainer acceptance decisions for the next coordinated release.
 
 - **Current released baseline:** [[releases/forma-v0.1.36]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
 - **Previous released baseline:** [[releases/forma-v0.1.35]] records the guideline-glob, WebApp, and editor-compatibility Public Preview patch that preceded this release.
