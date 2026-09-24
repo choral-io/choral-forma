@@ -41,7 +41,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
     const dateLabel = new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeZone: "UTC" });
 
     return (
-        <section aria-label="Calendar" className="space-y-4">
+        <section aria-label="Calendar" className="@container/calendar space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <CalendarMonthJump month={month} label={monthLabel} onJump={setMonth} />
                 <div className="flex flex-wrap items-center gap-3">
@@ -82,7 +82,11 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                             <ChevronRight className="size-4" aria-hidden="true" />
                         </button>
                     </div>
-                    <div className="join hidden md:inline-flex" role="group" aria-label="Calendar display">
+                    <div
+                        className="join hidden @min-[40rem]/calendar:inline-flex"
+                        role="group"
+                        aria-label="Calendar display"
+                    >
                         <button
                             type="button"
                             className={`btn btn-sm join-item ${!agenda ? "btn-active" : "btn-ghost"}`}
@@ -113,7 +117,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                     : ""}
             </p>
             {!agenda && (
-                <div className="border-base-300 rounded-box hidden border md:block">
+                <div className="border-base-300 rounded-box hidden border @min-[40rem]/calendar:block">
                     <div className="grid grid-cols-7">
                         {days.slice(0, 7).map((day) => (
                             <div key={day} className="p-2 text-sm font-medium">
@@ -151,7 +155,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                     </div>
                 </div>
             )}
-            <div className={agenda ? "" : "md:hidden"}>
+            <div className={agenda ? "" : "@min-[40rem]/calendar:hidden"}>
                 <h3 className="mb-2 font-semibold">Agenda</h3>
                 <ul className="divide-base-300 divide-y">
                     {visible.map((event) => (
@@ -474,7 +478,7 @@ function CalendarDay({
     return (
         <section
             aria-label={label}
-            className={`border-base-300 flex h-54 min-w-0 flex-col border-t p-2 ${outside ? "bg-base-200/50" : ""}`}
+            className={`border-base-300 flex h-42 min-w-0 flex-col border-t p-2 @min-[56rem]/calendar:h-54 ${outside ? "bg-base-200/50" : ""}`}
         >
             <div className="mb-2 flex h-7 shrink-0 items-center justify-between gap-1">
                 <h3 className="text-sm font-medium">

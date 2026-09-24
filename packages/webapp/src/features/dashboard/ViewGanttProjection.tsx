@@ -368,7 +368,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                     aria-activedescendant={`${id}-row-${String(active)}`}
                     tabIndex={0}
                     data-gantt-timeline=""
-                    className="border-base-300 relative h-[min(65vh,40rem)] min-h-64 overflow-auto rounded-lg border focus-visible:outline-2 focus-visible:outline-offset-2"
+                    className="border-base-300 relative max-h-[max(16rem,min(65vh,40rem))] overflow-auto rounded-lg border focus-visible:outline-2 focus-visible:outline-offset-2"
                     onKeyDown={(event) => {
                         const movements: Record<string, number> = {
                             ArrowDown: active + 1,
