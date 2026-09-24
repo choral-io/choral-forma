@@ -9,7 +9,7 @@ priority: P2
 value: H
 module: views
 effort: M
-status: reviewing
+status: done
 readiness: ready
 owners:
     - "members/tiscs"
@@ -67,21 +67,21 @@ The lightweight technical direction passed assessment for validation; product fi
 
 ## Acceptance Criteria
 
-- [ ] Reference the reviewed temporal contract and assign an owner/reviewer. Make sample provenance, synthetic/real-data boundaries, and field coverage verifiable.
-- [ ] Demonstrate stable bar positioning across DST, month boundaries, and different workspace timezones without inventing unknown dates.
-- [ ] Provide examples of dependency-edge semantics and exceptional-case diagnostics, explaining the benefits and complexity of graphical connectors relative to lists and the initial choice.
-- [ ] Record actual evidence for long titles, overlapping spans, narrow screens, keyboard navigation, light/dark themes, and host-local scrolling.
-- [ ] Record performance samples, output/DOM size, bottlenecks, and whether windowing is necessary. Do not promise performance against unmeasured thresholds.
-- [ ] Produce an evidence-backed go/no-go conclusion. If successful, provide a Gantt implementation plan with acceptance criteria; otherwise document missing data/value evidence or complexity limits. Subsequent implementation task creation and publication remain subject to the authorization in effect at that time.
-- [ ] Add no runtime dependencies and make no unreviewed changes to production modes or public DSL.
+- [x] Reference the reviewed temporal contract and assign an owner/reviewer. Make sample provenance, synthetic/real-data boundaries, and field coverage verifiable.
+- [x] Demonstrate stable bar positioning across DST, month boundaries, and different workspace timezones without inventing unknown dates.
+- [x] Provide examples of dependency-edge semantics and exceptional-case diagnostics, explaining the benefits and complexity of graphical connectors relative to lists and the initial choice.
+- [x] Record actual evidence for long titles, overlapping spans, narrow screens, keyboard navigation, light/dark themes, and host-local scrolling.
+- [x] Record performance samples, output/DOM size, bottlenecks, and whether windowing is necessary. Do not promise performance against unmeasured thresholds.
+- [x] Produce an evidence-backed go/no-go conclusion. If successful, provide a Gantt implementation plan with acceptance criteria; otherwise document missing data/value evidence or complexity limits. Subsequent implementation task creation and publication remain subject to the authorization in effect at that time.
+- [x] Add no runtime dependencies and make no unreviewed changes to production modes or public DSL.
 
 ## Readiness
 
-Validation, design review, and the subsequently authorized production implementation are committed in `217fa2e`, following Calendar's `afc3bc7`. The proposal is accepted by explicit user approval on 2026-09-22. `members/tiscs` is owner, assignee, and reviewer. Readiness is `ready`; status remains `reviewing` pending final user review. Real Safari, physical-device, and screen-reader behavior remains unverified; the user accepted deferring these checks for 0.1.37, so they are documented limitations rather than release blockers.
+Validation, design review, and the subsequently authorized production implementation are committed in `217fa2e`, following Calendar's `afc3bc7`. The proposal is accepted by explicit user approval on 2026-09-22. `members/tiscs` is owner, assignee, and reviewer. Readiness is `ready`; status is `done` following user acceptance on 2026-09-24. Real Safari, physical-device, and screen-reader behavior remains unverified; the user accepted deferring these checks for 0.1.37, so they are documented limitations rather than release blockers.
 
 ## Acceptance Reconciliation — 2026-09-24
 
-The validation task's layout, dependency semantics, scale, zero-new-dependency evidence, and go recommendation are recorded in [[design/gantt-view-validation-2026-09-22]]. The resulting implementation plan and production verification are in [[planning/gantt-view-implementation-plan]]. These deliverables exist; unchecked composite criteria are not a claim that execution has not started. The dedicated temporal-binding diagnostic aggregation regressions identified by the external review are now covered by tests. Enhanced connectors, bar labels, and progress fills are implemented in the working tree, with their review and corrections recorded below; they are no longer deferred enhancements. Owner, assignee, and reviewer are `members/tiscs`; final acceptance and assistive-technology validation remain open. Current packaged-host evidence is recorded in Closeout Reconciliation below and [[planning/temporal-view-release-plan]]. On 2026-09-24 the user chose to draw every anchored connector at every row count and retain the current high-density appearance for now; future optimization is deferred. These updates do not change Task lifecycle metadata or imply release completion.
+The validation task's layout, dependency semantics, scale, zero-new-dependency evidence, and go recommendation are recorded in [[design/gantt-view-validation-2026-09-22]]. The resulting implementation plan and production verification are in [[planning/gantt-view-implementation-plan]]. These deliverables exist; unchecked composite criteria are not a claim that execution has not started. The dedicated temporal-binding diagnostic aggregation regressions identified by the external review are now covered by tests. Enhanced connectors, bar labels, and progress fills are implemented in the working tree, with their review and corrections recorded below; they are no longer deferred enhancements. Owner, assignee, and reviewer are `members/tiscs`; final acceptance was confirmed on 2026-09-24; assistive-technology validation remains explicitly deferred. Current packaged-host evidence is recorded in Closeout Reconciliation below and [[planning/temporal-view-release-plan]]. On 2026-09-24 the user chose to draw every anchored connector at every row count and retain the current high-density appearance for now; future optimization is deferred. These updates do not change Task lifecycle metadata or imply release completion.
 
 ## Independent Review Closure — 2026-09-22
 
@@ -91,11 +91,11 @@ At this 2026-09-22 handoff review, no unresolved design blocker remained, but th
 
 ## Closeout Reconciliation — 2026-09-24
 
-The user confirmed ownership and final acceptance responsibility. `members/tiscs` is the owner, assignee, and reviewer. The Task is `reviewing` with `ready` readiness; final user acceptance remains pending.
+The user confirmed ownership and final acceptance responsibility. `members/tiscs` is the owner, assignee, and reviewer. The Task is `done` with `ready` readiness; final user acceptance was confirmed on 2026-09-24.
 
 The current full gate passed 494 TypeScript tests and 11 Calendar plus 10 Gantt Core integration tests. Current fixture and consumer coverage is recorded in [[tasks/cover-temporal-view-contract-in-committed-fixtures]]. These local checks establish code and projection behavior; browser, host, and release evidence is recorded separately below.
 
-Physical-device and installed Safari behavior and real screen-reader behavior remain unverified; the user accepted their deferral for 0.1.37, so they are documented limitations rather than release blockers. The user accepted the current high-density connector appearance on 2026-09-24 and deferred visual optimization. Fixture follow-up is now in `reviewing`; its source workspace is `fixtures/temporal-views/`, while manual cases remain in `fixtures/forma-validation/`.
+Physical-device and installed Safari behavior and real screen-reader behavior remain unverified; the user accepted their deferral for 0.1.37, so they are documented limitations rather than release blockers. The user accepted the current high-density connector appearance on 2026-09-24 and deferred visual optimization. Fixture follow-up is now `done`; its source workspace is `fixtures/temporal-views/`, while manual cases remain in `fixtures/forma-validation/`.
 
 ### Current Browser And Host Coverage — 2026-09-24
 

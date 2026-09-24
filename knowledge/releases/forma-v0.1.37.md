@@ -50,6 +50,12 @@ The source compatibility baseline remains VS Code 1.123.2; its September support
 
 Trusted integration passed on VS Code 1.123.2 and 1.139.0; a separate restricted-mode test passed. After fixing two deterministic asynchronous refresh defects found during packaging verification, the final `choral-io.forma@0.1.37` VSIX passed three consecutive installation smoke runs on 1.123.2, including Calendar agenda, Gantt complete-list, source-link, and progress assertions through the built-in Markdown renderer. Local artifact: 219,617 bytes; SHA-256 `5ef5f9820b75ed86de322aeb91f662d432e44e1ec71b98d38e6abc9271ddc84f`. This local hash does not assert identity with any future published artifact.
 
+## Delivery Acceptance — 2026-09-24
+
+The maintainer explicitly accepted the four related temporal delivery Tasks. Calendar host visual checks passed on VS Code 1.123.2 at narrow/wide preview widths in built-in light/dark themes, including source-link keyboard navigation; see [[design/calendar-view-validation-2026-09-21]]. Post-candidate UI polish adds intrinsic capped Gantt height and container-responsive Calendar density. These changes passed targeted three-engine checks and the full local gate but require a new committed candidate before exact-SHA CI. Task completion does not change this release from planned to published or grant push authority. Day-resolution Gantt rendering remains the accepted scope; fractional-day geometry is deferred.
+
+The maintainer subsequently authorized pushing the completed candidate on 2026-09-24 to run exact-source main CI. This does not authorize dispatching Release or Marketplace publication. Uncommitted dependency upgrades and unrelated Task governance changes are excluded from this candidate.
+
 ## Known Boundaries
 
 - Every anchored edge is displayed regardless of row count. The maintainer accepted dense connector appearance and deferred further routing optimization.

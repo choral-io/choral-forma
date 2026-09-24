@@ -16,6 +16,14 @@ sources:
 
 # Calendar View Validation — 2026-09-21
 
+## Final Acceptance And Host Visual Verification — 2026-09-24
+
+The maintainer accepted Calendar delivery on 2026-09-24. A source Extension Development Host running VS Code 1.123.2 on macOS arm64 verified the healthy validation corpus in built-in Light Modern and Dark Modern themes at 580 × 900 and 1440 × 900 workbench viewports. Actual preview widths were 532 and 1392 CSS pixels, with scroll width equal to client width in all four cases. Screenshots confirmed readable titles, classification, timezone, date ranges and the unscheduled entry. The first source link had a visible solid 1px focus outline; Enter navigated to its source entry preview. This is real host visual evidence, distinct from the previously recorded packaged-VSIX semantic checks. The isolated test host was stopped.
+
+Calendar now uses container-based responsive density: below 40rem Agenda, 40–56rem compact 10.5rem cells, and 56rem upward 13.5rem cells. Actual item height controls the bounded preview rather than a fixed event-count cap. The compact layout passed three-browser light/dark checks, drawer completeness and focus restoration, plus the full repository gate.
+
+The sections below are historical snapshots. Statements about missing Gantt implementation, host validation, assignment or acceptance are superseded by this section and [[planning/temporal-view-release-plan]]. Earlier timings are not measurements of subsequent UI changes.
+
 ## Candidate
 
 Local implementation based on `e9f4175`, following the user's contract and execution approval. No commits, publication, new runtime dependencies, or lockfile changes are required by Calendar. The current working tree also contains separate dependency updates; keep their review and commit boundary separate. Gantt remains unimplemented.

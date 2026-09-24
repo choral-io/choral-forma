@@ -9,7 +9,7 @@ priority: P2
 value: M
 module: views
 effort: M
-status: reviewing
+status: done
 readiness: ready
 owners:
     - members/tiscs
@@ -90,7 +90,7 @@ At this assessment, the validation corpus had no Calendar or Gantt cases and lac
 
 Use `fixtures/temporal-views/` as the dedicated source workspace for both wire fixtures. The user authorized autonomous execution of the reviewed release plan. This repository-local placement keeps intentionally invalid intervals and unresolved references out of onboarding examples and the healthy validation corpus. Shared JSON remains under `packages/shared/src/fixtures/`, with real Core equality tests binding it to the dedicated source workspace. The independent manual cases remain in `fixtures/forma-validation/`.
 
-The maintainer, `members/tiscs`, is the owner, assignee, and reviewer. Implementation is ready for review; final user review remains pending. The wire oracle workspace is `fixtures/temporal-views/`; manual interactive cases remain under `fixtures/forma-validation/`. Real Safari, physical-device, and screen-reader evidence is unverified, but the user accepted its deferral for 0.1.37 and it is not a release blocker.
+The maintainer, `members/tiscs`, is the owner, assignee, and reviewer. The maintainer accepted the completed delivery on 2026-09-24. The wire oracle workspace is `fixtures/temporal-views/`; manual interactive cases remain under `fixtures/forma-validation/`. Real Safari, physical-device, and screen-reader evidence is unverified, but the user accepted its deferral for 0.1.37 and it is not a release blocker.
 
 ## Current Coverage — 2026-09-24
 
@@ -117,4 +117,4 @@ The Forma validation corpus passes `check` and `workspace health` with no diagno
 - [x] Core equality tests and consumer tests protect the listed Gantt and Calendar output features.
 - [x] Static export and shared formatter tests assert progress wording against the shared expected-text fixture.
 - [x] The validation corpus has active Calendar and Gantt cases with stable assertion identifiers and passes `check` and health.
-- [ ] Record final user review and acceptance.
+- [x] Record final user review and acceptance.

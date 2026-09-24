@@ -234,7 +234,7 @@ The user chose complete connector display over the 60-row visibility cutoff: eve
 
 ### Release Preparation — 2026-09-24
 
-[[planning/temporal-view-release-plan]] tracks current gates for 0.1.37. Responsibility is assigned to `members/tiscs`; the related Tasks remain reviewing for final acceptance. The dedicated committed source workspace now covers the previously missing temporal wire features, while the healthy validation corpus supplies manual Calendar/Gantt cases. The updated full local gate passes, including 11 Calendar and 10 Gantt Core integration tests. Three browser engines preserve all 1,839 anchored connectors on the 5,000-entry scale workspace during selection, locating, and scrolling. Packaged editor-host verification passed three consecutive installation runs after fixing two deterministic asynchronous refresh defects. Exact artifact identity and remaining release gates are recorded in the release plan; local verification does not imply publication or final user acceptance.
+[[planning/temporal-view-release-plan]] tracks current gates for 0.1.37. Responsibility is assigned to `members/tiscs`; the related Tasks were accepted on 2026-09-24 and are done. The dedicated committed source workspace now covers the previously missing temporal wire features, while the healthy validation corpus supplies manual Calendar/Gantt cases. The updated full local gate passes, including 11 Calendar and 10 Gantt Core integration tests. Three browser engines preserve all 1,839 anchored connectors on the 5,000-entry scale workspace during selection, locating, and scrolling. Packaged editor-host verification passed three consecutive installation runs after fixing two deterministic asynchronous refresh defects. Exact artifact identity and remaining release gates are recorded in the release plan; local verification does not imply publication or final user acceptance.
 
 ### Verification Evidence
 
@@ -266,14 +266,14 @@ Bar titles, progress fills, and directed connector routing were added after the 
 
 ## Out Of Scope
 
-Write-back and drag-to-reschedule, automatic scheduling, resource load, critical paths, working-day and holiday engines, progress percentages, relation types beyond finish-to-start, lag, time resolutions other than days, dependency-aware row ordering, and any new runtime dependency.
+Write-back and drag-to-reschedule, automatic scheduling, resource load, critical paths, working-day and holiday engines, relation types beyond finish-to-start, lag, time resolutions other than days, dependency-aware row ordering, and any new runtime dependency.
 
 Dependency-aware row ordering is deliberately deferred. Existing field-based sorting does not implement graph ordering; any future extension requires a separate semantics review.
 
 ## Remaining Governance Decisions
 
-The Gantt design proposal was explicitly accepted by the user on 2026-09-22. Related tasks remain reviewing; final delivery acceptance is not implied by design acceptance.
+The Gantt design proposal was explicitly accepted by the user on 2026-09-22. The maintainer separately accepted all four temporal delivery Tasks on 2026-09-24; they are now done.
 
 1. Independent review is recorded in [[proposals/gantt-temporal-view-contract]]. The corrected contract and Core/consumer regressions are committed as `217fa2e`; product acceptance remains a separate decision. The prototype alone is not production acceptance.
-2. `members/tiscs` is the owner, assignee, and reviewer of [[tasks/validate-lightweight-gantt-view]] as of 2026-09-24. The Task remains `reviewing`; final delivery acceptance remains open.
+2. `members/tiscs` is the owner, assignee, and reviewer of [[tasks/validate-lightweight-gantt-view]] as of 2026-09-24. The Task is `done` following explicit final acceptance on 2026-09-24.
 3. Nothing in this repository's own Tasks gains date fields as part of this work.

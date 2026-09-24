@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: views
 effort: M
-status: reviewing
+status: done
 readiness: ready
 owners:
     - members/tiscs
@@ -74,20 +74,20 @@ The earlier plan needs these corrections: date arithmetic must not substitute a 
 
 ## Acceptance Criteria
 
-- [ ] Produce a reviewable specification draft covering DSL, projection examples, diagnostic rules, endpoint/timezone decisions, and the cross-surface capability matrix. Mark unaccepted decisions as proposed.
-- [ ] Define fixtures for leap days, month/year boundaries, short/long DST days, a workspace timezone different from the browser timezone, multi-day events crossing months, invalid/missing dates, and mixed field types.
-- [ ] Include at least one non-task domain and one nonstandard configuration path to demonstrate configuration-driven binding.
-- [ ] Identify existing crate/package reuse boundaries and an implementation path with zero added dependencies. Confirm date calculations do not depend on the host machine timezone.
-- [ ] Record a benchmark plan for small workspaces and 1000/5000 entries, measuring output bytes, Core duration, browser initial rendering, and month switching. Establish performance targets after measurement without claiming existing guarantees.
-- [ ] Assign review responsibility and record the contract review outcome, then refine Calendar acceptance criteria and assess its readiness. Report recommendations only when lifecycle changes are not authorized.
+- [x] Produce a reviewable specification draft covering DSL, projection examples, diagnostic rules, endpoint/timezone decisions, and the cross-surface capability matrix. Mark unaccepted decisions as proposed.
+- [x] Define fixtures for leap days, month/year boundaries, short/long DST days, a workspace timezone different from the browser timezone, multi-day events crossing months, invalid/missing dates, and mixed field types.
+- [x] Include at least one non-task domain and one nonstandard configuration path to demonstrate configuration-driven binding.
+- [x] Identify existing crate/package reuse boundaries and an implementation path with zero added dependencies. Confirm date calculations do not depend on the host machine timezone.
+- [x] Record a benchmark plan for small workspaces and 1000/5000 entries, measuring output bytes, Core duration, browser initial rendering, and month switching. Establish performance targets after measurement without claiming existing guarantees.
+- [x] Assign review responsibility and record the contract review outcome, then refine Calendar acceptance criteria and assess its readiness. Report recommendations only when lifecycle changes are not authorized.
 
 ## Readiness
 
-Calendar is implemented in `afc3bc7`; the Gantt contract and shared temporal normalization are recorded in `217fa2e`, with current cross-surface verification detailed in the implementation and validation records. Both proposals are accepted. `members/tiscs` is owner, assignee, and reviewer. Readiness is `ready`; status remains `reviewing` pending final user acceptance. [[planning/temporal-view-release-plan]] tracks the remaining release gates.
+Calendar is implemented in `afc3bc7`; the Gantt contract and shared temporal normalization are recorded in `217fa2e`, with current cross-surface verification detailed in the implementation and validation records. Both proposals are accepted. `members/tiscs` is owner, assignee, and reviewer. Readiness is `ready`; status is `done` following user acceptance on 2026-09-24. [[planning/temporal-view-release-plan]] tracks the remaining release gates.
 
 ## Acceptance Reconciliation — 2026-09-24
 
-The specifications, fixtures, neutral-domain examples, dependency-free reuse boundaries, and benchmark plans are evidenced by [[proposals/calendar-temporal-view-contract]], [[proposals/gantt-temporal-view-contract]], [[design/calendar-view-validation-2026-09-21]], [[planning/gantt-view-implementation-plan]], and [[tasks/cover-temporal-view-contract-in-committed-fixtures]]. The checklist is an inventory of evidence; final user acceptance remains open. The user accepted deferring real Safari, physical-device, and screen-reader checks for 0.1.37; these remain unverified limitations, not release blockers. Historical progress sections below describe their original stage only.
+The specifications, fixtures, neutral-domain examples, dependency-free reuse boundaries, and benchmark plans are evidenced by [[proposals/calendar-temporal-view-contract]], [[proposals/gantt-temporal-view-contract]], [[design/calendar-view-validation-2026-09-21]], [[planning/gantt-view-implementation-plan]], and [[tasks/cover-temporal-view-contract-in-committed-fixtures]]. The checklist is an inventory of evidence; final user acceptance was confirmed on 2026-09-24. The user accepted deferring real Safari, physical-device, and screen-reader checks for 0.1.37; these remain unverified limitations, not release blockers. Historical progress sections below describe their original stage only.
 
 ## Execution Progress — 2026-09-21
 

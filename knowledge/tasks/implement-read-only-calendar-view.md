@@ -9,7 +9,7 @@ priority: P1
 value: H
 module: views
 effort: L
-status: reviewing
+status: done
 readiness: ready
 owners:
     - members/tiscs
@@ -64,22 +64,24 @@ Implement a read-only Calendar month view and Agenda after temporal contract rev
 
 ## Acceptance Criteria
 
-- [ ] Review the prerequisite temporal contract and link its final documentation and specific decisions. Assign an owner/reviewer before moving into execution.
-- [ ] Cover date types, timezones, DST, cross-month overlap, missing dates, invalid/reversed intervals, neutral fields, and nonstandard configuration paths in Core fixtures.
-- [ ] Ensure CLI JSON, RPC, WebApp, static output, and VS Code consume the same event semantics, with traceable links, unscheduled counts, and diagnostics.
-- [ ] Validate WebApp at 1440/1024/768/390 widths in choral-light/dark. Month controls, events, and expanded content must be keyboard-accessible, with visible focus, readable date semantics, and no page-level horizontal overflow.
-- [ ] Validate narrow/wide VS Code previews and themes. Verify actual static HTML, navigation, ranges, and readability with scripts disabled.
-- [ ] Return only data needed for rendering. Record projection size, duration, initial rendering, and month switching for representative small workspaces and 1000/5000 entries, with an explicit range/loading plan if targets are exceeded.
-- [ ] Cover new contracts and existing View regressions through affected crate/consumer tests, WebApp checks and build, and mise run check as required for shared behavior. Documentation changes must pass Forma check/health.
-- [ ] Add no dependencies for this feature to manifests or lockfiles. Record actual evidence, unverified host capabilities, and remaining risks.
+- [x] Review the prerequisite temporal contract and link its final documentation and specific decisions. Assign an owner/reviewer before moving into execution.
+- [x] Cover date types, timezones, DST, cross-month overlap, missing dates, invalid/reversed intervals, neutral fields, and nonstandard configuration paths in Core fixtures.
+- [x] Ensure CLI JSON, RPC, WebApp, static output, and VS Code consume the same event semantics, with traceable links, unscheduled counts, and diagnostics.
+- [x] Validate WebApp at 1440/1024/768/390 widths in choral-light/dark. Month controls, events, and expanded content must be keyboard-accessible, with visible focus, readable date semantics, and no page-level horizontal overflow.
+- [x] Validate narrow/wide VS Code previews and themes. Verify actual static HTML, navigation, ranges, and readability with scripts disabled.
+- [x] Return only data needed for rendering. Record projection size, duration, initial rendering, and month switching for representative small workspaces and 1000/5000 entries, with an explicit range/loading plan if targets are exceeded.
+- [x] Cover new contracts and existing View regressions through affected crate/consumer tests, WebApp checks and build, and mise run check as required for shared behavior. Documentation changes must pass Forma check/health.
+- [x] Add no dependencies for this feature to manifests or lockfiles. Record actual evidence, unverified host capabilities, and remaining risks.
 
 ## Readiness
 
-Calendar was committed as `afc3bc7`; shared temporal extraction and current cross-surface integration followed in `217fa2e` and the current release-preparation worktree. `members/tiscs` is owner, assignee, and reviewer. Readiness is `ready`; status remains `reviewing` for final user acceptance. Release gates are tracked in [[planning/temporal-view-release-plan]].
+Calendar was committed as `afc3bc7`; shared temporal extraction and current cross-surface integration followed in `217fa2e` and the current release-preparation worktree. `members/tiscs` is owner, assignee, and reviewer. Readiness is `ready`; status is `done` following user acceptance on 2026-09-24. Release gates are tracked in [[planning/temporal-view-release-plan]].
 
 ## Acceptance Reconciliation — 2026-09-24
 
-[[design/calendar-view-validation-2026-09-21]] records the earlier Core and consumer coverage, WebApp behavior, static output and scale evidence. Current fixture/consumer coverage is recorded in [[tasks/cover-temporal-view-contract-in-committed-fixtures]]. The implementation adds no runtime dependency. Trusted VS Code source-host temporal HTML assertions passed at minimum 1.123.2 and stable 1.139.0; restricted-mode trust verification passed separately. The latest packaged-host status, artifact identity, and verification details are maintained in [[tasks/validate-lightweight-gantt-view]] and [[planning/temporal-view-release-plan]]. Real Safari, physical-device, and assistive-technology behavior remains unverified, with 0.1.37 deferral accepted; final user acceptance remains pending. Historical progress below predates this reconciliation.
+The remaining VS Code narrow/wide, light/dark visual matrix passed on 1.123.2, including visible link focus and keyboard source navigation. Evidence is recorded in [[design/calendar-view-validation-2026-09-21#Final-Acceptance-And-Host-Visual-Verification-—-2026-09-24]]. The maintainer then explicitly accepted all four temporal delivery Tasks. This closes Task acceptance, not the release or its deferred real-device and screen-reader checks.
+
+[[design/calendar-view-validation-2026-09-21]] records the earlier Core and consumer coverage, WebApp behavior, static output and scale evidence. Current fixture/consumer coverage is recorded in [[tasks/cover-temporal-view-contract-in-committed-fixtures]]. The implementation adds no runtime dependency. Trusted VS Code source-host temporal HTML assertions passed at minimum 1.123.2 and stable 1.139.0; restricted-mode trust verification passed separately. The latest packaged-host status, artifact identity, and verification details are maintained in [[tasks/validate-lightweight-gantt-view]] and [[planning/temporal-view-release-plan]]. Real Safari, physical-device, and assistive-technology behavior remains unverified, with 0.1.37 deferral accepted; final user acceptance was confirmed on 2026-09-24. Historical progress below predates this reconciliation.
 
 ## Execution Progress — 2026-09-21
 
