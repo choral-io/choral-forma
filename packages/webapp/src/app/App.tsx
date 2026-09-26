@@ -84,11 +84,11 @@ export function App() {
 
     if (error) {
         return (
-            <main className="bg-base-100 text-base-content flex min-h-screen items-center justify-center p-6">
-                <div className="card border-base-300 bg-base-100 max-w-md border">
+            <main className="flex min-h-screen items-center justify-center bg-base-100 p-6 text-base-content">
+                <div className="card max-w-md border border-base-300 bg-base-100">
                     <div className="card-body">
                         <h1 className="card-title">Dashboard failed to load</h1>
-                        <p className="text-base-content/60 text-sm">{error}</p>
+                        <p className="text-sm text-base-content/60">{error}</p>
                         <button
                             className="btn mt-2 self-start"
                             type="button"
@@ -106,18 +106,18 @@ export function App() {
 
     if (!dashboard) {
         return (
-            <main className="bg-base-100 text-base-content min-h-screen p-8">
+            <main className="min-h-screen bg-base-100 p-8 text-base-content">
                 <div
                     aria-busy="true"
                     aria-label="Loading workspace"
                     className="mx-auto flex w-full max-w-3xl flex-col gap-5 pt-28"
                     role="status"
                 >
-                    <div className="skeleton h-8 w-2/5" />
-                    <div className="skeleton h-4 w-3/5" />
-                    <div className="skeleton mt-6 h-4 w-full" />
-                    <div className="skeleton h-4 w-11/12" />
-                    <div className="skeleton h-4 w-4/5" />
+                    <div className="h-8 w-2/5 skeleton" />
+                    <div className="h-4 w-3/5 skeleton" />
+                    <div className="mt-6 h-4 w-full skeleton" />
+                    <div className="h-4 w-11/12 skeleton" />
+                    <div className="h-4 w-4/5 skeleton" />
                 </div>
             </main>
         );
@@ -125,7 +125,7 @@ export function App() {
 
     return (
         <div
-            className="drawer lg:drawer-open h-svh min-w-0 overflow-hidden"
+            className="drawer h-svh min-w-0 overflow-hidden lg:drawer-open"
             data-enhancement-ready
             data-workspace-shell
         >
@@ -139,8 +139,8 @@ export function App() {
                 ref={desktopDrawerRef}
                 type="checkbox"
             />
-            <div className="drawer-side is-drawer-close:overflow-visible max-lg:hidden">
-                <aside className="bg-base-200 text-base-content is-drawer-close:w-14 is-drawer-open:w-64 flex min-h-full flex-col overflow-visible">
+            <div className="drawer-side max-lg:hidden is-drawer-close:overflow-visible">
+                <aside className="flex min-h-full flex-col overflow-visible bg-base-200 text-base-content is-drawer-close:w-14 is-drawer-open:w-64">
                     <WorkspaceSidebar
                         dashboard={dashboard}
                         onNavigate={closeNavigation}
@@ -148,7 +148,7 @@ export function App() {
                     />
                 </aside>
             </div>
-            <div className="drawer-content bg-base-100 text-base-content min-h-0 min-w-0 overflow-hidden">
+            <div className="drawer-content min-h-0 min-w-0 overflow-hidden bg-base-100 text-base-content">
                 <Suspense fallback={<RouteLoadingState />}>
                     <Outlet context={dashboard} />
                 </Suspense>
@@ -165,7 +165,7 @@ export function App() {
                     }
                 }}
             >
-                <div className="modal-box bg-base-200 text-base-content h-svh max-h-none w-72 max-w-[calc(100vw-3rem)] rounded-none p-0">
+                <div className="modal-box h-svh max-h-none w-72 max-w-[calc(100vw-3rem)] rounded-none bg-base-200 p-0 text-base-content">
                     <WorkspaceSidebar
                         collapsible={false}
                         dashboard={dashboard}
@@ -187,14 +187,14 @@ function RouteLoadingState() {
         <main
             aria-busy="true"
             aria-label="Loading workspace route"
-            className="bg-base-100 text-base-content min-h-full p-8"
+            className="min-h-full bg-base-100 p-8 text-base-content"
             role="status"
         >
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pt-12">
-                <div className="skeleton h-8 w-2/5" />
-                <div className="skeleton h-4 w-3/5" />
-                <div className="skeleton mt-6 h-4 w-full" />
-                <div className="skeleton h-4 w-11/12" />
+                <div className="h-8 w-2/5 skeleton" />
+                <div className="h-4 w-3/5 skeleton" />
+                <div className="mt-6 h-4 w-full skeleton" />
+                <div className="h-4 w-11/12 skeleton" />
             </div>
         </main>
     );

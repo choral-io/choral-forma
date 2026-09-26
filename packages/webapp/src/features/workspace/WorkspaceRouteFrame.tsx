@@ -71,7 +71,7 @@ export function WorkspaceRouteFrame({
             )}
         >
             <div className="flex min-w-0 flex-col xl:min-h-0">
-                <header className="border-base-300 bg-base-100/90 flex shrink-0 items-center border-b p-4 backdrop-blur-sm md:px-6 lg:sticky lg:top-0 lg:z-10 lg:h-28">
+                <header className="flex shrink-0 items-center border-b border-base-300 bg-base-100/90 p-4 backdrop-blur-sm md:px-6 lg:sticky lg:top-0 lg:z-10 lg:h-28">
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                         <button
                             aria-controls={workspaceDrawerId}
@@ -97,7 +97,7 @@ export function WorkspaceRouteFrame({
                             <Menu aria-hidden="true" />
                         </button>
                         <div className="min-w-0">
-                            <p className="text-base-content/60 text-sm">{eyebrow}</p>
+                            <p className="text-sm text-base-content/60">{eyebrow}</p>
                             <Title
                                 className="line-clamp-2 text-2xl font-semibold tracking-normal lg:line-clamp-1"
                                 ref={titleAs === "h1" ? titleRef : undefined}
@@ -108,7 +108,7 @@ export function WorkspaceRouteFrame({
                             </Title>
                             {description && (
                                 <p
-                                    className="text-base-content/60 mt-1 line-clamp-2 max-w-3xl text-sm/6 lg:line-clamp-1"
+                                    className="mt-1 line-clamp-2 max-w-3xl text-sm/6 text-base-content/60 lg:line-clamp-1"
                                     title={description}
                                 >
                                     {description}
@@ -123,7 +123,7 @@ export function WorkspaceRouteFrame({
                 </header>
 
                 {hasContextPanel && contextPanel ? (
-                    <details className="collapse-arrow border-base-300 bg-base-200/40 collapse rounded-none border-b xl:hidden">
+                    <details className="collapse-arrow collapse rounded-none border-b border-base-300 bg-base-200/40 xl:hidden">
                         <summary className="collapse-title flex items-center gap-2 text-sm font-medium">
                             <PanelRightIcon aria-hidden="true" className="size-4" />
                             Context and outline
@@ -146,7 +146,7 @@ export function WorkspaceRouteFrame({
                 </main>
             </div>
             {hasContextPanel && (
-                <aside className="border-base-300 bg-base-200/20 hidden min-w-0 border-s xl:block xl:min-h-0 xl:overflow-y-auto">
+                <aside className="hidden min-w-0 border-s border-base-300 bg-base-200/20 xl:block xl:min-h-0 xl:overflow-y-auto">
                     {contextPanel}
                 </aside>
             )}
@@ -160,7 +160,7 @@ export function WorkspaceRouteFrame({
                     <button
                         aria-expanded={isFabOpen}
                         aria-label="Open page actions"
-                        className="btn btn-circle btn-lg btn-neutral"
+                        className="btn btn-circle btn-neutral btn-lg"
                         tabIndex={0}
                         type="button"
                         onClick={() => {
@@ -177,7 +177,7 @@ export function WorkspaceRouteFrame({
                                 onClick={closeFab}
                                 type="button"
                             >
-                                <span className="btn btn-circle btn-lg btn-neutral">
+                                <span className="btn btn-circle btn-neutral btn-lg">
                                     <X aria-hidden="true" />
                                 </span>
                             </button>

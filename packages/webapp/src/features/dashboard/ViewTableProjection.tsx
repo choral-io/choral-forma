@@ -67,14 +67,14 @@ export function ViewTableProjection({
                 data-view-sticky-header=""
                 ref={stickyHeaderRef}
             >
-                <table className="table-sm table min-w-0 table-fixed" ref={stickyTableRef}>
+                <table className="table min-w-0 table-fixed table-sm" ref={stickyTableRef}>
                     <colgroup>
                         {columns.map(({ column }) => (
                             <col key={column.field} />
                         ))}
                     </colgroup>
                     <thead className="bg-base-200 text-base-content/60">
-                        <tr className="border-base-300 border-b">
+                        <tr className="border-b border-base-300">
                             {columns.map(({ column, headerClassName }) => (
                                 <th className={headerClassName} key={column.field}>
                                     {column.label}
@@ -84,10 +84,10 @@ export function ViewTableProjection({
                     </thead>
                 </table>
             </div>
-            <div className="border-base-300 col-start-1 row-start-1 overflow-hidden rounded-lg border">
+            <div className="col-start-1 row-start-1 overflow-hidden rounded-lg border border-base-300">
                 <div
                     aria-label="Table view"
-                    className="focus-visible:ring-primary/40 overflow-x-auto overscroll-x-contain outline-none focus-visible:ring-3"
+                    className="overflow-x-auto overscroll-x-contain outline-none focus-visible:ring-3 focus-visible:ring-primary/40"
                     data-view-table-scroll=""
                     onScroll={(event) => {
                         if (stickyHeaderRef.current)
@@ -97,9 +97,9 @@ export function ViewTableProjection({
                     role="region"
                     tabIndex={0}
                 >
-                    <table className="table-sm table min-w-max" ref={tableRef}>
+                    <table className="table min-w-max table-sm" ref={tableRef}>
                         <thead className="bg-base-200 text-base-content/60" ref={headerRef}>
-                            <tr className="border-base-300 border-b">
+                            <tr className="border-b border-base-300">
                                 {columns.map(({ column, headerClassName, style }) => (
                                     <th className={headerClassName} key={column.field} scope="col" style={style}>
                                         {column.label}
@@ -110,7 +110,7 @@ export function ViewTableProjection({
                         <tbody>
                             {projection.items.map((item) => (
                                 <tr
-                                    className="border-base-300 hover:bg-base-200/50 border-b last:border-b-0"
+                                    className="border-b border-base-300 last:border-b-0 hover:bg-base-200/50"
                                     key={item.path}
                                 >
                                     {columns.map(({ column, style }) => (
@@ -211,7 +211,7 @@ function ViewProjectionCell({
     return (
         <Link
             aria-label={`Open source entry ${item.title}`}
-            className="link link-primary link-hover block"
+            className="block link link-primary link-hover"
             to={routePath}
         >
             {content}

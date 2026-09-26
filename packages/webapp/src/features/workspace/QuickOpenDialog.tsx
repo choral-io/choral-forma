@@ -86,7 +86,7 @@ export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpen
                 aria-haspopup="dialog"
                 aria-keyshortcuts="Control+K Meta+K"
                 aria-label="Quick open"
-                className={cn("btn btn-circle btn-lg btn-neutral", className)}
+                className={cn("btn btn-circle btn-neutral btn-lg", className)}
                 onClick={(event) => {
                     openDialog(event.currentTarget);
                 }}
@@ -105,7 +105,7 @@ export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpen
             aria-label="Quick open"
             className={cn(
                 isSidebarTrigger
-                    ? "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 gap-3 leading-5 outline-none focus-visible:ring-2"
+                    ? "gap-3 leading-5 outline-none focus-visible:ring-2 focus-visible:ring-base-content/30 is-drawer-close:tooltip is-drawer-close:tooltip-right"
                     : "btn btn-square btn-ghost",
                 className,
             )}
@@ -119,10 +119,10 @@ export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpen
             <Search aria-hidden="true" className={isSidebarTrigger ? "size-5 shrink-0" : undefined} />
             {isSidebarTrigger ? (
                 <>
-                    <span className="is-drawer-close:hidden min-w-0 truncate" data-sidebar-label>
+                    <span className="min-w-0 truncate is-drawer-close:hidden" data-sidebar-label>
                         Quick open
                     </span>
-                    <kbd className="kbd kbd-xs is-drawer-close:hidden shrink-0" data-sidebar-label>
+                    <kbd className="kbd shrink-0 kbd-xs is-drawer-close:hidden" data-sidebar-label>
                         ⌘ K
                     </kbd>
                 </>
@@ -238,10 +238,10 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
             ref={dialogRef}
         >
             <div className="modal-box flex h-[min(44rem,calc(100dvh-4rem))] max-w-2xl flex-col p-0">
-                <div className="border-base-300 flex items-start justify-between gap-4 border-b px-6 py-5">
+                <div className="flex items-start justify-between gap-4 border-b border-base-300 px-6 py-5">
                     <div>
                         <h2 className="text-lg font-semibold">Quick open</h2>
-                        <p className="text-base-content/60 mt-1 text-sm">
+                        <p className="mt-1 text-sm text-base-content/60">
                             Jump to configured views, taxonomies, and content.
                         </p>
                     </div>
@@ -253,7 +253,7 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
                 </div>
 
                 <form
-                    className="border-base-300 border-b px-6 py-4"
+                    className="border-b border-base-300 px-6 py-4"
                     onSubmit={(event) => {
                         event.preventDefault();
                         if (activeItem) openItem(activeItem.href);
@@ -310,7 +310,7 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
                                 <li key={item.href} role="presentation">
                                     {index === 0 || filteredItems[index - 1]?.group !== item.group ? (
                                         <span
-                                            className="text-base-content/50 px-3 pt-3 pb-1 text-xs font-medium tracking-wide uppercase"
+                                            className="px-3 pt-3 pb-1 text-xs font-medium tracking-wide text-base-content/50 uppercase"
                                             role="presentation"
                                         >
                                             {item.group}
@@ -331,7 +331,7 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
                                         to={item.href}
                                     >
                                         <span className="min-w-0 truncate font-medium">{item.label}</span>
-                                        <span className="text-base-content/60 hidden max-w-64 shrink-0 truncate text-xs sm:block">
+                                        <span className="hidden max-w-64 shrink-0 truncate text-xs text-base-content/60 sm:block">
                                             {item.meta}
                                         </span>
                                     </Link>
@@ -339,13 +339,13 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
                             ))}
                         </ul>
                     ) : (
-                        <p className="rounded-box border-base-300 text-base-content/60 border border-dashed px-3 py-8 text-center text-sm">
+                        <p className="rounded-box border border-dashed border-base-300 px-3 py-8 text-center text-sm text-base-content/60">
                             No matching routes.
                         </p>
                     )}
                 </div>
 
-                <div className="modal-action border-base-300 text-base-content/60 m-0 justify-between border-t px-6 py-3 text-xs">
+                <div className="m-0 modal-action justify-between border-t border-base-300 px-6 py-3 text-xs text-base-content/60">
                     <span className="flex items-center gap-2">
                         <kbd className="kbd kbd-sm">↑</kbd>
                         <kbd className="kbd kbd-sm">↓</kbd>

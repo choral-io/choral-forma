@@ -267,7 +267,7 @@ function EntryRouteContent({
                     <button
                         aria-controls={outlineDialogId}
                         aria-label="Outline"
-                        className="btn btn-circle btn-lg btn-neutral"
+                        className="btn btn-circle btn-neutral btn-lg"
                         onClick={(event) => {
                             closeFab();
                             openOutlineDialog(event.currentTarget);
@@ -537,7 +537,7 @@ function PagesContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
                     <section className="flex flex-col gap-3">
                         <div>
                             <h2 className="text-sm font-semibold">Page Index</h2>
-                            <p className="text-base-content/60 mt-1 text-sm/6">
+                            <p className="mt-1 text-sm/6 text-base-content/60">
                                 Route-level read model for the global page list.
                             </p>
                         </div>
@@ -626,13 +626,13 @@ function EntryPage({
                         <h1 className="text-3xl font-semibold tracking-normal" ref={titleRef} tabIndex={-1}>
                             {entry.title}
                         </h1>
-                        {entry.summary ? <p className="text-base-content/60 text-sm/6">{entry.summary}</p> : null}
-                        <div className="text-base-content/60 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                        {entry.summary ? <p className="text-sm/6 text-base-content/60">{entry.summary}</p> : null}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-base-content/60">
                             <span className="flex min-w-0 basis-full items-center gap-1 sm:basis-auto">
                                 <code className="min-w-0 break-all">{entry.path}</code>
                                 <button
                                     aria-label={`Copy source path ${entry.path}`}
-                                    className="btn btn-ghost btn-square btn-xs shrink-0"
+                                    className="btn btn-square shrink-0 btn-ghost btn-xs"
                                     onClick={(event) => {
                                         void copySourcePath(event.currentTarget, entry.path);
                                     }}
@@ -671,14 +671,14 @@ function EntryPage({
                                     />
                                 </Suspense>
                                 <details
-                                    className="collapse-arrow border-base-300 collapse scroll-m-8 border-t group-has-data-reader-loading/entry:hidden"
+                                    className="collapse-arrow collapse scroll-m-8 border-t border-base-300 group-has-data-reader-loading/entry:hidden"
                                     id="document-details"
                                 >
                                     <summary className="collapse-title min-h-0 px-0 py-8">
                                         <span aria-level={2} className="block text-lg font-semibold" role="heading">
                                             Document details
                                         </span>
-                                        <span className="text-base-content/60 mt-1 block text-sm/6">
+                                        <span className="mt-1 block text-sm/6 text-base-content/60">
                                             References and checks associated with this entry.
                                         </span>
                                     </summary>
@@ -712,10 +712,10 @@ function EntryPage({
 
                 {isLoadingDetail ? (
                     <div aria-hidden="true" className="hidden flex-col gap-4 py-4 xl:flex">
-                        <div className="skeleton h-5 w-20" />
-                        <div className="skeleton h-3 w-full" />
-                        <div className="skeleton h-3 w-4/5" />
-                        <div className="skeleton h-3 w-11/12" />
+                        <div className="h-5 w-20 skeleton" />
+                        <div className="h-3 w-full skeleton" />
+                        <div className="h-3 w-4/5 skeleton" />
+                        <div className="h-3 w-11/12 skeleton" />
                     </div>
                 ) : hasOutline ? (
                     <aside className="hidden xl:block">
@@ -723,10 +723,10 @@ function EntryPage({
                             aria-hidden="true"
                             className="hidden flex-col gap-4 py-4 group-has-data-reader-loading/entry:flex"
                         >
-                            <div className="skeleton h-5 w-20" />
-                            <div className="skeleton h-3 w-full" />
-                            <div className="skeleton h-3 w-4/5" />
-                            <div className="skeleton h-3 w-11/12" />
+                            <div className="h-5 w-20 skeleton" />
+                            <div className="h-3 w-full skeleton" />
+                            <div className="h-3 w-4/5 skeleton" />
+                            <div className="h-3 w-11/12 skeleton" />
                         </div>
                         <EntryOutlineSection onNavigate={navigateOutline} routePath={routePath} tree={outlineTree} />
                     </aside>
@@ -743,11 +743,11 @@ function EntryPage({
                     onClose={onOutlineDialogClose}
                     ref={outlineDialogRef}
                 >
-                    <aside className="modal-box bg-base-100 text-base-content flex h-svh max-h-none w-80 max-w-[calc(100vw-3rem)] flex-col rounded-none p-0">
-                        <header className="border-base-300 flex shrink-0 items-center justify-between gap-3 border-b p-4">
+                    <aside className="modal-box flex h-svh max-h-none w-80 max-w-[calc(100vw-3rem)] flex-col rounded-none bg-base-100 p-0 text-base-content">
+                        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-base-300 p-4">
                             <div>
                                 <h2 className="font-semibold">Outline</h2>
-                                <p className="text-base-content/60 mt-1 text-sm">Headings from the current entry.</p>
+                                <p className="mt-1 text-sm text-base-content/60">Headings from the current entry.</p>
                             </div>
                             <button
                                 aria-label="Close outline"
@@ -829,7 +829,7 @@ function EntryOutlineSection({
         <section className="sticky top-8 flex max-h-[calc(100dvh-10rem)] min-h-0 flex-col gap-3 overflow-hidden group-has-data-reader-loading/entry:hidden">
             <div className="shrink-0">
                 <h2 className="text-sm font-semibold">Outline</h2>
-                <p className="text-base-content/60 mt-1 text-sm/6">Headings from the current entry.</p>
+                <p className="mt-1 text-sm/6 text-base-content/60">Headings from the current entry.</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 <OutlineNav onNavigate={onNavigate} routePath={routePath} tree={tree} />
@@ -867,7 +867,7 @@ function OutlineFooterNav({
     routePath: string;
 }) {
     return (
-        <nav aria-label="Page outline footer" className="border-base-300 shrink-0 border-t pt-2">
+        <nav aria-label="Page outline footer" className="shrink-0 border-t border-base-300 pt-2">
             <ul className="menu w-full p-0">
                 <OutlineFooterItems onNavigate={onNavigate} routePath={routePath} />
             </ul>
@@ -949,11 +949,11 @@ function EntryOutlineLink({
 function EntryContentSkeleton() {
     return (
         <div aria-busy="true" aria-label="Loading page content" className="flex flex-col gap-5 py-4" role="status">
-            <div className="skeleton h-4 w-full" />
-            <div className="skeleton h-4 w-11/12" />
-            <div className="skeleton mt-4 h-7 w-2/5" />
-            <div className="skeleton h-4 w-full" />
-            <div className="skeleton h-4 w-4/5" />
+            <div className="h-4 w-full skeleton" />
+            <div className="h-4 w-11/12 skeleton" />
+            <div className="mt-4 h-7 w-2/5 skeleton" />
+            <div className="h-4 w-full skeleton" />
+            <div className="h-4 w-4/5 skeleton" />
         </div>
     );
 }
@@ -963,7 +963,7 @@ function EntryReferencesSection({ entry }: { entry: DashboardEntry }) {
         <section className="flex flex-col gap-3">
             <div>
                 <h2 className="text-sm font-semibold">References</h2>
-                <p className="text-base-content/60 mt-1 text-sm/6">
+                <p className="mt-1 text-sm/6 text-base-content/60">
                     Explicit links from Markdown and wikilink indexing.
                 </p>
             </div>
@@ -989,7 +989,7 @@ function OutgoingReferenceGroup({ links }: { links: DashboardEntryLink[] }) {
             {links.length > 0 ? (
                 <ReferenceList links={links} />
             ) : (
-                <p className="text-base-content/60 text-sm">No outgoing links indexed.</p>
+                <p className="text-sm text-base-content/60">No outgoing links indexed.</p>
             )}
         </div>
     );
@@ -1013,7 +1013,7 @@ function ReferenceGroup({
             {links.length > 0 ? (
                 <ReferenceList links={links} />
             ) : (
-                <p className="text-base-content/60 text-sm">{emptyLabel}</p>
+                <p className="text-sm text-base-content/60">{emptyLabel}</p>
             )}
         </div>
     );
@@ -1061,7 +1061,7 @@ function RelationLink({
                 </span>
                 <ReferenceKindIndicator kind={kind} />
             </span>
-            <span className="text-base-content/60 truncate text-xs" title={targetPath}>
+            <span className="truncate text-xs text-base-content/60" title={targetPath}>
                 {targetPath}
             </span>
         </>
@@ -1070,7 +1070,7 @@ function RelationLink({
     if (kind === "external") {
         return (
             <a
-                className="border-base-300/80 bg-base-100/60 hover:bg-base-200/50 focus-visible:border-primary focus-visible:ring-primary/50 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm transition-colors outline-none focus-visible:ring-3"
+                className="flex min-w-0 flex-col rounded-lg border border-base-300/80 bg-base-100/60 px-3 py-2 text-sm transition-colors outline-none hover:bg-base-200/50 focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/50"
                 href={targetPath}
                 aria-label={`${label} (opens in a new tab)`}
                 rel="noreferrer"
@@ -1083,7 +1083,7 @@ function RelationLink({
 
     if (!targetEntryId || !targetRoutePath) {
         return (
-            <div className="border-base-300/80 bg-base-100/60 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm">
+            <div className="flex min-w-0 flex-col rounded-lg border border-base-300/80 bg-base-100/60 px-3 py-2 text-sm">
                 {content}
             </div>
         );
@@ -1091,7 +1091,7 @@ function RelationLink({
 
     return (
         <Link
-            className="border-base-300/80 bg-base-100/60 hover:bg-base-200 focus-visible:border-primary focus-visible:ring-primary/50 flex min-w-0 flex-col rounded-lg border px-3 py-2 text-sm outline-none focus-visible:ring-3"
+            className="flex min-w-0 flex-col rounded-lg border border-base-300/80 bg-base-100/60 px-3 py-2 text-sm outline-none hover:bg-base-200 focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/50"
             to={targetRoutePath}
         >
             {content}
@@ -1104,7 +1104,7 @@ function ReferenceKindIndicator({ kind }: { kind: DashboardEntryLink["kind"] }) 
         return null;
     }
 
-    return <span className="badge badge-warning shrink-0">{kind}</span>;
+    return <span className="badge shrink-0 badge-warning">{kind}</span>;
 }
 
 function TaxonomiesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
@@ -1117,7 +1117,7 @@ function TaxonomiesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
             {dashboard.taxonomies.length > 0 ? (
                 <TaxonomiesGrid taxonomies={dashboard.taxonomies} />
             ) : (
-                <p className="text-base-content/60 py-8 text-sm">No taxonomies are configured.</p>
+                <p className="py-8 text-sm text-base-content/60">No taxonomies are configured.</p>
             )}
         </RouteBodySection>
     );
@@ -1173,7 +1173,7 @@ function ViewsPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
             {dashboard.views.length > 0 ? (
                 <ViewsGrid views={dashboard.views} />
             ) : (
-                <p className="text-base-content/60 py-8 text-sm">No views are configured.</p>
+                <p className="py-8 text-sm text-base-content/60">No views are configured.</p>
             )}
         </RouteBodySection>
     );
@@ -1202,7 +1202,7 @@ function ViewPage({
 
     return (
         <div className="flex min-w-0 flex-col gap-6">
-            <div className="text-base-content/60 flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
                 <span className="badge badge-outline badge-sm">{view.kind}</span>
                 <span>{view.space ?? "workspace"}</span>
                 <span>{itemCount} items</span>
@@ -1210,7 +1210,7 @@ function ViewPage({
                     <code className="min-w-0 break-all">{view.path}</code>
                     <button
                         aria-label={`Copy source path ${view.path}`}
-                        className="btn btn-ghost btn-xs shrink-0"
+                        className="btn shrink-0 btn-ghost btn-xs"
                         onClick={(event) => {
                             void copySourcePath(event.currentTarget, view.path);
                         }}
@@ -1240,13 +1240,13 @@ function EmptyPage() {
 
 function EmptyState({ description, icon: Icon, title }: { description: string; icon: typeof FileText; title: string }) {
     return (
-        <section className="card border-base-300 bg-base-100 border">
+        <section className="card border border-base-300 bg-base-100">
             <div className="card-body">
-                <div className="bg-base-200 text-base-content/60 flex size-10 items-center justify-center rounded-md">
+                <div className="flex size-10 items-center justify-center rounded-md bg-base-200 text-base-content/60">
                     <Icon data-icon="inline-start" />
                 </div>
                 <h2 className="card-title">{title}</h2>
-                <p className="text-base-content/60 text-sm">{description}</p>
+                <p className="text-sm text-base-content/60">{description}</p>
             </div>
         </section>
     );
@@ -1268,9 +1268,9 @@ function RouteBodySection({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h2 className="text-lg font-semibold tracking-normal">{title}</h2>
-                    <p className="text-base-content/60 mt-1 text-sm/6">{description}</p>
+                    <p className="mt-1 text-sm/6 text-base-content/60">{description}</p>
                 </div>
-                {meta && <span className="text-base-content/60 text-sm">{meta}</span>}
+                {meta && <span className="text-sm text-base-content/60">{meta}</span>}
             </div>
             {children}
         </section>
@@ -1279,10 +1279,10 @@ function RouteBodySection({
 
 function TaxonomiesGrid({ taxonomies }: { taxonomies: DashboardTaxonomy[] }) {
     return (
-        <nav aria-label="Configured taxonomies" className="border-base-300 divide-base-300 divide-y border-y">
+        <nav aria-label="Configured taxonomies" className="divide-y divide-base-300 border-y border-base-300">
             {taxonomies.map((taxonomy) => (
                 <Link
-                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+                    className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
                     key={taxonomy.id}
                     to={taxonomyRoutePath(taxonomy.id)}
                 >
@@ -1291,13 +1291,13 @@ function TaxonomiesGrid({ taxonomies }: { taxonomies: DashboardTaxonomy[] }) {
                             <span className="font-medium">{taxonomy.title}</span>
                             <span className="badge badge-outline badge-sm">{taxonomy.mode}</span>
                         </div>
-                        <p className="text-base-content/60 mt-1 truncate text-sm">{taxonomy.description}</p>
+                        <p className="mt-1 truncate text-sm text-base-content/60">{taxonomy.description}</p>
                     </div>
-                    <div className="text-base-content/60 hidden gap-4 text-sm sm:flex">
+                    <div className="hidden gap-4 text-sm text-base-content/60 sm:flex">
                         <span>{taxonomy.terms.length} terms</span>
                         <span>{taxonomy.terms.reduce((total, term) => total + term.entryCount, 0)} entries</span>
                     </div>
-                    <ArrowRight aria-hidden="true" className="text-base-content/50 size-5 shrink-0" />
+                    <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-base-content/50" />
                 </Link>
             ))}
         </nav>
@@ -1311,17 +1311,17 @@ function PagesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
     ).length;
 
     return (
-        <section className="card border-base-300 bg-base-100 border">
+        <section className="card border border-base-300 bg-base-100">
             <div className="card-body">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                         <span className={warningCount > 0 ? "badge badge-warning" : "badge"}>{dashboard.status}</span>
-                        <h2 className="card-title mt-4">Pages overview</h2>
-                        <p className="text-base-content/60 mt-2 text-sm">
+                        <h2 className="mt-4 card-title">Pages overview</h2>
+                        <p className="mt-2 text-sm text-base-content/60">
                             Global read-only index for Markdown pages in the workspace.
                         </p>
                     </div>
-                    <div className="bg-base-200 text-base-content/60 flex size-10 shrink-0 items-center justify-center rounded-md">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-base-200 text-base-content/60">
                         <FileText data-icon="inline-start" />
                     </div>
                 </div>
@@ -1337,7 +1337,7 @@ function PagesOverview({ dashboard }: { dashboard: WorkspaceDashboard }) {
 
 function PagesList({ entries }: { entries: DashboardEntry[] }) {
     return (
-        <nav aria-label="Matching content" className="border-base-300 divide-base-300 divide-y border-y">
+        <nav aria-label="Matching content" className="divide-y divide-base-300 border-y border-base-300">
             {entries.map((entry) => (
                 <EntryRow entry={entry} key={entry.path} />
             ))}
@@ -1347,10 +1347,10 @@ function PagesList({ entries }: { entries: DashboardEntry[] }) {
 
 function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
     return (
-        <nav aria-label="Configured views" className="border-base-300 divide-base-300 divide-y border-y">
+        <nav aria-label="Configured views" className="divide-y divide-base-300 border-y border-base-300">
             {views.map((view) => (
                 <Link
-                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
+                    className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
                     key={view.id}
                     to={viewRoutePath(view.id)}
                 >
@@ -1358,17 +1358,17 @@ function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
                         <div className="truncate font-medium" title={view.title}>
                             {view.title}
                         </div>
-                        <div className="text-base-content/60 mt-1 line-clamp-1 text-sm" title={view.description}>
+                        <div className="mt-1 line-clamp-1 text-sm text-base-content/60" title={view.description}>
                             {view.description}
                         </div>
                     </div>
-                    <span className="badge badge-outline badge-sm hidden justify-self-start sm:inline-flex">
+                    <span className="badge hidden justify-self-start badge-outline badge-sm sm:inline-flex">
                         {view.kind}
                     </span>
-                    <span className="text-base-content/60 hidden truncate text-sm sm:block">
+                    <span className="hidden truncate text-sm text-base-content/60 sm:block">
                         {view.space ?? "workspace"}
                     </span>
-                    <ChevronRight aria-hidden="true" className="text-base-content/50 size-5 justify-self-end" />
+                    <ChevronRight aria-hidden="true" className="size-5 justify-self-end text-base-content/50" />
                 </Link>
             ))}
         </nav>
@@ -1435,7 +1435,7 @@ function projectionItemCount(projection: DashboardViewProjection) {
 
 function ProjectionLoadingState() {
     return (
-        <div className="border-base-300 text-base-content/60 rounded-lg border border-dashed p-6 text-sm">
+        <div className="rounded-lg border border-dashed border-base-300 p-6 text-sm text-base-content/60">
             Loading view projection...
         </div>
     );
@@ -1443,7 +1443,7 @@ function ProjectionLoadingState() {
 
 function ProjectionErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
     return (
-        <div className="alert alert-error alert-soft alert-vertical sm:alert-horizontal" role="alert">
+        <div className="alert alert-vertical alert-soft alert-error sm:alert-horizontal" role="alert">
             <AlertTriangle aria-hidden="true" className="size-5" />
             <div>
                 <h2 className="font-semibold">View projection failed to load</h2>
@@ -1481,13 +1481,13 @@ async function copySourcePath(button: HTMLButtonElement, path: string) {
 
 function ViewListProjection({ projection }: { projection: Extract<DashboardViewProjection, { kind: "list" }> }) {
     return (
-        <div className="border-base-300 overflow-hidden border-y">
-            <div className="divide-base-300 divide-y">
+        <div className="overflow-hidden border-y border-base-300">
+            <div className="divide-y divide-base-300">
                 {projection.items.map((item) => (
                     <ViewListProjectionRow item={item} key={item.path} />
                 ))}
                 {projection.items.length === 0 ? (
-                    <p className="text-base-content/60 p-4 text-sm">No items match this view.</p>
+                    <p className="p-4 text-sm text-base-content/60">No items match this view.</p>
                 ) : null}
             </div>
         </div>
@@ -1502,11 +1502,11 @@ function ViewListProjectionRow({ item }: { item: DashboardViewProjectionItem }) 
                 {item.title}
             </span>
             {summary ? (
-                <span className="text-base-content/60 mt-1 line-clamp-2 block text-sm" title={summary}>
+                <span className="mt-1 line-clamp-2 block text-sm text-base-content/60" title={summary}>
                     {summary}
                 </span>
             ) : null}
-            <code className="text-base-content/60 mt-2 block truncate text-xs" title={item.path}>
+            <code className="mt-2 block truncate text-xs text-base-content/60" title={item.path}>
                 {item.path}
             </code>
         </>
@@ -1518,7 +1518,7 @@ function ViewListProjectionRow({ item }: { item: DashboardViewProjectionItem }) 
 
     return (
         <Link
-            className="hover:bg-base-200/50 focus-visible:ring-primary/50 block p-4 transition-colors outline-none focus-visible:ring-3"
+            className="block p-4 transition-colors outline-none hover:bg-base-200/50 focus-visible:ring-3 focus-visible:ring-primary/50"
             to={item.routePath}
         >
             {content}
@@ -1528,21 +1528,21 @@ function ViewListProjectionRow({ item }: { item: DashboardViewProjectionItem }) 
 
 function TaxonomyTermsGrid({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
     return (
-        <nav aria-label={`${taxonomy.title} terms`} className="border-base-300 divide-base-300 divide-y border-y">
+        <nav aria-label={`${taxonomy.title} terms`} className="divide-y divide-base-300 border-y border-base-300">
             {taxonomy.terms.map((term) => (
                 <Link
-                    className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+                    className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
                     key={term.id}
                     to={taxonomyTermRoutePath(taxonomy.id, term.id)}
                 >
                     <div className="min-w-0">
                         <span className="font-medium">{term.title}</span>
-                        <p className="text-base-content/60 mt-1 truncate text-sm">{term.description}</p>
+                        <p className="mt-1 truncate text-sm text-base-content/60">{term.description}</p>
                     </div>
-                    <span className="text-base-content/60 hidden text-sm tabular-nums sm:block">
+                    <span className="hidden text-sm text-base-content/60 tabular-nums sm:block">
                         {term.entryCount} {term.entryCount === 1 ? "entry" : "entries"}
                     </span>
-                    <ArrowRight aria-hidden="true" className="text-base-content/50 size-5 shrink-0" />
+                    <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-base-content/50" />
                 </Link>
             ))}
         </nav>
@@ -1551,8 +1551,8 @@ function TaxonomyTermsGrid({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
 
 function ContextStat({ label, title, value }: { label: string; title?: string; value: number | string }) {
     return (
-        <div className="border-base-300/80 bg-base-100/60 rounded-lg border p-3">
-            <span className="text-base-content/60 text-xs">{label}</span>
+        <div className="rounded-lg border border-base-300/80 bg-base-100/60 p-3">
+            <span className="text-xs text-base-content/60">{label}</span>
             <strong className="mt-1 block truncate text-sm" title={title}>
                 {value}
             </strong>
@@ -1562,8 +1562,8 @@ function ContextStat({ label, title, value }: { label: string; title?: string; v
 
 function StatCell({ label, title, value }: { label: string; title?: string; value: number | string }) {
     return (
-        <div className="border-base-300 bg-base-100 rounded-md border p-2 sm:p-3">
-            <span className="text-base-content/60 text-xs">{label}</span>
+        <div className="rounded-md border border-base-300 bg-base-100 p-2 sm:p-3">
+            <span className="text-xs text-base-content/60">{label}</span>
             <strong className="mt-1 block truncate text-sm sm:text-base" title={title ?? String(value)}>
                 {value}
             </strong>
@@ -1574,21 +1574,21 @@ function StatCell({ label, title, value }: { label: string; title?: string; valu
 function EntryRow({ entry }: { entry: DashboardEntry }) {
     return (
         <Link
-            className="hover:bg-base-200/50 focus-visible:bg-base-200/50 grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none"
+            className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50"
             to={entry.routePath}
         >
             <div className="min-w-0 flex-1">
                 <h3 className="truncate font-medium" title={entry.title}>
                     {entry.title}
                 </h3>
-                <p className="text-base-content/60 truncate text-sm" title={entry.summary}>
+                <p className="truncate text-sm text-base-content/60" title={entry.summary}>
                     {entry.summary}
                 </p>
-                <code className="text-base-content/60 mt-2 block truncate text-xs" title={entry.path}>
+                <code className="mt-2 block truncate text-xs text-base-content/60" title={entry.path}>
                     {entry.path}
                 </code>
             </div>
-            <span className="text-base-content/60 shrink-0 text-xs" title={formatAbsoluteDateTime(entry.updatedAt)}>
+            <span className="shrink-0 text-xs text-base-content/60" title={formatAbsoluteDateTime(entry.updatedAt)}>
                 {entry.updatedLabel}
             </span>
         </Link>

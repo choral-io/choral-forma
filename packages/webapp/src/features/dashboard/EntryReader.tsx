@@ -102,12 +102,12 @@ function EntryBlockView({
     }
 
     if (block.type === "paragraph") {
-        return <p className="text-base-content/90 text-sm/7">{block.text}</p>;
+        return <p className="text-sm/7 text-base-content/90">{block.text}</p>;
     }
 
     if (block.type === "list") {
         return (
-            <ul className="text-base-content/90 flex list-disc flex-col gap-2 ps-5 text-sm/7">
+            <ul className="flex list-disc flex-col gap-2 ps-5 text-sm/7 text-base-content/90">
                 {block.items.map((item) => (
                     <li key={item}>{item}</li>
                 ))}
@@ -117,7 +117,7 @@ function EntryBlockView({
 
     if (block.type === "quote") {
         return (
-            <blockquote className="border-base-300 text-base-content/60 bg-base-200/30 rounded-r-lg border-s-4 px-4 py-3 text-sm/7">
+            <blockquote className="rounded-r-lg border-s-4 border-base-300 bg-base-200/30 px-4 py-3 text-sm/7 text-base-content/60">
                 {block.text}
             </blockquote>
         );
@@ -125,8 +125,8 @@ function EntryBlockView({
 
     if (block.type === "code") {
         return (
-            <figure className="border-base-300 bg-base-200/50 overflow-hidden rounded-lg border">
-                <figcaption className="border-base-300 text-base-content/60 border-b px-4 py-2 text-xs">
+            <figure className="overflow-hidden rounded-lg border border-base-300 bg-base-200/50">
+                <figcaption className="border-b border-base-300 px-4 py-2 text-xs text-base-content/60">
                     {block.language}
                 </figcaption>
                 <pre className="overflow-x-auto p-4 text-sm/6">
@@ -137,9 +137,9 @@ function EntryBlockView({
     }
 
     return (
-        <div className="border-base-300 overflow-hidden rounded-lg border">
+        <div className="overflow-hidden rounded-lg border border-base-300">
             <div className="overflow-x-auto">
-                <table className="table-sm table min-w-xl">
+                <table className="table min-w-xl table-sm">
                     <thead className="bg-base-200 text-base-content/60">
                         <tr>
                             {block.columns.map((column) => (

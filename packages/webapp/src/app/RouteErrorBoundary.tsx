@@ -8,13 +8,13 @@ export function RouteErrorBoundary() {
     const headingRef = useRouteContentFocusTarget<HTMLHeadingElement>();
 
     return (
-        <main className="bg-base-100 text-base-content flex min-h-screen items-center justify-center p-6">
-            <section className="card border-base-300 bg-base-100 w-full max-w-md border">
+        <main className="flex min-h-screen items-center justify-center bg-base-100 p-6 text-base-content">
+            <section className="card w-full max-w-md border border-base-300 bg-base-100">
                 <div className="card-body">
                     <h1 className="card-title" ref={headingRef} tabIndex={-1}>
                         This page could not be displayed
                     </h1>
-                    <p className="text-base-content/60 text-sm">{message}</p>
+                    <p className="text-sm text-base-content/60">{message}</p>
                     <Link className="btn mt-2 self-start" to="/">
                         Back to workspace
                     </Link>

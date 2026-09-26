@@ -169,14 +169,14 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         <div className="flex flex-col gap-4">
             <div
                 className={cn(
-                    "border-base-300 bg-base-200/20 relative overflow-hidden rounded-lg border",
+                    "relative overflow-hidden rounded-lg border border-base-300 bg-base-200/20",
                     isExpanded
-                        ? "bg-base-100 fixed inset-0 z-50 h-dvh w-dvw rounded-none border-0"
+                        ? "fixed inset-0 z-50 h-dvh w-dvw rounded-none border-0 bg-base-100"
                         : "aspect-3/2 max-h-160 min-h-88",
                 )}
             >
                 <div
-                    className="focus-visible:ring-primary/50 relative size-full outline-none focus-visible:ring-3 focus-visible:ring-inset"
+                    className="relative size-full outline-none focus-visible:ring-3 focus-visible:ring-primary/50 focus-visible:ring-inset"
                     id="graph-viewer-canvas"
                     ref={containerRef}
                 />
@@ -185,7 +185,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                         <button
                             aria-controls="graph-viewer-canvas"
                             aria-label="Reset graph view"
-                            className="btn btn-ghost btn-sm btn-circle diagram-viewer-control-button"
+                            className="diagram-viewer-control-button btn btn-circle btn-ghost btn-sm"
                             onClick={resetGraph}
                             title="Reset graph view"
                             type="button"
@@ -195,7 +195,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                         <button
                             aria-controls="graph-viewer-canvas"
                             aria-label={expandPresentation.ariaLabel}
-                            className="btn btn-ghost btn-sm btn-circle diagram-viewer-control-button"
+                            className="diagram-viewer-control-button btn btn-circle btn-ghost btn-sm"
                             onClick={() => {
                                 setExpandedView(!isExpanded);
                             }}
@@ -215,7 +215,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
             {projection.legend.length > 0 ? <GraphLegend items={projection.legend} /> : null}
 
             {projection.nodes.length === 0 ? (
-                <p className="text-base-content/60 rounded-lg border border-dashed p-4 text-sm">
+                <p className="rounded-lg border border-dashed p-4 text-sm text-base-content/60">
                     No nodes match this graph view.
                 </p>
             ) : null}
@@ -237,22 +237,22 @@ function GraphNodeSummary({
     const summary = graphSummaryPresentation(node, linkedCount);
     if (!summary) return null;
     return (
-        <div className="bg-base-100 text-base-content pointer-events-none absolute bottom-3 left-3 z-10 w-[min(18rem,calc(100%-1.5rem))] rounded-md border p-3 shadow-lg">
+        <div className="pointer-events-none absolute bottom-3 left-3 z-10 w-[min(18rem,calc(100%-1.5rem))] rounded-md border bg-base-100 p-3 text-base-content shadow-lg">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <p className="truncate text-sm font-medium" title={summary.title}>
                         {summary.title}
                     </p>
-                    <p className="text-base-content/60 mt-1 truncate text-xs" title={summary.path}>
+                    <p className="mt-1 truncate text-xs text-base-content/60" title={summary.path}>
                         {summary.path}
                     </p>
                     {node.classification ? (
-                        <p className="text-base-content/60 mt-1 truncate text-xs" title={node.classification.label}>
+                        <p className="mt-1 truncate text-xs text-base-content/60" title={node.classification.label}>
                             {node.classification.label}
                         </p>
                     ) : null}
                 </div>
-                <span className="badge badge-outline shrink-0">{summary.links}</span>
+                <span className="badge shrink-0 badge-outline">{summary.links}</span>
             </div>
         </div>
     );
@@ -286,7 +286,7 @@ function GraphLegend({ items }: { items: DashboardGraphProjection["legend"] }) {
                     <span
                         aria-hidden="true"
                         className={cn(
-                            "border-base-300 size-2.5 rounded-full border",
+                            "size-2.5 rounded-full border border-base-300",
                             !item.color && "bg-base-content/60",
                         )}
                         style={item.color ? { backgroundColor: item.color } : undefined}

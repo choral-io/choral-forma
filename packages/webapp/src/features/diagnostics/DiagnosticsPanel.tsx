@@ -18,16 +18,16 @@ export function DiagnosticsPanel({
         <section className="flex flex-col gap-3">
             <div>
                 <h2 className="text-sm font-semibold">{title}</h2>
-                <p className="text-base-content/60 mt-1 text-sm/6">{description}</p>
+                <p className="mt-1 text-sm/6 text-base-content/60">{description}</p>
             </div>
             <div className="flex flex-col gap-2">
                 {diagnostics.length > 0 ? (
                     diagnostics.map((diagnostic) => (
                         <article
-                            className="border-base-300/80 bg-base-100/60 flex gap-3 rounded-lg border p-3"
+                            className="flex gap-3 rounded-lg border border-base-300/80 bg-base-100/60 p-3"
                             key={`${diagnostic.code}-${diagnostic.path ?? diagnostic.message}`}
                         >
-                            <div className="text-base-content/60 mt-0.5">
+                            <div className="mt-0.5 text-base-content/60">
                                 {diagnostic.severity === "info" ? (
                                     <Info data-icon="inline-start" />
                                 ) : (
@@ -47,12 +47,12 @@ export function DiagnosticsPanel({
                                     >
                                         {diagnostic.code}
                                     </span>
-                                    <span className="text-base-content/60 text-xs">{diagnostic.severity}</span>
+                                    <span className="text-xs text-base-content/60">{diagnostic.severity}</span>
                                 </div>
                                 <p className="mt-2 text-sm/6">{diagnostic.message}</p>
                                 {diagnostic.path && (
                                     <code
-                                        className="text-base-content/60 mt-2 block truncate text-xs"
+                                        className="mt-2 block truncate text-xs text-base-content/60"
                                         title={diagnostic.path}
                                     >
                                         {diagnostic.path}
@@ -63,7 +63,7 @@ export function DiagnosticsPanel({
                         </article>
                     ))
                 ) : (
-                    <p className="text-base-content/60 text-sm">{emptyLabel}</p>
+                    <p className="text-sm text-base-content/60">{emptyLabel}</p>
                 )}
             </div>
         </section>
@@ -85,7 +85,7 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                     <h2 className="text-sm font-semibold">Workspace Health</h2>
                     <span className={health.status === "failed" ? "badge badge-error" : "badge"}>{health.status}</span>
                 </div>
-                <p className="text-base-content/60 mt-1 text-sm/6">
+                <p className="mt-1 text-sm/6 text-base-content/60">
                     Read-only findings from workspace diagnostics, references, and link structure.
                 </p>
             </div>
@@ -96,17 +96,17 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                         <section className="flex flex-col gap-2" key={group.category}>
                             <div>
                                 <h3 className="text-sm font-medium">{healthCategoryLabels[group.category]}</h3>
-                                <p className="text-base-content/60 mt-0.5 text-xs/5">
+                                <p className="mt-0.5 text-xs/5 text-base-content/60">
                                     {healthCategoryDescriptions[group.category]}
                                 </p>
                             </div>
                             <div className="flex flex-col gap-2">
                                 {group.findings.map((finding) => (
                                     <article
-                                        className="border-base-300/80 bg-base-100/60 flex gap-3 rounded-lg border p-3"
+                                        className="flex gap-3 rounded-lg border border-base-300/80 bg-base-100/60 p-3"
                                         key={`${finding.category}-${finding.path}-${finding.target ?? finding.message}`}
                                     >
-                                        <div className="text-base-content/60 mt-0.5">
+                                        <div className="mt-0.5 text-base-content/60">
                                             {finding.severity === "info" ? (
                                                 <Info data-icon="inline-start" />
                                             ) : (
@@ -126,14 +126,14 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                                                 >
                                                     {finding.severity}
                                                 </span>
-                                                <span className="text-base-content/60 text-xs">
+                                                <span className="text-xs text-base-content/60">
                                                     {healthCategoryLabels[finding.category]}
                                                 </span>
                                             </div>
                                             <p className="mt-2 text-sm/6">{finding.message}</p>
                                             {finding.routePath ? (
                                                 <Link
-                                                    className="text-primary mt-2 block truncate text-xs underline-offset-4 hover:underline"
+                                                    className="mt-2 block truncate text-xs text-primary underline-offset-4 hover:underline"
                                                     title={finding.path}
                                                     to={finding.routePath}
                                                 >
@@ -141,7 +141,7 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                                                 </Link>
                                             ) : (
                                                 <code
-                                                    className="text-base-content/60 mt-2 block truncate text-xs"
+                                                    className="mt-2 block truncate text-xs text-base-content/60"
                                                     title={finding.path}
                                                 >
                                                     {finding.path}
@@ -149,7 +149,7 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                                             )}
                                             {finding.target ? (
                                                 <code
-                                                    className="text-base-content/60 mt-1 block truncate text-xs"
+                                                    className="mt-1 block truncate text-xs text-base-content/60"
                                                     title={finding.target}
                                                 >
                                                     Target: {finding.target}
@@ -163,7 +163,7 @@ export function WorkspaceHealthPanel({ health }: { health: DashboardHealth }) {
                     ))}
                 </div>
             ) : (
-                <p className="text-base-content/60 text-sm">No health findings found.</p>
+                <p className="text-sm text-base-content/60">No health findings found.</p>
             )}
         </section>
     );
@@ -203,7 +203,7 @@ function DiagnosticDetailList({ diagnostic }: { diagnostic: DashboardDiagnostic 
     }
 
     return (
-        <dl className="text-base-content/60 mt-3 grid gap-1 text-xs">
+        <dl className="mt-3 grid gap-1 text-xs text-base-content/60">
             {location ? (
                 <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2">
                     <dt>Location</dt>

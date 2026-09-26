@@ -48,7 +48,7 @@ export function ViewKanbanProjection({
     }, [projection]);
 
     return (
-        <div className="relative grid" ref={boundaryRef}>
+        <div className="@container relative grid" ref={boundaryRef}>
             <div
                 aria-hidden="true"
                 className={cn(projectionStickyHeaderClassName, "rounded-none border-0 bg-transparent")}
@@ -62,7 +62,7 @@ export function ViewKanbanProjection({
                                 kanbanColumnClassName,
                                 kanbanColumnHeaderBoxClassName,
                                 projectionStickyHeaderSurfaceClassName,
-                                "bg-base-200 ring-base-300 ring-1 ring-inset",
+                                "bg-base-200 ring-1 ring-base-300 ring-inset",
                             )}
                             data-view-kanban-sticky-column=""
                             key={column.id}
@@ -72,7 +72,7 @@ export function ViewKanbanProjection({
                                     {column.icon ? <span aria-hidden="true">{column.icon} </span> : null}
                                     {column.label}
                                 </h3>
-                                <span className="badge badge-ghost badge-sm shrink-0">{column.items.length}</span>
+                                <span className="badge shrink-0 badge-ghost badge-sm">{column.items.length}</span>
                             </div>
                         </div>
                     ))}
@@ -80,7 +80,7 @@ export function ViewKanbanProjection({
             </div>
             <div
                 aria-label="Kanban board"
-                className="focus-visible:ring-primary/40 col-start-1 row-start-1 max-w-full min-w-0 overflow-x-auto overscroll-x-contain pb-3 outline-none focus-visible:ring-3"
+                className="col-start-1 row-start-1 max-w-full min-w-0 overflow-x-auto overscroll-x-contain pb-3 outline-none focus-visible:ring-3 focus-visible:ring-primary/40"
                 data-view-kanban-scroll=""
                 onScroll={(event) => {
                     syncKanbanStickyRailScroll(stickyHeaderRef.current, event.currentTarget.scrollLeft);
@@ -94,7 +94,7 @@ export function ViewKanbanProjection({
                         <section
                             className={cn(
                                 kanbanColumnClassName,
-                                "border-base-300 bg-base-200 min-h-60 rounded-lg border",
+                                "min-h-60 rounded-lg border border-base-300 bg-base-200",
                             )}
                             data-view-kanban-column=""
                             key={column.id}
@@ -109,7 +109,7 @@ export function ViewKanbanProjection({
                                         {column.icon ? <span aria-hidden="true">{column.icon} </span> : null}
                                         {column.label}
                                     </h3>
-                                    <span className="badge badge-ghost badge-sm shrink-0">{column.items.length}</span>
+                                    <span className="badge shrink-0 badge-ghost badge-sm">{column.items.length}</span>
                                 </div>
                             </div>
                             <div className="flex flex-col gap-3 px-3 pb-3">
@@ -117,7 +117,7 @@ export function ViewKanbanProjection({
                                     <ViewKanbanCard card={projection.card} item={item} key={item.path} />
                                 ))}
                                 {column.items.length === 0 ? (
-                                    <p className="border-base-300 text-base-content/60 rounded-md border border-dashed p-3 text-sm">
+                                    <p className="rounded-md border border-dashed border-base-300 p-3 text-sm text-base-content/60">
                                         No entries
                                     </p>
                                 ) : null}
@@ -131,7 +131,9 @@ export function ViewKanbanProjection({
 }
 
 const kanbanTrackClassName = "flex min-w-max flex-nowrap items-start gap-3";
-const kanbanColumnClassName = "w-[min(20rem,85vw)] flex-none";
+// Columns size against the board boundary (the query container above), so the sticky header rail
+// and the scroll track resolve the same width and a narrow board still reveals the next column.
+const kanbanColumnClassName = "w-[min(20rem,85cqw)] flex-none";
 const kanbanColumnHeaderBoxClassName = "p-3";
 const kanbanColumnHeadingClassName = "flex items-center justify-between gap-3";
 
@@ -157,7 +159,7 @@ function ViewKanbanCard({
             {subtitles.length > 0 ? (
                 <div className="grid gap-1">
                     {subtitles.map(({ field, value }) => (
-                        <p className="text-base-content/60 line-clamp-2 text-sm" key={field} title={value}>
+                        <p className="line-clamp-2 text-sm text-base-content/60" key={field} title={value}>
                             <span className="sr-only">{viewFieldLabel(field)}: </span>
                             {value}
                         </p>
@@ -167,7 +169,7 @@ function ViewKanbanCard({
             <div className="flex flex-wrap gap-1.5">
                 {badges.map(({ field, value }) => (
                     <span
-                        className="badge badge-soft badge-sm max-w-full"
+                        className="badge max-w-full badge-soft badge-sm"
                         key={field}
                         title={`${viewFieldLabel(field)}: ${value}`}
                     >
@@ -181,7 +183,7 @@ function ViewKanbanCard({
 
     if (!item.routePath) {
         return (
-            <article className="card card-sm card-border border-base-300 bg-base-100 overflow-hidden">
+            <article className="card overflow-hidden border-base-300 bg-base-100 card-sm card-border">
                 {content}
             </article>
         );
@@ -189,7 +191,7 @@ function ViewKanbanCard({
 
     return (
         <Link
-            className="card card-sm card-border border-base-300 bg-base-100 hover:bg-base-300 focus-visible:ring-primary/50 overflow-hidden transition-colors outline-none focus-visible:ring-3"
+            className="card overflow-hidden border-base-300 bg-base-100 transition-colors card-sm outline-none card-border hover:bg-base-300 focus-visible:ring-3 focus-visible:ring-primary/50"
             to={item.routePath}
         >
             {content}

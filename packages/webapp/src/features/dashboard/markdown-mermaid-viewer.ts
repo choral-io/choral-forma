@@ -291,7 +291,7 @@ function createButton(label: string, canvasId?: string) {
 function createZoomSlider(caption: string, canvasId: string) {
     const slider = document.createElement("input");
     slider.className =
-        "range range-vertical range-xs diagram-viewer-zoom-slider diagram-viewer-no-fill-range h-full w-5 panzoom-exclude focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2";
+        "range range-vertical range-xs diagram-viewer-no-fill-range h-full w-5 panzoom-exclude focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2";
     slider.setAttribute("aria-controls", canvasId);
     slider.setAttribute("aria-label", `Zoom ${caption}`);
     slider.setAttribute("aria-orientation", "vertical");

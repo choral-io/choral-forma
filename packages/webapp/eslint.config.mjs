@@ -4,6 +4,8 @@ import globals from "globals";
 import react from "@eslint-react/eslint-plugin";
 import js from "@eslint/js";
 import betterTailwindcss from "eslint-plugin-better-tailwindcss";
+import { getDefaultSelectors } from "eslint-plugin-better-tailwindcss/defaults";
+import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/types";
 import prettierRecommended from "eslint-plugin-prettier/recommended";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
@@ -16,6 +18,27 @@ export default defineConfig(
             "better-tailwindcss": {
                 cwd: import.meta.dirname,
                 entryPoint: "src/styles/globals.css",
+                // Extend the defaults to the WebApp's own class carriers: shared constants named
+                // `*Class`/`*ClassName` and imperative classList calls. Imperative `.className`
+                // assignments and class attributes inside generated HTML strings are not supported
+                // by this plugin; review those carriers with their feature tests and browser checks.
+                // classList tokens are checked individually: unknown tokens are caught, but conflicts
+                // or duplicates across arguments/calls are not. Do not combine replace() arguments
+                // as a class list: its old/new tokens are alternatives, not simultaneous classes.
+                // Coverage and known gaps are exercised by scripts/webapp-style-lint.test.mjs.
+                selectors: [
+                    ...getDefaultSelectors(),
+                    {
+                        kind: SelectorKind.Variable,
+                        match: [{ type: MatcherType.String }],
+                        name: "^.+(?:Class|ClassName)$",
+                    },
+                    {
+                        kind: SelectorKind.Callee,
+                        match: [{ type: MatcherType.String }],
+                        path: "^.+\\.classList\\.(?:add|remove|replace|toggle)$",
+                    },
+                ],
             },
             "react-x": { version: "detect" },
         },
@@ -59,12 +82,14 @@ export default defineConfig(
             // daisyUI defines fab-close, drawer-overlay, and drawer-button only as
             // nested selectors. Diagram viewer primitives are Forma-owned CSS
             // composition classes shared by the graph and Mermaid adapters.
+            // panzoom-exclude is a behavior hook read by the Mermaid zoom controller.
             "better-tailwindcss/no-unknown-classes": [
                 "error",
                 {
                     ignore: [
                         "^(fab-close|drawer-overlay|drawer-button)$",
-                        "^(diagram-viewer-control-rail|diagram-viewer-slider-lane|diagram-viewer-zoom-slider|diagram-viewer-no-fill-range|diagram-viewer-control-actions|diagram-viewer-control-button)$",
+                        "^(diagram-viewer-control-rail|diagram-viewer-slider-lane|diagram-viewer-no-fill-range|diagram-viewer-control-actions|diagram-viewer-control-button)$",
+                        "^panzoom-exclude$",
                     ],
                 },
             ],

@@ -48,7 +48,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                     <div className="join" role="group" aria-label="Calendar navigation">
                         <button
                             type="button"
-                            className="btn btn-sm btn-square join-item"
+                            className="btn join-item btn-square btn-sm"
                             aria-label="Previous month"
                             title="Previous month"
                             disabled={month <= "0001-01"}
@@ -60,7 +60,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                         </button>
                         <button
                             type="button"
-                            className="btn btn-sm join-item"
+                            className="btn join-item btn-sm"
                             onClick={() => {
                                 const current = dateInZone(new Date(), projection.timeZone);
                                 setToday(current);
@@ -71,7 +71,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                         </button>
                         <button
                             type="button"
-                            className="btn btn-sm btn-square join-item"
+                            className="btn join-item btn-square btn-sm"
                             aria-label="Next month"
                             title="Next month"
                             disabled={month >= "9999-12"}
@@ -89,7 +89,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                     >
                         <button
                             type="button"
-                            className={`btn btn-sm join-item ${!agenda ? "btn-active" : "btn-ghost"}`}
+                            className={`btn join-item btn-sm ${!agenda ? "btn-active" : "btn-ghost"}`}
                             aria-pressed={!agenda}
                             onClick={() => {
                                 setAgenda(false);
@@ -99,7 +99,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                         </button>
                         <button
                             type="button"
-                            className={`btn btn-sm join-item ${agenda ? "btn-active" : "btn-ghost"}`}
+                            className={`btn join-item btn-sm ${agenda ? "btn-active" : "btn-ghost"}`}
                             aria-pressed={agenda}
                             onClick={() => {
                                 setAgenda(true);
@@ -110,14 +110,14 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                     </div>
                 </div>
             </div>
-            <p className="text-base-content/70 text-sm">
+            <p className="text-sm text-base-content/70">
                 {visible.length} events this month · {projection.timeZone}
                 {projection.counts.invalid > 0
                     ? ` · ${String(projection.counts.invalid)} invalid entries (see diagnostics)`
                     : ""}
             </p>
             {!agenda && (
-                <div className="border-base-300 rounded-box hidden border @min-[40rem]/calendar:block">
+                <div className="hidden rounded-box border border-base-300 @min-[40rem]/calendar:block">
                     <div className="grid grid-cols-7">
                         {days.slice(0, 7).map((day) => (
                             <div key={day} className="p-2 text-sm font-medium">
@@ -128,7 +128,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                     <div className="grid grid-cols-7">
                         {days.map((day) => {
                             if (day.length !== 10 || day < "0001-01-01") {
-                                return <div key={day} aria-hidden="true" className="border-base-300 border-t" />;
+                                return <div key={day} aria-hidden="true" className="border-t border-base-300" />;
                             }
                             const events = projection.events.filter(
                                 (event) => event.firstDate <= day && event.afterLastDate > day,
@@ -157,11 +157,11 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
             )}
             <div className={agenda ? "" : "@min-[40rem]/calendar:hidden"}>
                 <h3 className="mb-2 font-semibold">Agenda</h3>
-                <ul className="divide-base-300 divide-y">
+                <ul className="divide-y divide-base-300">
                     {visible.map((event) => (
                         <li key={event.path} className="py-3">
                             <EventLink entry={event} projection={projection} />
-                            <p className="text-base-content/70 mt-1 text-sm">
+                            <p className="mt-1 text-sm text-base-content/70">
                                 {calendarEventLabel(event, projection.timeZone)}
                             </p>
                         </li>
@@ -191,19 +191,19 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                         triggerRef.current?.focus({ preventScroll: true });
                 }}
             >
-                <div className="modal-box bg-base-100 flex h-svh max-h-none w-full max-w-105 flex-col rounded-none p-0 motion-reduce:transition-none">
-                    <header className="border-base-300 flex shrink-0 items-start gap-4 border-b p-5">
+                <div className="modal-box flex h-svh max-h-none w-full max-w-105 flex-col rounded-none bg-base-100 p-0 motion-reduce:transition-none">
+                    <header className="flex shrink-0 items-start gap-4 border-b border-base-300 p-5">
                         <div className="min-w-0 flex-1">
                             <h2 id={`${dialogId}-title`} className="text-lg font-semibold">
                                 {selectedDay ? dateLabel.format(civilDate(selectedDay)) : "Day events"}
                             </h2>
-                            <p className="text-base-content/70 mt-1 text-sm">
+                            <p className="mt-1 text-sm text-base-content/70">
                                 {selectedEvents.length} events · {projection.timeZone}
                             </p>
                         </div>
                         <form method="dialog">
                             <button
-                                className="btn btn-ghost btn-square btn-sm"
+                                className="btn btn-square btn-ghost btn-sm"
                                 aria-label="Close day events"
                                 value="close"
                             >
@@ -211,7 +211,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                             </button>
                         </form>
                     </header>
-                    <ul className="divide-base-300 min-h-0 flex-1 divide-y overflow-y-auto overscroll-contain px-5">
+                    <ul className="min-h-0 flex-1 divide-y divide-base-300 overflow-y-auto overscroll-contain px-5">
                         {selectedEvents.map((event) => (
                             <li key={event.path} className="py-4">
                                 <EventLink
@@ -221,7 +221,7 @@ export function ViewCalendarProjection({ projection }: { projection: Projection 
                                         dialogRef.current?.close("navigate");
                                     }}
                                 />
-                                <p className="text-base-content/70 mt-1 text-sm">
+                                <p className="mt-1 text-sm text-base-content/70">
                                     {calendarEventLabel(event, projection.timeZone)}
                                 </p>
                             </li>
@@ -289,7 +289,7 @@ function CalendarMonthJump({
                 <button
                     ref={triggerRef}
                     type="button"
-                    className="btn btn-ghost -ml-3 gap-2 text-xl font-semibold tracking-tight"
+                    className="btn -ml-3 gap-2 btn-ghost text-xl font-semibold tracking-tight"
                     aria-label={`Jump to month, ${label}`}
                     aria-haspopup="dialog"
                     popoverTarget={id}
@@ -304,7 +304,7 @@ function CalendarMonthJump({
                 popover="auto"
                 role="dialog"
                 aria-label="Jump to month"
-                className="bg-base-100 border-base-300 rounded-box fixed m-0 max-h-[calc(100dvh-2rem)] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto border p-4 text-sm font-normal tracking-normal shadow-lg"
+                className="fixed m-0 max-h-[calc(100dvh-2rem)] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-box border border-base-300 bg-base-100 p-4 text-sm font-normal tracking-normal shadow-lg"
                 onKeyDown={(event) => {
                     if (event.key !== "Escape") return;
                     event.preventDefault();
@@ -349,12 +349,12 @@ function CalendarMonthJump({
                             }}
                         />
                     </label>
-                    <p className="text-base-content/70 text-xs">
+                    <p className="text-xs text-base-content/70">
                         {inputType === "month"
                             ? "Choose or type a month and year."
                             : "Choose or type a date to open its month."}
                     </p>
-                    <button type="submit" className="btn btn-sm btn-primary w-full">
+                    <button type="submit" className="btn w-full btn-primary btn-sm">
                         Jump
                     </button>
                 </form>
@@ -384,7 +384,7 @@ function EventLink({
         <Link
             className={
                 compact
-                    ? "border-base-300 bg-base-content/5 hover:bg-base-content/10 focus-visible:outline-base-content block rounded-sm border-l-2 py-0.5 pr-1.5 pl-1 -outline-offset-2 focus-visible:outline-2"
+                    ? "block rounded-sm border-l-2 border-base-300 bg-base-content/5 py-0.5 pr-1.5 pl-1 -outline-offset-2 hover:bg-base-content/10 focus-visible:outline-2 focus-visible:outline-base-content"
                     : "link wrap-anywhere"
             }
             style={compact ? borderStyle : undefined}
@@ -399,7 +399,7 @@ function EventLink({
         <span
             className={
                 compact
-                    ? "border-base-300 bg-base-content/5 block rounded-sm border-l-2 py-0.5 pr-1.5 pl-1"
+                    ? "block rounded-sm border-l-2 border-base-300 bg-base-content/5 py-0.5 pr-1.5 pl-1"
                     : "wrap-anywhere"
             }
             style={compact ? borderStyle : undefined}
@@ -410,12 +410,12 @@ function EventLink({
     );
     return (
         <div
-            className={compact ? undefined : "border-base-300 border-l-2 pl-1.5"}
+            className={compact ? undefined : "border-l-2 border-base-300 pl-1.5"}
             style={compact ? undefined : borderStyle}
         >
             {content}
             {classification && (
-                <span className={compact ? "sr-only" : "text-base-content/70 mt-1 block text-sm"}>
+                <span className={compact ? "sr-only" : "mt-1 block text-sm text-base-content/70"}>
                     {classification.label}
                 </span>
             )}
@@ -478,7 +478,7 @@ function CalendarDay({
     return (
         <section
             aria-label={label}
-            className={`border-base-300 flex h-42 min-w-0 flex-col border-t p-2 @min-[56rem]/calendar:h-54 ${outside ? "bg-base-200/50" : ""}`}
+            className={`flex h-42 min-w-0 flex-col border-t border-base-300 p-2 @min-[56rem]/calendar:h-54 ${outside ? "bg-base-200/50" : ""}`}
         >
             <div className="mb-2 flex h-7 shrink-0 items-center justify-between gap-1">
                 <h3 className="text-sm font-medium">
@@ -494,7 +494,7 @@ function CalendarDay({
                 {events.length > 0 && (
                     <button
                         type="button"
-                        className="btn btn-ghost btn-xs bg-base-content/5 min-h-7 min-w-7 rounded-full px-2 tabular-nums"
+                        className="btn min-h-7 min-w-7 rounded-full bg-base-content/5 btn-ghost px-2 tabular-nums btn-xs"
                         aria-label={`View ${String(events.length)} events on ${label}`}
                         aria-haspopup="dialog"
                         aria-controls={dialogId}

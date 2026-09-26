@@ -42,7 +42,7 @@ export function ThemeDropdown({
             </button>
             <ul
                 aria-label="Theme"
-                className="dropdown dropdown-end menu bg-base-200 rounded-box mt-2 w-44 p-2 shadow-lg"
+                className="menu dropdown dropdown-end mt-2 w-44 rounded-box bg-base-200 p-2 shadow-lg"
                 id={themePopoverId}
                 popover="auto"
                 style={{ positionAnchor: themePopoverAnchor }}
@@ -82,7 +82,7 @@ export function ThemeCycleButton({ onPreferenceChange, preference }: ThemeContro
     return (
         <button
             aria-label={`Theme: ${currentOption.label}. Switch to ${nextOption.label}`}
-            className="btn btn-circle btn-lg btn-neutral"
+            className="btn btn-circle btn-neutral btn-lg"
             onClick={() => {
                 onPreferenceChange(nextPreference);
             }}

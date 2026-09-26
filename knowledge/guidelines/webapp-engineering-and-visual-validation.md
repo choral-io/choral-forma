@@ -44,7 +44,8 @@ Use this skill when an Agent:
 - migrates frontend foundations or evaluates a new UI or Headless dependency;
 - diagnoses clipping, overflow, alignment, wrapping, stacking, animation, focus, or dismissal defects;
 - validates Light/Dark themes, responsive behavior, SPA navigation, or native browser primitives;
-- decides whether repeated UI code is ready to be extracted.
+- decides whether repeated UI code is ready to be extracted;
+- audits Tailwind classes, CSS ownership, cascade layers, or responsive breakpoint rules, or configures WebApp style tooling.
 
 Read the accepted product or design specification for the affected surface before changing implementation. This guideline does not override route-specific acceptance criteria.
 
@@ -65,7 +66,9 @@ Load `forma skills get webapp-engineering-and-visual-validation --full` when the
 
 - state, focus, dismissal, or SPA navigation: `State Ownership`;
 - DaisyUI structure, dependency choice, or abstraction: `Component And Dependency Selection` and `Implement Before Abstracting`;
-- wrapping, clipping, overflow, stacking, or responsive geometry: the layout and overflow sections;
+- Tailwind classes, CSS definitions, theme tokens, or style-tool configuration: `Tailwind And CSS Ownership` and `Style Tooling And Audit`;
+- viewport/container queries, breakpoint state, or responsive sizing: `Responsive Layout Contract`;
+- wrapping, clipping, overflow, or stacking: `Layout And Flexbox Heuristics` and `Overflow, Clipping, And Stacking`;
 - animation or transient visual defects: `Transition And Animation Heuristics`;
 - bug diagnosis or browser evidence: `Debugging Workflow` and `Browser Validation Loop`;
 - automated versus browser coverage: `Test Boundaries`;
@@ -77,6 +80,9 @@ Load `forma skills get webapp-engineering-and-visual-validation --full` when the
 - Prefer native browser state, direct DaisyUI structure, and feature-local code until a tested gap justifies more machinery.
 - Do not hide layout defects with fixed dimensions, global clipping, arbitrary stacking values, or screenshot-only validation.
 - Validate against representative non-trivial workspace data rather than the repository's shortest fixtures.
+- Keep fixed appearance in classes and runtime geometry or validated configuration values in inline styles or CSS variables. Give repeated declarations one clear owner.
+- Choose viewport or container responsiveness according to the element's actual available space; verify usable content area as well as absence of overflow.
+- A style audit authorizes findings only; guideline edits and implementation cleanup each need their own authorization.
 
 ### Completion Criteria
 
@@ -136,6 +142,45 @@ Consider extraction only after every intended call site:
 - becomes clearer, rather than merely shorter, after extraction.
 
 Treat "no extraction needed" as a valid result. Do not replace an old abstraction layer with a one-to-one wrapper layer around a new library.
+
+### Tailwind And CSS Ownership
+
+Choose the narrowest styling mechanism: DaisyUI structure and semantic roles, then local Tailwind utilities, then feature-owned composition CSS, and finally a documented compatibility override. A class's length alone is not a reason to introduce a component or stylesheet abstraction.
+
+- Use complete, statically detectable class names in conditional branches. Runtime class fragments such as `bg-${color}` are not a supported styling strategy; use validated styles or CSS variables for data-driven values.
+- Keep fixed appearance in classes. Inline styles are appropriate for measured positions, virtualized geometry, progress, CSS anchors, and validated workspace colors or lengths. A fixed gradient expression can live in CSS while its changing parameters remain variables. Do not replace useful inline styles with machinery solely to eliminate `style` attributes.
+- Give each property's default one clear owner. Keep shared composition defaults in their composition class and local differences at the call site. Centralize feature-local class groups that must remain synchronized, such as two overlaid labels, without creating generic wrappers. Use `cn()` for intentional conditional composition or supported overrides, not to conceal contradictory defaults.
+- Put ordinary element defaults in `@layer base` and feature composition styles in `@layer components`; use `@utility` when the rule is intended to participate as a utility with variants. In this WebApp, daisyUI 5 components are emitted inside Tailwind's utilities layer, so a `@layer components` rule cannot override their properties. Override a daisyUI component property with a call-site utility, or with a documented unlayered or important exception. Unlayered rules and important declarations require a narrow selector and a reason explaining the cascade or compatibility constraint. Verify computed styles before moving existing rules between layers: normal unlayered declarations outrank normal layered declarations.
+- Use semantic theme colors for ordinary UI and pair foreground/background roles deliberately. Brand art, configured classifications, and graph adapters may retain validated custom colors. Check contrast against the actual composited background, including opacity, hover, selection, and progress fills; token names alone do not establish readability.
+- Prefer theme radius and size roles for containers and controls. Fixed geometry, small chart labels, and one-off arbitrary values remain valid when required by the accepted design. Name repeated design values when they represent one stable concept; do not promote every measurement into a global token.
+- Keep global CSS focused on theme/base definitions, rendered-content styling, shared compositions, and scoped compatibility rules. Split feature sections when ownership becomes unclear, preserving import and layer order. Markdown, third-party SVG, and imperative DOM output are legitimate CSS consumers.
+
+Record an exception beside its implementation with its scope, reason, and relevant validation or removal condition. Preserve evidence-backed FAB overrides, scrollbar fallbacks, and chart geometry until a replacement passes the same behavior checks; syntactic uniformity is not sufficient reason to remove them.
+
+### Style Tooling And Audit
+
+Formatting and linting cover different contracts:
+
+- Configure the Tailwind formatter with the actual CSS entry point for v4 (`tailwindStylesheet`) and the class-composition functions the project uses (`tailwindFunctions`, such as `cn` and `clsx`). Scope configuration to the relevant frontend surface in a multi-surface repository.
+- Let the formatter own class ordering. Let lint rules check canonical, unknown, deprecated, duplicate, and conflicting classes at supported syntax locations, with selectors matching the project's class-constant names, such as `*ClassName`. Avoid competing automatic ordering rules.
+- Inventory each class carrier separately: JSX attributes, class constants, composition calls, imperative `.className` assignments and `classList` calls, generated HTML strings, and CSS `@apply`. Prove coverage using a valid example and a deliberate violation for each supported carrier; parsing failures do not count as successful rule coverage. Classify a carrier as unsupported only when no formatter or lint configuration can cover it; report unsupported carriers explicitly and review or test them through an appropriate separate path.
+- Keep custom-class allowlists narrow and traceable to a stylesheet or behavior hook. A passing lint run is not evidence about cascade layers, layout, contrast, or dynamic output.
+
+For an audit, report source locations, impact, recommendation, and classification: confirmed defect, maintenance risk, or justified exception. Preview formatter changes before applying them broadly. Once implementation is authorized, separate tooling/formatting, behavior-preserving cleanup, and visual or responsive changes into reviewable batches. Acceptance requires the affected checks and real-browser evidence for changed rendering, following `Test Boundaries`.
+
+### Responsive Layout Contract
+
+Choose the responsive reference deliberately:
+
+- Viewport queries govern application-shell modes and viewport-bound overlays. Embedded Views, cards, and toolbars should use available container space when sidebars, panels, or host embedding can change their width independently of the viewport. Use intrinsic wrapping and sizing first, and add responsive prefixes only where an explicit mode switch is needed.
+- A desktop breakpoint alone does not justify expanding a fixed-width panel. Account for navigation, gaps, padding, panel width, and the primary content's minimum usable area. Collapse or defer secondary content when that budget is not met.
+- For columns and cards, use the owning container rather than `vw` when the intended proportion is local; Table and Kanban still own horizontal scrolling per `Overflow, Clipping, And Stacking`. Chart minimum sizes and fixed timeline columns require a documented usability tradeoff, not a blanket prohibition on fixed dimensions.
+- Keep CSS and JavaScript breakpoints aligned. Prefer CSS for presentation-only changes; use JS when state coordination or measured geometry requires it. Share threshold definitions where practical, otherwise verify equivalence. Name repeated component thresholds within their owner rather than creating a global breakpoint for every feature.
+- When a dimension participates in both CSS and JavaScript geometry, change its source and all consumers together. For example, a timeline title-column width may affect clipping, virtualization, scroll compensation, and keyboard location; a CSS-only override is insufficient.
+- Preserve state, focus, and access to actions when switching layouts or hiding controls. If the scroll owner changes across a breakpoint, validate scroll position, sticky headers, anchor navigation, and focus visibility in both directions.
+- Use logical spacing/alignment for reading-direction-aware layout. Keep physical axes where chart time or measured pixel coordinates require them.
+
+Validate just below, at, and above each affected threshold, plus sidebar/panel open and closed states, long labels and counts, short viewport heights, and enlarged text/browser zoom. Reuse the theme and keyboard matrix in `Browser Validation Loop`. Measure remaining content area and actionable controls as well as `scrollWidth`: no page overflow does not prove that a timeline or reading pane is usable. Record untested combinations rather than inferring them from a few device-width screenshots.
 
 ### Layout And Flexbox Heuristics
 

@@ -161,18 +161,18 @@ export function MarkdownReader({
                 data-reader-loading
                 role="status"
             >
-                <div className="skeleton h-4 w-full" />
-                <div className="skeleton h-4 w-11/12" />
-                <div className="skeleton mt-4 h-7 w-2/5" />
-                <div className="skeleton h-4 w-full" />
-                <div className="skeleton h-4 w-4/5" />
+                <div className="h-4 w-full skeleton" />
+                <div className="h-4 w-11/12 skeleton" />
+                <div className="mt-4 h-7 w-2/5 skeleton" />
+                <div className="h-4 w-full skeleton" />
+                <div className="h-4 w-4/5 skeleton" />
             </div>
         );
     }
 
     if (renderState.status === "error") {
         return (
-            <div className="alert alert-error alert-soft sm:alert-horizontal" data-reader="markdown" role="alert">
+            <div className="alert alert-soft alert-error sm:alert-horizontal" data-reader="markdown" role="alert">
                 <div className="min-w-0">
                     <p className="font-medium">This page could not be rendered.</p>
                     <p className="text-sm opacity-80">{renderState.error}</p>

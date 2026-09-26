@@ -34,16 +34,16 @@ export function WorkspaceSidebar({
 
     return (
         <div className="flex h-full min-h-0 flex-col overflow-visible">
-            <div className="border-base-300 flex h-28 shrink-0 items-center gap-2 border-b px-2">
+            <div className="flex h-28 shrink-0 items-center gap-2 border-b border-base-300 px-2">
                 <div
                     className={cn("min-w-0 flex-1 px-1 text-sm/tight", collapsible && "is-drawer-close:hidden")}
                     data-sidebar-label
                 >
                     <p className="truncate text-base font-semibold">Choral Forma</p>
-                    <p className="text-base-content/60 mt-1 truncate text-xs">Review Desk</p>
+                    <p className="mt-1 truncate text-xs text-base-content/60">Review Desk</p>
                 </div>
                 {collapsible && toggleId ? (
-                    <div className="is-drawer-close:flex is-drawer-close:size-full is-drawer-close:flex-col is-drawer-close:items-center is-drawer-close:justify-center is-drawer-close:gap-2 shrink-0">
+                    <div className="shrink-0 is-drawer-close:flex is-drawer-close:size-full is-drawer-close:flex-col is-drawer-close:items-center is-drawer-close:justify-center is-drawer-close:gap-2">
                         <Link
                             aria-label="Choral Forma home"
                             className="btn btn-square btn-ghost is-drawer-open:hidden"
@@ -63,14 +63,14 @@ export function WorkspaceSidebar({
                             title="Toggle workspace sidebar"
                             type="button"
                         >
-                            <PanelLeftClose aria-hidden="true" className="is-drawer-close:hidden size-5" />
-                            <PanelLeftOpen aria-hidden="true" className="is-drawer-open:hidden size-5" />
+                            <PanelLeftClose aria-hidden="true" className="size-5 is-drawer-close:hidden" />
+                            <PanelLeftOpen aria-hidden="true" className="size-5 is-drawer-open:hidden" />
                         </button>
                     </div>
                 ) : null}
             </div>
 
-            <nav aria-label="Workspace" className="is-drawer-close:overflow-visible min-h-0 flex-1 overflow-y-auto">
+            <nav aria-label="Workspace" className="min-h-0 flex-1 overflow-y-auto is-drawer-close:overflow-visible">
                 <ul className="menu w-full grow gap-0.5">
                     {showQuickOpen ? (
                         <li data-sidebar-quick-open>
@@ -124,7 +124,7 @@ function SidebarLink({
                 aria-current={active ? "page" : undefined}
                 aria-label={label}
                 className={cn(
-                    "is-drawer-close:tooltip is-drawer-close:tooltip-right focus-visible:ring-base-content/30 gap-3 leading-5 outline-none focus-visible:ring-2",
+                    "gap-3 leading-5 outline-none focus-visible:ring-2 focus-visible:ring-base-content/30 is-drawer-close:tooltip is-drawer-close:tooltip-right",
                     active && "menu-active",
                 )}
                 data-tip={label}
@@ -133,7 +133,7 @@ function SidebarLink({
                 to={to}
             >
                 <Icon aria-hidden="true" className="size-5 shrink-0" />
-                <span className="is-drawer-close:hidden min-w-0 truncate" data-sidebar-label>
+                <span className="min-w-0 truncate is-drawer-close:hidden" data-sidebar-label>
                     {label}
                 </span>
             </Link>

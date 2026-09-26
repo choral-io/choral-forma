@@ -148,18 +148,18 @@
     }
 
     [data-reader="markdown"] {
-        @apply text-base-content/90 text-sm/7;
+        @apply text-sm/7 text-base-content/90;
 
         & a {
             @apply text-primary underline underline-offset-4;
         }
 
         & blockquote {
-            @apply border-base-300/70 text-base-content/60 my-5 border-s-4 ps-4;
+            @apply my-5 border-s-4 border-base-300/70 ps-4 text-base-content/60;
         }
 
         & code {
-            @apply bg-base-200 rounded-sm px-1 py-0.5 text-sm;
+            @apply rounded-sm bg-base-200 px-1 py-0.5 text-sm;
         }
 
         & :is(del, li::marker) {
@@ -167,7 +167,7 @@
         }
 
         & :is(h1, h2, h3, h4, h5, h6) {
-            @apply text-base-content scroll-m-20;
+            @apply scroll-m-20 text-base-content;
         }
 
         & h1 {
@@ -195,7 +195,7 @@
         }
 
         & hr {
-            @apply border-base-300 my-7 border-0 border-t;
+            @apply my-7 border-0 border-t border-base-300;
         }
 
         & img {
@@ -211,11 +211,11 @@
         }
 
         & .mermaid-diagram {
-            @apply border-base-300 bg-base-100 my-5 block max-w-full overflow-hidden rounded-lg border;
+            @apply my-5 block max-w-full overflow-hidden rounded-lg border border-base-300 bg-base-100;
         }
 
         & .mermaid-diagram-caption {
-            @apply border-base-300 text-base-content/70 border-b px-4 py-3 text-sm font-medium;
+            @apply border-b border-base-300 px-4 py-3 text-sm font-medium text-base-content/70;
         }
 
         & .mermaid-diagram-viewport {
@@ -229,7 +229,7 @@
                     var(--mermaid-control-button-size) + var(--mermaid-control-action-gap) +
                     var(--mermaid-control-button-size)
             );
-            @apply focus-visible:ring-primary/40 relative block max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset;
+            @apply relative block max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-inset;
             min-height: calc(
                 var(--mermaid-control-stack-height) + var(--mermaid-control-inset) + var(--mermaid-control-inset)
             );
@@ -239,16 +239,19 @@
             @apply block h-auto max-w-none;
         }
 
+        /* daisyUI's collapse is emitted in Tailwind's utilities layer, which outranks this layer,
+           so it owns the title and content padding. Squaring the top corners where the source
+           joins the figure therefore needs !important. */
         & .mermaid-diagram-source {
-            @apply border-base-300 rounded-t-none! border-t;
+            @apply rounded-t-none! border-t border-base-300;
         }
 
         & .mermaid-diagram-source > .collapse-title {
-            @apply min-h-0 px-4 py-3 text-sm;
+            @apply text-sm;
         }
 
         & .mermaid-diagram-source > .collapse-content {
-            @apply px-4 pb-4;
+            @apply pb-4;
         }
 
         & .mermaid-diagram-source pre {
@@ -276,7 +279,7 @@
         }
 
         & pre {
-            @apply border-base-300 bg-base-200/50 overflow-x-auto rounded-lg border p-4;
+            @apply overflow-x-auto rounded-lg border border-base-300 bg-base-200/50 p-4;
         }
 
         & > pre {
@@ -296,59 +299,59 @@
         }
 
         & .table-wrapper {
-            @apply border-base-300 block w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border;
+            @apply block w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg border border-base-300;
         }
+    }
+
+    .mermaid-diagram-expanded-viewer {
+        @apply fixed inset-0 m-0 h-dvh max-h-none w-dvw max-w-none overflow-hidden border-0 bg-base-100 p-0 text-base-content;
+    }
+
+    .mermaid-diagram-expanded-viewer::backdrop {
+        @apply bg-base-100;
+    }
+
+    .mermaid-diagram-dialog-canvas {
+        @apply relative h-full w-full overflow-hidden p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-inset;
+    }
+
+    .mermaid-diagram-dialog-canvas > svg {
+        @apply block h-auto max-w-none;
+    }
+
+    .diagram-viewer-control-rail {
+        @apply absolute end-3 bottom-3 z-10 flex w-8 flex-col items-center gap-2 text-base-content/75 opacity-75;
+    }
+
+    .diagram-viewer-slider-lane {
+        @apply h-20 shrink-0;
+    }
+
+    .mermaid-diagram-expanded-viewer .diagram-viewer-slider-lane {
+        @apply h-32;
+    }
+
+    .diagram-viewer-control-actions {
+        @apply flex shrink-0 flex-col items-center gap-1;
+    }
+
+    .diagram-viewer-control-button > svg {
+        @apply size-4;
     }
 }
 
-.mermaid-diagram-expanded-viewer {
-    @apply bg-base-100 text-base-content fixed inset-0 m-0 h-dvh max-h-none w-dvw max-w-none overflow-hidden border-0 p-0;
-}
-
-.mermaid-diagram-expanded-viewer::backdrop {
-    @apply bg-base-100;
-}
-
-.mermaid-diagram-dialog-canvas {
-    @apply focus-visible:ring-primary/40 relative h-full w-full overflow-hidden p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset;
-}
-
-.mermaid-diagram-dialog-canvas > svg {
-    @apply block h-auto max-w-none;
-}
-
-.diagram-viewer-control-rail {
-    @apply text-base-content/75 absolute end-3 bottom-3 z-10 flex w-8 flex-col items-center gap-2 opacity-75;
-}
-
-.diagram-viewer-slider-lane {
-    @apply h-20 shrink-0;
-}
-
-.mermaid-diagram-expanded-viewer .diagram-viewer-slider-lane {
-    @apply h-32;
-}
-
-.diagram-viewer-zoom-slider {
-    @apply h-full;
+/* Diagram viewer controls compose these classes with daisyUI `btn` and `range`. Tailwind v4
+   emits daisyUI components in the utilities layer, which outranks @layer components, so these
+   overrides stay unlayered to keep the translucent control surface, shadow, and no-fill slider
+   track. Compare computed styles before moving them into a layer. */
+.diagram-viewer-control-button {
+    @apply h-8 min-h-8 w-8 border-base-300/60 bg-base-100/90 leading-7 shadow-sm backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary;
 }
 
 .diagram-viewer-no-fill-range {
     --range-bg: var(--color-base-300);
     --range-thumb: var(--color-base-content);
     --range-fill: 0;
-}
-
-.diagram-viewer-control-actions {
-    @apply flex shrink-0 flex-col items-center gap-1;
-}
-
-.diagram-viewer-control-button {
-    @apply border-base-300/60 bg-base-100/90 focus-visible:outline-primary h-8 min-h-8 w-8 leading-7 shadow-sm backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-offset-2;
-}
-
-.diagram-viewer-control-button > svg {
-    @apply size-4;
 }
 
 /* Hide timeline scrollbars without changing native wheel, touch, or keyboard scrolling. */

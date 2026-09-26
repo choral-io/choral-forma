@@ -25,7 +25,7 @@ Use the repository source CLI: `cargo run -q -p forma-cli -- <arguments>` (throu
 | --- | --- |
 | Configuration semantics, paths, classification, or cross-surface contracts | `forma-product-model-and-configuration-fidelity` |
 | Workspace loading, snapshots, caches, performance, or static generation | `forma-runtime-cache-and-performance` |
-| WebApp components, state, layout, interaction, or visual verification | `webapp-engineering-and-visual-validation` |
+| WebApp components, state, styling, layout, interaction, or visual verification | `webapp-engineering-and-visual-validation` |
 | Workspace inspection, content placement, or shared knowledge writes | `workspace-operations` |
 | Unclear knowledge request | `workspace-onboarding-and-routing` |
 | Shared Markdown authoring / write authorization | `markdown-authoring` / `proposal-and-dry-run` |

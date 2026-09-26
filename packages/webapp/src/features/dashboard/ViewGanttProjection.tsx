@@ -43,9 +43,9 @@ const CompleteList = memo(function CompleteList({ projection, locale }: { projec
             {projection.nodes.map((node) => {
                 const row = rows.get(node.path);
                 return (
-                    <li key={node.path} className="border-base-300 border-b pb-3">
+                    <li key={node.path} className="border-b border-base-300 pb-3">
                         <EntryLink node={node} routes={projection.routes} />
-                        <p className="text-base-content/70 text-sm">
+                        <p className="text-sm text-base-content/70">
                             {row
                                 ? ganttRowLabel(row, projection.timeZone, locale)
                                 : node.status === "invalid"
@@ -65,7 +65,7 @@ const CompleteList = memo(function CompleteList({ projection, locale }: { projec
                                 ) : null;
                             })}
                         </ul>
-                        <p className="text-base-content/60 text-xs">{ganttDependencySummary(node.dependencies)}</p>
+                        <p className="text-xs text-base-content/60">{ganttDependencySummary(node.dependencies)}</p>
                     </li>
                 );
             })}
@@ -307,7 +307,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                             min="0001-01-01"
                             max="9999-12-30"
                             defaultValue={today}
-                            className="input input-sm w-40"
+                            className="input w-40 input-sm"
                             disabled={!available || !projection.rows.length}
                             required
                         />
@@ -317,7 +317,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                     </form>
                     <select
                         aria-label="Day width"
-                        className="select select-sm w-28"
+                        className="select w-28 select-sm"
                         value={width}
                         disabled={!available || !projection.rows.length}
                         onChange={(event) => {
@@ -344,11 +344,11 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                     </select>
                 </div>
             </div>
-            <p className="text-base-content/70 text-sm">
+            <p className="text-sm text-base-content/70">
                 {projection.counts.scheduled} scheduled · {projection.counts.unscheduled} unscheduled ·{" "}
                 {projection.counts.invalid} invalid · {projection.timeZone}
             </p>
-            <p role="status" className={message ? "text-base-content/70 text-sm" : "sr-only"}>
+            <p role="status" className={message ? "text-sm text-base-content/70" : "sr-only"}>
                 {message}
             </p>
             {!available ? (
@@ -368,7 +368,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                     aria-activedescendant={`${id}-row-${String(active)}`}
                     tabIndex={0}
                     data-gantt-timeline=""
-                    className="border-base-300 relative max-h-[max(16rem,min(65vh,40rem))] overflow-auto rounded-lg border focus-visible:outline-2 focus-visible:outline-offset-2"
+                    className="relative max-h-[max(16rem,min(65vh,40rem))] overflow-auto rounded-lg border border-base-300 focus-visible:outline-2 focus-visible:outline-offset-2"
                     onKeyDown={(event) => {
                         const movements: Record<string, number> = {
                             ArrowDown: active + 1,
@@ -423,12 +423,12 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                         <div
                             role="row"
                             aria-rowindex={1}
-                            className="bg-base-100 border-base-300 sticky top-0 z-20 flex border-b"
+                            className="sticky top-0 z-20 flex border-b border-base-300 bg-base-100"
                             style={{ height: HEADER_HEIGHT }}
                         >
                             <div
                                 role="columnheader"
-                                className="bg-base-100 border-base-300 sticky left-0 z-10 shrink-0 border-r p-3 font-medium"
+                                className="sticky left-0 z-10 shrink-0 border-r border-base-300 bg-base-100 p-3 font-medium"
                                 style={{ width: TITLE_WIDTH }}
                             >
                                 Entry
@@ -441,7 +441,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                     return (
                                         <div
                                             key={month.key}
-                                            className="bg-base-200 border-base-300 absolute top-0 h-8 border-r border-b text-center"
+                                            className="absolute top-0 h-8 border-r border-b border-base-300 bg-base-200 text-center"
                                             style={{ left: start, width: end - start }}
                                         >
                                             <span
@@ -459,7 +459,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                     <div
                                         key={tick.day}
                                         aria-hidden="true"
-                                        className="border-base-300/50 absolute bottom-0 h-7 border-l text-center text-xs"
+                                        className="absolute bottom-0 h-7 border-l border-base-300/50 text-center text-xs"
                                         style={{ left: (tick.day - range.start) * width, width: tick.width }}
                                     >
                                         <span
@@ -493,12 +493,12 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                     role="row"
                                     aria-rowindex={index + 2}
                                     aria-selected={active === index}
-                                    className={`border-base-300/50 absolute flex w-full border-b ${active === index ? "bg-base-200" : "bg-base-100"}`}
+                                    className={`absolute flex w-full border-b border-base-300/50 ${active === index ? "bg-base-200" : "bg-base-100"}`}
                                     style={{ top: HEADER_HEIGHT + index * ROW_HEIGHT, height: ROW_HEIGHT }}
                                 >
                                     <div
                                         role="rowheader"
-                                        className={`border-base-300 sticky left-0 z-10 flex shrink-0 items-center border-r px-2 ${active === index ? "bg-base-200 font-medium" : "bg-base-100"}`}
+                                        className={`sticky left-0 z-10 flex shrink-0 items-center border-r border-base-300 px-2 ${active === index ? "bg-base-200 font-medium" : "bg-base-100"}`}
                                         style={{ width: TITLE_WIDTH }}
                                     >
                                         <button
@@ -535,7 +535,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                     >
                                         <div
                                             aria-hidden="true"
-                                            className="bg-base-300 border-base-content/30 absolute top-2 flex h-5 items-center overflow-hidden rounded-sm border border-l-2"
+                                            className="absolute top-2 flex h-5 items-center overflow-hidden rounded-sm border border-l-2 border-base-content/30 bg-base-300"
                                             style={{
                                                 left: `calc((${String(first)} - var(--gantt-origin)) * var(--gantt-day))`,
                                                 width: `calc(${String(duration)} * var(--gantt-day))`,
@@ -547,7 +547,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                                 // starts or ends, so progress cannot be read as schedule.
                                                 <div
                                                     data-gantt-progress={node.progress}
-                                                    className="bg-base-content/70 absolute inset-y-0 left-0"
+                                                    className="absolute inset-y-0 left-0 bg-base-content/70"
                                                     style={{ width: `${String(node.progress)}%` }}
                                                 />
                                             )}
@@ -559,13 +559,13 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                                 contrasts with. Both copies share a box, so the glyphs align
                                                 exactly and the seam falls wherever the fill ends. */}
                                             <span
-                                                className={`text-base-content/80 absolute inset-0 truncate py-0 pr-1 text-[10px]/5 ${marker ? "pl-4" : "pl-1"}`}
+                                                className={`absolute inset-0 truncate py-0 pr-1 text-[10px]/5 text-base-content/80 ${marker ? "pl-4" : "pl-1"}`}
                                             >
                                                 {node.title}
                                             </span>
                                             {node.progress !== undefined && (
                                                 <span
-                                                    className={`text-base-100 absolute inset-0 truncate py-0 pr-1 text-[10px]/5 ${marker ? "pl-4" : "pl-1"}`}
+                                                    className={`absolute inset-0 truncate py-0 pr-1 text-[10px]/5 text-base-100 ${marker ? "pl-4" : "pl-1"}`}
                                                     style={{
                                                         clipPath: `inset(0 ${String(100 - node.progress)}% 0 0)`,
                                                     }}
@@ -577,7 +577,7 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                         {marker && (
                                             <span
                                                 aria-hidden="true"
-                                                className="text-base-content absolute top-1 text-lg"
+                                                className="absolute top-1 text-lg text-base-content"
                                                 style={{
                                                     left: `calc((${String(first)} - var(--gantt-origin)) * var(--gantt-day))`,
                                                 }}
@@ -678,13 +678,13 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                     <p className="text-base-content/60">{ganttDependencySummary(selectedNode.dependencies)}</p>
                 </div>
             )}
-            <p className="text-base-content/60 text-xs">
+            <p className="text-xs text-base-content/60">
                 Dependencies describe the selected graph only. No scheduling conflicts are computed. Use arrow, page,
                 Home and End keys in the timeline to select entries, and Enter to bring the selected entry's bar into
                 view.
             </p>
             <details
-                className="collapse-arrow border-base-300 collapse border"
+                className="collapse-arrow collapse border border-base-300"
                 onToggle={(event) => {
                     setListOpen(event.currentTarget.open);
                 }}
