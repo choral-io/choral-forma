@@ -48,8 +48,9 @@ test("configures an asset-only Cloudflare Worker with one production custom doma
     assert.equal("images" in wrangler, false);
 });
 
-test("pins Wrangler and keeps its platform binary installation explicit", () => {
-    assert.equal(packageJson.devDependencies.wrangler, "~4.136.0");
+test("constrains Wrangler updates and keeps its platform binary installation explicit", () => {
+    // Major upgrades require deployment compatibility review; minor and patch versions may advance.
+    assert.match(packageJson.devDependencies.wrangler, /^~4\.\d+\.\d+$/u);
     assert.equal(packageJson.scripts["site:deploy"], "wrangler deploy");
     assert.equal(packageJson.scripts["site:deploy:dry-run"], "wrangler deploy --dry-run");
     assert.match(pnpmWorkspace, /^  workerd: true$/mu);
