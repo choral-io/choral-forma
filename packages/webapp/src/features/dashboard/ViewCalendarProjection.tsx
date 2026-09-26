@@ -7,12 +7,11 @@ import {
     calendarJumpMonth,
     calendarJumpPosition,
     calendarPreviewWindow,
-    civilDate,
-    dateInZone,
     monthDays,
     overlaps,
     shiftMonth,
 } from "./calendar-layout";
+import { civilDate, dateInZone } from "./temporal-date";
 
 type Projection = Extract<DashboardViewProjection, { kind: "calendar" }>;
 

@@ -2,17 +2,16 @@ import type { DashboardViewProjection } from "@/data/workspace-client";
 import { ganttDependencySummary, ganttProgressLabel, ganttRowLabel, type GanttNode } from "@choral-forma/shared";
 import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router";
-import { dateInZone } from "./calendar-layout";
 import { clipConnectors } from "./gantt-connector-clip";
 import {
     CONNECTOR_LANES,
-    CONNECTOR_LANE_STEP,
     DAY_WIDTHS,
     FIRST_DAY,
     HEADER_HEIGHT,
     LOCATE_LEAD_COLUMNS,
     ROW_HEIGHT,
     TITLE_WIDTH,
+    connectorPath,
     dayIndex,
     dayTicks,
     extendRange,
@@ -23,6 +22,7 @@ import {
     windowIndices,
 } from "./gantt-layout";
 import { positionMonthLabels } from "./gantt-month-labels";
+import { dateInZone } from "./temporal-date";
 
 type Projection = Extract<DashboardViewProjection, { kind: "gantt" }>;
 function EntryLink({ node, routes }: { node: GanttNode; routes: Projection["routes"] }) {
@@ -619,29 +619,14 @@ export function ViewGanttProjection({ projection }: { projection: Projection }) 
                                 const x2 = (dayIndex(to.row.firstDate) - range.start) * width;
                                 const y1 = HEADER_HEIGHT + (from.index + 0.5) * ROW_HEIGHT;
                                 const y2 = HEADER_HEIGHT + (to.index + 0.5) * ROW_HEIGHT;
-                                // A successor that starts before its predecessor ends is ordinary data,
-                                // because no conflict is computed. Route around it instead of drawing a
-                                // segment that doubles back through both bars.
-                                const gap = 8;
-                                const direct = x2 >= x1 + gap * 2;
-                                // Keep an 8px approach before the successor. Narrow direct gaps
-                                // share the remaining lanes; detours use the base riser so their
-                                // longer return segment is not made worse by lane offsets.
-                                const lane = direct
-                                    ? Math.min(
-                                          connectorLane.get(edge.id) ?? 0,
-                                          Math.floor((x2 - x1 - gap * 2) / CONNECTOR_LANE_STEP),
-                                      )
-                                    : 0;
-                                const riser = x1 + gap + CONNECTOR_LANE_STEP * lane;
-                                const detour = y2 + (y1 < y2 ? -ROW_HEIGHT / 2 : ROW_HEIGHT / 2);
-                                const d = direct
-                                    ? `M ${String(x1)} ${String(y1)} H ${String(riser)} V ${String(y2)} H ${String(x2)}`
-                                    : `M ${String(x1)} ${String(y1)} H ${String(riser)} V ${String(detour)} H ${String(x2 - gap)} V ${String(y2)} H ${String(x2)}`;
                                 return (
                                     <path
                                         key={edge.id}
-                                        d={d}
+                                        d={connectorPath(
+                                            { x: x1, y: y1 },
+                                            { x: x2, y: y2 },
+                                            connectorLane.get(edge.id) ?? 0,
+                                        )}
                                         fill="none"
                                         stroke="currentColor"
                                         markerEnd={`url(#${id}-arrow)`}

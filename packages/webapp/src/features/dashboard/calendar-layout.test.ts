@@ -4,7 +4,6 @@ import {
     calendarJumpMonth,
     calendarJumpPosition,
     calendarPreviewWindow,
-    dateInZone,
     monthDays,
     overlaps,
     shiftMonth,
@@ -54,11 +53,6 @@ describe("Calendar civil layout", () => {
         expect(calendarPreviewWindow(148, [24, 72, 100, 148, 176], 40, 20)).toEqual({ visible: 4, fade: 148 });
         expect(calendarPreviewWindow(148, [44, 92, 140], 3, 20)).toEqual({ visible: 3, fade: undefined });
         expect(calendarPreviewWindow(148, [], 0, 20)).toEqual({ visible: 0, fade: undefined });
-    });
-    it("places instants using the workspace timezone rather than the browser timezone", () => {
-        const instant = new Date("2026-09-20T16:30:00Z");
-        expect(dateInZone(instant, "Asia/Shanghai")).toBe("2026-09-21");
-        expect(dateInZone(instant, "America/Los_Angeles")).toBe("2026-09-20");
     });
     it.each([
         ["2027-02", "monday", 28, "2027-02-01", "2027-02-28"],

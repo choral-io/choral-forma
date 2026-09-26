@@ -1,4 +1,5 @@
 import type { CalendarEvent } from "@choral-forma/shared";
+import { civilDate, dateKey } from "./temporal-date";
 
 /** Native controls serialize ISO values regardless of the displayed locale. */
 export function calendarJumpMonth(value: string, type: "month" | "date"): string | undefined {
@@ -24,28 +25,10 @@ export function calendarJumpPosition(
     };
 }
 
-// UTC here is only a Gregorian civil-date container, never the event timezone.
-export function civilDate(value: string): Date {
-    return new Date(`${value}T00:00:00Z`);
-}
-export function dateKey(value: Date): string {
-    const iso = value.toISOString();
-    return iso.slice(0, iso.indexOf("T"));
-}
 export function shiftMonth(month: string, delta: number): string {
     const date = civilDate(`${month}-01`);
     date.setUTCMonth(date.getUTCMonth() + delta);
     return dateKey(date).slice(0, 7);
-}
-export function dateInZone(now: Date, timeZone: string): string {
-    const parts = new Intl.DateTimeFormat("en", {
-        timeZone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-    }).formatToParts(now);
-    const part = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-    return `${part("year").padStart(4, "0")}-${part("month")}-${part("day")}`;
 }
 export function monthDays(month: string, firstDay: "monday" | "sunday"): string[] {
     const date = civilDate(`${month}-01`);

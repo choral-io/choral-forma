@@ -40,6 +40,20 @@ export const DAY_WIDTHS = [4, 10, 28, 48] as const;
  */
 export const CONNECTOR_LANES = 6;
 export const CONNECTOR_LANE_STEP = 3;
+
+/** Route pixel endpoints using a preassigned lane; independent of mounted rows and selection. */
+export function connectorPath(from: { x: number; y: number }, to: { x: number; y: number }, lane: number): string {
+    const gap = 8;
+    const direct = to.x >= from.x + gap * 2;
+    // Preserve an 8px approach. Narrow corridors share the last available lane;
+    // overlapping successors are ordinary data, not scheduling conflicts.
+    const offset = direct ? Math.min(lane, Math.floor((to.x - from.x - gap * 2) / CONNECTOR_LANE_STEP)) : 0;
+    const riser = from.x + gap + CONNECTOR_LANE_STEP * offset;
+    const detour = to.y + (from.y < to.y ? -ROW_HEIGHT / 2 : ROW_HEIGHT / 2);
+    return direct
+        ? `M ${String(from.x)} ${String(from.y)} H ${String(riser)} V ${String(to.y)} H ${String(to.x)}`
+        : `M ${String(from.x)} ${String(from.y)} H ${String(riser)} V ${String(detour)} H ${String(to.x - gap)} V ${String(to.y)} H ${String(to.x)}`;
+}
 /**
  * Day columns kept to the left of a located bar's start.
  *
