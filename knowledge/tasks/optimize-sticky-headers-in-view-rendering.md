@@ -9,7 +9,7 @@ priority: "P2"
 value: "M"
 module: "app"
 effort: "M"
-status: "reviewing"
+status: "done"
 readiness: "ready"
 owners:
     - "members/tiscs"
