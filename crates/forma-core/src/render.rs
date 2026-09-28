@@ -104,6 +104,17 @@ pub struct ViewRenderResult {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ViewRenderAllResult {
+    pub schema_version: u16,
+    pub operation: String,
+    pub status: OperationStatus,
+    pub views: Vec<ViewRenderResult>,
+    pub summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ViewRenderDocument {
     pub body_source: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -844,6 +855,38 @@ pub fn render_view(
     let workspace = load_workspace(root.as_ref())?;
     let discovery = discover_loaded_workspace(&workspace);
     render_view_from_loaded(&workspace, &discovery, view, params, true)
+}
+
+pub fn render_all_views(root: impl AsRef<Path>) -> Result<ViewRenderAllResult, OperationError> {
+    let workspace = load_workspace(root.as_ref())?;
+    let discovery = discover_loaded_workspace(&workspace);
+    let views = discovery
+        .index
+        .views
+        .iter()
+        .map(|view| {
+            render_view_from_loaded(&workspace, &discovery, &view.id, BTreeMap::new(), false)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut diagnostics = discovery.diagnostics.clone();
+    for view in &views {
+        for diagnostic in &view.diagnostics {
+            if !diagnostics.contains(diagnostic) {
+                diagnostics.push(diagnostic.clone());
+            }
+        }
+    }
+    let summary = DiagnosticSummary::from_diagnostics(&diagnostics);
+
+    Ok(ViewRenderAllResult {
+        schema_version: 1,
+        operation: "view.renderAll".to_string(),
+        status: summary.status(),
+        views,
+        summary,
+        diagnostics,
+    })
 }
 
 pub(crate) fn render_indexed_view_from_loaded(

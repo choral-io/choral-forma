@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -501,7 +501,15 @@ enum ConfigCommand {
 #[derive(Debug, Subcommand)]
 enum ViewCommand {
     Render {
-        view: String,
+        #[arg(
+            value_name = "VIEW",
+            required_unless_present = "all",
+            conflicts_with = "all"
+        )]
+        view: Option<String>,
+        /// Render every view discovered from the effective workspace configuration.
+        #[arg(long)]
+        all: bool,
         #[arg(long)]
         json: bool,
     },
@@ -830,14 +838,20 @@ async fn run_cli(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         }
         Some(Command::View { command }) => match command {
-            ViewCommand::Render { view, json } => {
-                let result =
-                    dispatcher.dispatch(OperationRequest::ViewRender(ViewRenderRequest {
-                        view,
-                        params: Default::default(),
-                    }))?;
-                print_result(&result, json, "view render")?;
-                exit_if_failed(&result);
+            ViewCommand::Render { view, all, json } => {
+                if all {
+                    let result = render_all_views(&workspace);
+                    print_result(&result, json, "view render all")?;
+                    exit_if_failed(&result);
+                } else {
+                    let result =
+                        dispatcher.dispatch(OperationRequest::ViewRender(ViewRenderRequest {
+                            view: view.expect("Clap requires VIEW unless --all is set"),
+                            params: Default::default(),
+                        }))?;
+                    print_result(&result, json, "view render")?;
+                    exit_if_failed(&result);
+                }
                 Ok(())
             }
         },
@@ -1124,6 +1138,50 @@ fn print_site_build_failure(error: &str, json: bool) -> io::Result<()> {
         eprintln!("error site.buildFailed: {error}");
     }
     Ok(())
+}
+
+fn render_all_views(root: &FsPath) -> forma_rpc::OperationResult {
+    let mut data = BTreeMap::new();
+    match forma_core::render::render_all_views(root) {
+        Ok(result) => {
+            let view_count = result.views.len();
+            let views = result
+                .views
+                .into_iter()
+                .map(forma_rpc::OperationResult::from)
+                .collect::<Vec<_>>();
+            data.insert("viewCount".to_string(), serde_json::json!(view_count));
+            data.insert(
+                "views".to_string(),
+                serde_json::to_value(views).expect("view render results should serialize"),
+            );
+            forma_rpc::OperationResult {
+                schema_version: result.schema_version,
+                operation: result.operation,
+                status: result.status,
+                summary: Some(result.summary),
+                diagnostics: result.diagnostics,
+                path: None,
+                data,
+            }
+        }
+        Err(error) => {
+            let diagnostic = forma_core::operation_error_diagnostic(error);
+            let diagnostics = vec![diagnostic];
+            let summary = forma_core::DiagnosticSummary::from_diagnostics(&diagnostics);
+            data.insert("viewCount".to_string(), serde_json::json!(0));
+            data.insert("views".to_string(), serde_json::json!([]));
+            forma_rpc::OperationResult {
+                schema_version: forma_rpc::SCHEMA_VERSION,
+                operation: "view.renderAll".to_string(),
+                status: summary.status(),
+                summary: Some(summary),
+                diagnostics,
+                path: None,
+                data,
+            }
+        }
+    }
 }
 
 fn print_result(result: &forma_rpc::OperationResult, json: bool, label: &str) -> io::Result<()> {

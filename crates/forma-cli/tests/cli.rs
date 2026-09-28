@@ -2052,6 +2052,8 @@ fn view_render_cli_renders_configured_kanban_view() {
     let root = fixture_root("view-render-cli");
     std::fs::create_dir_all(root.join(".forma/spaces/templates")).unwrap();
     std::fs::create_dir_all(root.join(".forma/views")).unwrap();
+    std::fs::create_dir_all(root.join("custom-views")).unwrap();
+    std::fs::create_dir_all(root.join("unconfigured-views")).unwrap();
     std::fs::create_dir_all(root.join("content/tasks")).unwrap();
 
     write_config(
@@ -2068,6 +2070,7 @@ workspace:
 imports:
   - ".forma/spaces/*.md"
   - ".forma/views/*.md"
+  - "custom-views/*.md"
 "#,
     );
     std::fs::write(
@@ -2131,6 +2134,16 @@ kanban:
 "#,
     )
     .unwrap();
+    std::fs::copy(
+        root.join(".forma/views/work-board.md"),
+        root.join("custom-views/triage.md"),
+    )
+    .unwrap();
+    std::fs::copy(
+        root.join(".forma/views/work-board.md"),
+        root.join("unconfigured-views/ignored.md"),
+    )
+    .unwrap();
     std::fs::write(
         root.join("content/tasks/alpha.md"),
         r#"---
@@ -2163,6 +2176,38 @@ readiness: ready
     assert!(stdout.contains(r#""kind":"kanban""#));
     assert!(stdout.contains(r#""path":"content/tasks/alpha.md""#));
     assert!(stdout.contains(r#""readiness":{"kind":"value","value":"ready"}"#));
+
+    let all = forma(&root)
+        .args(["view", "render", "--all", "--json"])
+        .output()
+        .expect("forma view render --all should run");
+
+    assert!(
+        all.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&all.stdout),
+        String::from_utf8_lossy(&all.stderr)
+    );
+    assert!(all.stderr.is_empty());
+
+    let all_result: Value = serde_json::from_slice(&all.stdout).unwrap();
+    assert_eq!(all_result["operation"], "view.renderAll");
+    assert_eq!(all_result["status"], "warning");
+    assert_eq!(all_result["summary"]["warnings"], 2);
+    assert_eq!(all_result["viewCount"], 2);
+    let rendered_views = all_result["views"].as_array().unwrap();
+    assert_eq!(rendered_views.len(), 2);
+    assert!(
+        rendered_views
+            .iter()
+            .all(|result| result["operation"] == "view.render")
+    );
+    let rendered_paths = rendered_views
+        .iter()
+        .map(|result| result["view"]["path"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert!(rendered_paths.contains(&".forma/views/work-board.md"));
+    assert!(rendered_paths.contains(&"custom-views/triage.md"));
 
     std::fs::remove_dir_all(root).unwrap();
 }
