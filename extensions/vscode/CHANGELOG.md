@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.38
+
+- Share interactive Calendar and Gantt rendering between the WebApp and VS Code, including editor icons and updated View contracts.
+- Fix native preview navigation for temporal event links and date jumps, and apply metadata and other Markdown enhancements consistently to Forma-managed previews.
+- Reconcile open previews when workspace configuration changes, reject stale results, coalesce redundant refreshes, and initialize interactive preview modules only when their content appears.
+- Add `forma view render --all` and update coordinated dependencies.
+
 ## 0.1.37
 
 - Add read-only Calendar Views with Core-owned date/timezone semantics, a WebApp month view and Agenda, native month/date jumps, classification accents, and complete day lists. VS Code and static HTML provide semantic Agendas.
