@@ -10,7 +10,9 @@
       "@choral-forma/graph-view/fixtures": ["../../packages/graph-view/src/fixtures.ts"],
       "@choral-forma/graph-view/presentation": ["../../packages/graph-view/src/presentation.ts"],
       "@choral-forma/graph-view/projection": ["../../packages/graph-view/src/projection.ts"],
-      "@choral-forma/shared": ["../../packages/shared/src/index.ts"]
+      "@choral-forma/shared": ["../../packages/shared/src/index.ts"],
+      "@choral-forma/temporal-view": ["../../packages/temporal-view/src/index.ts"],
+      "@choral-forma/temporal-view/runtime": ["../../packages/temporal-view/src/runtime.ts"]
     },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
@@ -23,7 +25,8 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
-    "types": ["node", "vscode", "mocha"]
+    "types": ["node", "vscode", "mocha"],
+    "jsx": "react-jsx"
   },
   "include": ["src", "scripts"]
 }

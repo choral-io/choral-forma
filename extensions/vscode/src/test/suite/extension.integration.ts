@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as vscode from "vscode";
 
 import { assertNativeMarkdownLink } from "../link-assertions.ts";
+import { assertPreviewScopeChanges } from "../preview-scope-assertions.ts";
 import { assertTemporalViewPreview, withCleanViewDiagnostics } from "../view-preview-assertions.ts";
 
 suite("Forma for VS Code extension", () => {
@@ -16,6 +17,34 @@ suite("Forma for VS Code extension", () => {
         assert.ok(extension);
         await extension.activate();
         assert.equal(extension.isActive, true);
+    });
+
+    test("enhances a document opened only by native preview navigation", async () => {
+        const extension = vscode.extensions.getExtension("choral-io.forma");
+        assert.ok(extension);
+        await extension.activate();
+        const uri = (await vscode.workspace.findFiles("target.md", undefined, 1))[0];
+        assert.ok(uri);
+        const document = await vscode.workspace.openTextDocument(uri);
+        // Native preview navigation opens a document without activating a text editor.
+        assert.notEqual(vscode.window.activeTextEditor?.document.uri.toString(), uri.toString());
+        let html = "";
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+            html = (await vscode.commands.executeCommand<string>("markdown.api.render", document)) ?? "";
+            if (html.includes('class="forma-frontmatter"')) break;
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        assert.ok(
+            html.includes('<details class="forma-frontmatter">'),
+            "preview-only documents need collapsed Metadata",
+        );
+    });
+
+    test("reconciles preview scope after configuration changes without reopening the document", async function () {
+        this.timeout(30_000);
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+        assert.ok(root);
+        await assertPreviewScopeChanges(root);
     });
 
     test("registers commands, resolves a wikilink, and keeps view source editable", async () => {

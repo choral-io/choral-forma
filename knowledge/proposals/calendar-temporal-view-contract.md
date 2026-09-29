@@ -26,6 +26,10 @@ relatedTo:
 
 # Calendar Temporal View Contract
 
+## Editor Scope Amendment — 2026-09-29
+
+The user approved full WebApp-equivalent read-only Calendar and Gantt interaction in VS Code, including a shared React presentation module. This supersedes editor-only Agenda/list restrictions below. Core temporal semantics and static HTML fallbacks are unchanged. The current implementation boundary and validation requirements are in [[architecture/editor-extension-adapter-contract]]. Historical acceptance and release evidence below applies to its original candidate, not this expansion.
+
 ## Summary
 
 Add a read-only `calendar` View with a month grid and Agenda in WebApp and a complete semantic Agenda in static HTML and VS Code. Core owns field interpretation, date validity, timezone conversion, interval normalization, and diagnostics. Reuse existing dependencies; add no Calendar, Gantt, date, timezone, or virtualization library.

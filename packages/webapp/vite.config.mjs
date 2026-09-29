@@ -26,6 +26,7 @@ export default defineConfig(({ mode }) => {
                     new URL("../graph-view/src/projection.ts", import.meta.url),
                 ),
                 "@choral-forma/graph-view": fileURLToPath(new URL("../graph-view/src/index.ts", import.meta.url)),
+                "@choral-forma/temporal-view": fileURLToPath(new URL("../temporal-view/src/index.ts", import.meta.url)),
                 "@choral-forma/shared": fileURLToPath(new URL("../shared/src/index.ts", import.meta.url)),
             },
         },

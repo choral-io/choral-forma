@@ -189,12 +189,24 @@ Projection components use VS Code theme variables already available in native Ma
 ```text
 VS Code Preview tokens
 -> narrowly scoped --forma-* projection tokens
--> list, table, kanban, graph renderers
+-> list, table, kanban, graph, calendar, gantt renderers
 ```
 
 The VS Code adapter derives these values from `--vscode-*` variables, including editor colors, focus and contrast borders, chart colors, and editor font settings. Renderers must support light, dark, high-contrast, and reduced-motion modes without theme-name-specific rules.
 
-The WebApp and other editor adapters provide the same semantic Forma roles from their own theme APIs. Shared renderer code must not import a VS Code API, React, React Router, or the WebApp theme context. Geometry, opacity hierarchy, label policy, selected and neighbor emphasis, and edge semantics remain identical across Hosts while concrete colors, fonts, surfaces, borders, and focus treatment adapt to the environment.
+The WebApp and other editor adapters provide the same semantic Forma roles from their own theme APIs. Shared renderer code must not import a VS Code API, React Router, or the WebApp theme context. Calendar and Gantt share the React-based `packages/temporal-view` renderer across WebApp and VS Code, as approved on 2026-09-29. React and React DOM are presentation-layer dependencies only; Core, wire contracts, and date/layout helpers remain framework-independent. The existing Graph runtime remains framework-independent. Geometry, opacity hierarchy, label policy, selected and neighbor emphasis, and edge semantics remain identical across Hosts while concrete colors, fonts, surfaces, borders, and focus treatment adapt to the environment.
+
+## Temporal Renderer Boundary
+
+The user approved full WebApp-equivalent read-only Calendar and Gantt interaction in native VS Code Markdown Preview on 2026-09-29. This supersedes the earlier editor-only Agenda/list scope in the temporal proposals; static HTML retains deterministic semantic fallbacks.
+
+`packages/temporal-view` owns both React views, civil-date layout, Gantt geometry, windowing, keyboard behavior, and complete lists. It consumes the unchanged Core projection plus host-provided source routes. Hosts provide navigation and optional locale and viewer-state storage; shared components must not import application routing or editor APIs. Existing React, React DOM, Lucide, Tailwind, and daisyUI versions are reused without a specialized scheduling dependency.
+
+The WebApp supplies router links and navigation identity. VS Code contributes an inert projection and complete semantic fallback through Markdown-it, then mounts the shared renderer with its packaged Preview script and an isolated Shadow DOM stylesheet. Theme roles map to native editor tokens, and source links bridge through the native Preview navigation handler. No parallel WebView or remote script service is introduced.
+
+During content replacement in a live preview, retain the Calendar month/display mode and Gantt range, day width, selection, list state, and scroll offsets by View path and mode. State is bounded, local to that preview's lifetime, and never written to source Markdown; closing or reloading the entire WebView may reset it. Detach observers, event handlers, and React roots when mounts disappear or the preview closes. Keep the complete fallback visible until mounting succeeds and restore it on failure.
+
+Validation must exercise the interactive preview DOM, themes, narrow containers, native dialog/popover focus, source navigation, content replacement, and cleanup. HTML-string presence alone does not establish feature parity. Shared behavioral checks protect the WebApp while editor tests verify host-specific navigation and lifecycle behavior.
 
 ## Graph Renderer Boundary
 

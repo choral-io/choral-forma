@@ -29,7 +29,8 @@ let reconcileFrame = 0;
 let contentObserver: MutationObserver | undefined;
 let themeObserver: MutationObserver | undefined;
 
-function start(): void {
+export function startGraphPreview(): () => void {
+    if (contentObserver) return stop;
     reconcile();
     contentObserver = new MutationObserver((records) => {
         if (shouldScheduleGraphReconcile(records)) scheduleReconcile();
@@ -43,6 +44,7 @@ function start(): void {
     window.addEventListener("vscode.markdown.updateContent", scheduleReconcile);
     document.addEventListener("vscode.markdown.updateContent", scheduleReconcile);
     window.addEventListener("pagehide", stop, { once: true });
+    return stop;
 }
 
 function stop(): void {
@@ -50,11 +52,13 @@ function stop(): void {
     reconcileFrame = 0;
     contentObserver?.disconnect();
     themeObserver?.disconnect();
+    contentObserver = undefined;
+    themeObserver = undefined;
+    window.removeEventListener("pagehide", stop);
     window.removeEventListener("vscode.markdown.updateContent", scheduleReconcile);
     document.removeEventListener("vscode.markdown.updateContent", scheduleReconcile);
     for (const controller of controllers.values()) controller.destroy();
     controllers.clear();
-    preservedSelections.clear();
 }
 
 function scheduleReconcile(): void {
@@ -156,15 +160,18 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
         },
     });
 
+    const toggleExpanded = (): void => {
+        setExpanded(!expanded);
+    };
+
     const syncExpandButton = (): void => {
         const shell = host.closest<HTMLElement>(".graph-shell");
         const button = shell?.querySelector<HTMLButtonElement>("[data-forma-graph-expand]");
         if (!shell || !button) return;
         if (button !== boundExpandButton) {
+            boundExpandButton?.removeEventListener("click", toggleExpanded);
             boundExpandButton = button;
-            button.addEventListener("click", () => {
-                setExpanded(!expanded);
-            });
+            button.addEventListener("click", toggleExpanded);
         }
         const presentation = graphExpandPresentation(expanded);
         button.hidden = false;
@@ -219,6 +226,7 @@ function createController(host: HTMLElement, initialData: PreviewGraphData): Gra
             runtime.update({ theme });
         },
         destroy() {
+            boundExpandButton?.removeEventListener("click", toggleExpanded);
             document.removeEventListener("keydown", exitExpandedView);
             host.closest<HTMLElement>(".graph-shell")?.classList.remove("is-expanded");
             syncExpandedBodyState();
@@ -347,9 +355,4 @@ function updateSelectionSurface(host: HTMLElement, projection: GraphRenderOutput
             summary.append(title, path, links);
         }
     }
-}
-
-if (typeof document !== "undefined" && typeof MutationObserver !== "undefined") {
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
-    else start();
 }

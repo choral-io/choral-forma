@@ -25,6 +25,10 @@ relatedTo:
 
 # Gantt Temporal View Contract
 
+## Editor Scope Amendment — 2026-09-29
+
+The user approved full WebApp-equivalent read-only Calendar and Gantt interaction in VS Code, including a shared React presentation module. This supersedes editor-only Agenda/list restrictions below. Core temporal semantics and static HTML fallbacks are unchanged. The current implementation boundary and validation requirements are in [[architecture/editor-extension-adapter-contract]]. Historical acceptance and release evidence below applies to its original candidate, not this expansion.
+
 ## Summary
 
 Add a read-only `gantt` View mode that projects explicitly configured intervals as day-resolution timeline rows, and explicitly configured frontmatter references as finish-to-start dependency edges. Core owns schema binding, temporal normalization, dependency resolution, deduplication, cycle detection, and diagnostics. Hosts own geometry. Reuse the accepted Calendar temporal semantics rather than introducing a second temporal evaluator, and add no Gantt, charting, date, timezone, or virtualization dependency.

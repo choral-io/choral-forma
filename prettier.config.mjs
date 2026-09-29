@@ -10,7 +10,7 @@ export default {
         {
             // Sort WebApp classes against its real Tailwind v4 + daisyUI stylesheet, including cn() calls
             // outside class attributes. Other surfaces keep the plugin's default theme.
-            files: "packages/webapp/**",
+            files: ["packages/webapp/**", "packages/temporal-view/**"],
             options: {
                 tailwindStylesheet: "./packages/webapp/src/styles/globals.css",
                 tailwindFunctions: ["cn"],

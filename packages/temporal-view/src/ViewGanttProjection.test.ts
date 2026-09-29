@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 
-import type { DashboardViewProjection } from "@/data/workspace-client";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { MemoryRouter } from "react-router";
+import type { GanttViewProjection } from "./host";
+
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { HEADER_HEIGHT, ROW_HEIGHT, dayIndex } from "./gantt-layout";
 import { ViewGanttProjection } from "./ViewGanttProjection";
 
-type Projection = Extract<DashboardViewProjection, { kind: "gantt" }>;
+type Projection = GanttViewProjection;
 let root: Root;
 let host: HTMLDivElement;
 
@@ -90,7 +90,7 @@ function at<T>(list: T[], index: number): T {
 }
 async function render(projection = fixture()) {
     await flush(() => {
-        root.render(createElement(MemoryRouter, null, createElement(ViewGanttProjection, { projection })));
+        root.render(createElement(ViewGanttProjection, { projection }));
     });
 }
 function element<K extends keyof HTMLElementTagNameMap>(selector: K): HTMLElementTagNameMap[K];
@@ -103,7 +103,9 @@ function element(selector: string): HTMLElement {
 async function submit(value: string) {
     element("input").value = value;
     await flush(() => {
-        element("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        const go = [...host.querySelectorAll("button")].find((button) => button.textContent === "Go");
+        if (!go) throw new Error("Missing Go button");
+        go.click();
     });
 }
 function origin() {
@@ -163,6 +165,18 @@ it("Today discards an unsubmitted draft without replacing the native input", asy
     });
     expect(input.value).toBe(today);
     expect(element('input[name="date"]')).toBe(input);
+});
+
+it("jumps to a date with Enter without native form submission", async () => {
+    await render();
+    const input = element("input");
+    const before = element('[role="grid"]').scrollLeft;
+    input.value = "2027-03-02";
+    await flush(() => {
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    });
+    expect(input.value).toBe("2027-03-02");
+    expect(element('[role="grid"]').scrollLeft).not.toBe(before);
 });
 
 it("consumes same-range jumps so later left-edge extension still works", async () => {

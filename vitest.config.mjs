@@ -7,6 +7,7 @@ export default defineConfig({
             "extensions/vscode/src",
             "packages/graph-view/src",
             "packages/shared/src",
+            "packages/temporal-view/src",
             "packages/webapp/src",
         ].flatMap((directory) => configDefaults.include.map((pattern) => `${directory}/${pattern}`)),
         exclude: [...configDefaults.exclude, "**/.worktrees/**"],
@@ -24,6 +25,15 @@ export default defineConfig({
                 new URL("./packages/graph-view/src/projection.ts", import.meta.url),
             ),
             "@choral-forma/graph-view": fileURLToPath(new URL("./packages/graph-view/src/index.ts", import.meta.url)),
+            "@choral-forma/temporal-view/preview.css": fileURLToPath(
+                new URL("./packages/temporal-view/src/preview.css", import.meta.url),
+            ),
+            "@choral-forma/temporal-view/runtime": fileURLToPath(
+                new URL("./packages/temporal-view/src/runtime.ts", import.meta.url),
+            ),
+            "@choral-forma/temporal-view": fileURLToPath(
+                new URL("./packages/temporal-view/src/index.ts", import.meta.url),
+            ),
             "@choral-forma/shared": fileURLToPath(new URL("./packages/shared/src/index.ts", import.meta.url)),
         },
     },

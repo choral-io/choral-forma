@@ -1,0 +1,79 @@
+@import "tailwindcss" source(none);
+@source ".";
+@plugin "daisyui" {
+    themes: false;
+    logs: false;
+    root: ":host";
+    include: button, input, select, modal, join, link, collapse;
+}
+
+/* Compiled once and mounted only inside the editor adapter's shadow root. */
+:host {
+    display: block;
+    min-width: 0;
+    font: inherit;
+    color: var(--vscode-editor-foreground);
+    color-scheme: var(--forma-color-scheme, light);
+    --color-base-100: var(--vscode-editor-background);
+    --color-base-200: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    --color-base-300: var(--vscode-contrastBorder, var(--vscode-panel-border, #808080));
+    --color-base-content: var(--vscode-editor-foreground);
+    --color-primary: var(--vscode-focusBorder);
+    --color-primary-content: var(--vscode-editor-background);
+    --color-secondary: var(--vscode-charts-purple);
+    --color-secondary-content: var(--vscode-editor-background);
+    --color-accent: var(--vscode-charts-blue);
+    --color-accent-content: var(--vscode-editor-background);
+    --color-neutral: var(--vscode-editor-foreground);
+    --color-neutral-content: var(--vscode-editor-background);
+    --color-info: var(--vscode-charts-blue);
+    --color-info-content: var(--vscode-editor-background);
+    --color-success: var(--vscode-charts-green);
+    --color-success-content: var(--vscode-editor-background);
+    --color-warning: var(--vscode-editorWarning-foreground);
+    --color-warning-content: var(--vscode-editor-background);
+    --color-error: var(--vscode-errorForeground);
+    --color-error-content: var(--vscode-editor-background);
+    --radius-selector: 0.25rem;
+    --radius-field: 0.25rem;
+    --radius-box: 0.25rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
+:host([hidden]) {
+    display: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+    outline: 2px solid var(--vscode-focusBorder);
+    outline-offset: 2px;
+}
+
+[data-gantt-timeline] {
+    scrollbar-width: none;
+}
+[data-gantt-timeline]::-webkit-scrollbar {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+        animation-duration: 0s !important;
+        transition-duration: 0s !important;
+    }
+}
+
+/* High-contrast border tokens can equal foreground; use a surface for unfilled bars. */
+[data-gantt-bar] {
+    background-color: var(--color-base-200);
+}

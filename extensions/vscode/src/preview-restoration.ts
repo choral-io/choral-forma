@@ -16,6 +16,7 @@ export type PreviewRestorationCoordinatorOptions<Document> = PreviewRestorationO
 export class PreviewRestorationCoordinator<Document> {
     private tail: Promise<void> = Promise.resolve();
     private disposed = false;
+    private generation = 0;
 
     constructor(private readonly options: PreviewRestorationCoordinatorOptions<Document>) {}
 
@@ -24,12 +25,28 @@ export class PreviewRestorationCoordinator<Document> {
         return this.enqueue(documents);
     }
 
+    invalidate(): void {
+        this.generation += 1;
+    }
+
     dispose(): void {
         this.disposed = true;
     }
 
     private enqueue(documents: readonly Document[]): Promise<PreviewRestorationResult> {
-        const task = this.tail.then(async () => await restoreOpenDocumentPreviews(documents, this.options));
+        const generation = this.generation;
+        const current = (): boolean => !this.disposed && generation === this.generation;
+        const task = this.tail.then(
+            async () =>
+                await restoreOpenDocumentPreviews(documents, {
+                    isFormaDocument: (document) => current() && this.options.isFormaDocument(document),
+                    refreshDocument: async (document, refreshPreview) =>
+                        current() ? await this.options.refreshDocument(document, refreshPreview) : false,
+                    refreshMarkdownPreview: async () => {
+                        if (current()) await this.options.refreshMarkdownPreview();
+                    },
+                }),
+        );
         this.tail = task.then(
             () => undefined,
             (error: unknown) => {

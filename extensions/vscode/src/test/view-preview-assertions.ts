@@ -10,6 +10,10 @@ export async function assertTemporalViewPreview(
     assert.equal(typeof html, "string", `${mode} preview should render through the built-in Markdown engine`);
     assert.ok(html, `${mode} preview HTML should be available`);
 
+    assert.ok(html.includes("data-forma-temporal-host"), `${mode} preview should include its interactive mount`);
+    assert.ok(html.includes("data-forma-temporal-fallback"), `${mode} preview should preserve its semantic fallback`);
+    assert.ok(html.includes('type="application/json"'), `${mode} preview should include inert projection data`);
+
     if (mode === "calendar") {
         assert.ok(
             html.includes('aria-label="Calendar agenda"'),

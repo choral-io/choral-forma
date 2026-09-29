@@ -16,6 +16,10 @@ export function viewIconName(kind: string): string {
             return "kanban";
         case "graph":
             return "network";
+        case "calendar":
+            return "calendar-days";
+        case "gantt":
+            return "chart-gantt";
         default:
             return "eye";
     }

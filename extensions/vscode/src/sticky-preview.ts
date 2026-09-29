@@ -398,8 +398,9 @@ class PreviewStickyLifecycle {
 
 let lifecycle: PreviewStickyLifecycle | undefined;
 
-export function startStickyPreview(): void {
+export function startStickyPreview(): () => void {
     lifecycle ??= new PreviewStickyLifecycle();
+    return stopStickyPreview;
 }
 
 export function stopStickyPreview(): void {

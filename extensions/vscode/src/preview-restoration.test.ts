@@ -41,6 +41,35 @@ describe("restored native Markdown previews", () => {
         expect(events).toEqual(["document:board:false", "markdown"]);
     });
 
+    it("drops queued and remaining restoration work after scope invalidation", async () => {
+        let resolve!: (value: boolean) => void;
+        const pending = new Promise<boolean>((done) => {
+            resolve = done;
+        });
+        const events: string[] = [];
+        const coordinator = new PreviewRestorationCoordinator<Document>({
+            isFormaDocument: () => true,
+            refreshDocument: async (document) => {
+                events.push(document.id);
+                return await pending;
+            },
+            refreshMarkdownPreview: async () => {
+                events.push("repaint");
+            },
+            onError: () => undefined,
+        });
+        const first = coordinator.restoreOpenDocuments([
+            { id: "one", managed: true },
+            { id: "two", managed: true },
+        ]);
+        const queued = coordinator.restoreOpenDocuments([{ id: "three", managed: true }]);
+        await Promise.resolve();
+        coordinator.invalidate();
+        resolve(false);
+        await Promise.all([first, queued]);
+        expect(events).toEqual(["one"]);
+    });
+
     it("maps restored classic Markdown Preview labels to configured View paths", () => {
         expect(
             viewPathsForPreviewLabels(

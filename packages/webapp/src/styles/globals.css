@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../../../temporal-view/src";
 
 @plugin "daisyui" {
     logs: false;

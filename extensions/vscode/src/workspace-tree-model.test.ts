@@ -1,4 +1,4 @@
-import type { DashboardEntrySummary, WorkspaceExplorerResult } from "@choral-forma/shared";
+import { isSupportedDisplayIcon, type DashboardEntrySummary, type WorkspaceExplorerResult } from "@choral-forma/shared";
 import { describe, expect, it } from "vitest";
 
 import { treeNodeCommandId, workspaceTreeChildren, workspaceTreeRoots } from "./workspace-tree-model.ts";
@@ -72,13 +72,17 @@ describe("Forma workspace tree model", () => {
     });
 
     it("maps supported View modes to the selected Lucide assets", () => {
-        expect(["list", "table", "kanban", "graph", "custom"].map(viewIconName)).toEqual([
+        expect(["list", "table", "kanban", "graph", "calendar", "gantt", "custom"].map(viewIconName)).toEqual([
             "list",
             "table-properties",
             "kanban",
             "network",
+            "calendar-days",
+            "chart-gantt",
             "eye",
         ]);
+        expect(isSupportedDisplayIcon("calendar-days")).toBe(true);
+        expect(isSupportedDisplayIcon("chart-gantt")).toBe(true);
     });
 
     it("uses one Lucide icon family across every tree level", () => {

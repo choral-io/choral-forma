@@ -54,7 +54,9 @@ export class FormaRuntime implements vscode.Disposable {
     private refreshController: AbortController | undefined;
     private readonly inspectCache = new DocumentInspectCache<InspectResult>();
     private analysisGenerationValue = 0;
+    private scopeGenerationValue = 0;
     private readonly scopes = new Map<string, WorkspaceScope>();
+    private readonly configPatternsByRoot = new Map<string, string[]>();
     private configTargets: Array<{ base: vscode.Uri; pattern: string }> = [];
     private lspContextValue: FormaLspRuntimeContext | undefined;
 
@@ -84,12 +86,28 @@ export class FormaRuntime implements vscode.Disposable {
         return root && scope ? { root, ...scope } : undefined;
     }
 
+    get workspaceScopes(): ReadonlyArray<{ root: string } & WorkspaceScope> {
+        return [...this.scopes].map(([root, scope]) => ({ root, ...scope }));
+    }
+
     get workspaceConfigTargets(): ReadonlyArray<{ base: vscode.Uri; pattern: string }> {
-        return this.configTargets;
+        return [
+            ...this.configTargets,
+            ...this.roots.flatMap((root) =>
+                (this.configPatternsByRoot.get(root) ?? []).map((pattern) => ({
+                    base: this.uriFor(root),
+                    pattern,
+                })),
+            ),
+        ];
     }
 
     get lspContext(): FormaLspRuntimeContext | undefined {
         return this.lspContextValue;
+    }
+
+    get scopeGeneration(): number {
+        return this.scopeGenerationValue;
     }
 
     get analysisGeneration(): number {
@@ -98,9 +116,12 @@ export class FormaRuntime implements vscode.Disposable {
 
     async refresh(activeDocument = vscode.window.activeTextEditor?.document): Promise<void> {
         this.refreshController?.abort();
+        this.scopeGenerationValue += 1;
         this.client?.invalidate();
         this.analysisGenerationValue += 1;
         this.inspectCache.clear();
+        this.scopes.clear();
+        this.roots = [];
         this.configTargets = [];
         this.lspContextValue = undefined;
         const controller = new AbortController();
@@ -141,8 +162,8 @@ export class FormaRuntime implements vscode.Disposable {
             if (!discovery) return;
             this.roots = discovery.roots;
             if (this.selectedRoot && !this.roots.includes(this.selectedRoot)) this.selectedRoot = undefined;
-            for (const root of this.scopes.keys()) {
-                if (!this.roots.includes(root)) this.scopes.delete(root);
+            for (const root of this.configPatternsByRoot.keys()) {
+                if (!this.roots.includes(root)) this.configPatternsByRoot.delete(root);
             }
             if (this.roots.length === 0) {
                 const configuredMissing = discovery.missing.find(
@@ -195,7 +216,23 @@ export class FormaRuntime implements vscode.Disposable {
             }
             if (isAborted(controller)) return;
             const scope = workspaceScopeFromConfig(inspected);
-            this.scopes.set(activeRoot, scope);
+            const nextScopes = new Map([[activeRoot, scope]]);
+            for (const root of this.roots) {
+                if (root === activeRoot) continue;
+                try {
+                    const config = await client.configInspect(root, controller.signal);
+                    if (!isCurrentRefresh(controller, this.refreshController)) return;
+                    nextScopes.set(root, workspaceScopeFromConfig(config));
+                } catch (error) {
+                    if (!isCurrentRefresh(controller, this.refreshController)) return;
+                    this.output.appendLine(`[runtime] ${root}: ${safeError(error)}`);
+                }
+            }
+            for (const [root, nextScope] of nextScopes) {
+                this.scopes.set(root, nextScope);
+                // Keep the last known imported-config watchers on load failure so repairing an import retries it.
+                this.configPatternsByRoot.set(root, [...nextScope.configSourcePaths, ...nextScope.configPatterns]);
+            }
             this.logResult(inspected);
             if (inspected.status === "failed") {
                 this.setState({ kind: "invalidConfig", label: "Forma: Invalid configuration", root: activeRoot });

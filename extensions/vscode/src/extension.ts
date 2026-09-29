@@ -73,6 +73,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
         }, 100);
     };
     const scheduleConfigRefresh = (): void => {
+        previews.invalidateScope();
         if (configRefreshTimer) clearTimeout(configRefreshTimer);
         configRefreshTimer = setTimeout(() => {
             configRefreshTimer = undefined;
@@ -86,8 +87,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
             const key = watcherKey(target.base, target.pattern);
             targets.set(key, { ...target, config: true });
         }
-        const scope = runtime.activeScope;
-        if (scope) {
+        for (const scope of runtime.workspaceScopes) {
             const base = runtime.uriFor(scope.root);
             for (const pattern of scope.configSourcePaths) {
                 targets.set(watcherKey(base, pattern), { base, pattern, config: true });
@@ -138,6 +138,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
         },
         runtime.onDidChangeState(() => {
             updateStatus();
+            if (runtime.state.kind === "checking") previews.invalidateScope();
+            else {
+                void previews.reconcileScope(vscode.workspace.textDocuments).catch((error: unknown) => {
+                    output.error(`[preview] scope reconciliation failed: ${boundedError(error)}`);
+                });
+            }
             stopLspAfterRuntimeLoss();
             if (runtime.state.kind !== "checking") {
                 resetWorkspaceWatchers();
@@ -228,6 +234,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<FormaE
         }),
         vscode.commands.registerCommand("forma.openSource", async (uri?: vscode.Uri) => {
             if (uri) await openSource(uri);
+        }),
+        vscode.workspace.onDidOpenTextDocument((document) => {
+            // Links can replace a native preview without ever activating a text editor.
+            if (!runtime.isFormaDocument(document)) return;
+            void previews.refresh(document).catch((error: unknown) => {
+                output.error(`[preview] opened-document refresh failed: ${boundedError(error)}`);
+            });
         }),
         vscode.workspace.onDidSaveTextDocument(async (document) => {
             if (runtime.isFormaDocument(document)) await previews.refresh(document);

@@ -18,6 +18,11 @@ export type MarkdownEnhancement = {
 
 const enhancements = new Map<string, MarkdownEnhancement>();
 
+/** Presentation settings are available before asynchronous Core inspection. */
+export function setMarkdownFrontmatterState(documentUri: string, state: FrontmatterDefaultState): boolean {
+    return setMarkdownEnhancement(documentUri, { ...enhancements.get(documentUri), frontmatterDefaultState: state });
+}
+
 export function extendMarkdownIt(markdownIt: MarkdownIt): MarkdownIt {
     const originalRender = markdownIt.renderer.render.bind(markdownIt.renderer);
     markdownIt.renderer.render = (tokens, options, environment) => {
@@ -36,7 +41,8 @@ function enhancementForDocument(uri: string | undefined, path: string | undefine
     return [...enhancements.entries()].find(([key]) => key.endsWith(path) || key.endsWith(encodedPath))?.[1];
 }
 
-export function setMarkdownEnhancement(documentUri: string, enhancement: MarkdownEnhancement | undefined): void {
+export function setMarkdownEnhancement(documentUri: string, enhancement: MarkdownEnhancement | undefined): boolean {
+    const previous = enhancements.get(documentUri);
     if (
         enhancement &&
         (enhancement.projection ||
@@ -44,9 +50,19 @@ export function setMarkdownEnhancement(documentUri: string, enhancement: Markdow
             (enhancement.frontmatterLinks?.length ?? 0) > 0 ||
             (enhancement.bodyLinks?.length ?? 0) > 0)
     ) {
-        enhancements.set(documentUri, enhancement);
+        const normalized = {
+            ...(enhancement.projection ? { projection: enhancement.projection } : {}),
+            ...(enhancement.frontmatterDefaultState
+                ? { frontmatterDefaultState: enhancement.frontmatterDefaultState }
+                : {}),
+            frontmatterLinks: enhancement.frontmatterLinks ?? [],
+            bodyLinks: enhancement.bodyLinks ?? [],
+        };
+        if (JSON.stringify(previous) === JSON.stringify(normalized)) return false;
+        enhancements.set(documentUri, normalized);
+        return true;
     } else {
-        enhancements.delete(documentUri);
+        return enhancements.delete(documentUri);
     }
 }
 

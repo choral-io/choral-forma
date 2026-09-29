@@ -203,7 +203,7 @@ include:
 ```
 
 - `order` is an integer sorting hint.
-- `icon` is a provider-neutral Forma icon id. The supported registry is: `book-open`, `boxes`, `calendar`, `circle-check`, `ellipsis`, `eye`, `file-text`, `flask-conical`, `folder`, `folder-tree`, `kanban`, `lightbulb`, `list`, `list-checks`, `network`, `package`, `panels-top-left`, `rocket`, `shapes`, `table-properties`, `tags`, `triangle-alert`, and `users`.
+- `icon` is a provider-neutral Forma icon id. The supported registry is: `book-open`, `boxes`, `calendar`, `calendar-days`, `chart-gantt`, `circle-check`, `ellipsis`, `eye`, `file-text`, `flask-conical`, `folder`, `folder-tree`, `kanban`, `lightbulb`, `list`, `list-checks`, `network`, `package`, `panels-top-left`, `rocket`, `shapes`, `table-properties`, `tags`, `triangle-alert`, and `users`.
 - `color` must use the exact `#RRGGBB` shape. Hex digits are case-insensitive.
 
 Clients map icon ids to their own bundled assets and adapt configured colors to the active theme. An unsupported icon produces `config.displayIconInvalid`; an invalid color produces `config.displayColorInvalid`. Invalid presentation values are omitted from the effective display metadata so clients can use their normal fallback icon and theme color. Forma does not download icons, accept icon URLs, or interpret arbitrary SVG from workspace config.

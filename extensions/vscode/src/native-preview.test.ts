@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ViewRenderResult } from "@choral-forma/shared";
+import * as vscode from "vscode";
 
 import {
     clearMarkdownProjections,
@@ -11,7 +12,7 @@ import {
 import { NativePreviewManager } from "./native-preview.ts";
 
 vi.mock("vscode", () => ({
-    commands: { executeCommand: vi.fn() },
+    commands: { executeCommand: vi.fn().mockResolvedValue(undefined) },
     env: { language: "en" },
     window: { activeTextEditor: undefined },
     workspace: { getConfiguration: () => ({ get: (_key: string, fallback: string) => fallback }) },
@@ -49,6 +50,180 @@ function calendarResult(): ViewRenderResult {
 }
 
 describe("native Markdown preview enhancement", () => {
+    afterEach(() => {
+        vi.useRealTimers();
+        clearMarkdownProjections();
+    });
+    it("folds Metadata before asynchronous inspection completes without discarding existing enhancements", async () => {
+        const inspection = deferred<undefined>();
+        const manager = new NativePreviewManager({
+            isFormaDocument: () => true,
+            inspectDocument: () => inspection.promise,
+        } as never);
+        const document = {
+            uri: { toString: () => documentUri },
+            languageId: "markdown",
+            getText: () => "# Note",
+        } as never;
+        const table = '<table class="frontmatter"><tr><th>title</th><td>Note</td></tr></table>';
+        const renderer = extendMarkdownIt({ renderer: { render: () => table } });
+        const html = () => renderer.renderer.render([], {}, { currentDocument: { toString: () => documentUri } });
+        clearMarkdownProjections();
+        const pending = manager.refresh(document);
+        try {
+            expect(html()).toContain('<details class="forma-frontmatter">');
+            setMarkdownEnhancement(documentUri, { projection: "<section>Existing view</section>" });
+            const replacement = manager.refresh(document);
+            expect(html()).toContain('<details class="forma-frontmatter">');
+            expect(html()).toContain("<section>Existing view</section>");
+            inspection.resolve(undefined);
+            await replacement;
+        } finally {
+            inspection.resolve(undefined);
+            await pending;
+            manager.dispose();
+        }
+    });
+
+    it("keeps a requested preview repaint when an editor refresh supersedes document opening", async () => {
+        const inspections = [deferred<undefined>(), deferred<undefined>()];
+        let call = 0;
+        const runtime = {
+            isFormaDocument: () => true,
+            inspectDocument: () => inspections[call++]?.promise,
+        };
+        const manager = new NativePreviewManager(runtime as never);
+        const document = {
+            uri: { toString: () => documentUri },
+            languageId: "markdown",
+            getText: () => "---\ntitle: Note\n---\n",
+        } as never;
+        vi.mocked(vscode.commands.executeCommand).mockClear();
+        try {
+            const opened = manager.refresh(document);
+            const activated = manager.refresh(document, false);
+            inspections[0]?.resolve(undefined);
+            await opened;
+            inspections[1]?.resolve(undefined);
+            await activated;
+            await new Promise((resolve) => setTimeout(resolve, 1));
+            expect(vscode.commands.executeCommand).toHaveBeenCalledWith("markdown.preview.refresh");
+        } finally {
+            manager.dispose();
+        }
+    });
+
+    it("reconciles cached and newly included open documents and rejects old asynchronous results", async () => {
+        vi.useFakeTimers();
+        const oldUri = "file:///workspace/notes/old.md";
+        const newUri = "file:///other-workspace/arbitrary/new.md";
+        const doc = (uri: string) => ({
+            uri: { toString: () => uri },
+            languageId: "markdown",
+            version: 1,
+            getText: () => "---\ntitle: Note\n---\n",
+        });
+        const oldDocument = doc(oldUri);
+        const newDocument = doc(newUri);
+        let included = oldUri;
+        let pending: ReturnType<typeof deferred<undefined>> | undefined;
+        const runtime = {
+            scopeGeneration: 1,
+            isFormaDocument: (document: ReturnType<typeof doc>) => document.uri.toString() === included,
+            inspectDocument: () => pending?.promise ?? Promise.resolve(undefined),
+        };
+        const manager = new NativePreviewManager(runtime as never);
+        const table = '<table class="frontmatter"><tr><th>title</th><td>Note</td></tr></table>';
+        const markdownIt = extendMarkdownIt({ renderer: { render: () => table } });
+        const html = (uri: string) => markdownIt.renderer.render([], {}, { currentDocument: { toString: () => uri } });
+        try {
+            await manager.refresh(oldDocument as never);
+            await vi.runAllTimersAsync();
+            expect(html(oldUri)).toContain("Metadata");
+            pending = deferred<undefined>();
+            const stale = manager.refresh(oldDocument as never);
+            manager.invalidateScope();
+            runtime.scopeGeneration += 1;
+            included = newUri;
+            const oldPending = pending;
+            pending = undefined;
+            // The old document is no longer open, but its cached enhancement must still be removed.
+            await manager.reconcileScope([newDocument as never]);
+            oldPending.resolve(undefined);
+            await stale;
+            await vi.runAllTimersAsync();
+            expect(html(oldUri)).toBe(table);
+            expect(html(newUri)).toContain("Metadata");
+        } finally {
+            manager.dispose();
+        }
+    });
+
+    it("coalesces changed previews and skips repaint for identical enhancement results", async () => {
+        vi.useFakeTimers();
+        vi.mocked(vscode.commands.executeCommand).mockClear();
+        const runtime = { isFormaDocument: () => true, inspectDocument: async () => undefined };
+        const manager = new NativePreviewManager(runtime as never);
+        const doc = (uri: string) => ({ uri: { toString: () => uri }, getText: () => "# Note" });
+        const first = doc("file:///workspace/one.md");
+        const second = doc("file:///workspace/two.md");
+        try {
+            await Promise.all([manager.refresh(first as never), manager.refresh(second as never)]);
+            await vi.runAllTimersAsync();
+            expect(vscode.commands.executeCommand).toHaveBeenCalledTimes(1);
+            await manager.refresh(first as never);
+            await manager.reconcileScope([first as never, second as never]);
+            await vi.runAllTimersAsync();
+            expect(vscode.commands.executeCommand).toHaveBeenCalledTimes(1);
+        } finally {
+            manager.dispose();
+        }
+    });
+
+    it("removes excluded Graph state so active-document updates cannot restore it", async () => {
+        let included = true;
+        const runtime = {
+            isFormaDocument: () => included,
+            sourcePath: () => ({ path: "notes/new.md" }),
+            inspectDocument: async () => ({ entry: { kind: "view", refs: [] } }),
+            renderView: async () => ({
+                ...calendarResult(),
+                render: { kind: "graph", nodes: [], edges: [], legend: [] },
+            }),
+        };
+        const manager = new NativePreviewManager(runtime as never);
+        const document = { uri: { toString: () => documentUri }, languageId: "markdown", getText: () => "# Graph" };
+        try {
+            await manager.refresh(document as never, false);
+            included = false;
+            await manager.reconcileScope([]);
+            included = true;
+            expect(manager.activeDocumentChanged(document as never, false)).toBe(false);
+            const markdownIt = extendMarkdownIt({ renderer: { render: () => "<p>Body</p>" } });
+            expect(markdownIt.renderer.render([], {}, { currentDocument: document.uri })).toBe("<p>Body</p>");
+        } finally {
+            manager.dispose();
+        }
+    });
+
+    it("rejects a result after runtime generation changes even without explicit cancellation", async () => {
+        const inspection = deferred<undefined>();
+        const runtime = { scopeGeneration: 1, isFormaDocument: () => true, inspectDocument: () => inspection.promise };
+        const manager = new NativePreviewManager(runtime as never);
+        const document = { uri: { toString: () => documentUri }, getText: () => "# Note" };
+        try {
+            const refresh = manager.refresh(document as never);
+            runtime.scopeGeneration += 1;
+            setMarkdownEnhancement(documentUri, { projection: "<p>New generation</p>" });
+            inspection.resolve(undefined);
+            await refresh;
+            const renderer = extendMarkdownIt({ renderer: { render: () => "" } });
+            expect(renderer.renderer.render([], {}, { currentDocument: document.uri })).toBe("<p>New generation</p>");
+        } finally {
+            manager.dispose();
+        }
+    });
+
     it("replaces the content mount for Forma View documents", () => {
         expect(
             enhanceMarkdownPreview("<h1>Board</h1><!-- forma:content --><p>After</p>", {

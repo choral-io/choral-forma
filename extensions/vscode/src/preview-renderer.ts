@@ -64,10 +64,13 @@ function renderProjection(
                             return target ? `<li>${sourceLink(path, sourcePath, escapeHtml(target.title))}</li>` : "";
                         })
                         .join("");
-                    return `<li>${sourceLink(node.path, sourcePath, escapeHtml(node.title))}<p>${escapeHtml(interval + progress)}</p><p>Predecessors (finish to start)</p><ul>${predecessors}</ul><p>${escapeHtml(ganttDependencySummary(node.dependencies))}</p></li>`;
+                    return `<li>${sourceLink(node.path, sourcePath, escapeHtml(node.title))}<p>${escapeHtml(interval + progress)}</p>${node.classification ? `<p>${escapeHtml(node.classification.label)}</p>` : ""}<p>Predecessors (finish to start)</p><ul>${predecessors}</ul><p>${escapeHtml(ganttDependencySummary(node.dependencies))}</p></li>`;
                 })
                 .join("");
-            return `<section aria-label="Gantt complete list"><h2>Timeline entries</h2><p>${String(render.counts.scheduled)} scheduled · ${String(render.counts.unscheduled)} unscheduled · ${String(render.counts.invalid)} invalid · ${escapeHtml(render.timeZone)}</p><p>Dependencies describe the selected graph only. No scheduling conflicts are computed.</p><ul>${items}</ul></section>`;
+            return temporalMount(
+                render,
+                `<section aria-label="Gantt complete list"><h2>Timeline entries</h2><p>${String(render.counts.scheduled)} scheduled · ${String(render.counts.unscheduled)} unscheduled · ${String(render.counts.invalid)} invalid · ${escapeHtml(render.timeZone)}</p><p>Dependencies describe the selected graph only. No scheduling conflicts are computed.</p><ul>${items}</ul></section>`,
+            );
         }
         case "calendar": {
             const groups = new Map<string, string[]>();
@@ -88,7 +91,10 @@ function renderProjection(
                         `<li>${sourceLink(entry.path, sourcePath, escapeHtml(entry.title))}${entry.classification ? `<p>${escapeHtml(entry.classification.label)}</p>` : ""}</li>`,
                 )
                 .join("");
-            return `<section aria-label="Calendar agenda"><h2>Agenda</h2><p>${String(render.counts.scheduled)} events · ${String(render.counts.unscheduled)} unscheduled · ${String(render.counts.invalid)} invalid · ${escapeHtml(render.timeZone)}</p>${agenda}<h3>Unscheduled</h3><ul>${unscheduled}</ul></section>`;
+            return temporalMount(
+                render,
+                `<section aria-label="Calendar agenda"><h2>Agenda</h2><p>${String(render.counts.scheduled)} events · ${String(render.counts.unscheduled)} unscheduled · ${String(render.counts.invalid)} invalid · ${escapeHtml(render.timeZone)}</p>${agenda}<h3>Unscheduled</h3><ul>${unscheduled}</ul></section>`,
+            );
         }
         case "list":
             return render.items.length === 0
@@ -103,6 +109,10 @@ function renderProjection(
         default:
             return emptyState("Unsupported View projection. Update the extension to match the CLI.");
     }
+}
+
+function temporalMount(render: Extract<ViewRenderOutput, { kind: "calendar" | "gantt" }>, fallback: string): string {
+    return `<div data-forma-temporal-host></div><div data-forma-temporal-fallback>${fallback}</div><script type="application/json">${safeJson({ schemaVersion: 1, projection: render })}</script>`;
 }
 
 function renderTable(render: TableRenderOutput, sourcePath: string, options: ViewRenderOptions): string {

@@ -13,6 +13,8 @@ const extensionOptions = {
 };
 
 const previewOptions = {
+    loader: { ".css": "text" },
+    define: { "process.env.NODE_ENV": '"production"' },
     bundle: true,
     entryPoints: ["src/preview-entry.ts"],
     format: "iife",

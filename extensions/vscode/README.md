@@ -39,7 +39,9 @@ By default, each VS Code Workspace Folder uses its root `.forma.md`. For a monor
 - adds one Forma panel under Explorer for configured Taxonomies, Terms, entries, and Views;
 - opens Views directly in native Preview with mode-specific, theme-aware Lucide icons while bundling only the used SVG assets;
 - follows VS Code light, dark, high-contrast, font, focus, and reduced-motion settings;
-- renders Graph Views with the shared, theme-aware Forma Graph projection used across supported Hosts.
+- renders Graph Views with the shared, theme-aware Forma Graph projection used across supported Hosts;
+- renders interactive Calendar and Gantt Views through shared WebApp components, with month navigation, day details, timeline scrolling, progress, dependencies, keyboard controls, and source links;
+- retains complete temporal lists when interactive rendering is unavailable, and preserves viewer state across saved-content refreshes in the same Preview.
 
 The extension runs as a workspace extension, so the Forma binary, managed storage, and workspace files remain colocated in local or remote extension hosts. A Remote host must either reach the matching GitHub Release or provide Forma through `forma.path` or its own `PATH`. Local workspaces are the current Public Preview release gate; individual remote environments are not yet claimed as fully validated.
 
