@@ -31,7 +31,10 @@ export class NativePreviewManager implements vscode.Disposable {
         string,
         { result: ViewRenderResult; enhancement: Omit<MarkdownEnhancement, "projection"> }
     >();
-    private readonly refreshes = new Map<string, { controller: AbortController; refreshPreview: boolean }>();
+    private readonly refreshes = new Map<
+        string,
+        { controller: AbortController; refreshPreview: boolean; completion: Promise<void> }
+    >();
     private readonly restoration: PreviewRestorationCoordinator<vscode.TextDocument>;
 
     constructor(private readonly runtime: FormaRuntime) {
@@ -66,52 +69,65 @@ export class NativePreviewManager implements vscode.Disposable {
         previous?.controller.abort();
         const controller = new AbortController();
         // A later editor-only refresh must not discard an in-flight preview repaint.
-        const request = { controller, refreshPreview: refreshPreview || (previous?.refreshPreview ?? false) };
+        let finish!: () => void;
+        const completion = new Promise<void>((resolve) => {
+            finish = resolve;
+        });
+        const request = {
+            controller,
+            refreshPreview: refreshPreview || (previous?.refreshPreview ?? false),
+            completion,
+        };
         this.refreshes.set(key, request);
-        let result: ViewRenderResult | undefined;
-        let inspected: InspectEntry | undefined;
-        let bodyLinks: PreviewBodyLink[] = [];
         try {
-            const inspectResult = await this.runtime.inspectDocument(document, controller.signal);
-            inspected = inspectResult?.entry;
-            bodyLinks = previewBodyLinks(document.getText(), inspectResult);
-            if (isFormaViewDocument(document.languageId, inspected?.kind)) {
-                result = await this.runtime.renderView(document, controller.signal);
+            let result: ViewRenderResult | undefined;
+            let inspected: InspectEntry | undefined;
+            let bodyLinks: PreviewBodyLink[] = [];
+            try {
+                const inspectResult = await this.runtime.inspectDocument(document, controller.signal);
+                inspected = inspectResult?.entry;
+                bodyLinks = previewBodyLinks(document.getText(), inspectResult);
+                if (isFormaViewDocument(document.languageId, inspected?.kind)) {
+                    result = await this.runtime.renderView(document, controller.signal);
+                }
+            } catch (error) {
+                if (!controller.signal.aborted) {
+                    this.runtime.logResult({
+                        nativePreviewError: error instanceof Error ? error.message : String(error),
+                    });
+                }
             }
-        } catch (error) {
-            if (!controller.signal.aborted) {
-                this.runtime.logResult({ nativePreviewError: error instanceof Error ? error.message : String(error) });
+            if (controller.signal.aborted || this.refreshes.get(key) !== request) return false;
+            if (generation !== this.runtime.scopeGeneration || !this.runtime.isFormaDocument(document)) {
+                return false;
             }
-        }
-        if (controller.signal.aborted || this.refreshes.get(key) !== request) return false;
-        if (generation !== this.runtime.scopeGeneration || !this.runtime.isFormaDocument(document)) {
-            this.refreshes.delete(key);
-            return false;
-        }
-        const enhancement = {
-            ...(this.runtime.isFormaDocument(document)
-                ? { frontmatterDefaultState: this.frontmatterDefaultState(document) }
-                : {}),
-            frontmatterLinks: frontmatterLinks(inspected),
-            bodyLinks,
-        } satisfies Omit<MarkdownEnhancement, "projection">;
-        this.dirty =
-            setMarkdownEnhancement(key, {
-                ...enhancement,
-                ...(result
-                    ? {
-                          projection: renderViewProjectionHtml(result, {
-                              ...(this.activePath ? { activePath: this.activePath } : {}),
-                              locale: vscode.env.language,
-                          }),
-                      }
+            const enhancement = {
+                ...(this.runtime.isFormaDocument(document)
+                    ? { frontmatterDefaultState: this.frontmatterDefaultState(document) }
                     : {}),
-            }) || this.dirty;
-        if (result?.render?.kind === "graph") this.graphPreviews.set(key, { result, enhancement });
-        else this.graphPreviews.delete(key);
-        this.refreshes.delete(key);
-        if (request.refreshPreview) this.requestRepaint();
-        return result !== undefined;
+                frontmatterLinks: frontmatterLinks(inspected),
+                bodyLinks,
+            } satisfies Omit<MarkdownEnhancement, "projection">;
+            this.dirty =
+                setMarkdownEnhancement(key, {
+                    ...enhancement,
+                    ...(result
+                        ? {
+                              projection: renderViewProjectionHtml(result, {
+                                  ...(this.activePath ? { activePath: this.activePath } : {}),
+                                  locale: vscode.env.language,
+                              }),
+                          }
+                        : {}),
+                }) || this.dirty;
+            if (result?.render?.kind === "graph") this.graphPreviews.set(key, { result, enhancement });
+            else this.graphPreviews.delete(key);
+            if (request.refreshPreview) this.requestRepaint();
+            return result !== undefined;
+        } finally {
+            if (this.refreshes.get(key) === request) this.refreshes.delete(key);
+            finish();
+        }
     }
 
     activeDocumentChanged(document: vscode.TextDocument | undefined, refreshPreview = true): boolean {
@@ -178,6 +194,15 @@ export class NativePreviewManager implements vscode.Disposable {
 
     async open(document: vscode.TextDocument, sideBySide: boolean): Promise<void> {
         await this.refresh(document, false);
+        // Editor activation can supersede the refresh that this command awaited.
+        // Do not open native Markdown until the latest projection has settled.
+        const key = document.uri.toString();
+        let pending = this.refreshes.get(key);
+        while (pending && !this.disposed) {
+            await pending.completion;
+            pending = this.refreshes.get(key);
+        }
+        if (this.disposed) return;
         await vscode.commands.executeCommand(
             sideBySide ? "markdown.showPreviewToSide" : "markdown.showPreview",
             document.uri,

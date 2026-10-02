@@ -113,6 +113,46 @@ describe("native Markdown preview enhancement", () => {
         }
     });
 
+    it("waits for a superseding editor refresh before opening a View preview", async () => {
+        const results = [deferred<ViewRenderResult>(), deferred<ViewRenderResult>()];
+        const started = [deferred<boolean>(), deferred<boolean>()];
+        let call = 0;
+        const manager = new NativePreviewManager({
+            isFormaDocument: () => true,
+            inspectDocument: async () => ({ entry: { kind: "view", refs: [] } }),
+            renderView: () => {
+                const index = call++;
+                started[index]?.resolve(true);
+                return results[index]?.promise;
+            },
+        } as never);
+        const document = {
+            uri: { toString: () => documentUri },
+            languageId: "markdown",
+            getText: () => "# Calendar\n\n<!-- forma:content -->",
+        };
+        const renderer = extendMarkdownIt({ renderer: { render: () => "<!-- forma:content -->" } });
+        vi.mocked(vscode.commands.executeCommand).mockClear();
+        try {
+            const opening = manager.open(document as never, true);
+            await started[0]?.promise;
+            const activated = manager.refresh(document as never, false);
+            await started[1]?.promise;
+            results[0]?.resolve(calendarResult());
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith("markdown.showPreviewToSide", document.uri);
+            results[1]?.resolve(calendarResult());
+            await Promise.all([opening, activated]);
+            expect(renderer.renderer.render([], {}, { currentDocument: document.uri })).toContain(
+                "data-forma-temporal-host",
+            );
+            expect(vscode.commands.executeCommand).toHaveBeenCalledWith("markdown.showPreviewToSide", document.uri);
+        } finally {
+            for (const result of results) result.resolve(calendarResult());
+            manager.dispose();
+        }
+    });
+
     it("reconciles cached and newly included open documents and rejects old asynchronous results", async () => {
         vi.useFakeTimers();
         const oldUri = "file:///workspace/notes/old.md";
