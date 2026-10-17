@@ -26,6 +26,12 @@ It contains:
 
 The current application code implements the P0 read, inspect, check, render, serve, create, resource-preview, reference-navigation, and read-only WebApp surfaces. It is available for Public Preview feedback, not as a production release.
 
+## WebApp React Compiler
+
+The WebApp uses the native React Compiler through `@vitejs/plugin-react` and the development-only `oxc-transform-react` dependency. RPC and static builds share the compiler configuration in `packages/webapp/vite.config.mjs`. This replaces the Babel compiler pipeline; the native compiler path is still marked experimental upstream, so upgrades require both builds and representative browser checks. `scripts/react-compiler.test.mjs` verifies that each mode actually emits memoization code.
+
+Use `compiler: false` in that configuration to disable it globally, or a function-level `"use no memo"` directive for a specific compatibility issue. Update the enabled-compiler regression expectations when deliberately disabling it. Application correctness must not depend on memoization; do not remove existing manual memoization without checking its semantics.
+
 ## Repository Layout
 
 - `knowledge/`: shared project content, planning records, task records, and repository operating guidance.

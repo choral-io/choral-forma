@@ -1,6 +1,5 @@
-import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
-import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
@@ -46,10 +45,8 @@ export default defineConfig(({ mode }) => {
             : undefined,
         plugins: [
             tailwindcss(),
-            react(),
-            babel({
-                presets: [reactCompilerPreset()],
-            }),
+            // Use the same native Compiler path for RPC and static builds.
+            react({ compiler: { logDiagnostics: true } }),
         ],
     };
 });

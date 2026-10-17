@@ -1,7 +1,6 @@
 packages:
   - "extensions/*"
   - "packages/*"
-minimumReleaseAge: 4320
 pmOnFail: warn
 savePrefix: "~"
 verifyDepsBeforeRun: false
@@ -11,3 +10,5 @@ allowBuilds:
   keytar: false
   msw: false
   workerd: true
+patchedDependencies:
+  sigma@4.0.3: patches/sigma@4.0.3.patch

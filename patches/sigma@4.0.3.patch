@@ -1,0 +1,51 @@
+diff --git a/dist/sigma.cjs.dev.js b/dist/sigma.cjs.dev.js
+index d1d451e9dff6973d933ba61dc615e27dbda1da1e..9313ad8128d48a6caf0fe9bececc37dd9e669485 100644
+--- a/dist/sigma.cjs.dev.js
++++ b/dist/sigma.cjs.dev.js
+@@ -5362,7 +5362,11 @@ var Sigma$1 = /*#__PURE__*/function (_TypedEventEmitter) {
+ 
+           // Node labels for this depth
+           if (this.internals.settings.renderLabels) {
+-            this.labelRenderer.renderWebGLLabels(params, depth);
++            // Glyphs are not pickable: label backgrounds own label hit testing.
++            // Do not run the glyph shader against the picking framebuffer.
++            this.labelRenderer.renderWebGLLabels(_objectSpread2(_objectSpread2({}, params), {}, {
++              pickingFrameBuffer: null
++            }), depth);
+           }
+         }
+ 
+diff --git a/dist/sigma.cjs.prod.js b/dist/sigma.cjs.prod.js
+index 33c14326c550c8731030945ab97ec5b278117a4c..92aa39532fcb081b746a63f89b3fc0902d1d78f1 100644
+--- a/dist/sigma.cjs.prod.js
++++ b/dist/sigma.cjs.prod.js
+@@ -5362,7 +5362,11 @@ var Sigma$1 = /*#__PURE__*/function (_TypedEventEmitter) {
+ 
+           // Node labels for this depth
+           if (this.internals.settings.renderLabels) {
+-            this.labelRenderer.renderWebGLLabels(params, depth);
++            // Glyphs are not pickable: label backgrounds own label hit testing.
++            // Do not run the glyph shader against the picking framebuffer.
++            this.labelRenderer.renderWebGLLabels(_objectSpread2(_objectSpread2({}, params), {}, {
++              pickingFrameBuffer: null
++            }), depth);
+           }
+         }
+ 
+diff --git a/dist/sigma.esm.js b/dist/sigma.esm.js
+index 1e4070d3023b689a3e35c3b0cb61445302e78885..3ba4208751bba99ce109fd71cade95e060c02cbf 100644
+--- a/dist/sigma.esm.js
++++ b/dist/sigma.esm.js
+@@ -5360,7 +5360,11 @@ var Sigma$1 = /*#__PURE__*/function (_TypedEventEmitter) {
+ 
+           // Node labels for this depth
+           if (this.internals.settings.renderLabels) {
+-            this.labelRenderer.renderWebGLLabels(params, depth);
++            // Glyphs are not pickable: label backgrounds own label hit testing.
++            // Do not run the glyph shader against the picking framebuffer.
++            this.labelRenderer.renderWebGLLabels(_objectSpread2(_objectSpread2({}, params), {}, {
++              pickingFrameBuffer: null
++            }), depth);
+           }
+         }
+ 

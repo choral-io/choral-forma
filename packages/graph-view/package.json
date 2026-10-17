@@ -33,9 +33,9 @@
     "graphology": "~0.26.0",
     "graphology-layout-force": "~0.2.4",
     "graphology-layout-forceatlas2": "~0.10.1",
-    "sigma": "~3.0.3"
+    "sigma": "~4.0.3"
   },
   "devDependencies": {
-    "tsdown": "~0.23.0"
+    "tsdown": "~0.23.1"
   }
 }

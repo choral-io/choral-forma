@@ -1,6 +1,6 @@
 import Sigma from "sigma";
-import { createEdgeArrowProgram, createEdgeDoubleArrowProgram, drawDiscNodeLabel } from "sigma/rendering";
-import type { Settings } from "sigma/settings";
+import { extremityArrow } from "sigma/rendering";
+import type { EdgeDisplayData, NodeDisplayData } from "sigma/types";
 
 import {
     buildGraphologyGraph,
@@ -108,7 +108,7 @@ class SigmaGraphRuntime implements GraphRuntime {
         }
         this.#renderer = this.#createRenderer(this.#graph);
         this.#edgeFocusCanvas = this.#renderer.createCanvas("forma-edge-focus", {
-            afterLayer: "nodes",
+            afterLayer: "stage",
             style: { pointerEvents: "none" },
         });
         this.#edgeFocusContext = this.#edgeFocusCanvas.getContext("2d");
@@ -129,11 +129,6 @@ class SigmaGraphRuntime implements GraphRuntime {
         if (this.#destroyed) return;
         if (update.theme) {
             this.#theme = update.theme;
-            this.#renderer.setSettings({
-                defaultEdgeColor: this.#theme.edge,
-                defaultNodeColor: this.#theme.node,
-                labelColor: { color: this.#theme.label },
-            });
         }
         if (update.projection) {
             const previousPositions = graphPositions(this.#graph);
@@ -160,7 +155,7 @@ class SigmaGraphRuntime implements GraphRuntime {
         if (this.#destroyed) return;
         const camera = this.#renderer.getCamera();
         if (this.#layoutOptions.reducedMotion || !animate) camera.setState({ x: 0.5, y: 0.5, ratio: 1 });
-        else void camera.animatedReset({ duration: 250 });
+        else void camera.reset({ duration: 250 });
     }
 
     openSelected(): void {
@@ -197,33 +192,37 @@ class SigmaGraphRuntime implements GraphRuntime {
 
     #createRenderer(graph: GraphologyViewGraph): GraphRenderer {
         return new Sigma<GraphologyNodeAttributes, GraphologyEdgeAttributes>(graph, this.#container, {
-            allowInvalidContainer: true,
-            defaultEdgeColor: this.#theme.edge,
-            defaultNodeColor: this.#theme.node,
-            defaultDrawNodeHover: (context, data, settings) => {
-                drawGraphNodeHover(context, data, settings, this.#theme);
+            primitives: { edges: { extremities: [extremityArrow({ lengthRatio: 5, widthRatio: 4 })] } },
+            settings: {
+                allowInvalidContainer: true,
+                itemSizesReference: "screen",
+                enableEdgeEvents: false,
+                enableNodeDrag: false,
+                renderEdgeLabels: false,
+                labelDensity: this.#presentation.labelDensity,
+                labelGridCellSize: this.#presentation.labelGridCellSize,
+                labelRenderedSizeThreshold: this.#presentation.labelSizeThreshold,
+                stagePadding: this.#presentation.stagePadding,
             },
-            edgeProgramClasses: {
-                arrow: createEdgeArrowProgram<GraphologyNodeAttributes, GraphologyEdgeAttributes>(
-                    EDGE_ARROW_HEAD_OPTIONS,
-                ),
-                doubleArrow: createEdgeDoubleArrowProgram<GraphologyNodeAttributes, GraphologyEdgeAttributes>(
-                    EDGE_ARROW_HEAD_OPTIONS,
-                ),
+            styles: {
+                nodes: {
+                    labelSize: this.#presentation.labelSize,
+                    labelFont: `${this.#presentation.labelWeight} ${this.#presentation.labelFont}`,
+                    labelColor: () => this.#theme.label,
+                    backdropColor: () => this.#theme.surface,
+                    backdropShadowColor: () => this.#theme.border,
+                    backdropShadowBlur: 8,
+                    backdropPadding: 2,
+                    backdropLabelPadding: 6,
+                    backdropCornerRadius: 4,
+                },
+                edges: {
+                    head: "arrow",
+                    tail: (attributes) => (attributes.type === "doubleArrow" ? "arrow" : "none"),
+                },
             },
             edgeReducer: (edge, data) => this.#reduceEdge(edge, data),
-            enableEdgeEvents: false,
-            labelColor: { color: this.#theme.label },
-            labelDensity: this.#presentation.labelDensity,
-            labelFont: this.#presentation.labelFont,
-            labelGridCellSize: this.#presentation.labelGridCellSize,
-            labelRenderedSizeThreshold: this.#presentation.labelSizeThreshold,
-            labelSize: this.#presentation.labelSize,
-            labelWeight: this.#presentation.labelWeight,
-            nodeReducer: (node, data) => this.#reduceNode(node, data),
-            renderEdgeLabels: false,
-            stagePadding: this.#presentation.stagePadding,
-            zIndex: true,
+            nodeReducer: (node, data, _attributes, state) => this.#reduceNode(node, data, state.isHovered),
         });
     }
 
@@ -329,9 +328,9 @@ class SigmaGraphRuntime implements GraphRuntime {
         );
     }
 
-    #reduceNode(nodeId: string, data: GraphologyNodeAttributes) {
+    #reduceNode(nodeId: string, data: NodeDisplayData, hovered = false): Partial<NodeDisplayData> {
         const node = this.#nodeStates.get(nodeId);
-        if (!node) return { ...data, hidden: true };
+        if (!node) return { ...data, visibility: "hidden" };
         const classificationColor = node.classification?.color;
         const color =
             node.role === "selected"
@@ -346,7 +345,12 @@ class SigmaGraphRuntime implements GraphRuntime {
         return {
             ...data,
             color,
-            forceLabel: node.role === "selected" || node.role === "neighbor",
+            visibility: "visible",
+            labelColor: this.#theme.label,
+            labelVisibility: hovered || node.role === "selected" || node.role === "neighbor" ? "visible" : "auto",
+            backdropVisibility: hovered || node.role === "selected" ? "visible" : "hidden",
+            depth: hovered || node.role === "selected" ? "topNodes" : "nodes",
+            labelDepth: hovered || node.role === "selected" ? "topNodes" : "nodes",
             highlighted: node.role === "selected",
             label: node.labelVisible ? node.displayLabel : null,
             size: node.size,
@@ -354,11 +358,12 @@ class SigmaGraphRuntime implements GraphRuntime {
         };
     }
 
-    #reduceEdge(edgeId: string, data: GraphologyEdgeAttributes) {
+    #reduceEdge(edgeId: string, data: EdgeDisplayData): Partial<EdgeDisplayData> {
         const edge = this.#edgeStates.get(edgeId);
-        if (!edge) return { ...data, hidden: true };
+        if (!edge) return { ...data, visibility: "hidden" };
         return {
             ...data,
+            visibility: "visible",
             color: edge.emphasized ? this.#theme.edgeSelected : edge.muted ? this.#theme.edgeMuted : this.#theme.edge,
             size: edge.emphasized ? 2 : edge.muted ? 0.65 : 1,
             zIndex: edge.emphasized ? 10 : 0,
@@ -544,72 +549,6 @@ function drawEdgeFocusArrow(
     context.fill();
 }
 
-const EDGE_ARROW_HEAD_OPTIONS = {
-    lengthToThicknessRatio: 5,
-    widenessToThicknessRatio: 4,
-} as const;
 const EDGE_FOCUS_ARROW_ANGLE = Math.PI / 6;
 const EDGE_FOCUS_ARROW_LENGTH = 7;
 const EDGE_FOCUS_NODE_GAP = 2;
-
-function drawGraphNodeHover(
-    context: CanvasRenderingContext2D,
-    data: { x: number; y: number; size: number; label: string | null; color: string },
-    settings: Settings<GraphologyNodeAttributes, GraphologyEdgeAttributes>,
-    theme: GraphTheme,
-): void {
-    const label = typeof data.label === "string" ? data.label : undefined;
-    const labelSize = settings.labelSize;
-    const labelGap = 3;
-    const paddingX = 6;
-    const paddingY = 3;
-    context.save();
-    context.font = `${settings.labelWeight} ${String(labelSize)}px ${settings.labelFont}`;
-    context.fillStyle = theme.surface;
-    context.shadowOffsetX = 0;
-    context.shadowOffsetY = 0;
-    context.shadowBlur = 8;
-    context.shadowColor = theme.border;
-    context.beginPath();
-    context.arc(data.x, data.y, data.size + 2, 0, Math.PI * 2);
-    context.closePath();
-    context.fill();
-    context.shadowBlur = 0;
-    if (label) {
-        const textWidth = context.measureText(label).width;
-        const labelX = data.x + data.size + labelGap;
-        const left = labelX - paddingX;
-        const top = data.y - labelSize / 2 - paddingY;
-        const width = textWidth + paddingX * 2;
-        const height = labelSize + paddingY * 2;
-        context.fillStyle = theme.surface;
-        context.shadowOffsetY = 1;
-        context.shadowBlur = 8;
-        context.beginPath();
-        roundedRectangle(context, left, top, width, height, Math.min(4, height / 2));
-        context.closePath();
-        context.fill();
-        context.shadowBlur = 0;
-    }
-    drawDiscNodeLabel<GraphologyNodeAttributes, GraphologyEdgeAttributes>(context, data, settings);
-    context.restore();
-}
-
-function roundedRectangle(
-    context: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    radius: number,
-): void {
-    context.moveTo(x + radius, y);
-    context.lineTo(x + width - radius, y);
-    context.quadraticCurveTo(x + width, y, x + width, y + radius);
-    context.lineTo(x + width, y + height - radius);
-    context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    context.lineTo(x + radius, y + height);
-    context.quadraticCurveTo(x, y + height, x, y + height - radius);
-    context.lineTo(x, y + radius);
-    context.quadraticCurveTo(x, y, x + radius, y);
-}
