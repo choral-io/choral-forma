@@ -16,7 +16,12 @@ export async function assertPreviewScopeChanges(root: vscode.Uri): Promise<void>
         await vscode.workspace.fs.writeFile(config, original);
         await expectMetadata(document, true);
     } finally {
-        await vscode.workspace.fs.writeFile(config, original);
+        // A second identical write after successful restoration creates a new
+        // watcher event that can overlap the next integration case.
+        const current = await vscode.workspace.fs.readFile(config);
+        if (Buffer.compare(Buffer.from(current), Buffer.from(original)) !== 0) {
+            await vscode.workspace.fs.writeFile(config, original);
+        }
     }
 }
 

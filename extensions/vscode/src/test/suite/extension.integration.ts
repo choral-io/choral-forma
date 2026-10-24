@@ -69,9 +69,12 @@ suite("Forma for VS Code extension", () => {
         const document = await vscode.workspace.openTextDocument(note);
         await vscode.window.showTextDocument(document);
         await vscode.commands.executeCommand("forma.refreshWorkspace");
-        const state = await vscode.commands.executeCommand<{ kind: string; lspState: string }>("forma.getRuntimeState");
-        assert.ok(state && ["ready", "warning"].includes(state.kind));
-        assert.equal(state.lspState, "running");
+        let state: { kind: string; lspState: string } | undefined;
+        const ready = await waitFor(async () => {
+            state = await vscode.commands.executeCommand<{ kind: string; lspState: string }>("forma.getRuntimeState");
+            return state !== undefined && ["ready", "warning"].includes(state.kind) && state.lspState === "running";
+        });
+        assert.ok(ready, `Runtime and LSP should settle after refresh: ${JSON.stringify(state)}`);
 
         const linkPosition = document.positionAt(document.getText().indexOf("target") + 1);
         const definitions = await waitForDefinitions(document.uri, linkPosition);
@@ -202,9 +205,9 @@ function isNativeMarkdownPreview(tab: vscode.Tab): boolean {
     return input instanceof vscode.TabInputWebview && /(?:^|-)markdown\.preview$/u.test(input.viewType);
 }
 
-async function waitFor(predicate: () => boolean): Promise<boolean> {
+async function waitFor(predicate: () => boolean | Promise<boolean>): Promise<boolean> {
     for (let attempt = 0; attempt < 40; attempt += 1) {
-        if (predicate()) return true;
+        if (await predicate()) return true;
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
     return false;
