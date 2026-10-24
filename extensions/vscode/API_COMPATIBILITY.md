@@ -14,7 +14,7 @@ The extension manifest's `engines.vscode` is the executable minimum-version auth
 - Window cutoff: 2026-06-07 (90 days before review).
 - Selected series: 1.123, released 2026-06-03; 1.124 followed on 2026-06-10.
 - Minimum: `engines.vscode: ^1.123.2`, using the available 1.123 maintenance patches.
-- Types: `@types/vscode: ~1.120.0`; the npm registry has no 1.123 declarations (adjacent published series: 1.120 and 1.125, verified 2026-09-05).
+- Types: `@types/vscode: ~1.120.0`; the npm registry still has no stable 1.121, 1.122 or 1.123 declarations (reverified 2026-10-25). The existing `^1.123.2` support floor is retained for this candidate; dependency refreshes do not advance it.
 
 This is a product support decision, not a newly required extension API. The extension uses stable workspace, trust, diagnostics, language-provider, Tree View, native Markdown Preview, and theme APIs. The runtime bundle retains Node 18-compatible syntax; changing the editor floor does not require changing the bundle target.
 

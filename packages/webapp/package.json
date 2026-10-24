@@ -23,7 +23,7 @@
     "date-fns": "~4.4.0",
     "dompurify": "~3.4.17",
     "katex": "~0.19.0",
-    "lucide-react": "~1.60.0",
+    "lucide-react": "~1.61.0",
     "marked": "~18.1.1",
     "react": "~19.3.1",
     "react-dom": "~19.3.1",
@@ -32,7 +32,7 @@
     "tailwind-merge": "~3.7.0"
   },
   "devDependencies": {
-    "@eslint-react/eslint-plugin": "~5.28.4",
+    "@eslint-react/eslint-plugin": "~5.28.8",
     "@tailwindcss/vite": "~4.3.3",
     "@types/react": "~19.3.0",
     "@types/react-dom": "~19.3.0",
@@ -42,10 +42,10 @@
     "eslint-plugin-react-hooks": "~7.1.1",
     "eslint-plugin-react-refresh": "~0.5.7",
     "globals": "~17.13.0",
-    "lucide-static": "~1.60.0",
+    "lucide-static": "~1.61.0",
     "oxc-transform-react": "~0.152.0",
     "subset-font": "~2.9.0",
     "tailwindcss": "~4.3.3",
-    "vite": "~8.3.4"
+    "vite": "~8.3.5"
   }
 }

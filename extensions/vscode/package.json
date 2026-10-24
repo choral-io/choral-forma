@@ -199,11 +199,11 @@
     "@vscode/test-electron": "~3.1.0",
     "@vscode/vsce": "~4.0.0",
     "esbuild": "~0.28.2",
-    "lucide-react": "~1.60.0",
+    "lucide-react": "~1.61.0",
     "mocha": "~11.8.0",
     "react": "~19.3.1"
   },
   "dependencies": {
-    "vscode-languageclient": "~10.1.2"
+    "vscode-languageclient": "~11.0.0"
   }
 }
