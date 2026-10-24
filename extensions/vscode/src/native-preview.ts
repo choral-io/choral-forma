@@ -1,7 +1,8 @@
-import type { InspectEntry, ViewRenderResult } from "@choral-forma/shared";
+import type { InspectEntry, ViewRenderResult, WorkspaceExplorerResult } from "@choral-forma/shared";
 import * as vscode from "vscode";
 
 import { previewBodyLinks } from "./document-analysis.ts";
+import { FormaCommandError } from "./forma-client.ts";
 import { frontmatterLinks } from "./frontmatter-links.ts";
 import {
     clearMarkdownProjections,
@@ -275,6 +276,33 @@ export class NativePreviewManager implements vscode.Disposable {
         return this.runtime.sourcePath(document)?.path;
     }
 
+    private async currentPreviewExplorer(): Promise<{ root: string; explorer: WorkspaceExplorerResult } | undefined> {
+        while (!this.disposed) {
+            if (this.runtime.state.kind === "checking") {
+                await this.waitForScope();
+                continue;
+            }
+            const generation = this.runtime.analysisGeneration;
+            const root = this.runtime.activeRoot;
+            if (!root) return undefined;
+            try {
+                const explorer = await this.runtime.workspaceExplorer();
+                if (generation !== this.runtime.analysisGeneration) continue;
+                return explorer ? { root, explorer } : undefined;
+            } catch (error) {
+                // A content/config refresh can invalidate this discovery read.
+                // Re-read only when a newer generation actually superseded it.
+                if (
+                    !(error instanceof FormaCommandError) ||
+                    error.kind !== "cancelled" ||
+                    generation === this.runtime.analysisGeneration
+                )
+                    throw error;
+            }
+        }
+        return undefined;
+    }
+
     private async previewDocuments(tabs: readonly vscode.Tab[]): Promise<vscode.TextDocument[]> {
         const resourceUris: vscode.Uri[] = [];
         const classicPreviewLabels: string[] = [];
@@ -289,11 +317,10 @@ export class NativePreviewManager implements vscode.Disposable {
             }
         }
         if (classicPreviewLabels.length > 0) {
-            const root = this.runtime.activeRoot;
-            const explorer = root ? await this.runtime.workspaceExplorer() : undefined;
-            if (root && explorer) {
-                for (const path of viewPathsForPreviewLabels(classicPreviewLabels, explorer.views)) {
-                    resourceUris.push(this.runtime.uriFor(root, path));
+            const discovery = await this.currentPreviewExplorer();
+            if (discovery) {
+                for (const path of viewPathsForPreviewLabels(classicPreviewLabels, discovery.explorer.views)) {
+                    resourceUris.push(this.runtime.uriFor(discovery.root, path));
                 }
             }
         }

@@ -42,18 +42,36 @@ export async function withCleanViewDiagnostics<T>(
     const clean = original.replaceAll("[[same]]", "same").replaceAll("[[missing]]", "missing");
     assert.notEqual(clean, original, "fixture should contain the intentional ambiguous and unresolved references");
 
+    let result!: T;
+    let failed = false;
+    let operationError: unknown;
     try {
         await replaceDocumentText(document, clean);
         assert.equal(await document.save(), true, "sanitized fixture note should save");
         await vscode.commands.executeCommand("forma.refreshWorkspace");
-        return await operation();
-    } finally {
+        result = await operation();
+    } catch (error) {
+        failed = true;
+        operationError = error;
+    }
+    try {
         if (document.getText() !== original) {
             await replaceDocumentText(document, original);
             assert.equal(await document.save(), true, "fixture note should be restored");
             await vscode.commands.executeCommand("forma.refreshWorkspace");
         }
+    } catch (cleanupError) {
+        if (failed) {
+            throw new AggregateError(
+                [operationError, cleanupError],
+                `View assertion failed: ${operationError instanceof Error ? operationError.message : "non-Error failure"}; fixture restoration also failed`,
+                { cause: cleanupError },
+            );
+        }
+        throw cleanupError;
     }
+    if (failed) throw operationError;
+    return result;
 }
 
 async function replaceDocumentText(document: vscode.TextDocument, text: string): Promise<void> {

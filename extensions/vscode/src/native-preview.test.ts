@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ViewRenderResult } from "@choral-forma/shared";
 import * as vscode from "vscode";
 
+import { FormaCommandError } from "./forma-client.ts";
 import {
     clearMarkdownProjections,
     enhanceMarkdownPreview,
@@ -12,6 +13,12 @@ import {
 import { NativePreviewManager } from "./native-preview.ts";
 
 vi.mock("vscode", () => ({
+    TabInputCustom: class {
+        readonly viewType = "custom";
+    },
+    TabInputWebview: class {
+        constructor(readonly viewType: string) {}
+    },
     commands: { executeCommand: vi.fn().mockResolvedValue(undefined) },
     env: { language: "en" },
     window: { activeTextEditor: undefined },
@@ -285,6 +292,54 @@ describe("native Markdown preview enhancement", () => {
             expect(manager.activeDocumentChanged(document as never, false)).toBe(false);
             const markdownIt = extendMarkdownIt({ renderer: { render: () => "<p>Body</p>" } });
             expect(markdownIt.renderer.render([], {}, { currentDocument: document.uri })).toBe("<p>Body</p>");
+        } finally {
+            manager.dispose();
+        }
+    });
+
+    it("refreshes a cancelled classic preview lookup only after its analysis generation changes", async () => {
+        const runtime = {
+            state: { kind: "ready" },
+            activeRoot: "/workspace",
+            analysisGeneration: 1,
+            workspaceExplorer: vi.fn(),
+            logResult: vi.fn(),
+        };
+        runtime.workspaceExplorer
+            .mockImplementationOnce(async () => {
+                runtime.analysisGeneration += 1;
+                throw new FormaCommandError("cancelled lookup", "cancelled");
+            })
+            .mockResolvedValueOnce({ views: [] });
+        const manager = new NativePreviewManager(runtime as never);
+        try {
+            await expect(
+                manager.restorePreviewTabs([
+                    { input: new vscode.TabInputWebview("markdown.preview"), label: "calendar.md" },
+                ] as never),
+            ).resolves.toEqual({ documents: 0, projections: 0 });
+            expect(runtime.workspaceExplorer).toHaveBeenCalledTimes(2);
+        } finally {
+            manager.dispose();
+        }
+    });
+
+    it("does not hide a failed classic preview lookup when no generation superseded it", async () => {
+        const error = new FormaCommandError("unexpected cancellation", "cancelled");
+        const runtime = {
+            state: { kind: "ready" },
+            activeRoot: "/workspace",
+            analysisGeneration: 1,
+            workspaceExplorer: vi.fn().mockRejectedValue(error),
+        };
+        const manager = new NativePreviewManager(runtime as never);
+        try {
+            await expect(
+                manager.restorePreviewTabs([
+                    { input: new vscode.TabInputWebview("markdown.preview"), label: "calendar.md" },
+                ] as never),
+            ).rejects.toBe(error);
+            expect(runtime.workspaceExplorer).toHaveBeenCalledTimes(1);
         } finally {
             manager.dispose();
         }
