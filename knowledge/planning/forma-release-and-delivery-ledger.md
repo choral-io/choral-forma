@@ -40,6 +40,7 @@ sources:
     - "releases/forma-v0.1.36"
     - "releases/forma-v0.1.37"
     - "releases/forma-v0.1.38"
+    - "releases/forma-v0.1.39"
     - "planning/release-artifact-promotion-pipeline-redesign"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
@@ -87,6 +88,7 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.36 | [[releases/forma-v0.1.36]] | Released Guided Modeling and toolchain-refresh Public Preview patch. |
 | v0.1.37 | [[releases/forma-v0.1.37]] | Released Calendar/Gantt Views and temporal cross-surface verification. |
 | v0.1.38 | [[releases/forma-v0.1.38]] | Released interactive VS Code Calendar/Gantt views, native Markdown preview fixes, and batch View rendering. |
+| v0.1.39 | [[releases/forma-v0.1.39]] | Draft Markdown and viewer candidate; local preparation only, submission and publication pending. |
 
 ## Current Delivery Cutline
 

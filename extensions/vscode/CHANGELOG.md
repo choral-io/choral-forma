@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.39
+
+- Keep native VS Code Markdown rendering for footnotes, heading IDs, callouts and images; retain Frontmatter folding, reference navigation and configured View projections.
+- Preserve native preview enhancements while workspace scope is being inspected, and avoid cancelling the client that is loading the next scope.
+- Add shared Markdown contract fixtures and installed-extension checks for native preview behavior.
+- Refresh dependencies while retaining the minimum VS Code version at 1.123.2 and compatible API declarations.
+
 ## 0.1.38
 
 - Share interactive Calendar and Gantt rendering between the WebApp and VS Code, including editor icons and updated View contracts.
