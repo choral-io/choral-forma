@@ -500,6 +500,70 @@ pub(crate) fn all_markdown_headings(body: &str) -> Vec<FormaHeading> {
     headings
 }
 
+/// Heading order in rendered HTML: body first, then referenced notes in call order.
+/// Definitions can precede their calls, and unused definitions are not rendered.
+pub(crate) fn rendered_markdown_headings(body: &str) -> Vec<FormaHeading> {
+    fn definitions<'a>(
+        node: &'a mdast::Node,
+        result: &mut std::collections::BTreeMap<String, &'a mdast::Node>,
+    ) {
+        if let mdast::Node::FootnoteDefinition(note) = node {
+            result.entry(note.identifier.clone()).or_insert(node);
+        }
+        if let Some(children) = node.children() {
+            for child in children {
+                definitions(child, result);
+            }
+        }
+    }
+    fn visible(
+        node: &mdast::Node,
+        headings: &mut Vec<FormaHeading>,
+        notes: &mut Vec<String>,
+        seen: &mut std::collections::BTreeSet<String>,
+    ) {
+        if matches!(node, mdast::Node::FootnoteDefinition(_)) {
+            return;
+        }
+        if let mdast::Node::Heading(heading) = node
+            && let Some(heading) = forma_heading(heading)
+        {
+            headings.push(heading);
+        }
+        if let mdast::Node::FootnoteReference(note) = node
+            && seen.insert(note.identifier.clone())
+        {
+            notes.push(note.identifier.clone());
+        }
+        if let Some(children) = node.children() {
+            for child in children {
+                visible(child, headings, notes, seen);
+            }
+        }
+    }
+    let Ok(ast) = to_mdast(body, &ParseOptions::gfm()) else {
+        return Vec::new();
+    };
+    let mut definitions_by_id = std::collections::BTreeMap::new();
+    definitions(&ast, &mut definitions_by_id);
+    let mut headings = Vec::new();
+    let mut notes = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+    visible(&ast, &mut headings, &mut notes, &mut seen);
+    let mut index = 0;
+    while index < notes.len() {
+        if let Some(definition) = definitions_by_id.get(&notes[index])
+            && let Some(children) = definition.children()
+        {
+            for child in children {
+                visible(child, &mut headings, &mut notes, &mut seen);
+            }
+        }
+        index += 1;
+    }
+    headings
+}
+
 pub(crate) fn top_level_markdown_headings(body: &str) -> Vec<FormaHeading> {
     let Ok(mdast::Node::Root(root)) = to_mdast(body, &ParseOptions::gfm()) else {
         return Vec::new();

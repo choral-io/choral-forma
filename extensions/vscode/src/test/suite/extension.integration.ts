@@ -3,10 +3,18 @@ import assert from "node:assert/strict";
 import * as vscode from "vscode";
 
 import { assertNativeMarkdownLink } from "../link-assertions.ts";
+import { assertMarkdownReaderContract } from "../markdown-contract-assertions.ts";
 import { assertPreviewScopeChanges } from "../preview-scope-assertions.ts";
 import { assertTemporalViewPreview, withCleanViewDiagnostics } from "../view-preview-assertions.ts";
 
 suite("Forma for VS Code extension", () => {
+    test("preserves native Markdown rendering without Forma syntax injection", async () => {
+        const extension = vscode.extensions.getExtension("choral-io.forma");
+        assert.ok(extension);
+        await extension.activate();
+        await assertMarkdownReaderContract();
+    });
+
     test("activates in a Forma workspace", async () => {
         const formaTestBin = process.env.FORMA_TEST_BIN;
         assert.ok(formaTestBin, "FORMA_TEST_BIN should identify the locally built Forma binary");

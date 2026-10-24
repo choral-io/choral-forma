@@ -149,6 +149,8 @@ export type GraphRuntimeOptions = {
     layout?: Partial<GraphLayoutOptions>;
     activeNodeId?: string | null;
     ariaLabel?: string;
+    /** Optional host media-wheel contract; native editor hosts retain Sigma behavior. */
+    wheelZoomFactor?: (event: WheelEvent, viewportHeight: number) => number | undefined;
     onOpenNode?: (node: GraphNodeInput) => void;
     onSelectionChange?: (snapshot: GraphViewSnapshot) => void;
     onFirstRender?: () => void;

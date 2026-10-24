@@ -205,6 +205,7 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                     {
                         type: "markdown",
                         markdown: data.markdown,
+                        anchors: data.headings,
                         outline: data.headings.filter(isDashboardHeading),
                     },
                 ],
@@ -236,6 +237,7 @@ export class StaticWorkspaceClient implements WorkspaceClient {
                 {
                     type: "markdown",
                     markdown: data.markdown,
+                    anchors: data.headings,
                     outline: data.headings.filter(isDashboardHeading),
                 },
             ],
@@ -299,6 +301,7 @@ function mapWorkspaceRootEntry(home: StaticDashboardData["workspace"]["home"], w
             {
                 type: "markdown",
                 markdown: home.markdown,
+                anchors: home.headings,
                 outline: home.headings.filter(isDashboardHeading),
             },
         ],

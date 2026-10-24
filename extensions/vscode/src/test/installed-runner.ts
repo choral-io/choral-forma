@@ -4,6 +4,7 @@ import { performance } from "node:perf_hooks";
 import * as vscode from "vscode";
 
 import { assertNativeMarkdownLink } from "./link-assertions.ts";
+import { assertMarkdownReaderContract } from "./markdown-contract-assertions.ts";
 import { measureWarmPerformance } from "./performance-gate.ts";
 import { assertTemporalViewPreview, withCleanViewDiagnostics } from "./view-preview-assertions.ts";
 
@@ -207,6 +208,7 @@ export async function run(): Promise<void> {
             assert.equal(await vscode.window.tabGroups.close(preview), true, `${path} preview should close cleanly`);
         }
     });
+    await assertMarkdownReaderContract();
 }
 
 function isNativeMarkdownPreview(tab: vscode.Tab): boolean {

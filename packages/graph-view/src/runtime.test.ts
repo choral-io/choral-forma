@@ -4,6 +4,8 @@ const sigmaMocks = vi.hoisted(() => {
     class FakeSigma {
         readonly camera = {
             ratio: 1,
+            cancelAnimation: vi.fn(),
+            getBoundedRatio: vi.fn((ratio: number) => ratio),
             animate: vi.fn(() => Promise.resolve()),
             reset: vi.fn(() => Promise.resolve()),
             setState: vi.fn(),
@@ -49,6 +51,8 @@ const sigmaMocks = vi.hoisted(() => {
         emit(event: string, payload: unknown): void {
             this.handlers.get(event)?.(payload as never);
         }
+
+        getViewportZoomedState = vi.fn((target: { x: number; y: number }, ratio: number) => ({ ...target, ratio }));
 
         getCamera() {
             return this.camera;
@@ -190,6 +194,43 @@ describe("SigmaGraphRuntime lifecycle", () => {
         expect(onFirstRender).toHaveBeenCalledOnce();
         expect(onLayoutSettled).toHaveBeenCalledOnce();
         expect(onLayoutSettled).toHaveBeenCalledWith("synchronous");
+        runtime.destroy();
+    });
+
+    it("applies the opt-in media gesture around its pointer without changing graph selection", () => {
+        const container = fakeContainer();
+        const wheelZoomFactor = (event: WheelEvent) =>
+            event.ctrlKey || event.metaKey ? Math.exp(-event.deltaY * 0.02) : undefined;
+        const runtime = createGraphRuntime({
+            container,
+            projection: projection(),
+            theme: theme(),
+            wheelZoomFactor,
+            layout: { useWorker: false },
+        });
+        const renderer = sigmaMocks.instances[0];
+        const capture = container.eventListeners.get("wheel");
+        if (!renderer || !capture) throw new Error("Missing renderer or wheel capture");
+        renderer.emit("clickNode", { node: "a.md" });
+        const selected = runtime.snapshot().selectedNodeId;
+        renderer.camera.setState.mockClear();
+        const preventDefault = vi.fn();
+        const stopImmediatePropagation = vi.fn();
+        capture({
+            metaKey: true,
+            deltaY: -10,
+            clientX: 40,
+            clientY: 60,
+            preventDefault,
+            stopImmediatePropagation,
+        } as unknown as Event);
+        expect(preventDefault).toHaveBeenCalledOnce();
+        expect(renderer.camera.cancelAnimation).toHaveBeenCalledOnce();
+        expect(renderer.getViewportZoomedState).toHaveBeenCalledWith({ x: 40, y: 60 }, Math.exp(-0.2));
+        expect(runtime.snapshot().selectedNodeId).toBe(selected);
+        preventDefault.mockClear();
+        capture({ ctrlKey: false, metaKey: false, preventDefault, stopImmediatePropagation } as unknown as Event);
+        expect(preventDefault).not.toHaveBeenCalled();
         runtime.destroy();
     });
 
@@ -624,6 +665,8 @@ function fakeContainer(removeEventListener = vi.fn()): HTMLElement & { eventList
     return {
         eventListeners,
         children: [],
+        clientHeight: 480,
+        getBoundingClientRect: () => ({ left: 0, top: 0 }),
         offsetHeight: 480,
         offsetWidth: 720,
         style: { removeProperty: vi.fn() },

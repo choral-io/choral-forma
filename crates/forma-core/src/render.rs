@@ -18,7 +18,7 @@ use crate::index::{
 };
 use crate::markdown::{
     FormaHeading, FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax,
-    all_markdown_headings,
+    rendered_markdown_headings,
 };
 use crate::model::ResolvedWorkspaceModel;
 use crate::operations::{
@@ -2297,30 +2297,467 @@ pub(crate) fn render_markdown_html(document: &FormaMarkdownDocument) -> String {
 }
 
 pub(crate) fn render_markdown_source_html(markdown: &str) -> String {
-    to_html_with_options(markdown, &Options::gfm()).expect("normal Markdown renders to HTML")
+    let (prepared, marker) = prepare_callouts(markdown);
+    let html =
+        to_html_with_options(&prepared, &Options::gfm()).expect("normal Markdown renders to HTML");
+    let html = if marker.is_empty() {
+        html
+    } else {
+        render_callouts(&html, &marker)
+    };
+    let mut html = add_readable_heading_anchors(
+        &normalize_footnote_reference_ids(&html),
+        &rendered_markdown_headings(markdown),
+    );
+    let mut reference = 0;
+    while let Some(start) = html.find("aria-label=\"Back to content\"") {
+        reference += 1;
+        html.replace_range(
+            start..start + "aria-label=\"Back to content\"".len(),
+            &format!("aria-label=\"Back to reference {reference}\""),
+        );
+    }
+
+    html
+}
+
+/// Mark only literal source markers in real quote paragraphs, never escaped text/code/HTML.
+fn prepare_callouts(markdown: &str) -> (String, String) {
+    fn collect(
+        node: &markdown::mdast::Node,
+        source: &str,
+        edits: &mut Vec<(usize, usize, String)>,
+    ) {
+        if let markdown::mdast::Node::Blockquote(quote) = node
+            && let Some(markdown::mdast::Node::Paragraph(paragraph)) = quote.children.first()
+            && matches!(
+                paragraph.children.first(),
+                Some(markdown::mdast::Node::Text(_))
+            )
+            && let Some(position) = &paragraph.position
+            && quote
+                .position
+                .as_ref()
+                .is_some_and(|quote| quote.start.line == position.start.line)
+        {
+            // Keep cross-line inline constructs in an ordinary quote, without dropping body text.
+            let crosses_header = paragraph.children.iter().any(|child| {
+                !matches!(
+                    child,
+                    markdown::mdast::Node::Text(_) | markdown::mdast::Node::Break(_)
+                ) && child.position().is_some_and(|span| {
+                    span.start.line == position.start.line && span.end.line > position.start.line
+                })
+            });
+            if crosses_header {
+                return;
+            }
+            let start = position.start.offset;
+            if let Some(line) = source
+                .get(start..position.end.offset)
+                .and_then(|text| text.lines().next())
+            {
+                if let Some((label, suffix)) = line
+                    .strip_prefix("[!")
+                    .and_then(|text| text.split_once(']'))
+                    && let Some(kind) = ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"]
+                        .into_iter()
+                        .find(|kind| kind.eq_ignore_ascii_case(label))
+                    && let (folding, suffix) = if let Some(suffix) = suffix.strip_prefix('+') {
+                        ("+", suffix)
+                    } else if let Some(suffix) = suffix.strip_prefix('-') {
+                        ("-", suffix)
+                    } else {
+                        ("", suffix)
+                    }
+                    && (suffix.is_empty()
+                        || ((suffix.starts_with(' ') || suffix.starts_with('\t'))
+                            && !suffix.trim().is_empty()))
+                {
+                    let title = suffix.trim();
+                    let trailing_slashes = title.chars().rev().take_while(|c| *c == '\\').count();
+                    let title = if trailing_slashes % 2 == 1 {
+                        &title[..title.len() - 1]
+                    } else {
+                        title
+                    };
+                    edits.push((
+                        start,
+                        start + line.len(),
+                        format!("{kind}{folding} {title}"),
+                    ));
+                }
+            }
+        }
+        if let Some(children) = node.children() {
+            for child in children {
+                collect(child, source, edits);
+            }
+        }
+    }
+    if !markdown.contains("[!") {
+        return (markdown.to_string(), String::new());
+    }
+    let Ok(ast) = markdown::to_mdast(markdown, &markdown::ParseOptions::gfm()) else {
+        return (markdown.to_string(), String::new());
+    };
+    // Entities and escapes can spell a marker without its literal bytes appearing in source.
+    let decoded = ast.to_string();
+    let mut marker = "FORMA_CALLOUT_MARKER_".to_string();
+    while markdown.contains(&marker) || decoded.contains(&marker) {
+        marker.push('X');
+    }
+    let mut edits = Vec::new();
+    collect(&ast, markdown, &mut edits);
+    if edits.is_empty() {
+        return (markdown.to_string(), String::new());
+    }
+    edits.sort_by_key(|edit| edit.0);
+    let mut prepared = markdown.to_string();
+    for (start, end, kind) in edits.into_iter().rev() {
+        prepared.replace_range(start..end, &format!("{marker}{kind} {marker}END"));
+    }
+    (prepared, marker)
+}
+
+/// Recognize only a compiler-owned quote whose first paragraph starts with a marker.
+fn render_callouts(html: &str, marker: &str) -> String {
+    let mut output = html.to_string();
+    for (kind, title, color) in [
+        ("NOTE", "Note", "alert-info"),
+        ("TIP", "Tip", "alert-success"),
+        ("IMPORTANT", "Important", ""),
+        ("WARNING", "Warning", "alert-warning"),
+        ("CAUTION", "Caution", "alert-error"),
+    ] {
+        let prefix = format!("<blockquote>\n<p>{marker}{kind}");
+        let mut cursor = 0;
+        while let Some(relative) = output[cursor..].find(&prefix) {
+            let start = cursor + relative;
+            let mut title_start = start + prefix.len();
+            let folding = output
+                .as_bytes()
+                .get(title_start)
+                .copied()
+                .filter(|c| *c == b'+' || *c == b'-');
+            if folding.is_some() {
+                title_start += 1;
+            }
+            let title_end_marker = format!(" {marker}END");
+            let Some(title_end) = output[title_start..]
+                .find(&title_end_marker)
+                .map(|n| title_start + n)
+            else {
+                cursor = title_start;
+                continue;
+            };
+            let custom_title = output[title_start..title_end].trim().to_string();
+            let title = if custom_title.is_empty() {
+                title.to_string()
+            } else {
+                custom_title
+            };
+            let body_start = title_end + title_end_marker.len();
+            let (remove, paragraph) = if output[body_start..].starts_with('\n') {
+                (1, "<p>")
+            } else if output[body_start..].starts_with("</p>\n") {
+                (5, "")
+            } else {
+                cursor = body_start;
+                continue;
+            };
+            let mut depth = 1;
+            let mut end = None;
+            let mut scan = body_start;
+            loop {
+                let Some(close) = output[scan..].find("</blockquote>").map(|n| scan + n) else {
+                    break;
+                };
+                let open = output[scan..].find("<blockquote>").map(|n| scan + n);
+                if let Some(open) = open.filter(|open| *open < close) {
+                    depth += 1;
+                    scan = open + "<blockquote>".len();
+                } else {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = Some(close);
+                        break;
+                    }
+                    scan = close + "</blockquote>".len();
+                }
+            }
+            let Some(end) = end else {
+                break;
+            };
+            let closing = if folding.is_some() {
+                "</div></details></aside>"
+            } else {
+                "</div></aside>"
+            };
+            output.replace_range(end..end + "</blockquote>".len(), closing);
+            let opening = if let Some(folding) = folding {
+                let open = if folding == b'+' { " open" } else { "" };
+                format!(
+                    "<aside class=\"alert alert-soft {color} forma-callout\" data-callout=\"{}\"><details class=\"collapse collapse-arrow\" data-callout-fold=\"\"{open}><summary class=\"collapse-title forma-callout-title min-h-0 py-1 ps-0 pe-12\">{title}</summary><div class=\"collapse-content p-0\">{paragraph}",
+                    kind.to_lowercase()
+                )
+            } else {
+                format!(
+                    "<aside class=\"alert alert-soft {color} forma-callout\" data-callout=\"{}\"><div class=\"min-w-0 w-full\"><p class=\"forma-callout-title\">{title}</p>{paragraph}",
+                    kind.to_lowercase()
+                )
+            };
+            output.replace_range(start..body_start + remove, &opening);
+            cursor = start + opening.len();
+        }
+    }
+    output
+}
+
+/// Keep return IDs distinct from labels such as `a-2` when `a` is cited twice.
+fn normalize_footnote_reference_ids(html: &str) -> String {
+    fn attribute<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
+        let prefix = format!("{name}=\"");
+        let start = tag.find(&prefix)? + prefix.len();
+        Some(&tag[start..start + tag[start..].find('"')?])
+    }
+    fn reference_id(label: &str, count: usize) -> String {
+        let suffix = if count == 0 {
+            String::new()
+        } else {
+            format!(":{count}")
+        };
+        format!("user-content-fnref-{}{suffix}", label.replace(':', "%3A"))
+    }
+    let mut output = String::with_capacity(html.len());
+    let mut cursor = 0;
+    let mut legacy = Vec::new();
+    let mut calls = BTreeMap::<String, usize>::new();
+    let mut returns = BTreeMap::<String, usize>::new();
+    while let Some(start) = html[cursor..].find("<a ").map(|start| cursor + start) {
+        output.push_str(&html[cursor..start]);
+        let Some(end) = html[start..].find('>').map(|end| start + end + 1) else {
+            break;
+        };
+        let tag = &html[start..end];
+        let mut replacement = tag.to_string();
+        if tag.contains("data-footnote-ref=") {
+            if let (Some(href), Some(id)) = (attribute(tag, "href"), attribute(tag, "id"))
+                && let Some(label) = href.strip_prefix("#user-content-fn-")
+            {
+                let count = calls.entry(label.to_string()).or_default();
+                replacement = tag.replace(
+                    &format!("id=\"{id}\""),
+                    &format!("id=\"{}\"", reference_id(label, *count)),
+                );
+                replacement = replacement.replace(
+                    &format!("href=\"{href}\""),
+                    &format!("href=\"{}\"", href.replace('%', "%25")),
+                );
+                let new_id = reference_id(label, *count);
+                if id != new_id {
+                    legacy.push((id.to_string(), new_id));
+                }
+                *count += 1;
+            }
+        } else if tag.contains("data-footnote-backref=") {
+            let prefix = "<li id=\"user-content-fn-";
+            if let Some(note) = html[..start].rfind(prefix) {
+                let label_start = note + prefix.len();
+                if let Some(label_end) = html[label_start..].find('"')
+                    && let Some(href) = attribute(tag, "href")
+                {
+                    let label = &html[label_start..label_start + label_end];
+                    let count = returns.entry(label.to_string()).or_default();
+                    replacement = tag.replace(
+                        &format!("href=\"{href}\""),
+                        &format!(
+                            "href=\"#{}\"",
+                            reference_id(label, *count).replace('%', "%25")
+                        ),
+                    );
+                    *count += 1;
+                }
+            }
+        }
+        output.push_str(&replacement);
+        cursor = end;
+    }
+    output.push_str(&html[cursor..]);
+    for (old, new) in legacy {
+        let old_attribute = format!("id=\"{old}\"");
+        if html.matches(&old_attribute).count() != 1 || output.contains(&old_attribute) {
+            continue;
+        }
+        let new_attribute = format!("id=\"{new}\"");
+        if let Some(position) = output.find(&new_attribute)
+            && let Some(start) = output[..position].rfind("<a ")
+        {
+            output.insert_str(
+                start,
+                &format!(
+                    "<span id=\"{old}\" tabindex=\"-1\" aria-label=\"Footnote reference\"></span>"
+                ),
+            );
+        }
+    }
+    output
+}
+
+pub(crate) fn readable_heading_anchor(
+    text: &str,
+    used: &mut std::collections::BTreeSet<String>,
+) -> String {
+    let slug = text
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_alphanumeric() {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .split('-')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+    let base = format!(
+        "forma-heading-{}",
+        if slug.is_empty() { "section" } else { &slug }
+    );
+    let mut id = base.clone();
+    let mut count = 2;
+    while !used.insert(id.clone()) {
+        id = format!("{base}-{count}");
+        count += 1;
+    }
+    id
+}
+
+/// Add anchors without changing historical heading IDs assigned by each host.
+fn add_readable_heading_anchors(html: &str, headings: &[FormaHeading]) -> String {
+    let mut headings = headings.iter();
+    let mut output = String::with_capacity(html.len());
+    let mut cursor = 0;
+    let mut used = std::collections::BTreeSet::new();
+    while let Some(relative) = html[cursor..].find("<h") {
+        let start = cursor + relative;
+        output.push_str(&html[cursor..start]);
+        let level = html.as_bytes().get(start + 2).copied();
+        if !matches!(level, Some(b'1'..=b'6')) || html.as_bytes().get(start + 3) != Some(&b'>') {
+            output.push_str("<h");
+            cursor = start + 2;
+            continue;
+        }
+        let close = format!("</h{}>", char::from(level.unwrap()));
+        let Some(_end) = html[start + 4..].find(&close).map(|end| start + 4 + end) else {
+            output.push_str(&html[start..]);
+            return output;
+        };
+        let Some(heading) = headings.next() else {
+            output.push_str(&html[start..]);
+            return output;
+        };
+        let id = readable_heading_anchor(&heading.text, &mut used);
+        output.push_str(&html[start..start + 4]);
+        output.push_str(&format!(
+            "<span id=\"{id}\" data-forma-heading-anchor=\"\" tabindex=\"-1\"></span>"
+        ));
+        cursor = start + 4;
+    }
+    output.push_str(&html[cursor..]);
+    output
+}
+
+fn keep_legacy_heading_slots(
+    mut headings: Vec<RenderedHeading>,
+    legacy: &[RenderedHeading],
+) -> Vec<RenderedHeading> {
+    for (heading, old) in headings.iter_mut().zip(legacy) {
+        heading.id = old.id.clone();
+    }
+    headings
 }
 
 pub(crate) fn render_headings(document: &FormaMarkdownDocument) -> Vec<RenderedHeading> {
-    rendered_headings(&document.headings)
+    let visible = rendered_markdown_headings(&document.body)
+        .into_iter()
+        .filter(|heading| (2..=3).contains(&heading.level))
+        .collect::<Vec<_>>();
+    keep_legacy_heading_slots(
+        rendered_headings(&visible),
+        &rendered_headings(&document.headings),
+    )
 }
 
-pub(crate) fn render_all_headings(document: &FormaMarkdownDocument) -> Vec<RenderedHeading> {
-    rendered_headings(&all_markdown_headings(&document.body))
+pub(crate) fn render_all_headings(
+    document: &FormaMarkdownDocument,
+    omit_leading_title: bool,
+) -> Vec<RenderedHeading> {
+    let mut headings = rendered_headings(&rendered_markdown_headings(&document.body));
+    let mut legacy = rendered_headings(&crate::markdown::all_markdown_headings(&document.body));
+    if omit_leading_title && headings.first().is_some_and(|heading| heading.level == 1) {
+        let mut title = headings.remove(0);
+        if legacy.first().is_some_and(|heading| heading.level == 1) {
+            title.id = legacy.remove(0).id;
+        } else {
+            title.id = "forma-omitted-title".to_string();
+            while legacy.iter().any(|heading| heading.id == title.id) {
+                title.id.push('-');
+            }
+        }
+        let mut headings = keep_legacy_heading_slots(headings, &legacy);
+        headings.insert(0, title);
+        headings
+    } else {
+        keep_legacy_heading_slots(headings, &legacy)
+    }
+}
+
+/// The online home reader historically filters full heading metadata to h2/h3
+/// before assigning IDs. Preserve that host's reachable targets separately.
+pub(crate) fn render_home_headings(document: &FormaMarkdownDocument) -> Vec<RenderedHeading> {
+    let mut headings = rendered_headings(&rendered_markdown_headings(&document.body));
+    let legacy = rendered_headings(&crate::markdown::all_markdown_headings(&document.body));
+    let mut old_outline = legacy
+        .iter()
+        .filter(|heading| (2..=3).contains(&heading.level));
+    let mut used = std::collections::BTreeSet::new();
+    for heading in headings
+        .iter_mut()
+        .filter(|heading| (2..=3).contains(&heading.level))
+    {
+        if let Some(old) = old_outline.next() {
+            heading.id = old.id.clone();
+        }
+        used.insert(heading.id.clone());
+    }
+    for heading in headings
+        .iter_mut()
+        .filter(|heading| !(2..=3).contains(&heading.level))
+    {
+        while !used.insert(heading.id.clone()) {
+            heading.id.push('-');
+        }
+    }
+    headings
 }
 
 fn rendered_headings(headings: &[FormaHeading]) -> Vec<RenderedHeading> {
-    let mut seen = BTreeMap::<String, usize>::new();
+    let mut used = std::collections::BTreeSet::new();
     headings
         .iter()
         .map(|heading| {
             let base_id = slugify_heading(&heading.text);
-            let count = seen.entry(base_id.clone()).or_insert(0);
-            *count += 1;
-            let id = if *count == 1 {
-                base_id
-            } else {
-                format!("{base_id}-{count}")
-            };
+            let mut id = base_id.clone();
+            let mut count = 2;
+            while !used.insert(id.clone()) {
+                id = format!("{base_id}-{count}");
+                count += 1;
+            }
 
             RenderedHeading {
                 id,
@@ -2543,6 +2980,126 @@ mod tests {
     }
 
     #[test]
+    fn viewer_samples_keep_image_links_and_mermaid_source_without_scripts() {
+        let source = include_str!("../../../fixtures/forma-validation/samples/markdown/viewers.md");
+        let html = super::render_markdown_source_html(source);
+        assert!(!html.contains("data-reader-image"));
+        assert_eq!(html.matches("<a ").count(), 1);
+        assert_eq!(html.matches("<img ").count(), 3);
+        assert_eq!(html.matches("class=\"language-mermaid\"").count(), 2);
+        assert!(html.contains("href=\"#forma-heading-shared-viewer-inspection\""));
+        assert!(html.contains("src=\"image-viewer-tall.svg\""));
+    }
+
+    #[test]
+    fn markdown_images_render_without_wrappers_and_keep_authored_destinations() {
+        let source = include_str!("../../../fixtures/forma-validation/samples/markdown/images.md");
+        let html = super::render_markdown_source_html(source);
+        assert!(!html.contains("data-reader-image"));
+        assert_eq!(html.matches("<a ").count(), 1);
+        assert_eq!(html.matches("<img ").count(), 3);
+        assert!(html.contains("src=\"image-viewer.svg\""));
+        assert!(html.contains("href=\"#forma-heading-image-viewer\""));
+        assert!(
+            super::render_markdown_source_html("![](photo.png \"Photo title\")")
+                .contains("<img src=\"photo.png\" alt=\"\" title=\"Photo title\" />")
+        );
+        assert!(html.contains("![Literal image syntax]"));
+    }
+
+    #[test]
+    fn callout_titles_case_and_literal_boundaries() {
+        let source = include_str!(
+            "../../../fixtures/forma-validation/samples/markdown/callout-compatibility.md"
+        );
+        let html = super::render_markdown_source_html(source);
+        assert_eq!(html.matches("data-callout=").count(), 7, "{html}");
+        assert_eq!(html.matches("<blockquote>").count(), 3, "{html}");
+        assert!(html.contains("A <strong>custom</strong> <a href="));
+        for title in ["Title only", "Important", "中文标题", "Caution"] {
+            assert!(
+                html.contains(&format!("class=\"forma-callout-title\">{title}</p>")),
+                "{html}"
+            );
+        }
+        assert!(html.contains("第二段正文。"));
+        assert_eq!(html.matches("data-callout-fold=\"\"").count(), 2);
+        assert_eq!(html.matches("data-callout-fold=\"\" open").count(), 1);
+        assert!(html.contains("<summary class=\"collapse-title forma-callout-title min-h-0 py-1 ps-0 pe-12\">Initially collapsed</summary>"));
+        for suffix in ["-", "+"] {
+            let html = super::render_markdown_source_html(&format!("> [!note]{suffix}\n>\n> Body"));
+            assert!(html.contains(">Note</summary>"));
+            assert!(html.contains("<p>Body</p>"));
+            assert_eq!(html.contains("data-callout-fold=\"\" open"), suffix == "+");
+        }
+        let compact = super::render_markdown_source_html("> [!note] Title\n> Body");
+        let separated = super::render_markdown_source_html("> [!note] Title\n>\n> Body");
+        assert_eq!(compact, separated);
+        assert!(compact.contains("forma-callout-title\">Title</p><p>Body</p>"));
+        for header in ["> [!note] Title  \n> Body", "> [!note] Title\\\n> Body"] {
+            assert_eq!(compact, super::render_markdown_source_html(header));
+        }
+    }
+
+    #[test]
+    fn callout_cross_line_titles_preserve_body_and_rich_titles_keep_references() {
+        for source in [
+            "> [!note]- Title `open\n> body`",
+            "> [!note]- Title **open\n> body**",
+            "> [!note]- Title [link\n> body](#target)",
+        ] {
+            let html = super::render_markdown_source_html(source);
+            assert!(!html.contains("forma-callout"), "{html}");
+            assert!(html.contains("body"));
+        }
+        let html = super::render_markdown_source_html(
+            "> [!note]- A `code` [link](#target)[^title]\n>\n> Body[^title]\n\n[^title]: Note",
+        );
+        assert!(html.contains("<code>code</code>"));
+        assert!(html.contains("href=\"#target\""));
+        assert_eq!(
+            html.split("</aside>")
+                .next()
+                .unwrap()
+                .matches("<sup>")
+                .count(),
+            2
+        );
+        assert!(html.contains("<p>Body<sup>"));
+    }
+
+    #[test]
+    fn callout_review_keeps_lookalikes_literal() {
+        let source =
+            include_str!("../../../fixtures/forma-validation/samples/markdown/callout-review.md");
+        let html = super::render_markdown_source_html(source);
+        assert_eq!(html.matches("data-callout=").count(), 3, "{html}");
+        assert!(!html.contains("data-callout=\"warning\""));
+        assert_eq!(html.matches("<blockquote>").count(), 4);
+        assert!(html.contains("&gt; [!NOTE]"));
+    }
+
+    #[test]
+    fn basic_callouts_preserve_content_and_literal_quotes() {
+        let source =
+            include_str!("../../../fixtures/forma-validation/samples/markdown/callouts.md");
+        let html = super::render_markdown_source_html(source);
+        for kind in ["note", "tip", "important", "warning", "caution"] {
+            assert_eq!(html.matches(&format!("data-callout=\"{kind}\"")).count(), 1);
+        }
+        assert_eq!(html.matches("<blockquote>").count(), 7);
+        assert!(html.contains("<strong>强调</strong>"));
+        assert!(html.contains("<li>First suggestion</li>"));
+        assert!(html.contains("data-footnote-ref"));
+        assert!(!html.contains("FORMA_CALLOUT_MARKER_"));
+        assert!(!html.contains("role=\"alert\""));
+        let linked_marker =
+            super::render_markdown_source_html("> [!NOTE]\n> Linked content\n\n[!NOTE]: /target");
+        assert!(!linked_marker.contains("forma-callout"));
+        assert!(linked_marker.contains("href=\"/target\""));
+    }
+
+    #[test]
     fn renders_file_html_and_degrades_obsidian_embed_to_link() {
         let root = fixture_root("file-render");
         fs::create_dir_all(&root).unwrap();
@@ -2563,7 +3120,8 @@ mod tests {
         assert_eq!(result.operation, "file.render");
         assert_eq!(result.status, crate::OperationStatus::Passed);
         let html = result.render.html.as_deref().unwrap_or_default();
-        assert!(html.contains("<h1>Source</h1>"));
+        assert!(html.contains("id=\"forma-heading-source\""));
+        assert!(html.contains("</span>Source</h1>"));
         assert!(html.contains(r#"<a href="./notes/target.md">Target note</a>"#));
         assert_eq!(
             result.render.headings,
@@ -2753,7 +3311,7 @@ mod tests {
                 .html
                 .as_deref()
                 .unwrap_or_default()
-                .contains("<h1>Renderable</h1>")
+                .contains("</span>Renderable</h1>")
         );
 
         assert!(matches!(
@@ -3946,5 +4504,74 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("forma-render-{name}-{unique}"))
+    }
+    #[test]
+    fn markdown_reader_shared_contract() {
+        let source = include_str!("../../../fixtures/forma-validation/samples/markdown/reader.md");
+        let html = super::render_markdown_source_html(source);
+        for id in [
+            "forma-heading-reader-contract",
+            "forma-heading-中文标题",
+            "forma-heading-中文标题-2",
+            "forma-heading-deep-heading",
+            "forma-heading-fifth",
+            "forma-heading-sixth",
+            "forma-heading-中文标题-2-2",
+        ] {
+            assert!(
+                html.contains(&format!("id=\"{id}\"")),
+                "missing {id}: {html}"
+            );
+        }
+        assert_eq!(html.matches("data-footnote-ref=").count(), 3);
+        assert_eq!(html.matches("data-footnote-backref=").count(), 3);
+        assert!(html.contains("第二段仍然属于同一条译者注"));
+        assert!(html.contains("[^missing]"));
+    }
+    #[test]
+    fn markdown_reader_edge_cases() {
+        let source =
+            include_str!("../../../fixtures/forma-validation/samples/markdown/edge-cases.md");
+        let html = super::render_markdown_source_html(source);
+        assert!(html.contains("id=\"forma-heading-code-a-b-entity\""));
+        assert!(html.contains("id=\"user-content-fnref-a:1\""));
+        assert_eq!(html.matches("id=\"user-content-fnref-a-2\"").count(), 1);
+        assert_eq!(html.matches("data-footnote-ref=").count(), 5);
+        assert!(html.contains("#user-content-fn-%25E4%25B8%25AD%25E6%2596%2587"));
+    }
+    #[test]
+    fn legacy_heading_ids_keep_first_targets_without_suffix_collisions() {
+        let document = crate::markdown::parse_markdown("## A\n\n## A\n\n## A-2\n");
+        let ids = super::render_headings(&document)
+            .into_iter()
+            .map(|heading| heading.id)
+            .collect::<Vec<_>>();
+        assert_eq!(ids, vec!["a", "a-2", "a-2-2"]);
+    }
+    #[test]
+    fn markdown_review_preserves_semantics_and_authored_links() {
+        let source = include_str!(
+            "../../../fixtures/forma-validation/samples/markdown/review-regressions.md"
+        );
+        let html = super::render_markdown_source_html(source);
+        assert!(html.contains("id=\"forma-heading-title\""), "{html}");
+        assert!(
+            html.contains("href=\"#user-content-fn-%25E4%25B8%25AD%25E6%2596%2587\""),
+            "{html}"
+        );
+        let document = crate::markdown::parse_markdown(source);
+        let texts = super::render_headings(&document)
+            .into_iter()
+            .map(|heading| heading.text)
+            .collect::<Vec<_>>();
+        assert_eq!(texts, vec!["Title", "शीर्षक", "Main", "Note heading"]);
+        let ids = super::render_headings(&document)
+            .into_iter()
+            .map(|heading| heading.id)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            ids,
+            vec!["hidden-heading", "note-heading", "title", "section"]
+        );
     }
 }

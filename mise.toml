@@ -78,3 +78,8 @@ run = "node scripts/release-record-check.mjs"
 [tasks.check]
 description = "Run all project checks"
 depends = ["check:pnpm", "test:pnpm", "check:rust", "check:zed", "test:rust"]
+
+[tasks."test:markdown:browser"]
+description = "Run real WebApp and static Markdown browser regressions (requires playwright-cli and installed browser)"
+depends = ["build:pnpm"]
+run = "cargo build --locked --bin forma && node scripts/markdown-browser-regression.mjs"

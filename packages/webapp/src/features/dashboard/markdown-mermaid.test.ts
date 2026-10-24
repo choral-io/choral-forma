@@ -5,12 +5,22 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createMermaidRenderScope, mermaidPolicy, type MermaidRenderScope } from "@/lib/mermaid";
 
+import viewerSamples from "../../../../../fixtures/forma-validation/samples/markdown/viewers.md?raw";
 import { postProcessMarkdownHtml } from "./MarkdownReader";
 import { createMarkedMermaid, mermaidSupport, sanitizeMermaidSvg } from "./markdown-mermaid";
 
 const safeSvg = '<svg xmlns="http://www.w3.org/2000/svg"><text>Rendered</text></svg>';
 
 describe("createMarkedMermaid", () => {
+    it("renders both shared viewer diagrams and preserves authored image destinations", async () => {
+        const html = postProcessMarkdownHtml(await render(viewerSamples), [], "notes/viewers.md", [], false);
+        const body = new DOMParser().parseFromString(html, "text/html").body;
+        expect(body.querySelectorAll(".mermaid-diagram")).toHaveLength(2);
+        expect(body.querySelectorAll("a[data-reader-image]")).toHaveLength(0);
+        expect(body.querySelectorAll("img")).toHaveLength(3);
+        expect(body.querySelector('a[href="#forma-heading-shared-viewer-inspection"] img')).not.toBeNull();
+    });
+
     it("renders a fully validated diagram into a semantic, theme-aware accessible figure", async () => {
         const html = postProcessMarkdownHtml(
             await render("```mermaid\ngraph LR\n  Start[Repository Markdown] --> Finish[Worker adapter]\n```"),

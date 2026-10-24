@@ -69,7 +69,7 @@ function EntryBlockView({
                 currentPath={currentPath}
                 currentRoutePath={currentRoutePath}
                 entries={entries}
-                headings={block.outline}
+                headings={block.anchors ?? block.outline}
                 markdown={block.markdown}
                 mermaidScope={mermaidScope}
                 omitLeadingTitle={omitLeadingTitle}

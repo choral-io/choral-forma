@@ -148,6 +148,10 @@
         @apply pointer-events-none select-none;
     }
 
+    [data-forma-heading-anchor] {
+        @apply scroll-m-20;
+    }
+
     [data-reader="markdown"] {
         @apply text-sm/7 text-base-content/90;
 
@@ -220,20 +224,7 @@
         }
 
         & .mermaid-diagram-viewport {
-            --mermaid-control-inset: 0.75rem;
-            --mermaid-control-slider-height: 5rem;
-            --mermaid-control-rail-gap: 0.5rem;
-            --mermaid-control-action-gap: 0.25rem;
-            --mermaid-control-button-size: 2rem;
-            --mermaid-control-stack-height: calc(
-                var(--mermaid-control-slider-height) + var(--mermaid-control-rail-gap) +
-                    var(--mermaid-control-button-size) + var(--mermaid-control-action-gap) +
-                    var(--mermaid-control-button-size)
-            );
-            @apply relative block max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-inset;
-            min-height: calc(
-                var(--mermaid-control-stack-height) + var(--mermaid-control-inset) + var(--mermaid-control-inset)
-            );
+            @apply relative block aspect-21/9 max-h-[70dvh] min-h-[min(20rem,70dvh)] max-w-full overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-inset;
         }
 
         & .mermaid-diagram-viewport > svg {
@@ -304,55 +295,31 @@
         }
     }
 
-    .mermaid-diagram-expanded-viewer {
-        @apply fixed inset-0 m-0 h-dvh max-h-none w-dvw max-w-none overflow-hidden border-0 bg-base-100 p-0 text-base-content;
+    .media-viewer-canvas {
+        @apply relative min-h-0 w-full overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-inset;
     }
 
-    .mermaid-diagram-expanded-viewer::backdrop {
-        @apply bg-base-100;
-    }
-
-    .mermaid-diagram-dialog-canvas {
-        @apply relative h-full w-full overflow-hidden p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-inset;
-    }
-
-    .mermaid-diagram-dialog-canvas > svg {
+    .media-viewer-canvas > svg {
         @apply block h-auto max-w-none;
     }
 
     .diagram-viewer-control-rail {
-        @apply absolute end-3 bottom-3 z-10 flex w-8 flex-col items-center gap-2 text-base-content/75 opacity-75;
-    }
-
-    .diagram-viewer-slider-lane {
-        @apply h-20 shrink-0;
-    }
-
-    .mermaid-diagram-expanded-viewer .diagram-viewer-slider-lane {
-        @apply h-32;
-    }
-
-    .diagram-viewer-control-actions {
-        @apply flex shrink-0 flex-col items-center gap-1;
-    }
-
-    .diagram-viewer-control-button > svg {
-        @apply size-4;
+        @apply absolute end-0 bottom-0 z-10 flex max-h-full w-11 flex-col items-center gap-1 overflow-y-auto py-2 text-base-content;
     }
 }
 
-/* Diagram viewer controls compose these classes with daisyUI `btn` and `range`. Tailwind v4
-   emits daisyUI components in the utilities layer, which outranks @layer components, so these
-   overrides stay unlayered to keep the translucent control surface, shadow, and no-fill slider
-   track. Compare computed styles before moving them into a layer. */
+/* Native full-viewport media dialogs compose daisyUI modal utilities. These narrow
+   overrides remove daisyUI entry/exit transforms so fitted content never animates stale geometry. */
+.media-viewer-dialog > .media-viewer-dialog-box {
+    @apply m-0 h-dvh max-h-dvh w-full max-w-none translate-none scale-100 overflow-hidden rounded-none p-2 opacity-100 transition-none;
+}
+
 .diagram-viewer-control-button {
-    @apply h-8 min-h-8 w-8 border-base-300/60 bg-base-100/90 leading-7 shadow-sm backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary;
+    @apply bg-base-100/70 text-base-content shadow-none hover:bg-base-200/90 focus-visible:bg-base-200/90;
 }
 
-.diagram-viewer-no-fill-range {
-    --range-bg: var(--color-base-300);
-    --range-thumb: var(--color-base-content);
-    --range-fill: 0;
+.diagram-viewer-control-button > svg {
+    @apply size-4;
 }
 
 /* Hide timeline scrollbars without changing native wheel, touch, or keyboard scrolling. */
@@ -363,4 +330,18 @@
 /* Fallback for older Chromium/WebKit engines. */
 [data-gantt-timeline]::-webkit-scrollbar {
     display: none;
+}
+
+/* Reader callouts compose daisyUI alerts; keep document typography above its utilities layer. */
+[data-reader="markdown"] .forma-callout {
+    @apply my-5 block text-base-content;
+    overflow-wrap: anywhere;
+}
+
+[data-reader="markdown"] .forma-callout-title {
+    @apply mt-0 font-semibold;
+}
+
+[data-reader="markdown"] .forma-callout[data-callout="important"] {
+    @apply border-secondary bg-secondary/10;
 }

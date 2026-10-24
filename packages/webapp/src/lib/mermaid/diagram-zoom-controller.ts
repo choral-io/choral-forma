@@ -1,14 +1,12 @@
+import { mediaWheelZoomFactor } from "../media-viewer-gestures";
+
 export const mermaidDiagramZoom = {
     keyboardPanPixels: 48,
     maxScale: 3,
     minScale: 1,
-    // Buttons and keyboard use deliberate, predictable 25% steps. Continuous
-    // inputs sit between the deliberately calm previous revision and Sigma's
-    // native 1.7x wheel step: responsive for trackpads, bounded for readers.
+    // Keyboard zoom retains deliberate 25% steps; touchpad wheel follows the shared media contract.
     buttonStep: 0.25,
     pinchExponent: 0.8,
-    wheelDeltaLimit: 40,
-    wheelZoomPerPixel: 0.01,
 } as const;
 
 export interface SvgDiagramZoomState {
@@ -32,6 +30,8 @@ export interface SvgDiagramZoomController {
 
 export interface SvgDiagramZoomControllerOptions {
     canvas: HTMLElement;
+    /** Inline diagrams keep width fitting; bounded media dialogs contain both axes. */
+    fitMode?: "width" | "contain";
     /**
      * Space occupied by overlay controls while the diagram is at its reset
      * overview. Zoomed diagrams retain the entire canvas for inspection.
@@ -57,6 +57,7 @@ interface PinchGesture {
 }
 
 interface PointerSnapshot {
+    pointerType: string;
     clientX: number;
     clientY: number;
 }
@@ -70,6 +71,7 @@ const minimumChange = 0.5;
  */
 export function createSvgDiagramZoomController({
     canvas,
+    fitMode = "width",
     getOverviewSafeInsetRight,
     onChange,
     onInteraction,
@@ -113,6 +115,7 @@ export function createSvgDiagramZoomController({
         typeof ResizeObserver === "undefined"
             ? undefined
             : new ResizeObserver(() => {
+                  clearGesture();
                   fitDiagramToCanvas();
                   if (hasUserAdjusted) {
                       constrain();
@@ -126,7 +129,10 @@ export function createSvgDiagramZoomController({
               });
     resizeObserver?.observe(canvas);
     canvas.addEventListener("keydown", handleKeyDown);
-    canvas.addEventListener("pointercancel", handlePointerUp);
+    canvas.addEventListener("pointercancel", clearGesture);
+    canvas.addEventListener("lostpointercapture", handleLostPointerCapture);
+    window.addEventListener("blur", clearGesture);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     canvas.addEventListener("pointerdown", handlePointerDown);
     canvas.addEventListener("pointermove", handlePointerMove);
     canvas.addEventListener("pointerup", handlePointerUp);
@@ -144,12 +150,16 @@ export function createSvgDiagramZoomController({
             return;
         }
         destroyed = true;
+        clearGesture();
         if (interactionTimer) {
             clearTimeout(interactionTimer);
         }
         resizeObserver?.disconnect();
         canvas.removeEventListener("keydown", handleKeyDown);
-        canvas.removeEventListener("pointercancel", handlePointerUp);
+        canvas.removeEventListener("pointercancel", clearGesture);
+        canvas.removeEventListener("lostpointercapture", handleLostPointerCapture);
+        window.removeEventListener("blur", clearGesture);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
         canvas.removeEventListener("pointerdown", handlePointerDown);
         canvas.removeEventListener("pointermove", handlePointerMove);
         canvas.removeEventListener("pointerup", handlePointerUp);
@@ -198,6 +208,7 @@ export function createSvgDiagramZoomController({
                 notifyInteraction();
                 break;
             case "0":
+            case "Home":
                 event.preventDefault();
                 reset();
                 notifyInteraction();
@@ -223,6 +234,26 @@ export function createSvgDiagramZoomController({
                 notifyInteraction();
                 break;
         }
+    }
+
+    function clearGesture() {
+        const ids = [...activePointers.keys()];
+        activePointers.clear();
+        drag = undefined;
+        pinch = undefined;
+        gestureChanged = false;
+        canvas.style.cursor = "grab";
+        for (const id of ids) {
+            if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
+        }
+    }
+
+    function handleLostPointerCapture(event: PointerEvent) {
+        if (activePointers.has(event.pointerId)) clearGesture();
+    }
+
+    function handleVisibilityChange() {
+        if (document.hidden) clearGesture();
     }
 
     function handlePointerDown(event: PointerEvent) {
@@ -305,15 +336,16 @@ export function createSvgDiagramZoomController({
     }
 
     function handleWheel(event: WheelEvent) {
-        // A browser touchpad pinch is exposed as Ctrl-wheel. Do not consume a
-        // regular wheel, so page and reader scrolling retain their defaults.
-        if (!event.ctrlKey) {
-            return;
-        }
+        if ([...activePointers.values()].some((point) => point.pointerType === "touch")) return;
+        const factor = mediaWheelZoomFactor(event, canvas.clientHeight);
+        if (factor === undefined) return;
         event.preventDefault();
-        const direction = event.deltaY === 0 && event.deltaX ? event.deltaX : event.deltaY;
-        const factor = wheelScaleFactor(normalizeWheelDelta(event, direction, canvas));
         zoomAtPoint(scale * factor, event.clientX, event.clientY);
+        // A wheel gesture during mouse drag starts the next drag delta at the new transform.
+        if (drag) {
+            const point = activePointers.values().next().value;
+            if (point) drag = { ...point, x, y };
+        }
         if (interactionTimer) {
             clearTimeout(interactionTimer);
         }
@@ -341,6 +373,7 @@ export function createSvgDiagramZoomController({
     }
 
     function reset() {
+        clearGesture();
         hasUserAdjusted = false;
         scale = mermaidDiagramZoom.minScale;
         fitDiagramToCanvas();
@@ -397,8 +430,12 @@ export function createSvgDiagramZoomController({
     }
 
     function fitDiagramToCanvas() {
-        const canvasBounds = availableCanvasBounds();
-        const fitScale = Math.min(1, canvasBounds.width / baseBounds.width);
+        const canvasBounds = availableCanvasBounds(mermaidDiagramZoom.minScale);
+        const fitScale = Math.min(
+            1,
+            canvasBounds.width / baseBounds.width,
+            fitMode === "contain" ? canvasBounds.height / baseBounds.height : Infinity,
+        );
         fittedBounds = {
             height: baseBounds.height * fitScale,
             width: baseBounds.width * fitScale,
@@ -460,30 +497,13 @@ function clampScale(value: number) {
     return Math.min(mermaidDiagramZoom.maxScale, Math.max(mermaidDiagramZoom.minScale, value));
 }
 
-export function wheelScaleFactor(deltaPixels: number) {
-    const boundedDelta = Math.min(
-        mermaidDiagramZoom.wheelDeltaLimit,
-        Math.max(-mermaidDiagramZoom.wheelDeltaLimit, deltaPixels),
-    );
-    return Math.exp(-boundedDelta * mermaidDiagramZoom.wheelZoomPerPixel);
-}
+export { mediaWheelScaleFactor as wheelScaleFactor } from "../media-viewer-gestures";
 
 export function pinchScaleFactor(distance: number, initialDistance: number) {
     if (initialDistance <= 0) {
         return 1;
     }
     return Math.pow(distance / initialDistance, mermaidDiagramZoom.pinchExponent);
-}
-
-function normalizeWheelDelta(event: WheelEvent, delta: number, canvas: HTMLElement) {
-    switch (event.deltaMode) {
-        case WheelEvent.DOM_DELTA_LINE:
-            return delta * 16;
-        case WheelEvent.DOM_DELTA_PAGE:
-            return delta * Math.max(canvas.clientHeight, 1);
-        default:
-            return delta;
-    }
 }
 
 function createPinchGesture(pointers: Iterable<PointerSnapshot>, scale: number, x: number, y: number): PinchGesture {
@@ -505,5 +525,9 @@ function createPinchGesture(pointers: Iterable<PointerSnapshot>, scale: number, 
 
 function pointFrom(event: PointerEvent, canvas: HTMLElement): PointerSnapshot {
     const bounds = canvas.getBoundingClientRect();
-    return { clientX: event.clientX - bounds.left, clientY: event.clientY - bounds.top };
+    return {
+        clientX: event.clientX - bounds.left,
+        clientY: event.clientY - bounds.top,
+        pointerType: event.pointerType,
+    };
 }

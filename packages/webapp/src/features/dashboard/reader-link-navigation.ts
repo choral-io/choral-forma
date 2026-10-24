@@ -28,6 +28,9 @@ export function resolveReaderLinkNavigation(
     const destinationPath = logicalHref(destination.pathname);
     return {
         href: `${destinationPath}${destination.search}${destination.hash}`,
-        samePageFragment: destinationPath === logicalHref(current.pathname) && destination.hash.length > 0,
+        samePageFragment:
+            destinationPath.replace(/\/$/u, "") === logicalHref(current.pathname).replace(/\/$/u, "") &&
+            destination.search === current.search &&
+            destination.hash.length > 0,
     };
 }

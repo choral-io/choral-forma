@@ -22,6 +22,7 @@ Start with [Getting Started](getting-started.md).
 
 - [First content group](workspace/first-slice-config.md)
 - [Configuration](workspace/configuration.md) and [spaces](workspace/spaces.md)
+- [Markdown reading and navigation](workspace/markdown.md)
 - [Schemas](workspace/schemas.md) and [templates](workspace/templates.md)
 - [Views](workspace/views.md) and [guidelines](workspace/guidelines.md)
 

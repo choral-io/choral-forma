@@ -7,10 +7,12 @@ import {
     type GraphTheme,
 } from "@choral-forma/graph-view";
 import { Maximize2, Minimize2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { diagramViewerResetIconPaths } from "@/lib/diagram-viewer-icons";
+import { mediaViewerControlButtonClassName, mediaViewerControlRailClassName } from "@/lib/media-viewer-controls";
+import { mediaWheelZoomFactor } from "@/lib/media-viewer-gestures";
 import { themePreferenceChangeEvent } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
 import { acquireWorkspaceInteractionLayer } from "@/lib/workspace-interaction-layer";
@@ -20,6 +22,8 @@ import { activeGraphNodeId, mapDashboardGraphProjection, type DashboardGraphProj
 export function ViewGraphProjection({ projection }: { projection: DashboardGraphProjection }) {
     const location = useLocation();
     const navigate = useNavigate();
+    const canvasId = useId();
+    const surfaceRef = useRef<HTMLDivElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const navigateRef = useRef(navigate);
     const runtimeRef = useRef<GraphRuntime | null>(null);
@@ -44,6 +48,11 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     );
     const expandPresentation = graphExpandPresentation(isExpanded);
     const setExpandedView = useCallback((expanded: boolean) => {
+        if (
+            expanded &&
+            (typeof HTMLDialogElement === "undefined" || typeof HTMLDialogElement.prototype.showModal !== "function")
+        )
+            return;
         setIsExpanded(expanded);
         if (expanded) {
             releaseInteractionLayerRef.current ??= acquireWorkspaceInteractionLayer();
@@ -69,22 +78,61 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     }, [navigate]);
 
     useEffect(() => {
-        if (!isExpanded) return;
+        if (!isExpanded || !surfaceRef.current) return;
+        const surface = surfaceRef.current;
+        const parent = surface.parentNode;
+        if (!parent) return;
+        // Keep a stable return slot while React updates the projection's siblings.
+        const placeholder = document.createComment("Expanded graph return slot");
+        parent.insertBefore(placeholder, surface);
+        const dialog = document.createElement("dialog");
+        dialog.className = "modal media-viewer-dialog opacity-100 transition-none";
+        dialog.ariaLabel = "Graph viewer";
+        const box = document.createElement("div");
+        box.className = "modal-box media-viewer-dialog-box";
+        box.append(surface);
+        const form = document.createElement("form");
+        form.method = "dialog";
+        form.hidden = true;
+        box.append(form);
+        dialog.append(box);
+        // Stay beneath the React event root while the native top layer handles display.
+        parent.appendChild(dialog);
+        dialog.showModal();
+        containerRef.current?.focus();
         const previousOverflow = document.body.style.overflow;
-        const exitExpandedView = (event: KeyboardEvent) => {
-            if (event.key === "Escape") setExpandedView(false);
-        };
         document.body.style.overflow = "hidden";
-        document.addEventListener("keydown", exitExpandedView);
+        const close = () => {
+            setExpandedView(false);
+        };
+        const cancel = (event: Event) => {
+            event.preventDefault();
+            close();
+        };
+        const escape = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") return;
+            // Closing inspection must not also invoke the engine's clear-selection shortcut.
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+        };
+        dialog.addEventListener("keydown", escape, true);
+        dialog.addEventListener("cancel", cancel);
+        dialog.addEventListener("close", close);
         return () => {
+            dialog.removeEventListener("close", close);
+            dialog.removeEventListener("cancel", cancel);
+            dialog.removeEventListener("keydown", escape, true);
+            dialog.close();
+            placeholder.replaceWith(surface);
+            dialog.remove();
             document.body.style.overflow = previousOverflow;
-            document.removeEventListener("keydown", exitExpandedView);
         };
     }, [isExpanded, setExpandedView]);
 
     useEffect(() => {
         if (wasExpandedRef.current && !isExpanded) {
-            requestAnimationFrame(() => viewerToggleRef.current?.focus({ preventScroll: true }));
+            viewerToggleRef.current?.focus({ preventScroll: true });
         }
         wasExpandedRef.current = isExpanded;
     }, [isExpanded]);
@@ -118,6 +166,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         markGraphPerformance("forma.graph.webapp.mount-start");
         const runtime = createGraphRuntime({
             container,
+            wheelZoomFactor: mediaWheelZoomFactor,
             projection: initialInput.projection,
             theme: initialInput.graphTheme,
             activeNodeId: initialInput.activeNodeId,
@@ -125,7 +174,7 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
                 reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
             },
             ariaLabel:
-                "Interactive graph preview. Select a node with one click and open it with Enter or double click. Zoom with Command plus wheel on macOS or Control plus wheel on Windows and Linux, or pinch on a trackpad or touch screen. Press F to reset the view.",
+                "Interactive graph preview. Select a node with one click and open it with Enter or double click. Zoom with Command or Control plus wheel, or pinch on a trackpad or touch screen. Press F to reset the view.",
             onOpenNode(node) {
                 const routePath = routesRef.current.get(node.id);
                 if (routePath) void navigateRef.current(routePath);
@@ -168,44 +217,43 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     return (
         <div className="flex flex-col gap-4">
             <div
+                ref={surfaceRef}
                 className={cn(
                     "relative overflow-hidden rounded-lg border border-base-300 bg-base-200/20",
                     isExpanded
-                        ? "fixed inset-0 z-50 h-dvh w-dvw rounded-none border-0 bg-base-100"
-                        : "aspect-3/2 max-h-160 min-h-88",
+                        ? "size-full rounded-none border-0 bg-base-100"
+                        : "aspect-21/9 max-h-[70dvh] min-h-[min(20rem,70dvh)]",
                 )}
             >
                 <div
-                    className="relative size-full outline-none focus-visible:ring-3 focus-visible:ring-primary/50 focus-visible:ring-inset"
-                    id="graph-viewer-canvas"
+                    className="relative h-full w-[calc(100%-2.75rem)] outline-none focus-visible:ring-3 focus-visible:ring-primary/50 focus-visible:ring-inset"
+                    id={canvasId}
                     ref={containerRef}
                 />
-                <div aria-label="Graph controls" className="diagram-viewer-control-rail" role="group">
-                    <div className="diagram-viewer-control-actions">
-                        <button
-                            aria-controls="graph-viewer-canvas"
-                            aria-label="Reset graph view"
-                            className="diagram-viewer-control-button btn btn-circle btn-ghost btn-sm"
-                            onClick={resetGraph}
-                            title="Reset graph view"
-                            type="button"
-                        >
-                            <DiagramViewerResetIcon />
-                        </button>
-                        <button
-                            aria-controls="graph-viewer-canvas"
-                            aria-label={expandPresentation.ariaLabel}
-                            className="diagram-viewer-control-button btn btn-circle btn-ghost btn-sm"
-                            onClick={() => {
-                                setExpandedView(!isExpanded);
-                            }}
-                            ref={viewerToggleRef}
-                            title={expandPresentation.title}
-                            type="button"
-                        >
-                            {isExpanded ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
-                        </button>
-                    </div>
+                <div aria-label="Graph controls" className={mediaViewerControlRailClassName} role="group">
+                    <button
+                        aria-controls={canvasId}
+                        aria-label="Reset graph view"
+                        className={mediaViewerControlButtonClassName}
+                        onClick={resetGraph}
+                        title="Reset graph view"
+                        type="button"
+                    >
+                        <DiagramViewerResetIcon />
+                    </button>
+                    <button
+                        aria-controls={canvasId}
+                        aria-label={expandPresentation.ariaLabel}
+                        className={mediaViewerControlButtonClassName}
+                        onClick={() => {
+                            setExpandedView(!isExpanded);
+                        }}
+                        ref={viewerToggleRef}
+                        title={expandPresentation.title}
+                        type="button"
+                    >
+                        {isExpanded ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
+                    </button>
                 </div>
                 {selectedNode ? (
                     <GraphNodeSummary linkedCount={adjacentNodes.get(selectedNode.id)?.size ?? 0} node={selectedNode} />
@@ -237,7 +285,7 @@ function GraphNodeSummary({
     const summary = graphSummaryPresentation(node, linkedCount);
     if (!summary) return null;
     return (
-        <div className="pointer-events-none absolute bottom-3 left-3 z-10 w-[min(18rem,calc(100%-1.5rem))] rounded-md border bg-base-100 p-3 text-base-content shadow-lg">
+        <div className="pointer-events-none absolute bottom-3 left-3 z-10 w-[min(18rem,calc(100%-4rem))] rounded-md border bg-base-100 p-3 text-base-content shadow-lg">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <p className="truncate text-sm font-medium" title={summary.title}>

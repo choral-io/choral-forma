@@ -3742,7 +3742,15 @@ mod tests {
             )
             .unwrap()
             .unwrap();
-        assert_eq!(image_links.len(), 8);
+        assert_eq!(image_links.len(), 10);
+        assert!(
+            image_links.iter().any(|link| {
+                link.target
+                    .as_ref()
+                    .is_some_and(|target| target.as_str().ends_with("notes/connect-pages.md"))
+            }),
+            "{image_links:#?}"
+        );
         assert!(image_links.iter().all(|link| {
             link.target
                 .as_ref()

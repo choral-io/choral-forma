@@ -36,7 +36,7 @@ use crate::markdown::{
 };
 use crate::model::ResolvedWorkspaceModel;
 use crate::path::{FORMA_CONFIG_PATH, PathError, WorkspacePath};
-use crate::render::{RenderedHeading, markdown_with_reference_fallbacks, render_all_headings};
+use crate::render::{RenderedHeading, markdown_with_reference_fallbacks, render_home_headings};
 use crate::scan::WorkspaceScanPlan;
 use crate::schema::{
     PlaceholderContext, parse_space_schema, render_placeholder_template, resolve_create_inputs,
@@ -1550,7 +1550,7 @@ fn workspace_home_document(root: &Path) -> Result<WorkspaceHomeDocument, Operati
         // first become ordinary Markdown links, then the reader resolves them
         // to workspace routes.
         markdown: markdown_with_reference_fallbacks(&document),
-        headings: render_all_headings(&document),
+        headings: render_home_headings(&document),
     })
 }
 
@@ -3144,6 +3144,43 @@ fn resolve_fragment_location_in_source(
                         end_column: column + 1 + fragment.chars().count(),
                     }
                 })
+        });
+    }
+    let encoded = format!("anchor={}", fragment.replace('+', "%2B"));
+    let decoded = url::form_urlencoded::parse(encoded.as_bytes())
+        .next()
+        .map(|(_, value)| value.into_owned())
+        .unwrap_or_default();
+    if decoded.starts_with("forma-heading-") {
+        let document = crate::markdown::parse_markdown(source);
+        let line_offset = source[..source.len().saturating_sub(document.body.len())]
+            .bytes()
+            .filter(|byte| *byte == b'\n')
+            .count();
+        let headings = crate::markdown::rendered_markdown_headings(&document.body);
+        let location = |heading: &crate::markdown::FormaHeading| {
+            let span = heading.span?;
+            Some(ReferenceFragmentLocation {
+                line: span.start_line + line_offset,
+                column: span.start_column,
+                end_line: span.end_line + line_offset,
+                end_column: span.end_column,
+            })
+        };
+        // Preserve a pre-existing heading whose legacy ID happens to use the new namespace.
+        if let Some(heading) = headings
+            .iter()
+            .find(|heading| heading.text == decoded || heading_slug(&heading.text) == decoded)
+        {
+            return location(heading);
+        }
+        let mut used = BTreeSet::new();
+        return headings.iter().find_map(|heading| {
+            let id = crate::render::readable_heading_anchor(&heading.text, &mut used);
+            if id != decoded {
+                return None;
+            }
+            location(heading)
         });
     }
     source.lines().enumerate().find_map(|(line, value)| {
@@ -7959,5 +7996,37 @@ conventions:
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("forma-operations-{name}-{unique}"))
+    }
+    #[test]
+    fn resolves_readable_heading_aliases_using_semantic_heading_spans() {
+        let source = "---\ntitle: Example\n---\n\n# Title\n\n#### Deep *heading*\n\n```md\n# Not a heading\n```\n";
+        let location =
+            super::resolve_fragment_location_in_source(source, "forma-heading-deep-heading", None)
+                .unwrap();
+        assert_eq!(location.line, 7);
+        assert!(
+            super::resolve_fragment_location_in_source(source, "forma-heading-not-a-heading", None)
+                .is_none()
+        );
+    }
+    #[test]
+    fn readable_alias_resolution_preserves_legacy_namespace_targets_and_encoding() {
+        let source = "## Forma heading foo\n\n## Foo\n\n## 中文\n";
+        assert_eq!(
+            super::resolve_fragment_location_in_source(source, "forma-heading-foo", None)
+                .unwrap()
+                .line,
+            1
+        );
+        assert_eq!(
+            super::resolve_fragment_location_in_source(
+                source,
+                "forma-heading-%E4%B8%AD%E6%96%87",
+                None
+            )
+            .unwrap()
+            .line,
+            5
+        );
     }
 }

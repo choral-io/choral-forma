@@ -309,11 +309,31 @@ fn build_static_site_snapshot_from_loaded(
             )
         })
         .collect::<BTreeMap<_, _>>();
+    let omitted_titles = discovery
+        .index
+        .entries
+        .iter()
+        .flat_map(|entry| {
+            std::iter::once((entry.path.clone(), entry.omit_leading_title)).chain(
+                entry
+                    .variants
+                    .iter()
+                    .map(|variant| (variant.path.clone(), variant.omit_leading_title)),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
     let mut entry_headings_by_path = entry_routes_by_path
         .keys()
         .map(|path| {
-            read_document(workspace.root.as_path(), path)
-                .map(|document| (path.clone(), render_all_headings(&document)))
+            read_document(workspace.root.as_path(), path).map(|document| {
+                (
+                    path.clone(),
+                    render_all_headings(
+                        &document,
+                        omitted_titles.get(path).copied().unwrap_or(false),
+                    ),
+                )
+            })
         })
         .collect::<Result<BTreeMap<_, _>, _>>()?;
     let workspace_home_document = read_document(workspace.root.as_path(), FORMA_CONFIG_PATH)?;
@@ -328,7 +348,8 @@ fn build_static_site_snapshot_from_loaded(
             .map(|diagnostic| diagnostic.with_path(FORMA_CONFIG_PATH.to_string()))
             .collect(),
     );
-    let workspace_home_headings = render_all_headings(&workspace_home_document);
+    let workspace_home_headings =
+        render_all_headings(&workspace_home_document, workspace_home_omit_leading_title);
     entry_headings_by_path.insert(
         FORMA_CONFIG_PATH.to_string(),
         workspace_home_headings.clone(),
@@ -383,7 +404,7 @@ fn build_static_site_snapshot_from_loaded(
             &config_paths,
             root_path,
         );
-        let headings = render_all_headings(&document);
+        let headings = render_all_headings(&document, entry.omit_leading_title);
         let html = render_static_markdown_html(&markdown, &headings, entry.omit_leading_title);
 
         let outgoing = unique_references_by_target(entry.refs.iter())
@@ -466,7 +487,7 @@ fn build_static_site_snapshot_from_loaded(
             &config_paths,
             root_path,
         );
-        let view_headings = render_all_headings(&view_document);
+        let view_headings = render_all_headings(&view_document, true);
         let view_html = render_static_markdown_html(&view_markdown, &view_headings, true);
         merge_diagnostics(
             &mut diagnostics,
@@ -700,7 +721,7 @@ fn render_variant(
         config_paths,
         root_path,
     );
-    let headings = render_all_headings(&document);
+    let headings = render_all_headings(&document, variant.omit_leading_title);
     let html = render_static_markdown_html(&markdown, &headings, variant.omit_leading_title);
     Ok((
         StaticSiteEntryVariant {
@@ -1142,6 +1163,9 @@ fn resolve_heading_fragment(
     if fragment.is_empty() {
         return None;
     }
+    if fragment.starts_with("forma-heading-") || fragment.starts_with("user-content-fn") {
+        return Some(fragment.to_string());
+    }
     let normalized = slugify_heading(fragment);
     headings
         .into_iter()
@@ -1170,7 +1194,14 @@ fn unresolved_reference_fallback(target: &str) -> String {
     if fragment.is_empty() {
         format!("./{path}")
     } else {
-        format!("./{path}#{}", slugify_heading(fragment))
+        format!(
+            "./{path}#{}",
+            if fragment.starts_with("forma-heading-") {
+                fragment.to_string()
+            } else {
+                slugify_heading(fragment)
+            }
+        )
     }
 }
 
@@ -1235,14 +1266,27 @@ fn render_static_markdown_html(
     omit_leading_title: bool,
 ) -> String {
     let mut html = render_markdown_source_html(markdown);
+    // A duplicate title can be hidden, but its annotation calls cannot disappear.
+    let omit_leading_title = omit_leading_title
+        && !html
+            .strip_prefix("<h1>")
+            .and_then(|rest| rest.split_once("</h1>"))
+            .is_some_and(|(title, _)| title.contains("data-footnote-ref="));
     if omit_leading_title
         && let Some(rest) = html.strip_prefix("<h1>")
         && let Some(end) = rest.find("</h1>")
     {
-        html = rest[end + "</h1>".len()..]
-            .strip_prefix('\n')
-            .unwrap_or(&rest[end + "</h1>".len()..])
-            .to_string();
+        let alias = rest
+            .find("</span>")
+            .map(|end| &rest[..end + "</span>".len()])
+            .unwrap_or("");
+        html = format!(
+            "{}{}",
+            alias,
+            rest[end + "</h1>".len()..]
+                .strip_prefix('\n')
+                .unwrap_or(&rest[end + "</h1>".len()..])
+        );
     }
 
     let rendered_headings = headings
@@ -1276,6 +1320,32 @@ fn render_static_markdown_html(
         cursor = start + 2;
     }
     output.push_str(&html[cursor..]);
+    // Existing published heading IDs own their targets, including names in the
+    // readable-anchor namespace. Do not leave duplicate alias IDs behind.
+    for heading in &rendered_headings {
+        output = output.replace(
+            &format!(
+                "<span id=\"{}\" data-forma-heading-anchor=\"\" tabindex=\"-1\"></span>",
+                heading.id
+            ),
+            "",
+        );
+    }
+    if output.matches("id=\"footnote-label\"").count() > 1 {
+        let mut label = "footnote-label-2".to_string();
+        while output.contains(&format!("id=\"{label}\"")) {
+            label.push('-');
+        }
+        output = output
+            .replace(
+                "<h2 id=\"footnote-label\" class=\"sr-only\">",
+                &format!("<h2 id=\"{label}\" class=\"sr-only\">"),
+            )
+            .replace(
+                "aria-describedby=\"footnote-label\"",
+                &format!("aria-describedby=\"{label}\""),
+            );
+    }
     output
 }
 
@@ -1713,7 +1783,7 @@ mod tests {
                 .markdown
                 .contains("[Related](/pages/content/guides/related)")
         );
-        assert!(intro.html.contains(r#"<h2 id="overview">Overview</h2>"#));
+        assert!(intro.html.contains(r#"<h2 id="overview"><span id="forma-heading-overview" data-forma-heading-anchor="" tabindex="-1"></span>Overview</h2>"#));
         assert_eq!(intro.headings[1].id, "overview");
         assert_eq!(intro.outgoing.len(), 1);
         assert_eq!(intro.outgoing[0].target_path, "content/guides/related.md");
@@ -1820,8 +1890,8 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["intro", "repeat", "repeat-2"]
         );
-        assert!(intro.html.contains(r#"<h2 id="repeat">Repeat</h2>"#));
-        assert!(intro.html.contains(r#"<h2 id="repeat-2">Repeat</h2>"#));
+        assert!(intro.html.contains(r#"<h2 id="repeat"><span id="forma-heading-repeat" data-forma-heading-anchor="" tabindex="-1"></span>Repeat</h2>"#));
+        assert!(intro.html.contains(r#"<h2 id="repeat-2"><span id="forma-heading-repeat-2" data-forma-heading-anchor="" tabindex="-1"></span>Repeat</h2>"#));
         assert!(
             intro
                 .markdown
@@ -1848,7 +1918,7 @@ mod tests {
             .iter()
             .find(|entry| entry.path == "content/guides/related.md")
             .unwrap();
-        assert!(related.html.contains(r#"<h4 id="section">深入</h4>"#));
+        assert!(related.html.contains(r#"<h4 id="section"><span id="forma-heading-深入" data-forma-heading-anchor="" tabindex="-1"></span>深入</h4>"#));
         assert!(
             intro
                 .markdown
@@ -2111,5 +2181,66 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("forma-core-{name}-{nonce}"))
+    }
+    #[test]
+    fn readable_fragments_are_not_reslugified() {
+        assert_eq!(
+            super::resolve_heading_fragment("forma-heading-中文标题", None),
+            Some("forma-heading-中文标题".into())
+        );
+        assert_eq!(
+            super::resolve_heading_fragment("user-content-fn-translator", None),
+            Some("user-content-fn-translator".into())
+        );
+    }
+    #[test]
+    fn readable_aliases_do_not_shadow_historical_heading_ids() {
+        let source = "## Forma heading foo\n\n## Foo\n";
+        let document = crate::markdown::parse_markdown(source);
+        let html = super::render_static_markdown_html(
+            source,
+            &crate::render::render_all_headings(&document, false),
+            false,
+        );
+        assert_eq!(
+            html.matches("id=\"forma-heading-foo\"").count(),
+            1,
+            "{html}"
+        );
+        assert!(
+            html.contains(
+                "<h2 id=\"forma-heading-foo\"><span id=\"forma-heading-forma-heading-foo\""
+            )
+        );
+    }
+    #[test]
+    fn notes_before_an_omitted_title_keep_old_static_targets() {
+        let source = "[^n]: Note\n\n    ## Earlier\n\n# Title\n\n## Body\n\nText[^n]\n";
+        let document = crate::markdown::parse_markdown(source);
+        let headings = crate::render::render_all_headings(&document, true);
+        let html = super::render_static_markdown_html(source, &headings, true);
+        assert!(
+            html.contains("<h2 id=\"earlier\"><span id=\"forma-heading-body\""),
+            "{html}"
+        );
+        assert!(
+            html.contains("<h2 id=\"title\"><span id=\"forma-heading-earlier\""),
+            "{html}"
+        );
+        assert!(!html.contains("<h1"));
+    }
+    #[test]
+    fn leading_title_annotations_remain_navigable() {
+        let source = "# Title[^n]\n\n## Body\n\n[^n]: Note\n";
+        let document = crate::markdown::parse_markdown(source);
+        let html = super::render_static_markdown_html(
+            source,
+            &crate::render::render_all_headings(&document, true),
+            true,
+        );
+        assert!(html.contains("<h1 id=\"title\">"), "{html}");
+        assert!(html.contains("id=\"user-content-fnref-n\""));
+        assert!(html.contains("href=\"#user-content-fnref-n\""));
+        assert!(html.contains("<h2 id=\"body\">"));
     }
 }

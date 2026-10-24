@@ -136,4 +136,11 @@ describe("static Markdown root paths", () => {
             expect(resolveReaderLinkNavigation(anchor, "https://example.test/pages/notes/one")).toBeUndefined();
         }
     });
+    it("keeps static directory URLs on the same page for fragment navigation", () => {
+        const anchor = document.createElement("a");
+        anchor.href = "/pages/reader#note";
+        expect(resolveReaderLinkNavigation(anchor, `${window.location.origin}/pages/reader/`)?.samePageFragment).toBe(
+            true,
+        );
+    });
 });

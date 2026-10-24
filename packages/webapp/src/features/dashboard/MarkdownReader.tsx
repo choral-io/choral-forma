@@ -1,11 +1,12 @@
+import { createMarkdownHeadingAnchor, markdownFootnoteLabelId } from "@choral-forma/shared";
 import DOMPurify from "dompurify";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { isStaticRawHref, logicalHref, rootAwareHref } from "@/data/static-runtime";
-import type { DashboardEntry, DashboardEntryHeading } from "@/data/workspace-client";
+import type { DashboardEntry } from "@/data/workspace-client";
 import type { MermaidRenderScope } from "@/lib/mermaid";
-import { scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
+import { restoreReaderFragment, scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 
 import { resolveReaderLink } from "./markdown-links";
@@ -17,11 +18,17 @@ import {
 } from "./projection-sticky-boundary";
 import { resolveReaderLinkNavigation } from "./reader-link-navigation";
 
+interface MarkdownHeading {
+    id: string;
+    level: number;
+    text: string;
+}
+
 export interface MarkdownReaderProps {
     currentPath: string;
     currentRoutePath?: string;
     entries: DashboardEntry[];
-    headings: DashboardEntryHeading[];
+    headings: MarkdownHeading[];
     markdown: string;
     mermaidScope?: MermaidRenderScope;
     omitLeadingTitle?: boolean;
@@ -32,7 +39,7 @@ interface MarkdownRenderState {
     currentRoutePath?: string;
     entries: DashboardEntry[];
     error?: string;
-    headings: DashboardEntryHeading[];
+    headings: MarkdownHeading[];
     html?: string;
     markdown: string;
     omitLeadingTitle: boolean;
@@ -122,6 +129,20 @@ export function MarkdownReader({
         }
         return enhanceMermaidDiagrams(readerRef.current);
     }, [isCurrentRender, renderState?.html, renderState?.status]);
+
+    useEffect(() => {
+        if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) return;
+        const restore = () => {
+            if (readerRef.current) restoreReaderFragment(readerRef.current);
+        };
+        restore();
+        window.addEventListener("hashchange", restore);
+        window.addEventListener("popstate", restore);
+        return () => {
+            window.removeEventListener("hashchange", restore);
+            window.removeEventListener("popstate", restore);
+        };
+    }, [isCurrentRender, renderState]);
 
     function navigateReaderLink(event: React.MouseEvent<HTMLDivElement>) {
         if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
@@ -280,7 +301,7 @@ function createMarkdownTableStickyHeaders(reader: HTMLElement): () => void {
 // eslint-disable-next-line react-refresh/only-export-components
 export function postProcessMarkdownHtml(
     html: string,
-    headings: DashboardEntryHeading[],
+    headings: MarkdownHeading[],
     currentPath: string,
     entries: DashboardEntry[],
     omitLeadingTitle: boolean,
@@ -289,16 +310,116 @@ export function postProcessMarkdownHtml(
     const parser = new DOMParser();
     const document = parser.parseFromString(html, "text/html");
 
-    if (omitLeadingTitle && document.body.firstElementChild?.tagName === "H1") {
-        document.body.firstElementChild.remove();
-    }
-
-    const elements = Array.from(document.body.querySelectorAll("h2, h3"));
+    const headingSelector = headings.some((heading) => heading.level !== 2 && heading.level !== 3)
+        ? "h1, h2, h3, h4, h5, h6"
+        : "h2, h3";
+    const elements = Array.from(document.body.querySelectorAll(headingSelector)).filter(
+        (heading) => !heading.matches("[data-footnotes] > h2"),
+    );
     for (const [index, element] of elements.entries()) {
         const heading = headings[index];
         if (heading) {
             element.id = heading.id;
         }
+    }
+
+    const noteTargets = new Map<string, string>();
+    const footnoteLabel = document.body.querySelector<HTMLElement>("[data-footnotes] > h2");
+    let labelId = "footnote-label";
+    let labelSuffix = 2;
+    while (
+        Array.from(document.body.querySelectorAll("[id]")).some(
+            (element) => element !== footnoteLabel && element.id === labelId,
+        )
+    ) {
+        labelId = `footnote-label-${String(labelSuffix++)}`;
+    }
+    if (footnoteLabel) footnoteLabel.id = labelId;
+    for (const note of document.body.querySelectorAll<HTMLElement>("[data-footnotes] > ol > li[id]")) {
+        const original = note.id;
+        let sourceLabel: string;
+        try {
+            sourceLabel = decodeURIComponent(original.slice("user-content-fn-".length));
+        } catch {
+            continue;
+        }
+        note.id = `user-content-fn-${markdownFootnoteLabelId(sourceLabel)}`;
+        noteTargets.set(original, note.id);
+    }
+    const footnoteReferences = new Map<string, string[]>();
+    const legacyReferences: { id: string; reference: HTMLAnchorElement }[] = [];
+    const originalIds = Array.from(document.body.querySelectorAll("[id]"), (element) => element.id);
+    for (const reference of document.body.querySelectorAll<HTMLAnchorElement>("[data-user-content-fn-ref]")) {
+        const originalTarget = reference.getAttribute("href")?.slice(1);
+        if (!originalTarget) continue;
+        const target = noteTargets.get(originalTarget) ?? originalTarget;
+        reference.setAttribute("href", `#${encodeURIComponent(target)}`);
+        reference.setAttribute("aria-describedby", labelId);
+        const references = footnoteReferences.get(target) ?? [];
+        const label = target.slice("user-content-fn-".length).replaceAll(":", "%3A");
+        const id = `user-content-fnref-${label}${references.length ? `:${String(references.length)}` : ""}`;
+        if (reference.id !== id) legacyReferences.push({ id: reference.id, reference });
+        reference.id = id;
+        references.push(id);
+        footnoteReferences.set(target, references);
+    }
+    const referenceIds = new Set(Array.from(document.body.querySelectorAll("[id]"), (element) => element.id));
+    for (const { id, reference } of legacyReferences) {
+        if (referenceIds.has(id) || originalIds.filter((candidate) => candidate === id).length !== 1) continue;
+        const alias = document.createElement("span");
+        alias.id = id;
+        alias.tabIndex = -1;
+        alias.setAttribute("aria-label", "Footnote reference");
+        reference.before(alias);
+        referenceIds.add(id);
+    }
+    let backrefIndex = 0;
+    for (const note of document.body.querySelectorAll<HTMLElement>("li[id^='user-content-fn-']")) {
+        const references = footnoteReferences.get(note.id) ?? [];
+        for (const [index, backref] of Array.from(note.querySelectorAll("[data-user-content-fn-backref]")).entries()) {
+            backref.setAttribute("data-footnote-backref", "");
+            backref.setAttribute("aria-label", `Back to reference ${String(++backrefIndex)}`);
+            if (references[index]) backref.setAttribute("href", `#${encodeURIComponent(references[index] ?? "")}`);
+        }
+    }
+
+    const leadingTitle = document.body.firstElementChild;
+    const omitTitle =
+        omitLeadingTitle && leadingTitle?.tagName === "H1" && !leadingTitle.querySelector("[data-user-content-fn-ref]");
+    const headingAnchor = createMarkdownHeadingAnchor();
+    const occupiedIds = new Set(
+        Array.from(document.body.querySelectorAll("[id]"))
+            .filter((element) => !omitTitle || element !== leadingTitle)
+            .map((element) => element.id),
+    );
+    for (const heading of document.body.querySelectorAll("h1, h2, h3, h4, h5, h6")) {
+        if (heading === footnoteLabel) continue;
+        const semanticHeading = heading.cloneNode(true) as HTMLElement;
+        for (const reference of semanticHeading.querySelectorAll("[data-user-content-fn-ref]")) {
+            if (reference.parentElement?.tagName === "SUP") reference.parentElement.remove();
+        }
+        for (const formula of semanticHeading.querySelectorAll(".katex")) {
+            const source = formula.querySelector('annotation[encoding="application/x-tex"]');
+            if (source) formula.replaceWith(document.createTextNode(source.textContent));
+        }
+        for (const image of semanticHeading.querySelectorAll("img, script, style")) image.remove();
+        const id = headingAnchor(semanticHeading.textContent);
+        if (occupiedIds.has(id)) continue;
+        const alias = document.createElement("span");
+        alias.id = id;
+        alias.dataset.formaHeadingAnchor = "";
+        alias.tabIndex = -1;
+        heading.prepend(alias);
+        occupiedIds.add(id);
+    }
+
+    if (omitTitle && document.body.firstElementChild?.tagName === "H1") {
+        const title = document.body.firstElementChild;
+        const alias = title.querySelector("[data-forma-heading-anchor]");
+        if (alias) {
+            alias.setAttribute("aria-label", title.textContent);
+            title.replaceWith(alias);
+        } else title.remove();
     }
 
     for (const anchor of document.body.querySelectorAll<HTMLAnchorElement>("a[href]")) {
@@ -324,7 +445,13 @@ export function postProcessMarkdownHtml(
 
     for (const image of document.body.querySelectorAll("img[src]")) {
         const source = image.getAttribute("src");
-        if (!source || isExternalHref(source) || source.startsWith("#") || isStaticRawHref(source)) {
+        if (
+            !source ||
+            isExternalHref(source) ||
+            source.startsWith("//") ||
+            source.startsWith("#") ||
+            isStaticRawHref(source)
+        ) {
             continue;
         }
 

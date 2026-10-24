@@ -1,7 +1,9 @@
 import { Marked } from "marked";
+import markedFootnote from "marked-footnote";
 
 import { createMermaidRenderScope, type MermaidRenderScope } from "@/lib/mermaid";
 
+import { markedCallouts } from "./markdown-callouts";
 import { markedKatex } from "./markdown-katex";
 import { createMarkedMermaid } from "./markdown-mermaid";
 import { markedShiki } from "./markdown-shiki";
@@ -22,8 +24,18 @@ export async function renderMarkdown(markdown: string, { mermaidScope, signal }:
 
     try {
         const parser = new Marked({ gfm: true });
-        parser.use(markedKatex, createMarkedMermaid({ scope, signal }), markedShiki);
-        return await Promise.resolve(parser.parse(markdown, { async: true }));
+        parser.use(
+            markedFootnote({ prefixId: "user-content-fn-", backRefLabel: "Back to content" }),
+            markedCallouts,
+            markedKatex,
+            createMarkedMermaid({ scope, signal }),
+            markedShiki,
+        );
+        const html = await Promise.resolve(parser.parse(markdown, { async: true }));
+        // Match Core's existing footnote targets in static HTML.
+        return html
+            .replaceAll('id="user-content-fn-ref-', 'id="user-content-fnref-')
+            .replaceAll('href="#user-content-fn-ref-', 'href="#user-content-fnref-');
     } finally {
         ownedScope?.dispose();
     }

@@ -5,6 +5,7 @@ await rm("dist/test", { force: true, recursive: true });
 
 await build({
     bundle: true,
+    loader: { ".md": "text" },
     entryPoints: ["src/test/suite/extension.integration.ts"],
     external: ["vscode", "mocha"],
     format: "cjs",
@@ -16,6 +17,7 @@ await build({
 
 await build({
     bundle: true,
+    loader: { ".md": "text" },
     entryPoints: ["src/test/suite/untrusted.integration.ts"],
     external: ["vscode", "mocha"],
     format: "cjs",
@@ -27,6 +29,7 @@ await build({
 
 await build({
     bundle: true,
+    loader: { ".md": "text" },
     entryPoints: ["src/test/installed-runner.ts"],
     external: ["vscode"],
     format: "cjs",

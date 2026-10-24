@@ -53,6 +53,7 @@ export function shouldAllowGraphWheelZoom(
 
 class SigmaGraphRuntime implements GraphRuntime {
     readonly #container: HTMLElement;
+    readonly #wheelZoomFactor: GraphRuntimeOptions["wheelZoomFactor"];
     readonly #layoutOptions: GraphLayoutOptions;
     readonly #model: GraphViewModel;
     readonly #onOpenNode: ((node: GraphNodeInput) => void) | undefined;
@@ -85,6 +86,7 @@ class SigmaGraphRuntime implements GraphRuntime {
 
     constructor(options: GraphRuntimeOptions) {
         this.#container = options.container;
+        this.#wheelZoomFactor = options.wheelZoomFactor;
         this.#layoutOptions = { ...DEFAULT_GRAPH_LAYOUT_OPTIONS, ...options.layout };
         this.#presentation = { ...DEFAULT_GRAPH_PRESENTATION, ...options.presentation };
         this.#model = new GraphViewModel(options.projection, this.#presentation);
@@ -263,7 +265,7 @@ class SigmaGraphRuntime implements GraphRuntime {
     #bindWheelZoomModifier(): void {
         // Sigma consumes wheel events to zoom. Capture non-opted-in events before
         // its bubble listener without cancelling their browser scroll default.
-        this.#container.addEventListener("wheel", this.#handleWheelCapture, { capture: true });
+        this.#container.addEventListener("wheel", this.#handleWheelCapture, { capture: true, passive: false });
         if (typeof window === "undefined") return;
         this.#windowEventTarget = window;
         this.#windowEventTarget.addEventListener("keydown", this.#handleModifierKeyDown);
@@ -393,6 +395,26 @@ class SigmaGraphRuntime implements GraphRuntime {
     };
 
     #handleWheelCapture = (event: WheelEvent): void => {
+        if (this.#wheelZoomFactor) {
+            event.stopImmediatePropagation();
+            const factor = this.#wheelZoomFactor(event, this.#container.clientHeight);
+            if (factor === undefined || !(factor > 0)) return;
+            event.preventDefault();
+            const camera = this.#renderer.getCamera();
+            // Direct trackpad input takes over any pending fit/centering animation.
+            camera.cancelAnimation();
+            const bounds = this.#container.getBoundingClientRect();
+            const ratio = camera.getBoundedRatio(
+                Math.max(Number.EPSILON, Math.min(Number.MAX_VALUE, camera.ratio / factor)),
+            );
+            camera.setState(
+                this.#renderer.getViewportZoomedState(
+                    { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
+                    ratio,
+                ),
+            );
+            return;
+        }
         if (
             shouldAllowGraphWheelZoom(event, {
                 isMacOS: this.#isMacOS,

@@ -103,7 +103,7 @@ async function run(command, args) {
         child.once("error", reject);
         child.once("close", (code) => {
             if (code === 0) resolvePromise({ stdout, stderr });
-            else reject(new Error(`${command} exited with ${String(code)}: ${stderr.trim()}`));
+            else reject(new Error(`${command} exited with ${String(code)}: ${stdout.trim()}\n${stderr.trim()}`));
         });
     });
 }

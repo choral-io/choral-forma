@@ -3,6 +3,7 @@ import type { CalendarProjection } from "./calendar";
 import type { GanttProjection } from "./gantt";
 export * from "./calendar";
 export * from "./gantt";
+export * from "./markdown-anchors";
 
 export const schemaVersion = 1 as const;
 

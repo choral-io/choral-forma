@@ -37,6 +37,7 @@ export type DashboardEntryBlock =
     | {
           type: "markdown";
           markdown: string;
+          anchors?: { id: string; level: number; text: string }[];
           outline: DashboardEntryHeading[];
       }
     | {
