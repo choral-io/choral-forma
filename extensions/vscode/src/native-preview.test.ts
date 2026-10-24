@@ -54,9 +54,45 @@ describe("native Markdown preview enhancement", () => {
         vi.useRealTimers();
         clearMarkdownProjections();
     });
+    it("waits for scope checking instead of dropping an existing enhancement", async () => {
+        const listeners = new Set<() => void>();
+        const state = { kind: "checking" };
+        const manager = new NativePreviewManager({
+            state,
+            onDidChangeState: (listener: () => void) => {
+                listeners.add(listener);
+                return { dispose: () => listeners.delete(listener) };
+            },
+            isFormaDocument: () => state.kind === "ready",
+            inspectDocument: async () => undefined,
+        } as never);
+        const document = { uri: { toString: () => documentUri }, getText: () => "# Note" } as never;
+        setMarkdownEnhancement(documentUri, { projection: "<section>Existing view</section>" });
+        const parser = extendMarkdownIt({ renderer: { render: () => "<h1>Note</h1>" } });
+        const html = () => parser.renderer.render([], {}, { currentDocument: { toString: () => documentUri } });
+        try {
+            const refresh = manager.refresh(document, false);
+            expect(html()).toContain("Existing view");
+            expect(listeners.size).toBe(1);
+            state.kind = "ready";
+            for (const listener of listeners) listener();
+            await refresh;
+            expect(listeners.size).toBe(0);
+            expect(html()).not.toContain("Existing view");
+            state.kind = "checking";
+            const waiting = manager.refresh(document, false);
+            manager.dispose();
+            expect(await waiting).toBe(false);
+            expect(listeners.size).toBe(0);
+        } finally {
+            manager.dispose();
+        }
+    });
+
     it("folds Metadata before asynchronous inspection completes without discarding existing enhancements", async () => {
         const inspection = deferred<undefined>();
         const manager = new NativePreviewManager({
+            state: { kind: "ready" },
             isFormaDocument: () => true,
             inspectDocument: () => inspection.promise,
         } as never);
@@ -89,6 +125,7 @@ describe("native Markdown preview enhancement", () => {
         const inspections = [deferred<undefined>(), deferred<undefined>()];
         let call = 0;
         const runtime = {
+            state: { kind: "ready" },
             isFormaDocument: () => true,
             inspectDocument: () => inspections[call++]?.promise,
         };
@@ -118,6 +155,7 @@ describe("native Markdown preview enhancement", () => {
         const started = [deferred<boolean>(), deferred<boolean>()];
         let call = 0;
         const manager = new NativePreviewManager({
+            state: { kind: "ready" },
             isFormaDocument: () => true,
             inspectDocument: async () => ({ entry: { kind: "view", refs: [] } }),
             renderView: () => {
@@ -168,6 +206,7 @@ describe("native Markdown preview enhancement", () => {
         let included = oldUri;
         let pending: ReturnType<typeof deferred<undefined>> | undefined;
         const runtime = {
+            state: { kind: "ready" },
             scopeGeneration: 1,
             isFormaDocument: (document: ReturnType<typeof doc>) => document.uri.toString() === included,
             inspectDocument: () => pending?.promise ?? Promise.resolve(undefined),
@@ -202,7 +241,11 @@ describe("native Markdown preview enhancement", () => {
     it("coalesces changed previews and skips repaint for identical enhancement results", async () => {
         vi.useFakeTimers();
         vi.mocked(vscode.commands.executeCommand).mockClear();
-        const runtime = { isFormaDocument: () => true, inspectDocument: async () => undefined };
+        const runtime = {
+            state: { kind: "ready" },
+            isFormaDocument: () => true,
+            inspectDocument: async () => undefined,
+        };
         const manager = new NativePreviewManager(runtime as never);
         const doc = (uri: string) => ({ uri: { toString: () => uri }, getText: () => "# Note" });
         const first = doc("file:///workspace/one.md");
@@ -223,6 +266,7 @@ describe("native Markdown preview enhancement", () => {
     it("removes excluded Graph state so active-document updates cannot restore it", async () => {
         let included = true;
         const runtime = {
+            state: { kind: "ready" },
             isFormaDocument: () => included,
             sourcePath: () => ({ path: "notes/new.md" }),
             inspectDocument: async () => ({ entry: { kind: "view", refs: [] } }),
@@ -248,7 +292,12 @@ describe("native Markdown preview enhancement", () => {
 
     it("rejects a result after runtime generation changes even without explicit cancellation", async () => {
         const inspection = deferred<undefined>();
-        const runtime = { scopeGeneration: 1, isFormaDocument: () => true, inspectDocument: () => inspection.promise };
+        const runtime = {
+            state: { kind: "ready" },
+            scopeGeneration: 1,
+            isFormaDocument: () => true,
+            inspectDocument: () => inspection.promise,
+        };
         const manager = new NativePreviewManager(runtime as never);
         const document = { uri: { toString: () => documentUri }, getText: () => "# Note" };
         try {
@@ -289,6 +338,7 @@ describe("native Markdown preview enhancement", () => {
         const signals: AbortSignal[] = [];
         let call = 0;
         const runtime = {
+            state: { kind: "ready" },
             isFormaDocument: () => true,
             inspectDocument: async () => ({ entry: { kind: "view", refs: [] } }),
             renderView: vi.fn((_document: unknown, signal: AbortSignal) => {
@@ -459,6 +509,25 @@ describe("native Markdown preview enhancement", () => {
                 ],
             }),
         ).toBe(html);
+    });
+
+    it("does not apply a managed projection to an unrelated suffix-matching path", () => {
+        setMarkdownEnhancement("file:///other/workspace/note.md", {
+            frontmatterDefaultState: "collapsed",
+            projection: "<section>Private view</section>",
+        });
+        const html = '<table class="frontmatter"><tr><th>title</th><td>Other</td></tr></table>';
+        const parser = extendMarkdownIt({ renderer: { render: () => html } });
+        expect(
+            parser.renderer.render(
+                [],
+                {},
+                {
+                    currentDocument: { path: "/workspace/note.md", toString: () => "file:///workspace/note.md" },
+                },
+            ),
+        ).toBe(html);
+        clearMarkdownProjections();
     });
 
     it("matches cached projections by document path when URI serialization differs", () => {

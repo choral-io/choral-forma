@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 
 import { FormaRuntime } from "./runtime.ts";
 
-const mocks = vi.hoisted(() => ({ inspect: vi.fn() }));
+const mocks = vi.hoisted(() => ({ inspect: vi.fn(), invalidate: vi.fn() }));
 vi.mock("node:fs/promises", () => ({ stat: async () => ({ isFile: () => true }) }));
 vi.mock("./forma-command-resolution.ts", () => ({
     resolveRuntimeFormaCommand: async () => ({ command: "forma", source: "path" }),
@@ -14,7 +14,7 @@ vi.mock("./forma-command-resolution.ts", () => ({
 vi.mock("./forma-client.ts", () => ({
     FormaClient: class {
         configInspect = mocks.inspect;
-        invalidate = vi.fn();
+        invalidate = mocks.invalidate;
     },
     formatFormaError: String,
     isFormaExecutableUnavailable: () => false,
@@ -63,8 +63,39 @@ const runtime = () => new FormaRuntime({ appendLine: vi.fn() } as never, "1.0.0"
 
 beforeEach(() => {
     mocks.inspect.mockReset();
+    mocks.invalidate.mockReset();
 });
 describe("runtime scope refresh", () => {
+    it("does not let content invalidation cancel an in-flight configuration check", async () => {
+        const instance = runtime();
+        let finish!: () => void;
+        let cancel!: (error: Error) => void;
+        const pending = new Promise<void>((resolve, reject) => {
+            finish = resolve;
+            cancel = reject;
+        });
+        let started!: () => void;
+        const inspectionStarted = new Promise<void>((resolve) => {
+            started = resolve;
+        });
+        mocks.inspect.mockImplementation(async () => {
+            started();
+            await pending;
+            return config("notes.md");
+        });
+        mocks.invalidate.mockImplementation(() => {
+            cancel(new Error("Forma command was cancelled."));
+        });
+        const refreshing = instance.refresh(document("/a/notes.md"));
+        await inspectionStarted;
+        instance.invalidateContent();
+        finish();
+        await refreshing;
+        expect(instance.state.kind).toBe("ready");
+        expect(instance.isFormaDocument(document("/a/notes.md"))).toBe(true);
+        instance.dispose();
+    });
+
     it("refreshes include patterns for every root, including the inactive workspace", async () => {
         const instance = runtime();
         mocks.inspect.mockImplementation(async () => config("notes.md"));

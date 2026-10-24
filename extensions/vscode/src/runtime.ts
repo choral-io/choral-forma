@@ -192,7 +192,6 @@ export class FormaRuntime implements vscode.Disposable {
             );
             if (!isCurrentRefresh(controller, this.refreshController)) return;
             const client = new FormaClient(resolution.command, runProcess, timeoutMs);
-            this.client = client;
             this.output.appendLine(formatFormaCommandResolution(resolution));
             const source = formaCommandSourceLabel(resolution.source);
 
@@ -228,6 +227,9 @@ export class FormaRuntime implements vscode.Disposable {
                     this.output.appendLine(`[runtime] ${root}: ${safeError(error)}`);
                 }
             }
+            // Publish only after configuration inspection completes. Content
+            // invalidation must not cancel the client loading the next scope.
+            this.client = client;
             for (const [root, nextScope] of nextScopes) {
                 this.scopes.set(root, nextScope);
                 // Keep the last known imported-config watchers on load failure so repairing an import retries it.

@@ -16,6 +16,8 @@ export type MarkdownEnhancement = {
     bodyLinks?: PreviewBodyLink[];
 };
 
+const installedParsers = new WeakSet<MarkdownIt>();
+
 const enhancements = new Map<string, MarkdownEnhancement>();
 
 /** Presentation settings are available before asynchronous Core inspection. */
@@ -24,6 +26,8 @@ export function setMarkdownFrontmatterState(documentUri: string, state: Frontmat
 }
 
 export function extendMarkdownIt(markdownIt: MarkdownIt): MarkdownIt {
+    if (installedParsers.has(markdownIt)) return markdownIt;
+    installedParsers.add(markdownIt);
     const originalRender = markdownIt.renderer.render.bind(markdownIt.renderer);
     markdownIt.renderer.render = (tokens, options, environment) => {
         const html = originalRender(tokens, options, environment);
@@ -37,8 +41,14 @@ export function extendMarkdownIt(markdownIt: MarkdownIt): MarkdownIt {
 function enhancementForDocument(uri: string | undefined, path: string | undefined): MarkdownEnhancement | undefined {
     const exact = uri ? enhancements.get(uri) : undefined;
     if (exact || !path) return exact;
-    const encodedPath = encodeURI(path);
-    return [...enhancements.entries()].find(([key]) => key.endsWith(path) || key.endsWith(encodedPath))?.[1];
+    // Match the complete resource path; a suffix can belong to another workspace.
+    return [...enhancements.entries()].find(([key]) => {
+        try {
+            return decodeURIComponent(new URL(key).pathname) === path;
+        } catch {
+            return false;
+        }
+    })?.[1];
 }
 
 export function setMarkdownEnhancement(documentUri: string, enhancement: MarkdownEnhancement | undefined): boolean {

@@ -26,6 +26,7 @@ export class NativePreviewManager implements vscode.Disposable {
     private dirty = false;
     private repaintTimer: ReturnType<typeof setTimeout> | undefined;
     private disposed = false;
+    private readonly scopeWaiters = new Set<() => void>();
     private activePath: string | undefined;
     private readonly graphPreviews = new Map<
         string,
@@ -55,6 +56,7 @@ export class NativePreviewManager implements vscode.Disposable {
     }
 
     async refresh(document: vscode.TextDocument, refreshPreview = true): Promise<boolean> {
+        if (this.runtime.state.kind === "checking") await this.waitForScope();
         if (this.disposed) return false;
         const key = document.uri.toString();
         if (!this.runtime.isFormaDocument(document)) {
@@ -127,6 +129,23 @@ export class NativePreviewManager implements vscode.Disposable {
         } finally {
             if (this.refreshes.get(key) === request) this.refreshes.delete(key);
             finish();
+        }
+    }
+
+    private async waitForScope(): Promise<void> {
+        while (!this.disposed && this.runtime.state.kind === "checking") {
+            await new Promise<void>((resolve) => {
+                const finish = () => {
+                    subscription.dispose();
+                    this.scopeWaiters.delete(finish);
+                    resolve();
+                };
+                this.scopeWaiters.add(finish);
+                const subscription = this.runtime.onDidChangeState(() => {
+                    if (this.runtime.state.kind !== "checking") finish();
+                });
+                if (this.disposed || this.runtime.state.kind !== "checking") finish();
+            });
         }
     }
 
@@ -234,6 +253,7 @@ export class NativePreviewManager implements vscode.Disposable {
 
     dispose(): void {
         this.disposed = true;
+        for (const finish of this.scopeWaiters) finish();
         if (this.repaintTimer !== undefined) clearTimeout(this.repaintTimer);
         this.documents.clear();
         this.restoration.dispose();
