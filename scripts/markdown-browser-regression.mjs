@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { markdownBrowserPhases, parseMarkdownBrowserPhase } from "./markdown-browser-protocol.mjs";
 import { markdownBrowserScenarios } from "./markdown-browser-scenarios.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -238,11 +239,8 @@ try {
     const results = [];
     // Bound each host independently; growing syntax coverage must not consume
     // the interaction suite's cumulative command deadline.
-    const phases = [
-        { name: "webapp", mode: "enhanced", hosts: [options.hosts[0]] },
-        { name: "static", mode: "enhanced", hosts: [options.hosts[1]] },
-        { name: "noscript", mode: "noscript", hosts: [options.hosts[1]] },
-    ];
+    const phases = markdownBrowserPhases(options.hosts, readingCases.length, calloutBoundaries.length);
+    const completedPhases = [];
     for (const phase of phases) {
         abort.signal.throwIfAborted();
         const scenario = join(temporary, `scenarios-${phase.name}.js`);
@@ -257,14 +255,10 @@ try {
             false,
             `run-code-${phase.name}`,
         );
-        const result = JSON.parse(output.match(/### Result\s*\n([^\n]+)/u)?.[1] ?? "null");
-        if (
-            result?.status !== "FORMA_MARKDOWN_BROWSER_PASSED" ||
-            !Array.isArray(result.results) ||
-            !result.results.length
-        )
-            throw new Error(`Browser phase ${phase.name} did not report success: ${output}`);
+        const result = parseMarkdownBrowserPhase(output, phase);
         results.push(...result.results);
+        completedPhases.push({ name: phase.name, checks: result.results });
+        await writeFile(join(artifacts, "phase-results.json"), JSON.stringify(completedPhases, null, 2));
         console.log(`Completed browser phase: ${phase.name}`);
     }
     testResult = { status: "FORMA_MARKDOWN_BROWSER_PASSED", results };

@@ -2006,6 +2006,91 @@ mod tests {
     }
 
     #[test]
+    fn resource_inventory_matches_link_resolution() {
+        use std::collections::{BTreeMap, BTreeSet};
+        let root = copy_fixture("site-resource-resolution-consistency");
+        fs::write(root.join("content/guides/source.txt"), "raw source").unwrap();
+        fs::create_dir_all(root.join("content/guides/directory.txt")).unwrap();
+        let routes = BTreeMap::from([
+            (
+                "content/guides/source.txt.md".into(),
+                "/pages/content/guides/source.txt".into(),
+            ),
+            (
+                "content/guides/directory.txt/index.md".into(),
+                "/pages/content/guides/directory.txt".into(),
+            ),
+            (
+                "content/guides/page.md".into(),
+                "/pages/content/guides/page".into(),
+            ),
+        ]);
+        let config = BTreeSet::from(["content/guides/config.txt"]);
+        for root_path in ["/", "/preview"] {
+            for (target, raw) in [
+                ("./source.txt?download=1#part", true),
+                ("/content/guides/source.txt#part", true),
+                ("./source.txt.md", false),
+                ("./directory.txt#details", false),
+                ("./page.md", false),
+                ("./page", false),
+                ("https://example.test/source.txt", false),
+                ("./config.txt", false),
+                ("./missing.txt", true),
+            ] {
+                let href = super::static_reference_href(
+                    &root,
+                    target,
+                    "content/guides/intro.md",
+                    &routes,
+                    &BTreeMap::new(),
+                    &config,
+                    root_path,
+                );
+                let raw_prefix = if root_path == "/" {
+                    "/raw/"
+                } else {
+                    "/preview/raw/"
+                };
+                assert_eq!(
+                    href.as_deref()
+                        .is_some_and(|href| href.starts_with(raw_prefix)),
+                    raw,
+                    "{root_path} {target}: {href:?}"
+                );
+                let document = crate::markdown::FormaMarkdownDocument::parse(&format!(
+                    "[First]({target})\n[Second]({target})\n"
+                ));
+                let mut resources = BTreeMap::new();
+                super::collect_document_resources(
+                    &root,
+                    &routes,
+                    &mut resources,
+                    &config,
+                    "content/guides/intro.md",
+                    "/pages/content/guides/intro",
+                    &document,
+                    root_path,
+                );
+                assert_eq!(
+                    resources.len(),
+                    usize::from(raw),
+                    "{root_path} {target}: {resources:?}"
+                );
+                if raw {
+                    let resource = resources.values().next().unwrap();
+                    assert_eq!(
+                        href.as_deref().unwrap().split(['?', '#']).next(),
+                        Some(resource.public_path.as_str())
+                    );
+                    assert_eq!(resource.referenced_by, vec!["/pages/content/guides/intro"]);
+                }
+            }
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn site_snapshot_prefers_exact_resource_when_sidecar_exists() {
         let root = copy_fixture("site-snapshot-resource-sidecar-collision");
         fs::write(root.join("content/guides/foo.txt"), "raw resource").unwrap();
