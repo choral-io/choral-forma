@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { writeBrowserEvidence } from "./markdown-browser-evidence.mjs";
 import { markdownBrowserPhases, parseMarkdownBrowserPhase } from "./markdown-browser-protocol.mjs";
 import { markdownBrowserScenarios } from "./markdown-browser-scenarios.mjs";
 
@@ -258,7 +259,7 @@ try {
         const result = parseMarkdownBrowserPhase(output, phase);
         results.push(...result.results);
         completedPhases.push({ name: phase.name, checks: result.results });
-        await writeFile(join(artifacts, "phase-results.json"), JSON.stringify(completedPhases, null, 2));
+        await writeBrowserEvidence(join(artifacts, "phase-results.json"), completedPhases, { signal: abort.signal });
         console.log(`Completed browser phase: ${phase.name}`);
     }
     testResult = { status: "FORMA_MARKDOWN_BROWSER_PASSED", results };
@@ -273,8 +274,23 @@ try {
     await cleanup();
 }
 if (testResult && !interrupted) {
-    await writeFile(join(artifacts, "result.json"), JSON.stringify(testResult, null, 2));
-    process.stdout.write(JSON.stringify(testResult, null, 2) + `\nArtifacts: ${artifacts}\n`);
+    const resultPath = join(artifacts, "result.json");
+    try {
+        await writeBrowserEvidence(resultPath, testResult, { signal: abort.signal, discardOnAbort: true });
+        abort.signal.throwIfAborted();
+        process.stdout.write(JSON.stringify(testResult, null, 2) + `\nArtifacts: ${artifacts}\n`);
+    } catch (error) {
+        await rm(resultPath, { force: true });
+        await writeFile(
+            join(artifacts, "failure.json"),
+            JSON.stringify({
+                status: interrupted ? "interrupted" : "failed",
+                signal: interrupted,
+                error: error.stack ?? String(error),
+            }),
+        );
+        if (!interrupted) throw error;
+    }
 }
 
 function cleanup() {
