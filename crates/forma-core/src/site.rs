@@ -1078,10 +1078,10 @@ fn static_reference_href(
         .map_or((without_fragment, ""), |(path, query)| (path, query));
     let normalized = normalized_static_target(source_path, path)?;
 
-    let resolved_entry = resolve_entry_route(&normalized, entry_routes_by_path).or_else(|| {
+    let resolved_entry = entry_routes_by_path.get_key_value(&normalized).or_else(|| {
         let workspace_style_target = path.trim_start_matches('/');
         (workspace_style_target != normalized)
-            .then(|| resolve_entry_route(workspace_style_target, entry_routes_by_path))
+            .then(|| entry_routes_by_path.get_key_value(workspace_style_target))
             .flatten()
     });
     if let Some((target_path, route)) = resolved_entry {
@@ -1096,15 +1096,33 @@ fn static_reference_href(
         return Some(href);
     }
 
-    let candidate = resource_candidate(&normalized, ".", false, config_paths, root_path)?;
-    let mut href = candidate.public_path;
-    if !query.is_empty() {
-        href.push('?');
-        href.push_str(&encode_url_suffix(query));
+    if let Some(candidate) = resource_candidate(&normalized, ".", false, config_paths, root_path) {
+        let mut href = candidate.public_path;
+        if !query.is_empty() {
+            href.push('?');
+            href.push_str(&encode_url_suffix(query));
+        }
+        if !fragment.is_empty() {
+            href.push('#');
+            href.push_str(&encode_url_suffix(fragment));
+        }
+        return Some(href);
     }
+
+    let (target_path, route) =
+        resolve_entry_route(&normalized, entry_routes_by_path).or_else(|| {
+            let workspace_style_target = path.trim_start_matches('/');
+            (workspace_style_target != normalized)
+                .then(|| resolve_entry_route(workspace_style_target, entry_routes_by_path))
+                .flatten()
+        })?;
+    let mut href = public_url(root_path, route);
     if !fragment.is_empty() {
         href.push('#');
-        href.push_str(&encode_url_suffix(fragment));
+        href.push_str(
+            &resolve_heading_fragment(fragment, entry_headings_by_path.get(target_path))
+                .unwrap_or_else(|| slugify_heading(fragment)),
+        );
     }
     Some(href)
 }
@@ -1944,6 +1962,54 @@ mod tests {
                 .unwrap()
                 .contains(r#"href="/preview/pages/content/guides/related#details""#)
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_prefers_exact_resource_when_sidecar_exists() {
+        let root = copy_fixture("site-snapshot-resource-sidecar-collision");
+        fs::write(root.join("content/guides/foo.txt"), "raw resource").unwrap();
+        fs::write(
+            root.join("content/guides/foo.txt.md"),
+            "---\ntitle: Foo text entry\nsummary: Sidecar entry.\nstatus: published\n---\n\n# Foo text entry\n",
+        )
+        .unwrap();
+        let intro_path = root.join("content/guides/intro.md");
+        let intro = fs::read_to_string(&intro_path).unwrap();
+        fs::write(
+            &intro_path,
+            format!("{intro}\n[Raw](./foo.txt?download=1#part)\n[Root raw](/content/guides/foo.txt)\n[Sidecar](./foo.txt.md)\n"),
+        )
+        .unwrap();
+
+        let snapshot = build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
+        let intro = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/intro.md")
+            .unwrap();
+        assert!(
+            intro
+                .markdown
+                .contains("[Raw](/preview/raw/content/guides/foo.txt?download=1#part)")
+        );
+        assert!(
+            intro
+                .markdown
+                .contains("[Root raw](/preview/raw/content/guides/foo.txt)")
+        );
+        assert!(
+            intro
+                .markdown
+                .contains("[Sidecar](/preview/pages/content/guides/foo.txt)")
+        );
+        let resource = snapshot
+            .resources
+            .iter()
+            .find(|resource| resource.path == "content/guides/foo.txt")
+            .unwrap();
+        assert_eq!(resource.public_path, "/preview/raw/content/guides/foo.txt");
+        assert_eq!(resource.referenced_by, vec!["/pages/content/guides/intro"]);
         fs::remove_dir_all(root).unwrap();
     }
 

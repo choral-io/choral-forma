@@ -112,6 +112,20 @@ describe("static Markdown root paths", () => {
         });
     });
 
+    it("leaves raw resource links to browser navigation", () => {
+        setStaticRuntimeConfig({
+            baseUrl: "https://example.test",
+            dataBaseUrl: "/preview/data",
+            rootPath: "/preview",
+        });
+        const anchor = document.createElement("a");
+        anchor.href = "/preview/raw/content/guides/source.txt?download=1#section";
+
+        expect(
+            resolveReaderLinkNavigation(anchor, "https://example.test/preview/pages/content/guides/intro"),
+        ).toBeUndefined();
+    });
+
     it("leaves external, modified-target, and download links to the browser", () => {
         for (const configure of [
             (anchor: HTMLAnchorElement) => {
