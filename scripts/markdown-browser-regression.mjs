@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { writeBrowserEvidence } from "./markdown-browser-evidence.mjs";
+import { describeBrowserEvidenceError, writeBrowserEvidence } from "./markdown-browser-evidence.mjs";
 import { markdownBrowserPhases, parseMarkdownBrowserPhase } from "./markdown-browser-protocol.mjs";
 import { markdownBrowserScenarios } from "./markdown-browser-scenarios.mjs";
 
@@ -60,7 +60,10 @@ async function command(file, args, timeout = 60_000, cleaning = false, label = "
         await writeFile(join(artifacts, `${label}.log`), output);
         return output;
     } catch (error) {
-        await writeFile(join(artifacts, `${label}.log`), `${error.stdout ?? ""}${error.stderr ?? ""}\n${error.stack}`);
+        await writeFile(
+            join(artifacts, `${label}.log`),
+            `${error.stdout ?? ""}${error.stderr ?? ""}\n${describeBrowserEvidenceError(error)}`,
+        );
         throw error;
     } finally {
         // In particular, let playwright-cli forward SIGTERM to its starting daemon.
@@ -267,7 +270,11 @@ try {
     console.error(`Browser regression failed; artifacts: ${artifacts}`);
     await writeFile(
         join(artifacts, "failure.json"),
-        JSON.stringify({ status: interrupted ? "interrupted" : "failed", signal: interrupted, error: error.stack }),
+        JSON.stringify({
+            status: interrupted ? "interrupted" : "failed",
+            signal: interrupted,
+            error: describeBrowserEvidenceError(error),
+        }),
     );
     if (!interrupted) throw error;
 } finally {
@@ -286,7 +293,7 @@ if (testResult && !interrupted) {
             JSON.stringify({
                 status: interrupted ? "interrupted" : "failed",
                 signal: interrupted,
-                error: error.stack ?? String(error),
+                error: describeBrowserEvidenceError(error),
             }),
         );
         if (!interrupted) throw error;
@@ -300,7 +307,7 @@ function cleanup() {
             try {
                 await action();
             } catch (error) {
-                errors.push(error.stack);
+                errors.push(describeBrowserEvidenceError(error));
             }
         };
         // Startup has settled before finally runs: a close cannot race a later open.
