@@ -81,13 +81,13 @@ Earlier builds allowed `*` to cross directory separators. Replace it with `**` w
 
 Runtime values define named values that templates and create defaults can read with `{{ runtime.values.<name> }}`. Names are workspace-defined; provider `kind` values select built-in behavior:
 
-| kind | Fields | Use |
-| --- | --- | --- |
-| `const` | `value`, optional `required`, `transform` | Explicit configured value, optionally supplied by an imported configuration fragment. |
-| `gitConfig` | `key`, optional `required`, `transform` | Read a value from Git config, such as `user.name` or `user.email`. |
-| `currentDate` | none | Current date in `YYYY-MM-DD`, resolved with `workspace.timezone`. |
-| `currentDateTime` | none | Current datetime in RFC3339, resolved with `workspace.timezone`. |
-| `workspaceRoot` | none | Workspace root path as seen by Forma. |
+| kind              | Fields                                    | Use                                                                                   |
+| ----------------- | ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| `const`           | `value`, optional `required`, `transform` | Explicit configured value, optionally supplied by an imported configuration fragment. |
+| `gitConfig`       | `key`, optional `required`, `transform`   | Read a value from Git config, such as `user.name` or `user.email`.                    |
+| `currentDate`     | none                                      | Current date in `YYYY-MM-DD`, resolved with `workspace.timezone`.                     |
+| `currentDateTime` | none                                      | Current datetime in RFC3339, resolved with `workspace.timezone`.                      |
+| `workspaceRoot`   | none                                      | Workspace root path as seen by Forma.                                                 |
 
 `transform` currently applies only to `const` and `gitConfig` values. Use `required: true` only when the operation should report an unresolved runtime value if the provider cannot resolve a value.
 

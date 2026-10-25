@@ -40,25 +40,25 @@ The P0 product surface is a single `forma` binary with CLI commands and `forma s
 
 P0 operations are product-semantic actions exposed through adapters. Operation names use stable lower camel case in JSON-facing APIs.
 
-| Operation | JSON method | Primary CLI command | Writes files |
-| --- | --- | --- | --- |
-| ConfigInspect | `config.inspect` | `forma config inspect [--path <path>] [--json]` | No |
-| Check | `check` | `forma check [--json]` | No |
-| Inspect | `inspect` | `forma inspect <path> [--json]` | No |
-| Inspect | `inspect` | `forma inspect --space <space> <entry> --json` | No |
-| List | `list` | `forma list --space <space> [--json]` | No |
-| FilesList | `files.list` | No required P0 CLI command | No |
-| WorkspaceDashboard | `workspace.dashboard` | No required P0 CLI command | No |
-| FileRender | `file.render` | No required P0 CLI command | No |
-| FileReferences | `file.references` | No required P0 CLI command | No |
-| ReferenceResolve | `reference.resolve` | `forma reference resolve --source <path> --target <target> [--intent <intent>] [--fragment <fragment>] [--json]` | No |
-| WorkspaceHealth | `workspace.health` | `forma workspace health [--json]` | No |
-| SkillsList | `skills.list` | `forma skills list [--json]` | No |
-| SkillsGet | `skills.get` | `forma skills get <id> [--full] [--json]` | No |
-| Init | `init` | `forma init [--name <name>] [--language <tag>] [--timezone <tz>] [--json]` | Yes |
-| Create | `create` | `forma create <space> [--input <name=value>]... [--json]` | Yes |
-| ViewRender | `view.render` | `forma view render <view-id-or-path> [--json]` | No |
-| Serve | Local server mode | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...` | No |
+| Operation          | JSON method           | Primary CLI command                                                                                              | Writes files |
+| ------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------ |
+| ConfigInspect      | `config.inspect`      | `forma config inspect [--path <path>] [--json]`                                                                  | No           |
+| Check              | `check`               | `forma check [--json]`                                                                                           | No           |
+| Inspect            | `inspect`             | `forma inspect <path> [--json]`                                                                                  | No           |
+| Inspect            | `inspect`             | `forma inspect --space <space> <entry> --json`                                                                   | No           |
+| List               | `list`                | `forma list --space <space> [--json]`                                                                            | No           |
+| FilesList          | `files.list`          | No required P0 CLI command                                                                                       | No           |
+| WorkspaceDashboard | `workspace.dashboard` | No required P0 CLI command                                                                                       | No           |
+| FileRender         | `file.render`         | No required P0 CLI command                                                                                       | No           |
+| FileReferences     | `file.references`     | No required P0 CLI command                                                                                       | No           |
+| ReferenceResolve   | `reference.resolve`   | `forma reference resolve --source <path> --target <target> [--intent <intent>] [--fragment <fragment>] [--json]` | No           |
+| WorkspaceHealth    | `workspace.health`    | `forma workspace health [--json]`                                                                                | No           |
+| SkillsList         | `skills.list`         | `forma skills list [--json]`                                                                                     | No           |
+| SkillsGet          | `skills.get`          | `forma skills get <id> [--full] [--json]`                                                                        | No           |
+| Init               | `init`                | `forma init [--name <name>] [--language <tag>] [--timezone <tz>] [--json]`                                       | Yes          |
+| Create             | `create`              | `forma create <space> [--input <name=value>]... [--json]`                                                        | Yes          |
+| ViewRender         | `view.render`         | `forma view render <view-id-or-path> [--json]`                                                                   | No           |
+| Serve              | Local server mode     | `forma serve [--webapp-dir <dir>] [--cors-origin <origin>]...`                                                   | No           |
 
 `Serve` is a CLI mode, not a domain operation. The server exposes operation methods through `POST /rpc` and serves static WebApp assets. It may compute diagnostics in memory and expose check status through operation results, but it must not write files in P0.
 

@@ -49,18 +49,18 @@ The layout prototype consumes the real Core output, re-shaped into the proposed 
 
 Every contract expectation held against real Core output.
 
-| Case | Authored | Core result |
-| --- | --- | --- |
-| Leap day, no end | `2028-02-29` | `2028-02-29` → `2028-03-01`, one column |
-| Nonexistent leap day | `2027-02-29` | `view.calendarDateInvalid`, excluded, not rolled into March |
-| Year boundary | `2027-12-28` … `2028-01-03` | Seven columns, one row |
-| DST short day | `2026-03-08T00:00:00-05:00` … `2026-03-09T00:00:00-04:00` | 23 elapsed hours, exactly one covered date |
-| DST long day | `2026-11-01T00:00:00-04:00` … `2026-11-02T00:00:00-05:00` | 25 elapsed hours, exactly one covered date |
-| Instant crossing local date | `2026-09-21T02:00:00Z` | Occupies `2026-09-20` in `America/New_York` |
-| End at local midnight | `2027-04-05T09:00-04:00` … `2027-04-08T00:00-04:00` | Covers April 5–7, excludes April 8 |
-| Reversed, orphan end | — | `view.calendarIntervalInvalid` with the correct distinct message |
-| Mixed endpoint types | date start bound against datetime end | `Start and end schema types must agree` |
-| String field holding a date | `"2028-02-29"` under a `string` schema | `view.calendarFieldTypeInvalid`; no date inference |
+| Case                        | Authored                                                  | Core result                                                      |
+| --------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
+| Leap day, no end            | `2028-02-29`                                              | `2028-02-29` → `2028-03-01`, one column                          |
+| Nonexistent leap day        | `2027-02-29`                                              | `view.calendarDateInvalid`, excluded, not rolled into March      |
+| Year boundary               | `2027-12-28` … `2028-01-03`                               | Seven columns, one row                                           |
+| DST short day               | `2026-03-08T00:00:00-05:00` … `2026-03-09T00:00:00-04:00` | 23 elapsed hours, exactly one covered date                       |
+| DST long day                | `2026-11-01T00:00:00-04:00` … `2026-11-02T00:00:00-05:00` | 25 elapsed hours, exactly one covered date                       |
+| Instant crossing local date | `2026-09-21T02:00:00Z`                                    | Occupies `2026-09-20` in `America/New_York`                      |
+| End at local midnight       | `2027-04-05T09:00-04:00` … `2027-04-08T00:00-04:00`       | Covers April 5–7, excludes April 8                               |
+| Reversed, orphan end        | —                                                         | `view.calendarIntervalInvalid` with the correct distinct message |
+| Mixed endpoint types        | date start bound against datetime end                     | `Start and end schema types must agree`                          |
+| String field holding a date | `"2028-02-29"` under a `string` schema                    | `view.calendarFieldTypeInvalid`; no date inference               |
 
 Counts closed at every binding: 33 candidates = 22 scheduled + 7 unscheduled + 4 invalid for the date binding, and 33 = 5 + 26 + 2 for the instant binding.
 
@@ -185,14 +185,14 @@ The 306 ms month switch also disappears, because there is no month switch.
 
 ### Steady-state scrolling is cheap without any windowing
 
-| Fixture | Rows | Day columns | Track width | DOM | Initial render | H-scroll median / max | V-scroll median |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| sparse-30 | 29 | 442 | 12,616 px | 766 | 3 ms | 0.2 / 0.2 ms | 0.0 ms |
-| sparse-1000 | 971 | 462 | 13,176 px | 8,687 | 46 ms | 1.1 / 1.3 ms | 1.1 ms |
-| wide-1000 | 969 | 1,715 | 48,260 px | 10,045 | 40 ms | 1.4 / 1.7 ms | 1.4 ms |
-| longspan-1000 | 973 | 2,391 | 67,188 px | 10,760 | 39 ms | 1.6 / 1.8 ms | 1.6 ms |
-| sparse-5000 | 4,849 | 465 | 13,260 px | 26,696 | 155 ms | 5.6 / 5.9 ms | 5.5 ms |
-| wide-5000 | 4,832 | 1,715 | 48,260 px | 27,978 | 177 ms | 5.8 / 6.4 ms | 5.7 ms |
+| Fixture       | Rows  | Day columns | Track width | DOM    | Initial render | H-scroll median / max | V-scroll median |
+| ------------- | ----- | ----------- | ----------- | ------ | -------------- | --------------------- | --------------- |
+| sparse-30     | 29    | 442         | 12,616 px   | 766    | 3 ms           | 0.2 / 0.2 ms          | 0.0 ms          |
+| sparse-1000   | 971   | 462         | 13,176 px   | 8,687  | 46 ms          | 1.1 / 1.3 ms          | 1.1 ms          |
+| wide-1000     | 969   | 1,715       | 48,260 px   | 10,045 | 40 ms          | 1.4 / 1.7 ms          | 1.4 ms          |
+| longspan-1000 | 973   | 2,391       | 67,188 px   | 10,760 | 39 ms          | 1.6 / 1.8 ms          | 1.6 ms          |
+| sparse-5000   | 4,849 | 465         | 13,260 px   | 26,696 | 155 ms         | 5.6 / 5.9 ms          | 5.5 ms          |
+| wide-5000     | 4,832 | 1,715       | 48,260 px   | 27,978 | 177 ms         | 5.8 / 6.4 ms          | 5.7 ms          |
 
 Track width barely matters on its own: five times the width cost 1.1 ms against 1.6 ms. Row count drives everything. At the largest fixture a scroll step costs 5.8 ms, comfortably inside a frame budget, with no windowing at all.
 

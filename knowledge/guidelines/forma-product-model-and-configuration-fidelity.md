@@ -38,12 +38,12 @@ It does not rename the current taxonomy or space model. Any public terminology o
 
 Classify each concept used by a change into exactly one of these categories:
 
-| Category | Meaning | Examples |
-| --- | --- | --- |
-| Product contract | Explicitly reserved syntax, behavior, or typed operation shared across workspaces | `.forma.md` as the configuration entry point; config node `kind`; workspace-relative POSIX path rules; operation and diagnostic contracts |
-| Configured concept | Meaning introduced by the effective workspace configuration | taxonomy and term ids; configured content groups; views; schema fields; templates; runtime value names; display labels and colors |
-| Repository convention | A layout or workflow choice made by this repository | `knowledge/`; `.forma/spaces/`; `.forma/views/`; `.forma/local/`; task, member, release, or guideline directories |
-| Implementation detail | Replaceable machinery that must not become user-facing truth | scan roots; read-model caches; route staging; generated artifacts; internal lookup tables |
+| Category              | Meaning                                                                           | Examples                                                                                                                                  |
+| --------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Product contract      | Explicitly reserved syntax, behavior, or typed operation shared across workspaces | `.forma.md` as the configuration entry point; config node `kind`; workspace-relative POSIX path rules; operation and diagnostic contracts |
+| Configured concept    | Meaning introduced by the effective workspace configuration                       | taxonomy and term ids; configured content groups; views; schema fields; templates; runtime value names; display labels and colors         |
+| Repository convention | A layout or workflow choice made by this repository                               | `knowledge/`; `.forma/spaces/`; `.forma/views/`; `.forma/local/`; task, member, release, or guideline directories                         |
+| Implementation detail | Replaceable machinery that must not become user-facing truth                      | scan roots; read-model caches; route staging; generated artifacts; internal lookup tables                                                 |
 
 An example path or identifier is not evidence that a product contract exists. The repository dogfooding configuration is representative input, not the Forma schema.
 

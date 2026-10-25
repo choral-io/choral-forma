@@ -80,13 +80,13 @@ Phase 1 is usable when a Human and Agent can complete this flow without examples
 
 The implementation should keep the Agent's loaded context layered:
 
-| Layer | Purpose | Budget Target |
-| --- | --- | --- |
-| Project-local `skills/forma-cli/SKILL.md` | Repo-specific command entrypoint and trust boundary | Short enough to load on every Forma task |
-| Built-in `forma-cli-core` | Required bootstrap checks and routing | Short router; no long examples |
-| `agents.workspace-bootstrap` | Empty-workspace first-slice workflow | Detailed enough to execute, but still a single focused workflow doc |
-| Workspace reference docs | Configuration, spaces, schemas, templates, views, guidelines | Loaded only when the specific artifact is being authored |
-| Examples | Learning reference or fast-start material | Not loaded in Phase 1 default path |
+| Layer                                     | Purpose                                                      | Budget Target                                                       |
+| ----------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Project-local `skills/forma-cli/SKILL.md` | Repo-specific command entrypoint and trust boundary          | Short enough to load on every Forma task                            |
+| Built-in `forma-cli-core`                 | Required bootstrap checks and routing                        | Short router; no long examples                                      |
+| `agents.workspace-bootstrap`              | Empty-workspace first-slice workflow                         | Detailed enough to execute, but still a single focused workflow doc |
+| Workspace reference docs                  | Configuration, spaces, schemas, templates, views, guidelines | Loaded only when the specific artifact is being authored            |
+| Examples                                  | Learning reference or fast-start material                    | Not loaded in Phase 1 default path                                  |
 
 Every Phase 1 edit that touches Agent-facing guidance must record:
 

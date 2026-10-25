@@ -120,19 +120,19 @@ This supports a P0 strategy where the Markdown parser owns CommonMark/GFM and a 
 
 ## Capability Matrix
 
-| Capability | markdown-rs | Comrak | pulldown-cmark |
-| --- | --- | --- | --- |
-| Markdown AST access | Strong mdast AST | Strong AST, arena/refcell style | No AST, event stream |
-| Source positions | Strong line/column/offset | Strong sourcepos | Event-level only in this spike |
-| HTML comment detection | Yes in AST | Yes as HtmlBlock/HtmlInline | Yes as HTML event |
-| GFM table support | Yes with GFM options | Yes with extension option | Yes with option |
-| GFM task list support | Yes with GFM options | Yes with extension option | Yes with option |
-| HTML rendering | Good, safe by default | Good, configurable; raw HTML needs unsafe | Good basic renderer |
-| Wikilink scanning | Custom scanner needed | Built-in ordinary wikilinks, embeds still need scanner | Custom scanner needed |
-| Embed scanning | Custom scanner needed | Custom scanner needed | Custom scanner needed |
-| Error ergonomics | Result for extension errors, structured message | Mostly parse-through CommonMark behavior | Mostly parse-through event parsing |
-| Rust API ergonomics | Simple functions and serializable AST | Mature but arena/refcell traversal | Simple iterator API |
-| Maturity | 1.0.0, documented, CommonMark/GFM focus | Mature, active, broad release history | Mature fallback, event-stream oriented |
+| Capability             | markdown-rs                                     | Comrak                                                 | pulldown-cmark                         |
+| ---------------------- | ----------------------------------------------- | ------------------------------------------------------ | -------------------------------------- |
+| Markdown AST access    | Strong mdast AST                                | Strong AST, arena/refcell style                        | No AST, event stream                   |
+| Source positions       | Strong line/column/offset                       | Strong sourcepos                                       | Event-level only in this spike         |
+| HTML comment detection | Yes in AST                                      | Yes as HtmlBlock/HtmlInline                            | Yes as HTML event                      |
+| GFM table support      | Yes with GFM options                            | Yes with extension option                              | Yes with option                        |
+| GFM task list support  | Yes with GFM options                            | Yes with extension option                              | Yes with option                        |
+| HTML rendering         | Good, safe by default                           | Good, configurable; raw HTML needs unsafe              | Good basic renderer                    |
+| Wikilink scanning      | Custom scanner needed                           | Built-in ordinary wikilinks, embeds still need scanner | Custom scanner needed                  |
+| Embed scanning         | Custom scanner needed                           | Custom scanner needed                                  | Custom scanner needed                  |
+| Error ergonomics       | Result for extension errors, structured message | Mostly parse-through CommonMark behavior               | Mostly parse-through event parsing     |
+| Rust API ergonomics    | Simple functions and serializable AST           | Mature but arena/refcell traversal                     | Simple iterator API                    |
+| Maturity               | 1.0.0, documented, CommonMark/GFM focus         | Mature, active, broad release history                  | Mature fallback, event-stream oriented |
 
 ## Recommendation
 

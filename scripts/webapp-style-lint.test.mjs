@@ -84,3 +84,24 @@ test("known gaps: imperative className and generated HTML are not checked", asyn
         assert.deepEqual(await lintClasses(source), []);
     }
 });
+
+test("generated evidence exclusion does not hide source files or disable lint rules", async () => {
+    assert.equal(await eslint.isPathIgnored(".tmp/retained-evidence/example.mjs"), true);
+    for (const sourcePath of [
+        filePath,
+        "src/features/dashboard/markdown-formatting.test.ts",
+        "src/.tmp/sentinel.ts",
+        "src/features/dashboard/.tmp/sentinel.ts",
+    ])
+        assert.equal(await eslint.isPathIgnored(sourcePath), false, sourcePath);
+    const [result] = await eslint.lintText("const unusedProbe = 1;\n", { filePath });
+    assert.deepEqual(
+        result.messages.filter((message) => message.fatal || !message.ruleId),
+        [],
+    );
+    assert(
+        result.messages.some(
+            (message) => message.ruleId === "@typescript-eslint/no-unused-vars" && message.severity === 2,
+        ),
+    );
+});

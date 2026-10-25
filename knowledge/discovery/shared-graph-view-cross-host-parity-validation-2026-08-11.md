@@ -79,24 +79,24 @@ The 5,000-node synchronous layout result is near zero because the shared policy 
 
 The following budgets are the first release baseline for the shared Graph surface. They use rounded product-level ceilings rather than the exact observations and are evaluated separately for each Host policy. They are not presented as pre-existing regression thresholds.
 
-| Surface and fixture | Recorded budget | Observed | Result |
-| --- | --: | --: | --- |
-| WebApp, about 500 nodes, first render | at most 200 ms | 76.4 ms | Pass |
-| WebApp, about 5,000 nodes, first render | at most 200 ms | 108.3 ms | Pass |
-| WebApp, about 500 and 5,000 nodes, Worker settle | at most 1,500 ms | 1,247.1 ms and 1,239.0 ms | Pass |
-| WebApp, about 500 and 5,000 nodes, longest main-thread task | at most 150 ms | 76.0 ms and 108.7 ms | Pass |
-| WebApp, about 5,000 nodes, reset to next paint | at most 50 ms | 18.5 ms | Pass |
-| WebApp, settled 30-second main-thread share | at most 1% of one core | 0.047% | Pass |
-| Packaged VS Code, 25 nodes, first render and synchronous settle | at most 100 ms | 26.4 ms | Pass |
-| Packaged VS Code, 25 nodes, reset to next paint | at most 50 ms | 17.3 ms | Pass |
-| Packaged VS Code, about 500 nodes, first render and synchronous settle | at most 200 ms | 100.7 ms | Pass |
-| Packaged VS Code, about 500 nodes, longest main-thread task | at most 150 ms | 109 ms | Pass |
-| Packaged VS Code, about 500 nodes, reset to second animation frame | at most 50 ms | 13.9 ms worst of five | Pass |
-| Remote packaged VS Code, about 5,000 nodes, first render and synchronous settle | at most 200 ms | about 124 ms | Pass |
-| Packaged VS Code, settled 30-second process-group CPU | at most 1% of one core | about 0.67% | Pass |
-| Large Graph projection stdout | at most 8 MiB | 2,314,372 bytes | Pass |
-| WebApp disposal, second block of ten route cycles | at most 1 MiB retained-heap growth and zero canvases | about 28 KiB and zero canvases | Pass |
-| VS Code disposal reachability | zero Graph iframe targets and zero Forma-owned canvas resources after close | zero | Pass |
+| Surface and fixture                                                             |                                                             Recorded budget |                       Observed | Result |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------: | -----------------------------: | ------ |
+| WebApp, about 500 nodes, first render                                           |                                                              at most 200 ms |                        76.4 ms | Pass   |
+| WebApp, about 5,000 nodes, first render                                         |                                                              at most 200 ms |                       108.3 ms | Pass   |
+| WebApp, about 500 and 5,000 nodes, Worker settle                                |                                                            at most 1,500 ms |      1,247.1 ms and 1,239.0 ms | Pass   |
+| WebApp, about 500 and 5,000 nodes, longest main-thread task                     |                                                              at most 150 ms |           76.0 ms and 108.7 ms | Pass   |
+| WebApp, about 5,000 nodes, reset to next paint                                  |                                                               at most 50 ms |                        18.5 ms | Pass   |
+| WebApp, settled 30-second main-thread share                                     |                                                      at most 1% of one core |                         0.047% | Pass   |
+| Packaged VS Code, 25 nodes, first render and synchronous settle                 |                                                              at most 100 ms |                        26.4 ms | Pass   |
+| Packaged VS Code, 25 nodes, reset to next paint                                 |                                                               at most 50 ms |                        17.3 ms | Pass   |
+| Packaged VS Code, about 500 nodes, first render and synchronous settle          |                                                              at most 200 ms |                       100.7 ms | Pass   |
+| Packaged VS Code, about 500 nodes, longest main-thread task                     |                                                              at most 150 ms |                         109 ms | Pass   |
+| Packaged VS Code, about 500 nodes, reset to second animation frame              |                                                               at most 50 ms |          13.9 ms worst of five | Pass   |
+| Remote packaged VS Code, about 5,000 nodes, first render and synchronous settle |                                                              at most 200 ms |                   about 124 ms | Pass   |
+| Packaged VS Code, settled 30-second process-group CPU                           |                                                      at most 1% of one core |                    about 0.67% | Pass   |
+| Large Graph projection stdout                                                   |                                                               at most 8 MiB |                2,314,372 bytes | Pass   |
+| WebApp disposal, second block of ten route cycles                               |                        at most 1 MiB retained-heap growth and zero canvases | about 28 KiB and zero canvases | Pass   |
+| VS Code disposal reachability                                                   | zero Graph iframe targets and zero Forma-owned canvas resources after close |                           zero | Pass   |
 
 The VS Code natural renderer heap high-water remains a diagnostic risk outside the reachability gate: it reached about 2.84 GiB before an explicit DevTools collection reduced it to about 773 MiB. This result must not be reinterpreted as immediate natural memory reclamation.
 
@@ -104,10 +104,10 @@ The VS Code natural renderer heap high-water remains a diagnostic risk outside t
 
 Bundle comparisons use the immediate code-integration parent and child commits, each exported with `git archive`, installed from its own frozen lockfile, and built with the same local pnpm 11.20.0 executable. The historical repositories requested pnpm 11.13.1, so the measurements are comparable within each pair but do not claim byte identity with the original CI builders.
 
-| Surface | Baseline -> integration | Budget | Observed delta | Integrated artifact | Result |
-| --- | --- | --: | --: | --: | --- |
-| WebApp `dist/assets` | `9bb14df` -> `deeb79b` | at most 128 KiB raw and 32 KiB gzip | +34,421 bytes raw (+0.323%); +10,012 bytes gzip (+0.441%) | 10,677,727 bytes raw; 2,282,532 bytes gzip | Pass |
-| VSIX | `f171b40` -> `a86187b` | at most 64 KiB delta and 256 KiB final | +56,046 bytes (+54.73 KiB; +37.54%) | 205,324 bytes (200.51 KiB) | Pass |
+| Surface              | Baseline -> integration |                                 Budget |                                            Observed delta |                        Integrated artifact | Result |
+| -------------------- | ----------------------- | -------------------------------------: | --------------------------------------------------------: | -----------------------------------------: | ------ |
+| WebApp `dist/assets` | `9bb14df` -> `deeb79b`  |    at most 128 KiB raw and 32 KiB gzip | +34,421 bytes raw (+0.323%); +10,012 bytes gzip (+0.441%) | 10,677,727 bytes raw; 2,282,532 bytes gzip | Pass   |
+| VSIX                 | `f171b40` -> `a86187b`  | at most 64 KiB delta and 256 KiB final |                       +56,046 bytes (+54.73 KiB; +37.54%) |                 205,324 bytes (200.51 KiB) | Pass   |
 
 The WebApp migration moved Graph into a lazy `ViewGraphProjection` chunk of 198,412 bytes raw and 48,815 bytes gzip while reducing the main entry chunk. The final `09a6788` review candidate packages as a 215,839-byte (210.78 KiB) VSIX, still below the 256 KiB absolute budget.
 
@@ -121,12 +121,12 @@ Movement is measured for surviving nodes after anchoring each snapshot on the se
 
 The first measurement found a shared-runtime defect: projection refresh reused coordinates and then started another whole-graph layout. Across five pre-fix runs, the approximately 500-node WebApp policy reached a worst p95 of 39.64% with 98.37% of surviving nodes above the 5% threshold; VS Code reached p95 6.78% with 31.43% above the threshold. Commit `09a6788` keeps initial Host layout behavior unchanged, but projection refresh now preserves surviving coordinates and uses the existing neighbor-aware deterministic seed only for new nodes.
 
-| Host policy | Fixture | Worst p50 / p95 / maximum across five post-fix runs | Nodes above 5% span | Selection and finite positions | Result |
-| --- | --: | --: | --: | --- | --- |
-| WebApp Worker | about 500 nodes | 0% / 0% / 0% | 0% | 100% | Pass |
-| WebApp Worker | about 5,000 nodes | 0% / 0% / 0% | 0% | 100% | Pass |
-| VS Code synchronous | about 500 nodes | 0% / 0% / 0% | 0% | 100% | Pass |
-| VS Code synchronous | about 5,000 nodes | 0% / 0% / 0% | 0% | 100% | Pass |
+| Host policy         |           Fixture | Worst p50 / p95 / maximum across five post-fix runs | Nodes above 5% span | Selection and finite positions | Result |
+| ------------------- | ----------------: | --------------------------------------------------: | ------------------: | ------------------------------ | ------ |
+| WebApp Worker       |   about 500 nodes |                                        0% / 0% / 0% |                  0% | 100%                           | Pass   |
+| WebApp Worker       | about 5,000 nodes |                                        0% / 0% / 0% |                  0% | 100%                           | Pass   |
+| VS Code synchronous |   about 500 nodes |                                        0% / 0% / 0% |                  0% | 100%                           | Pass   |
+| VS Code synchronous | about 5,000 nodes |                                        0% / 0% / 0% |                  0% | 100%                           | Pass   |
 
 The compact raw summary remains intentionally uncommitted under `target/performance/`; the reproducible browser harness is tracked at `packages/webapp/scripts/graph-refresh-movement-gate.html`. The runtime contract is preserved by focused tests that assert refresh sessions start neither synchronous nor Worker layout, surviving positions remain exact, and a new linked node is seeded near its existing neighbor.
 
@@ -165,11 +165,11 @@ The change is covered by operation-specific budget tests, an observed-size regre
 
 Production WebApp builds were served through the real Forma backend against the same 25-, approximately 500-, and approximately 5,000-node fixture workspaces. Marks distinguish mount, first Sigma paint, and synchronous or Worker layout settlement.
 
-| Fixture | Mount to first render | Mount to layout settle | Longest main-thread task | Settled 30-second main-thread work |
-| --- | --: | --: | --: | --: |
-| 25 nodes | 49.2 ms | 49.2 ms | 50.0 ms | 9.306 ms |
-| about 500 nodes | 76.4 ms | 1,247.1 ms | 76.0 ms | 6.706 ms |
-| about 5,000 nodes | 108.3 ms | 1,239.0 ms | 108.7 ms | 14.167 ms |
+| Fixture           | Mount to first render | Mount to layout settle | Longest main-thread task | Settled 30-second main-thread work |
+| ----------------- | --------------------: | ---------------------: | -----------------------: | ---------------------------------: |
+| 25 nodes          |               49.2 ms |                49.2 ms |                  50.0 ms |                           9.306 ms |
+| about 500 nodes   |               76.4 ms |             1,247.1 ms |                  76.0 ms |                           6.706 ms |
+| about 5,000 nodes |              108.3 ms |             1,239.0 ms |                 108.7 ms |                          14.167 ms |
 
 The approximately 500- and 5,000-node fixtures used the Web Worker settle path. The 5,000-node reset reached the next paint in 18.5 ms. Light and dark themes rendered with shared semantic state, and emulated `prefers-reduced-motion: reduce` changed the large fixture to the synchronous policy after reload. WebApp exposes System, Light, and Dark rather than a dedicated high-contrast mode; high contrast is therefore validated on the VS Code Host under the acceptance criterion's “where supported” boundary.
 

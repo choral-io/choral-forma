@@ -105,14 +105,14 @@ Removing this adapter or changing its diagnostic code requires a later compatibi
 
 ## Projection Ownership
 
-| Projection | Owner | Compatibility boundary |
-| --- | --- | --- |
-| Effective inspectable config | Config loader | Preserve current `config.inspect` shape where possible |
-| Content groups | Resolved workspace model | Continue projecting public `spaces` fields for existing clients |
-| Semantic type targets | Resolved workspace model | Preserve reference resolution behavior; remove hidden serde state |
-| Scan and watch patterns | Core scan projection from the resolved model | Preserve file discovery and watcher behavior |
-| Summary index | Core index projection | Preserve current CLI/RPC/Web JSON contracts |
-| Dashboard and explorer results | Core operations over the resolved model and index | Do not infer taxonomy meaning in adapters |
+| Projection                     | Owner                                             | Compatibility boundary                                            |
+| ------------------------------ | ------------------------------------------------- | ----------------------------------------------------------------- |
+| Effective inspectable config   | Config loader                                     | Preserve current `config.inspect` shape where possible            |
+| Content groups                 | Resolved workspace model                          | Continue projecting public `spaces` fields for existing clients   |
+| Semantic type targets          | Resolved workspace model                          | Preserve reference resolution behavior; remove hidden serde state |
+| Scan and watch patterns        | Core scan projection from the resolved model      | Preserve file discovery and watcher behavior                      |
+| Summary index                  | Core index projection                             | Preserve current CLI/RPC/Web JSON contracts                       |
+| Dashboard and explorer results | Core operations over the resolved model and index | Do not infer taxonomy meaning in adapters                         |
 
 ## Diagnostics And Compatibility
 

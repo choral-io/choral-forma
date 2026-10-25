@@ -64,19 +64,19 @@ Use this objective when starting Goal mode:
 
 ## Task Chain
 
-| Order | Task | Outcome |
-| --- | --- | --- |
-| 1 | [[tasks/scaffold-vscode-extension-package]] | Buildable and testable workspace-extension package |
-| 2 | [[tasks/implement-editor-extension-forma-command-client]] | Preinstalled binary discovery and structured process client |
-| 3 | [[tasks/implement-vscode-forma-workspace-foundation]] | Workspace discovery, trust, remote-compatible lifecycle, status and commands |
-| 4 | [[tasks/implement-forma-reference-resolve-operation]] | Shared Core/RPC/CLI reference resolution contract |
-| 5 | [[tasks/implement-vscode-reference-navigation]] | Markdown, wikilink, embed and semantic-reference navigation |
-| 6 | [[tasks/extend-view-render-for-editor-preview]] | View body and mount source mapping in shared results |
-| 7 | [[tasks/implement-vscode-view-preview]] | Source-first themed list, table and kanban previews |
-| 8 | [[tasks/align-forma-release-versioning]] | One validated version across all release artifacts |
-| 9 | [[tasks/package-vscode-extension-vsix]] | Reproducible VSIX package and local install smoke |
-| 10 | [[tasks/integrate-vsix-ci-release-artifact]] | CI and Release workflows build, test and publish VSIX |
-| 11 | [[tasks/validate-and-release-forma-alpha-13]] | Local validation, PR CI, merge, tag, release and artifact verification |
+| Order | Task                                                      | Outcome                                                                      |
+| ----- | --------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 1     | [[tasks/scaffold-vscode-extension-package]]               | Buildable and testable workspace-extension package                           |
+| 2     | [[tasks/implement-editor-extension-forma-command-client]] | Preinstalled binary discovery and structured process client                  |
+| 3     | [[tasks/implement-vscode-forma-workspace-foundation]]     | Workspace discovery, trust, remote-compatible lifecycle, status and commands |
+| 4     | [[tasks/implement-forma-reference-resolve-operation]]     | Shared Core/RPC/CLI reference resolution contract                            |
+| 5     | [[tasks/implement-vscode-reference-navigation]]           | Markdown, wikilink, embed and semantic-reference navigation                  |
+| 6     | [[tasks/extend-view-render-for-editor-preview]]           | View body and mount source mapping in shared results                         |
+| 7     | [[tasks/implement-vscode-view-preview]]                   | Source-first themed list, table and kanban previews                          |
+| 8     | [[tasks/align-forma-release-versioning]]                  | One validated version across all release artifacts                           |
+| 9     | [[tasks/package-vscode-extension-vsix]]                   | Reproducible VSIX package and local install smoke                            |
+| 10    | [[tasks/integrate-vsix-ci-release-artifact]]              | CI and Release workflows build, test and publish VSIX                        |
+| 11    | [[tasks/validate-and-release-forma-alpha-13]]             | Local validation, PR CI, merge, tag, release and artifact verification       |
 
 [[tasks/design-editor-graph-view-renderer]] is a follow-up and is not part of this Goal.
 

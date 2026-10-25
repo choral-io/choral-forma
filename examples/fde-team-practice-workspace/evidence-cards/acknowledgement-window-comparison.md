@@ -30,10 +30,10 @@ tags:
 
 ## Comparison
 
-| Source | Environment | Positive result | Difference retained |
-| --- | --- | --- | --- |
-| `P-042` | staging-like asynchronous queue | 120-second profile with replay protection: 4 passed, 0 failed | Provides the initial diagnostic baseline. |
-| `P-051` | production-like burst/retry | naive 120-second profile without replay protection: 2 passed, 2 failed; adjusted 90-second profile: 4 passed, 0 failed | Fixed threshold is not portable; replay protection is required. |
+| Source  | Environment                     | Positive result                                                                                                        | Difference retained                                             |
+| ------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `P-042` | staging-like asynchronous queue | 120-second profile with replay protection: 4 passed, 0 failed                                                          | Provides the initial diagnostic baseline.                       |
+| `P-051` | production-like burst/retry     | naive 120-second profile without replay protection: 2 passed, 2 failed; adjusted 90-second profile: 4 passed, 0 failed | Fixed threshold is not portable; replay protection is required. |
 
 ## Allowed abstraction
 

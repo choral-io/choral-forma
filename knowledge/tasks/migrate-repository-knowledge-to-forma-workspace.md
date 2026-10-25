@@ -143,11 +143,11 @@ This task is the reviewable Phase 1 migration preparation slice. The CLI read-si
 
 ## Review Readiness
 
-| Field | Evidence |
-| --- | --- |
-| Scope completed | Target workspace migration design, runnable graph view config, and follow-up task split are present. |
-| Files changed | `.forma/views/workspace-graph.md`, [[architecture/repository-forma-workspace-migration-design]], this task, follow-up task items, and the Kanban card move. |
-| Knowledge updated | Yes: target migration design and follow-up task graph are recorded in canonical knowledge. |
-| Checks run | Prettier, `forma check --json`, `forma config inspect --json`, `forma list --space tasks --json`, and `forma workspace health --json`. |
-| Residual risks | Broad content migration is intentionally deferred to [[tasks/migrate-repository-knowledge-content]]. User-authored space schema loading is deferred to [[tasks/load-user-authored-space-schemas]]. |
-| Suggested review | Review the target structure, scope split, and whether the migration avoids preserving old Knowledge Workflow assumptions by accident. |
+| Field             | Evidence                                                                                                                                                                                           |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope completed   | Target workspace migration design, runnable graph view config, and follow-up task split are present.                                                                                               |
+| Files changed     | `.forma/views/workspace-graph.md`, [[architecture/repository-forma-workspace-migration-design]], this task, follow-up task items, and the Kanban card move.                                        |
+| Knowledge updated | Yes: target migration design and follow-up task graph are recorded in canonical knowledge.                                                                                                         |
+| Checks run        | Prettier, `forma check --json`, `forma config inspect --json`, `forma list --space tasks --json`, and `forma workspace health --json`.                                                             |
+| Residual risks    | Broad content migration is intentionally deferred to [[tasks/migrate-repository-knowledge-content]]. User-authored space schema loading is deferred to [[tasks/load-user-authored-space-schemas]]. |
+| Suggested review  | Review the target structure, scope split, and whether the migration avoids preserving old Knowledge Workflow assumptions by accident.                                                              |

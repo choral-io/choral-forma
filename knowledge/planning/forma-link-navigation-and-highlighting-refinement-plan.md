@@ -51,13 +51,13 @@ The LSP must also avoid analyzing every Markdown file in an attached editor work
 
 ### Syntax And Navigation Ownership
 
-| Syntax | Example | Primary owner | Expected source navigation |
-| --- | --- | --- | --- |
-| Schema reference | `owners: [members/sam-rivera]` | Forma | Reference scalar is clickable |
-| Markdown link | `[Title](path.md#heading)` | Editor native Markdown, with a bounded Forma heading-fragment fallback | Title opens the resolved heading directly |
-| Markdown image | `![Alt](assets/image.png)` | Editor native Markdown | Native image or resource behavior is preserved |
-| Wikilink | `[[path#heading\|Title]]` | Forma | Path and title open the same resolved heading |
-| Obsidian embed | `![[path#heading\|Title]]` | Forma | Uses the same navigation target as the equivalent wikilink |
+| Syntax           | Example                        | Primary owner                                                          | Expected source navigation                                 |
+| ---------------- | ------------------------------ | ---------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Schema reference | `owners: [members/sam-rivera]` | Forma                                                                  | Reference scalar is clickable                              |
+| Markdown link    | `[Title](path.md#heading)`     | Editor native Markdown, with a bounded Forma heading-fragment fallback | Title opens the resolved heading directly                  |
+| Markdown image   | `![Alt](assets/image.png)`     | Editor native Markdown                                                 | Native image or resource behavior is preserved             |
+| Wikilink         | `[[path#heading\|Title]]`      | Forma                                                                  | Path and title open the same resolved heading              |
+| Obsidian embed   | `![[path#heading\|Title]]`     | Forma                                                                  | Uses the same navigation target as the equivalent wikilink |
 
 Ordinary Markdown links and images remain editor-owned and must not receive duplicate internal navigation results from Forma. The current Zed integration has bounded exceptions: Forma may return Definition for a managed Markdown link with a heading fragment when native navigation does not reliably reach the heading; unique wikilinks and embeds without a fragment use Zed's positionless `zed://file` DocumentLink target so opening an existing target does not force a cursor position; and explicit links in inline code or `md`/`markdown` fenced examples may receive DocumentLink projection. Code projections are presentation-only and remain excluded from analysis, diagnostics, Definition, and the reference graph. Only Markdown-labelled fences receive Forma semantic-token projection. Multiple LocationLinks are reserved for genuinely ambiguous Forma reference resolution. Non-Zed clients retain standard `file://` targets, and Zed remote behavior remains a separate validation item.
 

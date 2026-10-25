@@ -138,9 +138,9 @@ Generated JSON evidence remains under `target/performance/` and is intentionally
 The refinement quick benchmark remained within the same performance envelope and improved the project cold path relative to its immediate pre-change quick baseline:
 
 | Quick workspace | Pre-change initialize | Refined initialize | Pre-change cold Definition | Refined cold Definition | Pre-change warm p95 | Refined warm p95 |
-| --- | --: | --: | --: | --: | --: | --: |
-| Project | 895.2 ms | 834.1 ms | 123.2 ms | 106.3 ms | 0.2 ms | 0.2 ms |
-| 1,000 | 4.0 ms | 4.1 ms | 39.3 ms | 39.0 ms | 0.1 ms | 0.1 ms |
+| --------------- | --------------------: | -----------------: | -------------------------: | ----------------------: | ------------------: | ---------------: |
+| Project         |              895.2 ms |           834.1 ms |                   123.2 ms |                106.3 ms |              0.2 ms |           0.2 ms |
+| 1,000           |                4.0 ms |             4.1 ms |                    39.3 ms |                 39.0 ms |              0.1 ms |           0.1 ms |
 
 The quick sample is a regression signal rather than a statistically controlled benchmark. It shows no material warm-path or 1,000-entry regression, while managed-scope gating removes analysis and rebuild work for unrelated Markdown.
 

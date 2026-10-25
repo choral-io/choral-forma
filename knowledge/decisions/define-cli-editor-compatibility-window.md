@@ -70,14 +70,14 @@ Managed acquisition keeps exact release identity, asset names, checksums, and ve
 
 The first compatibility window is a two-release bridge:
 
-| Adapter | CLI | Expected result | Evidence |
-| --- | --- | --- | --- |
-| N | N | compatible, no warning | current/current fixture |
-| N+1 | N | compatible when protocol and required capabilities overlap; warn about previous package | current/previous fixture |
-| N | N+1 | compatible when the adapter's range still overlaps; warn about newer package | previous/current fixture |
-| N+1 | N-1 | reject when the bridge no longer overlaps | rejected fixture |
-| any | legacy equal package | accept through legacy fallback; emit warning | legacy fixture |
-| any | malformed or missing required capability | reject safely | malformed/rejected fixture |
+| Adapter | CLI                                      | Expected result                                                                         | Evidence                   |
+| ------- | ---------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------- |
+| N       | N                                        | compatible, no warning                                                                  | current/current fixture    |
+| N+1     | N                                        | compatible when protocol and required capabilities overlap; warn about previous package | current/previous fixture   |
+| N       | N+1                                      | compatible when the adapter's range still overlaps; warn about newer package            | previous/current fixture   |
+| N+1     | N-1                                      | reject when the bridge no longer overlaps                                               | rejected fixture           |
+| any     | legacy equal package                     | accept through legacy fallback; emit warning                                            | legacy fixture             |
+| any     | malformed or missing required capability | reject safely                                                                           | malformed/rejected fixture |
 
 Every release candidate keeps the existing exact asset and SHA-256 verification. It additionally runs the capability probe against the adapter contract fixtures for each shipped CLI artifact and exercises the LSP initialization path with the selected protocol revision. A release may not claim a compatibility window from package-version tests alone.
 

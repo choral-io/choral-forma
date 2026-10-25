@@ -308,16 +308,16 @@ Do not add tests that merely snapshot DaisyUI class strings. If a visual defect 
 
 ### Common Failure Patterns
 
-| Symptom | Likely cause | Preferred response |
-| --- | --- | --- |
-| A control changes height only during expansion | Text appears before enough width exists and wraps | Inspect intermediate frames; set explicit shrink and no-wrap behavior on the correct children |
-| Expanded and collapsed controls have different height | State-specific size classes or different text and icon line boxes | Use one size contract and align intrinsic line height before considering fixed height |
-| Tooltip is hidden behind content | Incorrect Drawer structure, clipping ancestor, or stacking context | Restore documented structure and overflow behavior before adding `z-index` |
-| Page has horizontal overflow | A wide child delegated overflow to the page | Give Table, Kanban, code, or Graph a local overflow owner |
-| Menu stays open after navigation | Open state is independent of SPA route changes | Close on all navigation paths or use a primitive whose lifecycle matches the requirement |
-| UI assumes `Spaces`, fixed Table columns, or a fixed Kanban board | Example data leaked into product structure | Drive labels, columns, and routes from the current configuration and projection |
-| A fix requires editing many wrapper components | Abstraction was created before behavior stabilized | Return to direct feature markup, validate, and reconsider extraction afterward |
-| Static screenshot passes but the user still sees a jump | Only resting states were reviewed | Capture or measure the transition lifecycle in both directions |
+| Symptom                                                           | Likely cause                                                       | Preferred response                                                                            |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| A control changes height only during expansion                    | Text appears before enough width exists and wraps                  | Inspect intermediate frames; set explicit shrink and no-wrap behavior on the correct children |
+| Expanded and collapsed controls have different height             | State-specific size classes or different text and icon line boxes  | Use one size contract and align intrinsic line height before considering fixed height         |
+| Tooltip is hidden behind content                                  | Incorrect Drawer structure, clipping ancestor, or stacking context | Restore documented structure and overflow behavior before adding `z-index`                    |
+| Page has horizontal overflow                                      | A wide child delegated overflow to the page                        | Give Table, Kanban, code, or Graph a local overflow owner                                     |
+| Menu stays open after navigation                                  | Open state is independent of SPA route changes                     | Close on all navigation paths or use a primitive whose lifecycle matches the requirement      |
+| UI assumes `Spaces`, fixed Table columns, or a fixed Kanban board | Example data leaked into product structure                         | Drive labels, columns, and routes from the current configuration and projection               |
+| A fix requires editing many wrapper components                    | Abstraction was created before behavior stabilized                 | Return to direct feature markup, validate, and reconsider extraction afterward                |
+| Static screenshot passes but the user still sees a jump           | Only resting states were reviewed                                  | Capture or measure the transition lifecycle in both directions                                |
 
 ### Stop And Reassess When
 

@@ -1,0 +1,117 @@
+[
+  {
+    "id": "authored-paragraph-lines",
+    "category": "prose",
+    "source": "这是人为保留的第一行，\n这是下一行，语义上仍属于同一段落。\n",
+    "selectors": {
+      "p": 1
+    },
+    "text": []
+  },
+  {
+    "id": "definition-simple",
+    "category": "definition",
+    "source": "术语\n: 第一项定义\n: 第二项定义\n",
+    "selectors": {},
+    "text": []
+  },
+  {
+    "id": "definition-blocks",
+    "category": "definition",
+    "source": "术语\n: 第一段。\n\n    第二段。\n\n    - 子项\n",
+    "selectors": {},
+    "text": []
+  },
+  {
+    "id": "definition-inline",
+    "category": "definition",
+    "source": "术语\n: **定义**，含 $x^2$。\n\n另一个术语\n: 另一定义。\n",
+    "selectors": {},
+    "text": []
+  },
+  {
+    "id": "callout-folded",
+    "category": "callout",
+    "source": "> [!TIP]- **推导**\n>\n> 第一行，\n> 第二行。\n",
+    "selectors": {
+      "aside[data-callout=\"tip\"]": 1,
+      "details:not([open])": 1,
+      "summary strong": 1
+    },
+    "text": []
+  },
+  {
+    "id": "callout-combination",
+    "category": "callout",
+    "source": "> [!NOTE] 补充\n>\n> ==重点== 与 $x^2$，m<sup>2</sup>。\n",
+    "selectors": {
+      "aside[data-callout=\"note\"]": 1,
+      "mark": 1,
+      ".katex": 1,
+      "sup": 1
+    },
+    "text": []
+  },
+  {
+    "id": "inline-math-currency",
+    "category": "math",
+    "source": "数值 $2$ 与价格 $5 and $10。\n保留这行的 $x^2$。\n",
+    "selectors": {
+      ".katex": 2,
+      ".katex-display": 0
+    },
+    "text": ["$5 and $10"]
+  },
+  {
+    "id": "display-math",
+    "category": "math",
+    "source": "$$\n\\frac{a+b}{c}\n$$\n",
+    "selectors": {
+      ".katex-display": 1
+    },
+    "text": []
+  },
+  {
+    "id": "fenced-math",
+    "category": "math",
+    "source": "```math\n\\begin{aligned}\na &= b+c \\\\\nd &= e\n\\end{aligned}\n```\n",
+    "selectors": {
+      ".katex-display": 1
+    },
+    "text": []
+  },
+  {
+    "id": "details-closed",
+    "category": "disclosure",
+    "source": "<details>\n<summary>补充说明</summary>\n\n第一行，\n保留第二行。\n\n</details>\n",
+    "selectors": {},
+    "text": []
+  },
+  {
+    "id": "details-open-combination",
+    "category": "disclosure",
+    "source": "<details open>\n<summary>推导过程</summary>\n\n## 步骤\n\n第一段，\n保留断行。\n\n$$\nx^2\n$$\n\n</details>\n",
+    "selectors": {},
+    "text": []
+  },
+  {
+    "id": "hard-breaks",
+    "category": "hardbreak",
+    "source": "第一行  \n第二行\\\n第三行\n",
+    "selectors": {
+      "br": 2
+    },
+    "text": []
+  },
+  {
+    "id": "nested-list-hard-breaks",
+    "category": "hardbreak",
+    "source": "- 项目首行  \n  项目续行\n    - 子项\n",
+    "selectors": {
+      "br": 1,
+      "ul": 2,
+      "li": 2
+    },
+    "text": ["项目续行", "子项"]
+  }
+]

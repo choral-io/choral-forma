@@ -77,20 +77,20 @@ The theme copy is a starting point, not an irrevocable design contract. Subseque
 
 ## Target UI Foundation
 
-| Surface | First-cut implementation | Behavior deliberately omitted or simplified |
-| --- | --- | --- |
-| Application shell | Responsive grid with a directly rendered desktop sidebar and a native mobile `<dialog className="modal modal-start">` | No desktop icon-collapse mode, rail, `Cmd+B`, persisted sidebar state, or mirrored React `open` state |
-| Workspace navigation | DaisyUI `menu`; native `<details>` and `<summary>` for nested groups | No generic Collapsible wrapper |
-| Mobile navigation | Native modal dialog; menu activation calls `close("navigate")`; route changes provide a fallback close path | DaisyUI checkbox Drawer was rejected after browser validation; no Base UI Sheet implementation |
-| Transient action menus | DaisyUI Dropdown using the Popover API; route actions call `hidePopover()` | No CSS-focus Dropdown or manual `.blur()` dismissal |
-| Quick Open | DaisyUI `modal` on native `<dialog>` with an input and semantic result buttons/links; the dialog owns its open state | No custom active index, `aria-activedescendant`, arrow-key loop, IME-specific navigation helper, or mirrored React `open` state in the first cut |
-| Reading width | Native `<select>` styled with DaisyUI `select` | No dropdown menu abstraction |
-| Context and Outline | DaisyUI tabs backed by radio inputs on wide layouts | No Headless tabs dependency |
-| Mobile Context | Inline DaisyUI `collapse` or native `<details>` | No right-side Sheet |
-| Dashboard summaries | DaisyUI `card`, `stats`, `list`, and responsive `table` patterns | No wrapper component for each presentational primitive |
-| Diagnostics | DaisyUI `alert`, `badge`, and `status` | No bespoke status palette |
-| Loading | DaisyUI `loading` | No custom skeleton system unless measured loading behavior requires it |
-| Tooltips | Omit non-essential tooltips; retain accessible names | No application-wide Tooltip provider |
+| Surface                | First-cut implementation                                                                                              | Behavior deliberately omitted or simplified                                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Application shell      | Responsive grid with a directly rendered desktop sidebar and a native mobile `<dialog className="modal modal-start">` | No desktop icon-collapse mode, rail, `Cmd+B`, persisted sidebar state, or mirrored React `open` state                                            |
+| Workspace navigation   | DaisyUI `menu`; native `<details>` and `<summary>` for nested groups                                                  | No generic Collapsible wrapper                                                                                                                   |
+| Mobile navigation      | Native modal dialog; menu activation calls `close("navigate")`; route changes provide a fallback close path           | DaisyUI checkbox Drawer was rejected after browser validation; no Base UI Sheet implementation                                                   |
+| Transient action menus | DaisyUI Dropdown using the Popover API; route actions call `hidePopover()`                                            | No CSS-focus Dropdown or manual `.blur()` dismissal                                                                                              |
+| Quick Open             | DaisyUI `modal` on native `<dialog>` with an input and semantic result buttons/links; the dialog owns its open state  | No custom active index, `aria-activedescendant`, arrow-key loop, IME-specific navigation helper, or mirrored React `open` state in the first cut |
+| Reading width          | Native `<select>` styled with DaisyUI `select`                                                                        | No dropdown menu abstraction                                                                                                                     |
+| Context and Outline    | DaisyUI tabs backed by radio inputs on wide layouts                                                                   | No Headless tabs dependency                                                                                                                      |
+| Mobile Context         | Inline DaisyUI `collapse` or native `<details>`                                                                       | No right-side Sheet                                                                                                                              |
+| Dashboard summaries    | DaisyUI `card`, `stats`, `list`, and responsive `table` patterns                                                      | No wrapper component for each presentational primitive                                                                                           |
+| Diagnostics            | DaisyUI `alert`, `badge`, and `status`                                                                                | No bespoke status palette                                                                                                                        |
+| Loading                | DaisyUI `loading`                                                                                                     | No custom skeleton system unless measured loading behavior requires it                                                                           |
+| Tooltips               | Omit non-essential tooltips; retain accessible names                                                                  | No application-wide Tooltip provider                                                                                                             |
 
 Quick Open retains opening from the application control, initial focus, text filtering, Tab navigation, Enter or form submission, pointer activation, Escape dismissal, an accessible title, and a clear empty state. Browser validation must confirm focus return and modal dismissal before the old dialog layer is deleted.
 
@@ -98,13 +98,13 @@ Quick Open retains opening from the application control, initial focus, text fil
 
 Use the narrowest state owner that already expresses the interaction:
 
-| Interaction | State owner | Open and close mechanism | SPA activation behavior |
-| --- | --- | --- | --- |
-| Mobile navigation | Native modal `<dialog>` | A button calls `showModal()`; Escape, method-dialog backdrop, or local code calls `close()` | Every navigation item calls `close("navigate")`; a location-change effect is the fallback for programmatic navigation and history traversal |
-| Dropdown | Native Popover API with `popover="auto"` | `popovertarget`, browser light dismissal, and `hidePopover()` | Every navigation or action item calls `hidePopover()`; do not rely on focus moving away |
-| Inline disclosure | Native `<details>` and `<summary>` | Browser-owned `open` state | Keep the disclosure open by default; set `details.open = false` only when the product behavior explicitly requires it |
-| Modal and Quick Open | Native `<dialog>` | `showModal()`, `close()`, method-dialog controls, and Escape | Close through the dialog API; route-level focus handling owns focus placement after successful navigation |
-| Tabs and simple selectors | Native radio, checkbox, or select state | Browser form-control behavior | Preserve state only when it remains meaningful on the destination route |
+| Interaction               | State owner                              | Open and close mechanism                                                                    | SPA activation behavior                                                                                                                     |
+| ------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mobile navigation         | Native modal `<dialog>`                  | A button calls `showModal()`; Escape, method-dialog backdrop, or local code calls `close()` | Every navigation item calls `close("navigate")`; a location-change effect is the fallback for programmatic navigation and history traversal |
+| Dropdown                  | Native Popover API with `popover="auto"` | `popovertarget`, browser light dismissal, and `hidePopover()`                               | Every navigation or action item calls `hidePopover()`; do not rely on focus moving away                                                     |
+| Inline disclosure         | Native `<details>` and `<summary>`       | Browser-owned `open` state                                                                  | Keep the disclosure open by default; set `details.open = false` only when the product behavior explicitly requires it                       |
+| Modal and Quick Open      | Native `<dialog>`                        | `showModal()`, `close()`, method-dialog controls, and Escape                                | Close through the dialog API; route-level focus handling owns focus placement after successful navigation                                   |
+| Tabs and simple selectors | Native radio, checkbox, or select state  | Browser form-control behavior                                                               | Preserve state only when it remains meaningful on the destination route                                                                     |
 
 State ownership priority is native element state, native form-control state, imperative DOM dismissal through a local ref, then React controlled state. Do not mirror `open`, `checked`, or `details.open` in React merely to add an `onClick` close path.
 

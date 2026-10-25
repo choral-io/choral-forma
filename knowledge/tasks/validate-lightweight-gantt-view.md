@@ -157,12 +157,12 @@ Proposed interactive range controls are previous/next, Today, and a native month
 
 ### Bounded Execution Sequence
 
-| Stage | Deliverable | Exit condition |
-| --- | --- | --- |
-| A — contract and fixtures | Proposed bindings, temporal/milestone/dependency rules, diagnostic cases, cross-surface matrix, seeded synthetic fixture manifest | Decisions reviewed; provenance and expected results explicit; no production mode registered |
-| B — isolated layout validation | One-scroll-owner timeline, title links, clipped bars, keyboard list fallback, dependency-list versus selected-row SVG comparison | Long titles, DST/cross-month spans, zoom/browser resizing, light/dark, and narrow-screen behavior verified |
-| C — correctness and scale | Temporal/reference oracle results and measured 30/1000/5000-row sparse/dense/long-span datasets | Actual bottlenecks recorded; explicit go/no-go and any windowing/range proposal; no guessed performance claim |
-| D — production implementation proposal | Final DSL/projection, file-level work slices, migration/compatibility notes, acceptance criteria | User approval before production integration or creating implementation Tasks |
+| Stage                                  | Deliverable                                                                                                                       | Exit condition                                                                                                |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| A — contract and fixtures              | Proposed bindings, temporal/milestone/dependency rules, diagnostic cases, cross-surface matrix, seeded synthetic fixture manifest | Decisions reviewed; provenance and expected results explicit; no production mode registered                   |
+| B — isolated layout validation         | One-scroll-owner timeline, title links, clipped bars, keyboard list fallback, dependency-list versus selected-row SVG comparison  | Long titles, DST/cross-month spans, zoom/browser resizing, light/dark, and narrow-screen behavior verified    |
+| C — correctness and scale              | Temporal/reference oracle results and measured 30/1000/5000-row sparse/dense/long-span datasets                                   | Actual bottlenecks recorded; explicit go/no-go and any windowing/range proposal; no guessed performance claim |
+| D — production implementation proposal | Final DSL/projection, file-level work slices, migration/compatibility notes, acceptance criteria                                  | User approval before production integration or creating implementation Tasks                                  |
 
 Stage B may use fixture data with explicit expected spans, but must not introduce a second production temporal evaluator. Shared temporal extraction belongs to the approved integration slice, not to preparation or a visual prototype.
 

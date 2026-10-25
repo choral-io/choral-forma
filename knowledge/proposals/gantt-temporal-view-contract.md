@@ -160,14 +160,14 @@ Order matters and was derived from a failure. Classifying by distinct target ins
 
 Selection membership is still checked before temporal usability, so a target outside the selected set never has its content inspected. The resulting states are:
 
-| State | Detection | Projection result |
-| --- | --- | --- |
-| Anchored | Both the predecessor and declaring node have usable intervals | Listed predecessor and an edge with status `anchored` |
-| Unanchored | Either selected endpoint is unscheduled or temporally invalid | Listed predecessor and an edge with status `unanchored`; both endpoints still appear as nodes with paths and titles |
-| Outside selection | Target resolves but is excluded by source, query, or surface availability | Counted only; no path, title, label, or link is emitted |
-| Unresolved | Declared in the bound field but absent from resolved references | Counted only; the existing index diagnostic remains the locatable source of truth |
-| Duplicate | The same resolved target is declared more than once on the bound field | Surplus counted only; the first declaration determines whether an edge is emitted |
-| Self reference | The target is the declaring entry | Counted only; the edge is dropped and the row is retained |
+| State             | Detection                                                                 | Projection result                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Anchored          | Both the predecessor and declaring node have usable intervals             | Listed predecessor and an edge with status `anchored`                                                               |
+| Unanchored        | Either selected endpoint is unscheduled or temporally invalid             | Listed predecessor and an edge with status `unanchored`; both endpoints still appear as nodes with paths and titles |
+| Outside selection | Target resolves but is excluded by source, query, or surface availability | Counted only; no path, title, label, or link is emitted                                                             |
+| Unresolved        | Declared in the bound field but absent from resolved references           | Counted only; the existing index diagnostic remains the locatable source of truth                                   |
+| Duplicate         | The same resolved target is declared more than once on the bound field    | Surplus counted only; the first declaration determines whether an edge is emitted                                   |
+| Self reference    | The target is the declaring entry                                         | Counted only; the edge is dropped and the row is retained                                                           |
 
 The counts must close for every node: `declared` equals listed predecessors plus `outsideSelection` plus `unresolved` plus `duplicates` plus `selfReferences`. This is a consequence of per-item classification rather than an extra rule, and an implementation where it fails has misclassified rather than miscounted. A four-state model was derived first and measured not to balance, because a duplicate declaration and a dropped self reference each vanished from the arithmetic; classifying distinct targets rather than authored items then made two buckets overlap. Both failures are why the precedence above is normative.
 
@@ -296,19 +296,19 @@ Require `candidates` to equal `nodes` length, and `scheduled` plus `unscheduled`
 
 ### Diagnostics
 
-| Proposed code | Severity and behavior |
-| --- | --- |
-| `view.ganttBindingInvalid` | Error on View configuration; missing or malformed binding syntax, unsupported `relation`, or unknown key; no projection |
-| `view.ganttTimezoneInvalid` | Error on View with workspace timezone context; no projection |
-| `view.ganttFieldTypeInvalid` | Warning on candidate field; absent, conflicting, or unsupported start/end schema type; count candidate as invalid |
-| `view.ganttDateInvalid` | Warning on candidate field; malformed or nonexistent date or instant; count candidate as invalid |
-| `view.ganttIntervalInvalid` | Warning on candidate field; reversed or mixed interval, orphan end, or normalization overflow; count candidate as invalid |
-| `view.ganttMilestoneFieldInvalid` | Warning on the View binding; the milestone binding does not resolve to a scalar `boolean` schema field. Never emitted for a non-boolean **value**, which workspace schema validation already rejects as `schema.type.invalid`. Rows keep their intervals and stay unmarked |
-| `view.ganttProgressFieldInvalid` | Warning on the View binding; the progress binding does not resolve to a scalar `integer` schema field. Collapsed like other binding-type failures. Never emitted for a non-integer **value**, which schema validation already rejects |
-| `view.ganttProgressInvalid` | Warning on the candidate field; an integer outside `0`–`100`. The entry keeps its interval and carries no progress |
-| `view.ganttDependencyFieldInvalid` | Warning on candidate field; dependency binding does not resolve to a reference or list of references; row keeps its interval with no dependencies |
-| `view.ganttDependencySelf` | Warning on candidate field; entry declares itself as a predecessor; edge dropped, row retained |
-| `view.ganttDependencyCycle` | Warning on the View, listing participating paths in stable order; all rows and edges retained |
+| Proposed code                      | Severity and behavior                                                                                                                                                                                                                                                      |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `view.ganttBindingInvalid`         | Error on View configuration; missing or malformed binding syntax, unsupported `relation`, or unknown key; no projection                                                                                                                                                    |
+| `view.ganttTimezoneInvalid`        | Error on View with workspace timezone context; no projection                                                                                                                                                                                                               |
+| `view.ganttFieldTypeInvalid`       | Warning on candidate field; absent, conflicting, or unsupported start/end schema type; count candidate as invalid                                                                                                                                                          |
+| `view.ganttDateInvalid`            | Warning on candidate field; malformed or nonexistent date or instant; count candidate as invalid                                                                                                                                                                           |
+| `view.ganttIntervalInvalid`        | Warning on candidate field; reversed or mixed interval, orphan end, or normalization overflow; count candidate as invalid                                                                                                                                                  |
+| `view.ganttMilestoneFieldInvalid`  | Warning on the View binding; the milestone binding does not resolve to a scalar `boolean` schema field. Never emitted for a non-boolean **value**, which workspace schema validation already rejects as `schema.type.invalid`. Rows keep their intervals and stay unmarked |
+| `view.ganttProgressFieldInvalid`   | Warning on the View binding; the progress binding does not resolve to a scalar `integer` schema field. Collapsed like other binding-type failures. Never emitted for a non-integer **value**, which schema validation already rejects                                      |
+| `view.ganttProgressInvalid`        | Warning on the candidate field; an integer outside `0`–`100`. The entry keeps its interval and carries no progress                                                                                                                                                         |
+| `view.ganttDependencyFieldInvalid` | Warning on candidate field; dependency binding does not resolve to a reference or list of references; row keeps its interval with no dependencies                                                                                                                          |
+| `view.ganttDependencySelf`         | Warning on candidate field; entry declares itself as a predecessor; edge dropped, row retained                                                                                                                                                                             |
+| `view.ganttDependencyCycle`        | Warning on the View, listing participating paths in stable order; all rows and edges retained                                                                                                                                                                              |
 
 Emit one primary reason per excluded entry in stable order, checking start and type before end and interval. Gantt warnings never downgrade existing errors, and existing schema and reference diagnostics remain authoritative. Missing optional dates and missing optional dependency fields are not diagnostics. A target outside selection is an expected consequence of the configured source and is never a diagnostic; it appears only as a count.
 
@@ -325,12 +325,12 @@ A binding-type failure is a View configuration problem even when it manifests pe
 
 ### Rendering and Surface Capabilities
 
-| Surface | Initial capability | Range and dependency behavior |
-| --- | --- | --- |
-| Core / CLI / RPC | Complete typed node list, row geometry, edges, counts, diagnostics | Deterministic for the same snapshot; no injected current timestamp |
-| WebApp | Sticky title column and date header in one local scroll region, day-resolution bars, continuous horizontal scrolling, Today, date jump, day-width selection | One uninterrupted track over the whole data extent, extended on demand at either edge; per-row predecessor list; all anchored connectors at every row count; complete list reachable at every width |
-| Static HTML | Deterministic interval and predecessor list for every node, with unscheduled and invalid nodes stated as such | Complete data, no timeline geometry, no dependence on build date, no broken links to unavailable targets |
-| VS Code | Same complete interval and predecessor list | Host navigation and theme adaptation |
+| Surface          | Initial capability                                                                                                                                          | Range and dependency behavior                                                                                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core / CLI / RPC | Complete typed node list, row geometry, edges, counts, diagnostics                                                                                          | Deterministic for the same snapshot; no injected current timestamp                                                                                                                                  |
+| WebApp           | Sticky title column and date header in one local scroll region, day-resolution bars, continuous horizontal scrolling, Today, date jump, day-width selection | One uninterrupted track over the whole data extent, extended on demand at either edge; per-row predecessor list; all anchored connectors at every row count; complete list reachable at every width |
+| Static HTML      | Deterministic interval and predecessor list for every node, with unscheduled and invalid nodes stated as such                                               | Complete data, no timeline geometry, no dependence on build date, no broken links to unavailable targets                                                                                            |
+| VS Code          | Same complete interval and predecessor list                                                                                                                 | Host navigation and theme adaptation                                                                                                                                                                |
 
 The WebApp timeline uses exactly one scroll owner so row alignment never requires synchronized scroll containers. Render one bar per row plus shared date ticks and background rules, never a cell per row-day pair.
 
@@ -404,51 +404,51 @@ All fixtures are synthetic and seeded. Synthetic results demonstrate capability 
 
 Fixtures use a neutral exhibition-preparation domain at a nonstandard configuration path, with schema fields `startsOn`, `endsOn`, `isMilestone`, and `predecessors`. They never modify this repository's Tasks or their dates. Generator seed `20260922` is fixed and recorded with every measurement, together with row and edge counts, span distribution, machine, build profile, and commit.
 
-| Fixture | Rows | Purpose |
-| --- | --- | --- |
-| `gantt-oracle` | 30 | Hand-authored expected results for every temporal, milestone, and dependency case below |
-| `gantt-sparse` | 1000 | Seeded rows, short spans, low edge density, scattered across one year |
-| `gantt-dense` | 1000 | Seeded rows concentrated in one month with high overlap and high edge density |
-| `gantt-longspan` | 1000 | Seeded multi-year spans crossing DST and year boundaries |
-| `gantt-scale` | 5000 | Seeded mixed distribution for the upper scale sample |
-| `gantt-degenerate` | 30 | Empty source, all-unscheduled source, all-invalid source, and a source whose every dependency target is outside selection |
+| Fixture            | Rows | Purpose                                                                                                                   |
+| ------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------- |
+| `gantt-oracle`     | 30   | Hand-authored expected results for every temporal, milestone, and dependency case below                                   |
+| `gantt-sparse`     | 1000 | Seeded rows, short spans, low edge density, scattered across one year                                                     |
+| `gantt-dense`      | 1000 | Seeded rows concentrated in one month with high overlap and high edge density                                             |
+| `gantt-longspan`   | 1000 | Seeded multi-year spans crossing DST and year boundaries                                                                  |
+| `gantt-scale`      | 5000 | Seeded mixed distribution for the upper scale sample                                                                      |
+| `gantt-degenerate` | 30   | Empty source, all-unscheduled source, all-invalid source, and a source whose every dependency target is outside selection |
 
 Each fixture records its expected counts, expected row order, and expected edge set as data alongside the workspace, so a prototype run is compared against a written oracle rather than against its own output.
 
 ## Verification Cases
 
-| Case | Expected result |
-| --- | --- |
-| date `2028-02-29`, no end | `firstDate` `2028-02-29`, `afterLastDate` `2028-03-01`, one column |
-| date `2027-02-29` | Date-invalid diagnostic; excluded, not rolled into March |
-| dates `2027-12-28` through `2028-01-03` | Seven columns spanning the year boundary; one row, one bar |
-| datetime `2026-03-08T00:00:00-05:00` to `2026-03-09T00:00:00-04:00`, America/New_York | 23 elapsed hours, one column of standard width |
-| datetime `2026-11-01T00:00:00-04:00` to `2026-11-02T00:00:00-05:00`, America/New_York | 25 elapsed hours, one column of standard width |
-| point `2026-09-20T16:30:00Z`, Asia/Shanghai | Occupies September 21 with a browser timezone of America/Los_Angeles |
-| datetime end at local midnight | Excludes that midnight's date |
-| offset-free datetime, reversed interval, mixed types, orphan end | Invalid with one primary source-locatable reason each |
-| scalar string field containing `2028-02-29` | Unsupported field type; no date inference |
-| `isMilestone: true` with a seven-day interval | Bar and marker both rendered; no diagnostic |
-| `percentComplete: 40` with an integer binding | Node carries `progress: 40`; the bar renders a 40 percent fill without changing its extent |
-| `percentComplete: 0` | Node carries `progress: 0`, which is distinct from an omitted progress |
-| `percentComplete: 140` or `-5` | No progress on the node; `view.ganttProgressInvalid` against that entry; interval retained |
-| `percentComplete: 0.4` under an integer binding | Rejected by existing schema validation; Gantt adds no diagnostic |
-| progress bound to a `string` or `number` field | Collapsed `view.ganttProgressFieldInvalid`; every entry keeps its interval and carries no progress |
-| progress on an unscheduled entry | Node carries the value; no bar exists to fill |
-| `isMilestone: "yes"` or `isMilestone: 1` | Unmarked row; interval retained; the existing `schema.type.invalid` error is the only diagnostic, and Gantt adds none |
-| point without a milestone binding | Point marker, `milestone` false; not labeled a milestone anywhere |
-| dependency field bound to a list of `task` semantic type | Edges resolve through the named type |
-| dependency field bound to a nested path such as `fields.plan.predecessors` | Matches the dotted index reference path |
-| dependency field bound to a string or enum field | Dependency-field diagnostic; interval retained, no edges |
-| same predecessor declared twice | One edge |
-| entry declares itself | Self diagnostic; edge dropped, row and interval retained |
-| three-entry cycle | Cycle diagnostic naming all three paths; all rows, order, and edges retained |
-| predecessor is unscheduled or temporally invalid | Listed predecessor, edge status `unanchored`, no connector |
-| predecessor excluded by the configured query | `outsideSelection` count only; no path, title, or link anywhere in the output |
-| predecessor target does not exist | `unresolved` count only; existing `entryRef.unresolved` diagnostic is the locatable source |
-| body wikilink to another row, with no frontmatter reference | No edge |
-| empty, all-unscheduled, all-invalid, and all-outside-selection sources | Correct counts and explicit empty states; no fabricated rows or edges |
-| unknown projection kind from a newer backend | Explicit unsupported-projection handling; no Table fallback |
+| Case                                                                                  | Expected result                                                                                                       |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| date `2028-02-29`, no end                                                             | `firstDate` `2028-02-29`, `afterLastDate` `2028-03-01`, one column                                                    |
+| date `2027-02-29`                                                                     | Date-invalid diagnostic; excluded, not rolled into March                                                              |
+| dates `2027-12-28` through `2028-01-03`                                               | Seven columns spanning the year boundary; one row, one bar                                                            |
+| datetime `2026-03-08T00:00:00-05:00` to `2026-03-09T00:00:00-04:00`, America/New_York | 23 elapsed hours, one column of standard width                                                                        |
+| datetime `2026-11-01T00:00:00-04:00` to `2026-11-02T00:00:00-05:00`, America/New_York | 25 elapsed hours, one column of standard width                                                                        |
+| point `2026-09-20T16:30:00Z`, Asia/Shanghai                                           | Occupies September 21 with a browser timezone of America/Los_Angeles                                                  |
+| datetime end at local midnight                                                        | Excludes that midnight's date                                                                                         |
+| offset-free datetime, reversed interval, mixed types, orphan end                      | Invalid with one primary source-locatable reason each                                                                 |
+| scalar string field containing `2028-02-29`                                           | Unsupported field type; no date inference                                                                             |
+| `isMilestone: true` with a seven-day interval                                         | Bar and marker both rendered; no diagnostic                                                                           |
+| `percentComplete: 40` with an integer binding                                         | Node carries `progress: 40`; the bar renders a 40 percent fill without changing its extent                            |
+| `percentComplete: 0`                                                                  | Node carries `progress: 0`, which is distinct from an omitted progress                                                |
+| `percentComplete: 140` or `-5`                                                        | No progress on the node; `view.ganttProgressInvalid` against that entry; interval retained                            |
+| `percentComplete: 0.4` under an integer binding                                       | Rejected by existing schema validation; Gantt adds no diagnostic                                                      |
+| progress bound to a `string` or `number` field                                        | Collapsed `view.ganttProgressFieldInvalid`; every entry keeps its interval and carries no progress                    |
+| progress on an unscheduled entry                                                      | Node carries the value; no bar exists to fill                                                                         |
+| `isMilestone: "yes"` or `isMilestone: 1`                                              | Unmarked row; interval retained; the existing `schema.type.invalid` error is the only diagnostic, and Gantt adds none |
+| point without a milestone binding                                                     | Point marker, `milestone` false; not labeled a milestone anywhere                                                     |
+| dependency field bound to a list of `task` semantic type                              | Edges resolve through the named type                                                                                  |
+| dependency field bound to a nested path such as `fields.plan.predecessors`            | Matches the dotted index reference path                                                                               |
+| dependency field bound to a string or enum field                                      | Dependency-field diagnostic; interval retained, no edges                                                              |
+| same predecessor declared twice                                                       | One edge                                                                                                              |
+| entry declares itself                                                                 | Self diagnostic; edge dropped, row and interval retained                                                              |
+| three-entry cycle                                                                     | Cycle diagnostic naming all three paths; all rows, order, and edges retained                                          |
+| predecessor is unscheduled or temporally invalid                                      | Listed predecessor, edge status `unanchored`, no connector                                                            |
+| predecessor excluded by the configured query                                          | `outsideSelection` count only; no path, title, or link anywhere in the output                                         |
+| predecessor target does not exist                                                     | `unresolved` count only; existing `entryRef.unresolved` diagnostic is the locatable source                            |
+| body wikilink to another row, with no frontmatter reference                           | No edge                                                                                                               |
+| empty, all-unscheduled, all-invalid, and all-outside-selection sources                | Correct counts and explicit empty states; no fabricated rows or edges                                                 |
+| unknown projection kind from a newer backend                                          | Explicit unsupported-projection handling; no Table fallback                                                           |
 
 These were proposed oracles, not completed tests at the preparation stage. Rendering validation covers 1440, 1024, 768, and 390 px in choral-light and choral-dark, long titles, overlapping spans, multi-year spans, keyboard focus and navigation, source navigation, host-local scrolling without root horizontal overflow, range continuation cues, and a clean browser console. Later Playwright and VS Code host results are recorded in [[tasks/validate-lightweight-gantt-view]]; installed Safari/mobile and real screen-reader gaps remain separate rather than implied by those results.
 
@@ -502,13 +502,13 @@ Historical review-stage status: proposed, revised after external design review o
 
 Five findings, all reproduced against the prototype and the source before being accepted, and all folded into the text above.
 
-| Finding | Change |
-| --- | --- |
-| The dependency graph was scoped to entries with usable dates, so edges through unscheduled or invalid entries — and any cycle through one — were lost, and the projection emitted an edge to a node it did not contain | The graph now spans every selected candidate; the projection is normalised into `nodes` plus `rows`, so every edge endpoint resolves |
-| The six states were not mutually exclusive: an entry declaring itself twice produced counts summing to three against two authored items, and the fixture had passed only because it lacked that combination | Classification is now per authored item with an explicit precedence, verified to close across repeated self, outside-selection, unresolved, and mixed cases |
-| Finish-to-start conflict reporting was required of hosts without defining touching endpoints, point comparison, or date against datetime comparison | Conflict reporting is removed from this version. If wanted later, Core defines the comparison and emits the verdict; hosts never derive it |
+| Finding                                                                                                                                                                                                                              | Change                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The dependency graph was scoped to entries with usable dates, so edges through unscheduled or invalid entries — and any cycle through one — were lost, and the projection emitted an edge to a node it did not contain               | The graph now spans every selected candidate; the projection is normalised into `nodes` plus `rows`, so every edge endpoint resolves                                                                                 |
+| The six states were not mutually exclusive: an entry declaring itself twice produced counts summing to three against two authored items, and the fixture had passed only because it lacked that combination                          | Classification is now per authored item with an explicit precedence, verified to close across repeated self, outside-selection, unresolved, and mixed cases                                                          |
+| Finish-to-start conflict reporting was required of hosts without defining touching endpoints, point comparison, or date against datetime comparison                                                                                  | Conflict reporting is removed from this version. If wanted later, Core defines the comparison and emits the verdict; hosts never derive it                                                                           |
 | The collapsed binding diagnostic had no implementable shape against the existing single-`path` `Diagnostic`, and the prose and the verification table disagreed on whether a non-boolean milestone value produces a Gantt diagnostic | The collapsed form is now one View-level diagnostic carrying the count plus at most ten path-ordered samples; the milestone diagnostic covers the binding only, and a bad value is owned solely by schema validation |
-| Out-of-window predecessors were required to be treated as `unanchored` for lack of an element, contradicting the spike that proved geometry needs no element | `unanchored` is now a data fact only; whether to draw an off-window connector is a presentation choice and never a dependency state |
+| Out-of-window predecessors were required to be treated as `unanchored` for lack of an element, contradicting the spike that proved geometry needs no element                                                                         | `unanchored` is now a data fact only; whether to draw an off-window connector is a presentation choice and never a dependency state                                                                                  |
 
 The same review found that continuous scrolling left year boundaries, left-edge viewport preservation, and very long spans unspecified. All three are now stated.
 
@@ -516,11 +516,11 @@ The same review found that continuous scrolling left year boundaries, left-edge 
 
 Three findings, all reproduced before being accepted.
 
-| Finding | Change |
-| --- | --- |
-| The projection example violated four of its own invariants: counts disagreed with the node and row lists, and an edge referenced a node the example did not contain | The example is rebuilt as a complete, valid instance covering all three node statuses and both edge statuses, and now states that it is meant to be checked |
+| Finding                                                                                                                                                                                                                                 | Change                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The projection example violated four of its own invariants: counts disagreed with the node and row lists, and an edge referenced a node the example did not contain                                                                     | The example is rebuilt as a complete, valid instance covering all three node statuses and both edge statuses, and now states that it is meant to be checked                                                                                                                                                                                                                                                      |
 | The revised classification and graph scope were reported as verified, but the generator still walked only scheduled entries with the superseded per-target counting and emitted no node list, so the claim had no reproducible artifact | A conformance checker now builds the projection from real Core output under these rules and asserts every invariant, against fixture entries for a repeated self reference, a repeated outside-selection target, a repeated unresolved target, and cycles through an unscheduled and a temporally invalid entry. The scope correction is measurable: three cycles are found where the superseded logic found one |
-| "No maximum range" was not a substitute for a supported date range and boundary behaviour, and windowing reduces node count without reducing track width | Both hard limits are now specified: the four-digit-year temporal domain Core already enforces, and a measured renderer clamp of 16,777,214 px in Chrome 152 that makes the full domain representable only at the smallest day width. Extension must stop at either limit and say so; a date jump outside the domain is rejected rather than clamped |
+| "No maximum range" was not a substitute for a supported date range and boundary behaviour, and windowing reduces node count without reducing track width                                                                                | Both hard limits are now specified: the four-digit-year temporal domain Core already enforces, and a measured renderer clamp of 16,777,214 px in Chrome 152 that makes the full domain representable only at the smallest day width. Extension must stop at either limit and say so; a date jump outside the domain is rejected rather than clamped                                                              |
 
 At this review stage, validation had exercised these semantics against real Core output and an isolated prototype, and the corrections were folded in above. [[design/gantt-view-validation-2026-09-22]] holds that evidence and concludes **go** for this contract and the layout approach. Validation evidence alone did not accept the design; the later explicit user acceptance recorded above resolved the design decisions listed below.
 

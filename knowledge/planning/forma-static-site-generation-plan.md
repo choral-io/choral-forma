@@ -85,19 +85,19 @@ The Choral Forma official site is the first dogfooding workspace, not a hard-cod
 
 Evidence refreshed on 2026-07-28 from commit `a576c12`:
 
-| Evidence | Current result |
-| --- | --- |
-| `config inspect` and `workspace health` | Passed with no diagnostics or findings |
-| Dogfood command | `forma site build --out <temporary-output> --base-url https://forma.choral.io --json` |
-| Managed entries | 186 |
-| Configured spaces, taxonomies, and Views | 17, 1, and 2 |
-| Artifact routes and HTML pages | 209 and 211 |
-| Resources copied and static assets | 0 and 67 |
-| Artifact bytes and files | 12,562,805 bytes and 470 files |
-| Reproducibility | Repeated builds from the same source state were byte-identical; CI records the run-specific tree digest in the job summary |
-| Artifact scans | No absolute workspace path; no `/rpc` in runtime JS assets; no diagnostics or warnings |
-| Internal-link validation | 3,079 internal links checked with no broken relative or absolute artifact target |
-| Browser validation | Direct static routes, client navigation, Quick Open, metadata updates, encoded paths, and no-JavaScript entry reading passed with no failed request or Forma RPC request |
+| Evidence                                 | Current result                                                                                                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `config inspect` and `workspace health`  | Passed with no diagnostics or findings                                                                                                                                   |
+| Dogfood command                          | `forma site build --out <temporary-output> --base-url https://forma.choral.io --json`                                                                                    |
+| Managed entries                          | 186                                                                                                                                                                      |
+| Configured spaces, taxonomies, and Views | 17, 1, and 2                                                                                                                                                             |
+| Artifact routes and HTML pages           | 209 and 211                                                                                                                                                              |
+| Resources copied and static assets       | 0 and 67                                                                                                                                                                 |
+| Artifact bytes and files                 | 12,562,805 bytes and 470 files                                                                                                                                           |
+| Reproducibility                          | Repeated builds from the same source state were byte-identical; CI records the run-specific tree digest in the job summary                                               |
+| Artifact scans                           | No absolute workspace path; no `/rpc` in runtime JS assets; no diagnostics or warnings                                                                                   |
+| Internal-link validation                 | 3,079 internal links checked with no broken relative or absolute artifact target                                                                                         |
+| Browser validation                       | Direct static routes, client navigation, Quick Open, metadata updates, encoded paths, and no-JavaScript entry reading passed with no failed request or Forma RPC request |
 
 The implementation reused these existing seams:
 
@@ -334,18 +334,18 @@ It excludes waiting for:
 - CI queue time;
 - release approval.
 
-| Phase | Outcome | Target AI Coding hours |
-| --- | --- | --: |
-| 0. Contract and fixture | Freeze command, artifact, route, and acceptance contracts against a small fixture and this workspace | 1.5 |
-| 1. Core static snapshot | One-pass batch export for workspace, entries, references, Views, and resource paths | 4.0 |
-| 2. CLI and static data adapter | `forma site build`, deterministic JSON, embedded assets, `StaticWorkspaceClient`, no RPC | 4.0 |
-| 3. Multi-page HTML and resources | Per-route HTML, static View fallbacks, raw asset copy/rewrite, direct-route support | 4.0 |
-| 4. SEO and official-site composition | Homepage, canonical metadata, Open Graph, sitemap, robots, 404 | 2.5 |
-| 5. CI deployment slice | Build artifact workflow, production deployment gate, same-commit evidence | 1.5 |
-| 6. Validation, docs, and hardening | Automated tests, browser matrix, artifact audit, CLI docs, final checks | 2.5 |
-| **Target total** | Productized static-site build and verified official-site artifact | **20.0** |
-| **Contingency** | Renderer mismatch, asset edge cases, route collisions, hosting integration | **6.0** |
-| **Maximum before re-plan** | Stop and review scope or architecture | **26.0** |
+| Phase                                | Outcome                                                                                              | Target AI Coding hours |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------- | ---------------------: |
+| 0. Contract and fixture              | Freeze command, artifact, route, and acceptance contracts against a small fixture and this workspace |                    1.5 |
+| 1. Core static snapshot              | One-pass batch export for workspace, entries, references, Views, and resource paths                  |                    4.0 |
+| 2. CLI and static data adapter       | `forma site build`, deterministic JSON, embedded assets, `StaticWorkspaceClient`, no RPC             |                    4.0 |
+| 3. Multi-page HTML and resources     | Per-route HTML, static View fallbacks, raw asset copy/rewrite, direct-route support                  |                    4.0 |
+| 4. SEO and official-site composition | Homepage, canonical metadata, Open Graph, sitemap, robots, 404                                       |                    2.5 |
+| 5. CI deployment slice               | Build artifact workflow, production deployment gate, same-commit evidence                            |                    1.5 |
+| 6. Validation, docs, and hardening   | Automated tests, browser matrix, artifact audit, CLI docs, final checks                              |                    2.5 |
+| **Target total**                     | Productized static-site build and verified official-site artifact                                    |               **20.0** |
+| **Contingency**                      | Renderer mismatch, asset edge cases, route collisions, hosting integration                           |                **6.0** |
+| **Maximum before re-plan**           | Stop and review scope or architecture                                                                |               **26.0** |
 
 Expected checkpoints:
 
@@ -619,33 +619,33 @@ Check:
 
 The implementation remained reviewable around capability boundaries:
 
-| Checkpoint | Status | Evidence |
-| --- | --- | --- |
-| Static workspace snapshot | Complete | `dce7fac`, followed by backlink and fixture corrections |
-| Deterministic static artifact builder | Complete | `cd634e7`, followed by activation, lint, and fallback corrections |
-| Crawlable static routes and browser enhancement | Complete | `6556a22` through `50c091a` |
-| Product documentation | Complete | `62458be` |
-| CI artifact verification | Complete | `1da7790` |
-| Final publication, link, and metadata hardening | Complete | `a576c12` |
-| Production deployment | Pending separate approval | No deployment commit, DNS change, or production action has been performed |
+| Checkpoint                                      | Status                    | Evidence                                                                  |
+| ----------------------------------------------- | ------------------------- | ------------------------------------------------------------------------- |
+| Static workspace snapshot                       | Complete                  | `dce7fac`, followed by backlink and fixture corrections                   |
+| Deterministic static artifact builder           | Complete                  | `cd634e7`, followed by activation, lint, and fallback corrections         |
+| Crawlable static routes and browser enhancement | Complete                  | `6556a22` through `50c091a`                                               |
+| Product documentation                           | Complete                  | `62458be`                                                                 |
+| CI artifact verification                        | Complete                  | `1da7790`                                                                 |
+| Final publication, link, and metadata hardening | Complete                  | `a576c12`                                                                 |
+| Production deployment                           | Pending separate approval | No deployment commit, DNS change, or production action has been performed |
 
 Do not commit generated site output unless a later hosting decision explicitly requires repository-published artifacts. Prefer CI artifacts and deployment-provider storage.
 
 ## Risks And Controls
 
-| Risk | Impact | Control |
-| --- | --- | --- |
-| Repeated `render_file` discovery for every entry | Slow or quadratic builds | Add a one-pass batch snapshot over one loaded workspace |
-| Existing WebApp loads data in effects | Empty or skeleton-only generated HTML | Seed semantic Core HTML in every route before client enhancement |
-| Rich browser renderer differs from Core HTML | Content flash or duplicate DOM | Define one enhancement boundary and validate before/after DOM |
-| `/raw/...` assumes a live server | Broken images and workspace logo | Collect, copy, rewrite, and verify referenced resources |
-| Browser router assumes SPA fallback | Direct routes fail on static hosts | Generate route directories with their own `index.html` |
-| Site generator copies arbitrary repository files | Machine-local or unrelated data enters artifact | Use effective-workspace managed entries and referenced-resource collection, not a repository copy |
-| All public records dominate navigation | Official site feels like an internal dashboard | Use hierarchy, homepage composition, labels, taxonomy ordering, and search rather than content hiding |
-| Graph cannot be represented without JavaScript | Empty no-JavaScript View page | Generate a semantic node/link summary and hydrate the interactive Graph |
-| New SSG dependency duplicates Forma semantics | Larger maintenance surface | Use Core HTML, existing WebApp assets, and small templates; do not add Astro in P0 |
-| Deployment changes become coupled to releases | Site updates wait for binary releases | Keep site deployment as a separate same-commit gate |
-| Scope expands into theming or CMS features | AI Coding budget loses meaning | Stop at the agreed feature contract and move deferred needs to follow-up proposals |
+| Risk                                             | Impact                                          | Control                                                                                               |
+| ------------------------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Repeated `render_file` discovery for every entry | Slow or quadratic builds                        | Add a one-pass batch snapshot over one loaded workspace                                               |
+| Existing WebApp loads data in effects            | Empty or skeleton-only generated HTML           | Seed semantic Core HTML in every route before client enhancement                                      |
+| Rich browser renderer differs from Core HTML     | Content flash or duplicate DOM                  | Define one enhancement boundary and validate before/after DOM                                         |
+| `/raw/...` assumes a live server                 | Broken images and workspace logo                | Collect, copy, rewrite, and verify referenced resources                                               |
+| Browser router assumes SPA fallback              | Direct routes fail on static hosts              | Generate route directories with their own `index.html`                                                |
+| Site generator copies arbitrary repository files | Machine-local or unrelated data enters artifact | Use effective-workspace managed entries and referenced-resource collection, not a repository copy     |
+| All public records dominate navigation           | Official site feels like an internal dashboard  | Use hierarchy, homepage composition, labels, taxonomy ordering, and search rather than content hiding |
+| Graph cannot be represented without JavaScript   | Empty no-JavaScript View page                   | Generate a semantic node/link summary and hydrate the interactive Graph                               |
+| New SSG dependency duplicates Forma semantics    | Larger maintenance surface                      | Use Core HTML, existing WebApp assets, and small templates; do not add Astro in P0                    |
+| Deployment changes become coupled to releases    | Site updates wait for binary releases           | Keep site deployment as a separate same-commit gate                                                   |
+| Scope expands into theming or CMS features       | AI Coding budget loses meaning                  | Stop at the agreed feature contract and move deferred needs to follow-up proposals                    |
 
 ## Contingency Triggers
 

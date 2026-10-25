@@ -78,14 +78,14 @@ Compatibility requires an overlap for every required protocol and a supported ve
 
 ## Selection And Fallback Matrix
 
-| Adapter | CLI | Result |
-| --- | --- | --- |
-| N | N | compatible |
-| N+1 | N | compatible when ranges/capabilities overlap; warn about previous package |
-| N | N+1 | compatible when the adapter range still overlaps; warn about newer package |
-| N+1 | N-1 | reject when the two-release bridge no longer overlaps |
-| any | legacy equal package | accept through exact-version fallback with a legacy warning |
-| any | malformed, unknown, or missing required data | reject safely with an actionable instruction |
+| Adapter | CLI                                          | Result                                                                     |
+| ------- | -------------------------------------------- | -------------------------------------------------------------------------- |
+| N       | N                                            | compatible                                                                 |
+| N+1     | N                                            | compatible when ranges/capabilities overlap; warn about previous package   |
+| N       | N+1                                          | compatible when the adapter range still overlaps; warn about newer package |
+| N+1     | N-1                                          | reject when the two-release bridge no longer overlaps                      |
+| any     | legacy equal package                         | accept through exact-version fallback with a legacy warning                |
+| any     | malformed, unknown, or missing required data | reject safely with an actionable instruction                               |
 
 Managed acquisition still prefers the exact extension release and keeps exact asset/checksum identity. A previously installed compatible candidate requires explicit user selection; negotiation must not introduce automatic downgrades, remote manifests, telemetry, or revocation.
 

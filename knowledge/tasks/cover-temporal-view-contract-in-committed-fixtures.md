@@ -98,14 +98,14 @@ The shared Gantt wire fixture now has six candidates, four scheduled rows, one i
 
 Calendar has a separate shared fixture with six candidates, four scheduled events, one invalid candidate, and one unscheduled entry. It covers date and datetime events, timezone projection, classification including unclassified output, and explicitly verifies that Gantt-only `milestone`, `progress`, `dependencies`, `nodes`, and `edges` do not leak into Calendar output.
 
-| Contract feature | Current evidence |
-| --- | --- |
-| Gantt progress, including absent versus zero | `gantt-core.json` plus independent Core assertions; `gantt-progress-labels.json` is consumed by both the shared formatter test and static HTML test |
-| Gantt classification, milestone, date/datetime, scheduled/invalid/unscheduled | Shared Gantt fixture and Core equality test |
-| Gantt anchored/unanchored edges and dependency count closure | Shared Gantt fixture and Core equality test |
-| Calendar date/datetime, timezone, classification, and candidate counts | Separate Calendar fixture and Core equality test |
-| Cross-consumer decoding/rendering | Core, CLI static HTML, shared TypeScript, WebApp RPC/static clients, and VS Code preview tests consume the shared fixtures |
-| Manual Calendar/Gantt coverage | Active cases with stable `CALENDAR-*` and `GANTT-*` assertions in `fixtures/forma-validation/`; dedicated `predecessors` field; non-UTC timestamps; Agenda/list and keyboard instructions |
+| Contract feature                                                              | Current evidence                                                                                                                                                                          |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gantt progress, including absent versus zero                                  | `gantt-core.json` plus independent Core assertions; `gantt-progress-labels.json` is consumed by both the shared formatter test and static HTML test                                       |
+| Gantt classification, milestone, date/datetime, scheduled/invalid/unscheduled | Shared Gantt fixture and Core equality test                                                                                                                                               |
+| Gantt anchored/unanchored edges and dependency count closure                  | Shared Gantt fixture and Core equality test                                                                                                                                               |
+| Calendar date/datetime, timezone, classification, and candidate counts        | Separate Calendar fixture and Core equality test                                                                                                                                          |
+| Cross-consumer decoding/rendering                                             | Core, CLI static HTML, shared TypeScript, WebApp RPC/static clients, and VS Code preview tests consume the shared fixtures                                                                |
+| Manual Calendar/Gantt coverage                                                | Active cases with stable `CALENDAR-*` and `GANTT-*` assertions in `fixtures/forma-validation/`; dedicated `predecessors` field; non-UTC timestamps; Agenda/list and keyboard instructions |
 
 The Forma validation corpus passes `check` and `workspace health` with no diagnostics. Calendar and Gantt renders each report four candidates, three scheduled and one unscheduled, with no invalid entries. In Gantt, the unscheduled predecessor relationship remains in the complete list and produces an unanchored edge without a timeline bar or connector.
 

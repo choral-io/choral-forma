@@ -132,24 +132,24 @@ Require `candidates = scheduled + unscheduled + invalid`, with scheduled equal t
 
 ### Diagnostics
 
-| Proposed code | Severity and behavior |
-| --- | --- |
-| `view.calendarBindingInvalid` | Error on View configuration; missing/invalid binding syntax or unsupported settings; no projection |
-| `view.calendarTimezoneInvalid` | Error on View with workspace timezone context; no projection |
-| `view.calendarFieldTypeInvalid` | Warning on candidate field; absent, conflicting, or unsupported schema type; count candidate as invalid |
-| `view.calendarDateInvalid` | Warning on candidate field; malformed or nonexistent date/instant; count candidate as invalid |
-| `view.calendarIntervalInvalid` | Warning on candidate field; reversed/mixed interval, orphan end, or normalization overflow; count candidate as invalid |
+| Proposed code                   | Severity and behavior                                                                                                  |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `view.calendarBindingInvalid`   | Error on View configuration; missing/invalid binding syntax or unsupported settings; no projection                     |
+| `view.calendarTimezoneInvalid`  | Error on View with workspace timezone context; no projection                                                           |
+| `view.calendarFieldTypeInvalid` | Warning on candidate field; absent, conflicting, or unsupported schema type; count candidate as invalid                |
+| `view.calendarDateInvalid`      | Warning on candidate field; malformed or nonexistent date/instant; count candidate as invalid                          |
+| `view.calendarIntervalInvalid`  | Warning on candidate field; reversed/mixed interval, orphan end, or normalization overflow; count candidate as invalid |
 
 Retain existing schema diagnostics and operation status aggregation. Calendar warnings do not downgrade existing errors. Include candidate path and the existing frontmatter field location; reference the View binding in the message. Emit one primary Calendar reason per excluded entry in stable order, with start/type checks before end/interval checks. Missing optional dates are not errors.
 
 ### Rendering and Surface Capabilities
 
-| Surface | Initial capability | Range and time behavior |
-| --- | --- | --- |
-| Core / CLI / RPC | Complete typed event and unscheduled projection with diagnostics | Deterministic for the same snapshot; no injected current timestamp |
-| WebApp | Month grid, Agenda, previous/next month, Today, entry navigation | Initially current month in workspace timezone; full projection permits navigation without new RPC parameters |
-| Static HTML | Date-grouped semantic Agenda and unscheduled links | All events, grouped by firstDate; each event once with its full range; no dependence on build date |
-| VS Code | Date-grouped semantic Agenda and unscheduled links | Same complete Agenda; host navigation and theme adaptation |
+| Surface          | Initial capability                                               | Range and time behavior                                                                                      |
+| ---------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Core / CLI / RPC | Complete typed event and unscheduled projection with diagnostics | Deterministic for the same snapshot; no injected current timestamp                                           |
+| WebApp           | Month grid, Agenda, previous/next month, Today, entry navigation | Initially current month in workspace timezone; full projection permits navigation without new RPC parameters |
+| Static HTML      | Date-grouped semantic Agenda and unscheduled links               | All events, grouped by firstDate; each event once with its full range; no dependence on build date           |
+| VS Code          | Date-grouped semantic Agenda and unscheduled links               | Same complete Agenda; host navigation and theme adaptation                                                   |
 
 The WebApp Agenda lists events overlapping the selected month once, including intervals that started in an earlier month. The grid clips civil spans to its visible cells, using `firstDate < rangeEnd && afterLastDate > rangeStart`. Month navigation uses civil year/month arithmetic, and grid generation uses calendar dates. Do not divide local elapsed milliseconds by 86400000 to obtain columns.
 
@@ -169,23 +169,23 @@ Update Core, RPC serialization/consumer tests, CLI static rendering, WebApp proj
 
 ## Verification Cases
 
-| Case | Expected result |
-| --- | --- |
-| date `2028-02-29`, no end | firstDate `2028-02-29`, afterLastDate `2028-03-01` |
-| date `2027-02-29` | Date-invalid diagnostic; excluded, not rolled into March |
-| dates `2028-02-28` through `2028-03-01` | Three covered days; appears in February and March |
-| date start=end `2028-03-01` | One all-day event |
-| datetime `2026-03-08T00:00:00-05:00` to `2026-03-09T00:00:00-04:00`, America/New_York | 23 elapsed hours, one covered calendar date: March 8 |
-| datetime `2026-11-01T00:00:00-04:00` to `2026-11-02T00:00:00-05:00`, America/New_York | 25 elapsed hours, one covered calendar date: November 1 |
-| point `2026-09-20T16:30:00Z`, Asia/Shanghai | Occupies September 21 even when browser timezone is America/Los_Angeles |
-| datetime end at local midnight | Excludes that midnight's date |
-| offset-free datetime, reversed interval, mixed types, orphan end | Invalid with source-locatable reason |
-| scalar string field containing `2028-02-29` | Unsupported field type; no date inference |
-| typed missing start, no end | Unscheduled; linked once in the unscheduled list |
-| multiple applicable declarations with date/string conflict | Invalid rather than selecting a schema arbitrarily |
-| empty source, all-unscheduled source, all-invalid source | Correct counts and empty states; no fabricated events |
-| very long multi-year interval | One event in output; only visible grid cells are rendered |
-| unknown projection kind from a newer backend | Explicit unsupported-projection handling; no Table crash |
+| Case                                                                                  | Expected result                                                         |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| date `2028-02-29`, no end                                                             | firstDate `2028-02-29`, afterLastDate `2028-03-01`                      |
+| date `2027-02-29`                                                                     | Date-invalid diagnostic; excluded, not rolled into March                |
+| dates `2028-02-28` through `2028-03-01`                                               | Three covered days; appears in February and March                       |
+| date start=end `2028-03-01`                                                           | One all-day event                                                       |
+| datetime `2026-03-08T00:00:00-05:00` to `2026-03-09T00:00:00-04:00`, America/New_York | 23 elapsed hours, one covered calendar date: March 8                    |
+| datetime `2026-11-01T00:00:00-04:00` to `2026-11-02T00:00:00-05:00`, America/New_York | 25 elapsed hours, one covered calendar date: November 1                 |
+| point `2026-09-20T16:30:00Z`, Asia/Shanghai                                           | Occupies September 21 even when browser timezone is America/Los_Angeles |
+| datetime end at local midnight                                                        | Excludes that midnight's date                                           |
+| offset-free datetime, reversed interval, mixed types, orphan end                      | Invalid with source-locatable reason                                    |
+| scalar string field containing `2028-02-29`                                           | Unsupported field type; no date inference                               |
+| typed missing start, no end                                                           | Unscheduled; linked once in the unscheduled list                        |
+| multiple applicable declarations with date/string conflict                            | Invalid rather than selecting a schema arbitrarily                      |
+| empty source, all-unscheduled source, all-invalid source                              | Correct counts and empty states; no fabricated events                   |
+| very long multi-year interval                                                         | One event in output; only visible grid cells are rendered               |
+| unknown projection kind from a newer backend                                          | Explicit unsupported-projection handling; no Table crash                |
 
 These are proposed test oracles, not completed implementation tests. Add year-boundary, four-digit overflow, nested-field, named enum/reference rejection, and sorting tie cases in the focused suite. Verify static output from two independent builds of the same input, including execution under different host timezones.
 

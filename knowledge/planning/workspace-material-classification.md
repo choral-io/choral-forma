@@ -21,17 +21,17 @@ Classify workspace material for [[tasks/migrate-repository-knowledge-content]] w
 
 ## Previously Considered Workspace Material
 
-| Path | Classification | Rationale |
-| --- | --- | --- |
-| `knowledge/workspace/tiscs/handoffs/forma-markdown-parser-spike.md` | Retain as working context | Historical handoff that explains a parser spike. It is useful as source context but not an accepted architecture decision. |
+| Path                                                                         | Classification            | Rationale                                                                                                                                                   |
+| ---------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `knowledge/workspace/tiscs/handoffs/forma-markdown-parser-spike.md`          | Retain as working context | Historical handoff that explains a parser spike. It is useful as source context but not an accepted architecture decision.                                  |
 | `knowledge/workspace/tiscs/handoffs/forma-starter-kit-to-system-refactor.md` | Retain as working context | Historical execution handoff for the starter-kit refactor. Durable decisions have been moved into product, architecture, tasks, and starter-kit test cases. |
 
 ## Not Promoted To Canonical Spaces
 
-| Path pattern | Classification | Rationale |
-| --- | --- | --- |
-| `knowledge/workspace/*/local/**` | Omit | Local-only execution context, drafts, logs, and worklists are not shared project facts. |
-| `knowledge/workspace/*/handoffs/**` | Retain as working context | Handoffs can remain in member workspace folders as background but are not indexed by default. Promote durable context to a canonical space when it becomes current project knowledge. |
+| Path pattern                        | Classification            | Rationale                                                                                                                                                                                                                                |
+| ----------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `knowledge/workspace/*/local/**`    | Omit                      | Local-only execution context, drafts, logs, and worklists are not shared project facts.                                                                                                                                                  |
+| `knowledge/workspace/*/handoffs/**` | Retain as working context | Handoffs can remain in member workspace folders as background but are not indexed by default. Promote durable context to a canonical space when it becomes current project knowledge.                                                    |
 | `knowledge/workspace/*/research/**` | Retain as working context | Research notes can remain in member workspace folders as background but are not indexed by default. Promote durable synthesis to `discovery`, `architecture`, or `product` only when a current decision or implementation task needs it. |
 
 ## Outcome

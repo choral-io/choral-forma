@@ -110,10 +110,10 @@ flowchart TD
 
 ## Wide Markdown Table
 
-| Assertion | Surface | Viewport | Owner | Reviewer | Expected overflow owner | Deliberately long diagnostic value | Result |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| READ-005 | Reader | 390 px | Avery Chen | Morgan Lee | Markdown table wrapper | `diagnostic://reader/wide-table/the-content-region-must-scroll-without-expanding-the-application-root` | Pending |
-| TABLE-001 | Table | 1440 px | Jordan Rivera | Samira Okafor | Projection table rail | `diagnostic://projection/table/header-and-body-columns-remain-aligned-at-the-rightmost-scroll-position` | Pending |
+| Assertion | Surface | Viewport | Owner         | Reviewer      | Expected overflow owner | Deliberately long diagnostic value                                                                      | Result  |
+| --------- | ------- | -------- | ------------- | ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------- | ------- |
+| READ-005  | Reader  | 390 px   | Avery Chen    | Morgan Lee    | Markdown table wrapper  | `diagnostic://reader/wide-table/the-content-region-must-scroll-without-expanding-the-application-root`  | Pending |
+| TABLE-001 | Table   | 1440 px  | Jordan Rivera | Samira Okafor | Projection table rail   | `diagnostic://projection/table/header-and-body-columns-remain-aligned-at-the-rightmost-scroll-position` | Pending |
 
 ## Local Media
 

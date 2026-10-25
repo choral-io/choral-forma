@@ -36,11 +36,11 @@ Slices 1 through 4 are contract plumbing with no visible product change. Slice 5
 
 Behavior-preserving refactor. Gantt is now the second real consumer, which is the condition the contract set for this extraction; doing it as its own slice keeps the Gantt diff free of Calendar churn.
 
-| Files | Change |
-| --- | --- |
+| Files                                      | Change                                                                                                                  |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | `crates/forma-core/src/render/temporal.rs` | New. Civil-date parsing, offset-instant parsing, endpoint normalization, civil-span derivation, and structured failures |
-| `crates/forma-core/src/render/calendar.rs` | Consume the module; keep Calendar-specific binding, diagnostics, and projection assembly local |
-| `crates/forma-core/src/render.rs` | Module declaration only |
+| `crates/forma-core/src/render/calendar.rs` | Consume the module; keep Calendar-specific binding, diagnostics, and projection assembly local                          |
+| `crates/forma-core/src/render.rs`          | Module declaration only                                                                                                 |
 
 The module accepts the loaded model, configuration, and explicit bindings, returns normalized values plus structured failures, and performs no workspace loading or filesystem traversal. It owns no diagnostic codes: each adapter maps failures into its own namespace.
 
@@ -55,12 +55,12 @@ The module accepts the loaded model, configuration, and explicit bindings, retur
 
 The substantive slice. Everything in the contract's Schema Binding, Intervals, Dependency Semantics, Projection, and Diagnostics sections lands here.
 
-| Files | Change |
-| --- | --- |
+| Files                                   | Change                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `crates/forma-core/src/render/gantt.rs` | New. Definition and binding parsing with `deny_unknown_fields`; milestone boolean binding; dependency binding resolution; per-item classification with the contract's precedence; deterministic edge dedup on `(from, to)`; self-edge drop; cycle detection over every selected candidate, not only rows; the normalised `nodes` plus `rows` projection; collapsed binding diagnostics with the ten-sample cap |
-| `crates/forma-core/src/render.rs` | `ViewRenderOutput::Gantt` union member; three dispatch sites — the render-required mode allowlist, `view_definition_is_valid`, and the mode match inside `render_view_definition`; re-exports |
-| `crates/forma-core/src/lib.rs` | Export Gantt projection types alongside the Calendar ones |
-| `crates/forma-core/tests/gantt_view.rs` | New. Oracle coverage |
+| `crates/forma-core/src/render.rs`       | `ViewRenderOutput::Gantt` union member; three dispatch sites — the render-required mode allowlist, `view_definition_is_valid`, and the mode match inside `render_view_definition`; re-exports                                                                                                                                                                                                                  |
+| `crates/forma-core/src/lib.rs`          | Export Gantt projection types alongside the Calendar ones                                                                                                                                                                                                                                                                                                                                                      |
+| `crates/forma-core/tests/gantt_view.rs` | New. Oracle coverage                                                                                                                                                                                                                                                                                                                                                                                           |
 
 Two implementation details are non-negotiable because measurement showed the alternatives are wrong. Resolved targets are counted from **index references**, which retain duplicates, never from deduplicated edges. Selection membership is checked **before** temporal usability, so a target outside the selected set is never inspected.
 
@@ -87,11 +87,11 @@ Two implementation details are non-negotiable because measurement showed the alt
 
 ## Slice 3 — Shared wire types
 
-| Files | Change |
-| --- | --- |
-| `packages/shared/src/gantt.ts` | New. Projection types plus pure range and dependency label helpers taking explicit timezone and locale, mirroring the Calendar display-helper boundary |
-| `packages/shared/src/index.ts` | Re-export; add the union member |
-| `packages/shared/src/gantt.test.ts` | New |
+| Files                               | Change                                                                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/shared/src/gantt.ts`      | New. Projection types plus pure range and dependency label helpers taking explicit timezone and locale, mirroring the Calendar display-helper boundary |
+| `packages/shared/src/index.ts`      | Re-export; add the union member                                                                                                                        |
+| `packages/shared/src/gantt.test.ts` | New                                                                                                                                                    |
 
 **Acceptance**
 
@@ -120,9 +120,9 @@ No visible product change. This slice only teaches every consumer that the proje
 
 Both surfaces render a complete, deterministic interval and predecessor list. Neither promises timeline geometry.
 
-| File | Site |
-| --- | --- |
-| `crates/forma-cli/src/static_html.rs` | New `ViewRenderOutput::Gantt` arm beside the Calendar arm |
+| File                                        | Site                                                                    |
+| ------------------------------------------- | ----------------------------------------------------------------------- |
+| `crates/forma-cli/src/static_html.rs`       | New `ViewRenderOutput::Gantt` arm beside the Calendar arm               |
 | `extensions/vscode/src/preview-renderer.ts` | New `case "gantt"` beside the Calendar case, using the shared formatter |
 
 **Acceptance**
@@ -138,12 +138,12 @@ Both surfaces render a complete, deterministic interval and predecessor list. Ne
 
 The largest slice, and the one whose rules are already measured. Everything here is specified in the contract's Rendering and Surface Capabilities section.
 
-| Files | Change |
-| --- | --- |
-| `packages/webapp/src/features/dashboard/gantt-layout.ts` | New. Fixed-epoch column arithmetic, range extension with both hard limits, row and day-label windowing, all feature-local and independent of React |
-| `packages/webapp/src/features/dashboard/ViewGanttProjection.tsx` | New. Lazy-loaded timeline component |
-| `packages/webapp/src/features/dashboard/gantt-layout.test.ts` | New |
-| `packages/webapp/src/features/dashboard/DashboardHome.tsx` | Lazy import, projection dispatch, and the candidate-count branch |
+| Files                                                            | Change                                                                                                                                             |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/webapp/src/features/dashboard/gantt-layout.ts`         | New. Fixed-epoch column arithmetic, range extension with both hard limits, row and day-label windowing, all feature-local and independent of React |
+| `packages/webapp/src/features/dashboard/ViewGanttProjection.tsx` | New. Lazy-loaded timeline component                                                                                                                |
+| `packages/webapp/src/features/dashboard/gantt-layout.test.ts`    | New                                                                                                                                                |
+| `packages/webapp/src/features/dashboard/DashboardHome.tsx`       | Lazy import, projection dispatch, and the candidate-count branch                                                                                   |
 
 **Acceptance**
 
@@ -187,11 +187,11 @@ Geometry comes from row index and date offset arithmetic, never from element rec
 
 ## Slice 8 — Fixtures, documentation, examples
 
-| Files | Change |
-| --- | --- |
-| `examples/getting-started-workspace/.forma/views/` | A Gantt view over the existing configured Tasks, without inventing new date fields for entries that have none |
-| `docs/workspace/views.md` | A Gantt section beside Calendar |
-| `docs/cli/view.md`, `docs/workspace/configuration.md` | Update wherever View modes are enumerated |
+| Files                                                 | Change                                                                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `examples/getting-started-workspace/.forma/views/`    | A Gantt view over the existing configured Tasks, without inventing new date fields for entries that have none |
+| `docs/workspace/views.md`                             | A Gantt section beside Calendar                                                                               |
+| `docs/cli/view.md`, `docs/workspace/configuration.md` | Update wherever View modes are enumerated                                                                     |
 
 **Acceptance**
 

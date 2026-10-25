@@ -79,10 +79,10 @@ Inline code keeps link-looking text inert: `[Example](reference-target.md)`, `[[
 
 ## Formatting Inside Table Cells
 
-| Plain | Emphasis | Code | Link | Escaped |
-| --- | --- | --- | --- | --- |
-| Ordinary text | **Strong** and _emphasis_ | `stage: review` | [Reference target](reference-target.md) | \| literal pipe |
-| Inline math | $x^2 + y^2 = z^2$ | `$x$` | [Math edges](math-and-inline-edge-cases.md) | \$5 |
+| Plain         | Emphasis                  | Code            | Link                                        | Escaped         |
+| ------------- | ------------------------- | --------------- | ------------------------------------------- | --------------- |
+| Ordinary text | **Strong** and _emphasis_ | `stage: review` | [Reference target](reference-target.md)     | \| literal pipe |
+| Inline math   | $x^2 + y^2 = z^2$         | `$x$`           | [Math edges](math-and-inline-edge-cases.md) | \$5             |
 
 ## Related Coverage
 

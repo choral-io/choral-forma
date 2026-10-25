@@ -134,13 +134,13 @@ The React adapter must not duplicate graph construction, reducers, layout, or vi
 
 ## Renderer Comparison
 
-| Approach | Strengths | Risks | Spike decision |
-| --- | --- | --- | --- |
-| Sigma.js + Graphology + ForceAtlas2 worker | Existing Forma dependency and experience; WebGL renderer; Graphology algorithms and metrics; worker layout; good headroom for thousands of elements | custom rendering is harder; canvas/WebGL needs a parallel accessible surface; layout and state must be designed explicitly | Accepted 2D direction |
-| `force-graph` + D3 force | Proven by Foam; fast route to an organic graph; force and interaction controls are straightforward; framework-neutral | live simulation can move excessively; stable refresh needs coordinate reuse and bounded settling; canvas still needs accessible companions | Reference and fallback; do not build a full comparison unless Sigma misses a requirement |
-| Cytoscape.js plus layout extensions | Rich renderer-independent layout ecosystem, including force and hierarchical layouts; strong selector and interaction model | larger conceptual and dependency surface; layout extensions add maintenance; no current Forma reuse | Reserve candidate if the first two cannot meet hierarchical or interaction requirements |
-| `3d-force-graph` plus Three.js | Established WebGL 3D implementation; directional arrows and particles; focus, highlighting, custom node geometry, and dynamic data examples | separate dependency and camera model; label occlusion; higher GPU, memory, accessibility, testing, and bundle costs | Later opt-in 3D experiment, never the first-release default |
-| Custom D3 SVG or Canvas | Maximum visual control; SVG can expose more DOM semantics for small graphs | highest implementation and maintenance cost; SVG density ceiling; repeats interaction, spatial index, and rendering work | Reject for first production implementation |
+| Approach                                   | Strengths                                                                                                                                           | Risks                                                                                                                                      | Spike decision                                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Sigma.js + Graphology + ForceAtlas2 worker | Existing Forma dependency and experience; WebGL renderer; Graphology algorithms and metrics; worker layout; good headroom for thousands of elements | custom rendering is harder; canvas/WebGL needs a parallel accessible surface; layout and state must be designed explicitly                 | Accepted 2D direction                                                                    |
+| `force-graph` + D3 force                   | Proven by Foam; fast route to an organic graph; force and interaction controls are straightforward; framework-neutral                               | live simulation can move excessively; stable refresh needs coordinate reuse and bounded settling; canvas still needs accessible companions | Reference and fallback; do not build a full comparison unless Sigma misses a requirement |
+| Cytoscape.js plus layout extensions        | Rich renderer-independent layout ecosystem, including force and hierarchical layouts; strong selector and interaction model                         | larger conceptual and dependency surface; layout extensions add maintenance; no current Forma reuse                                        | Reserve candidate if the first two cannot meet hierarchical or interaction requirements  |
+| `3d-force-graph` plus Three.js             | Established WebGL 3D implementation; directional arrows and particles; focus, highlighting, custom node geometry, and dynamic data examples         | separate dependency and camera model; label occlusion; higher GPU, memory, accessibility, testing, and bundle costs                        | Later opt-in 3D experiment, never the first-release default                              |
+| Custom D3 SVG or Canvas                    | Maximum visual control; SVG can expose more DOM semantics for small graphs                                                                          | highest implementation and maintenance cost; SVG density ceiling; repeats interaction, spatial index, and rendering work                   | Reject for first production implementation                                               |
 
 The renderer is not the layout. The spike must keep layout, graph state, and host integration behind interfaces so a renderer change does not alter the View or RPC contract.
 
@@ -191,11 +191,11 @@ The first release does not need a user-selectable layout catalog. The architectu
 
 Forma needs three state layers:
 
-| Layer | Examples | Storage |
-| --- | --- | --- |
-| Shared View meaning | source/query, edge rules, optional group definitions, default presentation policy | View Markdown |
-| User/editor preference | default label density, preferred motion behavior beyond OS settings, optional per-host overrides | editor settings or extension storage |
-| Exploration state | viewport, temporary filters, selected node, local depth, adjusted or pinned coordinates, force-panel experiments | editor workspace state or transient memory |
+| Layer                  | Examples                                                                                                         | Storage                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Shared View meaning    | source/query, edge rules, optional group definitions, default presentation policy                                | View Markdown                              |
+| User/editor preference | default label density, preferred motion behavior beyond OS settings, optional per-host overrides                 | editor settings or extension storage       |
+| Exploration state      | viewport, temporary filters, selected node, local depth, adjusted or pinned coordinates, force-panel experiments | editor workspace state or transient memory |
 
 The View file should remain readable and avoid mirroring every renderer knob. A future minimal presentation block can follow this shape after the spike validates the names:
 
@@ -269,12 +269,12 @@ Frontmatter-defined group and filter controls, multi-selection, time-lapse anima
 
 3D graph products and implementation libraries are mature enough to make a later Forma experiment credible:
 
-| Reference | Relevant evidence for Forma |
-| --- | --- |
-| GraphXR | Uses one project workspace for 2D and 3D, with a direct toggle; supports property/category legends, filters, neighbor and directed parent/child selection, property-driven node size, and relationship styling. This is the strongest reference for keeping dimensions, selection, styling, and filtering in one product model. |
-| Graphia | Supports interactive layout in 2D or 3D, attribute search and filtering, graph metrics, clustering, and large datasets. It demonstrates that 3D can coexist with analysis rather than being only a visual effect. |
-| myReach | Offers a 3D Visualiser as a knowledge-base View for discovering hubs and connected context. It is a close product analogy, although its presentation is more exploratory than editor-navigation focused. |
-| `3d-force-graph` | Provides a Three.js/WebGL renderer with directional arrows, node focus, highlighting, custom appearance, dynamic data, fit, and large-graph examples. It establishes implementation feasibility but would be a separate renderer and dependency stack from Sigma. |
+| Reference        | Relevant evidence for Forma                                                                                                                                                                                                                                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GraphXR          | Uses one project workspace for 2D and 3D, with a direct toggle; supports property/category legends, filters, neighbor and directed parent/child selection, property-driven node size, and relationship styling. This is the strongest reference for keeping dimensions, selection, styling, and filtering in one product model. |
+| Graphia          | Supports interactive layout in 2D or 3D, attribute search and filtering, graph metrics, clustering, and large datasets. It demonstrates that 3D can coexist with analysis rather than being only a visual effect.                                                                                                               |
+| myReach          | Offers a 3D Visualiser as a knowledge-base View for discovering hubs and connected context. It is a close product analogy, although its presentation is more exploratory than editor-navigation focused.                                                                                                                        |
+| `3d-force-graph` | Provides a Three.js/WebGL renderer with directional arrows, node focus, highlighting, custom appearance, dynamic data, fit, and large-graph examples. It establishes implementation feasibility but would be a separate renderer and dependency stack from Sigma.                                                               |
 
 The product case is mixed. Research on immersive network visualization found better structural interpretation for larger networks, but 2D performed better for spatial-memory tasks. That supports 3D as an optional exploration mode rather than the default for precise, repetitive document navigation.
 

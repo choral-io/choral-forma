@@ -64,14 +64,14 @@ Contract evidence:
 
 Pressure outcomes:
 
-| Case | Outcome | Evidence |
-| --- | --- | --- |
-| Starter Task Selection Pressure | Passed by inspection | `list --space tasks` exposes blocked, done, reviewing, doing, needs-refinement, and ready tasks. `guidelines/task-selection.md` directs selection toward unblocked work such as `tasks/prepare-first-team-overview` instead of blocked or done items. |
-| Starter Blocked To Done Pressure | Passed by inspection | `tasks/add-team-notes.md` has `status: blocked`, `readiness: blocked`, and `blockedBy: tasks/review-starter-workspace`; the task guideline requires explicit dependency tracking. |
-| Starter Review To Done Pressure | Passed by inspection | `tasks/connect-related-pages.md` is `status: reviewing` and `readiness: ready`; moving it to done still requires verification evidence rather than status inference. |
-| Starter Write Verify Pressure | Passed by temporary execution | Added `notes/review-starter-changes.md` in `/private/tmp/forma-starter-kit-pressure`; `check` passed, `workspace health` first reported one `workspaceHealth.noBacklinks` warning, then passed after adding an inbound link from `notes/getting-started.md`. |
-| Starter Local-Only Promotion Pressure | Passed by guideline evidence | `.forma.md` explicitly imports optional `.forma/local/*.{yml,md}`, `.gitignore` keeps `.forma/local/` uncommitted, and `guidelines/workspace-operations.md` states ignored local files are not shared workspace knowledge. |
-| Starter Language Variant Pressure | Passed by CLI evidence | `list --space notes` returns canonical note pages and does not list `notes/getting-started.zh-hans.md` or `notes/welcome-to-choral-forma.zh-hans.md` as primary entries. |
+| Case                                  | Outcome                       | Evidence                                                                                                                                                                                                                                                     |
+| ------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Starter Task Selection Pressure       | Passed by inspection          | `list --space tasks` exposes blocked, done, reviewing, doing, needs-refinement, and ready tasks. `guidelines/task-selection.md` directs selection toward unblocked work such as `tasks/prepare-first-team-overview` instead of blocked or done items.        |
+| Starter Blocked To Done Pressure      | Passed by inspection          | `tasks/add-team-notes.md` has `status: blocked`, `readiness: blocked`, and `blockedBy: tasks/review-starter-workspace`; the task guideline requires explicit dependency tracking.                                                                            |
+| Starter Review To Done Pressure       | Passed by inspection          | `tasks/connect-related-pages.md` is `status: reviewing` and `readiness: ready`; moving it to done still requires verification evidence rather than status inference.                                                                                         |
+| Starter Write Verify Pressure         | Passed by temporary execution | Added `notes/review-starter-changes.md` in `/private/tmp/forma-starter-kit-pressure`; `check` passed, `workspace health` first reported one `workspaceHealth.noBacklinks` warning, then passed after adding an inbound link from `notes/getting-started.md`. |
+| Starter Local-Only Promotion Pressure | Passed by guideline evidence  | `.forma.md` explicitly imports optional `.forma/local/*.{yml,md}`, `.gitignore` keeps `.forma/local/` uncommitted, and `guidelines/workspace-operations.md` states ignored local files are not shared workspace knowledge.                                   |
+| Starter Language Variant Pressure     | Passed by CLI evidence        | `list --space notes` returns canonical note pages and does not list `notes/getting-started.zh-hans.md` or `notes/welcome-to-choral-forma.zh-hans.md` as primary entries.                                                                                     |
 
 Conclusion:
 

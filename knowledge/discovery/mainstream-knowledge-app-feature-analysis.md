@@ -82,64 +82,64 @@ The key product question is not which existing app to copy. The useful question 
 
 These capabilities are central to Choral Forma and should shape the earliest product and architecture work.
 
-| Capability | Why It Matters | Reference Pattern |
-| --- | --- | --- |
-| Repository files as canonical state | Prevents hidden app state and keeps Git, editors, and agents aligned. | Foam, Dendron, MkDocs, Quartz |
-| Spaces, schemas, and frontmatter | Enables validation, routing, automation, and stable views without a proprietary database. | Astro Content Spaces, Astro Content Layer, Dendron, current Choral Forma workflow |
-| Safe read/write operations | The app must make file changes that can be reviewed, diffed, reverted, and checked. | Tolaria Git UI, GitBook change requests, Git workflows |
-| Fast search and file navigation | Users need immediate retrieval before richer graph or AI features matter. | Tolaria, Obsidian quick switcher, Foam, MkDocs |
-| Wikilinks plus portable Markdown links | Lightweight relationships are useful, but syntax must remain documented and editor-independent. | Obsidian, Foam, Quartz |
-| Backlinks and broken-link diagnostics | Repository knowledge needs visible relationships, missing targets, and safe rename behavior. | Obsidian backlinks, Foam placeholders |
-| Local-only privacy boundaries | Project-local and user-private state need explicit boundaries from shared repository knowledge. | Current repository workflow, local-first note apps |
-| Validation and formatting checks | Trust in the file store depends on repeatable checks for schema, links, and Markdown formatting. | CI/docs-as-code workflows |
+| Capability                             | Why It Matters                                                                                   | Reference Pattern                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Repository files as canonical state    | Prevents hidden app state and keeps Git, editors, and agents aligned.                            | Foam, Dendron, MkDocs, Quartz                                                     |
+| Spaces, schemas, and frontmatter       | Enables validation, routing, automation, and stable views without a proprietary database.        | Astro Content Spaces, Astro Content Layer, Dendron, current Choral Forma workflow |
+| Safe read/write operations             | The app must make file changes that can be reviewed, diffed, reverted, and checked.              | Tolaria Git UI, GitBook change requests, Git workflows                            |
+| Fast search and file navigation        | Users need immediate retrieval before richer graph or AI features matter.                        | Tolaria, Obsidian quick switcher, Foam, MkDocs                                    |
+| Wikilinks plus portable Markdown links | Lightweight relationships are useful, but syntax must remain documented and editor-independent.  | Obsidian, Foam, Quartz                                                            |
+| Backlinks and broken-link diagnostics  | Repository knowledge needs visible relationships, missing targets, and safe rename behavior.     | Obsidian backlinks, Foam placeholders                                             |
+| Local-only privacy boundaries          | Project-local and user-private state need explicit boundaries from shared repository knowledge.  | Current repository workflow, local-first note apps                                |
+| Validation and formatting checks       | Trust in the file store depends on repeatable checks for schema, links, and Markdown formatting. | CI/docs-as-code workflows                                                         |
 
 ### P1: Early Product Differentiators
 
 These should follow the foundation because they make repository-backed knowledge usable for teams rather than only for individual note-taking.
 
-| Capability | Why It Matters | Reference Pattern |
-| --- | --- | --- |
-| Reviewable knowledge changes | Teams need a readable workflow for proposed edits, diffs, comments, approvals, and merge state. | GitBook change requests, Git PRs |
-| Schema-driven views | Users should see tasks, decisions, product notes, and discovery research as structured lists. | Obsidian Bases, Dataview, Foam Queries, Notion databases |
-| Docs-to-work conversion | Users need a low-friction path from written context to trackable work without losing links. | Superthread pages to cards, GitBook comments, Notion tasks |
-| Ownership and freshness signals | Team knowledge needs visible maintainers, reviewers, stale pages, and verified pages. | Notion wikis, GitBook review states |
-| Task and Kanban integration | Planning status should remain explicit while still being easy to browse and update. | Obsidian Kanban, Obsidian Tasks, Notion projects, current Kanban file |
-| Project health and update history | Long-running initiatives need concise status, staleness, and historical updates. | Superthread projects, Notion projects |
-| Graph and local graph navigation | Graphs help reveal relationships, but should be practical filters over repository links. | Obsidian graph, Foam graph, Quartz |
-| Publish or preview mode | Humans need a pleasant reading surface without adopting a proprietary knowledge store. | Quartz, MkDocs Material, GitBook |
-| Conflict visibility | Concurrent edits should surface file conflicts, schema conflicts, and ownership conflicts. | Tolaria diffs/history, Git workflows, Obsidian Sync caveats |
-| Agent-friendly operation log | Agent changes should be attributable, scoped, and reproducible from repository state. | Tolaria AI + Git, Git history plus workflow metadata |
+| Capability                        | Why It Matters                                                                                  | Reference Pattern                                                     |
+| --------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Reviewable knowledge changes      | Teams need a readable workflow for proposed edits, diffs, comments, approvals, and merge state. | GitBook change requests, Git PRs                                      |
+| Schema-driven views               | Users should see tasks, decisions, product notes, and discovery research as structured lists.   | Obsidian Bases, Dataview, Foam Queries, Notion databases              |
+| Docs-to-work conversion           | Users need a low-friction path from written context to trackable work without losing links.     | Superthread pages to cards, GitBook comments, Notion tasks            |
+| Ownership and freshness signals   | Team knowledge needs visible maintainers, reviewers, stale pages, and verified pages.           | Notion wikis, GitBook review states                                   |
+| Task and Kanban integration       | Planning status should remain explicit while still being easy to browse and update.             | Obsidian Kanban, Obsidian Tasks, Notion projects, current Kanban file |
+| Project health and update history | Long-running initiatives need concise status, staleness, and historical updates.                | Superthread projects, Notion projects                                 |
+| Graph and local graph navigation  | Graphs help reveal relationships, but should be practical filters over repository links.        | Obsidian graph, Foam graph, Quartz                                    |
+| Publish or preview mode           | Humans need a pleasant reading surface without adopting a proprietary knowledge store.          | Quartz, MkDocs Material, GitBook                                      |
+| Conflict visibility               | Concurrent edits should surface file conflicts, schema conflicts, and ownership conflicts.      | Tolaria diffs/history, Git workflows, Obsidian Sync caveats           |
+| Agent-friendly operation log      | Agent changes should be attributable, scoped, and reproducible from repository state.           | Tolaria AI + Git, Git history plus workflow metadata                  |
 
 ### P2: Useful After Core Team Workflows Exist
 
 These features can add value, but should not precede the source-of-truth and review foundations.
 
-| Capability | Why It Matters | Reference Pattern |
-| --- | --- | --- |
-| Visual canvas or whiteboard | Useful for product mapping and architecture exploration, but secondary to canonical notes. | Obsidian Canvas, Logseq boards |
-| Block-level references | Powerful for granular reuse, but can reduce portability if the syntax becomes app-specific. | Logseq, Obsidian, Foam |
-| Transclusion and embeds | Useful for summaries and dashboards, but should resolve from files and remain inspectable. | Obsidian, Foam, Quartz |
-| Advanced query language | Useful for power users, but initial users need schema views and search first. | Dataview, Foam Queries, Logseq queries, Obsidian Bases |
-| Templates and snippets | Useful for consistent capture once schemas are stable. | Foam templates, Dendron snippets |
-| Temporal navigation and reviews | Useful for date-based planning, weekly summaries, and research recency checks. | Obsidian Calendar, daily/weekly notes |
-| Static site publishing pipeline | Valuable when sharing knowledge externally or internally as a polished site. | MkDocs Material, Quartz, GitBook |
-| Import/export helpers | Useful for migration, but not part of the core authoring model. | Dendron pods, Obsidian importer |
-| Content loaders and integrations | Useful after local files and schemas are stable, especially for external content sources. | Astro Content Loader API, Superthread CLI/API, Notion API |
-| Media and durable whiteboards | Useful for richer knowledge capture if assets still live as inspectable repository files. | Tolaria media previews and Markdown whiteboards |
+| Capability                       | Why It Matters                                                                              | Reference Pattern                                         |
+| -------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Visual canvas or whiteboard      | Useful for product mapping and architecture exploration, but secondary to canonical notes.  | Obsidian Canvas, Logseq boards                            |
+| Block-level references           | Powerful for granular reuse, but can reduce portability if the syntax becomes app-specific. | Logseq, Obsidian, Foam                                    |
+| Transclusion and embeds          | Useful for summaries and dashboards, but should resolve from files and remain inspectable.  | Obsidian, Foam, Quartz                                    |
+| Advanced query language          | Useful for power users, but initial users need schema views and search first.               | Dataview, Foam Queries, Logseq queries, Obsidian Bases    |
+| Templates and snippets           | Useful for consistent capture once schemas are stable.                                      | Foam templates, Dendron snippets                          |
+| Temporal navigation and reviews  | Useful for date-based planning, weekly summaries, and research recency checks.              | Obsidian Calendar, daily/weekly notes                     |
+| Static site publishing pipeline  | Valuable when sharing knowledge externally or internally as a polished site.                | MkDocs Material, Quartz, GitBook                          |
+| Import/export helpers            | Useful for migration, but not part of the core authoring model.                             | Dendron pods, Obsidian importer                           |
+| Content loaders and integrations | Useful after local files and schemas are stable, especially for external content sources.   | Astro Content Loader API, Superthread CLI/API, Notion API |
+| Media and durable whiteboards    | Useful for richer knowledge capture if assets still live as inspectable repository files.   | Tolaria media previews and Markdown whiteboards           |
 
 ### P3: Defer Or Treat As Optional
 
 These are not irrelevant, but they can distract from the repository-backed knowledge goal if introduced too early.
 
-| Capability | Reason To Defer | Reference Pattern |
-| --- | --- | --- |
-| Real-time collaborative editing | Hard to reconcile with Git review and file ownership; can be additive later. | Notion, GitBook, Logseq DB |
-| Proprietary cloud sync as default | Conflicts with repository Markdown as the source of truth. | Notion, Obsidian Sync |
-| Rich block database as primary | Risks making Markdown an export format instead of canonical state. | Notion, Logseq DB direction |
-| Plugin marketplace | Powerful but creates security, governance, and compatibility burden. | Obsidian community plugins |
-| AI answers over the workspace | Valuable later, but only trustworthy after canonical documents, schema, and freshness are strong. | Notion AI, GitBook AI Search |
-| Mobile-first capture | Useful but should not define the initial repository workflow. | Obsidian mobile, Logseq mobile |
-| Flashcards and personal PKM extras | Good for individual learning but outside the first team knowledge scope. | Logseq SRS |
+| Capability                         | Reason To Defer                                                                                   | Reference Pattern              |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Real-time collaborative editing    | Hard to reconcile with Git review and file ownership; can be additive later.                      | Notion, GitBook, Logseq DB     |
+| Proprietary cloud sync as default  | Conflicts with repository Markdown as the source of truth.                                        | Notion, Obsidian Sync          |
+| Rich block database as primary     | Risks making Markdown an export format instead of canonical state.                                | Notion, Logseq DB direction    |
+| Plugin marketplace                 | Powerful but creates security, governance, and compatibility burden.                              | Obsidian community plugins     |
+| AI answers over the workspace      | Valuable later, but only trustworthy after canonical documents, schema, and freshness are strong. | Notion AI, GitBook AI Search   |
+| Mobile-first capture               | Useful but should not define the initial repository workflow.                                     | Obsidian mobile, Logseq mobile |
+| Flashcards and personal PKM extras | Good for individual learning but outside the first team knowledge scope.                          | Logseq SRS                     |
 
 ## Tool Observations
 

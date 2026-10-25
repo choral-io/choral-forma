@@ -96,11 +96,11 @@ Cold requests remain below the accepted 250 ms interaction gate and warm p95 rem
 
 The release binary baseline uses 50 warm repetitions. Generated JSON evidence is `target/performance/lsp-baseline-2026-07-14T15-08-40-321Z.json` and remains intentionally uncommitted.
 
-| Workspace | Initialize | Cold Definition | Warm Definition p95 | Warm DocumentLink p95 | Connected RSS | Idle CPU |
-| --- | --: | --: | --: | --: | --: | --: |
-| Project | 1,633.666 ms | 125.202 ms | 0.170 ms | 0.053 ms | 24.05 MiB | 0% |
-| 1,000 entries | 3.915 ms | 34.856 ms | 0.106 ms | 0.064 ms | 16.92 MiB | 0% |
-| 5,000 entries | 3.905 ms | 175.419 ms | 0.102 ms | 0.107 ms | 35.98 MiB | 0% |
+| Workspace     |   Initialize | Cold Definition | Warm Definition p95 | Warm DocumentLink p95 | Connected RSS | Idle CPU |
+| ------------- | -----------: | --------------: | ------------------: | --------------------: | ------------: | -------: |
+| Project       | 1,633.666 ms |      125.202 ms |            0.170 ms |              0.053 ms |     24.05 MiB |       0% |
+| 1,000 entries |     3.915 ms |       34.856 ms |            0.106 ms |              0.064 ms |     16.92 MiB |       0% |
+| 5,000 entries |     3.905 ms |      175.419 ms |            0.102 ms |              0.107 ms |     35.98 MiB |       0% |
 
 Against the preceding recorded baseline, the project RSS decreased from `26.34 MiB` to `24.05 MiB`; 1,000-entry RSS increased from `15.67 MiB` to `16.92 MiB`; and 5,000-entry RSS increased from `32.31 MiB` to `35.98 MiB`. The 5,000-entry result remains below the `64 MiB` single-process budget, while its cold Definition improved from `183.04 ms` to `175.42 ms`. Warm results and zero intentional idle CPU remain stable. Project initialization has substantial cold-cache variance across local runs and has no accepted interaction budget; request latency, not that single startup sample, is the release gate.
 

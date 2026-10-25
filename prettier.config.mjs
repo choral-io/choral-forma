@@ -2,7 +2,7 @@
 export default {
     plugins: ["prettier-plugin-organize-imports", "prettier-plugin-tailwindcss"],
     endOfLine: "auto",
-    proseWrap: "never",
+    proseWrap: "preserve",
     printWidth: 120,
     quoteProps: "consistent",
     organizeImportsSkipDestructiveCodeActions: true,

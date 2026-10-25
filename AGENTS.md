@@ -21,17 +21,17 @@ Read applicable nested `AGENTS.md` files before editing their scope, including i
 
 Use the repository source CLI: `cargo run -q -p forma-cli -- <arguments>` (through `mise exec --` when needed). In pointers below, `skills get <id>` means arguments to that invocation. Load the default projection first; use `--full` for its referenced branch. Discover unknown IDs with `skills list --json`.
 
-| Task condition | Guideline skill ID |
-| --- | --- |
-| Configuration semantics, paths, classification, or cross-surface contracts | `forma-product-model-and-configuration-fidelity` |
-| Workspace loading, snapshots, caches, performance, or static generation | `forma-runtime-cache-and-performance` |
-| WebApp components, state, styling, layout, interaction, or visual verification | `webapp-engineering-and-visual-validation` |
-| Workspace inspection, content placement, or shared knowledge writes | `workspace-operations` |
-| Unclear knowledge request | `workspace-onboarding-and-routing` |
-| Shared Markdown authoring / write authorization | `markdown-authoring` / `proposal-and-dry-run` |
-| Named Task selection, execution, review, or state changes | `task-selection` |
-| Handoff, resumption, or personal worklists | `local-worklist-and-execution` |
-| Release version, candidate, tag, publication, or release evidence | `release-execution-and-verification` |
+| Task condition                                                                 | Guideline skill ID                               |
+| ------------------------------------------------------------------------------ | ------------------------------------------------ |
+| Configuration semantics, paths, classification, or cross-surface contracts     | `forma-product-model-and-configuration-fidelity` |
+| Workspace loading, snapshots, caches, performance, or static generation        | `forma-runtime-cache-and-performance`            |
+| WebApp components, state, styling, layout, interaction, or visual verification | `webapp-engineering-and-visual-validation`       |
+| Workspace inspection, content placement, or shared knowledge writes            | `workspace-operations`                           |
+| Unclear knowledge request                                                      | `workspace-onboarding-and-routing`               |
+| Shared Markdown authoring / write authorization                                | `markdown-authoring` / `proposal-and-dry-run`    |
+| Named Task selection, execution, review, or state changes                      | `task-selection`                                 |
+| Handoff, resumption, or personal worklists                                     | `local-worklist-and-execution`                   |
+| Release version, candidate, tag, publication, or release evidence              | `release-execution-and-verification`             |
 
 Ordinary source reading and known engineering skill loading need no full workspace bootstrap. Follow `workspace-operations` for configuration/health baselines, selective loading, member resolution, and shared-content verification. Dependency changes additionally read `knowledge/guidelines/dependency-governance.md`.
 
@@ -39,12 +39,12 @@ Ordinary source reading and known engineering skill loading need no full workspa
 
 Use `mise run <task>` and `mise exec -- pnpm <command>`; current scripts and version authorities are in `mise.toml`, `package.json`, `.node-version`, `rust-toolchain.toml`, and `Cargo.toml`. Installation and whole-repository formatting are deliberate setup/maintenance actions, not default checks.
 
-| Change | Evidence |
-| --- | --- |
-| Markdown or Agent instructions | Targeted formatting and references; workspace checks and affected skill projections when managed content changes |
-| Core/RPC/LSP | Affected crate tests and consumer/operation contracts; broaden to `mise run check` for shared behavior or complete code delivery |
-| WebApp | Affected type/lint/behavior checks and build; visual validation follows its guideline |
-| Release | Exact-candidate local and CI gates plus platform/artifact evidence from the release guideline; local success does not replace publication verification |
+| Change                         | Evidence                                                                                                                                               |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Markdown or Agent instructions | Targeted formatting and references; workspace checks and affected skill projections when managed content changes                                       |
+| Core/RPC/LSP                   | Affected crate tests and consumer/operation contracts; broaden to `mise run check` for shared behavior or complete code delivery                       |
+| WebApp                         | Affected type/lint/behavior checks and build; visual validation follows its guideline                                                                  |
+| Release                        | Exact-candidate local and CI gates plus platform/artifact evidence from the release guideline; local success does not replace publication verification |
 
 Reuse passing evidence until changes, failures, or unresolved risks justify rerunning. Report unrelated baseline failures and environmental limits separately.
 

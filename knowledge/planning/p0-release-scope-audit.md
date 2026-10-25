@@ -77,16 +77,16 @@ The remaining Backlog is mostly P1/P2 follow-up work. Resource-description healt
 
 ## Recommended Kanban Dry Run
 
-| Card | Current | Proposed | Rationale |
-| --- | --- | --- | --- |
-| [[tasks/audit-p0-release-scope-and-roadmap]] | Ready | Reviewing after this report is accepted | The scope audit deliverable exists; move only after maintainer approval. |
-| [[tasks/run-p0-release-validation-and-cutline-check]] | New task item | Ready | This is the next executable P0 closure task and owns release validation evidence. |
-| [[tasks/implement-resource-description-health-diagnostics]] | Backlog | Backlog | Useful P1 health improvement, but not a P0 release blocker. |
-| [[tasks/expose-read-only-knowledge-health-in-webapp]] | Backlog | Backlog | P1 WebApp improvement after the existing read-only baseline. |
-| [[tasks/implement-interactive-graph-view-render]] | Backlog | Backlog | P1; current view-query model only requires graph discovery/indexing for P0. |
-| [[tasks/implement-quick-switcher-search]] | Backlog | Backlog | P2; search/query commands are outside the initial P0 command set. |
-| [[tasks/design-metadata-edit-deprecate-operations]] | Backlog | Backlog | P1 design work; write/lifecycle commands are explicitly out of P0. |
-| [[tasks/design-reviewable-knowledge-change-proposals]] | Backlog | Backlog | P1 design work after the read-only P0 baseline is validated. |
+| Card                                                        | Current       | Proposed                                | Rationale                                                                         |
+| ----------------------------------------------------------- | ------------- | --------------------------------------- | --------------------------------------------------------------------------------- |
+| [[tasks/audit-p0-release-scope-and-roadmap]]                | Ready         | Reviewing after this report is accepted | The scope audit deliverable exists; move only after maintainer approval.          |
+| [[tasks/run-p0-release-validation-and-cutline-check]]       | New task item | Ready                                   | This is the next executable P0 closure task and owns release validation evidence. |
+| [[tasks/implement-resource-description-health-diagnostics]] | Backlog       | Backlog                                 | Useful P1 health improvement, but not a P0 release blocker.                       |
+| [[tasks/expose-read-only-knowledge-health-in-webapp]]       | Backlog       | Backlog                                 | P1 WebApp improvement after the existing read-only baseline.                      |
+| [[tasks/implement-interactive-graph-view-render]]           | Backlog       | Backlog                                 | P1; current view-query model only requires graph discovery/indexing for P0.       |
+| [[tasks/implement-quick-switcher-search]]                   | Backlog       | Backlog                                 | P2; search/query commands are outside the initial P0 command set.                 |
+| [[tasks/design-metadata-edit-deprecate-operations]]         | Backlog       | Backlog                                 | P1 design work; write/lifecycle commands are explicitly out of P0.                |
+| [[tasks/design-reviewable-knowledge-change-proposals]]      | Backlog       | Backlog                                 | P1 design work after the read-only P0 baseline is validated.                      |
 
 ## Next Executable Task
 

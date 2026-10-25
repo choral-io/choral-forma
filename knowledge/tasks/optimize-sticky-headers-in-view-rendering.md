@@ -135,12 +135,12 @@ Validation used the production WebApp build through the real Forma backend and a
 
 ### Measured scroll ownership
 
-| Width | Active vertical owner | Vertical viewport top | Table horizontal owner | Horizontal owner computed overflow |
-| --: | --- | --: | --- | --- |
-| 1440 px | View route `<main>` | 112 px | Table wrapper | `auto / auto` |
-| 1024 px | Route frame | 0 px | Table wrapper | `auto / auto` |
-| 768 px | Route frame | 0 px | Table wrapper | `auto / auto` |
-| 390 px | Route frame | 0 px | Table wrapper | `auto / auto` |
+|   Width | Active vertical owner | Vertical viewport top | Table horizontal owner | Horizontal owner computed overflow |
+| ------: | --------------------- | --------------------: | ---------------------- | ---------------------------------- |
+| 1440 px | View route `<main>`   |                112 px | Table wrapper          | `auto / auto`                      |
+| 1024 px | Route frame           |                  0 px | Table wrapper          | `auto / auto`                      |
+|  768 px | Route frame           |                  0 px | Table wrapper          | `auto / auto`                      |
+|  390 px | Route frame           |                  0 px | Table wrapper          | `auto / auto`                      |
 
 The Table wrapper's `overflow-x: auto` computes to `overflow-y: auto`. Its projection-boundary parent also uses `overflow: hidden`. Both create overflow ancestors between the header row and the page-owned vertical scroll container. The page root retained zero horizontal overflow at every measured width.
 
@@ -178,14 +178,14 @@ This is a platform containing-block conflict rather than a missing Tailwind or D
 
 An isolated browser proof reproduced the relevant Table and Kanban markup with content before and after each projection. It exercised a 1200 px semantic Table at 1024 and 390 px browser widths and measured the same geometry in both responsive states.
 
-| Option | Sticky follows page | Projection-local horizontal scroll | Page horizontal overflow | Natural page vertical scroll | Result |
-| --- | --- | --- | --- | --- | --- |
-| Current `overflow-x: auto` wrapper | no | yes | no | yes | rejected |
-| Wrapper with explicit `overflow-y: clip` | no | yes | no | yes | rejected |
-| Remove projection overflow ancestors | yes | no | yes | yes | rejected |
-| Projection owns both axes | yes | yes | no | no | rejected |
-| Split sticky header from scrollable body | yes | yes | no | yes | rejected without synchronization |
-| Current natural-height Kanban board | no | yes | no | yes | rejected |
+| Option                                   | Sticky follows page | Projection-local horizontal scroll | Page horizontal overflow | Natural page vertical scroll | Result                           |
+| ---------------------------------------- | ------------------- | ---------------------------------- | ------------------------ | ---------------------------- | -------------------------------- |
+| Current `overflow-x: auto` wrapper       | no                  | yes                                | no                       | yes                          | rejected                         |
+| Wrapper with explicit `overflow-y: clip` | no                  | yes                                | no                       | yes                          | rejected                         |
+| Remove projection overflow ancestors     | yes                 | no                                 | yes                      | yes                          | rejected                         |
+| Projection owns both axes                | yes                 | yes                                | no                       | no                           | rejected                         |
+| Split sticky header from scrollable body | yes                 | yes                                | no                       | yes                          | rejected without synchronization |
+| Current natural-height Kanban board      | no                  | yes                                | no                       | yes                          | rejected                         |
 
 The explicit clip option computed to `overflow: auto / hidden` and still captured sticky positioning. Removing the overflow ancestors let sticky pass, but a 1200 px Table increased the page scroll owner's width from 718 to 1217 px in the desktop proof and from 322 to 1217 px in the mobile proof.
 
@@ -309,12 +309,12 @@ The bounded Table implementation passed its proof gates without a dependency, ne
 
 The production WebApp build was served through the real Forma backend with the 80-row, seven-column Table fixture, long labels, local horizontal overflow, and Markdown before and after the projection.
 
-| Width | Active vertical owner | Required top | Measured visual-header top | Horizontal start / midpoint / maximum | Maximum cell left/width delta | Page root overflow |
-| --: | --- | --: | --: | --- | --: | --- |
-| 1440 px | View route `<main>` | 112 px | 112 px | 0 / 165 / 330 px | 0 / 0 px | none |
-| 1024 px | Route frame | 112 px | 112 px | 0 / 273 / 546 px | 0 / 0 px | none |
-| 768 px | Route frame | 0 px | 0 px | 0 / 365 / 730 px | 0 / 0 px | none |
-| 390 px | Route frame | 0 px | 0 px | 0 / 546 / 1092 px | 0 / 0 px | none |
+|   Width | Active vertical owner | Required top | Measured visual-header top | Horizontal start / midpoint / maximum | Maximum cell left/width delta | Page root overflow |
+| ------: | --------------------- | -----------: | -------------------------: | ------------------------------------- | ----------------------------: | ------------------ |
+| 1440 px | View route `<main>`   |       112 px |                     112 px | 0 / 165 / 330 px                      |                      0 / 0 px | none               |
+| 1024 px | Route frame           |       112 px |                     112 px | 0 / 273 / 546 px                      |                      0 / 0 px | none               |
+|  768 px | Route frame           |         0 px |                       0 px | 0 / 365 / 730 px                      |                      0 / 0 px | none               |
+|  390 px | Route frame           |         0 px |                       0 px | 0 / 546 / 1092 px                     |                      0 / 0 px | none               |
 
 At every width, the sticky grid overlay and bordered Table wrapper both measured 8889 px high, proving that the overlapping presentation adds no document height. `document.scrollWidth === document.clientWidth` remained true.
 
@@ -394,12 +394,12 @@ The prototype kept every real column title in its semantic `<section>` and added
 
 The presentation-only Kanban rail is viable as a bounded, feature-local implementation candidate.
 
-| Width | Board client / scroll width | Horizontal start / midpoint / maximum | Maximum rail-to-column left / width delta | Page-root overflow |
-| --: | --: | --: | --: | --: |
-| 1440 px | 1344 / 1648 px | 0 / 152 / 304 px | 1 / 0 px | 0 px |
-| 1024 px | 942 / 1648 px | 0 / 353 / 706 px | 1 / 0 px | 0 px |
-| 768 px | 707 / 1648 px | 0 / 471 / 941 px | 1 / 0 px | 0 px |
-| 390 px | 358 / 1648 px | 0 / 645 / 1290 px | 1 / 0 px | 0 px |
+|   Width | Board client / scroll width | Horizontal start / midpoint / maximum | Maximum rail-to-column left / width delta | Page-root overflow |
+| ------: | --------------------------: | ------------------------------------: | ----------------------------------------: | -----------------: |
+| 1440 px |              1344 / 1648 px |                      0 / 152 / 304 px |                                  1 / 0 px |               0 px |
+| 1024 px |               942 / 1648 px |                      0 / 353 / 706 px |                                  1 / 0 px |               0 px |
+|  768 px |               707 / 1648 px |                      0 / 471 / 941 px |                                  1 / 0 px |               0 px |
+|  390 px |               358 / 1648 px |                     0 / 645 / 1290 px |                                  1 / 0 px |               0 px |
 
 The one-pixel left delta is the visual rail's outer border; every rail item width matched its real column exactly at all three horizontal positions. The prototype board measured `clientHeight === scrollHeight === 2831 px`, so natural document height remained authoritative and the board had no vertical scroll range.
 
@@ -468,10 +468,10 @@ The user subsequently authorized the verified feature-local design. The WebApp K
 
 A production WebApp build was served through the real Forma backend against a temporary copy of this workspace. The configured Task Board supplied seven columns, long configured labels, uneven live card counts, variable card content, links and badges, plus substantial real View Markdown before and after the projection.
 
-| Width | Vertical owner / sticky top | Board client / scroll / maximum horizontal | Start / midpoint / maximum alignment | Root overflow |
-| --: | --- | --: | --- | --: |
-| 1440 px | route `<main>` / 112 px | 1120 / 2312 / 1192 px | 0 px left and width delta | 0 px |
-| 390 px | responsive route frame / 0 px | 358 / 2312 / 1954 px | 0 px left and width delta | 0 px |
+|   Width | Vertical owner / sticky top   | Board client / scroll / maximum horizontal | Start / midpoint / maximum alignment | Root overflow |
+| ------: | ----------------------------- | -----------------------------------------: | ------------------------------------ | ------------: |
+| 1440 px | route `<main>` / 112 px       |                      1120 / 2312 / 1192 px | 0 px left and width delta            |          0 px |
+|  390 px | responsive route frame / 0 px |                       358 / 2312 / 1954 px | 0 px left and width delta            |          0 px |
 
 The board retained natural document height at both widths: `clientHeight === scrollHeight === 7494 px`. Its computed `overflow-y: auto` is the browser's axis coupling for `overflow-x: auto`, but it had no vertical scroll range; the route remained the only vertical owner.
 
