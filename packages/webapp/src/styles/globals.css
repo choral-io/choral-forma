@@ -349,3 +349,26 @@
 [data-reader="markdown"] .forma-callout[data-callout="important"] {
     @apply border-secondary bg-secondary/10;
 }
+
+/* Native Markdown disclosures retain daisyUI layout and readable long labels. */
+[data-reader="markdown"] details[data-markdown-disclosure] {
+    @apply text-base-content;
+    overflow-wrap: anywhere;
+}
+
+[data-reader="markdown"] details[data-markdown-disclosure] > summary:focus-visible {
+    @apply outline-2 outline-primary;
+    outline-style: solid;
+    outline-offset: -2px;
+}
+
+/* Native height interpolation can leave nested hit regions stale after rapid toggles. */
+[data-reader="markdown"] details[data-markdown-disclosure],
+[data-reader="markdown"] details[data-markdown-disclosure]::details-content,
+[data-reader="markdown"] details[data-markdown-disclosure] > .collapse-content {
+    transition: none;
+}
+
+[data-reader="markdown"] details[data-markdown-disclosure]::details-content {
+    interpolate-size: numeric-only;
+}

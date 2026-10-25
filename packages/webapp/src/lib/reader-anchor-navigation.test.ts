@@ -12,39 +12,69 @@ describe("scrollReaderAnchor", () => {
         vi.unstubAllGlobals();
     });
 
-    it.each(["unchanged", "focus moved", "fragment changed", "detached", "closed again"])(
-        "guards deferred disclosure focus when %s",
-        (change) => {
-            const callbacks: FrameRequestCallback[] = [];
-            vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-                callbacks.push(callback);
-                return 1;
-            });
-            const reader = document.createElement("div");
-            reader.innerHTML =
-                '<details data-callout-fold><summary>Context</summary><h2 id="deferred">Target</h2></details><button>Other</button>';
-            document.body.append(reader);
-            const target = reader.querySelector<HTMLElement>("h2");
-            const other = reader.querySelector("button");
-            if (!target || !other) throw new Error("Missing fixture");
-            target.scrollIntoView = vi.fn();
-            const focus = vi.spyOn(target, "focus").mockImplementationOnce(() => {
-                /* Native disclosure descendants can reject focus before paint. */
-            });
-            window.history.replaceState(null, "", "/#deferred");
-            restoreReaderFragment(reader);
-            expect(callbacks).toHaveLength(1);
-            if (change === "focus moved") other.focus();
-            if (change === "fragment changed") window.history.replaceState(null, "", "/#other");
-            if (change === "detached") reader.remove();
-            if (change === "closed again") reader.querySelector("details")?.removeAttribute("open");
-            callbacks[0]?.(0);
-            callbacks[1]?.(16);
-            expect(focus).toHaveBeenCalledTimes(change === "unchanged" ? 2 : 1);
-            if (change === "unchanged") expect(document.activeElement).toBe(target);
-            if (change === "focus moved") expect(document.activeElement).toBe(other);
-        },
-    );
+    it.each(
+        ["data-callout-fold", "data-markdown-disclosure"].flatMap((attribute) =>
+            ["unchanged", "focus moved", "fragment changed", "detached", "closed again"].map((change) => ({
+                attribute,
+                change,
+            })),
+        ),
+    )("guards deferred $attribute focus when $change", ({ attribute, change }) => {
+        const callbacks: FrameRequestCallback[] = [];
+        vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+            callbacks.push(callback);
+            return 1;
+        });
+        const reader = document.createElement("div");
+        reader.innerHTML = `<details ${attribute}><summary>Context</summary><h2 id="deferred">Target</h2></details><button>Other</button>`;
+        document.body.append(reader);
+        const target = reader.querySelector<HTMLElement>("h2");
+        const other = reader.querySelector("button");
+        if (!target || !other) throw new Error("Missing fixture");
+        target.scrollIntoView = vi.fn();
+        const focus = vi.spyOn(target, "focus").mockImplementationOnce(() => {
+            /* Native disclosure descendants can reject focus before paint. */
+        });
+        window.history.replaceState(null, "", "/#deferred");
+        restoreReaderFragment(reader);
+        expect(callbacks).toHaveLength(1);
+        if (change === "focus moved") other.focus();
+        if (change === "fragment changed") window.history.replaceState(null, "", "/#other");
+        if (change === "detached") reader.remove();
+        if (change === "closed again") reader.querySelector("details")?.removeAttribute("open");
+        callbacks[0]?.(0);
+        callbacks[1]?.(16);
+        expect(focus).toHaveBeenCalledTimes(change === "unchanged" ? 2 : 1);
+        if (change === "unchanged") expect(document.activeElement).toBe(target);
+        if (change === "focus moved") expect(document.activeElement).toBe(other);
+    });
+
+    it("restores a nested heading after native fragment navigation clears link focus", () => {
+        const callbacks: FrameRequestCallback[] = [];
+        vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+            callbacks.push(callback);
+            return 1;
+        });
+        document.body.innerHTML =
+            '<a href="#alias">Jump</a><details data-markdown-disclosure><summary>Outer</summary><details data-markdown-disclosure><summary>Inner</summary><h2><span id="alias" data-forma-heading-anchor></span>Heading</h2></details></details>';
+        const link = document.querySelector<HTMLAnchorElement>("a"),
+            heading = document.querySelector("h2");
+        if (!link || !heading) throw new Error("Missing fixture");
+        link.focus();
+        window.history.replaceState(null, "", "/#alias");
+        const focus = vi.spyOn(heading, "focus").mockImplementationOnce(() => {
+            /* Nested disclosure content is not focusable until expanded paint. */
+        });
+        const alias = document.getElementById("alias");
+        if (!alias) throw new Error("Missing alias");
+        alias.scrollIntoView = vi.fn();
+        restoreReaderFragment(document.body);
+        link.blur(); // Native fragment navigation can clear the opener's focus.
+        callbacks[0]?.(0);
+        callbacks[1]?.(16);
+        expect(focus).toHaveBeenCalledTimes(2);
+        expect(document.activeElement).toBe(heading);
+    });
 
     it.each(["link", "history"])("reveals a folded callout before %s target navigation", (mode) => {
         const reader = document.createElement("div");
@@ -70,6 +100,40 @@ describe("scrollReaderAnchor", () => {
         expect(focus).toHaveBeenCalledWith({ preventScroll: true });
         expect(reader.querySelector("details:not([data-callout-fold])")?.hasAttribute("open")).toBe(false);
     });
+
+    it.each(["link", "history"])(
+        "opens mixed disclosure ancestors for %s without touching unrelated details",
+        (mode) => {
+            const reader = document.createElement("div");
+            reader.innerHTML =
+                '<details data-markdown-disclosure><summary>Outer</summary><details data-callout-fold><summary>Inner</summary><h2 id="nested-fold-target">Target</h2></details></details><details><summary>Unrelated</summary></details>';
+            document.body.append(reader);
+            const target = reader.querySelector<HTMLElement>("#nested-fold-target");
+            if (!target) throw new Error("Missing fixture");
+            target.scrollIntoView = vi.fn();
+            if (mode === "link") {
+                const anchor = document.createElement("a");
+                anchor.href = "#nested-fold-target";
+                scrollReaderAnchor(anchor);
+            } else {
+                window.history.replaceState(null, "", "/#nested-fold-target");
+                restoreReaderFragment(reader);
+            }
+            expect(
+                [
+                    ...reader.querySelectorAll<HTMLDetailsElement>(
+                        "details[data-markdown-disclosure], details[data-callout-fold]",
+                    ),
+                ].every((fold) => fold.open),
+            ).toBe(true);
+            expect(document.activeElement).toBe(target);
+            expect(
+                reader
+                    .querySelector("details:not([data-markdown-disclosure]):not([data-callout-fold])")
+                    ?.hasAttribute("open"),
+            ).toBe(false);
+        },
+    );
 
     it("keeps desktop outline navigation inside the reader scroll container", () => {
         const main = document.createElement("main");

@@ -16,18 +16,19 @@ Markdown files own content. Forma renders them for reading without rewriting the
 
 ## Supported Content
 
-| Content | Online WebApp / static with JavaScript | Static initial HTML / Core HTML | VS Code native Preview |
-| --- | --- | --- | --- |
-| Paragraphs, h1–h6, emphasis, lists, quotes, code, ordinary links and images | Supported | Supported | Host Markdown engine |
-| Tables, strikethrough, task lists | Supported; task items are read-only | Semantic HTML | Host Markdown engine |
-| Basic callouts | NOTE, TIP, IMPORTANT, WARNING, CAUTION | Same semantic content and styling | Host capability; ordinary blockquote fallback |
-| Labelled footnotes | Supported | Supported | Host capability; Forma adds no footnote parser |
-| Heading anchors | Existing reader IDs plus readable aliases | Existing static IDs plus readable aliases | Native host IDs; Forma injects no aliases |
-| Code highlighting | Bundled languages; unknown languages remain code | Plain code | Host highlighting |
-| Mathematics | `$…$`, standalone one-line/multiline `$$` blocks and `math` fences, with currency/escape guards | Readable source/code fallback | Host capability; Forma adds no math engine |
-| Mermaid | Supported subset, resource budgets, source fallback | Code fallback | Host capability; Forma adds no Mermaid engine |
-| Highlight | `==…==` within one line | Same semantic `<mark>` content | Host capability; Forma adds no highlight parser |
-| Safe inline HTML | Attribute-free `mark`, `sub`, `sup`; other HTML remains sanitized | Same three inline tags; other HTML follows the compiler policy | Host trust and preview security policy |
+| Content                                                                     | Online WebApp / static with JavaScript                                                          | Static initial HTML / Core HTML                                | VS Code native Preview                          |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------- |
+| Paragraphs, h1–h6, emphasis, lists, quotes, code, ordinary links and images | Supported                                                                                       | Supported                                                      | Host Markdown engine                            |
+| Tables, strikethrough, task lists                                           | Supported; task items are read-only                                                             | Semantic HTML                                                  | Host Markdown engine                            |
+| Basic callouts                                                              | NOTE, TIP, IMPORTANT, WARNING, CAUTION                                                          | Same semantic content and styling                              | Host capability; ordinary blockquote fallback   |
+| Labelled footnotes                                                          | Supported                                                                                       | Supported                                                      | Host capability; Forma adds no footnote parser  |
+| Heading anchors                                                             | Existing reader IDs plus readable aliases                                                       | Existing static IDs plus readable aliases                      | Native host IDs; Forma injects no aliases       |
+| Code highlighting                                                           | Bundled languages; unknown languages remain code                                                | Plain code                                                     | Host highlighting                               |
+| Mathematics                                                                 | `$…$`, standalone one-line/multiline `$$` blocks and `math` fences, with currency/escape guards | Readable source/code fallback                                  | Host capability; Forma adds no math engine      |
+| Mermaid                                                                     | Supported subset, resource budgets, source fallback                                             | Code fallback                                                  | Host capability; Forma adds no Mermaid engine   |
+| Highlight                                                                   | `==…==` within one line                                                                         | Same semantic `<mark>` content                                 | Host capability; Forma adds no highlight parser |
+| Native disclosures                                                          | Safe `details`/`summary`, Markdown body and native toggling                                     | Same semantic disclosure; no script required                   | Host capability; Forma adds no parser           |
+| Safe inline HTML                                                            | Attribute-free `mark`, `sub`, `sup`; other HTML remains sanitized                               | Same three inline tags; other HTML follows the compiler policy | Host trust and preview security policy          |
 
 The online WebApp and enhanced static reader share Forma rendering semantics, extension syntax and navigation behavior. Static initial HTML preserves content and usable links with readable fallbacks when enhancement is unavailable. The static reader progressively enhances initial HTML. It must preserve readable text and usable navigation when JavaScript is unavailable. Rich presentation may differ between hosts. VS Code keeps its native authoring and preview model; installing Forma does not make its Markdown engine identical to the WebApp.
 
@@ -44,6 +45,23 @@ Use `==重点 **内容**==` for inline highlighting. Delimiters must be literal 
 Attribute-free inline `<mark>…</mark>`, `<sub>…</sub>` and `<sup>…</sup>` preserve their semantic tags in both readers and static initial HTML. Tag names are case-insensitive. This allowance does not enable arbitrary raw HTML, block HTML, attributes, scripts or event handlers in Core. Attribute-bearing or malformed HTML remains subject to each host's existing safe-HTML policy, outside this portable subset. Escaped tags, entities and code stay literal. `H~2~O` continues to mean a single-tilde strikethrough; `x^2^` stays literal. No subscript/superscript shorthand is added. VS Code keeps its native parser and styling for all these forms.
 
 The combined reading sample is `fixtures/forma-validation/samples/markdown/reading-p1.md`. Exact shared cases in `fixtures/forma-validation/cases/markdown-reading-p1.json` cover numeric/currency boundaries, formula fences, highlight nesting, safe tags, deletion compatibility, escaping, code, lists, tables, footnotes and folded callouts. Both files participate in normal formatting. Core/WebApp tests and the isolated browser gate consume the same cases; browser acceptance covers enhanced readers, no-script fallback, light/dark contrast and narrow layouts. Literal table pipes still require Markdown escaping or a TeX spelling such as `\vert`/`\mid`; the reader does not guess table-column intent.
+
+## Native Collapsible Content
+
+The WebApp, enhanced static site and static initial HTML share bounded native disclosures. Use an opening `<details>` or `<details open>` line, a nonempty single-line `<summary>Title</summary>`, an empty or space/tab-only blank line, Markdown body content, and a matching `</details>` line. Blank lines between the opener and summary are allowed. Tags are case-insensitive and may have up to three leading spaces. `open` is the only supported attribute. Summary labels are plain text: Markdown/HTML markup is displayed literally, while semicolon-terminated character entities are decoded safely using HTML character-reference semantics. A whitespace-only decoded label does not activate a disclosure. Titles have no active links or controls.
+
+```markdown
+<details>
+<summary>Additional context</summary>
+
+Markdown body with **emphasis**, lists and links.
+
+</details>
+```
+
+Body content uses the existing reader contract, including headings, lists, tables, callouts, safe inline tags, formulae and labelled footnotes. Nested native disclosures are supported up to 16 levels. Authored disclosure blocks must be top-level Markdown blocks; authoring them within quoted/list containers or arbitrary HTML is outside this first slice. Use the existing foldable callout syntax for quote-based content. Code, comments, escaped markers, unsupported attributes, missing summaries/blank separators and incomplete or over-depth trees never activate a Forma disclosure. Unsupported enclosing tags are tracked before deciding whether a nested disclosure can activate. Attribute names and quoted/unquoted values follow tag-token states, including the actual self-closing flag; quotes can span lines and Markdown token boundaries; tag-like text inside attributes, comments and raw-text examples cannot close an ancestor. A self-closing slash on a non-void HTML element does not end its wrapper. Recognition keeps raw-text/RCDATA and noscript content opaque, respects script escaped/double-escaped states, isolates template contents, and does not resume after plaintext. Unsupported disclosure tags remain readable literal text; other raw HTML still follows the host's existing sanitization policy.
+
+Native pointer and keyboard toggling works without scripts. Enhanced readers open owned disclosure ancestors before heading, footnote-return, direct-fragment and history navigation, then focus and scroll to the target. Navigating to a disclosure itself does not toggle it. No-script fragment revelation follows browser behavior; users can open summaries manually. The shared sample is `fixtures/forma-validation/samples/markdown/disclosures.md`; exact positive and negative cases are in `fixtures/forma-validation/cases/markdown-disclosures.json`. VS Code continues to use its native parser and styles; Forma adds no disclosure rendering there.
 
 ## Viewer Design And Interaction
 

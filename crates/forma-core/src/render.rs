@@ -27,6 +27,7 @@ use crate::operations::{
 use crate::path::WorkspacePath;
 
 mod calendar;
+mod disclosures;
 mod gantt;
 pub(crate) mod inline;
 mod temporal;
@@ -2298,7 +2299,8 @@ pub(crate) fn render_markdown_html(document: &FormaMarkdownDocument) -> String {
 }
 
 pub(crate) fn render_markdown_source_html(markdown: &str) -> String {
-    let (prepared, marker) = prepare_callouts(markdown);
+    let (disclosure_source, disclosures) = disclosures::prepare(markdown);
+    let (prepared, marker) = prepare_callouts(&disclosure_source);
     let (prepared, inline_tags) = inline::prepare(&prepared);
     let html =
         to_html_with_options(&prepared, &Options::gfm()).expect("normal Markdown renders to HTML");
@@ -2308,6 +2310,7 @@ pub(crate) fn render_markdown_source_html(markdown: &str) -> String {
     } else {
         render_callouts(&html, &marker)
     };
+    let html = disclosures::restore(html, &disclosures);
     let mut html = add_readable_heading_anchors(
         &normalize_footnote_reference_ids(&html),
         &rendered_markdown_headings(markdown),
@@ -3081,6 +3084,88 @@ mod tests {
             "{html}"
         );
         assert_eq!(html.matches("<mark>").count(), 1);
+    }
+
+    #[test]
+    fn shared_native_disclosures() {
+        #[derive(serde::Deserialize)]
+        struct Case {
+            id: String,
+            source: String,
+            titles: Vec<String>,
+            opens: Vec<bool>,
+            literals: Vec<String>,
+        }
+        let cases: Vec<Case> = serde_json::from_str(include_str!(
+            "../../../fixtures/forma-validation/cases/markdown-disclosures.json"
+        ))
+        .unwrap();
+        assert!(!cases.is_empty());
+        assert_eq!(
+            cases
+                .iter()
+                .map(|case| &case.id)
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            cases.len()
+        );
+        for case in cases {
+            let html = super::render_markdown_source_html(&case.source);
+            let titles = html
+                .split("data-markdown-disclosure=\"\"")
+                .skip(1)
+                .map(|rest| {
+                    rest.split_once("<summary")
+                        .unwrap()
+                        .1
+                        .split_once('>')
+                        .unwrap()
+                        .1
+                        .split_once("</summary>")
+                        .unwrap()
+                        .0
+                })
+                .collect::<Vec<_>>();
+            let expected = case
+                .titles
+                .iter()
+                .map(|title| {
+                    title
+                        .replace('&', "&amp;")
+                        .replace('<', "&lt;")
+                        .replace('>', "&gt;")
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(titles, expected, "{}: {html}", case.id);
+            assert_eq!(
+                html.matches("data-markdown-disclosure=\"\"").count(),
+                case.titles.len(),
+                "{}: {html}",
+                case.id
+            );
+            let opens = html
+                .split("data-markdown-disclosure=\"\"")
+                .skip(1)
+                .map(|rest| rest.starts_with(" open>"))
+                .collect::<Vec<_>>();
+            assert_eq!(opens, case.opens, "{}: {html}", case.id);
+            for text in case.titles.iter().chain(&case.literals) {
+                let escaped = text
+                    .replace('&', "&amp;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;");
+                assert!(
+                    html.contains(&escaped),
+                    "{} missing {text:?}: {html}",
+                    case.id
+                );
+            }
+            assert!(
+                !html.contains("<script") && !html.contains(" onclick=\""),
+                "{}: {html}",
+                case.id
+            );
+        }
     }
 
     #[test]

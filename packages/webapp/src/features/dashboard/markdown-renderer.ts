@@ -4,6 +4,7 @@ import markedFootnote from "marked-footnote";
 import { createMermaidRenderScope, type MermaidRenderScope } from "@/lib/mermaid";
 
 import { markedCallouts } from "./markdown-callouts";
+import { markedDisclosureSafety, prepareDisclosures, restoreDisclosures } from "./markdown-disclosures";
 import { markedHighlight } from "./markdown-highlight";
 import { markedKatex } from "./markdown-katex";
 import { createMarkedMermaid } from "./markdown-mermaid";
@@ -24,18 +25,20 @@ export async function renderMarkdown(markdown: string, { mermaidScope, signal }:
     const ownedScope = mermaidScope ? undefined : scope;
 
     try {
+        const disclosure = prepareDisclosures(markdown);
         const parser = new Marked({ gfm: true });
         parser.use(
             markedFootnote({ prefixId: "user-content-fn-", backRefLabel: "Back to content" }),
             markedCallouts,
+            markedDisclosureSafety,
             markedHighlight,
             markedKatex,
             createMarkedMermaid({ scope, signal }),
             markedShiki,
         );
-        const html = await Promise.resolve(parser.parse(markdown, { async: true }));
+        const html = await Promise.resolve(parser.parse(disclosure.source, { async: true }));
         // Match Core's existing footnote targets in static HTML.
-        return html
+        return restoreDisclosures(html, disclosure.replacements)
             .replaceAll('id="user-content-fn-ref-', 'id="user-content-fnref-')
             .replaceAll('href="#user-content-fn-ref-', 'href="#user-content-fnref-');
     } finally {

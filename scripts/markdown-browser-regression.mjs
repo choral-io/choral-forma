@@ -117,6 +117,9 @@ try {
     const readingCases = JSON.parse(
         await readFile(join(root, "fixtures/forma-validation/cases/markdown-reading-p1.json"), "utf8"),
     );
+    const disclosureCases = JSON.parse(
+        await readFile(join(root, "fixtures/forma-validation/cases/markdown-disclosures.json"), "utf8"),
+    );
     await command(cli, ["--version"], 10_000, false, "version");
     await cp(join(root, "examples/minimal-workspace"), workspace, { recursive: true });
     await rm(join(workspace, "notes"), { recursive: true });
@@ -129,6 +132,7 @@ try {
         "callouts.md",
         "callout-review.md",
         "reading-p1.md",
+        "disclosures.md",
         "callout-compatibility.md",
         "callout-interaction.md",
         "callout-layout.md",
@@ -147,6 +151,9 @@ try {
         join(workspace, "notes/raw-source.txt.md"),
         "# Raw source sidecar\n\n[Original source](./raw-source.txt?download=1#part)\n\n[Directory entry](./resource-directory.txt#details)\n",
     );
+    for (const fixture of disclosureCases) {
+        await writeFile(join(workspace, "notes", `fold-${fixture.id}.md`), `# Disclosure case\n\n${fixture.source}\n`);
+    }
     for (const fixture of readingCases) {
         await writeFile(join(workspace, "notes", `p1-${fixture.id}.md`), `# Reading P1\n\n${fixture.source}\n`);
     }
@@ -232,6 +239,7 @@ try {
         artifacts,
         calloutBoundaries,
         readingCases,
+        disclosureCases,
         hosts: [
             { name: "webapp", origin, root: "", graph: "/views/.forma/views/graph" },
             { name: "static", origin: staticOrigin, root: "/preview", graph: "/views/graph/" },
@@ -243,7 +251,11 @@ try {
     const results = [];
     // Bound each host independently; growing syntax coverage must not consume
     // the interaction suite's cumulative command deadline.
-    const phases = markdownBrowserPhases(options.hosts, readingCases.length, calloutBoundaries.length);
+    const phases = markdownBrowserPhases(options.hosts, {
+        reading: readingCases.map((fixture) => fixture.id),
+        callouts: calloutBoundaries.map((fixture) => fixture.id),
+        disclosures: disclosureCases.map((fixture) => fixture.id),
+    });
     const completedPhases = [];
     for (const phase of phases) {
         abort.signal.throwIfAborted();
@@ -261,7 +273,11 @@ try {
         );
         const result = parseMarkdownBrowserPhase(output, phase);
         results.push(...result.results);
-        completedPhases.push({ name: phase.name, checks: result.results });
+        completedPhases.push({
+            name: phase.name,
+            checks: result.results,
+            sourceCases: result.sourceCases,
+        });
         await writeBrowserEvidence(join(artifacts, "phase-results.json"), completedPhases, { signal: abort.signal });
         console.log(`Completed browser phase: ${phase.name}`);
     }

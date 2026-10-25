@@ -1,0 +1,822 @@
+[
+  {
+    "id": "basic",
+    "source": "<details>\n<summary>补充说明</summary>\n\n正文。\n\n</details>",
+    "titles": ["补充说明"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["正文。"]
+  },
+  {
+    "id": "open",
+    "source": "<details open>\n<summary>默认展开</summary>\n\n正文。\n\n</details>",
+    "titles": ["默认展开"],
+    "opens": [true],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "uppercase",
+    "source": "<DETAILS OPEN>\n\n<SUMMARY>大小写</SUMMARY>\n\n正文。\n\n</DETAILS>",
+    "titles": ["大小写"],
+    "opens": [true],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "nested",
+    "source": "<details>\n<summary>外层</summary>\n\n<details open>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</details>",
+    "titles": ["外层", "内层"],
+    "opens": [false, true],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "plain-title",
+    "source": "<details>\n<summary>**原文** `code` &amp; &#60;img&#62; &notAnEntity;</summary>\n\n正文。\n\n</details>",
+    "titles": ["**原文** `code` & <img> &notAnEntity;"],
+    "opens": [false],
+    "selectors": {
+      "summary strong": 0,
+      "summary code": 0,
+      "summary img": 0
+    },
+    "literals": []
+  },
+  {
+    "id": "combination",
+    "source": "<details>\n<summary>组合语法</summary>\n\n## Hidden disclosure heading\n\n==重点==，H<sub>2</sub>O，~~删除~~，正文[^fold]。\n\n- 项目一\n- 项目二\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n> [!TIP]- 提示\n>\n> 提示正文。\n\n</details>\n\n[^fold]: 折叠注释。",
+    "titles": ["组合语法"],
+    "opens": [false],
+    "selectors": {
+      "h2": 2,
+      "mark": 1,
+      "sub": 1,
+      "del": 1,
+      "ul": 1,
+      "table": 1,
+      "aside[data-callout=\"tip\"]": 1,
+      "details[data-callout-fold]": 1,
+      "details[data-markdown-disclosure] h2": 1
+    },
+    "literals": ["折叠注释。"]
+  },
+  {
+    "id": "math-fallback",
+    "source": "<details>\n<summary>公式</summary>\n\n$x^2$\n\n$$a^2+b^2=c^2$$\n\n```math\nx+y\n```\n\n</details>",
+    "titles": ["公式"],
+    "opens": [false],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "code-literal",
+    "source": "```html\n<details>\n<summary>代码</summary>\n\n正文。\n\n</details>\n```",
+    "titles": [],
+    "opens": [],
+    "selectors": {
+      "pre": 1
+    },
+    "literals": ["<details>", "<summary>代码</summary>"]
+  },
+  {
+    "id": "code-close",
+    "source": "<details>\n<summary>代码边界</summary>\n\n```html\n</details>\n```\n\n仍在正文中。\n\n</details>",
+    "titles": ["代码边界"],
+    "opens": [false],
+    "selectors": {
+      "details[data-markdown-disclosure] pre": 1
+    },
+    "literals": ["</details>", "仍在正文中。"]
+  },
+  {
+    "id": "inline-literal",
+    "source": "正文 `<details>` 和 &lt;summary&gt;。",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["<details>", "<summary>"]
+  },
+  {
+    "id": "comment-literal",
+    "source": "<!--\n<details>\n<summary>注释</summary>\n\n隐藏。\n</details>\n-->",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "unsafe-attributes",
+    "source": "<details onclick=\"alert(1)\">\n<summary>属性不支持</summary>\n\n正文仍可读。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["正文仍可读。"]
+  },
+  {
+    "id": "summary-attributes",
+    "source": "<details>\n<summary style=\"color:red\">不支持</summary>\n\n正文仍可读。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["正文仍可读。"]
+  },
+  {
+    "id": "missing-summary",
+    "source": "<details>\n\n没有标题。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["没有标题。"]
+  },
+  {
+    "id": "missing-blank",
+    "source": "<details>\n<summary>缺少空行</summary>\n正文。\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["正文。"]
+  },
+  {
+    "id": "unclosed",
+    "source": "<details>\n<summary>未闭合</summary>\n\n正文仍可读。",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["正文仍可读。"]
+  },
+  {
+    "id": "invalid-outer",
+    "source": "<details>\n<summary>未闭合外层</summary>\n\n<details>\n<summary>内层</summary>\n\n正文。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["正文。"]
+  },
+  {
+    "id": "empty-summary",
+    "source": "<details>\n<summary> </summary>\n\n正文。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["正文。"]
+  },
+  {
+    "id": "blockquote-fallback",
+    "source": "> <details>\n> <summary>引用内</summary>\n>\n> 正文。\n>\n> </details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["正文。"]
+  },
+  {
+    "id": "unicode-offset",
+    "source": "前文中文。\n\n<details>\n<summary>后文</summary>\n\n内容。\n\n</details>",
+    "titles": ["后文"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["前文中文。", "内容。"]
+  },
+  {
+    "id": "marker-collision",
+    "source": "&#58;&#70;ORMAREADERDISCLOSURE0OPEN:\n\n<details>\n<summary>碰撞</summary>\n\n正文。\n\n</details>",
+    "titles": ["碰撞"],
+    "opens": [false],
+    "selectors": {},
+    "literals": [":FORMAREADERDISCLOSURE0OPEN:"]
+  },
+  {
+    "id": "blank-entity-title",
+    "source": "<details>\n<summary>&nbsp;&#32;</summary>\n\n正文。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["正文。"]
+  },
+  {
+    "id": "depth-16",
+    "source": "<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\nbody\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n",
+    "titles": [
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer",
+      "Layer"
+    ],
+    "opens": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "selectors": {},
+    "literals": ["body"]
+  },
+  {
+    "id": "depth-17",
+    "source": "<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\n<details>\n<summary>Layer</summary>\n\nbody\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n</details>\n\n",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["body"]
+  },
+  {
+    "id": "indented-crlf",
+    "source": "前文。\r\n\r\n   <details open>\r\n   <summary>缩进</summary>\r\n\r\n正文。\r\n\r\n   </details>\r\n",
+    "titles": ["缩进"],
+    "opens": [true],
+    "selectors": {},
+    "literals": ["前文。", "正文。"]
+  },
+  {
+    "id": "non-html-attribute-space",
+    "source": "<details open >\n<summary>属性空白</summary>\n\n正文。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["正文。"]
+  },
+  {
+    "id": "complete-entities-only",
+    "source": "<details>\n<summary>&copycat; &semi; &#59; &copy; &notin;</summary>\n\n正文。\n\n</details>",
+    "titles": ["&copycat; ; ; © ∉"],
+    "opens": [false],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "quoted-delimiter-outer",
+    "source": "<details title=\"a>b\">\n<summary>外层</summary>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "multiline-outer",
+    "source": "<details\n open>\n<summary>外层</summary>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "html-wrapped-child",
+    "source": "<details>\n<summary>外层</summary>\n\n<div>\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n</div>\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "pre-literal-child",
+    "source": "<details>\n<summary>外层</summary>\n\n<pre>\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n</pre>\n\n</details>",
+    "titles": ["外层"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "comment-literal-child",
+    "source": "<details>\n<summary>外层</summary>\n\n<!--\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n-->\n\n</details>",
+    "titles": ["外层"],
+    "opens": [false],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "nonblank-separator",
+    "source": "<details>\n<summary>标题</summary>\n \n内容。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "bom-title",
+    "source": "<details>\n<summary>&#xFEFF;</summary>\n\n内容。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "nel-title",
+    "source": "<details>\n<summary>&#x85;</summary>\n\n内容。\n\n</details>",
+    "titles": ["…"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "definition-before-fold",
+    "source": "[target]: https://example.test\n\n<details>\n<summary>标题</summary>\n\n[引用][target]\n\n</details>",
+    "titles": ["标题"],
+    "opens": [false],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "raw-nel-title",
+    "source": "<details>\n<summary></summary>\n\n内容。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "unicode-line-separator",
+    "source": "<details>\n<summary>A B</summary>\n\n内容。\n\n</details>",
+    "titles": ["A B"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "numeric-c1-title",
+    "source": "<details>\n<summary>&#128; &#x85; &#x9f;</summary>\n\n内容。\n\n</details>",
+    "titles": ["€ … Ÿ"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "numeric-invalid-title",
+    "source": "<details>\n<summary>&#0; &#xD800; &#x110000;</summary>\n\n内容。\n\n</details>",
+    "titles": ["� � �"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "html-wrapper-across-blank",
+    "source": "<div>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</div>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "html-close-in-body",
+    "source": "<details>\n<summary>外层</summary>\n\n<div>\n</details>\n</div>\n\n尾部。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["尾部。"]
+  },
+  {
+    "id": "after-closed-html",
+    "source": "<div title=\"a>b\">\n\n文字。\n\n</div>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>",
+    "titles": ["内层"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "after-void-html",
+    "source": "<br>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>",
+    "titles": ["内层"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "html-wrapper-quoted-close",
+    "source": "<div title=\"</div>\">\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</div>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "unfinished-html-quote",
+    "source": "<div title=\"unterminated\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "quoted-self-close",
+    "source": "<div title=\"unterminated/>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "multiline-quoted-wrapper",
+    "source": "<div\n title=\"</div>\">\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</div>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "multiline-attribute-close-spoof",
+    "source": "<div title=\"\n</div>\n\">\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</div>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "html-comment-close-spoof",
+    "source": "<div>\n<!--\n</div>\n-->\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</div>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "html-script-close-spoof",
+    "source": "<div>\n<script>\nconst text = \"</div>\";\n</script>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</div>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "native-attribute-close-spoof",
+    "source": "<details title=\"\n</details>\n\">\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "nonvoid-self-close",
+    "source": "<div/>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "summary-wrapper",
+    "source": "<summary>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</summary>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "literal-summary-close",
+    "source": "<details>\n<summary>literal </details> tail</summary>\n\n内容。\n\n</details>",
+    "titles": ["literal </details> tail"],
+    "opens": [false],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "after-multiline-quoted-wrapper",
+    "source": "<div title=\"\n</div>\n\">\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "after-comment-script-wrapper",
+    "source": "<div>\n<!--\n</div>\n-->\n<script>\nconst text = \"</div>\";\n</script>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "after-nonvoid-self-close",
+    "source": "<div/>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "after-foreign-self-close",
+    "source": "<svg/>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "attribute-across-token-boundaries",
+    "source": "<div title=\"\n\n</div>\n\">\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "inline-double-outer",
+    "source": "<details><details>\n\n</details>\n\n<details>\n<summary>内层</summary>\n\n内容。\n\n</details>\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "blank-named-entities",
+    "source": "<details>\n<summary>&Tab;&NewLine;</summary>\n\n内容。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "all-numeric-c1-mappings",
+    "source": "<details>\n<summary>&#128; &#130; &#131; &#132; &#133; &#134; &#135; &#136; &#137; &#138; &#139; &#140; &#142; &#145; &#146; &#147; &#148; &#149; &#150; &#151; &#152; &#153; &#154; &#155; &#156; &#158; &#159;</summary>\n\n内容。\n\n</details>",
+    "titles": ["€ ‚ ƒ „ … † ‡ ˆ ‰ Š ‹ Œ Ž ‘ ’ “ ” • – — ˜ ™ š › œ ž Ÿ"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["内容。"]
+  },
+  {
+    "id": "xmp-ancestor-close-spoof",
+    "source": "<div>\n<xmp>\n</div>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</xmp>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "iframe-ancestor-close-spoof",
+    "source": "<div>\n<iframe>\n</div>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</iframe>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "noembed-ancestor-close-spoof",
+    "source": "<div>\n<noembed>\n</div>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</noembed>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "noframes-ancestor-close-spoof",
+    "source": "<div>\n<noframes>\n</div>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</noframes>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "title-ancestor-close-spoof",
+    "source": "<div>\n<title>\n</div>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</title>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "noscript-ancestor-close-spoof",
+    "source": "<div>\n<noscript>\n</div>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</noscript>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "template-ancestor-close-spoof",
+    "source": "<div>\n<template>\n</div>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</template>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "plaintext-does-not-close",
+    "source": "<div>\n<plaintext>\n</div>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</plaintext>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "template-summary-close-recovery",
+    "source": "<div>\n<template>\n<summary>literal </template> tail</summary>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "template-inert-native-delimiters",
+    "source": "<details>\n<summary>外层</summary>\n\n<template>\n</details>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</template>\n\n保留正文。\n\n</details>",
+    "titles": ["外层"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["保留正文。"]
+  },
+  {
+    "id": "root-xmp-recovery",
+    "source": "<xmp>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</xmp>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "self-closing-xmp-is-not-void",
+    "source": "<div>\n<xmp/>\n</div>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</xmp>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "script-double-escaped",
+    "source": "<div>\n<script>\n<!--<script>\n</script>\n</div>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</script>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "script-escaped-normal-close",
+    "source": "<div>\n<script>\n<!-- normal comment\n</script>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "script-double-escape-comment-exit",
+    "source": "<div>\n<script>\n<!--<script>-->\n</script>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "script-abrupt-comment-exit",
+    "source": "<div>\n<script>\n<!--><script>\n</script>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "comment-tail-malformed-parent",
+    "source": "<!-- note --><details>\n<summary>外层</summary>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "pi-tail-malformed-parent",
+    "source": "<?p?><details>\n<summary>外层</summary>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "declaration-tail-malformed-parent",
+    "source": "<!DOCTYPE html><details>\n<summary>外层</summary>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "cdata-tail-malformed-parent",
+    "source": "<![CDATA[ note ]]><details>\n<summary>外层</summary>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": []
+  },
+  {
+    "id": "after-real-comment-close",
+    "source": "<!-- mention <details> -->\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "comment-tail-underscore-wrapper",
+    "source": "<!-- note --><x_box>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</x_box>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": [],
+    "opens": [],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "unicode-wrapper-quoted-close",
+    "source": "<div>\n<xé title=\"</div>\">\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</xé>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "quoted-name-wrapper",
+    "source": "<div>\n<x\"name title='</div>'>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</x\"name>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "bogus-end-tag-comment",
+    "source": "<div>\n</?bogus </div>>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "quoted-attribute-name-native",
+    "source": "<details data\"key=\"</details></details>\">\n<summary>坏父级</summary>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</details>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "unquoted-attribute-quote-recovery",
+    "source": "<div title=a\"b>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "foreign-unquoted-slash-value",
+    "source": "<svg data=x/>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</svg>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "foreign-slash-is-value",
+    "source": "<svg data=/>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</svg>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "foreign-real-self-close",
+    "source": "<svg data=\"x\"/>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "foreign-self-closing-script",
+    "source": "<svg>\n<script/>\n</svg>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "comment-tail-hyphen-wrapper-recovers",
+    "source": "<!-- note --><x-box>\n\n<details>\n<summary>内层</summary>\n\n内部正文。\n\n</details>\n\n</x-box>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  },
+  {
+    "id": "declaration-quote-does-not-swallow-tail",
+    "source": "<div>\n<!DOCTYPE html PUBLIC \"bad>\n</div>\n\n<details>\n<summary>外部</summary>\n\n外部正文。\n\n</details>",
+    "titles": ["外部"],
+    "opens": [false],
+    "selectors": {},
+    "literals": ["外部正文。"]
+  }
+]

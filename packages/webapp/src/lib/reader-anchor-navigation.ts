@@ -62,15 +62,19 @@ export function restoreReaderFragment(reader: HTMLElement) {
 }
 
 function focusReaderTarget(target: HTMLElement) {
-    // Reveal only Forma callout ancestors; navigating to a disclosure itself does not toggle it.
+    // Reveal only reader-owned disclosure ancestors; targeting the disclosure itself never toggles it.
     let revealed = false;
-    let ancestor = target.parentElement?.closest<HTMLDetailsElement>("details[data-callout-fold]");
+    let ancestor = target.parentElement?.closest<HTMLDetailsElement>(
+        "details[data-callout-fold], details[data-markdown-disclosure]",
+    );
     while (ancestor) {
         if (!ancestor.open) {
             ancestor.open = true;
             revealed = true;
         }
-        ancestor = ancestor.parentElement?.closest<HTMLDetailsElement>("details[data-callout-fold]");
+        ancestor = ancestor.parentElement?.closest<HTMLDetailsElement>(
+            "details[data-callout-fold], details[data-markdown-disclosure]",
+        );
     }
     const focusTarget =
         target.hasAttribute("data-forma-heading-anchor") && target.parentElement?.matches("h1,h2,h3,h4,h5,h6")
@@ -84,8 +88,21 @@ function focusReaderTarget(target: HTMLElement) {
         window.requestAnimationFrame(() => {
             window.requestAnimationFrame(() => {
                 if (!target.isConnected || decodeFragment(window.location.hash) !== target.id) return;
-                if (target.parentElement?.closest("details[data-callout-fold]:not([open])")) return;
-                if (document.activeElement !== previousFocus && document.activeElement !== target) return;
+                if (
+                    target.parentElement?.closest(
+                        "details[data-callout-fold]:not([open]), details[data-markdown-disclosure]:not([open])",
+                    )
+                )
+                    return;
+                // Native fragment navigation may clear the opener's focus to body.
+                // Preserve an explicit intervening focus on any other control.
+                if (
+                    document.activeElement !== previousFocus &&
+                    document.activeElement !== target &&
+                    document.activeElement !== focusTarget &&
+                    document.activeElement !== document.body
+                )
+                    return;
                 focusTarget.focus({ preventScroll: true });
                 if (!scrollReaderTarget(target)) target.scrollIntoView({ block: "start" });
             });

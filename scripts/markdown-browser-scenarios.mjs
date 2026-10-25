@@ -4,6 +4,8 @@ export async function markdownBrowserScenarios(page, options) {
         if (!condition) throw new Error(message);
     };
     const results = [];
+    const sourceCases = {};
+    const browser = page.context().browser();
     const failure = async (current, name, error, diagnostics = {}) => {
         let screenshotError;
         try {
@@ -74,8 +76,183 @@ export async function markdownBrowserScenarios(page, options) {
             "static: raw source intercepted by SPA",
         );
     };
+    const nativeDisclosures = async (current, host, noScript = false) => {
+        assert(options.disclosureCases?.length > 0, `${host.name}: disclosure cases missing`);
+        const completed = [];
+        for (const fixture of options.disclosureCases) {
+            await current.goto(`${host.origin}${host.root}/pages/notes/fold-${fixture.id}/`);
+            if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
+            const reader = current.locator('[data-reader="markdown"]:not([data-reader-loading]):not([role="alert"])');
+            await reader.waitFor({ state: "attached" });
+            const actual = await reader.locator("details[data-markdown-disclosure]").evaluateAll((nodes) =>
+                nodes.map((fold) => ({
+                    title: fold.querySelector(":scope > summary")?.textContent,
+                    open: fold.open,
+                })),
+            );
+            assert(
+                JSON.stringify(actual.map((fold) => fold.title)) === JSON.stringify(fixture.titles),
+                `${host.name}: ${fixture.id} titles: ${JSON.stringify(actual)}`,
+            );
+            assert(
+                JSON.stringify(actual.map((fold) => fold.open)) === JSON.stringify(fixture.opens),
+                `${host.name}: ${fixture.id} defaults`,
+            );
+            assert(
+                (await reader.locator("details:not([data-markdown-disclosure]):not([data-callout-fold])").count()) ===
+                    0,
+                `${host.name}: ${fixture.id} unsafe disclosure`,
+            );
+            for (const [selector, expected] of Object.entries(fixture.selectors)) {
+                if (selector === "h2") continue; // The fallback footnote heading is compiler-specific.
+                const count = await reader
+                    .locator(selector)
+                    .evaluateAll(
+                        (nodes) => nodes.filter((node) => !node.closest("[data-markdown-sticky-header]")).length,
+                    );
+                assert(count === expected, `${host.name}: ${fixture.id} ${selector}`);
+            }
+            assert(
+                (await reader.locator("script,iframe,[onclick],[onerror]").count()) === 0,
+                `${host.name}: ${fixture.id} unsafe markup`,
+            );
+            for (const literal of fixture.literals)
+                assert((await reader.textContent()).includes(literal), `${host.name}: ${fixture.id} missing literal`);
+            completed.push(fixture.id);
+        }
+        await current.goto(`${host.origin}${host.root}/pages/notes/disclosures/`);
+        if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
+        if (noScript) {
+            assert(
+                await current.evaluate(() => {
+                    const script = document.createElement("script");
+                    script.textContent = "window.__formaDisclosureScriptProbe = true";
+                    document.head.append(script);
+                    return window.__formaDisclosureScriptProbe !== true;
+                }),
+                "noscript: disclosure context unexpectedly executes scripts",
+            );
+        }
+        const folds = current.locator('[data-reader="markdown"] details[data-markdown-disclosure]');
+        await folds.first().waitFor({ state: "attached" });
+        assert((await folds.count()) === 3, `${host.name}: disclosure sample structure`);
+        const content = current.locator('[data-reader="markdown"]');
+        assert((await content.locator(".katex").count()) === (noScript ? 0 : 2), `${host.name}: folded formulae`);
+        for (const selector of ["mark", "del", "details[data-callout-fold]", "pre"]) {
+            assert((await content.locator(selector).count()) === 1, `${host.name}: folded ${selector}`);
+        }
+        if (noScript) assert((await content.textContent()).includes("$x^2$"), "noscript: folded formula source");
+        const outer = folds.nth(0),
+            inner = folds.nth(1),
+            summary = outer.locator(":scope > summary");
+        const open = async (fold) => fold.evaluate((fold) => fold.open);
+        assert(
+            !(await open(outer)) && !(await open(inner)) && (await open(folds.nth(2))),
+            `${host.name}: sample defaults`,
+        );
+        await summary.click();
+        assert(await open(outer), `${host.name}: pointer open`);
+        await summary.focus();
+        await current.keyboard.press("Space");
+        assert(!(await open(outer)), `${host.name}: keyboard close`);
+        await current.keyboard.press("Enter");
+        assert(await open(outer), `${host.name}: keyboard open`);
+        await summary.click();
+        if (!noScript) {
+            await current.getByRole("link", { name: /^Jump to hidden heading/ }).click();
+            await current.waitForFunction(() => document.activeElement?.tagName === "H2");
+            assert((await open(outer)) && (await open(inner)), `${host.name}: nested ancestors not revealed`);
+            assert(
+                await current.locator("details[data-callout-fold]").evaluate((fold) => !fold.open),
+                `${host.name}: unrelated callout changed`,
+            );
+            const returnId = await inner.locator(".collapse-content sup a").first().getAttribute("id");
+            assert(returnId, `${host.name}: footnote reference ID`);
+            await outer.evaluate((fold) => {
+                fold.open = false;
+                for (const child of fold.querySelectorAll("details[data-markdown-disclosure]")) child.open = false;
+            });
+            await current.locator(`a[href$="#${returnId}"]`).click();
+            await current.waitForFunction((id) => document.activeElement?.id === id, returnId);
+            assert((await open(outer)) && (await open(inner)), `${host.name}: footnote return did not reveal`);
+            await current.reload();
+            await current.waitForFunction(() =>
+                [...document.querySelectorAll("details[data-markdown-disclosure]")]
+                    .slice(0, 2)
+                    .every((fold) => fold.open),
+            );
+            await current.goto(`${host.origin}${host.root}/pages/notes/disclosures/#forma-heading-hidden-fold-heading`);
+            await current.waitForFunction(() => document.activeElement?.tagName === "H2");
+            await outer.evaluate((fold) => {
+                fold.open = false;
+                for (const child of fold.querySelectorAll("details[data-markdown-disclosure]")) child.open = false;
+            });
+            await current.getByRole("link", { name: /^Jump to hidden heading/ }).click();
+            assert((await open(outer)) && (await open(inner)), `${host.name}: same-fragment reveal`);
+        } else {
+            await summary.click();
+            await inner.locator(":scope > summary").click();
+            await inner.locator("h2").waitFor({ state: "visible" });
+            assert(await open(inner), "noscript: nested disclosure did not open");
+        }
+        for (const width of [1280, 390])
+            for (const scheme of ["light", "dark"]) {
+                await current.setViewportSize({ width, height: 900 });
+                await current.evaluate(
+                    (scheme) => document.documentElement.setAttribute("data-theme", `choral-${scheme}`),
+                    scheme,
+                );
+                await summary.focus();
+                await current.keyboard.press("ArrowRight");
+                const geometry = await summary.evaluate((summary) => ({
+                    overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+                    labelOverflow: summary.scrollWidth > summary.clientWidth + 1,
+                    outline: getComputedStyle(summary).outlineStyle,
+                }));
+                assert(!geometry.overflow && !geometry.labelOverflow, `${host.name}: disclosure overflow at ${width}`);
+                assert(geometry.outline !== "none", `${host.name}: missing keyboard focus`);
+                await current.screenshot({
+                    path: `${options.artifacts}/${host.name}-disclosures-${width}-${scheme}${noScript ? "-noscript" : ""}.png`,
+                    fullPage: true,
+                });
+            }
+        await current.setViewportSize({ width: 1280, height: 900 });
+        return completed;
+    };
+    if (options.mode === "disclosures") {
+        const completed = [];
+        for (const host of options.hosts) {
+            const context = await browser.newContext({ javaScriptEnabled: !options.noScript });
+            const current = await context.newPage();
+            const errors = [],
+                consoleErrors = [],
+                failedRequests = [];
+            current.on("pageerror", (error) => errors.push(error.message));
+            current.on("console", (message) => {
+                if (message.type() === "error") consoleErrors.push(message.text());
+            });
+            current.on("requestfailed", (request) =>
+                failedRequests.push({ url: request.url(), error: request.failure()?.errorText }),
+            );
+            try {
+                completed.push(...(await nativeDisclosures(current, host, options.noScript)));
+                assert(errors.length === 0 && consoleErrors.length === 0, `${host.name}: disclosure runtime errors`);
+                results.push(
+                    options.noScript
+                        ? "static noscript: native disclosures and keyboard toggling"
+                        : `${host.name}: native disclosures, folding and navigation`,
+                );
+            } catch (error) {
+                await failure(current, `${host.name}-disclosures`, error, { errors, consoleErrors, failedRequests });
+            } finally {
+                await context.close();
+            }
+        }
+        return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases: { disclosures: completed } };
+    }
     const readingSyntax = async (current, host, noScript = false) => {
         assert(options.readingCases?.length > 0, `${host.name}: P1 source cases missing`);
+        const completed = [];
         for (const fixture of options.readingCases) {
             await current.goto(`${host.origin}${host.root}/pages/notes/p1-${fixture.id}/`);
             if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
@@ -106,6 +283,7 @@ export async function markdownBrowserScenarios(page, options) {
                 (await reader.locator("script,iframe,[onclick],[onerror]").count()) === 0,
                 `${label}: unsafe output`,
             );
+            completed.push(fixture.id);
         }
         await current.goto(`${host.origin}${host.root}/pages/notes/reading-p1/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
@@ -154,6 +332,7 @@ export async function markdownBrowserScenarios(page, options) {
             }
         await current.setViewportSize({ width: 1280, height: 900 });
         await current.emulateMedia({ colorScheme: "light" });
+        return completed;
     };
     const calloutSourceCases = async (current, host, noScript = false) => {
         assert(
@@ -179,6 +358,7 @@ export async function markdownBrowserScenarios(page, options) {
         }
         await current.goto(`${host.origin}${host.root}/pages/notes/callout-boundaries/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
+        const completed = [];
         for (const fixture of options.calloutBoundaries) {
             const heading = current.getByRole("heading", { name: fixture.id, exact: true });
             const actual = await heading.evaluate((heading) => {
@@ -214,7 +394,9 @@ export async function markdownBrowserScenarios(page, options) {
                     `${label}: missing literal code`,
                 );
             }
+            completed.push(fixture.id);
         }
+        return completed;
     };
     const callouts = async (current, host, noScript = false) => {
         await current.bringToFront();
@@ -405,7 +587,6 @@ export async function markdownBrowserScenarios(page, options) {
         await current.setViewportSize({ width: 1280, height: 900 });
         await current.emulateMedia({ colorScheme: "light" });
     };
-    const browser = page.context().browser();
     for (const host of options.mode === "noscript" ? [] : options.hosts) {
         const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
         const current = await context.newPage();
@@ -485,11 +666,11 @@ export async function markdownBrowserScenarios(page, options) {
                 await rawSource(current, host);
                 results.push("static: raw source navigation beside sidecar");
             }
-            await readingSyntax(current, host);
-            results.push(`${host.name}: P1 syntax ${options.readingCases.length} cases, combined reading and themes`);
-            await calloutSourceCases(current, host);
+            sourceCases.reading = await readingSyntax(current, host);
+            results.push(`${host.name}: P1 syntax ${sourceCases.reading.length} cases, combined reading and themes`);
+            sourceCases.callouts = await calloutSourceCases(current, host);
             results.push(
-                `${host.name}: formatted callout samples and ${options.calloutBoundaries.length} exact source cases`,
+                `${host.name}: formatted callout samples and ${sourceCases.callouts.length} exact source cases`,
             );
             await callouts(current, host);
             results.push(`${host.name}: callout disclosure, rich header, navigation, focus and responsive themes`);
@@ -548,7 +729,7 @@ export async function markdownBrowserScenarios(page, options) {
             await context.close();
         }
     }
-    if (options.mode === "enhanced") return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results };
+    if (options.mode === "enhanced") return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases };
     const host = options.hosts.find((host) => host.name === "static");
     const context = await browser.newContext({ javaScriptEnabled: false });
     const current = await context.newPage();
@@ -598,11 +779,11 @@ export async function markdownBrowserScenarios(page, options) {
         results.push("static noscript: images, authored link, Mermaid source and Graph navigation");
         await rawSource(current, host, true);
         results.push("static noscript: raw source navigation beside sidecar");
-        await readingSyntax(current, host, true);
-        results.push(`static noscript: P1 syntax ${options.readingCases.length} cases and readable formula fallback`);
-        await calloutSourceCases(current, host, true);
+        sourceCases.reading = await readingSyntax(current, host, true);
+        results.push(`static noscript: P1 syntax ${sourceCases.reading.length} cases and readable formula fallback`);
+        sourceCases.callouts = await calloutSourceCases(current, host, true);
         results.push(
-            `static noscript: formatted callout samples and ${options.calloutBoundaries.length} exact source cases`,
+            `static noscript: formatted callout samples and ${sourceCases.callouts.length} exact source cases`,
         );
         await callouts(current, host, true);
         results.push("static noscript: callout defaults, pointer/keyboard and header links");
@@ -611,5 +792,5 @@ export async function markdownBrowserScenarios(page, options) {
     } finally {
         await context.close();
     }
-    return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results };
+    return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results, sourceCases };
 }
