@@ -523,5 +523,85 @@
     "displayMath": 0,
     "contains": [],
     "fallbackText": []
+  },
+  {
+    "id": "review-highlight-link-inner",
+    "source": "==[a==b](https://example.test)==",
+    "tags": {
+      "mark": 1,
+      "a": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["a==b"],
+    "fallbackText": []
+  },
+  {
+    "id": "review-highlight-code-inner",
+    "source": "==`a==b`==",
+    "tags": {
+      "mark": 1,
+      "code": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["a==b"],
+    "fallbackText": []
+  },
+  {
+    "id": "review-highlight-link-label",
+    "source": "[==link==](https://example.test)",
+    "tags": {
+      "mark": 1,
+      "a": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["link"],
+    "fallbackText": []
+  },
+  {
+    "id": "review-adjacent-math",
+    "source": "$==a==$$==b==$",
+    "tags": {},
+    "inlineMath": 2,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "review-highlight-html-combination",
+    "source": "<mark>H<sub>2</sub>O 与 m<sup>2</sup></mark>",
+    "tags": {
+      "mark": 1,
+      "sub": 1,
+      "sup": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["H", "O"],
+    "fallbackText": []
+  },
+  {
+    "id": "review-image-alt",
+    "source": "![==literal== $2$](image-viewer.svg)",
+    "tags": {
+      "img": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "review-highlight-inline-display",
+    "source": "==正文 $$x$$==",
+    "tags": {
+      "mark": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["$$x$$"],
+    "fallbackText": []
   }
 ]
