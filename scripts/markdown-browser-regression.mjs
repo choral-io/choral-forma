@@ -33,6 +33,7 @@ const mime = {
     ".css": "text/css",
     ".json": "application/json",
     ".svg": "image/svg+xml",
+    ".txt": "text/plain; charset=utf-8",
     ".woff2": "font/woff2",
 };
 
@@ -131,6 +132,11 @@ try {
     ]) {
         await cp(join(root, "fixtures/forma-validation/samples/markdown", name), join(workspace, "notes", name));
     }
+    await writeFile(join(workspace, "notes/raw-source.txt"), "FORMA_RAW_SOURCE_BROWSER_PROBE\n");
+    await writeFile(
+        join(workspace, "notes/raw-source.txt.md"),
+        "# Raw source sidecar\n\n[Original source](./raw-source.txt?download=1#part)\n",
+    );
     for (const fixture of readingCases) {
         await writeFile(join(workspace, "notes", `p1-${fixture.id}.md`), `# Reading P1\n\n${fixture.source}\n`);
     }

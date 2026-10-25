@@ -363,6 +363,7 @@ fn build_static_site_snapshot_from_loaded(
         root_path,
     );
     let workspace_home_markdown = static_markdown(
+        workspace.root.as_path(),
         &workspace_home_document,
         FORMA_CONFIG_PATH,
         &entry_routes_by_path,
@@ -397,6 +398,7 @@ fn build_static_site_snapshot_from_loaded(
             root_path,
         );
         let markdown = static_markdown(
+            workspace.root.as_path(),
             &document,
             &entry.path,
             &entry_routes_by_path,
@@ -480,6 +482,7 @@ fn build_static_site_snapshot_from_loaded(
             root_path,
         );
         let view_markdown = static_markdown(
+            workspace.root.as_path(),
             &view_document,
             &view.path,
             &entry_routes_by_path,
@@ -714,6 +717,7 @@ fn render_variant(
         root_path,
     );
     let markdown = static_markdown(
+        root,
         &document,
         &variant.path,
         entry_routes_by_path,
@@ -976,6 +980,7 @@ fn hex_value(byte: u8) -> Option<u8> {
 }
 
 fn static_markdown(
+    root: &Path,
     document: &FormaMarkdownDocument,
     source_path: &str,
     entry_routes_by_path: &BTreeMap<String, String>,
@@ -989,6 +994,7 @@ fn static_markdown(
         .iter()
         .filter_map(|reference| {
             let href = static_reference_href(
+                root,
                 &reference.target,
                 source_path,
                 entry_routes_by_path,
@@ -1050,6 +1056,7 @@ fn static_markdown(
 }
 
 fn static_reference_href(
+    root: &Path,
     raw_target: &str,
     source_path: &str,
     entry_routes_by_path: &BTreeMap<String, String>,
@@ -1096,7 +1103,18 @@ fn static_reference_href(
         return Some(href);
     }
 
-    if let Some(candidate) = resource_candidate(&normalized, ".", false, config_paths, root_path) {
+    let alias = resolve_entry_route(&normalized, entry_routes_by_path).or_else(|| {
+        let workspace_style_target = path.trim_start_matches('/');
+        (workspace_style_target != normalized)
+            .then(|| resolve_entry_route(workspace_style_target, entry_routes_by_path))
+            .flatten()
+    });
+    // A real resource wins a collision; a missing raw file must not steal an
+    // existing extensionless sidecar alias. Keep missing-resource behavior when
+    // no entry alias exists so normal resource diagnostics remain available.
+    if let Some(candidate) = resource_candidate(&normalized, ".", false, config_paths, root_path)
+        && (alias.is_none() || root.join(&normalized).is_file())
+    {
         let mut href = candidate.public_path;
         if !query.is_empty() {
             href.push('?');
@@ -1109,13 +1127,7 @@ fn static_reference_href(
         return Some(href);
     }
 
-    let (target_path, route) =
-        resolve_entry_route(&normalized, entry_routes_by_path).or_else(|| {
-            let workspace_style_target = path.trim_start_matches('/');
-            (workspace_style_target != normalized)
-                .then(|| resolve_entry_route(workspace_style_target, entry_routes_by_path))
-                .flatten()
-        })?;
+    let (target_path, route) = alias?;
     let mut href = public_url(root_path, route);
     if !fragment.is_empty() {
         href.push('#');
@@ -2010,6 +2022,22 @@ mod tests {
             .unwrap();
         assert_eq!(resource.public_path, "/preview/raw/content/guides/foo.txt");
         assert_eq!(resource.referenced_by, vec!["/pages/content/guides/intro"]);
+
+        // Without a real raw file the historical sidecar alias must still resolve.
+        fs::remove_file(root.join("content/guides/foo.txt")).unwrap();
+        let snapshot = build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
+        let intro = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/intro.md")
+            .unwrap();
+        assert!(
+            intro
+                .markdown
+                .contains("[Raw](/preview/pages/content/guides/foo.txt#part)"),
+            "{}",
+            intro.markdown
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

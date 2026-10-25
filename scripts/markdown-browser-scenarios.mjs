@@ -28,6 +28,30 @@ export async function markdownBrowserScenarios(page, options) {
             `${error.stack ?? error}\nDiagnostics: ${JSON.stringify({ url: current.url(), ...diagnostics, screenshotError, navigation })}`,
         );
     };
+    const rawSource = async (current, host, noScript = false) => {
+        await current.goto(`${host.origin}${host.root}/pages/notes/raw-source.txt/`);
+        if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
+        const original = current.getByRole("link", { name: "Original source", exact: true });
+        const href = `${host.root}/raw/notes/raw-source.txt?download=1#part`;
+        assert((await original.getAttribute("href")) === href, "static: raw source shadowed by sidecar");
+        const responseReady = current.waitForResponse(
+            (response) =>
+                response.request().isNavigationRequest() && response.url().includes("/raw/notes/raw-source.txt"),
+        );
+        await original.click();
+        const response = await responseReady;
+        await current.waitForURL(`${host.origin}${href}`);
+        assert(response.ok(), "static: raw source response failed");
+        assert(response.headers()["content-type"]?.startsWith("text/plain"), "static: raw source MIME changed");
+        assert(
+            (await current.locator("body").textContent()).includes("FORMA_RAW_SOURCE_BROWSER_PROBE"),
+            "static: raw source content missing",
+        );
+        assert(
+            (await current.locator('[data-reader="markdown"]').count()) === 0,
+            "static: raw source intercepted by SPA",
+        );
+    };
     const readingSyntax = async (current, host, noScript = false) => {
         assert(options.readingCases?.length > 0, `${host.name}: P1 source cases missing`);
         for (const fixture of options.readingCases) {
@@ -435,6 +459,10 @@ export async function markdownBrowserScenarios(page, options) {
             await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/pages/notes/images`);
             await current.locator('[data-reader="markdown"] img').first().waitFor();
             results.push(`${host.name}: authored page and external image links`);
+            if (host.name === "static") {
+                await rawSource(current, host);
+                results.push("static: raw source navigation beside sidecar");
+            }
             await readingSyntax(current, host);
             results.push(`${host.name}: P1 syntax ${options.readingCases.length} cases, combined reading and themes`);
             await calloutSourceCases(current, host);
@@ -545,6 +573,8 @@ export async function markdownBrowserScenarios(page, options) {
         await current.getByRole("link", { name: "Selected node", exact: true }).click();
         await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/pages/graph/selected`);
         results.push("static noscript: images, authored link, Mermaid source and Graph navigation");
+        await rawSource(current, host, true);
+        results.push("static noscript: raw source navigation beside sidecar");
         await readingSyntax(current, host, true);
         results.push(`static noscript: P1 syntax ${options.readingCases.length} cases and readable formula fallback`);
         await calloutSourceCases(current, host, true);
