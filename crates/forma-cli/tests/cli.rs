@@ -476,6 +476,44 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
 }
 
 #[test]
+fn site_build_keeps_entry_aliases_out_of_resource_inventory() {
+    let root = fixture_root("site-entry-alias-resources");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+    std::fs::create_dir_all(root.join("notes/source.txt")).unwrap();
+    std::fs::write(root.join("notes/source.txt/index.md"), "---\nkind: note\ntitle: Source index\nsummary: Directory alias fixture.\n---\n\n# Source index\n\n## Details\n").unwrap();
+    std::fs::write(root.join("notes/intro.md"), "---\nkind: note\ntitle: Intro\nsummary: Sidecar link fixture.\n---\n\n# Intro\n\n[Source](./source.txt#details)\n").unwrap();
+    let output = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--root-path",
+            "/preview",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let html =
+        std::fs::read_to_string(root.join("dist/site/pages/notes/intro/index.html")).unwrap();
+    assert!(
+        html.contains("/preview/pages/notes/source.txt#details"),
+        "{html}"
+    );
+    assert!(!root.join("dist/site/raw/notes/source.txt").exists());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn site_build_rejects_workspace_root_as_output() {
     let root = fixture_root("site-build-unsafe-output");
     std::fs::create_dir_all(&root).unwrap();

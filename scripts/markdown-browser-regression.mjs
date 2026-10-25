@@ -132,10 +132,15 @@ try {
     ]) {
         await cp(join(root, "fixtures/forma-validation/samples/markdown", name), join(workspace, "notes", name));
     }
+    await mkdir(join(workspace, "notes/resource-directory.txt"));
+    await writeFile(
+        join(workspace, "notes/resource-directory.txt/index.md"),
+        "# Directory entry\n\n## Details\n\nDirectory alias content.\n",
+    );
     await writeFile(join(workspace, "notes/raw-source.txt"), "FORMA_RAW_SOURCE_BROWSER_PROBE\n");
     await writeFile(
         join(workspace, "notes/raw-source.txt.md"),
-        "# Raw source sidecar\n\n[Original source](./raw-source.txt?download=1#part)\n",
+        "# Raw source sidecar\n\n[Original source](./raw-source.txt?download=1#part)\n\n[Directory entry](./resource-directory.txt#details)\n",
     );
     for (const fixture of readingCases) {
         await writeFile(join(workspace, "notes", `p1-${fixture.id}.md`), `# Reading P1\n\n${fixture.source}\n`);
@@ -227,18 +232,42 @@ try {
             { name: "static", origin: staticOrigin, root: "/preview", graph: "/views/graph/" },
         ],
     };
-    const scenario = join(temporary, "scenarios.js");
-    await writeFile(
-        scenario,
-        `async page => (${markdownBrowserScenarios.toString()})(page, ${JSON.stringify(options)})`,
-    );
     abort.signal.throwIfAborted();
     browserStarted = true;
     await browserCommand("open", "--browser", process.env.FORMA_BROWSER ?? "chromium");
-    const output = await browserCommand("run-code", `--filename=${scenario}`);
-    const result = JSON.parse(output.match(/### Result\s*\n([^\n]+)/u)?.[1] ?? "null");
-    if (result?.status !== "FORMA_MARKDOWN_BROWSER_PASSED") throw new Error("Browser did not report success");
-    testResult = result;
+    const results = [];
+    // Bound each host independently; growing syntax coverage must not consume
+    // the interaction suite's cumulative command deadline.
+    const phases = [
+        { name: "webapp", mode: "enhanced", hosts: [options.hosts[0]] },
+        { name: "static", mode: "enhanced", hosts: [options.hosts[1]] },
+        { name: "noscript", mode: "noscript", hosts: [options.hosts[1]] },
+    ];
+    for (const phase of phases) {
+        abort.signal.throwIfAborted();
+        const scenario = join(temporary, `scenarios-${phase.name}.js`);
+        await writeFile(
+            scenario,
+            `async page => (${markdownBrowserScenarios.toString()})(page, ${JSON.stringify({ ...options, ...phase })})`,
+        );
+        const output = await command(
+            cli,
+            [`-s=${session}`, "run-code", `--filename=${scenario}`],
+            120_000,
+            false,
+            `run-code-${phase.name}`,
+        );
+        const result = JSON.parse(output.match(/### Result\s*\n([^\n]+)/u)?.[1] ?? "null");
+        if (
+            result?.status !== "FORMA_MARKDOWN_BROWSER_PASSED" ||
+            !Array.isArray(result.results) ||
+            !result.results.length
+        )
+            throw new Error(`Browser phase ${phase.name} did not report success: ${output}`);
+        results.push(...result.results);
+        console.log(`Completed browser phase: ${phase.name}`);
+    }
+    testResult = { status: "FORMA_MARKDOWN_BROWSER_PASSED", results };
 } catch (error) {
     console.error(`Browser regression failed; artifacts: ${artifacts}`);
     await writeFile(

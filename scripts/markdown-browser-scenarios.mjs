@@ -31,6 +31,28 @@ export async function markdownBrowserScenarios(page, options) {
     const rawSource = async (current, host, noScript = false) => {
         await current.goto(`${host.origin}${host.root}/pages/notes/raw-source.txt/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
+        const directory = current.getByRole("link", { name: "Directory entry", exact: true });
+        const directoryHref = `${host.root}/pages/notes/resource-directory.txt#details`;
+        assert(
+            (await directory.getAttribute("href")) === directoryHref,
+            "static: directory alias rewritten as raw resource",
+        );
+        await directory.click();
+        await current.waitForURL(
+            (url) =>
+                url.pathname.replace(/\/$/u, "") === `${host.root}/pages/notes/resource-directory.txt` &&
+                url.hash === "#details",
+        );
+        await current
+            .locator('[data-reader="markdown"]:not([data-reader-loading])')
+            .getByText("Directory alias content.", { exact: true })
+            .waitFor();
+        assert(
+            (await current.locator('[data-reader="markdown"]').textContent()).includes("Directory alias content."),
+            "static: directory alias content missing",
+        );
+        await current.goto(`${host.origin}${host.root}/pages/notes/raw-source.txt/`);
+        if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         const original = current.getByRole("link", { name: "Original source", exact: true });
         const href = `${host.root}/raw/notes/raw-source.txt?download=1#part`;
         assert((await original.getAttribute("href")) === href, "static: raw source shadowed by sidecar");
@@ -384,7 +406,7 @@ export async function markdownBrowserScenarios(page, options) {
         await current.emulateMedia({ colorScheme: "light" });
     };
     const browser = page.context().browser();
-    for (const host of options.hosts) {
+    for (const host of options.mode === "noscript" ? [] : options.hosts) {
         const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
         const current = await context.newPage();
         const errors = [];
@@ -526,6 +548,7 @@ export async function markdownBrowserScenarios(page, options) {
             await context.close();
         }
     }
+    if (options.mode === "enhanced") return { status: "FORMA_MARKDOWN_BROWSER_PASSED", results };
     const host = options.hosts.find((host) => host.name === "static");
     const context = await browser.newContext({ javaScriptEnabled: false });
     const current = await context.newPage();

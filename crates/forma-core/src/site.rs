@@ -355,6 +355,8 @@ fn build_static_site_snapshot_from_loaded(
         workspace_home_headings.clone(),
     );
     collect_document_resources(
+        workspace.root.as_path(),
+        &entry_routes_by_path,
         &mut resources,
         &config_paths,
         FORMA_CONFIG_PATH,
@@ -390,6 +392,8 @@ fn build_static_site_snapshot_from_loaded(
         );
         merge_diagnostics(&mut diagnostics, document_diagnostics);
         collect_document_resources(
+            workspace.root.as_path(),
+            &entry_routes_by_path,
             &mut resources,
             &config_paths,
             &entry.path,
@@ -474,6 +478,8 @@ fn build_static_site_snapshot_from_loaded(
             render_indexed_view_from_loaded(workspace, discovery, &view.id, BTreeMap::new())?;
         let view_document = read_document(workspace.root.as_path(), &view.path)?;
         collect_document_resources(
+            workspace.root.as_path(),
+            &entry_routes_by_path,
             &mut resources,
             &config_paths,
             &view.path,
@@ -709,6 +715,8 @@ fn render_variant(
         .collect::<Vec<_>>();
     let route_path = entry_route_path(&variant.path);
     collect_document_resources(
+        root,
+        entry_routes_by_path,
         resources,
         config_paths,
         &variant.path,
@@ -1380,6 +1388,8 @@ fn render_static_markdown_html(
 }
 
 fn collect_document_resources(
+    root: &Path,
+    entry_routes_by_path: &BTreeMap<String, String>,
     resources: &mut BTreeMap<String, StaticSiteResourceCandidate>,
     config_paths: &BTreeSet<&str>,
     source_path: &str,
@@ -1402,6 +1412,24 @@ fn collect_document_resources(
         else {
             continue;
         };
+        // Collect only destinations the link resolver actually publishes as raw
+        // resources. Entry aliases must not leave phantom files in the export.
+        let href = static_reference_href(
+            root,
+            &reference.target,
+            source_path,
+            entry_routes_by_path,
+            &BTreeMap::new(),
+            config_paths,
+            root_path,
+        );
+        if href
+            .as_deref()
+            .and_then(|href| href.split(['?', '#']).next())
+            != Some(candidate.public_path.as_str())
+        {
+            continue;
+        }
         resources
             .entry(candidate.path.clone())
             .and_modify(|existing| {
@@ -2037,6 +2065,12 @@ mod tests {
                 .contains("[Raw](/preview/pages/content/guides/foo.txt#part)"),
             "{}",
             intro.markdown
+        );
+        assert!(
+            snapshot
+                .resources
+                .iter()
+                .all(|resource| resource.path != "content/guides/foo.txt")
         );
         fs::remove_dir_all(root).unwrap();
     }
