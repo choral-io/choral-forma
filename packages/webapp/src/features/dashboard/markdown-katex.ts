@@ -1,5 +1,5 @@
 import type katex from "katex";
-import type { MarkedExtension, Token } from "marked";
+import type { MarkedExtension, Token, Tokens } from "marked";
 
 interface MathToken {
     type: "blockMath" | "inlineMath";
@@ -64,8 +64,8 @@ function findUnescapedDollar(source: string, start: number) {
     return -1;
 }
 
-function tokenizeInlineMath(source: string): InlineMathToken | undefined {
-    if (!source.startsWith("$") || source.startsWith("$$") || /\s/.test(source[1] ?? "")) {
+export function tokenizeInlineMath(source: string): InlineMathToken | undefined {
+    if (!source.startsWith("$") || source.startsWith("$$") || /\p{White_Space}/u.test(source[1] ?? "")) {
         return undefined;
     }
 
@@ -80,9 +80,7 @@ function tokenizeInlineMath(source: string): InlineMathToken | undefined {
         math.includes("\n") ||
         math.includes("`") ||
         math.includes("\\$") ||
-        math.endsWith(" ") ||
-        math.endsWith("\t") ||
-        /^[+-]?\d+(?:[.,]\d+)?$/.test(math) ||
+        /\p{White_Space}$/u.test(math) ||
         (/^\d/.test(math) && /^\d/.test(followsCloser))
     ) {
         return undefined;
@@ -109,9 +107,17 @@ function renderFormula(katex: KatexRenderer, math: string, displayMode: boolean)
 
 export const markedKatex: MarkedExtension = {
     async walkTokens(token) {
-        if (!isMathToken(token)) {
+        if (token.type === "code" && (token as Tokens.Code).lang?.trim().toLowerCase() === "math") {
+            try {
+                const katex = await loadKatex();
+                const html = renderFormula(katex, (token as Tokens.Code).text, true);
+                Object.assign(token, { type: "html", text: html, block: true, pre: false });
+            } catch (error: unknown) {
+                console.warn("Math rendering failed; rendering the source code.", error);
+            }
             return;
         }
+        if (!isMathToken(token)) return;
 
         try {
             const katex = await loadKatex();
@@ -125,10 +131,12 @@ export const markedKatex: MarkedExtension = {
             name: "blockMath",
             level: "block",
             start(source) {
-                return /^\$\$[ \t]*$/m.exec(source)?.index;
+                return /^\$\$(?:[ \t]*$|[^\r\n]*?\$\$[ \t]*$)/m.exec(source)?.index;
             },
             tokenizer(source) {
-                const match = /^\$\$[ \t]*\r?\n([\s\S]*?)\r?\n\$\$[ \t]*(?:\r?\n|$)/.exec(source);
+                const match =
+                    /^\$\$[ \t]*((?:(?!\$\$)[^\r\n])+?)[ \t]*\$\$[ \t]*(?:\r?\n|$)/.exec(source) ??
+                    /^\$\$[ \t]*\r?\n([\s\S]*?)\r?\n\$\$[ \t]*(?:\r?\n|$)/.exec(source);
                 const math = match?.[1]?.trim();
                 if (!match || !math) {
                     return undefined;
@@ -143,6 +151,21 @@ export const markedKatex: MarkedExtension = {
             renderer(token) {
                 const mathToken = token as BlockMathToken;
                 return `${mathToken.html ?? escapeMathSource(mathToken.raw)}\n`;
+            },
+        },
+        {
+            name: "literalDoubleDollars",
+            level: "inline",
+            start(source) {
+                return source.indexOf("$$");
+            },
+            tokenizer(source) {
+                if (!source.startsWith("$$")) return undefined;
+                const end = source.indexOf("$$", 2);
+                return { type: "literalDoubleDollars", raw: end < 0 ? "$$" : source.slice(0, end + 2) };
+            },
+            renderer(token) {
+                return escapeMathSource(token.raw);
             },
         },
         {

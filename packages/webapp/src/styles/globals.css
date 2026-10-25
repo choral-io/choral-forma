@@ -167,6 +167,10 @@
             @apply rounded-sm bg-base-200 px-1 py-0.5 text-sm;
         }
 
+        & mark {
+            @apply rounded-sm bg-warning px-0.5 text-warning-content;
+        }
+
         & :is(del, li::marker) {
             @apply text-base-content/60;
         }

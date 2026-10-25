@@ -1,0 +1,527 @@
+[
+  {
+    "id": "inline-math",
+    "source": "正文 $x^2$。",
+    "tags": {},
+    "inlineMath": 1,
+    "displayMath": 0,
+    "contains": ["正文"],
+    "fallbackText": []
+  },
+  {
+    "id": "numeric-math",
+    "source": "序号 $2$，数值 $12.50$。",
+    "tags": {},
+    "inlineMath": 2,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "currency",
+    "source": "价格 $5 and $10，单价 $12.50。",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["$5 and $10", "$12.50"],
+    "fallbackText": []
+  },
+  {
+    "id": "escaped-currency",
+    "source": "字面量 \\$x\\$ 和 `$2$`。",
+    "tags": {
+      "code": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["$x$", "$2$"],
+    "fallbackText": []
+  },
+  {
+    "id": "single-line-display",
+    "source": "$$x^2+y^2=z^2$$",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 1,
+    "contains": [],
+    "fallbackText": ["$$x^2+y^2=z^2$$"]
+  },
+  {
+    "id": "display-interrupt",
+    "source": "Before\n$$x^2$$\nAfter",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 1,
+    "contains": ["Before", "After"],
+    "fallbackText": []
+  },
+  {
+    "id": "multiline-display",
+    "source": "$$\n\\frac{a+b}{c}\n$$",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 1,
+    "contains": [],
+    "fallbackText": ["\\frac{a+b}{c}"]
+  },
+  {
+    "id": "math-fence",
+    "source": "```math\n\\frac{a+b}{c}\n```",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 1,
+    "contains": [],
+    "fallbackText": ["\\frac{a+b}{c}"]
+  },
+  {
+    "id": "inline-double-dollar-literal",
+    "source": "正文 $$x^2$$ 末尾。",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["$$x^2$$"],
+    "fallbackText": []
+  },
+  {
+    "id": "unclosed-double-dollar",
+    "source": "正文 $$x^2$ 末尾。",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["$$x^2$"],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight",
+    "source": "这是 ==重点 **内容**==。",
+    "tags": {
+      "mark": 1,
+      "strong": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-emphasis",
+    "source": "==_重点_==",
+    "tags": {
+      "mark": 1,
+      "em": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-code",
+    "source": "==含 `==literal==` 的内容==",
+    "tags": {
+      "mark": 1,
+      "code": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["==literal=="],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-link",
+    "source": "==[章节](#forma-heading-reading-p1)==",
+    "tags": {
+      "mark": 1,
+      "a": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-math",
+    "source": "==公式 $x^2$==",
+    "tags": {
+      "mark": 1
+    },
+    "inlineMath": 1,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "math-equals",
+    "source": "$\\text{==literal==}$",
+    "tags": {},
+    "inlineMath": 1,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": ["==literal=="]
+  },
+  {
+    "id": "display-equals",
+    "source": "$$\n\\text{==literal==}\n$$",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 1,
+    "contains": [],
+    "fallbackText": ["==literal=="]
+  },
+  {
+    "id": "currency-highlight",
+    "source": "$5 ==优惠== and $10",
+    "tags": {
+      "mark": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "literal-highlight",
+    "source": "\\==字面量\\== 和 &#61;&#61;实体&#61;&#61;。",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["==字面量==", "==实体=="],
+    "fallbackText": []
+  },
+  {
+    "id": "invalid-highlight",
+    "source": "== 空白== ===三等号=== ==未闭合",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["== 空白==", "===三等号===", "==未闭合"],
+    "fallbackText": []
+  },
+  {
+    "id": "crossing-emphasis",
+    "source": "==*a==b*",
+    "tags": {
+      "em": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["=="],
+    "fallbackText": []
+  },
+  {
+    "id": "safe-inline-html",
+    "source": "重点 <mark>**内容**</mark>，H<sub>2</sub>O，m<sup>2</sup>。",
+    "tags": {
+      "mark": 1,
+      "strong": 1,
+      "sub": 1,
+      "sup": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "uppercase-html",
+    "source": "<MARK >重点</MARK >，x<SUP>2</SUP>。",
+    "tags": {
+      "mark": 1,
+      "sup": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "literal-html",
+    "source": "\\<mark>字面量\\</mark>，&lt;sub&gt;2&lt;/sub&gt;。",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["<mark>", "<sub>"],
+    "fallbackText": []
+  },
+  {
+    "id": "literal-code",
+    "source": "```text\n==重点== <mark>literal</mark> H~2~O $x$\n```",
+    "tags": {
+      "pre": 1,
+      "code": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["==重点==", "<mark>literal</mark>", "H~2~O", "$x$"],
+    "fallbackText": []
+  },
+  {
+    "id": "strikethrough",
+    "source": "H~2~O 与 ~~删除~~，x^2^。",
+    "tags": {
+      "del": 2
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["x^2^"],
+    "fallbackText": []
+  },
+  {
+    "id": "list-combination",
+    "source": "1. ==重点== 与 H<sub>2</sub>O。\n2. 公式 $x^2$。",
+    "tags": {
+      "ol": 1,
+      "li": 2,
+      "mark": 1,
+      "sub": 1
+    },
+    "inlineMath": 1,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "table-combination",
+    "source": "| 概念 | 表达 |\n| --- | --- |\n| ==重点== | H<sub>2</sub>O |\n| 绝对值 | $\\vert x\\vert$ |",
+    "tags": {
+      "table": 1,
+      "mark": 1,
+      "sub": 1,
+      "td": 4
+    },
+    "inlineMath": 1,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "footnote-combination",
+    "source": "正文[^note]。\n\n[^note]: ==注释== 与 $x^2$，m<sup>2</sup>。",
+    "tags": {
+      "mark": 1,
+      "sup": 2
+    },
+    "inlineMath": 1,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "callout-combination",
+    "source": "> [!TIP]- ==推导==\n>\n> H<sub>2</sub>O 与 $x^2$。\n>\n> $$a^2+b^2=c^2$$",
+    "tags": {
+      "aside": 1,
+      "details": 1,
+      "mark": 1,
+      "sub": 1
+    },
+    "inlineMath": 1,
+    "displayMath": 1,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "marker-collision",
+    "source": "FORMA_INLINE_TAG_0Z ==重点== &#70;ORMA_INLINE_TAG_1Z",
+    "tags": {
+      "mark": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["FORMA_INLINE_TAG_0Z", "FORMA_INLINE_TAG_1Z"],
+    "fallbackText": []
+  },
+  {
+    "id": "html-inside-math",
+    "source": "$\\text{<sub>literal</sub>}$",
+    "tags": {},
+    "inlineMath": 1,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "escaped-inside-highlight",
+    "source": "==含 \\== 字面量==",
+    "tags": {
+      "mark": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["=="],
+    "fallbackText": []
+  },
+  {
+    "id": "cross-line-highlight",
+    "source": "==第一行\n第二行==",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["==第一行", "第二行=="],
+    "fallbackText": []
+  },
+  {
+    "id": "unknown-math-fence",
+    "source": "```math-extra\nx^2\n```",
+    "tags": {
+      "pre": 1,
+      "code": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["x^2"],
+    "fallbackText": []
+  },
+  {
+    "id": "literal-display-and-highlight",
+    "source": "$$x$$ ==重点== $$\\text{==literal==}$$",
+    "tags": {
+      "mark": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["$$x$$", "==literal=="],
+    "fallbackText": []
+  },
+  {
+    "id": "mixed-display-sections",
+    "source": "$$x^2$$\n\n==正文==\n\n$$\n\\text{==literal==}\n\n+ x\n$$\n\n$\\text{<sub>literal</sub>}$",
+    "tags": {
+      "mark": 1
+    },
+    "inlineMath": 1,
+    "displayMath": 2,
+    "contains": [],
+    "fallbackText": ["==literal=="]
+  },
+  {
+    "id": "highlight-escaped-dollar",
+    "source": "==\\$x== tail$",
+    "tags": {
+      "mark": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["$x", "tail$"],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-code-dollar",
+    "source": "==`$x`== tail$",
+    "tags": {
+      "mark": 1,
+      "code": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["$x", "tail$"],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-link-dollar",
+    "source": "==[label](https://example.com/$x)== tail$",
+    "tags": {
+      "mark": 1,
+      "a": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["label", "tail$"],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-deletion",
+    "source": "==~~删除~~ H~2~O==",
+    "tags": {
+      "mark": 1,
+      "del": 2
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["删除"],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-safe-tags",
+    "source": "==H<sub>2</sub>O 与 m<sup>2</sup>==",
+    "tags": {
+      "mark": 1,
+      "sub": 1,
+      "sup": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["H", "O"],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-unicode-space",
+    "source": "==中文　==",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["==中文　=="],
+    "fallbackText": []
+  },
+  {
+    "id": "math-unicode-trailing-space",
+    "source": "$==内容==　$",
+    "tags": {
+      "mark": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "math-digit-after-closer",
+    "source": "$2$3 与 $x$5",
+    "tags": {},
+    "inlineMath": 1,
+    "displayMath": 0,
+    "contains": ["$2$3"],
+    "fallbackText": []
+  },
+  {
+    "id": "display-html-literal",
+    "source": "$$\\text{<mark>literal</mark>}$$",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 1,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-code-safe-tags",
+    "source": "==`<sub>2</sub>`==",
+    "tags": {
+      "mark": 1,
+      "code": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": ["<sub>2</sub>"],
+    "fallbackText": []
+  },
+  {
+    "id": "highlight-unicode-nel",
+    "source": "==中文==",
+    "tags": {},
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  },
+  {
+    "id": "math-unicode-nel",
+    "source": "$==内容==$",
+    "tags": {
+      "mark": 1
+    },
+    "inlineMath": 0,
+    "displayMath": 0,
+    "contains": [],
+    "fallbackText": []
+  }
+]

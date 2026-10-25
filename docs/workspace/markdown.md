@@ -24,13 +24,26 @@ Markdown files own content. Forma renders them for reading without rewriting the
 | Labelled footnotes | Supported | Supported | Host capability; Forma adds no footnote parser |
 | Heading anchors | Existing reader IDs plus readable aliases | Existing static IDs plus readable aliases | Native host IDs; Forma injects no aliases |
 | Code highlighting | Bundled languages; unknown languages remain code | Plain code | Host highlighting |
-| Mathematics | `$…$` and standalone-line `$$` blocks, with currency/escape guards | Source fallback | Host capability; Forma adds no math engine |
+| Mathematics | `$…$`, standalone one-line/multiline `$$` blocks and `math` fences, with currency/escape guards | Readable source/code fallback | Host capability; Forma adds no math engine |
 | Mermaid | Supported subset, resource budgets, source fallback | Code fallback | Host capability; Forma adds no Mermaid engine |
-| Raw HTML | Sanitized subset | Compiler's safe HTML policy | Host trust and preview security policy |
+| Highlight | `==…==` within one line | Same semantic `<mark>` content | Host capability; Forma adds no highlight parser |
+| Safe inline HTML | Attribute-free `mark`, `sub`, `sup`; other HTML remains sanitized | Same three inline tags; other HTML follows the compiler policy | Host trust and preview security policy |
 
 The online WebApp and enhanced static reader share Forma rendering semantics, extension syntax and navigation behavior. Static initial HTML preserves content and usable links with readable fallbacks when enhancement is unavailable. The static reader progressively enhances initial HTML. It must preserve readable text and usable navigation when JavaScript is unavailable. Rich presentation may differ between hosts. VS Code keeps its native authoring and preview model; installing Forma does not make its Markdown engine identical to the WebApp.
 
 Standard Markdown hard breaks and permitted `<br>` are supported in the WebApp. Intraword underscores follow CommonMark emphasis rules: use `*强调*` when emphasis must touch surrounding Chinese text. `^1^` is ordinary text, not automatic superscript or a footnote. Definition lists, automatic note inference, and arbitrary third-party Markdown extensions are not promised.
+
+## Mathematics, Highlight And Inline Semantics
+
+Inline `$x^2$`, `$2$` and `$12.50$` are explicit formulae: paired numeric delimiters are not treated as currency. An opener must be followed by non-whitespace content; its closer must not follow whitespace. Inline expressions cannot span lines, contain backticks or contain escaped dollar signs. A digit-leading expression whose closer touches another digit is left literal, while `$x$5` retains its existing inline-math behavior. Unclosed amounts such as `$12.50`, price pairs such as `$5 and $10`, escaped dollars and code examples remain ordinary text. This is a lexical boundary, not automatic inference of financial or mathematical meaning.
+
+A display expression may use `$$x^2$$` on its own line, or opening and closing `$$` lines around a multiline expression. A fenced block whose trimmed language is exactly `math` also renders as display math. Ordinary paragraphs containing `$$…$$` retain that sequence as literal source rather than partially rendering its inner dollars. Other fence languages keep their existing behavior. Formula errors do not fail the document; unavailable enhancement leaves readable source/code. KaTeX's existing trust and resource limits remain in force. Alternative delimiters such as `\(…\)`, `\[…\]` and GitHub's inline backtick-dollar form are outside this batch. Static initial HTML intentionally keeps formula source or fenced code; this batch does not add a server-side math engine.
+
+Use `==重点 **内容**==` for inline highlighting. Delimiters must be literal pairs of exactly two equals signs with non-whitespace inner boundaries, on the same line. Complete emphasis, links, code spans and formulae may appear inside a highlight. Escaped/entity-spelled delimiters, code literals, image alternatives, formula source, unmatched/triple delimiters and constructs crossing a formatting boundary are not inferred as highlights. Highlighter colors use the reader's semantic theme colors. Source spans and existing heading links remain intact; recognized delimiters are omitted from readable heading/reference labels.
+
+Attribute-free inline `<mark>…</mark>`, `<sub>…</sub>` and `<sup>…</sup>` preserve their semantic tags in both readers and static initial HTML. Tag names are case-insensitive. This allowance does not enable arbitrary raw HTML, block HTML, attributes, scripts or event handlers in Core. Attribute-bearing or malformed HTML remains subject to each host's existing safe-HTML policy, outside this portable subset. Escaped tags, entities and code stay literal. `H~2~O` continues to mean a single-tilde strikethrough; `x^2^` stays literal. No subscript/superscript shorthand is added. VS Code keeps its native parser and styling for all these forms.
+
+The combined reading sample is `fixtures/forma-validation/samples/markdown/reading-p1.md`. Exact shared cases in `fixtures/forma-validation/cases/markdown-reading-p1.json` cover numeric/currency boundaries, formula fences, highlight nesting, safe tags, deletion compatibility, escaping, code, lists, tables, footnotes and folded callouts. Both files participate in normal formatting. Core/WebApp tests and the isolated browser gate consume the same cases; browser acceptance covers enhanced readers, no-script fallback, light/dark contrast and narrow layouts. Literal table pipes still require Markdown escaping or a TeX spelling such as `\vert`/`\mid`; the reader does not guess table-column intent.
 
 ## Viewer Design And Interaction
 

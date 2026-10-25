@@ -108,6 +108,9 @@ try {
     calloutBoundaries = JSON.parse(
         await readFile(join(root, "fixtures/forma-validation/cases/markdown-callout-boundaries.json"), "utf8"),
     );
+    const readingCases = JSON.parse(
+        await readFile(join(root, "fixtures/forma-validation/cases/markdown-reading-p1.json"), "utf8"),
+    );
     await command(cli, ["--version"], 10_000, false, "version");
     await cp(join(root, "examples/minimal-workspace"), workspace, { recursive: true });
     await rm(join(workspace, "notes"), { recursive: true });
@@ -119,6 +122,7 @@ try {
         "viewers.md",
         "callouts.md",
         "callout-review.md",
+        "reading-p1.md",
         "callout-compatibility.md",
         "callout-interaction.md",
         "callout-layout.md",
@@ -126,6 +130,9 @@ try {
         "image-viewer-tall.svg",
     ]) {
         await cp(join(root, "fixtures/forma-validation/samples/markdown", name), join(workspace, "notes", name));
+    }
+    for (const fixture of readingCases) {
+        await writeFile(join(workspace, "notes", `p1-${fixture.id}.md`), `# Reading P1\n\n${fixture.source}\n`);
     }
     await writeFile(
         join(workspace, "notes/callout-boundaries.md"),
@@ -208,6 +215,7 @@ try {
     const options = {
         artifacts,
         calloutBoundaries,
+        readingCases,
         hosts: [
             { name: "webapp", origin, root: "", graph: "/views/.forma/views/graph" },
             { name: "static", origin: staticOrigin, root: "/preview", graph: "/views/graph/" },

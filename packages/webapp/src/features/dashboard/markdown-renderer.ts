@@ -4,6 +4,7 @@ import markedFootnote from "marked-footnote";
 import { createMermaidRenderScope, type MermaidRenderScope } from "@/lib/mermaid";
 
 import { markedCallouts } from "./markdown-callouts";
+import { markedHighlight } from "./markdown-highlight";
 import { markedKatex } from "./markdown-katex";
 import { createMarkedMermaid } from "./markdown-mermaid";
 import { markedShiki } from "./markdown-shiki";
@@ -27,6 +28,7 @@ export async function renderMarkdown(markdown: string, { mermaidScope, signal }:
         parser.use(
             markedFootnote({ prefixId: "user-content-fn-", backRefLabel: "Back to content" }),
             markedCallouts,
+            markedHighlight,
             markedKatex,
             createMarkedMermaid({ scope, signal }),
             markedShiki,

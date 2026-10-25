@@ -11,7 +11,7 @@ export const markedShiki: MarkedExtension = {
 
         const codeToken = token as Tokens.Code;
         const language = codeToken.lang?.trim().split(/\s+/, 1)[0]?.toLowerCase() ?? "text";
-        if (language === "mermaid") {
+        if (language === "mermaid" || language === "math") {
             return;
         }
 

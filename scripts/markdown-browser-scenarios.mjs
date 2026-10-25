@@ -28,6 +28,87 @@ export async function markdownBrowserScenarios(page, options) {
             `${error.stack ?? error}\nDiagnostics: ${JSON.stringify({ url: current.url(), ...diagnostics, screenshotError, navigation })}`,
         );
     };
+    const readingSyntax = async (current, host, noScript = false) => {
+        assert(options.readingCases?.length > 0, `${host.name}: P1 source cases missing`);
+        for (const fixture of options.readingCases) {
+            await current.goto(`${host.origin}${host.root}/pages/notes/p1-${fixture.id}/`);
+            if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
+            const reader = current.locator('[data-reader="markdown"]:not([data-reader-loading]):not([role="alert"])');
+            await reader.waitFor({ state: "attached" });
+            const math = noScript ? 0 : fixture.inlineMath + fixture.displayMath;
+            if (math) await reader.locator(".katex").first().waitFor({ state: "attached" });
+            const label = `${host.name}${noScript ? " noscript" : ""} P1 ${fixture.id}`;
+            // Sticky headers copy authored table headings into an aria-hidden rail.
+            const count = (selector) =>
+                reader
+                    .locator(selector)
+                    .evaluateAll(
+                        (nodes) => nodes.filter((node) => !node.closest("[data-markdown-sticky-header]")).length,
+                    );
+            for (const header of await reader.locator("[data-markdown-sticky-header]").all()) {
+                assert((await header.getAttribute("aria-hidden")) === "true", `${label}: exposed header copy`);
+            }
+            for (const [tag, expected] of Object.entries({ mark: 0, sub: 0, sup: 0, del: 0, ...fixture.tags })) {
+                assert((await count(tag)) === expected, `${label}: ${tag}`);
+            }
+            assert((await count(".katex")) === math, `${label}: formula count`);
+            assert((await count(".katex-display")) === (noScript ? 0 : fixture.displayMath), `${label}: display count`);
+            const text = await reader.textContent();
+            for (const literal of [...fixture.contains, ...(noScript ? fixture.fallbackText : [])])
+                assert(text.includes(literal), `${label}: missing ${literal}`);
+            assert(
+                (await reader.locator("script,iframe,[onclick],[onerror]").count()) === 0,
+                `${label}: unsafe output`,
+            );
+        }
+        await current.goto(`${host.origin}${host.root}/pages/notes/reading-p1/`);
+        if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
+        const reader = current.locator('[data-reader="markdown"]:not([data-reader-loading])');
+        await reader.locator("mark").first().waitFor({ state: "attached" });
+        for (const width of [1280, 390])
+            for (const scheme of ["light", "dark"]) {
+                await current.setViewportSize({ width, height: 900 });
+                await current.emulateMedia({ colorScheme: scheme });
+                await current.evaluate(
+                    (scheme) => document.documentElement.setAttribute("data-theme", `choral-${scheme}`),
+                    scheme,
+                );
+                const audit = await reader.evaluate((reader) => {
+                    const mark = reader.querySelector("mark");
+                    const style = getComputedStyle(mark);
+                    const canvas = document.createElement("canvas");
+                    canvas.width = canvas.height = 1;
+                    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+                    const luminance = (color) => {
+                        ctx.clearRect(0, 0, 1, 1);
+                        ctx.fillStyle = color;
+                        ctx.fillRect(0, 0, 1, 1);
+                        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+                        const linear = (v) => {
+                            v /= 255;
+                            return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+                        };
+                        return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+                    };
+                    const a = luminance(style.color),
+                        b = luminance(style.backgroundColor);
+                    return {
+                        scheme: getComputedStyle(document.documentElement).colorScheme,
+                        contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+                        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+                    };
+                });
+                assert(audit.scheme === scheme, `${host.name}: expected ${scheme} theme, got ${audit.scheme}`);
+                assert(audit.contrast >= 4.5, `${host.name}: highlight contrast ${audit.contrast}`);
+                assert(!audit.overflow, `${host.name}: P1 page overflow at ${width}`);
+                await current.screenshot({
+                    path: `${options.artifacts}/${host.name}-p1-${width}-${scheme}${noScript ? "-noscript" : ""}.png`,
+                    fullPage: true,
+                });
+            }
+        await current.setViewportSize({ width: 1280, height: 900 });
+        await current.emulateMedia({ colorScheme: "light" });
+    };
     const calloutSourceCases = async (current, host, noScript = false) => {
         assert(
             Array.isArray(options.calloutBoundaries) && options.calloutBoundaries.length > 0,
@@ -354,6 +435,8 @@ export async function markdownBrowserScenarios(page, options) {
             await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/pages/notes/images`);
             await current.locator('[data-reader="markdown"] img').first().waitFor();
             results.push(`${host.name}: authored page and external image links`);
+            await readingSyntax(current, host);
+            results.push(`${host.name}: P1 syntax ${options.readingCases.length} cases, combined reading and themes`);
             await calloutSourceCases(current, host);
             results.push(
                 `${host.name}: formatted callout samples and ${options.calloutBoundaries.length} exact source cases`,
@@ -462,6 +545,8 @@ export async function markdownBrowserScenarios(page, options) {
         await current.getByRole("link", { name: "Selected node", exact: true }).click();
         await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/pages/graph/selected`);
         results.push("static noscript: images, authored link, Mermaid source and Graph navigation");
+        await readingSyntax(current, host, true);
+        results.push(`static noscript: P1 syntax ${options.readingCases.length} cases and readable formula fallback`);
         await calloutSourceCases(current, host, true);
         results.push(
             `static noscript: formatted callout samples and ${options.calloutBoundaries.length} exact source cases`,

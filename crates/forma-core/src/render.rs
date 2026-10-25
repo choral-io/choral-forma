@@ -28,6 +28,7 @@ use crate::path::WorkspacePath;
 
 mod calendar;
 mod gantt;
+pub(crate) mod inline;
 mod temporal;
 pub use calendar::{
     CalendarClassification, CalendarCounts, CalendarEntry, CalendarEvent, CalendarTemporal,
@@ -2298,8 +2299,10 @@ pub(crate) fn render_markdown_html(document: &FormaMarkdownDocument) -> String {
 
 pub(crate) fn render_markdown_source_html(markdown: &str) -> String {
     let (prepared, marker) = prepare_callouts(markdown);
+    let (prepared, inline_tags) = inline::prepare(&prepared);
     let html =
         to_html_with_options(&prepared, &Options::gfm()).expect("normal Markdown renders to HTML");
+    let html = inline::restore(&html, &inline_tags);
     let html = if marker.is_empty() {
         html
     } else {
@@ -3066,6 +3069,78 @@ mod tests {
             2
         );
         assert!(html.contains("<p>Body<sup>"));
+    }
+
+    #[test]
+    fn inline_markers_cannot_rewrite_link_attributes() {
+        let html = super::render_markdown_source_html(
+            "==重点== [source](https://example.test/&#58;&#70;ORMA_INLINE_TAG_0Z&#58;)",
+        );
+        assert!(
+            html.contains("href=\"https://example.test/:FORMA_INLINE_TAG_0Z:\""),
+            "{html}"
+        );
+        assert_eq!(html.matches("<mark>").count(), 1);
+    }
+
+    #[test]
+    fn shared_p1_inline_reading_syntax() {
+        #[derive(serde::Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Case {
+            id: String,
+            source: String,
+            tags: std::collections::BTreeMap<String, usize>,
+            contains: Vec<String>,
+            fallback_text: Vec<String>,
+        }
+        let cases: Vec<Case> = serde_json::from_str(include_str!(
+            "../../../fixtures/forma-validation/cases/markdown-reading-p1.json"
+        ))
+        .unwrap();
+        assert!(!cases.is_empty());
+        assert_eq!(
+            cases
+                .iter()
+                .map(|case| &case.id)
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            cases.len()
+        );
+        for case in cases {
+            let html = super::render_markdown_source_html(&case.source);
+            let mut tags = std::collections::BTreeMap::from([
+                ("mark".to_string(), 0),
+                ("sub".to_string(), 0),
+                ("sup".to_string(), 0),
+                ("del".to_string(), 0),
+            ]);
+            tags.extend(case.tags);
+            for (tag, count) in tags {
+                let prefix = format!("<{tag}");
+                let actual = html
+                    .match_indices(&prefix)
+                    .filter(|(i, _)| {
+                        html.as_bytes()
+                            .get(i + prefix.len())
+                            .is_some_and(|c| *c == b'>' || c.is_ascii_whitespace())
+                    })
+                    .count();
+                assert_eq!(actual, count, "{} {tag}: {html}", case.id);
+            }
+            for text in case.contains.iter().chain(&case.fallback_text) {
+                let escaped = text
+                    .replace('&', "&amp;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;");
+                assert!(
+                    html.contains(&escaped),
+                    "{} missing {text:?}: {html}",
+                    case.id
+                );
+            }
+            assert!(!html.contains("<script"), "{}: {html}", case.id);
+        }
     }
 
     #[test]

@@ -238,7 +238,7 @@ pub(crate) fn leading_h1_text(body: &str) -> Option<String> {
         return None;
     }
 
-    normalized_title_candidate(plain_text(&heading.children))
+    normalized_title_candidate(readable_plain_text(body, &heading.children))
 }
 
 pub(crate) fn resolve_markdown_title(
@@ -438,7 +438,7 @@ fn collect_markdown_structure(
             source: FormaReferenceSource::Body,
             syntax: FormaReferenceSyntax::MarkdownLink,
             target: link.url.clone(),
-            label: Some(plain_text(&link.children)),
+            label: Some(readable_plain_text(body, &link.children)),
             syntax_span,
             span: syntax_span,
             target_span,
@@ -471,7 +471,7 @@ fn collect_markdown_structure(
     if let mdast::Node::Heading(heading) = node
         && (2..=3).contains(&heading.depth)
     {
-        let text = plain_text(&heading.children);
+        let text = readable_plain_text(body, &heading.children);
         if !text.trim().is_empty() {
             headings.push(FormaHeading {
                 level: heading.depth,
@@ -496,7 +496,7 @@ pub(crate) fn all_markdown_headings(body: &str) -> Vec<FormaHeading> {
         return Vec::new();
     };
     let mut headings = Vec::new();
-    collect_all_headings(&ast, &mut headings);
+    collect_all_headings(&ast, body, &mut headings);
     headings
 }
 
@@ -518,6 +518,7 @@ pub(crate) fn rendered_markdown_headings(body: &str) -> Vec<FormaHeading> {
     }
     fn visible(
         node: &mdast::Node,
+        body: &str,
         headings: &mut Vec<FormaHeading>,
         notes: &mut Vec<String>,
         seen: &mut std::collections::BTreeSet<String>,
@@ -526,7 +527,7 @@ pub(crate) fn rendered_markdown_headings(body: &str) -> Vec<FormaHeading> {
             return;
         }
         if let mdast::Node::Heading(heading) = node
-            && let Some(heading) = forma_heading(heading)
+            && let Some(heading) = forma_heading(body, heading)
         {
             headings.push(heading);
         }
@@ -537,7 +538,7 @@ pub(crate) fn rendered_markdown_headings(body: &str) -> Vec<FormaHeading> {
         }
         if let Some(children) = node.children() {
             for child in children {
-                visible(child, headings, notes, seen);
+                visible(child, body, headings, notes, seen);
             }
         }
     }
@@ -549,14 +550,14 @@ pub(crate) fn rendered_markdown_headings(body: &str) -> Vec<FormaHeading> {
     let mut headings = Vec::new();
     let mut notes = Vec::new();
     let mut seen = std::collections::BTreeSet::new();
-    visible(&ast, &mut headings, &mut notes, &mut seen);
+    visible(&ast, body, &mut headings, &mut notes, &mut seen);
     let mut index = 0;
     while index < notes.len() {
         if let Some(definition) = definitions_by_id.get(&notes[index])
             && let Some(children) = definition.children()
         {
             for child in children {
-                visible(child, &mut headings, &mut notes, &mut seen);
+                visible(child, body, &mut headings, &mut notes, &mut seen);
             }
         }
         index += 1;
@@ -574,26 +575,26 @@ pub(crate) fn top_level_markdown_headings(body: &str) -> Vec<FormaHeading> {
             let mdast::Node::Heading(heading) = node else {
                 return None;
             };
-            forma_heading(heading)
+            forma_heading(body, heading)
         })
         .collect()
 }
 
-fn collect_all_headings(node: &mdast::Node, headings: &mut Vec<FormaHeading>) {
+fn collect_all_headings(node: &mdast::Node, body: &str, headings: &mut Vec<FormaHeading>) {
     if let mdast::Node::Heading(heading) = node
-        && let Some(heading) = forma_heading(heading)
+        && let Some(heading) = forma_heading(body, heading)
     {
         headings.push(heading);
     }
     if let Some(children) = node.children() {
         for child in children {
-            collect_all_headings(child, headings);
+            collect_all_headings(child, body, headings);
         }
     }
 }
 
-fn forma_heading(heading: &mdast::Heading) -> Option<FormaHeading> {
-    let text = plain_text(&heading.children);
+fn forma_heading(body: &str, heading: &mdast::Heading) -> Option<FormaHeading> {
+    let text = readable_plain_text(body, &heading.children);
     if text.trim().is_empty() {
         return None;
     }
@@ -668,6 +669,41 @@ fn split_target_span(
         .then(|| source_span(source, resource_span.start_byte, fragment_start));
     let fragment_span = Some(source_span(source, fragment_start, resource_span.end_byte));
     (target_span, fragment_span)
+}
+
+fn readable_plain_text(body: &str, nodes: &[mdast::Node]) -> String {
+    let fallback = plain_text(nodes);
+    if !fallback.contains("==") {
+        return fallback;
+    }
+    let Some(span) = markdown_children_span(nodes) else {
+        return fallback;
+    };
+    let Some(source) = body.get(span.start_byte..span.end_byte) else {
+        return fallback;
+    };
+    let normalized = crate::render::inline::label_source(source);
+    if normalized == source {
+        return fallback;
+    }
+    // Reparse label phrasing, not block syntax exposed by removing delimiters.
+    let mut options = ParseOptions::gfm();
+    options.constructs.heading_atx = false;
+    options.constructs.heading_setext = false;
+    options.constructs.thematic_break = false;
+    options.constructs.list_item = false;
+    options.constructs.block_quote = false;
+    options.constructs.code_indented = false;
+    options.constructs.code_fenced = false;
+    options.constructs.html_flow = false;
+    options.constructs.definition = false;
+    options.constructs.gfm_table = false;
+    let Ok(ast) = to_mdast(&normalized, &options) else {
+        return fallback;
+    };
+    ast.children()
+        .map(|nodes| plain_text(nodes))
+        .unwrap_or(fallback)
 }
 
 fn plain_text(nodes: &[mdast::Node]) -> String {
@@ -1065,6 +1101,25 @@ mod tests {
         markdown_fenced_references, markdown_inline_code_references, resolve_markdown_title,
         split_frontmatter,
     };
+
+    #[test]
+    fn highlights_have_readable_labels_and_original_spans() {
+        assert_eq!(
+            super::leading_h1_text("# ==**Title**==\n"),
+            Some("Title".into())
+        );
+        for text in ["---", "1. item", "# literal", "> quote"] {
+            assert_eq!(
+                super::leading_h1_text(&format!("# =={text}==\n")),
+                Some(text.to_string())
+            );
+        }
+        let source = "## ==章节==\n\n## `==literal==`\n";
+        let headings = super::all_markdown_headings(source);
+        assert_eq!(headings[0].text, "章节");
+        assert_eq!(headings[1].text, "==literal==");
+        assert_eq!(headings[0].span.as_ref().unwrap().start_byte, 0);
+    }
 
     #[test]
     fn reads_only_a_leading_h1_as_the_document_title() {
