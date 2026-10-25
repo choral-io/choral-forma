@@ -28,6 +28,67 @@ export async function markdownBrowserScenarios(page, options) {
             `${error.stack ?? error}\nDiagnostics: ${JSON.stringify({ url: current.url(), ...diagnostics, screenshotError, navigation })}`,
         );
     };
+    const calloutSourceCases = async (current, host, noScript = false) => {
+        assert(
+            Array.isArray(options.calloutBoundaries) && options.calloutBoundaries.length > 0,
+            `${host.name}: exact callout source cases missing`,
+        );
+        for (const [name, types, quotes] of [
+            ["callouts", ["note", "tip", "important", "warning", "caution"], 7],
+            ["callout-review", ["note", "tip", "important"], 2],
+        ]) {
+            await current.goto(`${host.origin}${host.root}/pages/notes/${name}/`);
+            if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
+            const reader = current.locator('[data-reader="markdown"]');
+            await reader.locator("[data-callout]").first().waitFor({ state: "attached" });
+            const actualTypes = await reader
+                .locator("[data-callout]")
+                .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-callout")));
+            assert(
+                JSON.stringify(actualTypes) === JSON.stringify(types),
+                `${host.name}: ${name} callout types: ${JSON.stringify(actualTypes)}`,
+            );
+            assert((await reader.locator("blockquote").count()) === quotes, `${host.name}: ${name} literal quotes`);
+        }
+        await current.goto(`${host.origin}${host.root}/pages/notes/callout-boundaries/`);
+        if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
+        for (const fixture of options.calloutBoundaries) {
+            const heading = current.getByRole("heading", { name: fixture.id, exact: true });
+            const actual = await heading.evaluate((heading) => {
+                const fragment = document.createDocumentFragment();
+                for (
+                    let node = heading.nextElementSibling;
+                    node && node.tagName !== "H2";
+                    node = node.nextElementSibling
+                ) {
+                    fragment.append(node.cloneNode(true));
+                }
+                const wrapper = document.createElement("div");
+                wrapper.append(fragment);
+                return {
+                    types: [...wrapper.querySelectorAll("[data-callout]")].map((node) =>
+                        node.getAttribute("data-callout"),
+                    ),
+                    titles: [...wrapper.querySelectorAll(".forma-callout-title")].map((node) => node.textContent),
+                    blockquotes: wrapper.querySelectorAll("blockquote").length,
+                    html: wrapper.innerHTML,
+                    codes: [...wrapper.querySelectorAll("pre")].map((node) => node.textContent),
+                };
+            });
+            const label = `${host.name}${noScript ? " noscript" : ""}: boundary ${fixture.id}`;
+            assert(JSON.stringify(actual.types) === JSON.stringify(fixture.calloutTypes), `${label}: callout types`);
+            assert(JSON.stringify(actual.titles) === JSON.stringify(fixture.titles), `${label}: title/body boundary`);
+            assert(actual.blockquotes === fixture.blockquotes, `${label}: literal quotes`);
+            for (const fragment of fixture.htmlIncludes)
+                assert(actual.html.includes(fragment), `${label}: missing ${fragment}`);
+            for (const literal of fixture.codeIncludes) {
+                assert(
+                    actual.codes.some((code) => code.includes(literal)),
+                    `${label}: missing literal code`,
+                );
+            }
+        }
+    };
     const callouts = async (current, host, noScript = false) => {
         await current.bringToFront();
         await current.goto(`${host.origin}${host.root}/pages/notes/callout-interaction/`);
@@ -293,6 +354,10 @@ export async function markdownBrowserScenarios(page, options) {
             await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/pages/notes/images`);
             await current.locator('[data-reader="markdown"] img').first().waitFor();
             results.push(`${host.name}: authored page and external image links`);
+            await calloutSourceCases(current, host);
+            results.push(
+                `${host.name}: formatted callout samples and ${options.calloutBoundaries.length} exact source cases`,
+            );
             await callouts(current, host);
             results.push(`${host.name}: callout disclosure, rich header, navigation, focus and responsive themes`);
 
@@ -397,6 +462,10 @@ export async function markdownBrowserScenarios(page, options) {
         await current.getByRole("link", { name: "Selected node", exact: true }).click();
         await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/pages/graph/selected`);
         results.push("static noscript: images, authored link, Mermaid source and Graph navigation");
+        await calloutSourceCases(current, host, true);
+        results.push(
+            `static noscript: formatted callout samples and ${options.calloutBoundaries.length} exact source cases`,
+        );
         await callouts(current, host, true);
         results.push("static noscript: callout defaults, pointer/keyboard and header links");
     } catch (error) {

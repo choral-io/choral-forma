@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
-import { format, resolveConfig } from "prettier";
+import { format, getFileInfo, resolveConfig } from "prettier";
 import { describe, expect, it } from "vitest";
+import calloutBoundaries from "../../../../../fixtures/forma-validation/cases/markdown-callout-boundaries.json";
+import calloutBoundaryJson from "../../../../../fixtures/forma-validation/cases/markdown-callout-boundaries.json?raw";
 import calloutCompatibility from "../../../../../fixtures/forma-validation/samples/markdown/callout-compatibility.md?raw";
 import calloutReview from "../../../../../fixtures/forma-validation/samples/markdown/callout-review.md?raw";
 import callouts from "../../../../../fixtures/forma-validation/samples/markdown/callouts.md?raw";
@@ -110,11 +112,47 @@ describe("Markdown reader contract", () => {
         }
     });
 
-    it("preserves recommended callout semantics through the repository formatter", async () => {
+    it.each([
+        ["callout-compatibility.md", calloutCompatibility],
+        ["callouts.md", callouts],
+        ["callout-review.md", calloutReview],
+    ])("preserves %s callout semantics through the repository formatter", async (name, source) => {
+        const filepath = `fixtures/forma-validation/samples/markdown/${name}`;
+        expect(await getFileInfo(filepath, { ignorePath: ".prettierignore" })).toMatchObject({
+            ignored: false,
+            inferredParser: "markdown",
+        });
         const options = await resolveConfig("prettier.config.mjs");
-        const formatted = await format(calloutCompatibility, { ...options, filepath: "callout.md" });
+        const formatted = await format(source, { ...options, filepath: "callout.md" });
+        expect(formatted).toBe(source);
         expect(await format(formatted, { ...options, filepath: "callout.md" })).toBe(formatted);
-        expect(await renderMarkdown(formatted)).toBe(await renderMarkdown(calloutCompatibility));
+        expect(await renderMarkdown(formatted)).toBe(await renderMarkdown(source));
+    });
+
+    it("preserves exact boundary sources through JSON formatting", async () => {
+        const options = await resolveConfig("prettier.config.mjs");
+        const formatted = await format(calloutBoundaryJson, { ...options, filepath: "callout.json" });
+        expect(formatted).toBe(calloutBoundaryJson);
+        expect(JSON.parse(formatted)).toEqual(calloutBoundaries);
+        expect(await format(formatted, { ...options, filepath: "callout.json" })).toBe(formatted);
+    });
+
+    it.each(calloutBoundaries)("preserves exact callout source: $id", async (fixture) => {
+        const html = postProcessMarkdownHtml(await renderMarkdown(fixture.source), [], "reader.md", [], false);
+        const body = new DOMParser().parseFromString(html, "text/html").body;
+        expect(
+            [...body.querySelectorAll("[data-callout]")].map((element) => element.getAttribute("data-callout")),
+        ).toEqual(fixture.calloutTypes);
+        expect([...body.querySelectorAll(".forma-callout-title")].map((element) => element.textContent)).toEqual(
+            fixture.titles,
+        );
+        expect(body.querySelectorAll("blockquote")).toHaveLength(fixture.blockquotes);
+        for (const fragment of fixture.htmlIncludes) expect(html).toContain(fragment);
+        for (const literal of fixture.codeIncludes) {
+            expect([...body.querySelectorAll("pre")].some((element) => element.textContent.includes(literal))).toBe(
+                true,
+            );
+        }
     });
 
     it("supports foldable default and title-only headers", async () => {
@@ -135,7 +173,7 @@ describe("Markdown reader contract", () => {
         }
     });
 
-    it("keeps marker lookalikes and leading blank quotes literal", async () => {
+    it("renders the formatted review sample without interpreting literal examples", async () => {
         const html = postProcessMarkdownHtml(await renderMarkdown(calloutReview), [], "reader.md", [], false);
         const body = new DOMParser().parseFromString(html, "text/html").body;
         expect([...body.querySelectorAll("[data-callout]")].map((e) => e.getAttribute("data-callout"))).toEqual([
@@ -143,8 +181,11 @@ describe("Markdown reader contract", () => {
             "tip",
             "important",
         ]);
-        expect(body.querySelectorAll("blockquote")).toHaveLength(4);
-        expect(body.querySelector("pre")?.textContent).toContain("> [!NOTE]");
+        expect(body.querySelectorAll("blockquote")).toHaveLength(2);
+        expect(body.querySelectorAll("pre")).toHaveLength(3);
+        expect([...body.querySelectorAll("pre")].some((element) => element.textContent.includes("> [!NOTE]"))).toBe(
+            true,
+        );
     });
 
     it("renders five basic callouts while preserving ordinary and literal quotes", async () => {

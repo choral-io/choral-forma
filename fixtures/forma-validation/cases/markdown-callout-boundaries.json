@@ -1,0 +1,128 @@
+[
+  {
+    "id": "compact-note-body",
+    "source": "> [!NOTE]\n> 说明正文，支持 **强调**、[章节链接](#forma-heading-basic-callouts)和脚注[^note]。\n>\n> 第二段继续属于同一个提示块。\n\n[^note]: A note referenced from a callout.\n",
+    "calloutTypes": ["note"],
+    "titles": ["Note"],
+    "blockquotes": 0,
+    "htmlIncludes": ["<p>说明正文", "<strong>强调</strong>", "第二段继续属于同一个提示块。", "<sup>"],
+    "codeIncludes": []
+  },
+  {
+    "id": "compact-list-body",
+    "source": "> [!TIP]\n> - First suggestion\n> - Second suggestion\n",
+    "calloutTypes": ["tip"],
+    "titles": ["Tip"],
+    "blockquotes": 0,
+    "htmlIncludes": ["<li>First suggestion</li>", "<li>Second suggestion</li>"],
+    "codeIncludes": []
+  },
+  {
+    "id": "compact-important-body",
+    "source": "> [!IMPORTANT]\n> Keep this information visible.\n",
+    "calloutTypes": ["important"],
+    "titles": ["Important"],
+    "blockquotes": 0,
+    "htmlIncludes": ["<p>Keep this information visible.</p>"],
+    "codeIncludes": []
+  },
+  {
+    "id": "compact-warning-code",
+    "source": "> [!WARNING]\n> Back up before replacing configuration.\n>\n> ```text\n> [!NOTE] stays literal inside code.\n> ```\n",
+    "calloutTypes": ["warning"],
+    "titles": ["Warning"],
+    "blockquotes": 0,
+    "htmlIncludes": ["<p>Back up before replacing configuration.</p>"],
+    "codeIncludes": ["[!NOTE] stays literal inside code."]
+  },
+  {
+    "id": "compact-caution-body",
+    "source": "> [!CAUTION]\n> This action removes the selected item.\n",
+    "calloutTypes": ["caution"],
+    "titles": ["Caution"],
+    "blockquotes": 0,
+    "htmlIncludes": ["<p>This action removes the selected item.</p>"],
+    "codeIncludes": []
+  },
+  {
+    "id": "fenced-markdown-marker",
+    "source": "```markdown\n> [!NOTE]\n> A code example, not a callout.\n```\n",
+    "calloutTypes": [],
+    "titles": [],
+    "blockquotes": 0,
+    "htmlIncludes": [],
+    "codeIncludes": ["> [!NOTE]\n> A code example, not a callout."]
+  },
+  {
+    "id": "compact-review-note",
+    "source": "> [!NOTE]\n> A real note.\n",
+    "calloutTypes": ["note"],
+    "titles": ["Note"],
+    "blockquotes": 0,
+    "htmlIncludes": ["<p>A real note.</p>"],
+    "codeIncludes": []
+  },
+  {
+    "id": "entity-internal-marker",
+    "source": "> FORMA&#95;CALLOUT_MARKER_NOTE\n> This is ordinary quoted text, not an internal marker.\n",
+    "calloutTypes": [],
+    "titles": [],
+    "blockquotes": 1,
+    "htmlIncludes": ["FORMA_CALLOUT_MARKER_NOTE", "This is ordinary quoted text, not an internal marker."],
+    "codeIncludes": []
+  },
+  {
+    "id": "escaped-internal-marker",
+    "source": "> FORMA\\_CALLOUT_MARKER_NOTE\n> Escaped underscores are ordinary quoted text.\n",
+    "calloutTypes": [],
+    "titles": [],
+    "blockquotes": 1,
+    "htmlIncludes": ["FORMA_CALLOUT_MARKER_NOTE", "Escaped underscores are ordinary quoted text."],
+    "codeIncludes": []
+  },
+  {
+    "id": "leading-empty-quote",
+    "source": ">\n> [!WARNING]\n> A leading empty quote line does not satisfy the first-line contract.\n",
+    "calloutTypes": [],
+    "titles": [],
+    "blockquotes": 1,
+    "htmlIncludes": ["[!WARNING]", "A leading empty quote line does not satisfy the first-line contract."],
+    "codeIncludes": []
+  },
+  {
+    "id": "title-only-tip",
+    "source": "> [!TIP]\n",
+    "calloutTypes": ["tip"],
+    "titles": ["Tip"],
+    "blockquotes": 0,
+    "htmlIncludes": [],
+    "codeIncludes": []
+  },
+  {
+    "id": "compact-list-item",
+    "source": "- > [!IMPORTANT]\n  > A note in a list item.\n",
+    "calloutTypes": ["important"],
+    "titles": ["Important"],
+    "blockquotes": 0,
+    "htmlIncludes": ["<li>", "<p>A note in a list item.</p>"],
+    "codeIncludes": []
+  },
+  {
+    "id": "marker-hard-break",
+    "source": "> [!CAUTION]  \n> A hard break is not a standalone marker line.\n",
+    "calloutTypes": [],
+    "titles": [],
+    "blockquotes": 1,
+    "htmlIncludes": ["[!CAUTION]", "A hard break is not a standalone marker line.", "<br"],
+    "codeIncludes": []
+  },
+  {
+    "id": "indented-marker-code",
+    "source": "    > [!NOTE]\n    > An indented code example.\n",
+    "calloutTypes": [],
+    "titles": [],
+    "blockquotes": 0,
+    "htmlIncludes": [],
+    "codeIncludes": ["> [!NOTE]\n> An indented code example."]
+  }
+]

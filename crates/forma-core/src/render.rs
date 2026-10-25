@@ -3069,13 +3069,85 @@ mod tests {
     }
 
     #[test]
+    fn shared_callout_boundaries_preserve_exact_sources() {
+        #[derive(serde::Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct BoundaryCase {
+            id: String,
+            source: String,
+            callout_types: Vec<String>,
+            titles: Vec<String>,
+            blockquotes: usize,
+            html_includes: Vec<String>,
+            code_includes: Vec<String>,
+        }
+        let cases: Vec<BoundaryCase> = serde_json::from_str(include_str!(
+            "../../../fixtures/forma-validation/cases/markdown-callout-boundaries.json"
+        ))
+        .unwrap();
+        assert!(!cases.is_empty());
+        for case in cases {
+            let html = super::render_markdown_source_html(&case.source);
+            let kinds: Vec<_> = html
+                .split("data-callout=\"")
+                .skip(1)
+                .map(|part| part.split('"').next().unwrap())
+                .collect();
+            assert_eq!(kinds, case.callout_types, "{}: {html}", case.id);
+            assert_eq!(
+                html.matches("class=\"forma-callout-title\"").count(),
+                case.titles.len(),
+                "{}: {html}",
+                case.id
+            );
+            for title in &case.titles {
+                assert!(
+                    html.contains(&format!("class=\"forma-callout-title\">{title}</p>")),
+                    "{}: {html}",
+                    case.id
+                );
+            }
+            assert_eq!(
+                html.matches("<blockquote>").count(),
+                case.blockquotes,
+                "{}: {html}",
+                case.id
+            );
+            for fragment in &case.html_includes {
+                assert!(
+                    html.contains(fragment),
+                    "{}: missing {fragment:?}: {html}",
+                    case.id
+                );
+            }
+            for literal in &case.code_includes {
+                let escaped = literal
+                    .replace('&', "&amp;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;");
+                assert!(
+                    html.split("<pre><code").skip(1).any(|block| {
+                        block
+                            .split_once('>')
+                            .and_then(|(_, content)| content.split_once("</code></pre>"))
+                            .is_some_and(|(code, _)| code.contains(&escaped))
+                    }),
+                    "{}: missing code {literal:?}: {html}",
+                    case.id
+                );
+            }
+        }
+    }
+
+    #[test]
     fn callout_review_keeps_lookalikes_literal() {
         let source =
             include_str!("../../../fixtures/forma-validation/samples/markdown/callout-review.md");
         let html = super::render_markdown_source_html(source);
         assert_eq!(html.matches("data-callout=").count(), 3, "{html}");
         assert!(!html.contains("data-callout=\"warning\""));
-        assert_eq!(html.matches("<blockquote>").count(), 4);
+        assert_eq!(html.matches("<blockquote>").count(), 2);
+        assert_eq!(html.matches("<pre><code").count(), 3);
         assert!(html.contains("&gt; [!NOTE]"));
     }
 

@@ -21,7 +21,3 @@ packages/*/dist-static/
 packages/*/node_modules/
 extensions/*/dist/
 extensions/*/node_modules/
-
-# These fixtures exercise semantic Markdown line boundaries and literal spellings.
-fixtures/forma-validation/samples/markdown/callouts.md
-fixtures/forma-validation/samples/markdown/callout-review.md

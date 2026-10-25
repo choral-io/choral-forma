@@ -1,3 +1,2 @@
 # These shared fixtures intentionally exercise Markdown two-space hard breaks.
 fixtures/forma-validation/samples/markdown/reader.md whitespace=-blank-at-eol
-fixtures/forma-validation/samples/markdown/callout-review.md whitespace=-blank-at-eol

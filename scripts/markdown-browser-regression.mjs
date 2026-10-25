@@ -16,6 +16,7 @@ const artifacts = await mkdtemp(join(root, "packages/webapp/.tmp/markdown-browse
 const temporary = await mkdtemp(join(await realpath(tmpdir()), "forma-markdown-browser-"));
 const workspace = join(temporary, "workspace");
 const site = join(temporary, "site");
+let calloutBoundaries;
 const session = `forma-md-${process.pid}`;
 const cli = process.env.PLAYWRIGHT_CLI ?? "playwright-cli";
 const abort = new AbortController();
@@ -104,6 +105,9 @@ for (const [signal, code] of [
 try {
     console.log(`Artifacts: ${artifacts}`);
     await writeFile(join(artifacts, "run.json"), JSON.stringify({ session, temporary, pid: process.pid }));
+    calloutBoundaries = JSON.parse(
+        await readFile(join(root, "fixtures/forma-validation/cases/markdown-callout-boundaries.json"), "utf8"),
+    );
     await command(cli, ["--version"], 10_000, false, "version");
     await cp(join(root, "examples/minimal-workspace"), workspace, { recursive: true });
     await rm(join(workspace, "notes"), { recursive: true });
@@ -114,6 +118,7 @@ try {
         "image-links.md",
         "viewers.md",
         "callouts.md",
+        "callout-review.md",
         "callout-compatibility.md",
         "callout-interaction.md",
         "callout-layout.md",
@@ -122,6 +127,12 @@ try {
     ]) {
         await cp(join(root, "fixtures/forma-validation/samples/markdown", name), join(workspace, "notes", name));
     }
+    await writeFile(
+        join(workspace, "notes/callout-boundaries.md"),
+        // Retain the basic sample's authored fragment destination in the combined page.
+        "# Exact callout boundaries\n\n## Basic callouts\n\n" +
+            calloutBoundaries.map((fixture) => `## ${fixture.id}\n\n${fixture.source}`).join("\n\n"),
+    );
     await writeFile(
         join(workspace, ".forma/spaces/graph.md"),
         '---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Graph fixture\ninclude:\n  - "graph/**/*.md"\n---\n',
@@ -196,6 +207,7 @@ try {
     if (JSON.parse(build).status !== "passed") throw new Error("Static build failed");
     const options = {
         artifacts,
+        calloutBoundaries,
         hosts: [
             { name: "webapp", origin, root: "", graph: "/views/.forma/views/graph" },
             { name: "static", origin: staticOrigin, root: "/preview", graph: "/views/graph/" },

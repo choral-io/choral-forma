@@ -1,18 +1,22 @@
 # Basic callouts
 
 > [!NOTE]
+>
 > 说明正文，支持 **强调**、[章节链接](#forma-heading-basic-callouts)和脚注[^note]。
 >
 > 第二段继续属于同一个提示块。
 
 > [!TIP]
+>
 > - First suggestion
 > - Second suggestion
 
 > [!IMPORTANT]
+>
 > Keep this information visible.
 
 > [!WARNING]
+>
 > Back up before replacing configuration.
 >
 > ```text
@@ -20,6 +24,7 @@
 > ```
 
 > [!CAUTION]
+>
 > This action removes the selected item.
 
 > An ordinary quotation.
@@ -38,6 +43,7 @@
 
 ```markdown
 > [!NOTE]
+>
 > A code example, not a callout.
 ```
 
