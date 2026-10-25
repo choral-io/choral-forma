@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.40
+
+- Extend WebApp and static Markdown with one-line display math, math fences, numeric/currency boundaries, highlight syntax and safe mark/sub/sup semantics.
+- Add bounded native details/summary disclosures with Markdown bodies, no-script toggling and heading/footnote focus restoration; retain native VS Code rendering.
+- Preserve static raw-resource and sidecar navigation, resource inventory and existing authored links.
+- Preserve Markdown wrapping through formatting, remove exact-text fixture exclusions and strengthen shared combination cases.
+- Validate every browser source-case ID and retain atomic phase records, failure causes and reliable interruption cleanup.
+
 ## 0.1.39
 
 - Keep native VS Code Markdown rendering for footnotes, heading IDs, callouts and images; retain Frontmatter folding, reference navigation and configured View projections.

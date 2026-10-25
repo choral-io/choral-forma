@@ -41,6 +41,7 @@ sources:
     - "releases/forma-v0.1.37"
     - "releases/forma-v0.1.38"
     - "releases/forma-v0.1.39"
+    - "releases/forma-v0.1.40"
     - "planning/release-artifact-promotion-pipeline-redesign"
     - "planning/forma-product-value-gap-roadmap"
     - "planning/taxonomy-term-presentation-and-graph-color-execution-plan"
@@ -60,37 +61,39 @@ Each referenced release record remains the canonical source for its scope and va
 
 ## Release Chain
 
-| Version | Record | Position |
-| --- | --- | --- |
-| v0.1.0-alpha.13 | [[releases/forma-v0.1.0-alpha.13]] | First editor-extension alpha cutline. |
-| v0.1.0-alpha.14 | [[releases/forma-v0.1.0-alpha.14]] | Historical alpha release evidence. |
-| v0.1.0-alpha.15 | [[releases/forma-v0.1.0-alpha.15]] | Historical editor-experience release evidence. |
-| v0.1.0-alpha.16 | [[releases/forma-v0.1.0-alpha.16]] | Historical performance release evidence. |
-| v0.1.0-alpha.17 | [[releases/forma-v0.1.0-alpha.17]] | Historical release-verification evidence. |
-| v0.1.0-alpha.18 | [[releases/forma-v0.1.0-alpha.18]] | Historical LSP navigation release evidence. |
-| v0.1.0-alpha.19 | [[releases/forma-v0.1.0-alpha.19]] | Historical graph and editor validation evidence. |
-| v0.1.0-alpha.20 | [[releases/forma-v0.1.0-alpha.20]] | Shared Graph milestone. |
-| v0.1.0-alpha.21 | [[releases/forma-v0.1.0-alpha.21]] | Internal branding and Graph-parity release. |
-| v0.1.22 | [[releases/forma-v0.1.22]] | First Marketplace-ready Public Preview candidate. |
-| v0.1.23 | [[releases/forma-v0.1.23]] | Previous released Public Preview record. |
-| v0.1.24 | [[releases/forma-v0.1.24]] | Previous released Public Preview record. |
-| v0.1.25 | [[releases/forma-v0.1.25]] | Released View navigation and Marketplace milestone. |
-| v0.1.26 | [[releases/forma-v0.1.26]] | Failed before publication in the Windows asset job. |
-| v0.1.27 | [[releases/forma-v0.1.27]] | Failed before publication in later release gates. |
-| v0.1.28 | [[releases/forma-v0.1.28]] | Released corrective Public Preview milestone. |
-| v0.1.29 | [[releases/forma-v0.1.29]] | Released managed CLI self-update milestone. |
-| v0.1.30 | [[releases/forma-v0.1.30]] | Released receipt-free update and editor milestone. |
-| v0.1.31 | [[releases/forma-v0.1.31]] | Released coordinated Public Preview patch. |
-| v0.1.32 | [[releases/forma-v0.1.32]] | Released deterministic Graph-layout stability Public Preview patch. |
-| v0.1.33 | [[releases/forma-v0.1.33]] | Released strict numeric Schema contract Public Preview patch. |
-| v0.1.34 | [[releases/forma-v0.1.34]] | Released explicit structured-artifact schema validation and coordinated toolchain Public Preview patch. |
-| v0.1.35 | [[releases/forma-v0.1.35]] | Released guideline-glob, WebApp, and editor-compatibility Public Preview patch. |
-| v0.1.36 | [[releases/forma-v0.1.36]] | Released Guided Modeling and toolchain-refresh Public Preview patch. |
-| v0.1.37 | [[releases/forma-v0.1.37]] | Released Calendar/Gantt Views and temporal cross-surface verification. |
-| v0.1.38 | [[releases/forma-v0.1.38]] | Released interactive VS Code Calendar/Gantt views, native Markdown preview fixes, and batch View rendering. |
-| v0.1.39 | [[releases/forma-v0.1.39]] | Released Markdown navigation/callouts, Mermaid/Graph inspection, native editor race fixes and browser regressions. |
+| Version         | Record                             | Position                                                                                                           |
+| --------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| v0.1.0-alpha.13 | [[releases/forma-v0.1.0-alpha.13]] | First editor-extension alpha cutline.                                                                              |
+| v0.1.0-alpha.14 | [[releases/forma-v0.1.0-alpha.14]] | Historical alpha release evidence.                                                                                 |
+| v0.1.0-alpha.15 | [[releases/forma-v0.1.0-alpha.15]] | Historical editor-experience release evidence.                                                                     |
+| v0.1.0-alpha.16 | [[releases/forma-v0.1.0-alpha.16]] | Historical performance release evidence.                                                                           |
+| v0.1.0-alpha.17 | [[releases/forma-v0.1.0-alpha.17]] | Historical release-verification evidence.                                                                          |
+| v0.1.0-alpha.18 | [[releases/forma-v0.1.0-alpha.18]] | Historical LSP navigation release evidence.                                                                        |
+| v0.1.0-alpha.19 | [[releases/forma-v0.1.0-alpha.19]] | Historical graph and editor validation evidence.                                                                   |
+| v0.1.0-alpha.20 | [[releases/forma-v0.1.0-alpha.20]] | Shared Graph milestone.                                                                                            |
+| v0.1.0-alpha.21 | [[releases/forma-v0.1.0-alpha.21]] | Internal branding and Graph-parity release.                                                                        |
+| v0.1.22         | [[releases/forma-v0.1.22]]         | First Marketplace-ready Public Preview candidate.                                                                  |
+| v0.1.23         | [[releases/forma-v0.1.23]]         | Previous released Public Preview record.                                                                           |
+| v0.1.24         | [[releases/forma-v0.1.24]]         | Previous released Public Preview record.                                                                           |
+| v0.1.25         | [[releases/forma-v0.1.25]]         | Released View navigation and Marketplace milestone.                                                                |
+| v0.1.26         | [[releases/forma-v0.1.26]]         | Failed before publication in the Windows asset job.                                                                |
+| v0.1.27         | [[releases/forma-v0.1.27]]         | Failed before publication in later release gates.                                                                  |
+| v0.1.28         | [[releases/forma-v0.1.28]]         | Released corrective Public Preview milestone.                                                                      |
+| v0.1.29         | [[releases/forma-v0.1.29]]         | Released managed CLI self-update milestone.                                                                        |
+| v0.1.30         | [[releases/forma-v0.1.30]]         | Released receipt-free update and editor milestone.                                                                 |
+| v0.1.31         | [[releases/forma-v0.1.31]]         | Released coordinated Public Preview patch.                                                                         |
+| v0.1.32         | [[releases/forma-v0.1.32]]         | Released deterministic Graph-layout stability Public Preview patch.                                                |
+| v0.1.33         | [[releases/forma-v0.1.33]]         | Released strict numeric Schema contract Public Preview patch.                                                      |
+| v0.1.34         | [[releases/forma-v0.1.34]]         | Released explicit structured-artifact schema validation and coordinated toolchain Public Preview patch.            |
+| v0.1.35         | [[releases/forma-v0.1.35]]         | Released guideline-glob, WebApp, and editor-compatibility Public Preview patch.                                    |
+| v0.1.36         | [[releases/forma-v0.1.36]]         | Released Guided Modeling and toolchain-refresh Public Preview patch.                                               |
+| v0.1.37         | [[releases/forma-v0.1.37]]         | Released Calendar/Gantt Views and temporal cross-surface verification.                                             |
+| v0.1.38         | [[releases/forma-v0.1.38]]         | Released interactive VS Code Calendar/Gantt views, native Markdown preview fixes, and batch View rendering.        |
+| v0.1.39         | [[releases/forma-v0.1.39]]         | Released Markdown navigation/callouts, Mermaid/Graph inspection, native editor race fixes and browser regressions. |
 
 ## Current Delivery Cutline
+
+- **Release candidate:** [[releases/forma-v0.1.40]] prepares Markdown semantics, safe native disclosures, resource links and regression reliability. Publication and verification remain pending.
 
 - **Temporal View delivery complete:** [[planning/temporal-view-release-plan]] records Calendar/Gantt delivery and accepted limitations. All four related Tasks are done; [[releases/forma-v0.1.37]] records completed publication and verification.
 
