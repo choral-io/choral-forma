@@ -90,15 +90,14 @@ Each referenced release record remains the canonical source for its scope and va
 | v0.1.37         | [[releases/forma-v0.1.37]]         | Released Calendar/Gantt Views and temporal cross-surface verification.                                             |
 | v0.1.38         | [[releases/forma-v0.1.38]]         | Released interactive VS Code Calendar/Gantt views, native Markdown preview fixes, and batch View rendering.        |
 | v0.1.39         | [[releases/forma-v0.1.39]]         | Released Markdown navigation/callouts, Mermaid/Graph inspection, native editor race fixes and browser regressions. |
+| v0.1.40         | [[releases/forma-v0.1.40]]         | Released Markdown P1, safe native disclosures, resource-link compatibility and regression reliability.             |
 
 ## Current Delivery Cutline
 
-- **Release candidate:** [[releases/forma-v0.1.40]] prepares Markdown semantics, safe native disclosures, resource links and regression reliability. Publication and verification remain pending.
-
 - **Temporal View delivery complete:** [[planning/temporal-view-release-plan]] records Calendar/Gantt delivery and accepted limitations. All four related Tasks are done; [[releases/forma-v0.1.37]] records completed publication and verification.
 
-- **Current released baseline:** [[releases/forma-v0.1.39]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
-- **Previous released baseline:** [[releases/forma-v0.1.38]] records interactive VS Code Calendar/Gantt views, native Markdown preview fixes and batch View rendering.
+- **Current released baseline:** [[releases/forma-v0.1.40]]. Its record contains the exact candidate, cross-platform CI, GitHub Release, Marketplace publication, published-asset and managed-install verification, and known-boundary evidence.
+- **Previous released baseline:** [[releases/forma-v0.1.39]] records Markdown navigation/callouts, Mermaid/Graph inspection, native editor fixes and browser regressions.
 - **Failed publication attempt:** [[releases/forma-v0.1.26]] records the immutable tag whose Windows asset build failed before GitHub Release or Marketplace publication.
 - **Second failed publication attempt:** [[releases/forma-v0.1.27]] records the immutable tag that fixed the Windows WebApp shell issue but exposed CRLF parsing and shared-runner performance-gate weaknesses before publication.
 - **Active validation:** [[tasks/validate-shared-graph-view-cross-host-parity]] remains the active cross-Host Graph evidence boundary.
