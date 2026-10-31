@@ -3,10 +3,10 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "packageManager": "pnpm@12.15.0",
+  "packageManager": "pnpm@12.16.1",
   "engines": {
-    "node": ">=24.11.0 <25",
-    "pnpm": ">=12.15.0 <13"
+    "node": ">=26.13.0 <27",
+    "pnpm": ">=12.16.0 <13"
   },
   "repository": {
     "type": "git",
@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "~10.0.1",
-    "@types/node": "~24.13.6",
+    "@types/node": "~26.6.6",
     "eslint": "~10.13.0",
     "eslint-config-prettier": "~10.1.8",
     "eslint-plugin-prettier": "~5.5.7",
@@ -33,9 +33,9 @@
     "prettier-plugin-organize-imports": "~4.3.0",
     "prettier-plugin-tailwindcss": "~0.8.1",
     "typescript": "~6.0.3",
-    "typescript-eslint": "~8.72.0",
+    "typescript-eslint": "~8.72.1",
     "vitest": "~5.0.5",
-    "wrangler": "~4.152.0",
+    "wrangler": "~4.156.0",
     "yaml": "~2.9.1"
   }
 }

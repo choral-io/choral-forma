@@ -53,7 +53,7 @@ type GraphLayoutSessionOptions = GraphLayoutOptions & {
     runLayout?: boolean;
 };
 
-const DEFAULT_DEPENDENCIES: LayoutSessionDependencies = {
+const DEFAULT_DEPENDENCIES: Required<LayoutSessionDependencies> = {
     createSupervisor: (graph, settings, onIteration) => {
         const supervisor = new ForceAtlas2LayoutSupervisor(graph, { settings });
         graph.on("eachNodeAttributesUpdated", onIteration);
@@ -238,7 +238,7 @@ export class GraphLayoutSession {
     }
 
     #scheduleCooperativeChunk(graph: GraphologyViewGraph, engine: GraphLayoutEngine): void {
-        this.#timer = (this.#dependencies.schedule ?? setTimeout)(() => {
+        this.#timer = (this.#dependencies.schedule ?? DEFAULT_DEPENDENCIES.schedule)(() => {
             this.#timer = null;
             const chunk = Math.min(this.#targetIterations - this.#iterationCount, cooperativeChunkSize(graph.order));
             runLayoutIterations(graph, engine, chunk);
