@@ -23,20 +23,20 @@
   },
   "dependencies": {
     "@choral-forma/shared": "workspace:*",
-    "lucide-react": "~1.64.0",
+    "lucide-react": "~1.66.0",
     "react": "~19.3.1",
     "react-dom": "~19.3.1"
   },
   "devDependencies": {
     "@eslint-react/eslint-plugin": "~5.28.8",
-    "@tailwindcss/vite": "~4.3.3",
+    "@tailwindcss/vite": "~4.3.4",
     "@types/react": "~19.3.0",
     "@types/react-dom": "~19.3.0",
     "daisyui": "~5.7.50",
     "eslint-plugin-better-tailwindcss": "~4.10.0",
     "eslint-plugin-react-hooks": "~7.1.1",
-    "globals": "~17.13.0",
-    "tailwindcss": "~4.3.3",
+    "globals": "~17.14.0",
+    "tailwindcss": "~4.3.4",
     "tsdown": "~0.23.4",
     "vite": "~8.3.5"
   }

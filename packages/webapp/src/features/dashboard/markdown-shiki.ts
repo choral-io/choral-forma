@@ -3,7 +3,7 @@ import type { HighlighterCore } from "shiki/core";
 
 let highlighterPromise: Promise<HighlighterCore> | undefined;
 
-export const markedShiki: MarkedExtension = {
+export const markedShiki = {
     async walkTokens(token) {
         if (token.type !== "code" || typeof token.text !== "string") {
             return;
@@ -39,7 +39,7 @@ export const markedShiki: MarkedExtension = {
             console.warn("Syntax highlighting failed; rendering plain code.", error);
         }
     },
-};
+} satisfies MarkedExtension;
 
 export async function prewarmMarkdownHighlighter() {
     try {

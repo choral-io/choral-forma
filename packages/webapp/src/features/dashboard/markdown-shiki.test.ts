@@ -22,7 +22,7 @@ describe("markedShiki", () => {
         const { markedShiki } = await import("./markdown-shiki");
 
         const firstToken = codeToken("const first = true;");
-        await expect(markedShiki.walkTokens?.(firstToken)).resolves.toBeUndefined();
+        await expect(markedShiki.walkTokens(firstToken)).resolves.toBeUndefined();
         expect(firstToken.type).toBe("html");
         expect(shikiMocks.createMarkdownHighlighter).toHaveBeenCalledTimes(2);
     });
@@ -34,7 +34,7 @@ describe("markedShiki", () => {
 
         await prewarmMarkdownHighlighter();
         const token = codeToken("const ready = true;");
-        await markedShiki.walkTokens?.(token);
+        await markedShiki.walkTokens(token);
 
         expect(shikiMocks.createMarkdownHighlighter).toHaveBeenCalledTimes(1);
         expect(highlighter.codeToHtml).toHaveBeenCalledWith(
@@ -57,7 +57,7 @@ describe("markedShiki", () => {
 
         await expect(prewarmMarkdownHighlighter()).resolves.toBeUndefined();
         const token = codeToken("const recovered = true;");
-        await markedShiki.walkTokens?.(token);
+        await markedShiki.walkTokens(token);
 
         expect(shikiMocks.createMarkdownHighlighter).toHaveBeenCalledTimes(3);
         expect(token.type).toBe("html");
@@ -70,7 +70,7 @@ describe("markedShiki", () => {
         const { markedShiki } = await import("./markdown-shiki");
 
         const token = codeToken("some unknown syntax", "not-a-language");
-        await markedShiki.walkTokens?.(token);
+        await markedShiki.walkTokens(token);
 
         expect(highlighter.codeToHtml).toHaveBeenCalledWith(
             "some unknown syntax",
@@ -85,7 +85,7 @@ describe("markedShiki", () => {
         const { markedShiki } = await import("./markdown-shiki");
         const token = codeToken("graph TD\nA --> B", "mermaid");
 
-        await markedShiki.walkTokens?.(token);
+        await markedShiki.walkTokens(token);
 
         expect(token.type).toBe("code");
         expect(shikiMocks.createMarkdownHighlighter).not.toHaveBeenCalled();
