@@ -36,6 +36,6 @@
     "sigma": "~4.0.4"
   },
   "devDependencies": {
-    "tsdown": "~0.23.4"
+    "tsdown": "~0.23.5"
   }
 }
