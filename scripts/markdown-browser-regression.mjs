@@ -129,6 +129,7 @@ try {
         "images.md",
         "image-links.md",
         "viewers.md",
+        "mermaid.md",
         "callouts.md",
         "callout-review.md",
         "reading-p1.md",

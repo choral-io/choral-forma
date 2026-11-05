@@ -46,24 +46,27 @@ const localUrlAttributes = new Set([
 ]);
 const localUrlReference = /^url\(\s*(["']?)#[A-Za-z_][\w:.-]*\1\s*\)$/i;
 const trustedThemeStyle = [
-    "--bg:var(--color-base-100)",
-    "--fg:var(--color-base-content)",
-    "--accent:var(--color-primary)",
-    "--surface:var(--color-base-200)",
-    "--border:var(--color-base-300)",
-    "--_text:var(--fg)",
-    "--_text-sec:color-mix(in srgb,var(--fg) 60%,var(--bg))",
-    "--_text-muted:color-mix(in srgb,var(--fg) 40%,var(--bg))",
-    "--_text-faint:color-mix(in srgb,var(--fg) 25%,var(--bg))",
-    "--_line:color-mix(in srgb,var(--fg) 50%,var(--bg))",
-    "--_arrow:var(--accent)",
-    "--_node-fill:var(--surface)",
-    "--_node-stroke:var(--border)",
-    "--_group-fill:var(--bg)",
-    "--_group-hdr:color-mix(in srgb,var(--fg) 5%,var(--bg))",
-    "--_inner-stroke:color-mix(in srgb,var(--fg) 12%,var(--bg))",
-    "--_key-badge:color-mix(in srgb,var(--fg) 10%,var(--bg))",
-    "font-family:ui-sans-serif,system-ui,sans-serif",
+    "--pele-bg:var(--color-base-100)",
+    "--pele-fg:var(--color-base-content)",
+    "--pele-muted:color-mix(in srgb,var(--color-base-content) 65%,var(--color-base-100))",
+    "--pele-line:var(--color-base-content)",
+    "--pele-surface:var(--color-base-200)",
+    "--pele-surface-alt:var(--color-base-100)",
+    // Semantic outlines, compartment dividers, and lifelines need more contrast
+    // than decorative UI borders against both the canvas and node surfaces.
+    "--pele-border:color-mix(in srgb,var(--color-base-content) 50%,var(--color-base-100))",
+    "--pele-accent:var(--color-primary)",
+    "--_bg:var(--pele-bg)",
+    "--_fg:var(--pele-fg)",
+    "--_m:var(--pele-muted)",
+    "--_l:var(--pele-line)",
+    "--_s:var(--pele-surface)",
+    "--_a:var(--pele-surface-alt)",
+    "--_b:var(--pele-border)",
+    "--_c:var(--pele-accent)",
+    "--_r:4px",
+    "--_fm:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    "font:14px ui-sans-serif,system-ui,sans-serif",
 ].join(";");
 
 export function createMarkedMermaid({
@@ -71,7 +74,15 @@ export function createMarkedMermaid({
     scope,
     signal,
 }: MarkedMermaidOptions): MarkedExtension {
+    // Only this extension's generated tokens bypass authored-HTML renderers.
+    // An author cannot opt into this path by copying a class or attribute.
+    const renderedTokens = new WeakSet();
     return {
+        renderer: {
+            html(token) {
+                return renderedTokens.has(token) ? token.text : false;
+            },
+        },
         async walkTokens(token) {
             if (token.type !== "code" || typeof token.text !== "string") {
                 return;
@@ -106,6 +117,7 @@ export function createMarkedMermaid({
                 htmlToken.pre = false;
                 htmlToken.block = true;
                 htmlToken.text = accessibleDiagramHtml(validation.diagram, reservation.diagramId, svg);
+                renderedTokens.add(htmlToken);
             } catch (error: unknown) {
                 if (!(error instanceof DOMException && error.name === "AbortError")) {
                     console.warn("Mermaid diagram rendering failed; rendering source code.", error);
@@ -138,6 +150,14 @@ export function sanitizeMermaidSvg(svgSource: string) {
     }
 
     for (const element of [svg, ...Array.from(svg.querySelectorAll("*"))]) {
+        // Convert only Pele's known corner-radius style to a fixed SVG attribute.
+        // All source styles are still removed, including unrecognized properties.
+        if (
+            element.localName === "rect" &&
+            /(?:^|;)\s*rx\s*:\s*var\(--_r\)\s*(?:;|$)/.test(element.getAttribute("style") ?? "")
+        ) {
+            element.setAttribute("rx", "4");
+        }
         for (const attribute of Array.from(element.attributes)) {
             const name = attribute.name.toLowerCase();
             const value = attribute.value.trim();
@@ -167,7 +187,7 @@ export function sanitizeMermaidSvg(svgSource: string) {
     svg.setAttribute("style", trustedThemeStyle);
     svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
 
-    for (const monoText of svg.querySelectorAll("text.mono")) {
+    for (const monoText of svg.querySelectorAll("text.mono, text.pele-mono")) {
         monoText.setAttribute("font-family", "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace");
     }
 

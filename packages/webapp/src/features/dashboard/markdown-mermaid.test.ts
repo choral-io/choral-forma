@@ -3,11 +3,18 @@
 import { Marked } from "marked";
 import { describe, expect, it, vi } from "vitest";
 
-import { createMermaidRenderScope, mermaidPolicy, type MermaidRenderScope } from "@/lib/mermaid";
+import {
+    createMermaidRenderScope,
+    mermaidPolicy,
+    MermaidRendererController,
+    type MermaidRenderScope,
+} from "@/lib/mermaid";
+import { renderMermaidSvg } from "@/lib/mermaid/renderer";
 
 import viewerSamples from "../../../../../fixtures/forma-validation/samples/markdown/viewers.md?raw";
 import { postProcessMarkdownHtml } from "./MarkdownReader";
 import { createMarkedMermaid, mermaidSupport, sanitizeMermaidSvg } from "./markdown-mermaid";
+import { renderMarkdown } from "./markdown-renderer";
 
 const safeSvg = '<svg xmlns="http://www.w3.org/2000/svg"><text>Rendered</text></svg>';
 
@@ -42,9 +49,9 @@ describe("createMarkedMermaid", () => {
         expect(html).toContain("View Mermaid source");
         expect(html).toContain("Start[Repository Markdown] --&gt; Finish[Worker adapter]");
         expect(html).toContain('aria-hidden="true"');
-        expect(html).toContain("--bg:var(--color-base-100)");
-        expect(html).toContain("--fg:var(--color-base-content)");
-        expect(html).toContain("--accent:var(--color-primary)");
+        expect(html).toContain("--pele-bg:var(--color-base-100)");
+        expect(html).toContain("--pele-fg:var(--color-base-content)");
+        expect(html).toContain("--pele-accent:var(--color-primary)");
     });
 
     it("keeps invalid, unsupported, timed-out, and over-budget diagrams as readable source", async () => {
@@ -107,9 +114,9 @@ describe("createMarkedMermaid", () => {
     it("uses Forma semantic colors for light and dark theme resolution", async () => {
         const html = await render("```mermaid\nsequenceDiagram\n  Alice->>Bob: Hello\n```");
 
-        expect(html).toContain("--bg:var(--color-base-100)");
-        expect(html).toContain("--fg:var(--color-base-content)");
-        expect(html).toContain("--accent:var(--color-primary)");
+        expect(html).toContain("--pele-bg:var(--color-base-100)");
+        expect(html).toContain("--pele-fg:var(--color-base-content)");
+        expect(html).toContain("--pele-accent:var(--color-primary)");
         expect(html).not.toContain("choral-light");
         expect(html).not.toContain("choral-dark");
     });
@@ -170,7 +177,7 @@ describe("sanitizeMermaidSvg", () => {
         );
 
         expect(finalHtml).toContain('marker-end="url(#safe)"');
-        expect(finalHtml).toContain("--bg:var(--color-base-100)");
+        expect(finalHtml).toContain("--pele-bg:var(--color-base-100)");
         expect(finalHtml).not.toMatch(/https?:\/\/evil\.test/);
         expect(finalHtml).not.toContain("javascript:");
         expect(finalHtml).not.toContain("onclick");
@@ -179,6 +186,56 @@ describe("sanitizeMermaidSvg", () => {
         expect(finalHtml).not.toContain("<script");
         expect(finalHtml).not.toContain("<foreignObject");
         expect(finalHtml).not.toContain("<image");
+    });
+
+    it("restores only fixed Pele theme values and safe corner radii", () => {
+        const normalized = sanitizeMermaidSvg(
+            '<svg xmlns="http://www.w3.org/2000/svg" style="--_fg:red"><rect style="rx:var(--_r);fill:url(https://evil.test/a)"/><text style="font-family:url(https://evil.test/font)">Label</text></svg>',
+        );
+        const svg = new DOMParser().parseFromString(normalized, "image/svg+xml").documentElement;
+        expect(svg.querySelector("rect")?.getAttribute("rx")).toBe("4");
+        expect(svg.querySelector("[style]")).toBeNull();
+        expect(normalized).toContain("--_fg:var(--pele-fg)");
+        expect(normalized).not.toContain("--_fg:red");
+        expect(normalized).not.toContain("evil.test");
+    });
+
+    it("preserves empty class SVG and source controls through the complete Markdown path", async () => {
+        const renderWorker = vi.spyOn(MermaidRendererController.prototype, "render").mockImplementation((diagram) =>
+            Promise.resolve(
+                renderMermaidSvg(diagram.source, {
+                    accent: "accent",
+                    bg: "background",
+                    border: "border",
+                    fg: "foreground",
+                    font: "system-ui",
+                    surface: "surface",
+                    transparent: true,
+                }),
+            ),
+        );
+        try {
+            const html = postProcessMarkdownHtml(
+                await renderMarkdown(
+                    '```mermaid\nclassDiagram\n```\n\n<details class="forged"><summary>Forged</summary></details>',
+                ),
+                [],
+                "notes/empty.md",
+                [],
+                false,
+            );
+            const document = new DOMParser().parseFromString(html, "text/html");
+            expect(document.querySelector("figure svg")?.getAttribute("viewBox")).toBe("0 0 0 0");
+            expect(document.querySelector("figure")?.textContent).toContain("Class diagram with 0 items");
+            expect(document.querySelector("details.mermaid-diagram-source summary")?.textContent).toBe(
+                "View Mermaid source",
+            );
+            expect(document.querySelector("details.mermaid-diagram-source code")?.textContent).toBe("classDiagram");
+            expect(document.querySelector("details.forged")).toBeNull();
+            expect(document.body.textContent).toContain('<details class="forged">');
+        } finally {
+            renderWorker.mockRestore();
+        }
     });
 
     it("rejects oversized SVG strings and element trees", () => {

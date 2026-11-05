@@ -66,6 +66,11 @@ async function runUpgradeGate(): Promise<Omit<UpgradeGateResult, "ok">> {
         );
         assertSanitizedSvg(finalHtml);
 
+        const emptyClass = sanitizeMermaidSvg(await controller.render(validated("classDiagram"), { theme }));
+        if (!emptyClass.includes('viewBox="0 0 0 0"')) {
+            throw new Error("Empty class diagram behavior changed.");
+        }
+
         const responsive = await renderWithFrameProbe(controller, validated(responsiveSource));
         return {
             ...responsive,

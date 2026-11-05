@@ -1,8 +1,8 @@
-import { renderMermaidSVG } from "beautiful-mermaid";
 import { describe, expect, it, vi } from "vitest";
 
 import { mermaidPolicy, validateMermaidSource } from "./policy";
 import { isMermaidWorkerRequest, mermaidWorkerProtocolVersion, type MermaidWorkerRenderRequest } from "./protocol";
+import { renderMermaidSvg } from "./renderer";
 import { renderMermaidWorkerRequest } from "./worker-runtime";
 
 describe("renderMermaidWorkerRequest", () => {
@@ -24,7 +24,7 @@ describe("renderMermaidWorkerRequest", () => {
         ["class", "classDiagram\nclass Adapter {\n+render() Promise\n}\nAdapter --> Worker : delegates"],
         ["entity relationship", "erDiagram\nENTRY {\nstring path PK\n}\nENTRY ||--o{ LINK : contains"],
     ])("renders the reviewed %s subset synchronously inside the worker runtime", (_, source) => {
-        const response = renderMermaidWorkerRequest(request(source), renderMermaidSVG);
+        const response = renderMermaidWorkerRequest(request(source), renderMermaidSvg);
 
         expect(response).toMatchObject({ type: "rendered" });
         if (response.type === "rendered") {

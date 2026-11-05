@@ -587,6 +587,156 @@ export async function markdownBrowserScenarios(page, options) {
         await current.setViewportSize({ width: 1280, height: 900 });
         await current.emulateMedia({ colorScheme: "light" });
     };
+    const mermaid = async (current, host) => {
+        await current.goto(`${host.origin}${host.root}/pages/notes/mermaid/`);
+        await current.waitForFunction(
+            () => document.querySelectorAll(".mermaid-diagram [data-mermaid-viewer]").length === 6,
+        );
+        const figures = current.locator(".mermaid-diagram");
+        assert(
+            JSON.stringify(await figures.evaluateAll((items) => items.map((item) => item.dataset.diagramKind))) ===
+                '["flowchart","state","sequence","class","entity relationship","class"]',
+            `${host.name}: Mermaid kind coverage changed`,
+        );
+        assert((await figures.locator("svg.pele").count()) === 6, `${host.name}: Pele output missing`);
+        const identifiers = await figures.locator("[id]").evaluateAll((items) => items.map((item) => item.id));
+        assert(new Set(identifiers).size === identifiers.length, `${host.name}: duplicate diagram identifiers`);
+        const empty = figures.last();
+        assert(
+            (await empty.locator("svg.pele").getAttribute("viewBox")) === "0 0 0 0",
+            `${host.name}: empty class failed`,
+        );
+        assert(
+            (await empty.locator(".sr-only").first().textContent()).includes("0 items"),
+            `${host.name}: empty semantics lost`,
+        );
+        assert(
+            (await current.locator('[data-reader="markdown"] > pre code.language-mermaid').textContent()).startsWith(
+                "pie",
+            ),
+            `${host.name}: unsupported diagram source fallback lost`,
+        );
+        assert(
+            (await figures.locator("svg style, svg image, svg a, svg foreignObject, svg [href], svg [src]").count()) ===
+                0 && (await figures.locator("svg [style]").count()) === 0,
+            `${host.name}: unsafe SVG content survived`,
+        );
+        const colors = [];
+        for (const scheme of ["light", "dark"]) {
+            await current.emulateMedia({ colorScheme: scheme });
+            await current.evaluate(
+                (scheme) => document.documentElement.setAttribute("data-theme", `choral-${scheme}`),
+                scheme,
+            );
+            for (const width of [1440, 1024, 768, 390]) {
+                await current.setViewportSize({ width, height: 900 });
+                await current.evaluate(
+                    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+                );
+                const geometry = await figures.evaluateAll((items) =>
+                    items.map((item) => {
+                        const svg = item.querySelector("svg");
+                        const view = svg.viewBox.baseVal;
+                        const labels = [...svg.querySelectorAll("text")].map((text) => {
+                            const box = text.getBBox();
+                            const transform = svg.getScreenCTM().inverse().multiply(text.getScreenCTM());
+                            const points = [
+                                [box.x, box.y],
+                                [box.x + box.width, box.y + box.height],
+                            ].map(([x, y]) => new DOMPoint(x, y).matrixTransform(transform));
+                            return {
+                                x: points[0].x,
+                                y: points[0].y,
+                                width: points[1].x - points[0].x,
+                                height: points[1].y - points[0].y,
+                            };
+                        });
+                        const viewport = item.querySelector(".mermaid-diagram-viewport").getBoundingClientRect();
+                        const rail = item.querySelector('[role="group"]').getBoundingClientRect();
+                        const bounds = svg.getBoundingClientRect();
+                        return {
+                            fits: bounds.right <= rail.left + 2 && bounds.left >= viewport.left - 2,
+                            labels: labels.every(
+                                (box) =>
+                                    box.x >= view.x - 2 &&
+                                    box.y >= view.y - 2 &&
+                                    box.x + box.width <= view.x + view.width + 2 &&
+                                    box.y + box.height <= view.y + view.height + 2,
+                            ),
+                            fg: svg.querySelector("text") ? getComputedStyle(svg.querySelector("text")).fill : "empty",
+                        };
+                    }),
+                );
+                assert(
+                    geometry.every((item) => item.fits && item.labels),
+                    `${host.name}: Mermaid geometry ${width}/${scheme}: ${JSON.stringify(geometry)}`,
+                );
+                assert(
+                    await current.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+                    `${host.name}: horizontal page overflow`,
+                );
+                if (width === 1440) colors.push(geometry[0].fg);
+                await figures.first().scrollIntoViewIfNeeded();
+                await current.screenshot({
+                    path: `${options.artifacts}/${host.name}-mermaid-${width}-${scheme}.png`,
+                    animations: "disabled",
+                });
+                if (width === 1440) {
+                    for (let index = 0; index < 6; index++) {
+                        await figures.nth(index).screenshot({
+                            path: `${options.artifacts}/${host.name}-mermaid-kind-${index}-${scheme}.png`,
+                            animations: "disabled",
+                        });
+                    }
+                }
+            }
+        }
+        assert(
+            colors[0] !== colors[1] && colors.every((color) => color !== "rgba(0, 0, 0, 0)"),
+            `${host.name}: theme text color not applied: ${colors}`,
+        );
+        const viewport = figures.first().locator(".mermaid-diagram-viewport");
+        const svg = viewport.locator("svg.pele");
+        await viewport.focus();
+        const before = await svg.getAttribute("style");
+        await current.keyboard.press("+");
+        assert((await svg.getAttribute("style")) !== before, `${host.name}: keyboard zoom failed`);
+        await current.keyboard.press("ArrowRight");
+        await current.keyboard.press("0");
+        const expand = figures.first().getByRole("button", { name: "Expand Flowchart diagram", exact: true });
+        await expand.click();
+        await current.locator("dialog[open]").waitFor();
+        await current.keyboard.press("Escape");
+        await current.locator("dialog[open]").waitFor({ state: "detached" });
+        assert(
+            await expand.evaluate((item) => item === document.activeElement),
+            `${host.name}: Mermaid focus not restored`,
+        );
+        assert(
+            await current.evaluate(() => document.body.style.overflow !== "hidden"),
+            `${host.name}: Mermaid scroll lock leaked`,
+        );
+        await expand.click();
+        await current.getByRole("button", { name: "Close Flowchart diagram viewer", exact: true }).click();
+        await current.locator("dialog[open]").waitFor({ state: "detached" });
+        const expandEmpty = empty.getByRole("button", { name: "Expand Class diagram", exact: true });
+        await expandEmpty.click();
+        await current.locator("dialog[open] svg.pele-empty").waitFor({ state: "attached" });
+        await current.keyboard.press("Escape");
+        await current.locator("dialog[open]").waitFor({ state: "detached" });
+        assert(
+            await expandEmpty.evaluate((item) => item === document.activeElement),
+            `${host.name}: empty class focus not restored`,
+        );
+        await empty.locator("summary").click();
+        await empty.locator("pre").waitFor({ state: "visible" });
+        assert(
+            await empty.locator("details").evaluate((item) => item.open),
+            `${host.name}: empty class source unavailable`,
+        );
+        await current.setViewportSize({ width: 1280, height: 900 });
+        await current.emulateMedia({ colorScheme: "light" });
+    };
     for (const host of options.mode === "noscript" ? [] : options.hosts) {
         const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
         const current = await context.newPage();
@@ -689,7 +839,8 @@ export async function markdownBrowserScenarios(page, options) {
                 await current.evaluate(() => document.body.style.overflow !== "hidden"),
                 `${host.name}: scroll lock leaked`,
             );
-            results.push(`${host.name}: Mermaid focus restoration`);
+            await mermaid(current, host);
+            results.push(`${host.name}: Mermaid five kinds, empty class, themes, responsive viewer and focus`);
 
             await current.goto(`${host.origin}${host.root}${host.graph}`);
             const graph = current.getByRole("application");
@@ -772,6 +923,15 @@ export async function markdownBrowserScenarios(page, options) {
         assert(
             (await current.getByRole("button", { name: /Expand/ }).count()) === 0,
             "noscript: inert viewer controls",
+        );
+        await current.goto(`${host.origin}${host.root}/pages/notes/mermaid/`);
+        assert(
+            (await current.locator("pre code.language-mermaid").count()) === 7,
+            "noscript: Mermaid kinds and empty source missing",
+        );
+        assert(
+            (await current.locator(".mermaid-diagram, dialog, [data-mermaid-viewer]").count()) === 0,
+            "noscript: inert Mermaid enhancement",
         );
         await current.goto(`${host.origin}${host.root}${host.graph}`);
         await current.getByRole("link", { name: "Selected node", exact: true }).click();

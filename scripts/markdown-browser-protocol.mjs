@@ -31,7 +31,7 @@ export function markdownBrowserPhases(hosts, sourceIds) {
         `${host.name}: P1 syntax ${readingCount} cases, combined reading and themes`,
         `${host.name}: formatted callout samples and ${calloutCount} exact source cases`,
         `${host.name}: callout disclosure, rich header, navigation, focus and responsive themes`,
-        `${host.name}: Mermaid focus restoration`,
+        `${host.name}: Mermaid five kinds, empty class, themes, responsive viewer and focus`,
         `${host.name}: Graph selection and focus retained`,
     ];
     const phases = ["webapp", "static"].map((name) => {

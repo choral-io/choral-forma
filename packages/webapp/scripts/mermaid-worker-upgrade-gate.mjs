@@ -51,7 +51,7 @@ try {
 
     const browserEndpoint = await waitForDevtoolsEndpoint(chrome);
     const target = await waitForPageTarget(browserEndpoint, gateUrl);
-    const result = await readGateResult(target.webSocketDebuggerUrl);
+    const result = await readGateResult(target.webSocketDebuggerUrl, gateUrl);
     if (!result.ok) {
         throw new Error(result.error ?? "The Mermaid Worker upgrade gate failed.");
     }
@@ -174,7 +174,7 @@ async function waitForPageTarget(browserEndpoint, gateUrl) {
     throw new Error("Chrome did not open the Mermaid Worker upgrade-gate page.");
 }
 
-async function readGateResult(webSocketUrl) {
+async function readGateResult(webSocketUrl, gateUrl) {
     const socket = new WebSocket(webSocketUrl);
     await new Promise((resolve, reject) => {
         socket.addEventListener("open", resolve, { once: true });
@@ -203,6 +203,9 @@ async function readGateResult(webSocketUrl) {
         });
 
     try {
+        // A startup target can advertise its URL while its execution context is
+        // still about:blank. Navigate after attaching instead of trusting startup.
+        await send("Page.navigate", { url: gateUrl });
         await send("Runtime.enable");
         const deadline = Date.now() + 20_000;
         while (Date.now() < deadline) {
