@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import { describeBrowserEvidenceError, writeBrowserEvidence } from "./markdown-browser-evidence.mjs";
 import { markdownBrowserPhases, parseMarkdownBrowserPhase } from "./markdown-browser-protocol.mjs";
 import { markdownBrowserScenarios } from "./markdown-browser-scenarios.mjs";
+import { markdownMermaidGeometry } from "./markdown-mermaid-geometry.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const execute = promisify(execFile);
@@ -130,6 +131,7 @@ try {
         "image-links.md",
         "viewers.md",
         "mermaid.md",
+        "mermaid-geometry.md",
         "callouts.md",
         "callout-review.md",
         "reading-p1.md",
@@ -261,9 +263,10 @@ try {
     for (const phase of phases) {
         abort.signal.throwIfAborted();
         const scenario = join(temporary, `scenarios-${phase.name}.js`);
+        const run = phase.mode === "mermaid-geometry" ? markdownMermaidGeometry : markdownBrowserScenarios;
         await writeFile(
             scenario,
-            `async page => (${markdownBrowserScenarios.toString()})(page, ${JSON.stringify({ ...options, ...phase })})`,
+            `async page => (${run.toString()})(page, ${JSON.stringify({ ...options, ...phase })})`,
         );
         const output = await command(
             cli,

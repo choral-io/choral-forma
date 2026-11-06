@@ -162,6 +162,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  pele@1.13.0: a8bf25d8807ba699fe8b3b1e5a962c111dcb3338d2bbcfb01cefc29fbab33a6f
+
 importers:
 
   .:
@@ -375,7 +378,7 @@ importers:
         version: 1.4.0(marked@18.1.3)
       pele:
         specifier: ~1.13.0
-        version: 1.13.0
+        version: 1.13.0(patch_hash=a8bf25d8807ba699fe8b3b1e5a962c111dcb3338d2bbcfb01cefc29fbab33a6f)
       react:
         specifier: ~19.3.1
         version: 19.3.1
@@ -6451,7 +6454,7 @@ snapshots:
 
   pathe@2.0.3: {}
 
-  pele@1.13.0: {}
+  pele@1.13.0(patch_hash=a8bf25d8807ba699fe8b3b1e5a962c111dcb3338d2bbcfb01cefc29fbab33a6f): {}
 
   pend@1.2.0: {}
 

@@ -1,3 +1,5 @@
+import { mermaidGeometryChecks } from "./markdown-mermaid-geometry.mjs";
+
 export function markdownBrowserPhases(hosts, sourceIds) {
     if (
         hosts.length !== 2 ||
@@ -69,7 +71,17 @@ export function markdownBrowserPhases(hosts, sourceIds) {
                 : `${name}: native disclosures, folding and navigation`,
         ],
     }));
-    return [...disclosures, ...phases];
+    const geometryHosts = ["webapp", "static"].map((name) => hosts.find((host) => host.name === name));
+    const geometry = {
+        name: "mermaid-geometry",
+        mode: "mermaid-geometry",
+        hosts: geometryHosts,
+        expectedResults: geometryHosts.flatMap((host) =>
+            mermaidGeometryChecks.map((check) => `${host.name}: ${check}`),
+        ),
+        expectedSourceCases: {},
+    };
+    return [geometry, ...disclosures, ...phases];
 }
 
 export function validateMarkdownBrowserPhase(result, phase) {

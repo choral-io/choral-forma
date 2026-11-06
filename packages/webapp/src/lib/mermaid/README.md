@@ -3,7 +3,7 @@
 This directory is a framework-independent browser boundary around Pele. Only flowchart, state, sequence, class, and entity relationship diagrams are registered. It replaces `beautiful-mermaid` and its transitive ELK layout runtime; the browser rendering capability remains owned by the WebApp rather than Core or editor integrations.
 
 - `policy.ts` owns Forma's supported syntax, semantic model, and structural budgets. Pele's wider syntax support does not widen this product contract.
-- `renderer.ts` registers the five diagram types, preserves authored direction, disables links and images, assigns per-worker/per-diagram SVG identifier namespaces, and applies bounded synchronous rendering. Empty diagrams, including empty class diagrams rejected by Pele's parser, retain the previous zero-size SVG behavior.
+- `renderer.ts` registers the five diagram types, preserves authored direction, disables links and images, assigns per-worker/per-diagram SVG identifier namespaces, and applies bounded synchronous rendering. Empty diagrams retain their zero-size SVG behavior. Flowcharts with a subgraph self-loop fall back to the original source because Pele 1.13.0 misplaces the edge. The [local patch](../../../../../patches/pele@1.13.0.md) fixes other flowchart routing and self-loop geometry.
 - `protocol.ts`, `worker-runtime.ts`, and `worker.ts` define the versioned module Worker boundary and output cap. Rendering stays off the main thread; no DOM or ELK compatibility shims are required.
 - `controller.ts` provides a lazy, single-concurrency, abortable browser API. Abort and timeout terminate the active Worker.
 - `scope.ts` accounts for aggregate work across multiple readers.

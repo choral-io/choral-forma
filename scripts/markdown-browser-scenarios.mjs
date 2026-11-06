@@ -145,6 +145,7 @@ export async function markdownBrowserScenarios(page, options) {
         const outer = folds.nth(0),
             inner = folds.nth(1),
             summary = outer.locator(":scope > summary");
+        const jumpToHidden = current.getByRole("link", { name: /^Jump to hidden heading/ });
         const open = async (fold) => fold.evaluate((fold) => fold.open);
         assert(
             !(await open(outer)) && !(await open(inner)) && (await open(folds.nth(2))),
@@ -159,7 +160,7 @@ export async function markdownBrowserScenarios(page, options) {
         assert(await open(outer), `${host.name}: keyboard open`);
         await summary.click();
         if (!noScript) {
-            await current.getByRole("link", { name: /^Jump to hidden heading/ }).click();
+            await jumpToHidden.click();
             await current.waitForFunction(() => document.activeElement?.tagName === "H2");
             assert((await open(outer)) && (await open(inner)), `${host.name}: nested ancestors not revealed`);
             assert(
@@ -187,7 +188,7 @@ export async function markdownBrowserScenarios(page, options) {
                 fold.open = false;
                 for (const child of fold.querySelectorAll("details[data-markdown-disclosure]")) child.open = false;
             });
-            await current.getByRole("link", { name: /^Jump to hidden heading/ }).click();
+            await jumpToHidden.click();
             assert((await open(outer)) && (await open(inner)), `${host.name}: same-fragment reveal`);
         } else {
             await summary.click();
@@ -202,15 +203,21 @@ export async function markdownBrowserScenarios(page, options) {
                     (scheme) => document.documentElement.setAttribute("data-theme", `choral-${scheme}`),
                     scheme,
                 );
-                await summary.focus();
-                await current.keyboard.press("ArrowRight");
+                // Tab into the summary so the browser applies its keyboard focus indicator.
+                await jumpToHidden.focus();
+                await current.keyboard.press("Tab");
                 const geometry = await summary.evaluate((summary) => ({
+                    focused: summary === document.activeElement,
+                    focusVisible: summary.matches(":focus-visible"),
                     overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
                     labelOverflow: summary.scrollWidth > summary.clientWidth + 1,
                     outline: getComputedStyle(summary).outlineStyle,
                 }));
                 assert(!geometry.overflow && !geometry.labelOverflow, `${host.name}: disclosure overflow at ${width}`);
-                assert(geometry.outline !== "none", `${host.name}: missing keyboard focus`);
+                assert(
+                    geometry.focused && geometry.focusVisible && geometry.outline !== "none",
+                    `${host.name}: missing keyboard focus: ${JSON.stringify(geometry)}`,
+                );
                 await current.screenshot({
                     path: `${options.artifacts}/${host.name}-disclosures-${width}-${scheme}${noScript ? "-noscript" : ""}.png`,
                     fullPage: true,
@@ -415,10 +422,7 @@ export async function markdownBrowserScenarios(page, options) {
         };
 
         const state = async (open) => {
-            await current.waitForFunction(
-                (open) => document.querySelector("details[data-callout-fold]")?.open === open,
-                open,
-            );
+            await collapsed.and(current.locator(open ? "[open]" : ":not([open])")).waitFor({ state: "attached" });
         };
         await state(false);
         assert(await disclosures.nth(1).evaluate((element) => element.open), `${host.name}: expanded default lost`);
@@ -789,9 +793,11 @@ export async function markdownBrowserScenarios(page, options) {
             await current.waitForFunction(() => location.hash === "#forma-heading-image-viewer");
             results.push(`${host.name}: ordinary images and authored fragment link`);
             await current.goto(`${host.origin}${host.root}/pages/notes/image-links/`);
-            const linkedReader = current.locator('[data-reader="markdown"]');
-            await linkedReader.locator("img").first().waitFor();
-            const external = linkedReader.locator('a[href="https://example.test/image-destination"]');
+            const linkedReader = current.locator(
+                '[data-enhancement-ready] [data-reader="markdown"]:not([data-reader-loading])',
+            );
+            const external = linkedReader.locator('a[href="https://example.test/image-destination"]:has(img)');
+            await external.waitFor();
             assert(
                 (await external.count()) === 1 && (await external.getAttribute("target")) === "_blank",
                 `${host.name}: external image destination changed`,
