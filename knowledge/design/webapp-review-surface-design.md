@@ -27,6 +27,8 @@ sources:
 
 Define the accepted product direction, implementation constraints, validation protocol, and completion criteria for rebuilding the Forma WebApp as a lightweight read-only workspace review and knowledge-reading surface.
 
+> [[design/webapp-knowledge-reader-design]] supersedes this document's product position, desktop navigation, Home, and Reader rules, including their acceptance criteria. The remaining sections stay current.
+
 This document supersedes [[design/webapp-v2-dashboard-design]] as the current WebApp product and interaction specification. The earlier document remains historical evidence for the V2 dashboard direction. [[planning/daisyui-webapp-foundation-rewrite-plan]] remains the implementation record for the completed Tailwind CSS, DaisyUI, and native-browser foundation migration.
 
 ## Product Position
