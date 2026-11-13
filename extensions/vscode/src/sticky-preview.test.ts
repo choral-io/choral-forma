@@ -83,6 +83,8 @@ describe("native preview sticky rail lifecycle", () => {
         sourceRow.append(sourceCell);
         sourceHead.append(sourceRow);
         sourceTable.append(sourceHead);
+        // Computed styles are empty for an element outside the document.
+        document.body.append(sourceTable);
 
         const visualTable = document.createElement("table");
         const visualTrack = document.createElement("div");
@@ -103,6 +105,7 @@ describe("native preview sticky rail lifecycle", () => {
         visualTable.append(visualHead);
 
         syncTableHeaderPresentationStyles(sourceTable, sourceHead, visualTable, visualHead, visualTrack);
+        sourceTable.remove();
 
         expect(visualTable.style.borderCollapse).toBe("separate");
         expect(visualTable.style.tableLayout).toBe("fixed");

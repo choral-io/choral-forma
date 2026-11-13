@@ -296,7 +296,7 @@ it("fills the authored percent without changing where the bar starts or ends", a
     const labels = [...host.querySelectorAll("[role='gridcell'] span")];
     expect(labels).toHaveLength(2);
     expect(labels.every((l) => l.textContent === "An exhibition")).toBe(true);
-    expect(labels[1]?.getAttribute("style")).toContain("inset(0 60% 0 0)");
+    expect(labels[1]?.getAttribute("style")).toContain("inset(0px 60% 0px 0px)");
 });
 
 it("distinguishes an authored zero from absent progress", async () => {
@@ -771,19 +771,19 @@ it("clips the connector layer to the track on mount and on scroll", async () => 
     const scroller = element('[role="grid"]');
     const layer = element("[data-gantt-connectors]");
     // Mounting alone has to clear the header band the layer extends under.
-    expect(layer.style.clipPath).toBe(`inset(${String(HEADER_HEIGHT)}px 0 0 0px)`);
+    expect(layer.style.clipPath).toBe(`inset(${String(HEADER_HEIGHT)}px 0px 0px)`);
     // A vertical-only scroll changes nothing the render path watches, so this
     // isolates the scroll frame: only the listener can move the clip here.
     await flush(() => {
         scroller.scrollTop = 48;
         scroller.dispatchEvent(new Event("scroll"));
     });
-    expect(layer.style.clipPath).toBe(`inset(${String(48 + HEADER_HEIGHT)}px 0 0 0px)`);
+    expect(layer.style.clipPath).toBe(`inset(${String(48 + HEADER_HEIGHT)}px 0px 0px)`);
     await flush(() => {
         scroller.scrollLeft = 320;
         scroller.dispatchEvent(new Event("scroll"));
     });
-    expect(layer.style.clipPath).toBe(`inset(${String(48 + HEADER_HEIGHT)}px 0 0 320px)`);
+    expect(layer.style.clipPath).toBe(`inset(${String(48 + HEADER_HEIGHT)}px 0px 0px 320px)`);
 });
 
 it("selects the row when its bar is clicked", async () => {

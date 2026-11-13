@@ -23,6 +23,29 @@
     "text": []
   },
   {
+    "id": "authored-paragraph-lines-latin",
+    "category": "prose",
+    "source": "This is an authored first line,\nand this next line still belongs to the same paragraph.\n",
+    "selectors": {
+      "p": 1
+    },
+    "text": []
+  },
+  {
+    "id": "definition-simple-latin",
+    "category": "definition",
+    "source": "Term\n: First definition\n: Second definition\n",
+    "selectors": {},
+    "text": []
+  },
+  {
+    "id": "definition-blocks-latin",
+    "category": "definition",
+    "source": "Term\n: First paragraph.\n\n    Second paragraph.\n\n    - Child item\n",
+    "selectors": {},
+    "text": []
+  },
+  {
     "id": "definition-inline",
     "category": "definition",
     "source": "术语\n: **定义**，含 $x^2$。\n\n另一个术语\n: 另一定义。\n",

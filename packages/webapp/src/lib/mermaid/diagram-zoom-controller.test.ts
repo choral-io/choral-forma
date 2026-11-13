@@ -51,7 +51,7 @@ describe("SvgDiagramZoomController", () => {
         const controller = createSvgDiagramZoomController({ canvas, svg });
 
         expect(controller.getState()).toMatchObject({ canZoomOut: false, scale: 1, x: 0, y: 0 });
-        expect(svg.style.transform).toContain("translate3d(0px, 0px, 0) scale(1)");
+        expect(svg.style.transform).toContain("translate3d(0px, 0px, 0px) scale(1)");
         expect(svg.style.width).toBe("300px");
 
         controller.zoomIn();

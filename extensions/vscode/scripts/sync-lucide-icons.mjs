@@ -19,13 +19,9 @@ for (const [theme, stroke] of Object.entries(themes)) {
         await unlink(new URL(file, directory));
     }
     for (const icon of iconIds) {
-        const { __iconData } = await import(`lucide-react/dist/esm/icons/${icon}.mjs`);
-        // lucide-react exposes the node array under `__iconData.node`; it was a bare
-        // `__iconNode` export before v1.45. Fail with the shape named, because the
-        // symptom of an unexpected shape is an unhelpful TypeError further down.
-        if (!__iconData?.node) throw new Error(`Unsupported lucide-react icon module shape: ${icon}`);
+        const iconData = await loadIconData(icon);
         const target = new URL(`${icon}.svg`, directory);
-        const expectedSource = serializeIcon(__iconData.node, stroke);
+        const expectedSource = serializeIcon(iconData.node, stroke);
         if (checkOnly) {
             const actualSource = await readFile(target, "utf8");
             if (actualSource !== expectedSource)
@@ -34,6 +30,23 @@ for (const [theme, stroke] of Object.entries(themes)) {
             await writeFile(target, expectedSource, "utf8");
         }
     }
+}
+
+async function loadIconData(icon) {
+    const specifier = `lucide-react/dist/esm/icons/${icon}.mjs`;
+    const { __iconData } = await import(specifier);
+    // lucide-react exposes the node array under `__iconData.node`; it was a bare
+    // `__iconNode` export before v1.45.
+    if (__iconData?.node) return __iconData;
+    // A renamed icon keeps its previous id as a module that re-exports only the
+    // default component, so the geometry has to be read from the module it names.
+    const source = await readFile(new URL(import.meta.resolve(specifier)), "utf8");
+    const renamed = /export \{ default \} from '\.\/(?<id>[a-z0-9-]+)\.mjs';/u.exec(source)?.groups?.id;
+    const target = renamed ? await import(`lucide-react/dist/esm/icons/${renamed}.mjs`) : undefined;
+    // Fail with the shape named, because the symptom of an unexpected shape is
+    // an unhelpful TypeError further down.
+    if (!target?.__iconData?.node) throw new Error(`Unsupported lucide-react icon module shape: ${icon}`);
+    return target.__iconData;
 }
 
 function serializeIcon(nodes, stroke) {

@@ -42,7 +42,8 @@ describe("Markdown formatting contract", () => {
 
     it("detects paragraph and definition boundaries lost under the previous never policy", async () => {
         const options = await resolveConfig(filepath, { editorconfig: true });
-        for (const id of ["authored-paragraph-lines", "definition-simple", "definition-blocks"]) {
+        // Prettier leaves a line break beside CJK text alone under `never`, so only Latin sources show the loss.
+        for (const id of ["authored-paragraph-lines-latin", "definition-simple-latin", "definition-blocks-latin"]) {
             const fixture = cases.find((fixture) => fixture.id === id);
             expect(fixture, id).toBeDefined();
             if (!fixture) throw new Error(`Missing negative-control fixture: ${id}`);

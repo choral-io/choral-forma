@@ -20,19 +20,19 @@ it("hides the part of the connector layer that lies behind each sticky edge", ()
     clipConnectors(element);
     // The layer shares the track's origin, so the left inset is the scroll offset
     // itself, and the top inset also clears the header the layer extends under.
-    expect(clipOf(element)).toBe(`inset(${String(120 + HEADER_HEIGHT)}px 0 0 640px)`);
+    expect(clipOf(element)).toBe(`inset(${String(120 + HEADER_HEIGHT)}px 0px 0px 640px)`);
 });
 
 it("clips nothing away at the origin except the header band", () => {
     const element = scroller(0, 0);
     clipConnectors(element);
-    expect(clipOf(element)).toBe(`inset(${String(HEADER_HEIGHT)}px 0 0 0px)`);
+    expect(clipOf(element)).toBe(`inset(${String(HEADER_HEIGHT)}px 0px 0px)`);
 });
 
 it("ignores overscroll rather than inverting the clip", () => {
     const element = scroller(-40, -30);
     clipConnectors(element);
-    expect(clipOf(element)).toBe(`inset(${String(HEADER_HEIGHT)}px 0 0 0px)`);
+    expect(clipOf(element)).toBe(`inset(${String(HEADER_HEIGHT)}px 0px 0px)`);
 });
 
 it("leaves a timeline without a connector layer alone", () => {
