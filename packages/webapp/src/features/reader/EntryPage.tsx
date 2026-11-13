@@ -88,7 +88,7 @@ export function EntryPage({
             <div className="group/entry mx-auto flex w-full max-w-6xl flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,48rem)_16rem] xl:gap-x-12">
                 <div className="mx-auto flex w-full min-w-0 flex-col gap-6 xl:mx-0">
                     <header className="mx-auto flex w-full max-w-3xl scroll-m-8 flex-col gap-3 xl:mx-0" id="entry-top">
-                        <h1 className="text-3xl font-semibold tracking-normal" ref={titleRef} tabIndex={-1}>
+                        <h1 className="text-3xl font-semibold tracking-normal sm:text-4xl" ref={titleRef} tabIndex={-1}>
                             {entry.title}
                         </h1>
                         {entry.summary ? <p className="text-sm/6 text-base-content/60">{entry.summary}</p> : null}

@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @source "../../../temporal-view/src";
 
+@plugin "@tailwindcss/typography";
+
 @plugin "daisyui" {
     logs: false;
     themes: false;
@@ -153,66 +155,82 @@
     }
 
     [data-reader="markdown"] {
-        @apply text-sm/7 text-base-content/90;
+        @apply prose max-w-none;
+        line-break: strict;
+        text-autospace: normal;
+
+        /* daisyUI maps the prose colors under `:root`; match that specificity to own them here. */
+        :root & {
+            --tw-prose-body: color-mix(in oklab, var(--color-base-content) 85%, transparent);
+            --tw-prose-headings: var(--color-base-content);
+            --tw-prose-lead: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+            --tw-prose-links: var(--color-primary);
+            --tw-prose-bold: var(--color-base-content);
+            --tw-prose-counters: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+            --tw-prose-bullets: color-mix(in oklab, var(--color-base-content) 40%, transparent);
+            --tw-prose-hr: var(--color-base-300);
+            --tw-prose-quotes: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+            --tw-prose-quote-borders: var(--color-base-300);
+            --tw-prose-captions: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+            --tw-prose-kbd: var(--color-base-content);
+            --tw-prose-kbd-shadows: var(--color-base-content);
+            --tw-prose-code: var(--color-base-content);
+            --tw-prose-pre-code: var(--color-base-content);
+            --tw-prose-pre-bg: transparent;
+            --tw-prose-th-borders: var(--color-base-300);
+            --tw-prose-td-borders: var(--color-base-300);
+        }
 
         & a {
-            @apply text-primary underline underline-offset-4;
+            @apply font-normal decoration-primary/40 underline-offset-4 hover:decoration-primary;
         }
 
         & blockquote {
-            @apply my-5 border-s-4 border-base-300/70 ps-4 text-base-content/60;
+            @apply border-s-4 font-normal not-italic;
+        }
+
+        & blockquote p:first-of-type::before,
+        & blockquote p:last-of-type::after {
+            content: none;
         }
 
         & code {
-            @apply rounded-sm bg-base-200 px-1 py-0.5 text-sm;
+            @apply rounded-sm bg-base-200 px-1 py-0.5 font-normal;
+        }
+
+        & code::before,
+        & code::after {
+            content: none;
         }
 
         & mark {
             @apply rounded-sm bg-warning px-0.5 text-warning-content;
         }
 
-        & :is(del, li::marker) {
+        & del {
             @apply text-base-content/60;
         }
 
         & :is(h1, h2, h3, h4, h5, h6) {
-            @apply scroll-m-20 text-base-content;
-        }
-
-        & h1 {
-            @apply mt-10 mb-5 text-2xl font-semibold;
-        }
-
-        & h2 {
-            @apply mt-8 mb-4 text-xl font-semibold;
-        }
-
-        & h3 {
-            @apply mt-6 mb-3 text-base font-semibold;
-        }
-
-        & h4 {
-            @apply mt-5 mb-2 text-sm font-semibold;
-        }
-
-        & :is(h5, h6) {
-            @apply mt-4 mb-2 text-sm font-medium;
-        }
-
-        & :is(h1, h2, h3, h4, h5, h6):first-child {
-            @apply mt-0;
-        }
-
-        & hr {
-            @apply my-7 border-0 border-t border-base-300;
+            @apply scroll-m-20 font-semibold;
         }
 
         & img {
-            @apply my-5 max-w-full;
+            @apply max-w-full;
         }
 
-        & li + li {
-            @apply mt-2;
+        & p.forma-callout-title {
+            @apply mb-2;
+        }
+
+        /* Component bodies own their outer spacing, so their first and last blocks sit flush. */
+        & :is(.forma-callout > div, .collapse-content, blockquote, td, th) > :first-child,
+        & .forma-callout-title + * {
+            @apply mt-0;
+        }
+
+        & :is(.forma-callout > div, .collapse-content, blockquote, td, th) > :last-child {
+            @apply mb-0;
         }
 
         & .katex-display {
@@ -254,32 +272,8 @@
             @apply my-0;
         }
 
-        & :is(ol, ul) {
-            @apply ps-5;
-        }
-
-        & ol {
-            @apply list-decimal;
-        }
-
-        & ul {
-            @apply list-disc;
-        }
-
-        & p {
-            @apply my-3;
-        }
-
-        & blockquote p {
-            @apply my-2;
-        }
-
         & pre {
             @apply overflow-x-auto rounded-lg border border-base-300 bg-base-200/50 p-4;
-        }
-
-        & > pre {
-            @apply my-5;
         }
 
         & pre code {
@@ -292,6 +286,11 @@
 
         & pre.shiki code .line {
             @apply min-h-lh;
+        }
+
+        /* The wrapper and the sticky header rail own a table's outer spacing. */
+        & table {
+            @apply my-0;
         }
 
         & .table-wrapper {
@@ -336,10 +335,26 @@
     display: none;
 }
 
+/* Static fallback pages stack reader blocks in a flex column, which stops their margins collapsing. */
+[data-static-fallback] [data-reader="markdown"] {
+    display: block;
+}
+
 /* Reader callouts compose daisyUI alerts; keep document typography above its utilities layer. */
 [data-reader="markdown"] .forma-callout {
     @apply my-5 block text-base-content;
+    font-size: inherit;
+    line-height: inherit;
     overflow-wrap: anywhere;
+}
+
+/* daisyUI sizes compact tables and collapse titles for interface chrome; documents read one step larger. */
+[data-reader="markdown"] table {
+    @apply text-sm;
+}
+
+[data-reader="markdown"] details[data-markdown-disclosure] > .collapse-title {
+    font-size: inherit;
 }
 
 [data-reader="markdown"] .forma-callout-title {
