@@ -7,7 +7,7 @@ const cwd = fileURLToPath(new URL("../packages/webapp/", import.meta.url));
 const eslint = new ESLint({ cwd });
 // Use a real included file so projectService checks the probe instead of rejecting its path.
 // lintText never writes the probe into the source file. Keep the actual repository config loaded.
-const filePath = "src/features/dashboard/ViewGraphProjection.tsx";
+const filePath = "src/features/views/ViewGraphProjection.tsx";
 const prefix = "better-tailwindcss/";
 
 async function lintClasses(source) {
@@ -89,9 +89,9 @@ test("generated evidence exclusion does not hide source files or disable lint ru
     assert.equal(await eslint.isPathIgnored(".tmp/retained-evidence/example.mjs"), true);
     for (const sourcePath of [
         filePath,
-        "src/features/dashboard/markdown-formatting.test.ts",
+        "src/features/reader/markdown-formatting.test.ts",
         "src/.tmp/sentinel.ts",
-        "src/features/dashboard/.tmp/sentinel.ts",
+        "src/features/reader/.tmp/sentinel.ts",
     ])
         assert.equal(await eslint.isPathIgnored(sourcePath), false, sourcePath);
     const [result] = await eslint.lintText("const unusedProbe = 1;\n", { filePath });

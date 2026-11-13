@@ -4,12 +4,12 @@ import { Link } from "react-router";
 import type { DashboardViewProjection, DashboardViewProjectionItem } from "@/data/workspace-client";
 import { cn } from "@/lib/utils";
 
-import { syncKanbanStickyRailGeometry, syncKanbanStickyRailScroll } from "./kanban-sticky-header";
 import {
     createProjectionStickyBoundaryController,
     projectionStickyHeaderClassName,
     projectionStickyHeaderSurfaceClassName,
-} from "./projection-sticky-boundary";
+} from "@/lib/projection-sticky-boundary";
+import { syncKanbanStickyRailGeometry, syncKanbanStickyRailScroll } from "./kanban-sticky-header";
 import { formattedViewFieldValue, viewFieldLabel } from "./view-field-value";
 
 export function ViewKanbanProjection({

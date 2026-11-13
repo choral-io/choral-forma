@@ -6,17 +6,13 @@ import type {
     DashboardViewProjection,
     DashboardViewProjectionItem,
 } from "@/data/workspace-client";
-import {
-    tableColumnEntryRoute,
-    tableColumnStyle,
-    tableColumnWraps,
-} from "@/features/dashboard/table-column-presentation";
 import { cn } from "@/lib/utils";
+import { tableColumnEntryRoute, tableColumnStyle, tableColumnWraps } from "./table-column-presentation";
 
 import {
     createProjectionStickyBoundaryController,
     projectionStickyHeaderClassName,
-} from "./projection-sticky-boundary";
+} from "@/lib/projection-sticky-boundary";
 import { isReferenceViewField, isValueViewField, plainViewFieldValue, rawViewFieldValue } from "./view-field-value";
 
 export function ViewTableProjection({

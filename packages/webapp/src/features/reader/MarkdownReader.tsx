@@ -9,13 +9,13 @@ import type { MermaidRenderScope } from "@/lib/mermaid";
 import { restoreReaderFragment, scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
 import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
 
-import { resolveReaderLink } from "./markdown-links";
-import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
-import { renderMarkdown } from "./markdown-renderer";
 import {
     createProjectionStickyBoundaryController,
     projectionStickyHeaderClassName,
-} from "./projection-sticky-boundary";
+} from "@/lib/projection-sticky-boundary";
+import { resolveReaderLink } from "./markdown-links";
+import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
+import { renderMarkdown } from "./markdown-renderer";
 import { resolveReaderLinkNavigation } from "./reader-link-navigation";
 
 interface MarkdownHeading {

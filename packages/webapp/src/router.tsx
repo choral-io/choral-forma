@@ -3,7 +3,7 @@ import { createBrowserRouter, createRoutesFromElements, Navigate, Route } from "
 
 import { App } from "@/app/App";
 import { RouteErrorBoundary } from "@/app/RouteErrorBoundary";
-import type * as DashboardHomeModule from "@/features/dashboard/DashboardHome";
+import type * as RoutePagesModule from "@/features/route-pages";
 import { legacyWorkspaceRouteRedirect } from "@/lib/workspace-routes";
 import { staticRouterBasename } from "./data/static-runtime";
 
@@ -19,15 +19,15 @@ const ViewRoute = lazyDashboardRoute("ViewRoute");
 const ViewsRoute = lazyDashboardRoute("ViewsRoute");
 
 /**
- * Every route lives in one dashboard module, so this is a single chunk boundary
+ * Every route is re-exported from one module, so this is a single chunk boundary
  * rather than per-route splitting. Starting the request before the shell needs it
  * keeps the chunk from queueing behind the workspace dashboard request.
  */
 export function preloadDashboardRoutes() {
-    return import("@/features/dashboard/DashboardHome");
+    return import("@/features/route-pages");
 }
 
-function lazyDashboardRoute(exportName: keyof typeof DashboardHomeModule) {
+function lazyDashboardRoute(exportName: keyof typeof RoutePagesModule) {
     return lazy(async () => {
         const module = await preloadDashboardRoutes();
         return { default: module[exportName] as ComponentType };

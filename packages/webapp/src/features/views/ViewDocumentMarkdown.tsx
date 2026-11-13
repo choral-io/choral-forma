@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 
 import type { DashboardEntry, DashboardViewRender } from "@/data/workspace-client";
 
-import { MarkdownReader } from "./MarkdownReader";
-import { useMermaidScope } from "./use-mermaid-scope";
+import { MarkdownReader } from "@/features/reader/MarkdownReader";
+import { useMermaidScope } from "@/features/reader/use-mermaid-scope";
 
 /**
  * Renders a View's own Markdown around its projection. Both sections share one

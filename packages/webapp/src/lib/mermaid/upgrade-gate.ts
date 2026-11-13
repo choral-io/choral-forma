@@ -1,5 +1,5 @@
-import { postProcessMarkdownHtml } from "@/features/dashboard/MarkdownReader";
-import { sanitizeMermaidSvg } from "@/features/dashboard/markdown-mermaid";
+import { postProcessMarkdownHtml } from "@/features/reader/MarkdownReader";
+import { sanitizeMermaidSvg } from "@/features/reader/markdown-mermaid";
 
 import { MermaidRendererController } from "./controller";
 import { validateMermaidSource, type ValidatedMermaidDiagram } from "./policy";
