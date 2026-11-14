@@ -175,6 +175,7 @@ function EntryRouteContent({
                     ) : null}
                 </>
             }
+            reading
             breadcrumb={
                 navigationStrategy === "files"
                     ? entryDirectoryBreadcrumb(entry.path)

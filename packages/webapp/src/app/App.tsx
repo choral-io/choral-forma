@@ -13,6 +13,7 @@ import { readSidebarOpenPreference, writeSidebarOpenPreference } from "@/lib/sid
 
 export const workspaceDrawerId = "workspace-navigation";
 export const workspaceDesktopDrawerId = "workspace-sidebar";
+export const workspaceFocusModeId = "workspace-focus-mode";
 
 export function App() {
     const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(
@@ -124,7 +125,23 @@ export function App() {
                 }}
                 type="checkbox"
             />
-            <div className="drawer-side max-lg:hidden">
+            {/* Focus mode is a second browser-owned toggle; styles read it through the shell group. */}
+            <input
+                aria-hidden="true"
+                className="hidden"
+                id={workspaceFocusModeId}
+                onChange={(event) => {
+                    const entering = event.currentTarget.checked;
+                    requestAnimationFrame(() => {
+                        document
+                            .querySelector<HTMLElement>(entering ? "[data-focus-mode-exit]" : "[data-focus-mode-enter]")
+                            ?.focus();
+                    });
+                }}
+                tabIndex={-1}
+                type="checkbox"
+            />
+            <div className="drawer-side max-lg:hidden lg:group-has-[#workspace-focus-mode:checked]/shell:hidden">
                 <aside className="flex h-full flex-col overflow-hidden bg-base-200 text-base-content is-drawer-close:invisible is-drawer-close:w-0 is-drawer-open:w-72">
                     <WorkspaceSidebar
                         dashboard={dashboard}

@@ -770,7 +770,8 @@ export async function markdownBrowserScenarios(page, options) {
             assert(
                 (await reader
                     .locator(
-                        "[data-reader-image], [data-reader-image-expand], .forma-image-frame, .forma-image-link, button, dialog",
+                        // Code samples and headings carry their own copy controls; any other button would belong to a viewer.
+                        "[data-reader-image], [data-reader-image-expand], .forma-image-frame, .forma-image-link, button:not([data-reader-copy-code], [data-reader-heading-link]), dialog",
                     )
                     .count()) === 0,
                 `${host.name}: image viewer returned`,

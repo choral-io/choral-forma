@@ -187,6 +187,16 @@
             @apply max-w-full;
         }
 
+        /* The section link stays out of the way until its heading is pointed at or it takes focus. */
+        & [data-reader-heading-link] {
+            @apply ms-2 cursor-pointer font-normal text-base-content/40 opacity-0 hover:text-primary focus-visible:opacity-100 pointer-coarse:opacity-100;
+        }
+
+        & :is(h1, h2, h3, h4, h5, h6):hover > [data-reader-heading-link],
+        & [data-reader-heading-link][data-copied] {
+            @apply opacity-100;
+        }
+
         & p.forma-callout-title {
             @apply mb-2;
         }
@@ -301,6 +311,32 @@
 /* Fallback for older Chromium/WebKit engines. */
 [data-gantt-timeline]::-webkit-scrollbar {
     display: none;
+}
+
+/* Reading progress follows the scroll container it sits in. Browsers without scroll-driven
+   animations, and readers who ask for reduced motion, simply get no indicator. */
+[data-reading-progress] {
+    display: none;
+}
+
+@supports (animation-timeline: scroll()) {
+    @media (prefers-reduced-motion: no-preference) {
+        [data-reading-progress] {
+            display: block;
+            transform-origin: 0 50%;
+            animation: reading-progress linear both;
+            animation-timeline: scroll(nearest block);
+        }
+    }
+}
+
+@keyframes reading-progress {
+    from {
+        scale: 0 1;
+    }
+    to {
+        scale: 1 1;
+    }
 }
 
 /* Static fallback pages stack reader blocks in a flex column, which stops their margins collapsing. */

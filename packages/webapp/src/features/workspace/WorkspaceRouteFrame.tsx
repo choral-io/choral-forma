@@ -1,8 +1,8 @@
-import { Menu, PanelLeftOpen, PanelRightIcon } from "lucide-react";
+import { Maximize2, Menu, Minimize2, PanelLeftOpen, PanelRightIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
-import { workspaceDesktopDrawerId, workspaceDrawerId } from "@/app/App";
+import { workspaceDesktopDrawerId, workspaceDrawerId, workspaceFocusModeId } from "@/app/App";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { WorkspaceHealthPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
@@ -25,6 +25,8 @@ interface WorkspaceRouteFrameProps {
     contextPanel?: ReactNode;
     contentWidth?: "default" | "fluid" | "readable";
     description?: string;
+    /** Offers focus mode and shows reading progress; set by routes whose content is a document. */
+    reading?: boolean;
     /** Omitted by routes that render their own page heading, such as a document. */
     title?: string;
 }
@@ -39,6 +41,7 @@ export function WorkspaceRouteFrame({
     contextPanel,
     contentWidth = "default",
     description,
+    reading = false,
     title,
 }: WorkspaceRouteFrameProps) {
     const dashboard = useWorkspaceDashboard();
@@ -53,6 +56,11 @@ export function WorkspaceRouteFrame({
     const changeThemePreference = (preference: ThemePreference) => {
         setThemePreference(preference);
         applyThemePreference(preference);
+    };
+
+    const toggleFocusMode = () => {
+        const toggle = document.getElementById(workspaceFocusModeId);
+        if (toggle instanceof HTMLInputElement) toggle.click();
     };
 
     return (
@@ -118,11 +126,39 @@ export function WorkspaceRouteFrame({
                 <div className="flex shrink-0 items-center gap-1">
                     <QuickOpenTrigger className={sidebarHiddenOnly} trigger="header" />
                     {actions}
+                    {reading ? (
+                        <button
+                            aria-label="Enter focus mode"
+                            className="btn btn-square btn-ghost max-lg:hidden lg:group-has-[#workspace-focus-mode:checked]/shell:hidden"
+                            data-focus-mode-enter
+                            onClick={toggleFocusMode}
+                            title="Enter focus mode"
+                            type="button"
+                        >
+                            <Maximize2 aria-hidden="true" />
+                        </button>
+                    ) : null}
+                    {/* Leaving focus mode is offered on every route, because the mode outlives the page it began on. */}
+                    <button
+                        aria-label="Exit focus mode"
+                        className="btn hidden btn-square btn-ghost lg:group-has-[#workspace-focus-mode:checked]/shell:inline-flex"
+                        data-focus-mode-exit
+                        onClick={toggleFocusMode}
+                        title="Exit focus mode"
+                        type="button"
+                    >
+                        <Minimize2 aria-hidden="true" />
+                    </button>
                     <ThemeDropdown onPreferenceChange={changeThemePreference} preference={themePreference} />
                 </div>
             </header>
 
             <main className="min-h-0 min-w-0 overflow-auto">
+                {reading ? (
+                    <div aria-hidden="true" className="sticky top-0 z-10 h-0">
+                        <div className="h-0.5 bg-primary" data-reading-progress />
+                    </div>
+                ) : null}
                 {hasContextPanel && contextPanel ? (
                     <details className="collapse-arrow collapse rounded-none border-b border-base-300 bg-base-200/40 xl:hidden">
                         <summary className="collapse-title flex items-center gap-2 text-sm font-medium">

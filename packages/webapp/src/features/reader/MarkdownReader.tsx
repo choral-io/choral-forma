@@ -16,6 +16,7 @@ import {
 import { resolveReaderLink } from "./markdown-links";
 import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
 import { renderMarkdown } from "./markdown-renderer";
+import { enhanceReader } from "./reader-enhancements";
 import { resolveReaderLinkNavigation } from "./reader-link-navigation";
 
 interface MarkdownHeading {
@@ -128,6 +129,11 @@ export function MarkdownReader({
             return;
         }
         return enhanceMermaidDiagrams(readerRef.current);
+    }, [isCurrentRender, renderState?.html, renderState?.status]);
+
+    useEffect(() => {
+        if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) return;
+        return enhanceReader(readerRef.current);
     }, [isCurrentRender, renderState?.html, renderState?.status]);
 
     useEffect(() => {

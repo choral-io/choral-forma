@@ -98,7 +98,7 @@ export function EntryPage({
 
     return (
         <div className="w-full">
-            <div className="group/entry mx-auto flex w-full max-w-6xl flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,48rem)_16rem] xl:gap-x-12">
+            <div className="group/entry mx-auto flex w-full max-w-6xl flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,48rem)_16rem] xl:gap-x-12 xl:group-has-[#workspace-focus-mode:checked]/shell:grid-cols-[minmax(0,48rem)] xl:group-has-[#workspace-focus-mode:checked]/shell:justify-center">
                 <div className="mx-auto flex w-full min-w-0 flex-col gap-6 xl:mx-0">
                     <header className="mx-auto flex w-full max-w-3xl scroll-m-8 flex-col gap-3 xl:mx-0" id={entryTopId}>
                         <h1 className="text-3xl font-semibold tracking-normal sm:text-4xl" ref={titleRef} tabIndex={-1}>
@@ -169,7 +169,7 @@ export function EntryPage({
                         <div className="h-3 w-11/12 skeleton" />
                     </div>
                 ) : hasOutline ? (
-                    <aside className="hidden xl:block">
+                    <aside className="hidden xl:block xl:group-has-[#workspace-focus-mode:checked]/shell:hidden">
                         <div
                             aria-hidden="true"
                             className="hidden flex-col gap-4 py-4 group-has-data-reader-loading/entry:flex"
