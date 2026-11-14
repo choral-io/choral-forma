@@ -37,7 +37,9 @@ function scrollReaderTarget(target: HTMLElement) {
 
     const targetTop = target.getBoundingClientRect().top;
     const containerTop = scrollContainer.getBoundingClientRect().top;
-    const top = Math.max(0, scrollContainer.scrollTop + targetTop - containerTop);
+    // Honor the target's scroll margin as a native fragment scroll would, so a heading keeps air above it.
+    const margin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+    const top = Math.max(0, scrollContainer.scrollTop + targetTop - containerTop - margin);
     scrollContainer.scrollTo({ behavior: "auto", top });
     return true;
 }

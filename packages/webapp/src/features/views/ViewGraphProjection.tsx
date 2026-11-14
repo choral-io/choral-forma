@@ -15,7 +15,6 @@ import { mediaViewerControlButtonClassName, mediaViewerControlRailClassName } fr
 import { mediaWheelZoomFactor } from "@/lib/media-viewer-gestures";
 import { themePreferenceChangeEvent } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
-import { acquireWorkspaceInteractionLayer } from "@/lib/workspace-interaction-layer";
 
 import { activeGraphNodeId, mapDashboardGraphProjection, type DashboardGraphProjection } from "./graph-adapter";
 
@@ -30,7 +29,6 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
     const routesRef = useRef(new Map<string, string>());
     const viewerToggleRef = useRef<HTMLButtonElement | null>(null);
     const wasExpandedRef = useRef(false);
-    const releaseInteractionLayerRef = useRef<(() => void) | undefined>(undefined);
     const [graphTheme, setGraphTheme] = useState<GraphTheme>(() => readGraphThemeTokens());
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
@@ -54,19 +52,6 @@ export function ViewGraphProjection({ projection }: { projection: DashboardGraph
         )
             return;
         setIsExpanded(expanded);
-        if (expanded) {
-            releaseInteractionLayerRef.current ??= acquireWorkspaceInteractionLayer();
-            return;
-        }
-        releaseInteractionLayerRef.current?.();
-        releaseInteractionLayerRef.current = undefined;
-    }, []);
-
-    useEffect(() => {
-        return () => {
-            releaseInteractionLayerRef.current?.();
-            releaseInteractionLayerRef.current = undefined;
-        };
     }, []);
 
     useEffect(() => {

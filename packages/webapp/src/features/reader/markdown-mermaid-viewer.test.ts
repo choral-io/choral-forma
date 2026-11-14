@@ -42,7 +42,6 @@ vi.mock("@/lib/mermaid", () => ({
     mermaidDiagramZoom: { maxScale: 3, minScale: 1 },
 }));
 
-import { subscribeWorkspaceInteractionLayer } from "@/lib/workspace-interaction-layer";
 import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
 
 describe("enhanceMermaidDiagrams", () => {
@@ -84,13 +83,9 @@ describe("enhanceMermaidDiagrams", () => {
         cleanup();
     });
 
-    it("moves the sanitized SVG into the shared native dialog and restores focus and occupancy", () => {
+    it("moves the sanitized SVG into the shared native dialog and restores focus", () => {
         const root = fixture();
         const cleanup = enhanceMermaidDiagrams(root);
-        const occupancy: boolean[] = [];
-        const unsubscribe = subscribeWorkspaceInteractionLayer((occupied) => {
-            occupancy.push(occupied);
-        });
         const expand = root.querySelector<HTMLButtonElement>('[aria-label="Expand Flowchart diagram"]');
         expand?.click();
         const dialog = document.querySelector<HTMLDialogElement>(".media-viewer-dialog");
@@ -105,9 +100,7 @@ describe("enhanceMermaidDiagrams", () => {
         expect(document.querySelector(".media-viewer-dialog")).toBeNull();
         expect(root.querySelector(".mermaid-diagram-viewport svg")).not.toBeNull();
         expect(document.activeElement).toBe(expand);
-        expect(occupancy).toEqual([false, true, false]);
         cleanup();
-        unsubscribe();
         expect(zoomMocks.controllers[2]?.destroy).toHaveBeenCalledOnce();
     });
 

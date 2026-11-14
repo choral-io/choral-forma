@@ -1,6 +1,5 @@
 import { createMediaViewerControls, mediaViewerSafeInset } from "@/lib/media-viewer-controls";
 import { createSvgDiagramZoomController, type SvgDiagramZoomController, type SvgDiagramZoomState } from "@/lib/mermaid";
-import { acquireWorkspaceInteractionLayer } from "@/lib/workspace-interaction-layer";
 
 let nextViewerId = 1;
 
@@ -95,7 +94,6 @@ function enhanceMermaidDiagram(figure: HTMLElement) {
         dialog.append(box);
         document.body.append(dialog);
         dialog.showModal();
-        const release = acquireWorkspaceInteractionLayer();
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = "hidden";
         const modalController = createController(modalCanvas, viewerSvg, modalTools, modalStatus);
@@ -106,7 +104,6 @@ function enhanceMermaidDiagram(figure: HTMLElement) {
             if (closed) return;
             closed = true;
             modalController.destroy();
-            release();
             document.body.style.overflow = previousOverflow;
             parent.insertBefore(viewerSvg, next);
             dialog.remove();

@@ -119,7 +119,7 @@
     }
 
     [data-forma-heading-anchor] {
-        @apply scroll-m-20;
+        @apply scroll-mt-6;
     }
 
     [data-reader="markdown"] {
@@ -180,7 +180,7 @@
         }
 
         & :is(h1, h2, h3, h4, h5, h6) {
-            @apply scroll-m-20 font-semibold;
+            @apply scroll-mt-6 font-semibold;
         }
 
         & img {

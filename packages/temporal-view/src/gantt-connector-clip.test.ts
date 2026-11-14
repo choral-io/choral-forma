@@ -35,6 +35,31 @@ it("ignores overscroll rather than inverting the clip", () => {
     expect(clipOf(element)).toBe(`inset(${String(HEADER_HEIGHT)}px 0px 0px)`);
 });
 
+it("does not rewrite the clip on a frame that leaves the offsets unchanged", () => {
+    const element = scroller(640, 120);
+    clipConnectors(element);
+    const layer = element.querySelector<SVGElement>("svg");
+    if (!layer) throw new Error("missing connector layer");
+    const writes: string[] = [];
+    const style = layer.style;
+    Object.defineProperty(layer, "style", {
+        configurable: true,
+        value: new Proxy(style, {
+            set(target, property, value: string) {
+                if (property === "clipPath") writes.push(value);
+                return Reflect.set(target, property, value);
+            },
+        }),
+    });
+
+    clipConnectors(element);
+    expect(writes).toEqual([]);
+
+    Object.defineProperty(element, "scrollTop", { configurable: true, value: 160 });
+    clipConnectors(element);
+    expect(writes).toHaveLength(1);
+});
+
 it("leaves a timeline without a connector layer alone", () => {
     const element = document.createElement("div");
     element.innerHTML = "<div></div>";

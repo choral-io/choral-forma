@@ -158,6 +158,29 @@ describe("scrollReaderAnchor", () => {
         expect(window.location.pathname + window.location.hash).toBe("/pages/example#diagrams");
     });
 
+    it("leaves the target's scroll margin above it", () => {
+        const main = document.createElement("main");
+        const target = document.createElement("h2");
+        target.id = "diagrams";
+        target.style.scrollMarginTop = "24px";
+        main.append(target);
+        document.body.append(main);
+        Object.defineProperties(main, {
+            clientHeight: { configurable: true, value: 400 },
+            scrollHeight: { configurable: true, value: 1_200 },
+            scrollTop: { configurable: true, value: 80, writable: true },
+        });
+        main.getBoundingClientRect = () => new DOMRect(0, 112, 800, 400);
+        target.getBoundingClientRect = () => new DOMRect(0, 312, 800, 32);
+        const scrollTo = vi.fn();
+        main.scrollTo = scrollTo;
+        const anchor = document.createElement("a");
+        anchor.href = `${window.location.origin}/pages/example#diagrams`;
+
+        expect(scrollReaderAnchor(anchor)).toBe(true);
+        expect(scrollTo).toHaveBeenCalledWith({ behavior: "auto", top: 256 });
+    });
+
     it("leaves native fragment navigation in place when the reader does not own scrolling", () => {
         const main = document.createElement("main");
         const target = document.createElement("h2");

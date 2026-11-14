@@ -19,5 +19,11 @@ export function clipConnectors(scroller: HTMLElement) {
     const top = Math.max(0, scroller.scrollTop) + HEADER_HEIGHT;
     const left = Math.max(0, scroller.scrollLeft);
     const clip = `inset(${String(top)}px 0 0 ${String(left)}px)`;
-    if (layer.style.clipPath !== clip) layer.style.clipPath = clip;
+    // The style reads back normalized, so it never equals the string written
+    // here; what was last written is the only reliable test for a no-op frame.
+    if (appliedClips.get(layer) === clip) return;
+    appliedClips.set(layer, clip);
+    layer.style.clipPath = clip;
 }
+
+const appliedClips = new WeakMap<SVGElement, string>();
