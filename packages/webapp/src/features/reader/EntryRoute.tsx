@@ -7,11 +7,12 @@ import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "@/d
 import type { DashboardEntry } from "@/data/workspace-client";
 import { createWorkspaceDashboardContext } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
+import { useNavigationStrategy } from "@/features/navigation/use-navigation-strategy";
 import { EmptyPage } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 
-import { entryDirectoryBreadcrumb } from "./entry-breadcrumb";
+import { entryCollectionBreadcrumb, entryDirectoryBreadcrumb } from "./entry-breadcrumb";
 import { getEntryOutline } from "./entry-outline";
 import { EntryPage } from "./EntryPage";
 import { prewarmMarkdownHighlighter } from "./markdown-shiki";
@@ -36,6 +37,7 @@ function EntryRouteContent({
 }) {
     const dashboard = useWorkspaceDashboard();
     const dashboardContext = useMemo(() => createWorkspaceDashboardContext(dashboard), [dashboard]);
+    const [navigationStrategy] = useNavigationStrategy();
     const outlineDialogId = useId();
     const outlineDialogRef = useRef<HTMLDialogElement>(null);
     const outlineTriggerRef = useRef<HTMLElement>(null);
@@ -157,7 +159,11 @@ function EntryRouteContent({
                     </button>
                 ) : undefined
             }
-            breadcrumb={entryDirectoryBreadcrumb(entry.path)}
+            breadcrumb={
+                navigationStrategy === "files"
+                    ? entryDirectoryBreadcrumb(entry.path)
+                    : entryCollectionBreadcrumb(dashboard.taxonomies, entry.path)
+            }
         >
             <EntryPage
                 entry={entry}

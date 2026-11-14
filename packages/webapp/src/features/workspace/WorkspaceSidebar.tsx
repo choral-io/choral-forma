@@ -1,11 +1,18 @@
-import { FolderOpen, HeartPulse, LayoutGrid, PanelLeftClose } from "lucide-react";
+import { HeartPulse, PanelLeftClose } from "lucide-react";
+import { useId, useMemo } from "react";
 import { Link, useLocation } from "react-router";
 
+import { canonicalRoutePathFromLocation } from "@/data/static-route-target";
+
 import type { WorkspaceDashboard } from "@/data/workspace-client";
+import { buildCollectionTree } from "@/features/navigation/collection-tree";
+import { buildFileTree } from "@/features/navigation/file-tree";
+import { NavigationTree } from "@/features/navigation/NavigationTree";
+import { useNavigationStrategy } from "@/features/navigation/use-navigation-strategy";
 import { FormaBrandIcon } from "@/features/workspace/FormaBrandIcon";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
+import { navigationStrategies, type NavigationStrategy } from "@/lib/navigation-preference";
 import { cn } from "@/lib/utils";
-import { taxonomyRoutePath } from "@/lib/workspace-routes";
 
 interface WorkspaceSidebarProps {
     collapsible?: boolean;
@@ -23,14 +30,12 @@ export function WorkspaceSidebar({
     toggleId,
 }: WorkspaceSidebarProps) {
     const { pathname } = useLocation();
-    const browseIsActive =
-        pathname === "/browse" ||
-        pathname === "/pages" ||
-        pathname.startsWith("/pages/") ||
-        dashboard.taxonomies.some((taxonomy) => {
-            const taxonomyPath = taxonomyRoutePath(taxonomy.id);
-            return pathname === taxonomyPath || pathname.startsWith(`${taxonomyPath}/`);
-        });
+    const routePath = canonicalRoutePathFromLocation(pathname);
+    const strategyGroupId = useId();
+    const [strategy, setStrategy] = useNavigationStrategy();
+    const fileTree = useMemo(() => buildFileTree(dashboard.entries), [dashboard.entries]);
+    const collectionTree = useMemo(() => buildCollectionTree(dashboard), [dashboard]);
+    const tree = strategy === "files" ? fileTree : collectionTree;
     const healthFindingCount = dashboard.health.findings.filter((finding) => finding.severity !== "info").length;
 
     return (
@@ -64,28 +69,43 @@ export function WorkspaceSidebar({
                 ) : null}
             </div>
 
-            <nav aria-label="Workspace" className="min-h-0 flex-1 overflow-y-auto">
-                <ul className="menu w-full gap-0.5">
-                    {showQuickOpen ? (
-                        <li>
-                            <QuickOpenTrigger trigger="sidebar" />
-                        </li>
-                    ) : null}
-                    <SidebarLink
-                        active={pathname === "/views" || pathname.startsWith("/views/")}
-                        icon={LayoutGrid}
-                        label="Views"
-                        onNavigate={onNavigate}
-                        to="/views"
-                    />
-                    <SidebarLink
-                        active={browseIsActive}
-                        icon={FolderOpen}
-                        label="Browse"
-                        onNavigate={onNavigate}
-                        to="/browse"
-                    />
+            {showQuickOpen ? (
+                <ul className="menu w-full shrink-0 pb-0">
+                    <li>
+                        <QuickOpenTrigger trigger="sidebar" />
+                    </li>
                 </ul>
+            ) : null}
+
+            <fieldset className="tabs-box mx-2 mt-2 tabs grid shrink-0 grid-cols-2 tabs-sm">
+                <legend className="sr-only">Navigation strategy</legend>
+                {navigationStrategies.map((value) => (
+                    <input
+                        aria-label={strategyLabels[value]}
+                        checked={strategy === value}
+                        className="tab"
+                        key={value}
+                        name={strategyGroupId}
+                        onChange={() => {
+                            setStrategy(value);
+                        }}
+                        type="radio"
+                    />
+                ))}
+            </fieldset>
+
+            <nav aria-label={strategyLabels[strategy]} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+                {tree.length > 0 ? (
+                    <NavigationTree
+                        ariaLabel={strategyLabels[strategy]}
+                        key={strategy}
+                        nodes={tree}
+                        onNavigate={onNavigate}
+                        routePath={routePath}
+                    />
+                ) : (
+                    <p className="p-4 text-sm text-base-content/60">{emptyLabels[strategy]}</p>
+                )}
             </nav>
 
             <nav aria-label="Workspace status" className="shrink-0 border-t border-base-300">
@@ -103,6 +123,12 @@ export function WorkspaceSidebar({
         </div>
     );
 }
+
+const strategyLabels = { collections: "Collections", files: "Files" } satisfies Record<NavigationStrategy, string>;
+const emptyLabels = {
+    collections: "No taxonomies or Views are configured.",
+    files: "No documents are indexed.",
+} satisfies Record<NavigationStrategy, string>;
 
 function SidebarLink({
     active,

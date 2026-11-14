@@ -82,7 +82,7 @@ function ContextPanelTabs({
     }
 
     return (
-        <div className="tabs tabs-border grid grid-cols-2 xl:h-full xl:min-h-0" role="tablist">
+        <div className="tabs-border tabs grid grid-cols-2 xl:h-full xl:min-h-0" role="tablist">
             <input aria-label="Context" className="tab" defaultChecked name={tabId} role="tab" type="radio" />
             <div className="tab-content col-span-2 p-4 md:p-6 xl:min-h-0 xl:overflow-auto" role="tabpanel">
                 <div className="flex flex-col gap-4">{context}</div>

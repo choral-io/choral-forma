@@ -75,7 +75,7 @@ export function WorkspaceRouteFrame({
                             dialog.showModal();
                             requestAnimationFrame(() => {
                                 (
-                                    dialog.querySelector<HTMLElement>('[data-sidebar-link][aria-current="page"]') ??
+                                    dialog.querySelector<HTMLElement>('[aria-current="page"]') ??
                                     dialog.querySelector<HTMLElement>("[data-sidebar-link]")
                                 )?.focus();
                             });
