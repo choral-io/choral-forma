@@ -1,10 +1,8 @@
-import { Maximize2, Menu, Minimize2, PanelLeftOpen, PanelRightIcon } from "lucide-react";
+import { Maximize2, Menu, Minimize2, PanelLeftOpen } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { workspaceDesktopDrawerId, workspaceDrawerId, workspaceFocusModeId } from "@/app/App";
-import type { WorkspaceDashboard } from "@/data/workspace-client";
-import { WorkspaceHealthPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { ThemeDropdown } from "@/features/workspace/ThemeDropdown";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
@@ -22,8 +20,7 @@ interface WorkspaceRouteFrameProps {
     actions?: ReactNode;
     breadcrumb?: WorkspaceBreadcrumb[];
     children: ReactNode;
-    contextPanel?: ReactNode;
-    contentWidth?: "default" | "fluid" | "readable";
+    contentWidth?: "default" | "fluid" | "narrow" | "readable";
     description?: string;
     /** Offers focus mode and shows reading progress; set by routes whose content is a document. */
     reading?: boolean;
@@ -38,7 +35,6 @@ export function WorkspaceRouteFrame({
     actions,
     breadcrumb = [],
     children,
-    contextPanel,
     contentWidth = "default",
     description,
     reading = false,
@@ -47,10 +43,10 @@ export function WorkspaceRouteFrame({
     const dashboard = useWorkspaceDashboard();
     const titleRef = useRouteContentFocusTarget<HTMLHeadingElement>();
     const [themePreference, setThemePreference] = useState(readThemePreference);
-    const hasContextPanel = Boolean(contextPanel);
     const contentWidthClass = {
         default: "max-w-6xl",
         fluid: "max-w-none",
+        narrow: "max-w-3xl",
         readable: "max-w-4xl",
     }[contentWidth];
     const changeThemePreference = (preference: ThemePreference) => {
@@ -64,13 +60,8 @@ export function WorkspaceRouteFrame({
     };
 
     return (
-        <div
-            className={cn(
-                "grid h-full min-h-0 min-w-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)]",
-                hasContextPanel && "xl:grid-cols-[minmax(0,1fr)_22rem]",
-            )}
-        >
-            <header className="navbar col-span-full min-h-16 gap-1 border-b border-base-300 bg-base-100 px-2 sm:px-4">
+        <div className="grid h-full min-h-0 min-w-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)]">
+            <header className="navbar min-h-16 gap-1 border-b border-base-300 bg-base-100 px-2 sm:px-4">
                 <button
                     aria-controls={workspaceDrawerId}
                     aria-label="Open workspace navigation"
@@ -159,15 +150,6 @@ export function WorkspaceRouteFrame({
                         <div className="h-0.5 bg-primary" data-reading-progress />
                     </div>
                 ) : null}
-                {hasContextPanel && contextPanel ? (
-                    <details className="collapse-arrow collapse rounded-none border-b border-base-300 bg-base-200/40 xl:hidden">
-                        <summary className="collapse-title flex items-center gap-2 text-sm font-medium">
-                            <PanelRightIcon aria-hidden="true" className="size-4" />
-                            Context and outline
-                        </summary>
-                        <div className="collapse-content">{contextPanel}</div>
-                    </details>
-                ) : null}
                 <div className={cn("mx-auto flex w-full flex-col gap-6 p-4 md:p-6 lg:p-8", contentWidthClass)}>
                     {title ? (
                         <header className="flex flex-col gap-2">
@@ -182,15 +164,6 @@ export function WorkspaceRouteFrame({
                     {children}
                 </div>
             </main>
-            {hasContextPanel && (
-                <aside className="hidden min-w-0 border-s border-base-300 bg-base-200/20 xl:block xl:min-h-0 xl:overflow-y-auto">
-                    {contextPanel}
-                </aside>
-            )}
         </div>
     );
-}
-
-export function WorkspaceDefaultContextPanel({ dashboard }: { dashboard: WorkspaceDashboard }) {
-    return <WorkspaceHealthPanel health={dashboard.health} />;
 }

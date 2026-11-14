@@ -27,26 +27,11 @@ export function EmptyState({
     );
 }
 
-export function RouteBodySection({
-    children,
-    description,
-    meta,
-    title,
-}: {
-    children: ReactNode;
-    description: string;
-    meta?: string;
-    title: string;
-}) {
+/** A list page's single body: the list itself, with an optional count beside it. */
+export function RouteBodySection({ children, meta }: { children: ReactNode; meta?: string }) {
     return (
         <section className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                    <h2 className="text-lg font-semibold tracking-normal">{title}</h2>
-                    <p className="mt-1 text-sm/6 text-base-content/60">{description}</p>
-                </div>
-                {meta && <span className="text-sm text-base-content/60">{meta}</span>}
-            </div>
+            {meta ? <p className="text-sm text-base-content/60">{meta}</p> : null}
             {children}
         </section>
     );

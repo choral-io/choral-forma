@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
-import { lazy, Suspense, useRef, type MouseEvent, type RefObject } from "react";
+import { lazy, Suspense, useRef, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { Link } from "react-router";
 
 import type { DashboardDiagnostic, DashboardEntry, WorkspaceHealth } from "@/data/workspace-client";
@@ -52,6 +52,7 @@ export interface AdjacentEntries {
 
 export function EntryPage({
     adjacent,
+    afterBody,
     entry,
     entries,
     isLoadingDetail,
@@ -62,6 +63,8 @@ export function EntryPage({
     routePath,
 }: {
     adjacent?: AdjacentEntries;
+    /** Content that follows the document body, ahead of its related documents. */
+    afterBody?: ReactNode;
     entry: DashboardEntry;
     entries: DashboardEntry[];
     isLoadingDetail: boolean;
@@ -135,6 +138,7 @@ export function EntryPage({
                                     />
                                 </Suspense>
                                 <div className="flex flex-col gap-8 group-has-data-reader-loading/entry:hidden">
+                                    {afterBody}
                                     <EntryRelatedSection entry={entry} />
                                     {diagnostics.length > 0 ? (
                                         <details className="collapse-arrow collapse border border-base-300">

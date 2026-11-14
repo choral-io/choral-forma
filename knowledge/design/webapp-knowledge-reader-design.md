@@ -30,7 +30,7 @@ Define the accepted reader-first direction for the Forma WebApp: what the reader
 
 This document supersedes the sections of [[design/webapp-review-surface-design]] listed under [Superseded Rules](#superseded-rules). Every other section of that specification remains in force, including configuration and data fidelity, interaction and state ownership, code organization rules, the browser and responsive matrix, accessibility acceptance, automated gates, and stop conditions.
 
-The direction is accepted. Implementation has not started, and the typography integration described under [Typography](#typography) has not yet been verified in a build.
+The direction is accepted and implemented in the WebApp. The items under [Deferred](#deferred) remain open.
 
 ## Product Position
 
@@ -138,7 +138,7 @@ A document route presents, top to bottom:
 
 ### Reading Enhancements
 
-- Code blocks offer a copy control that is visible on hover and on keyboard focus.
+- Code samples offer a copy control that is visible on hover and on keyboard focus. Diagram source blocks are left as rendered.
 - Headings offer an anchor control that copies a link to that heading.
 - A reading-progress indicator sits under the page header. It is a progressive enhancement and may be absent where the browser lacks the required capability.
 - Focus mode hides the navigation sidebar and the page outline together and restores both. It toggles existing browser-owned state rather than adding a state layer.
@@ -148,7 +148,7 @@ A document route presents, top to bottom:
 
 The document body uses the Tailwind CSS Typography plugin.
 
-- Body text is 16px with a line height near 1.75, in a column of roughly 72 characters.
+- Body text is 16px with a line height near 1.75, in a column of roughly 75 characters.
 - Headings follow the plugin's default scale, so the document title and section headings are clearly separated from body text.
 - Colors map to DaisyUI semantic theme roles through the plugin's variables, so `choral-light` and `choral-dark` both apply without a separate inverted variant.
 - Links stay in the primary color with a subdued underline. External and anchor link glyphs remain.
@@ -157,7 +157,7 @@ The document body uses the Tailwind CSS Typography plugin.
 
 Component-like content keeps its existing presentation and is excluded from plugin styling: Mermaid diagrams, callouts, Markdown disclosures, and KaTeX output. Shiki code blocks and the sticky-header table wrapper keep their current geometry, with plugin defaults overridden where they conflict.
 
-The existing `data-reader="markdown"` hook remains the single typography entry point. Static export fallback HTML is generated outside the WebApp and already carries that hook, so it receives the same typography without a CLI change. If the plugin cannot be applied through that hook, the fallback is to add the plugin class in both the WebApp and the static HTML templates, which is a CLI change with its own crate verification.
+The existing `data-reader="markdown"` hook remains the single typography entry point. Static export fallback HTML is generated outside the WebApp and already carries that hook, so it receives the same typography without a CLI change. The fallback templates stack reader blocks in a flex column; the WebApp stylesheet restores block layout there so that block margins collapse as they do in the enhanced page.
 
 ### Dependency
 

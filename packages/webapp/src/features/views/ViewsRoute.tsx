@@ -11,7 +11,11 @@ export function ViewsRoute() {
     const dashboard = useWorkspaceDashboard();
 
     return (
-        <WorkspaceRouteFrame description="Read-only projections declared by workspace configuration." title="Views">
+        <WorkspaceRouteFrame
+            contentWidth="narrow"
+            description="Read-only projections declared by workspace configuration."
+            title="Views"
+        >
             <ViewsPage dashboard={dashboard} />
         </WorkspaceRouteFrame>
     );
@@ -19,11 +23,7 @@ export function ViewsRoute() {
 
 function ViewsPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
-        <RouteBodySection
-            description="Choose a configured projection over the indexed workspace content."
-            meta={`${String(dashboard.views.length)} views`}
-            title="Configured views"
-        >
+        <RouteBodySection meta={`${String(dashboard.views.length)} views`}>
             {dashboard.views.length > 0 ? (
                 <ViewsGrid views={dashboard.views} />
             ) : (

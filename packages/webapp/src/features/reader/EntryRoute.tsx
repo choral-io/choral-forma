@@ -7,6 +7,8 @@ import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "@/d
 import type { DashboardEntry } from "@/data/workspace-client";
 import { createWorkspaceDashboardContext } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
+import { PagesList } from "@/features/browse/PagesList";
+import { recentlyUpdatedEntries } from "@/features/browse/recent-entries";
 import { navigationSiblings } from "@/features/navigation/navigation-tree";
 import { useNavigationTree } from "@/features/navigation/use-navigation-tree";
 import { EmptyPage } from "@/features/workspace/RouteContent";
@@ -184,6 +186,11 @@ function EntryRouteContent({
         >
             <EntryPage
                 adjacent={navigationSiblings(navigationTree, routePath)}
+                afterBody={
+                    routePath === "/" ? (
+                        <RecentlyUpdated entries={dashboard.entries} homePath={entry.path} />
+                    ) : undefined
+                }
                 entry={entry}
                 entries={dashboard.entries}
                 isLoadingDetail={isEntryDetailLoading}
@@ -200,5 +207,19 @@ function EntryRouteContent({
                 routePath={routePath}
             />
         </WorkspaceRouteFrame>
+    );
+}
+
+const recentEntryLimit = 5;
+
+function RecentlyUpdated({ entries, homePath }: { entries: DashboardEntry[]; homePath: string }) {
+    const recent = recentlyUpdatedEntries(entries, recentEntryLimit, homePath);
+    if (recent.length === 0) return null;
+
+    return (
+        <section className="flex flex-col gap-3 border-t border-base-300 pt-8">
+            <h2 className="text-xl font-semibold">Recently updated</h2>
+            <PagesList entries={recent} />
+        </section>
     );
 }

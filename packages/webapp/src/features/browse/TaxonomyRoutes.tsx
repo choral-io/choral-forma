@@ -15,7 +15,11 @@ export function TaxonomiesRoute() {
     const dashboard = useWorkspaceDashboard();
 
     return (
-        <WorkspaceRouteFrame description="Taxonomies and terms declared by workspace configuration." title="Browse">
+        <WorkspaceRouteFrame
+            contentWidth="narrow"
+            description="Taxonomies and terms declared by workspace configuration."
+            title="Browse"
+        >
             <TaxonomiesPage dashboard={dashboard} />
         </WorkspaceRouteFrame>
     );
@@ -28,14 +32,19 @@ export function TaxonomyRoute() {
 
     if (!taxonomy) {
         return (
-            <WorkspaceRouteFrame breadcrumb={browseBreadcrumb} title="Not found">
+            <WorkspaceRouteFrame contentWidth="narrow" breadcrumb={browseBreadcrumb} title="Not found">
                 <EmptyPage />
             </WorkspaceRouteFrame>
         );
     }
 
     return (
-        <WorkspaceRouteFrame breadcrumb={browseBreadcrumb} description={taxonomy.description} title={taxonomy.title}>
+        <WorkspaceRouteFrame
+            contentWidth="narrow"
+            breadcrumb={browseBreadcrumb}
+            description={taxonomy.description}
+            title={taxonomy.title}
+        >
             <TaxonomyPage taxonomy={taxonomy} />
         </WorkspaceRouteFrame>
     );
@@ -49,7 +58,7 @@ export function TaxonomyTermRoute() {
 
     if (!taxonomy || !term) {
         return (
-            <WorkspaceRouteFrame breadcrumb={browseBreadcrumb} title="Not found">
+            <WorkspaceRouteFrame contentWidth="narrow" breadcrumb={browseBreadcrumb} title="Not found">
                 <EmptyPage />
             </WorkspaceRouteFrame>
         );
@@ -57,22 +66,19 @@ export function TaxonomyTermRoute() {
 
     return (
         <WorkspaceRouteFrame
+            contentWidth="narrow"
             breadcrumb={[...browseBreadcrumb, { label: taxonomy.title, to: taxonomyRoutePath(taxonomy.id) }]}
             description={term.description}
             title={term.title}
         >
-            <TaxonomyTermPage taxonomy={taxonomy} term={term} />
+            <TaxonomyTermPage term={term} />
         </WorkspaceRouteFrame>
     );
 }
 
 function TaxonomiesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
     return (
-        <RouteBodySection
-            description="Choose a configured taxonomy to browse its terms and matching content."
-            meta={`${String(dashboard.taxonomies.length)} taxonomies`}
-            title="Configured taxonomies"
-        >
+        <RouteBodySection meta={`${String(dashboard.taxonomies.length)} taxonomies`}>
             {dashboard.taxonomies.length > 0 ? (
                 <TaxonomiesGrid taxonomies={dashboard.taxonomies} />
             ) : (
@@ -84,11 +90,7 @@ function TaxonomiesPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
 
 function TaxonomyPage({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
     return (
-        <RouteBodySection
-            description="Terms declared for this configured taxonomy."
-            meta={`${String(taxonomy.terms.length)} terms`}
-            title="Configured terms"
-        >
+        <RouteBodySection meta={`${String(taxonomy.terms.length)} terms`}>
             {taxonomy.terms.length > 0 ? (
                 <TaxonomyTermsGrid taxonomy={taxonomy} />
             ) : (
@@ -102,13 +104,9 @@ function TaxonomyPage({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
     );
 }
 
-function TaxonomyTermPage({ taxonomy, term }: { taxonomy: DashboardTaxonomy; term: DashboardTaxonomyTerm }) {
+function TaxonomyTermPage({ term }: { term: DashboardTaxonomyTerm }) {
     return (
-        <RouteBodySection
-            description={`Content matched by the configured ${taxonomy.title} term.`}
-            meta={`${String(term.entries.length)} entries`}
-            title="Matching content"
-        >
+        <RouteBodySection meta={`${String(term.entries.length)} entries`}>
             {term.entries.length > 0 ? (
                 <PagesList entries={term.entries} />
             ) : (
