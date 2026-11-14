@@ -1,130 +1,137 @@
 import { ArrowUp } from "lucide-react";
-import type { MouseEvent } from "react";
+import { useEffect, useRef, type MouseEvent } from "react";
 
 import { rootAwareHref } from "@/data/static-runtime";
+import { cn } from "@/lib/utils";
 
 import type { EntryOutlineItem, EntryOutlineNode } from "./entry-outline";
 
+export const entryTopId = "entry-top";
+export const relatedDocumentsId = "related-documents";
+
+interface OutlineProps {
+    activeHeadingId?: string;
+    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
+    routePath: string;
+}
+
+interface OutlineFooterProps extends Omit<OutlineProps, "activeHeadingId"> {
+    /** Present when the document has a related-documents section to jump to. */
+    backlinkCount?: number;
+    showBackToTop: boolean;
+}
+
 export function EntryOutlineSection({
+    activeHeadingId,
+    backlinkCount,
     onNavigate,
     routePath,
+    showBackToTop,
     tree,
-}: {
-    onNavigate: (event: MouseEvent<HTMLAnchorElement>) => void;
-    routePath: string;
-    tree: EntryOutlineNode[];
-}) {
+}: OutlineProps & OutlineFooterProps & { tree: EntryOutlineNode[] }) {
     return (
         <section className="sticky top-8 flex max-h-[calc(100dvh-8rem)] min-h-0 flex-col gap-3 overflow-hidden group-has-data-reader-loading/entry:hidden">
-            <div className="shrink-0">
-                <h2 className="text-sm font-semibold">Outline</h2>
-                <p className="mt-1 text-sm/6 text-base-content/60">Headings from the current entry.</p>
-            </div>
+            <h2 className="shrink-0 text-sm font-semibold">Outline</h2>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                <OutlineNav onNavigate={onNavigate} routePath={routePath} tree={tree} />
+                <OutlineNav
+                    activeHeadingId={activeHeadingId}
+                    onNavigate={onNavigate}
+                    routePath={routePath}
+                    tree={tree}
+                />
             </div>
-            <OutlineFooterNav onNavigate={onNavigate} routePath={routePath} />
+            <OutlineFooterNav
+                backlinkCount={backlinkCount}
+                onNavigate={onNavigate}
+                routePath={routePath}
+                showBackToTop={showBackToTop}
+            />
         </section>
     );
 }
 
 export function OutlineNav({
+    activeHeadingId,
     onNavigate,
     routePath,
     tree,
-}: {
-    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
-    routePath: string;
-    tree: EntryOutlineNode[];
-}) {
+}: OutlineProps & { tree: EntryOutlineNode[] }) {
+    const navRef = useRef<HTMLElement>(null);
+
+    // A long outline scrolls on its own, so keep the section being read within it.
+    useEffect(() => {
+        navRef.current?.querySelector('[aria-current="location"]')?.scrollIntoView({ block: "nearest" });
+    }, [activeHeadingId]);
+
     return (
-        <nav aria-label="Page outline">
+        <nav aria-label="Page outline" ref={navRef}>
             <ul className="menu w-full p-0">
                 {tree.map((node) => (
-                    <EntryOutlineTreeNode key={node.id} node={node} onNavigate={onNavigate} routePath={routePath} />
+                    <li key={node.id}>
+                        <EntryOutlineLink
+                            activeHeadingId={activeHeadingId}
+                            item={node}
+                            onNavigate={onNavigate}
+                            routePath={routePath}
+                        />
+                        {node.children.length > 0 && (
+                            <ul className="before:inset-y-[0.375em]">
+                                {node.children.map((child) => (
+                                    <li key={child.id}>
+                                        <EntryOutlineLink
+                                            activeHeadingId={activeHeadingId}
+                                            item={child}
+                                            onNavigate={onNavigate}
+                                            routePath={routePath}
+                                        />
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </li>
                 ))}
             </ul>
         </nav>
     );
 }
 
-export function OutlineFooterNav({
-    onNavigate,
-    routePath,
-}: {
-    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
-    routePath: string;
-}) {
+export function OutlineFooterNav({ backlinkCount, onNavigate, routePath, showBackToTop }: OutlineFooterProps) {
+    if (backlinkCount === undefined && !showBackToTop) return null;
+
     return (
         <nav aria-label="Page outline footer" className="shrink-0 border-t border-base-300 pt-2">
             <ul className="menu w-full p-0">
-                <OutlineFooterItems onNavigate={onNavigate} routePath={routePath} />
+                {backlinkCount === undefined ? null : (
+                    <li>
+                        <a href={rootAwareHref(`${routePath}#${relatedDocumentsId}`)} onClick={onNavigate}>
+                            <span className="min-w-0 flex-1 truncate">Related documents</span>
+                            <span className="badge badge-ghost badge-sm">
+                                {backlinkCount}
+                                <span className="sr-only"> backlinks</span>
+                            </span>
+                        </a>
+                    </li>
+                )}
+                {showBackToTop ? (
+                    <li>
+                        <a href={rootAwareHref(`${routePath}#${entryTopId}`)} onClick={onNavigate}>
+                            <span>Back to top</span>
+                            <ArrowUp aria-hidden="true" className="size-3.5" />
+                        </a>
+                    </li>
+                ) : null}
             </ul>
         </nav>
     );
 }
 
-function OutlineFooterItems({
-    onNavigate,
-    routePath,
-}: {
-    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
-    routePath: string;
-}) {
-    return (
-        <>
-            <li>
-                <a href={rootAwareHref(`${routePath}#document-details`)} onClick={onNavigate}>
-                    <span data-link-kind="anchor">Document details</span>
-                </a>
-            </li>
-            <li>
-                <a href={rootAwareHref(`${routePath}#entry-top`)} onClick={onNavigate}>
-                    <span>Back to top</span>
-                    <ArrowUp aria-hidden="true" className="size-3.5" />
-                </a>
-            </li>
-        </>
-    );
-}
+function EntryOutlineLink({ activeHeadingId, item, onNavigate, routePath }: OutlineProps & { item: EntryOutlineItem }) {
+    const isActive = item.id === activeHeadingId;
 
-function EntryOutlineTreeNode({
-    node,
-    onNavigate,
-    routePath,
-}: {
-    node: EntryOutlineNode;
-    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
-    routePath: string;
-}) {
-    return (
-        <li>
-            <EntryOutlineLink item={node} onNavigate={onNavigate} routePath={routePath} />
-            {node.children.length > 0 && (
-                <ul className="before:inset-y-[0.375em]">
-                    {node.children.map((child) => (
-                        <li key={child.id}>
-                            <EntryOutlineLink item={child} onNavigate={onNavigate} routePath={routePath} />
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </li>
-    );
-}
-
-function EntryOutlineLink({
-    item,
-    onNavigate,
-    routePath,
-}: {
-    item: EntryOutlineItem;
-    onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
-    routePath: string;
-}) {
     return (
         <a
-            className="min-w-0"
+            aria-current={isActive ? "location" : undefined}
+            className={cn("min-w-0", isActive && "menu-active font-medium")}
             data-outline-link
             href={rootAwareHref(`${routePath}#${item.id}`)}
             onClick={onNavigate}

@@ -1,14 +1,12 @@
 import { HeartPulse, PanelLeftClose } from "lucide-react";
-import { useId, useMemo } from "react";
+import { useId } from "react";
 import { Link, useLocation } from "react-router";
 
 import { canonicalRoutePathFromLocation } from "@/data/static-route-target";
 
 import type { WorkspaceDashboard } from "@/data/workspace-client";
-import { buildCollectionTree } from "@/features/navigation/collection-tree";
-import { buildFileTree } from "@/features/navigation/file-tree";
 import { NavigationTree } from "@/features/navigation/NavigationTree";
-import { useNavigationStrategy } from "@/features/navigation/use-navigation-strategy";
+import { useNavigationTree } from "@/features/navigation/use-navigation-tree";
 import { FormaBrandIcon } from "@/features/workspace/FormaBrandIcon";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { navigationStrategies, type NavigationStrategy } from "@/lib/navigation-preference";
@@ -32,10 +30,7 @@ export function WorkspaceSidebar({
     const { pathname } = useLocation();
     const routePath = canonicalRoutePathFromLocation(pathname);
     const strategyGroupId = useId();
-    const [strategy, setStrategy] = useNavigationStrategy();
-    const fileTree = useMemo(() => buildFileTree(dashboard.entries), [dashboard.entries]);
-    const collectionTree = useMemo(() => buildCollectionTree(dashboard), [dashboard]);
-    const tree = strategy === "files" ? fileTree : collectionTree;
+    const { setStrategy, strategy, tree } = useNavigationTree(dashboard);
     const healthFindingCount = dashboard.health.findings.filter((finding) => finding.severity !== "info").length;
 
     return (

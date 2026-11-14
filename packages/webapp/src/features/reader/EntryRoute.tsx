@@ -1,4 +1,4 @@
-import { ListTree } from "lucide-react";
+import { Check, Copy, ListTree } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
 
@@ -7,10 +7,12 @@ import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "@/d
 import type { DashboardEntry } from "@/data/workspace-client";
 import { createWorkspaceDashboardContext } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
-import { useNavigationStrategy } from "@/features/navigation/use-navigation-strategy";
+import { navigationSiblings } from "@/features/navigation/navigation-tree";
+import { useNavigationTree } from "@/features/navigation/use-navigation-tree";
 import { EmptyPage } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
+import { copySourcePath } from "@/lib/copy-source-path";
 
 import { entryCollectionBreadcrumb, entryDirectoryBreadcrumb } from "./entry-breadcrumb";
 import { getEntryOutline } from "./entry-outline";
@@ -37,7 +39,7 @@ function EntryRouteContent({
 }) {
     const dashboard = useWorkspaceDashboard();
     const dashboardContext = useMemo(() => createWorkspaceDashboardContext(dashboard), [dashboard]);
-    const [navigationStrategy] = useNavigationStrategy();
+    const { strategy: navigationStrategy, tree: navigationTree } = useNavigationTree(dashboard);
     const outlineDialogId = useId();
     const outlineDialogRef = useRef<HTMLDialogElement>(null);
     const outlineTriggerRef = useRef<HTMLElement>(null);
@@ -145,19 +147,33 @@ function EntryRouteContent({
     return (
         <WorkspaceRouteFrame
             actions={
-                outline.length > 0 ? (
+                <>
                     <button
-                        aria-controls={outlineDialogId}
-                        aria-label="Open outline"
-                        className="btn btn-square btn-ghost xl:hidden"
+                        aria-label={`Copy source path ${entry.path}`}
+                        className="btn btn-square btn-ghost"
                         onClick={(event) => {
-                            openOutlineDialog(event.currentTarget);
+                            void copySourcePath(event.currentTarget, entry.path);
                         }}
+                        title={`Copy source path ${entry.path}`}
                         type="button"
                     >
-                        <ListTree aria-hidden="true" />
+                        <Copy aria-hidden="true" data-copy-icon />
+                        <Check aria-hidden="true" className="hidden" data-copied-icon />
                     </button>
-                ) : undefined
+                    {outline.length > 0 ? (
+                        <button
+                            aria-controls={outlineDialogId}
+                            aria-label="Open outline"
+                            className="btn btn-square btn-ghost xl:hidden"
+                            onClick={(event) => {
+                                openOutlineDialog(event.currentTarget);
+                            }}
+                            type="button"
+                        >
+                            <ListTree aria-hidden="true" />
+                        </button>
+                    ) : null}
+                </>
             }
             breadcrumb={
                 navigationStrategy === "files"
@@ -166,6 +182,7 @@ function EntryRouteContent({
             }
         >
             <EntryPage
+                adjacent={navigationSiblings(navigationTree, routePath)}
                 entry={entry}
                 entries={dashboard.entries}
                 isLoadingDetail={isEntryDetailLoading}

@@ -1,19 +1,19 @@
-import { ArrowUp, Check, Copy, X } from "lucide-react";
-import { lazy, Suspense, type MouseEvent, type RefObject } from "react";
+import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { lazy, Suspense, useRef, type MouseEvent, type RefObject } from "react";
+import { Link } from "react-router";
 
-import { rootAwareHref } from "@/data/static-runtime";
 import type { DashboardDiagnostic, DashboardEntry, WorkspaceHealth } from "@/data/workspace-client";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
-import { copySourcePath } from "@/lib/copy-source-path";
+import type { NavigationNode } from "@/features/navigation/navigation-tree";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
 import { scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
 import { useRouteContentFocusTarget } from "@/lib/route-focus";
-import { cn } from "@/lib/utils";
 
 import { formatEntrySupportedLanguages } from "./entry-languages";
 import { getEntryOutlineTree, type EntryOutlineItem } from "./entry-outline";
-import { EntryOutlineSection, OutlineFooterNav, OutlineNav } from "./EntryOutlineNav";
-import { EntryReferencesSection } from "./EntryReferences";
+import { EntryOutlineSection, entryTopId, OutlineFooterNav, OutlineNav } from "./EntryOutlineNav";
+import { EntryRelatedSection, hasRelatedDocuments } from "./EntryRelated";
+import { useReadingPosition } from "./reading-position";
 
 const EntryReader = lazy(async () => {
     const module = await import("./EntryReader");
@@ -45,7 +45,13 @@ function getEntryDiagnostics(entry: DashboardEntry): DashboardDiagnostic[] {
     return diagnostics;
 }
 
+export interface AdjacentEntries {
+    previous?: NavigationNode;
+    next?: NavigationNode;
+}
+
 export function EntryPage({
+    adjacent,
     entry,
     entries,
     isLoadingDetail,
@@ -55,6 +61,7 @@ export function EntryPage({
     onOutlineDialogClose,
     routePath,
 }: {
+    adjacent?: AdjacentEntries;
     entry: DashboardEntry;
     entries: DashboardEntry[];
     isLoadingDetail: boolean;
@@ -68,6 +75,12 @@ export function EntryPage({
     const diagnostics = getEntryDiagnostics(entry);
     const outlineTree = getEntryOutlineTree(outline);
     const hasOutline = outlineTree.length > 0;
+    const contentRef = useRef<HTMLDivElement>(null);
+    const { activeHeadingId, pastFirstViewport } = useReadingPosition(
+        contentRef,
+        outline.map((item) => item.id),
+    );
+    const backlinkCount = hasRelatedDocuments(entry) ? entry.relations.backlinks.length : undefined;
     const closeOutlineDialog = () => {
         if (outlineDialogRef.current?.open) {
             outlineDialogRef.current.close("navigate");
@@ -87,37 +100,23 @@ export function EntryPage({
         <div className="w-full">
             <div className="group/entry mx-auto flex w-full max-w-6xl flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,48rem)_16rem] xl:gap-x-12">
                 <div className="mx-auto flex w-full min-w-0 flex-col gap-6 xl:mx-0">
-                    <header className="mx-auto flex w-full max-w-3xl scroll-m-8 flex-col gap-3 xl:mx-0" id="entry-top">
+                    <header className="mx-auto flex w-full max-w-3xl scroll-m-8 flex-col gap-3 xl:mx-0" id={entryTopId}>
                         <h1 className="text-3xl font-semibold tracking-normal sm:text-4xl" ref={titleRef} tabIndex={-1}>
                             {entry.title}
                         </h1>
-                        {entry.summary ? <p className="text-sm/6 text-base-content/60">{entry.summary}</p> : null}
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-base-content/60">
-                            <span className="flex min-w-0 basis-full items-center gap-1 sm:basis-auto">
-                                <code className="min-w-0 break-all">{entry.path}</code>
-                                <button
-                                    aria-label={`Copy source path ${entry.path}`}
-                                    className="btn btn-square shrink-0 btn-ghost btn-xs"
-                                    onClick={(event) => {
-                                        void copySourcePath(event.currentTarget, entry.path);
-                                    }}
-                                    type="button"
-                                >
-                                    <Copy aria-hidden="true" className="size-3.5" data-copy-icon />
-                                    <Check aria-hidden="true" className="hidden size-3.5" data-copied-icon />
-                                </button>
-                            </span>
-                            <span>{formatEntrySupportedLanguages(entry)}</span>
+                        {entry.summary ? <p className="text-lg/8 text-base-content/70">{entry.summary}</p> : null}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-base-content/60">
                             <time dateTime={entry.updatedAt} title={formatAbsoluteDateTime(entry.updatedAt)}>
                                 Updated {entry.updatedLabel}
                             </time>
+                            <span>{formatEntrySupportedLanguages(entry)}</span>
                             {entry.status !== "healthy" ? (
                                 <span className={healthBadgeClass(entry.status)}>{entry.status}</span>
                             ) : null}
                         </div>
                     </header>
 
-                    <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-12 xl:mx-0">
+                    <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-12 xl:mx-0" ref={contentRef}>
                         {isLoadingDetail ? (
                             <EntryContentSkeleton />
                         ) : (
@@ -135,41 +134,28 @@ export function EntryPage({
                                         outline={outline}
                                     />
                                 </Suspense>
-                                <details
-                                    className="collapse-arrow collapse scroll-m-8 border-t border-base-300 group-has-data-reader-loading/entry:hidden"
-                                    id="document-details"
-                                >
-                                    <summary className="collapse-title min-h-0 px-0 py-8">
-                                        <span aria-level={2} className="block text-lg font-semibold" role="heading">
-                                            Document details
-                                        </span>
-                                        <span className="mt-1 block text-sm/6 text-base-content/60">
-                                            References and checks associated with this entry.
-                                        </span>
-                                    </summary>
-                                    <div className="collapse-content px-0 pb-8">
-                                        <div className="flex flex-col gap-8">
-                                            <EntryReferencesSection entry={entry} />
-                                            {diagnostics.length > 0 ? (
+                                <div className="flex flex-col gap-8 group-has-data-reader-loading/entry:hidden">
+                                    <EntryRelatedSection entry={entry} />
+                                    {diagnostics.length > 0 ? (
+                                        <details className="collapse-arrow collapse border border-base-300">
+                                            <summary className="collapse-title font-medium">
+                                                Diagnostics
+                                                <span className="ms-2 badge badge-sm badge-warning">
+                                                    {diagnostics.length}
+                                                </span>
+                                            </summary>
+                                            <div className="collapse-content">
                                                 <DiagnosticsPanel
                                                     description="Page-level checks from the current read model."
                                                     diagnostics={diagnostics}
                                                     emptyLabel="No page diagnostics found."
                                                     title="Diagnostics"
                                                 />
-                                            ) : null}
-                                        </div>
-                                        <div className={cn("mt-8 flex justify-end", hasOutline && "xl:hidden")}>
-                                            <a
-                                                className="btn btn-ghost btn-sm"
-                                                href={rootAwareHref(`${routePath}#entry-top`)}
-                                            >
-                                                <ArrowUp aria-hidden="true" className="size-4" />
-                                                Back to top
-                                            </a>
-                                        </div>
-                                    </div>
-                                </details>
+                                            </div>
+                                        </details>
+                                    ) : null}
+                                    <EntryPager adjacent={adjacent} />
+                                </div>
                             </>
                         )}
                     </div>
@@ -193,7 +179,14 @@ export function EntryPage({
                             <div className="h-3 w-4/5 skeleton" />
                             <div className="h-3 w-11/12 skeleton" />
                         </div>
-                        <EntryOutlineSection onNavigate={navigateOutline} routePath={routePath} tree={outlineTree} />
+                        <EntryOutlineSection
+                            activeHeadingId={activeHeadingId}
+                            backlinkCount={backlinkCount}
+                            onNavigate={navigateOutline}
+                            routePath={routePath}
+                            showBackToTop={pastFirstViewport}
+                            tree={outlineTree}
+                        />
                     </aside>
                 ) : null}
             </div>
@@ -210,10 +203,7 @@ export function EntryPage({
                 >
                     <aside className="modal-box flex h-svh max-h-none w-80 max-w-[calc(100vw-3rem)] flex-col rounded-none bg-base-100 p-0 text-base-content">
                         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-base-300 p-4">
-                            <div>
-                                <h2 className="font-semibold">Outline</h2>
-                                <p className="mt-1 text-sm text-base-content/60">Headings from the current entry.</p>
-                            </div>
+                            <h2 className="font-semibold">Outline</h2>
                             <button
                                 aria-label="Close outline"
                                 className="btn btn-square btn-ghost"
@@ -224,10 +214,20 @@ export function EntryPage({
                             </button>
                         </header>
                         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
-                            <OutlineNav onNavigate={navigateOutline} routePath={routePath} tree={outlineTree} />
+                            <OutlineNav
+                                activeHeadingId={activeHeadingId}
+                                onNavigate={navigateOutline}
+                                routePath={routePath}
+                                tree={outlineTree}
+                            />
                         </div>
                         <div className="shrink-0 p-2">
-                            <OutlineFooterNav onNavigate={navigateOutline} routePath={routePath} />
+                            <OutlineFooterNav
+                                backlinkCount={backlinkCount}
+                                onNavigate={navigateOutline}
+                                routePath={routePath}
+                                showBackToTop={pastFirstViewport}
+                            />
                         </div>
                     </aside>
                     <form className="modal-backdrop" method="dialog">
@@ -236,6 +236,39 @@ export function EntryPage({
                 </dialog>
             ) : null}
         </div>
+    );
+}
+
+function EntryPager({ adjacent }: { adjacent?: AdjacentEntries }) {
+    if (!adjacent?.previous?.to && !adjacent?.next?.to) return null;
+    const linkClassName =
+        "flex min-w-0 flex-col gap-1 rounded-box border border-base-300 p-4 outline-none hover:bg-base-200/50 focus-visible:ring-2 focus-visible:ring-primary/40";
+
+    return (
+        <nav aria-label="Adjacent documents" className="grid gap-3 sm:grid-cols-2">
+            {adjacent.previous?.to ? (
+                <Link className={linkClassName} to={adjacent.previous.to}>
+                    <span className="flex items-center gap-1 text-xs text-base-content/60">
+                        <ArrowLeft aria-hidden="true" className="size-3.5" />
+                        Previous
+                    </span>
+                    <span className="truncate font-medium" title={adjacent.previous.label}>
+                        {adjacent.previous.label}
+                    </span>
+                </Link>
+            ) : null}
+            {adjacent.next?.to ? (
+                <Link className={`${linkClassName} items-end text-end sm:col-start-2`} to={adjacent.next.to}>
+                    <span className="flex items-center gap-1 text-xs text-base-content/60">
+                        Next
+                        <ArrowRight aria-hidden="true" className="size-3.5" />
+                    </span>
+                    <span className="max-w-full truncate font-medium" title={adjacent.next.label}>
+                        {adjacent.next.label}
+                    </span>
+                </Link>
+            ) : null}
+        </nav>
     );
 }
 
