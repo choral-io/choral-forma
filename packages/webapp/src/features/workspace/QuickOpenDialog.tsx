@@ -9,7 +9,7 @@ import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/w
 interface QuickOpenTriggerProps {
     className?: string;
     onBeforeOpen?: (trigger: HTMLButtonElement) => void;
-    trigger: "fab" | "header" | "sidebar";
+    trigger: "header" | "sidebar";
 }
 
 export const quickOpenDialogId = "workspace-quick-open";
@@ -73,29 +73,10 @@ function quickOpenMatchScore(item: QuickOpenItem, query: string, queryTokens: st
 
 export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpenTriggerProps) {
     const isSidebarTrigger = trigger === "sidebar";
-    const isFabTrigger = trigger === "fab";
     const openDialog = (triggerElement: HTMLButtonElement) => {
         onBeforeOpen?.(triggerElement);
         openQuickOpenDialog();
     };
-
-    if (isFabTrigger) {
-        return (
-            <button
-                aria-controls={quickOpenDialogId}
-                aria-haspopup="dialog"
-                aria-keyshortcuts="Control+K Meta+K"
-                aria-label="Quick open"
-                className={cn("btn btn-circle btn-neutral btn-lg", className)}
-                onClick={(event) => {
-                    openDialog(event.currentTarget);
-                }}
-                type="button"
-            >
-                <Search aria-hidden="true" className="size-5" />
-            </button>
-        );
-    }
 
     return (
         <button
@@ -105,11 +86,10 @@ export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpen
             aria-label="Quick open"
             className={cn(
                 isSidebarTrigger
-                    ? "gap-3 leading-5 outline-none focus-visible:ring-2 focus-visible:ring-base-content/30 is-drawer-close:tooltip is-drawer-close:tooltip-right"
+                    ? "gap-3 leading-5 outline-none focus-visible:ring-2 focus-visible:ring-base-content/30"
                     : "btn btn-square btn-ghost",
                 className,
             )}
-            data-tip={isSidebarTrigger ? "Quick open (⌘ K)" : undefined}
             onClick={(event) => {
                 openDialog(event.currentTarget);
             }}
@@ -119,12 +99,8 @@ export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpen
             <Search aria-hidden="true" className={isSidebarTrigger ? "size-5 shrink-0" : undefined} />
             {isSidebarTrigger ? (
                 <>
-                    <span className="min-w-0 truncate is-drawer-close:hidden" data-sidebar-label>
-                        Quick open
-                    </span>
-                    <kbd className="kbd shrink-0 kbd-xs is-drawer-close:hidden" data-sidebar-label>
-                        ⌘ K
-                    </kbd>
+                    <span className="min-w-0 flex-1 truncate">Quick open</span>
+                    <kbd className="kbd shrink-0 kbd-xs">⌘ K</kbd>
                 </>
             ) : (
                 <span className="sr-only">Quick open</span>

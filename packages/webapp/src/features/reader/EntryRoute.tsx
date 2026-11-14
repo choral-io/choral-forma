@@ -11,6 +11,7 @@ import { EmptyPage } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 
+import { entryDirectoryBreadcrumb } from "./entry-breadcrumb";
 import { getEntryOutline } from "./entry-outline";
 import { EntryPage } from "./EntryPage";
 import { prewarmMarkdownHighlighter } from "./markdown-shiki";
@@ -60,9 +61,7 @@ function EntryRouteContent({
     function openOutlineDialog(trigger: HTMLButtonElement) {
         const dialog = outlineDialogRef.current;
         if (!dialog || dialog.open) return;
-        outlineTriggerRef.current =
-            trigger.closest(".fab")?.querySelector<HTMLElement>('[aria-label="Open page actions"]') ?? trigger;
-        trigger.blur();
+        outlineTriggerRef.current = trigger;
         dialog.showModal();
         requestAnimationFrame(() => {
             dialog.querySelector<HTMLAnchorElement>("[data-outline-link]")?.focus();
@@ -135,7 +134,7 @@ function EntryRouteContent({
 
     if (!entry) {
         return (
-            <WorkspaceRouteFrame eyebrow="Pages" title="Not found">
+            <WorkspaceRouteFrame title="Not found">
                 <EmptyPage />
             </WorkspaceRouteFrame>
         );
@@ -158,27 +157,7 @@ function EntryRouteContent({
                     </button>
                 ) : undefined
             }
-            contentWidth="default"
-            description={entry.title}
-            eyebrow="Workspace"
-            fabActions={(closeFab) =>
-                outline.length > 0 ? (
-                    <button
-                        aria-controls={outlineDialogId}
-                        aria-label="Outline"
-                        className="btn btn-circle btn-neutral btn-lg"
-                        onClick={(event) => {
-                            closeFab();
-                            openOutlineDialog(event.currentTarget);
-                        }}
-                        type="button"
-                    >
-                        <ListTree aria-hidden="true" className="size-5" />
-                    </button>
-                ) : undefined
-            }
-            title={routePath === "/" ? "Home" : "Pages"}
-            titleAs="div"
+            breadcrumb={entryDirectoryBreadcrumb(entry.path)}
         >
             <EntryPage
                 entry={entry}

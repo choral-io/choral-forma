@@ -13,11 +13,7 @@ export function PagesRoute() {
     const dashboard = useWorkspaceDashboard();
 
     return (
-        <WorkspaceRouteFrame
-            contextPanel={<PagesContextPanel dashboard={dashboard} />}
-            eyebrow="Workspace"
-            title="Pages"
-        >
+        <WorkspaceRouteFrame contextPanel={<PagesContextPanel dashboard={dashboard} />} title="Pages">
             <PagesPage dashboard={dashboard} />
         </WorkspaceRouteFrame>
     );

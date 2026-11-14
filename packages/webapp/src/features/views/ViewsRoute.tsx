@@ -11,11 +11,7 @@ export function ViewsRoute() {
     const dashboard = useWorkspaceDashboard();
 
     return (
-        <WorkspaceRouteFrame
-            description="Read-only projections declared by workspace configuration."
-            eyebrow="Workspace"
-            title="Views"
-        >
+        <WorkspaceRouteFrame description="Read-only projections declared by workspace configuration." title="Views">
             <ViewsPage dashboard={dashboard} />
         </WorkspaceRouteFrame>
     );

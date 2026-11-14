@@ -18,6 +18,8 @@ const ViewDocumentMarkdown = lazy(async () => {
     return { default: module.ViewDocumentMarkdown };
 });
 
+const viewsBreadcrumb = [{ label: "Views", to: "/views" }];
+
 export function ViewRoute() {
     const dashboard = useWorkspaceDashboard();
     const dashboardContext = useMemo(() => createWorkspaceDashboardContext(dashboard), [dashboard]);
@@ -76,7 +78,7 @@ export function ViewRoute() {
 
     if (!view) {
         return (
-            <WorkspaceRouteFrame eyebrow="Views" title="Not found">
+            <WorkspaceRouteFrame breadcrumb={viewsBreadcrumb} title="Not found">
                 <EmptyPage />
             </WorkspaceRouteFrame>
         );
@@ -90,7 +92,7 @@ export function ViewRoute() {
         <WorkspaceRouteFrame
             contentWidth={view.kind === "list" ? "readable" : "fluid"}
             description={view.description}
-            eyebrow="Views"
+            breadcrumb={viewsBreadcrumb}
             title={view.title}
         >
             <ViewPage

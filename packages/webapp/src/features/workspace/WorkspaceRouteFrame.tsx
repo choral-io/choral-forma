@@ -1,127 +1,128 @@
-import { Ellipsis, Menu, PanelRightIcon, X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { Menu, PanelLeftOpen, PanelRightIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Link } from "react-router";
 
-import { workspaceDrawerId } from "@/app/App";
+import { workspaceDesktopDrawerId, workspaceDrawerId } from "@/app/App";
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { WorkspaceHealthPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
-import { ThemeCycleButton, ThemeDropdown } from "@/features/workspace/ThemeDropdown";
+import { ThemeDropdown } from "@/features/workspace/ThemeDropdown";
+import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { useRouteContentFocusTarget } from "@/lib/route-focus";
 import { applyThemePreference, readThemePreference, type ThemePreference } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
-import { subscribeWorkspaceInteractionLayer } from "@/lib/workspace-interaction-layer";
+
+/** An ancestor of the current page. A crumb without a route is a grouping, not a destination. */
+export interface WorkspaceBreadcrumb {
+    label: string;
+    to?: string;
+}
 
 interface WorkspaceRouteFrameProps {
     actions?: ReactNode;
+    breadcrumb?: WorkspaceBreadcrumb[];
     children: ReactNode;
     contextPanel?: ReactNode;
     contentWidth?: "default" | "fluid" | "readable";
     description?: string;
-    eyebrow: string;
-    fabActions?: (closeFab: () => void) => ReactNode;
-    title: string;
-    titleAs?: "div" | "h1";
+    /** Omitted by routes that render their own page heading, such as a document. */
+    title?: string;
 }
+
+// The sidebar carries these controls while it is shown, so the header only offers them when it is not.
+const sidebarHiddenOnly = "lg:group-has-[#workspace-sidebar:checked]/shell:hidden";
 
 export function WorkspaceRouteFrame({
     actions,
+    breadcrumb = [],
     children,
     contextPanel,
     contentWidth = "default",
     description,
-    eyebrow,
-    fabActions,
     title,
-    titleAs = "h1",
 }: WorkspaceRouteFrameProps) {
-    // Entry routes render their own <h1>; this frame only owns the heading when
-    // it is the page heading, so the ref stays unattached for titleAs="div".
+    const dashboard = useWorkspaceDashboard();
     const titleRef = useRouteContentFocusTarget<HTMLHeadingElement>();
     const [themePreference, setThemePreference] = useState(readThemePreference);
-    const [isFabOpen, setIsFabOpen] = useState(false);
-    const [isMobileFabSuppressed, setIsMobileFabSuppressed] = useState(false);
     const hasContextPanel = Boolean(contextPanel);
     const contentWidthClass = {
         default: "max-w-6xl",
         fluid: "max-w-none",
         readable: "max-w-4xl",
     }[contentWidth];
-    const Title = titleAs;
     const changeThemePreference = (preference: ThemePreference) => {
         setThemePreference(preference);
         applyThemePreference(preference);
     };
-    const closeFab = () => {
-        setIsFabOpen(false);
-    };
-    useEffect(() => {
-        return subscribeWorkspaceInteractionLayer((occupied) => {
-            setIsMobileFabSuppressed(occupied);
-            if (occupied) {
-                setIsFabOpen(false);
-            }
-        });
-    }, []);
 
     return (
         <div
             className={cn(
-                "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-auto xl:grid xl:grid-cols-1 xl:overflow-hidden",
+                "grid h-full min-h-0 min-w-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)]",
                 hasContextPanel && "xl:grid-cols-[minmax(0,1fr)_22rem]",
             )}
         >
-            <div className="flex min-w-0 flex-col xl:min-h-0">
-                <header className="flex shrink-0 items-center border-b border-base-300 bg-base-100/90 p-4 backdrop-blur-sm md:px-6 lg:sticky lg:top-0 lg:z-10 lg:h-28">
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <button
-                            aria-controls={workspaceDrawerId}
-                            aria-label="Open workspace navigation"
-                            className="btn btn-square btn-ghost lg:hidden"
-                            type="button"
-                            onClick={() => {
-                                closeFab();
-                                const dialog = document.getElementById(workspaceDrawerId);
-                                if (dialog instanceof HTMLDialogElement) {
-                                    dialog.returnValue = "";
-                                    dialog.showModal();
-                                    requestAnimationFrame(() => {
-                                        (
-                                            dialog.querySelector<HTMLElement>(
-                                                '[data-sidebar-link][aria-current="page"]',
-                                            ) ?? dialog.querySelector<HTMLElement>("[data-sidebar-link]")
-                                        )?.focus();
-                                    });
-                                }
-                            }}
-                        >
-                            <Menu aria-hidden="true" />
-                        </button>
-                        <div className="min-w-0">
-                            <p className="text-sm text-base-content/60">{eyebrow}</p>
-                            <Title
-                                className="line-clamp-2 text-2xl font-semibold tracking-normal lg:line-clamp-1"
-                                ref={titleAs === "h1" ? titleRef : undefined}
-                                tabIndex={-1}
-                                title={title}
-                            >
-                                {title}
-                            </Title>
-                            {description && (
-                                <p
-                                    className="mt-1 line-clamp-2 max-w-3xl text-sm/6 text-base-content/60 lg:line-clamp-1"
-                                    title={description}
-                                >
-                                    {description}
-                                </p>
-                            )}
-                        </div>
-                        <div className="ml-auto hidden shrink-0 items-center gap-1 lg:flex">
-                            {actions}
-                            <ThemeDropdown onPreferenceChange={changeThemePreference} preference={themePreference} />
-                        </div>
-                    </div>
-                </header>
+            <header className="navbar col-span-full min-h-16 gap-1 border-b border-base-300 bg-base-100 px-2 sm:px-4">
+                <button
+                    aria-controls={workspaceDrawerId}
+                    aria-label="Open workspace navigation"
+                    className="btn btn-square btn-ghost lg:hidden"
+                    type="button"
+                    onClick={() => {
+                        const dialog = document.getElementById(workspaceDrawerId);
+                        if (dialog instanceof HTMLDialogElement) {
+                            dialog.returnValue = "";
+                            dialog.showModal();
+                            requestAnimationFrame(() => {
+                                (
+                                    dialog.querySelector<HTMLElement>('[data-sidebar-link][aria-current="page"]') ??
+                                    dialog.querySelector<HTMLElement>("[data-sidebar-link]")
+                                )?.focus();
+                            });
+                        }
+                    }}
+                >
+                    <Menu aria-hidden="true" />
+                </button>
+                <button
+                    aria-label="Show workspace sidebar"
+                    className={cn("btn btn-square btn-ghost max-lg:hidden", sidebarHiddenOnly)}
+                    data-sidebar-expand
+                    onClick={() => {
+                        const toggle = document.getElementById(workspaceDesktopDrawerId);
+                        if (toggle instanceof HTMLInputElement) toggle.click();
+                    }}
+                    title="Show workspace sidebar"
+                    type="button"
+                >
+                    <PanelLeftOpen aria-hidden="true" />
+                </button>
+                <nav aria-label="Breadcrumb" className="breadcrumbs min-w-0 flex-1 scrollbar-none px-2 text-sm">
+                    <ul>
+                        <li>
+                            <Link className="min-w-0" to="/">
+                                <span className="max-w-32 truncate sm:max-w-64">{dashboard.workspaceName}</span>
+                            </Link>
+                        </li>
+                        {breadcrumb.map((crumb, index) => (
+                            <li key={`${String(index)}-${crumb.label}`}>
+                                {crumb.to ? (
+                                    <Link to={crumb.to}>{crumb.label}</Link>
+                                ) : (
+                                    <span className="text-base-content/60">{crumb.label}</span>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </nav>
+                <div className="flex shrink-0 items-center gap-1">
+                    <QuickOpenTrigger className={sidebarHiddenOnly} trigger="header" />
+                    {actions}
+                    <ThemeDropdown onPreferenceChange={changeThemePreference} preference={themePreference} />
+                </div>
+            </header>
 
+            <main className="min-h-0 min-w-0 overflow-auto">
                 {hasContextPanel && contextPanel ? (
                     <details className="collapse-arrow collapse rounded-none border-b border-base-300 bg-base-200/40 xl:hidden">
                         <summary className="collapse-title flex items-center gap-2 text-sm font-medium">
@@ -131,69 +132,25 @@ export function WorkspaceRouteFrame({
                         <div className="collapse-content">{contextPanel}</div>
                     </details>
                 ) : null}
-
-                <main className="min-w-0 xl:min-h-0 xl:flex-1 xl:overflow-auto">
-                    {/* pb-20 keeps FAB scroll-clearance below lg; lg:p-8 then restores
-                        the symmetric padding once the FAB (lg:hidden) is gone. */}
-                    <div
-                        className={cn(
-                            "mx-auto flex w-full flex-col gap-6 p-4 pb-20 md:p-6 md:pb-20 lg:p-8",
-                            contentWidthClass,
-                        )}
-                    >
-                        {children}
-                    </div>
-                </main>
-            </div>
+                <div className={cn("mx-auto flex w-full flex-col gap-6 p-4 md:p-6 lg:p-8", contentWidthClass)}>
+                    {title ? (
+                        <header className="flex flex-col gap-2">
+                            <h1 className="text-3xl font-semibold tracking-normal" ref={titleRef} tabIndex={-1}>
+                                {title}
+                            </h1>
+                            {description ? (
+                                <p className="max-w-3xl text-base/7 text-base-content/60">{description}</p>
+                            ) : null}
+                        </header>
+                    ) : null}
+                    {children}
+                </div>
+            </main>
             {hasContextPanel && (
                 <aside className="hidden min-w-0 border-s border-base-300 bg-base-200/20 xl:block xl:min-h-0 xl:overflow-y-auto">
                     {contextPanel}
                 </aside>
             )}
-            {/* FAB dial: mobile-only (below lg), where there is no persistent
-                chrome, so it carries Theme + Quick Open (+ Outline when present).
-                At lg+ the chrome takes over — header Theme, header Outline toggle
-                in the lg..xl band, sidebar Quick Open, xl Outline aside — so the
-                FAB stays hidden and never becomes a lone-button dial. */}
-            {!isMobileFabSuppressed ? (
-                <div className="fab lg:hidden!">
-                    <button
-                        aria-expanded={isFabOpen}
-                        aria-label="Open page actions"
-                        className="btn btn-circle btn-neutral btn-lg"
-                        tabIndex={0}
-                        type="button"
-                        onClick={() => {
-                            setIsFabOpen(true);
-                        }}
-                    >
-                        <Ellipsis aria-hidden="true" />
-                    </button>
-                    {isFabOpen ? (
-                        <>
-                            <button
-                                aria-label="Close page actions"
-                                className="fab-close"
-                                onClick={closeFab}
-                                type="button"
-                            >
-                                <span className="btn btn-circle btn-neutral btn-lg">
-                                    <X aria-hidden="true" />
-                                </span>
-                            </button>
-                            {fabActions?.(closeFab)}
-                            <QuickOpenTrigger
-                                onBeforeOpen={(trigger) => {
-                                    closeFab();
-                                    trigger.blur();
-                                }}
-                                trigger="fab"
-                            />
-                            <ThemeCycleButton onPreferenceChange={changeThemePreference} preference={themePreference} />
-                        </>
-                    ) : null}
-                </div>
-            ) : null}
         </div>
     );
 }

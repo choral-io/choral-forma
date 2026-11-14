@@ -15,7 +15,7 @@ export function EntryOutlineSection({
     tree: EntryOutlineNode[];
 }) {
     return (
-        <section className="sticky top-8 flex max-h-[calc(100dvh-10rem)] min-h-0 flex-col gap-3 overflow-hidden group-has-data-reader-loading/entry:hidden">
+        <section className="sticky top-8 flex max-h-[calc(100dvh-8rem)] min-h-0 flex-col gap-3 overflow-hidden group-has-data-reader-loading/entry:hidden">
             <div className="shrink-0">
                 <h2 className="text-sm font-semibold">Outline</h2>
                 <p className="mt-1 text-sm/6 text-base-content/60">Headings from the current entry.</p>

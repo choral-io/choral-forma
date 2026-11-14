@@ -9,21 +9,18 @@ import { workspaceClient } from "@/data/workspace-client-source";
 import { QuickOpenDialog } from "@/features/workspace/QuickOpenDialog";
 import { WorkspaceSidebar } from "@/features/workspace/WorkspaceSidebar";
 import { requestRouteContentFocus } from "@/lib/route-focus";
-
-import { resolveDesktopSidebarOpen } from "./workspace-sidebar-state";
+import { readSidebarOpenPreference, writeSidebarOpenPreference } from "@/lib/sidebar-preference";
 
 export const workspaceDrawerId = "workspace-navigation";
-const workspaceDesktopDrawerId = "workspace-sidebar";
+export const workspaceDesktopDrawerId = "workspace-sidebar";
 
 export function App() {
     const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(
         () => readPreparedStaticEnhancement()?.dashboard ?? null,
     );
     const [error, setError] = useState<string | null>(null);
-    const [desktopDrawerInitiallyOpen] = useState(() => window.matchMedia("(min-width: 80rem)").matches);
+    const [desktopDrawerInitiallyOpen] = useState(readSidebarOpenPreference);
     const navigationDialogRef = useRef<HTMLDialogElement>(null);
-    const desktopDrawerRef = useRef<HTMLInputElement>(null);
-    const desktopDrawerManuallyChangedRef = useRef(false);
     const { pathname } = useLocation();
 
     useEffect(() => {
@@ -56,24 +53,6 @@ export function App() {
         if (!dashboard || !readStaticRuntimeConfig()) return;
         syncStaticDocumentMetadata(dashboard, pathname);
     }, [dashboard, pathname]);
-
-    useEffect(() => {
-        const wideDesktopMedia = window.matchMedia("(min-width: 80rem)");
-        const syncDesktopDrawer = () => {
-            if (!desktopDrawerRef.current) return;
-            desktopDrawerRef.current.checked = resolveDesktopSidebarOpen({
-                currentOpen: desktopDrawerRef.current.checked,
-                hasManualOverride: desktopDrawerManuallyChangedRef.current,
-                isWideViewport: wideDesktopMedia.matches,
-            });
-        };
-
-        syncDesktopDrawer();
-        wideDesktopMedia.addEventListener("change", syncDesktopDrawer);
-        return () => {
-            wideDesktopMedia.removeEventListener("change", syncDesktopDrawer);
-        };
-    }, []);
 
     function closeNavigation() {
         if (navigationDialogRef.current?.open) {
@@ -125,7 +104,7 @@ export function App() {
 
     return (
         <div
-            className="drawer h-svh min-w-0 overflow-hidden lg:drawer-open"
+            className="group/shell drawer h-svh min-w-0 overflow-hidden lg:drawer-open"
             data-enhancement-ready
             data-workspace-shell
         >
@@ -133,14 +112,20 @@ export function App() {
                 className="drawer-toggle"
                 defaultChecked={desktopDrawerInitiallyOpen}
                 id={workspaceDesktopDrawerId}
-                onChange={() => {
-                    desktopDrawerManuallyChangedRef.current = true;
+                onChange={(event) => {
+                    const open = event.currentTarget.checked;
+                    writeSidebarOpenPreference(open);
+                    // The control that was just used is hidden by the change, so hand focus to its counterpart.
+                    requestAnimationFrame(() => {
+                        document
+                            .querySelector<HTMLElement>(open ? "[data-sidebar-toggle]" : "[data-sidebar-expand]")
+                            ?.focus();
+                    });
                 }}
-                ref={desktopDrawerRef}
                 type="checkbox"
             />
-            <div className="drawer-side max-lg:hidden is-drawer-close:overflow-visible">
-                <aside className="flex min-h-full flex-col overflow-visible bg-base-200 text-base-content is-drawer-close:w-14 is-drawer-open:w-64">
+            <div className="drawer-side max-lg:hidden">
+                <aside className="flex h-full flex-col overflow-hidden bg-base-200 text-base-content is-drawer-close:invisible is-drawer-close:w-0 is-drawer-open:w-72">
                     <WorkspaceSidebar
                         dashboard={dashboard}
                         onNavigate={closeNavigation}

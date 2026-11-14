@@ -9,15 +9,13 @@ import { taxonomyRoutePath, taxonomyTermRoutePath } from "@/lib/workspace-routes
 
 import { PagesList } from "./PagesList";
 
+const browseBreadcrumb = [{ label: "Browse", to: "/browse" }];
+
 export function TaxonomiesRoute() {
     const dashboard = useWorkspaceDashboard();
 
     return (
-        <WorkspaceRouteFrame
-            description="Taxonomies and terms declared by workspace configuration."
-            eyebrow="Workspace"
-            title="Browse"
-        >
+        <WorkspaceRouteFrame description="Taxonomies and terms declared by workspace configuration." title="Browse">
             <TaxonomiesPage dashboard={dashboard} />
         </WorkspaceRouteFrame>
     );
@@ -30,14 +28,14 @@ export function TaxonomyRoute() {
 
     if (!taxonomy) {
         return (
-            <WorkspaceRouteFrame eyebrow="Browse" title="Not found">
+            <WorkspaceRouteFrame breadcrumb={browseBreadcrumb} title="Not found">
                 <EmptyPage />
             </WorkspaceRouteFrame>
         );
     }
 
     return (
-        <WorkspaceRouteFrame description={taxonomy.description} eyebrow="Browse" title={taxonomy.title}>
+        <WorkspaceRouteFrame breadcrumb={browseBreadcrumb} description={taxonomy.description} title={taxonomy.title}>
             <TaxonomyPage taxonomy={taxonomy} />
         </WorkspaceRouteFrame>
     );
@@ -51,14 +49,18 @@ export function TaxonomyTermRoute() {
 
     if (!taxonomy || !term) {
         return (
-            <WorkspaceRouteFrame eyebrow="Browse" title="Not found">
+            <WorkspaceRouteFrame breadcrumb={browseBreadcrumb} title="Not found">
                 <EmptyPage />
             </WorkspaceRouteFrame>
         );
     }
 
     return (
-        <WorkspaceRouteFrame description={term.description} eyebrow={taxonomy.title} title={term.title}>
+        <WorkspaceRouteFrame
+            breadcrumb={[...browseBreadcrumb, { label: taxonomy.title, to: taxonomyRoutePath(taxonomy.id) }]}
+            description={term.description}
+            title={term.title}
+        >
             <TaxonomyTermPage taxonomy={taxonomy} term={term} />
         </WorkspaceRouteFrame>
     );

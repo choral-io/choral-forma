@@ -3,7 +3,7 @@ import { WorkspaceRouteFrame } from "./WorkspaceRouteFrame";
 
 export function FallbackRoute() {
     return (
-        <WorkspaceRouteFrame eyebrow="Workspace" title="Not found">
+        <WorkspaceRouteFrame title="Not found">
             <EmptyPage />
         </WorkspaceRouteFrame>
     );

@@ -1,6 +1,6 @@
 import { Check, Moon, Sun, SunMoon } from "lucide-react";
 
-import { getNextThemePreference, type ThemePreference } from "@/lib/theme-preference";
+import type { ThemePreference } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
 
 const themePopoverId = "workspace-theme-menu";
@@ -70,25 +70,5 @@ export function ThemeDropdown({
                 ))}
             </ul>
         </>
-    );
-}
-
-export function ThemeCycleButton({ onPreferenceChange, preference }: ThemeControlProps) {
-    const currentOption = options.find((option) => option.value === preference) ?? options[0];
-    const nextPreference = getNextThemePreference(preference);
-    const nextOption = options.find((option) => option.value === nextPreference) ?? options[0];
-    const Icon = currentOption.icon;
-
-    return (
-        <button
-            aria-label={`Theme: ${currentOption.label}. Switch to ${nextOption.label}`}
-            className="btn btn-circle btn-neutral btn-lg"
-            onClick={() => {
-                onPreferenceChange(nextPreference);
-            }}
-            type="button"
-        >
-            <Icon aria-hidden="true" className="size-5" />
-        </button>
     );
 }

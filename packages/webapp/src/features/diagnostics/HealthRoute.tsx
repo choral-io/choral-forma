@@ -7,7 +7,6 @@ export function HealthRoute() {
     return (
         <WorkspaceRouteFrame
             description="Read-only checks for workspace configuration, references, and link structure."
-            eyebrow="Workspace"
             title="Health"
         >
             <WorkspaceDefaultContextPanel dashboard={dashboard} />

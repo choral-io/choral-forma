@@ -97,38 +97,6 @@
     font-display: block;
 }
 
-/* Dim the collapsed FAB trigger at rest; restore on hover. This lives in
-   global CSS (not a Tailwind opacity utility) on purpose: an `opacity-*`
-   utility is emitted in the utilities layer, ordered after daisyUI's layers,
-   so it would override daisyUI's expand rule (opacity:0 on the trigger when
-   the dial is open) and leave the trigger stacked behind the close button.
-   The :not(:focus-within) gate makes the rest dim yield to that expand rule,
-   and `> [tabindex]` is daisyUI's own FAB hook for the main trigger, not an
-   invented structure. Scope the exception to the workspace shell. */
-[data-workspace-shell] .fab:not(:focus-within) > [tabindex] {
-    opacity: 0.75;
-}
-[data-workspace-shell] .fab:not(:focus-within) > [tabindex]:hover {
-    opacity: 1;
-}
-
-/* daisyUI disables the focused trigger while a FAB is expanded. The menu is
-   now state-owned, so focus may legitimately return to a *closed* trigger
-   after a dialog finishes. Keep that closed trigger clickable; no action
-   children are mounted until the next explicit activation. */
-[data-workspace-shell] .fab > [tabindex][aria-expanded="false"] {
-    pointer-events: auto;
-}
-
-/* daisyUI's FAB motion is not gated by reduced-motion. Keep the narrow,
-   workspace-scoped exception here; dialogs use Tailwind's
-   motion-reduce:transition-none utility at each instance. */
-@media (prefers-reduced-motion: reduce) {
-    [data-workspace-shell] .fab > * {
-        transition: none;
-    }
-}
-
 @layer components {
     [data-link-kind="external"] {
         --link-kind-glyph: "\e0b9";
