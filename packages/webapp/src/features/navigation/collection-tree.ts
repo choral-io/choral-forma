@@ -6,8 +6,12 @@ import type { NavigationNode } from "./navigation-tree";
 /**
  * Configured taxonomies, their terms, and each term's entries, followed by the
  * configured Views. Order and titles come from configuration as the read model reports them.
+ * Entries whose paths are in `omittedPaths`, such as language variants, are left out.
  */
-export function buildCollectionTree(dashboard: Pick<WorkspaceDashboard, "taxonomies" | "views">): NavigationNode[] {
+export function buildCollectionTree(
+    dashboard: Pick<WorkspaceDashboard, "taxonomies" | "views">,
+    omittedPaths: ReadonlySet<string> = new Set(),
+): NavigationNode[] {
     const taxonomies = dashboard.taxonomies.map((taxonomy): NavigationNode => ({
         id: `taxonomy:${taxonomy.id}`,
         kind: "taxonomy",
@@ -18,13 +22,15 @@ export function buildCollectionTree(dashboard: Pick<WorkspaceDashboard, "taxonom
             kind: "term",
             label: term.title,
             to: taxonomyTermRoutePath(taxonomy.id, term.id),
-            children: term.entries.map((entry): NavigationNode => ({
-                id: `term-entry:${taxonomy.id}/${term.id}/${entry.path}`,
-                kind: "entry",
-                label: entry.title,
-                title: entry.path,
-                to: entry.routePath,
-            })),
+            children: term.entries
+                .filter((entry) => !omittedPaths.has(entry.path))
+                .map((entry): NavigationNode => ({
+                    id: `term-entry:${taxonomy.id}/${term.id}/${entry.path}`,
+                    kind: "entry",
+                    label: entry.title,
+                    title: entry.path,
+                    to: entry.routePath,
+                })),
         })),
     }));
     if (dashboard.views.length === 0) return taxonomies;

@@ -193,8 +193,12 @@
         }
 
         & :is(h1, h2, h3, h4, h5, h6):hover > [data-reader-heading-link],
-        & [data-reader-heading-link][data-copied] {
+        & [data-reader-heading-link]:is([data-copied], [data-copy-failed]) {
             @apply opacity-100;
+        }
+
+        & [data-reader-heading-link][data-copy-failed] {
+            @apply text-error;
         }
 
         & p.forma-callout-title {

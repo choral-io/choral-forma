@@ -105,10 +105,13 @@ export function OutlineFooterNav({ backlinkCount, onNavigate, routePath, showBac
                     <li>
                         <a href={rootAwareHref(`${routePath}#${relatedDocumentsId}`)} onClick={onNavigate}>
                             <span className="min-w-0 flex-1 truncate">Related documents</span>
-                            <span className="badge badge-ghost badge-sm">
-                                {backlinkCount}
-                                <span className="sr-only"> backlinks</span>
-                            </span>
+                            {/* A document with only outgoing references still has a section here, but no count to show. */}
+                            {backlinkCount > 0 ? (
+                                <span className="badge badge-ghost badge-sm">
+                                    {backlinkCount}
+                                    <span className="sr-only"> backlinks</span>
+                                </span>
+                            ) : null}
                         </a>
                     </li>
                 )}

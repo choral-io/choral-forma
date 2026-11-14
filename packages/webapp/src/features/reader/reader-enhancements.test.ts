@@ -55,14 +55,24 @@ describe("enhanceReader", () => {
         expect(button?.getAttribute("aria-label")).toBe("Copy code");
     });
 
-    it("leaves the control unchanged when the clipboard refuses", async () => {
+    it("reports a refused copy for a moment, then offers the control again", async () => {
         writeText.mockRejectedValue(new Error("denied"));
         enhanceReader(reader);
         const button = reader.querySelector<HTMLButtonElement>("[data-reader-copy-code]");
+        const link = reader.querySelector<HTMLButtonElement>("[data-reader-heading-link]");
 
         button?.click();
+        link?.click();
         await vi.advanceTimersByTimeAsync(0);
+        expect(button?.getAttribute("aria-label")).toBe("Could not copy code");
+        expect(button?.dataset.copyFailed).toBe("");
+        expect(link?.getAttribute("aria-label")).toBe("Could not copy section link");
+        expect(link?.textContent).toBe("✕");
+
+        await vi.advanceTimersByTimeAsync(2000);
         expect(button?.getAttribute("aria-label")).toBe("Copy code");
+        expect(button?.dataset.copyFailed).toBeUndefined();
+        expect(link?.textContent).toBe("#");
     });
 
     it("links only headings that have an anchor and copies the section address", async () => {

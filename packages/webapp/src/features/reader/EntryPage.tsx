@@ -6,10 +6,10 @@ import type { DashboardDiagnostic, DashboardEntry, WorkspaceHealth } from "@/dat
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
 import type { NavigationNode } from "@/features/navigation/navigation-tree";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
+import { entryLanguageVersions, type EntryLanguageVersion } from "@/lib/entry-languages";
 import { scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
 import { useRouteContentFocusTarget } from "@/lib/route-focus";
 
-import { formatEntrySupportedLanguages } from "./entry-languages";
 import { getEntryOutlineTree, type EntryOutlineItem } from "./entry-outline";
 import { EntryOutlineSection, entryTopId, OutlineFooterNav, OutlineNav } from "./EntryOutlineNav";
 import { EntryRelatedSection, hasRelatedDocuments } from "./EntryRelated";
@@ -53,6 +53,7 @@ export interface AdjacentEntries {
 export function EntryPage({
     adjacent,
     afterBody,
+    canonicalLanguage,
     entry,
     entries,
     isLoadingDetail,
@@ -65,6 +66,8 @@ export function EntryPage({
     adjacent?: AdjacentEntries;
     /** Content that follows the document body, ahead of its related documents. */
     afterBody?: ReactNode;
+    /** The workspace's canonical language, when the read model reports it. */
+    canonicalLanguage?: string;
     entry: DashboardEntry;
     entries: DashboardEntry[];
     isLoadingDetail: boolean;
@@ -76,6 +79,7 @@ export function EntryPage({
 }) {
     const titleRef = useRouteContentFocusTarget<HTMLHeadingElement>();
     const diagnostics = getEntryDiagnostics(entry);
+    const languageVersions = entryLanguageVersions(entries, entry, canonicalLanguage);
     const outlineTree = getEntryOutlineTree(outline);
     const hasOutline = outlineTree.length > 0;
     const contentRef = useRef<HTMLDivElement>(null);
@@ -112,7 +116,7 @@ export function EntryPage({
                             <time dateTime={entry.updatedAt} title={formatAbsoluteDateTime(entry.updatedAt)}>
                                 Updated {entry.updatedLabel}
                             </time>
-                            <span>{formatEntrySupportedLanguages(entry)}</span>
+                            {languageVersions.length > 1 ? <EntryLanguageSwitch versions={languageVersions} /> : null}
                             {entry.status !== "healthy" ? (
                                 <span className={healthBadgeClass(entry.status)}>{entry.status}</span>
                             ) : null}
@@ -241,6 +245,43 @@ export function EntryPage({
             ) : null}
         </div>
     );
+}
+
+/** Each language version of the document, named in its own language; the current one is not a link. */
+function EntryLanguageSwitch({ versions }: { versions: EntryLanguageVersion[] }) {
+    return (
+        <nav aria-label="Languages">
+            <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                {versions.map((version) => (
+                    <li key={version.routePath}>
+                        {version.current ? (
+                            <span aria-current="page" className="font-medium text-base-content" lang={version.language}>
+                                {languageName(version.language)}
+                            </span>
+                        ) : (
+                            <Link
+                                className="link link-hover"
+                                hrefLang={version.language}
+                                lang={version.language}
+                                title={version.language}
+                                to={version.routePath}
+                            >
+                                {languageName(version.language)}
+                            </Link>
+                        )}
+                    </li>
+                ))}
+            </ul>
+        </nav>
+    );
+}
+
+function languageName(language: string) {
+    try {
+        return new Intl.DisplayNames([language], { type: "language" }).of(language) ?? language;
+    } catch {
+        return language;
+    }
 }
 
 function EntryPager({ adjacent }: { adjacent?: AdjacentEntries }) {

@@ -80,6 +80,11 @@ describe("buildCollectionTree", () => {
         ]);
     });
 
+    it("leaves out omitted entries, such as language variants", () => {
+        expect(outline(buildCollectionTree(dashboard, new Set(["b.md"])))).toContain("  term:SHARED");
+        expect(outline(buildCollectionTree(dashboard, new Set(["b.md"])))).not.toContain("    entry:B");
+    });
+
     it("routes taxonomies, terms, and views and gives repeated entries distinct ids", () => {
         const tree = buildCollectionTree(dashboard);
         const ids = new Set<string>();

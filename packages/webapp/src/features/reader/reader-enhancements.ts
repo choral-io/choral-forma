@@ -8,6 +8,7 @@ const copyIconPaths = [
     "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2",
 ] as const;
 const checkIconPaths = ["M20 6 9 17l-5-5"] as const;
+const failedIconPaths = ["M18 6 6 18", "m6 6 12 12"] as const;
 
 const copiedDuration = 1800;
 const codeCopyLabel = "Copy code";
@@ -39,7 +40,7 @@ export function enhanceReader(reader: HTMLElement): () => void {
         const button = document.createElement("button");
         button.type = "button";
         button.className =
-            "btn btn-square btn-ghost btn-xs bg-base-100/80 absolute end-2 top-3 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100";
+            "btn btn-square btn-ghost btn-xs bg-base-100/80 absolute end-2 top-3 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 data-copy-failed:text-error";
         button.dataset.readerCopyCode = "";
         button.ariaLabel = codeCopyLabel;
         button.title = codeCopyLabel;
@@ -81,29 +82,33 @@ export function enhanceReader(reader: HTMLElement): () => void {
         });
     }
 
-    function markCopied(control: HTMLElement, copiedLabel: string, reset: () => void) {
+    // The outcome shows for a moment either way: a control that silently does nothing reads as broken.
+    function markOutcome(control: HTMLElement, copied: boolean, outcomeLabel: string, reset: () => void) {
         const label = control.ariaLabel;
-        control.ariaLabel = copiedLabel;
-        control.dataset.copied = "";
+        const state = copied ? "data-copied" : "data-copy-failed";
+        control.ariaLabel = outcomeLabel;
+        control.setAttribute(state, "");
         const timer = window.setTimeout(() => {
             timers.delete(timer);
             control.ariaLabel = label;
-            delete control.dataset.copied;
+            control.removeAttribute(state);
             reset();
         }, copiedDuration);
         timers.add(timer);
     }
 
+    const isShowingOutcome = (control: HTMLElement) => "copied" in control.dataset || "copyFailed" in control.dataset;
+
     function handleClick(event: MouseEvent) {
         if (!(event.target instanceof Element)) return;
         const button = event.target.closest<HTMLButtonElement>("[data-reader-copy-code]");
         if (button) {
-            if ("copied" in button.dataset) return;
+            if (isShowingOutcome(button)) return;
             const code = button.parentElement?.querySelector("pre")?.textContent ?? "";
             void copyText(code).then((copied) => {
-                if (!copied || !button.isConnected) return;
-                button.replaceChildren(createIcon(checkIconPaths));
-                markCopied(button, "Code copied", () => {
+                if (!button.isConnected) return;
+                button.replaceChildren(createIcon(copied ? checkIconPaths : failedIconPaths));
+                markOutcome(button, copied, copied ? "Code copied" : "Could not copy code", () => {
                     button.replaceChildren(createIcon(copyIconPaths));
                 });
             });
@@ -111,13 +116,13 @@ export function enhanceReader(reader: HTMLElement): () => void {
         }
 
         const link = event.target.closest<HTMLButtonElement>("[data-reader-heading-link]");
-        if (link && !("copied" in link.dataset)) {
+        if (link && !isShowingOutcome(link)) {
             const address = new URL(window.location.href);
             address.hash = link.dataset.readerHeadingLink ?? "";
             void copyText(address.href).then((copied) => {
-                if (!copied || !link.isConnected) return;
-                link.textContent = "✓";
-                markCopied(link, "Section link copied", () => {
+                if (!link.isConnected) return;
+                link.textContent = copied ? "✓" : "✕";
+                markOutcome(link, copied, copied ? "Section link copied" : "Could not copy section link", () => {
                     link.textContent = "#";
                 });
             });

@@ -9,6 +9,7 @@ import { NavigationTree } from "@/features/navigation/NavigationTree";
 import { useNavigationTree } from "@/features/navigation/use-navigation-tree";
 import { FormaBrandIcon } from "@/features/workspace/FormaBrandIcon";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
+import { canonicalEntryRoutePath } from "@/lib/entry-languages";
 import { navigationStrategies, type NavigationStrategy } from "@/lib/navigation-preference";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +29,8 @@ export function WorkspaceSidebar({
     toggleId,
 }: WorkspaceSidebarProps) {
     const { pathname } = useLocation();
-    const routePath = canonicalRoutePathFromLocation(pathname);
+    // A language variant is not in the tree, so its page reveals the document it belongs to.
+    const routePath = canonicalEntryRoutePath(dashboard.entries, canonicalRoutePathFromLocation(pathname));
     const strategyGroupId = useId();
     const { setStrategy, strategy, tree } = useNavigationTree(dashboard);
     const healthFindingCount = dashboard.health.findings.filter((finding) => finding.severity !== "info").length;

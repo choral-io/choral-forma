@@ -15,6 +15,7 @@ import { EmptyPage } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { copySourcePath } from "@/lib/copy-source-path";
+import { canonicalEntries, canonicalEntryFor, canonicalEntryRoutePath } from "@/lib/entry-languages";
 
 import { entryCollectionBreadcrumb, entryDirectoryBreadcrumb } from "./entry-breadcrumb";
 import { getEntryOutline } from "./entry-outline";
@@ -63,6 +64,8 @@ function EntryRouteContent({
     const entry = entryDetail?.routePath === routePath ? entryDetail.entry : summaryEntry;
     const isEntryDetailLoading = entryDetail?.routePath !== routePath;
     const outline = entry ? getEntryOutline(entry.body) : [];
+    // A language variant stands in the tree's place of the document it belongs to.
+    const treeRoutePath = canonicalEntryRoutePath(dashboard.entries, routePath);
 
     function openOutlineDialog(trigger: HTMLButtonElement) {
         const dialog = outlineDialogRef.current;
@@ -181,16 +184,20 @@ function EntryRouteContent({
             breadcrumb={
                 navigationStrategy === "files"
                     ? entryDirectoryBreadcrumb(entry.path)
-                    : entryCollectionBreadcrumb(dashboard.taxonomies, entry.path)
+                    : entryCollectionBreadcrumb(
+                          dashboard.taxonomies,
+                          canonicalEntryFor(dashboard.entries, entry.path)?.path ?? entry.path,
+                      )
             }
         >
             <EntryPage
-                adjacent={navigationSiblings(navigationTree, routePath)}
+                adjacent={navigationSiblings(navigationTree, treeRoutePath)}
                 afterBody={
                     routePath === "/" ? (
                         <RecentlyUpdated entries={dashboard.entries} homePath={entry.path} />
                     ) : undefined
                 }
+                canonicalLanguage={dashboard.canonicalLanguage}
                 entry={entry}
                 entries={dashboard.entries}
                 isLoadingDetail={isEntryDetailLoading}
@@ -213,7 +220,7 @@ function EntryRouteContent({
 const recentEntryLimit = 5;
 
 function RecentlyUpdated({ entries, homePath }: { entries: DashboardEntry[]; homePath: string }) {
-    const recent = recentlyUpdatedEntries(entries, recentEntryLimit, homePath);
+    const recent = recentlyUpdatedEntries(canonicalEntries(entries), recentEntryLimit, homePath);
     if (recent.length === 0) return null;
 
     return (
