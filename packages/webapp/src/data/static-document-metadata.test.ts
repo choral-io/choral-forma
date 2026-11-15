@@ -51,6 +51,16 @@ describe("static document metadata", () => {
         document.head.innerHTML = "";
     });
 
+    it("titles a directory page by its name and leaves unknown paths not found", () => {
+        expect(resolveStaticDocumentMetadata(dashboard, "/pages/notes")).toEqual({
+            canonicalPath: "/pages/notes",
+            description: "Pages the workspace includes under notes/.",
+            title: "notes",
+        });
+        expect(resolveStaticDocumentMetadata(dashboard, "/pages")).toMatchObject({ title: "Files" });
+        expect(resolveStaticDocumentMetadata(dashboard, "/pages/missing")).toMatchObject({ title: "Not found" });
+    });
+
     it("resolves homepage, encoded entry, and View metadata from local dashboard data", () => {
         setStaticRuntimeConfig({
             baseUrl: "https://example.test",

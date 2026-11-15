@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    directoryForRoutePath,
     directoryPathFromRoutePath,
     directoryRoutePath,
     legacyWorkspaceRouteRedirect,
@@ -32,6 +33,17 @@ describe("workspace route paths", () => {
         expect(directoryPathFromRoutePath("/views/board")).toBeUndefined();
         expect(directoryPathFromRoutePath("/pagesx")).toBeUndefined();
         expect(directoryPathFromRoutePath("/pages/%E0%A4%A")).toBeUndefined();
+    });
+
+    it("recognizes a page route as a directory only when it holds a document", () => {
+        const entries = [{ path: "notes/a.md" }, { path: "notes/deep/b.md" }, { path: "top.md" }];
+
+        expect(directoryForRoutePath(entries, "/pages/notes")).toBe("notes");
+        expect(directoryForRoutePath(entries, "/pages/notes/deep")).toBe("notes/deep");
+        expect(directoryForRoutePath(entries, "/pages/notes/a")).toBeUndefined();
+        expect(directoryForRoutePath(entries, "/pages/top")).toBeUndefined();
+        expect(directoryForRoutePath(entries, "/pages")).toBeUndefined();
+        expect(directoryForRoutePath(entries, "/views/notes")).toBeUndefined();
     });
 
     it("redirects the legacy taxonomies route to browse", () => {

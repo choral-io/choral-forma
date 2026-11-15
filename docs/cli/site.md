@@ -19,6 +19,8 @@ order: 60
 
 `forma site build` exports the configured workspace projection as a static, multi-page HTML artifact. It does not start a server, create a second content store, or change workspace sources. Serve the completed output with an ordinary static-file host; every generated route has its own HTML file, including `404.html`, `sitemap.xml`, and `robots.txt`.
 
+Pages are grouped by the directories of their source paths. `/pages` lists the workspace root, and each directory that holds an indexed page has its own page at `/pages/<directory>` listing its folders and pages, unless a page is served at that route already, such as the directory's `index.md` or a same-named page beside it.
+
 The initial HTML contains readable entry bodies and ordinary links. JavaScript is progressive enhancement: it adds richer Markdown rendering, navigation, themes, Graphs, and Quick Open. The static WebApp reads `data/dashboard.json` plus entry and View JSON files from the artifact; it does not call Forma RPC. Quick Open searches the loaded dashboard's paths, titles, spaces, entries, and Views. It is not server-side or full-text search.
 
 ## CLI Help

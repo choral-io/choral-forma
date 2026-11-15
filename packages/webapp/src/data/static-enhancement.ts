@@ -1,4 +1,4 @@
-import { viewRoutePath } from "@/lib/workspace-routes";
+import { directoryForRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 
 import { resolveDashboardEntryTarget } from "./static-route-target";
 import { logicalPathname } from "./static-runtime";
@@ -22,13 +22,16 @@ export async function prepareStaticEnhancement(pathname: string) {
     const routePath = logicalPathname(pathname);
     const seed: PreparedStaticEnhancement = { dashboard };
 
-    if (routePath.startsWith("/pages/")) {
-        const target = resolveDashboardEntryTarget(dashboard, routePath);
-        if (!target) throw new Error(`Static artifact route was not listed: ${routePath}`);
+    const pageTarget = routePath.startsWith("/pages/") ? resolveDashboardEntryTarget(dashboard, routePath) : undefined;
+    const directory = directoryForRoutePath(dashboard.entries, routePath);
+    // A document served at a route wins; a directory page lists the dashboard's own entries.
+    if (pageTarget) {
         seed.entry = {
-            detail: await workspaceClient.getEntry(target.entryId, dashboardContext),
+            detail: await workspaceClient.getEntry(pageTarget.entryId, dashboardContext),
             routePath,
         };
+    } else if (routePath.startsWith("/pages/") && !directory) {
+        throw new Error(`Static artifact route was not listed: ${routePath}`);
     } else if (routePath.startsWith("/views/")) {
         const view = dashboard.views.find((candidate) => viewRoutePath(candidate.id) === routePath);
         if (!view) throw new Error(`Static artifact View route was not listed: ${routePath}`);
@@ -36,7 +39,7 @@ export async function prepareStaticEnhancement(pathname: string) {
             render: await workspaceClient.getViewRender(view.id, dashboardContext),
             viewId: view.id,
         };
-    } else if (!isDashboardOnlyRoute(dashboard, routePath)) {
+    } else if (!isDashboardOnlyRoute(dashboard, routePath) && !directory) {
         throw new Error(`Static artifact route cannot be enhanced: ${routePath}`);
     }
 

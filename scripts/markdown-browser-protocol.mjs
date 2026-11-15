@@ -31,6 +31,7 @@ export function markdownBrowserPhases(hosts, sourceIds) {
         `${host.name}: authored page and external image links`,
         ...(host.name === "static" ? ["static: raw source navigation beside sidecar"] : []),
         `${host.name}: long sidebar titles truncate without shifting the tree`,
+        `${host.name}: directory page opened directly`,
         `${host.name}: P1 syntax ${readingCount} cases, combined reading and themes`,
         `${host.name}: formatted callout samples and ${calloutCount} exact source cases`,
         `${host.name}: callout disclosure, rich header, navigation, focus and responsive themes`,
@@ -58,6 +59,7 @@ export function markdownBrowserPhases(hosts, sourceIds) {
             `static noscript: P1 syntax ${readingCount} cases and readable formula fallback`,
             `static noscript: formatted callout samples and ${calloutCount} exact source cases`,
             "static noscript: callout defaults, pointer/keyboard and header links",
+            "static noscript: directory page listing",
         ],
     });
     const disclosures = ["webapp", "static", "noscript"].map((name) => ({

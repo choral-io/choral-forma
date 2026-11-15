@@ -64,6 +64,12 @@ describe("directoryListing", () => {
         });
     });
 
+    it("leaves the workspace entry document out of the root listing", () => {
+        const root = directoryListing([{ path: ".forma.md", routePath: "/", title: "Home" }, ...entries], "");
+
+        expect(root?.entries.map((item) => item.path)).toEqual(["home.md"]);
+    });
+
     it("does not treat a document or an unknown path as a directory", () => {
         expect(directoryListing(entries, "notes/zeta.md")).toBeUndefined();
         expect(directoryListing(entries, "missing")).toBeUndefined();

@@ -101,7 +101,7 @@ pub use site::{
     StaticSiteEntryVariant, StaticSiteResourceCandidate, StaticSiteRoute, StaticSiteRouteKind,
     StaticSiteSnapshot, StaticSiteSnapshotSummary, StaticSiteSpace, StaticSiteTaxonomy,
     StaticSiteTaxonomyTerm, StaticSiteView, StaticSiteWorkspace, StaticSiteWorkspaceLogo,
-    build_static_site_snapshot, build_static_site_snapshot_with_root_path,
+    build_static_site_snapshot, build_static_site_snapshot_with_root_path, directory_route_path,
 };
 pub use tools::{
     SchemaValidateResult, StructuredFormat, ToolDescriptor, ToolsDescribeResult, ToolsListResult,

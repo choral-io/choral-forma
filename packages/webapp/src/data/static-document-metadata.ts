@@ -1,4 +1,4 @@
-import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
+import { directoryForRoutePath, taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "./static-route-target";
 import { logicalPathname, readStaticRuntimeConfig, rootAwareHref } from "./static-runtime";
 import type { WorkspaceDashboard } from "./workspace-client";
@@ -22,6 +22,14 @@ export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pat
 
     if (canonicalPath === "/pages") {
         return { canonicalPath, description: "Pages the workspace includes, by directory.", title: "Files" };
+    }
+    const directory = directoryForRoutePath(dashboard.entries, canonicalPath);
+    if (directory) {
+        return {
+            canonicalPath,
+            description: `Pages the workspace includes under ${directory}/.`,
+            title: directory.split("/").at(-1) ?? directory,
+        };
     }
     if (canonicalPath === "/views") {
         return { canonicalPath, description: "Configured workspace projections.", title: "Views" };

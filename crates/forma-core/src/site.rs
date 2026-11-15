@@ -92,6 +92,8 @@ pub enum StaticSiteRouteKind {
     View,
     Taxonomy,
     TaxonomyTerm,
+    /// A directory of indexed source paths, listing its folders and pages.
+    Directory,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -527,6 +529,11 @@ fn build_static_site_snapshot_from_loaded(
     }
     views.sort_by(|left, right| left.route_path.cmp(&right.route_path));
 
+    for route in directory_routes(&entries) {
+        route_sources.insert(route.path.to_ascii_lowercase(), None);
+        routes.push(route);
+    }
+
     let (taxonomies, taxonomy_routes) = static_taxonomies(workspace, &discovery.index.entries);
     for route in taxonomy_routes {
         route_sources.insert(route.path.to_ascii_lowercase(), None);
@@ -866,6 +873,53 @@ fn static_taxonomies(
         ))
     });
     (taxonomies, routes)
+}
+
+/// One route per directory that holds an indexed page, at `/pages/<directory path>`, so a
+/// directory URL is a real page on a static host. A directory served by a page of its own,
+/// such as its `index` file or a same-named page beside it, keeps that page instead.
+fn directory_routes(entries: &[StaticSiteEntry]) -> Vec<StaticSiteRoute> {
+    let page_routes = entries
+        .iter()
+        .flat_map(|entry| {
+            std::iter::once(entry.route_path.to_ascii_lowercase()).chain(
+                entry
+                    .variants
+                    .iter()
+                    .map(|variant| variant.route_path.to_ascii_lowercase()),
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    let directories = entries
+        .iter()
+        .flat_map(|entry| {
+            let segments = entry.path.split('/').collect::<Vec<_>>();
+            (1..segments.len())
+                .map(move |length| segments[..length].join("/"))
+                .collect::<Vec<_>>()
+        })
+        .collect::<BTreeSet<_>>();
+    directories
+        .into_iter()
+        .filter_map(|directory| {
+            let path = directory_route_path(&directory);
+            (!page_routes.contains(&path.to_ascii_lowercase())).then(|| StaticSiteRoute {
+                kind: StaticSiteRouteKind::Directory,
+                output_path: route_output_path(&path),
+                id: directory,
+                path,
+            })
+        })
+        .collect()
+}
+
+/// The route of a directory's page, encoded as page routes are; the empty path is `/pages`.
+pub fn directory_route_path(directory: &str) -> String {
+    if directory.is_empty() {
+        "/pages".to_string()
+    } else {
+        format!("/pages/{}", encode_path(directory))
+    }
 }
 
 fn support_routes() -> Vec<StaticSiteRoute> {
@@ -2299,6 +2353,59 @@ mod tests {
             1
         );
         assert!(!backlinks.contains_key("content/guides/third.md"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_routes_each_directory_that_no_page_serves() {
+        let root = copy_fixture("site-snapshot-directories");
+        fs::create_dir_all(root.join("content/guides/advanced")).unwrap();
+        fs::write(
+            root.join("content/guides/advanced/deep.md"),
+            "---\ntitle: Deep\nsummary: Nested page.\nstatus: published\n---\n\n# Deep\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("content/guides/advanced.md"),
+            "---\ntitle: Advanced\nsummary: Page that serves its directory.\nstatus: published\n---\n\n# Advanced\n",
+        )
+        .unwrap();
+
+        let snapshot = build_static_site_snapshot(&root).unwrap();
+        let directories = snapshot
+            .routes
+            .iter()
+            .filter(|route| route.kind == StaticSiteRouteKind::Directory)
+            .map(|route| {
+                (
+                    route.id.as_str(),
+                    route.path.as_str(),
+                    route.output_path.as_str(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            directories,
+            vec![
+                ("content", "/pages/content", "pages/content/index.html"),
+                (
+                    "content/guides",
+                    "/pages/content/guides",
+                    "pages/content/guides/index.html"
+                ),
+                ("local", "/pages/local", "pages/local/index.html"),
+            ],
+            "content/guides/advanced is served by advanced.md, so it gets no directory route"
+        );
+        assert!(
+            !snapshot
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "site.routeCollision"),
+            "{:?}",
+            snapshot.diagnostics
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

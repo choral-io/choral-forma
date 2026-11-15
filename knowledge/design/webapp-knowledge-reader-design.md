@@ -44,7 +44,7 @@ The WebApp is a knowledge-base reader. Its primary jobs, in order:
 
 The WebApp stays read-only. Markdown authoring remains in editors, and repository Markdown plus explicit Forma configuration remain the source of truth. The exclusions in the review-surface specification still apply: no Markdown editing, AI Chat, write operations, saved-view customization, or hidden frontend knowledge store.
 
-The technical approach does not change. The WebApp keeps React, React Router, Tailwind CSS, DaisyUI, and the package-local workspace client, and this design introduces no new Core, RPC, schema, or workspace contract.
+The technical approach does not change. The WebApp keeps React, React Router, Tailwind CSS, DaisyUI, and the package-local workspace client, and this design introduces no new RPC, schema, or workspace contract. Its one Core addition is a static export route kind for directory pages, described under [Routes](#routes).
 
 ## Shell Layout
 
@@ -120,7 +120,7 @@ Directory pages share the page namespace, because directories and documents come
 - A path that holds no indexed document is not a directory.
 - Directory pages reserve no name outside `/pages`, so they cannot collide with a taxonomy.
 
-`/browse` is titled `Collections` in the WebApp and in static export fallback pages. Static export does not yet generate directory pages, so a directory URL opened directly on a static host reaches the not-found page before enhancement; see [Deferred](#deferred).
+`/browse` is titled `Collections` in the WebApp and in static export fallback pages. Static export generates a page for each directory that no document serves, and `/pages` as the `Files` root, so a directory URL opened directly on a static host shows its listing before enhancement and without JavaScript. Core decides which directories get pages; the WebApp, the static fallback, and Core share one directory route encoding.
 
 ## Page Layout Modes
 
@@ -192,8 +192,7 @@ These are outside this design and need their own decision before implementation:
 - a focus or full-screen reading mode, withdrawn from the first version;
 - a Core-provided navigation projection shared by the WebApp, static export, and editor integrations;
 - link hover previews and transclusion;
-- a configurable directory landing document beyond Core's `index` route rule, such as a README file, which needs a configuration-model decision shared by every surface;
-- static export generation for directory pages.
+- a configurable directory landing document beyond Core's `index` route rule, such as a README file, which needs a configuration-model decision shared by every surface.
 
 ## Acceptance
 

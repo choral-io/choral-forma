@@ -370,6 +370,25 @@ export async function markdownBrowserScenarios(page, options) {
             `${host.name}: sidebar tree does not fit ${JSON.stringify(fit)}`,
         );
     };
+    // A directory URL opened directly is a real page: the static export writes it, and the
+    // enhanced app shows the same listing with the directory's name as its title.
+    const directoryPage = async (current, host, noScript = false) => {
+        const response = await current.goto(`${host.origin}${host.root}/pages/notes/sidebar/`);
+        assert(response?.status() === 200, `${host.name}: directory page status ${response?.status()}`);
+        if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
+        const heading = noScript ? current.locator("main h1") : current.locator("main h1").first();
+        assert((await heading.textContent())?.trim() === "sidebar", `${host.name}: directory page heading`);
+        assert(
+            (await current.locator('main a[href$="/pages/notes/sidebar/nested"]').count()) > 0,
+            `${host.name}: directory page folder link`,
+        );
+        if (host.name === "static" && !noScript) {
+            assert(
+                (await current.title()).startsWith("sidebar · "),
+                `static: directory title ${await current.title()}`,
+            );
+        }
+    };
     const calloutSourceCases = async (current, host, noScript = false) => {
         assert(
             Array.isArray(options.calloutBoundaries) && options.calloutBoundaries.length > 0,
@@ -854,6 +873,8 @@ export async function markdownBrowserScenarios(page, options) {
             }
             await sidebarTreeFit(current, host);
             results.push(`${host.name}: long sidebar titles truncate without shifting the tree`);
+            await directoryPage(current, host);
+            results.push(`${host.name}: directory page opened directly`);
             sourceCases.reading = await readingSyntax(current, host);
             results.push(`${host.name}: P1 syntax ${sourceCases.reading.length} cases, combined reading and themes`);
             sourceCases.callouts = await calloutSourceCases(current, host);
@@ -985,6 +1006,8 @@ export async function markdownBrowserScenarios(page, options) {
         );
         await callouts(current, host, true);
         results.push("static noscript: callout defaults, pointer/keyboard and header links");
+        await directoryPage(current, host, true);
+        results.push("static noscript: directory page listing");
     } catch (error) {
         await failure(current, "noscript", error);
     } finally {

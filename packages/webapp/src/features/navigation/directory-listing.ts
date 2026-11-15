@@ -34,6 +34,8 @@ export function directoryListing<T extends Pick<DashboardEntry, "path" | "routeP
     let found = directory.length === 0;
 
     for (const entry of entries) {
+        // The workspace entry document is the root's own page, Home, not one of the root's pages.
+        if (entry.routePath === "/") continue;
         const segments = entry.path.split("/").filter((segment) => segment.length > 0);
         if (!directory.every((segment, index) => segments[index] === segment)) continue;
         const rest = segments.slice(directory.length);

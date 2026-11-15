@@ -35,6 +35,16 @@ export function directoryPathFromRoutePath(routePath: string): string | undefine
     }
 }
 
+/**
+ * The directory a page route names when no document is served there: a path below `/pages`
+ * that holds at least one indexed document. Returns undefined for any other route.
+ */
+export function directoryForRoutePath(entries: readonly { path: string }[], routePath: string) {
+    const directory = directoryPathFromRoutePath(routePath);
+    if (!directory) return undefined;
+    return entries.some((entry) => entry.path.startsWith(`${directory}/`)) ? directory : undefined;
+}
+
 /** Core keeps ASCII letters, digits, and `-._~`; `encodeURIComponent` also keeps `!'()*`. */
 function encodePageRouteSegment(segment: string) {
     return encodeURIComponent(segment).replace(

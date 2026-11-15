@@ -476,6 +476,73 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
 }
 
 #[test]
+fn site_build_writes_directory_pages_that_no_page_serves() {
+    let root = fixture_root("site-build-directories");
+    std::fs::create_dir_all(&root).unwrap();
+    copy_starter_workspace(&root);
+    for (path, title) in [
+        ("notes/deep/inner.md", "Inner"),
+        ("notes/guide/index.md", "Guide Overview"),
+        ("notes/guide/setup.md", "Setup"),
+    ] {
+        std::fs::create_dir_all(root.join(path).parent().unwrap()).unwrap();
+        std::fs::write(
+            root.join(path),
+            format!(
+                "---\nkind: note\ntitle: {title}\nsummary: {title} fixture.\n---\n\n# {title}\n"
+            ),
+        )
+        .unwrap();
+    }
+
+    let output = forma(&root)
+        .args([
+            "site",
+            "build",
+            "--out",
+            "dist/site",
+            "--base-url",
+            "https://example.test",
+            "--root-path",
+            "/preview",
+            "--json",
+        ])
+        .output()
+        .expect("forma site build should run");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let read = |path: &str| std::fs::read_to_string(root.join("dist/site").join(path)).unwrap();
+    let notes = read("pages/notes/index.html");
+    assert!(notes.contains("<title>notes · "), "{notes}");
+    assert!(
+        notes.contains("href=\"/preview/pages/notes/deep\""),
+        "{notes}"
+    );
+    // A folder served by its own page links to that page and takes its title.
+    assert!(
+        notes.contains("href=\"/preview/pages/notes/guide\">Guide Overview</a>"),
+        "{notes}"
+    );
+    assert!(read("pages/notes/deep/index.html").contains("Inner"));
+    let guide = read("pages/notes/guide/index.html");
+    assert!(
+        guide.contains("data-static-entry-id"),
+        "the guide folder keeps its index page"
+    );
+    let files = read("pages/index.html");
+    assert!(files.contains("<title>Files · "), "{files}");
+    assert!(files.contains("href=\"/preview/pages/notes\""), "{files}");
+    let sitemap = read("sitemap.xml");
+    assert!(sitemap.contains("/preview/pages/notes/deep"), "{sitemap}");
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
 fn site_build_keeps_entry_aliases_out_of_resource_inventory() {
     let root = fixture_root("site-entry-alias-resources");
     std::fs::create_dir_all(&root).unwrap();

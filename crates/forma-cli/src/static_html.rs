@@ -4,7 +4,7 @@ use forma_core::render::ViewRenderFieldValue;
 use forma_core::{
     StaticSiteEntry, StaticSiteEntryVariant, StaticSiteRoute, StaticSiteRouteKind,
     StaticSiteSnapshot, StaticSiteTaxonomy, StaticSiteTaxonomyTerm, StaticSiteView, ViewRenderItem,
-    ViewRenderOutput,
+    ViewRenderOutput, directory_route_path,
 };
 
 pub(crate) struct StaticPage {
@@ -148,12 +148,17 @@ fn route_page(
         }
         StaticSiteRouteKind::Pages => Ok(page(
             route,
-            "Pages".to_string(),
-            "All published workspace entries.".to_string(),
-            format!(
-                "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Workspace</p><h1 class=\"text-3xl font-semibold\">Pages</h1></header>{}",
-                entry_list(snapshot.entries.iter(), root_path)
-            ),
+            "Files".to_string(),
+            "Pages the workspace includes, grouped by the directories of their source paths."
+                .to_string(),
+            directory_body(&snapshot.entries, "", root_path),
+            canonical_language.to_string(),
+        )),
+        StaticSiteRouteKind::Directory => Ok(page(
+            route,
+            directory_name(&route.id).to_string(),
+            format!("Pages the workspace includes under {}/.", route.id),
+            directory_body(&snapshot.entries, &route.id, root_path),
             canonical_language.to_string(),
         )),
         StaticSiteRouteKind::Views => Ok(page(
@@ -324,6 +329,97 @@ fn entry_list<'a>(entries: impl Iterator<Item = &'a StaticSiteEntry>, root_path:
         .collect::<String>();
     format!(
         "<section class=\"mt-8\"><h2 class=\"text-xl font-semibold\">Entries</h2><ul class=\"list mt-4\">{items}</ul></section>"
+    )
+}
+
+fn directory_name(directory: &str) -> &str {
+    directory.rsplit('/').next().unwrap_or(directory)
+}
+
+/// A directory's folders and then its pages, as the WebApp's directory page lists them. A page
+/// served at a folder's route, such as its `index` file, titles that folder instead of being
+/// listed on its own. The empty path is the workspace root, titled Files.
+fn directory_body(entries: &[StaticSiteEntry], directory: &str, root_path: &str) -> String {
+    let prefix: Vec<&str> = directory
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .collect();
+    let owners = entries
+        .iter()
+        .map(|entry| (entry.route_path.as_str(), entry))
+        .collect::<BTreeMap<_, _>>();
+    let mut folders = BTreeMap::<String, usize>::new();
+    let mut pages = Vec::new();
+    for entry in entries {
+        let segments: Vec<&str> = entry.path.split('/').collect();
+        if segments.len() <= prefix.len() || segments[..prefix.len()] != prefix[..] {
+            continue;
+        }
+        let rest = &segments[prefix.len()..];
+        if rest.len() > 1 {
+            *folders.entry(rest[0].to_string()).or_default() += 1;
+        } else {
+            pages.push(entry);
+        }
+    }
+
+    let folder_path = |name: &str| {
+        if prefix.is_empty() {
+            name.to_string()
+        } else {
+            format!("{}/{name}", prefix.join("/"))
+        }
+    };
+    let folder_routes = folders
+        .keys()
+        .map(|name| directory_route_path(&folder_path(name)))
+        .collect::<Vec<_>>();
+    pages.retain(|entry| !folder_routes.contains(&entry.route_path));
+    pages.sort_by_key(|entry| entry.title.as_deref().unwrap_or(&entry.path).to_lowercase());
+
+    let mut folder_rows = folders
+        .iter()
+        .map(|(name, count)| {
+            let route = directory_route_path(&folder_path(name));
+            let label = owners
+                .get(route.as_str())
+                .and_then(|owner| owner.title.as_deref())
+                .unwrap_or(name);
+            (label.to_lowercase(), format!(
+                "<li class=\"list-row\"><div class=\"list-col-grow\"><a class=\"link font-medium\" href=\"{}\">{}</a><p class=\"text-base-content/60 text-sm\">{}/</p></div><span class=\"text-base-content/60 text-sm\">{} {}</span></li>",
+                escape_attribute(&public_href(root_path, &route)),
+                escape_html(label),
+                escape_html(name),
+                count,
+                if *count == 1 { "page" } else { "pages" },
+            ))
+        })
+        .collect::<Vec<_>>();
+    folder_rows.sort_by(|left, right| left.0.cmp(&right.0));
+    let folders_html = if folder_rows.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<section class=\"mt-8\"><h2 class=\"text-xl font-semibold\">Folders</h2><ul class=\"list mt-4\">{}</ul></section>",
+            folder_rows
+                .into_iter()
+                .map(|(_, row)| row)
+                .collect::<String>()
+        )
+    };
+    let pages_html = if pages.is_empty() {
+        String::new()
+    } else {
+        entry_list(pages.into_iter(), root_path)
+    };
+    let (label, title) = if directory.is_empty() {
+        ("Workspace", "Files")
+    } else {
+        ("Files", directory_name(directory))
+    };
+    format!(
+        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">{label}</p><h1 class=\"text-3xl font-semibold\">{}</h1></header>{folders_html}{pages_html}",
+        escape_html(title),
     )
 }
 
