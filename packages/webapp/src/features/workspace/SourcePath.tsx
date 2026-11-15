@@ -1,4 +1,4 @@
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, X } from "lucide-react";
 
 import { copySourcePath } from "@/lib/copy-source-path";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ export function SourcePath({ className, path }: { className?: string; path: stri
             </code>
             <button
                 aria-label={`Copy source path ${path}`}
-                className="btn btn-square shrink-0 btn-ghost btn-xs"
+                className="btn btn-square shrink-0 btn-ghost btn-xs data-copy-failed:text-error"
                 onClick={(event) => {
                     void copySourcePath(event.currentTarget, path);
                 }}
@@ -21,6 +21,7 @@ export function SourcePath({ className, path }: { className?: string; path: stri
             >
                 <Copy aria-hidden="true" className="size-3.5" data-copy-icon />
                 <Check aria-hidden="true" className="hidden size-3.5" data-copied-icon />
+                <X aria-hidden="true" className="hidden size-3.5" data-copy-failed-icon />
             </button>
         </span>
     );

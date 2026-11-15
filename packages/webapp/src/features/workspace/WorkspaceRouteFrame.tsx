@@ -2,7 +2,7 @@ import { Menu, PanelLeftOpen } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
-import { workspaceDesktopDrawerId, workspaceDrawerId } from "@/app/App";
+import { mainContentId, workspaceDesktopDrawerId, workspaceDrawerId } from "@/app/App";
 import { headerIconButtonClassName, headerIconClassName } from "@/features/workspace/header-controls";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { ThemeDropdown } from "@/features/workspace/ThemeDropdown";
@@ -117,7 +117,7 @@ export function WorkspaceRouteFrame({
                 </div>
             </header>
 
-            <main className="min-h-0 min-w-0 overflow-auto">
+            <main className="min-h-0 min-w-0 overflow-auto outline-none" id={mainContentId} tabIndex={-1}>
                 {reading ? (
                     <div aria-hidden="true" className="sticky top-0 z-10 h-0">
                         <div className="h-0.5 bg-primary" data-reading-progress />

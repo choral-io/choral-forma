@@ -59,6 +59,7 @@ The shell has three regions: a navigation sidebar, the content column, and a pag
 - The sidebar is 18rem wide. Collapsing hides it completely; there is no icon rail, because a tree has no meaningful icon-only state.
 - The collapse state remains browser-owned presentation state. Initial rendering must not flash from expanded to collapsed.
 - The page header is one compact row that stays visible at every width. It carries the breadcrumb, the outline trigger where the outline is not persistent, the theme control, and page actions. While the sidebar is not shown, it also carries the control that opens it and Quick Open. It does not repeat the document title.
+- The first focus stop is a skip link that appears on focus and moves focus to the page heading, so keyboard users reach the page without tabbing through the sidebar.
 - The mobile floating action button is removed. The sticky header carries its actions.
 - Mobile navigation keeps the native dialog contract from the review-surface specification.
 

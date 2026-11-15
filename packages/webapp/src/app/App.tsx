@@ -12,6 +12,8 @@ import { requestRouteContentFocus } from "@/lib/route-focus";
 import { readSidebarOpenPreference, writeSidebarOpenPreference } from "@/lib/sidebar-preference";
 
 export const workspaceDrawerId = "workspace-navigation";
+/** The page content region, the target of the shell skip link. */
+export const mainContentId = "main-content";
 export const workspaceDesktopDrawerId = "workspace-sidebar";
 
 export function App() {
@@ -108,6 +110,19 @@ export function App() {
             data-enhancement-ready
             data-workspace-shell
         >
+            {/* The first focus stop, so keyboard users reach the page without tabbing through the sidebar. */}
+            <a
+                className="sr-only rounded-field bg-base-100 text-sm font-medium shadow-lg ring-2 ring-primary focus:not-sr-only focus:fixed focus:inset-s-2 focus:top-2 focus:z-50 focus:px-3 focus:py-2"
+                href={`#${mainContentId}`}
+                onClick={(event) => {
+                    event.preventDefault();
+                    const main = document.getElementById(mainContentId);
+                    // The page heading is also where route navigation puts focus.
+                    (main?.querySelector<HTMLElement>('h1[tabindex="-1"]') ?? main)?.focus();
+                }}
+            >
+                Skip to content
+            </a>
             <input
                 className="drawer-toggle"
                 defaultChecked={desktopDrawerInitiallyOpen}
