@@ -69,3 +69,28 @@ export function collectionIdsContaining(taxonomies: readonly DashboardTaxonomy[]
     }
     return ids;
 }
+
+export interface EntryClassification {
+    /** The taxonomy's id, unique among a document's classifications. */
+    key: string;
+    taxonomyTitle: string;
+    /** The taxonomy's terms that include the document, in configured order. */
+    terms: { key: string; title: string; to: string }[];
+}
+
+/**
+ * The configured terms that include `entryPath`, grouped by taxonomy in the read model's order,
+ * so a document can name where it is classified and link to each term. Taxonomies that do not
+ * classify the document are left out.
+ */
+export function entryClassifications(
+    taxonomies: readonly DashboardTaxonomy[],
+    entryPath: string,
+): EntryClassification[] {
+    return taxonomies.flatMap((taxonomy) => {
+        const terms = taxonomy.terms
+            .filter((term) => term.entries.some((entry) => entry.path === entryPath))
+            .map((term) => ({ key: term.id, title: term.title, to: taxonomyTermRoutePath(taxonomy.id, term.id) }));
+        return terms.length > 0 ? [{ key: taxonomy.id, taxonomyTitle: taxonomy.title, terms }] : [];
+    });
+}

@@ -1,5 +1,5 @@
-import { HeartPulse, PanelLeftClose } from "lucide-react";
-import { useId, useMemo, useSyncExternalStore } from "react";
+import { ChevronRight, HeartPulse, PanelLeftClose } from "lucide-react";
+import { useId, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 
 import { canonicalRoutePathFromLocation } from "@/data/static-route-target";
@@ -10,15 +10,16 @@ import { filesDefaultOpenIds, workspaceDefaultOpenIds } from "@/features/navigat
 import { NavigationTree } from "@/features/navigation/NavigationTree";
 import { useNavigationTrees } from "@/features/navigation/use-navigation-trees";
 import { FormaBrandIcon } from "@/features/workspace/FormaBrandIcon";
+import { headerIconButtonClassName, headerIconClassName } from "@/features/workspace/header-controls";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { canonicalEntryRoutePath } from "@/lib/entry-languages";
 import {
-    readSidebarTab,
-    sidebarTabs,
-    subscribeSidebarTab,
-    writeSidebarTab,
-    type SidebarTab,
-} from "@/lib/sidebar-tab-preference";
+    collapsedSidebarSections,
+    readCollapsedSidebarSections,
+    subscribeSidebarSections,
+    toggleSidebarSection,
+    type SidebarSection,
+} from "@/lib/sidebar-sections-preference";
 import { cn } from "@/lib/utils";
 
 interface WorkspaceSidebarProps {
@@ -45,9 +46,31 @@ export function WorkspaceSidebar({
         () => (currentEntryPath ? collectionIdsContaining(dashboard.taxonomies, currentEntryPath) : undefined),
         [currentEntryPath, dashboard.taxonomies],
     );
-    const tabGroupId = useId();
-    const tab = useSyncExternalStore(subscribeSidebarTab, readSidebarTab);
-    const nodes = tab === "files" ? trees.files : trees.workspace;
+    const collapsed = collapsedSidebarSections(
+        useSyncExternalStore(subscribeSidebarSections, readCollapsedSidebarSections),
+    );
+    const sections = [
+        { id: "files", label: "Files", nodes: trees.files, defaultOpenIds: filesDefaultOpenIds(trees.files) },
+        {
+            id: "workspace",
+            label: "Workspace",
+            nodes: trees.workspace,
+            defaultOpenIds: workspaceDefaultOpenIds(trees.workspace),
+        },
+    ] satisfies { id: SidebarSection; label: string; nodes: unknown[]; defaultOpenIds: string[] }[];
+    const visibleSections = sections.filter((section) => section.nodes.length > 0);
+    const filesExpanded = visibleSections.some((section) => section.id === "files" && !collapsed.has("files"));
+
+    /**
+     * Files fills the sidebar while it is expanded, and Workspace keeps a bounded, content-sized
+     * panel at the bottom, so expanding directories never moves it. Once Files is collapsed,
+     * Workspace grows with its content into the space Files left.
+     */
+    function sectionSizing(section: SidebarSection) {
+        if (collapsed.has(section)) return "shrink-0";
+        if (section === "files") return "flex-1";
+        return filesExpanded ? "max-h-[45%] shrink-0" : "flex-[0_1_auto]";
+    }
     const healthFindingCount = dashboard.health.findings.filter((finding) => finding.severity !== "info").length;
 
     return (
@@ -73,7 +96,7 @@ export function WorkspaceSidebar({
                 {collapsible && toggleId ? (
                     <button
                         aria-label="Hide workspace sidebar"
-                        className="btn btn-square shrink-0 btn-ghost btn-sm"
+                        className={cn(headerIconButtonClassName, "shrink-0")}
                         data-sidebar-toggle
                         onClick={() => {
                             const toggle = document.getElementById(toggleId);
@@ -82,7 +105,7 @@ export function WorkspaceSidebar({
                         title="Hide workspace sidebar"
                         type="button"
                     >
-                        <PanelLeftClose aria-hidden="true" className="size-5" />
+                        <PanelLeftClose aria-hidden="true" className={headerIconClassName} />
                     </button>
                 ) : null}
             </div>
@@ -95,43 +118,27 @@ export function WorkspaceSidebar({
                 </ul>
             ) : null}
 
-            {/* Two views of the workspace; switching never changes the route. */}
-            <fieldset className="tabs-box mx-2 mt-2 tabs grid shrink-0 grid-cols-2 tabs-sm">
-                <legend className="sr-only">Sidebar view</legend>
-                {sidebarTabs.map((value) => (
-                    <input
-                        aria-label={tabLabels[value]}
-                        checked={tab === value}
-                        className="tab"
-                        key={value}
-                        name={tabGroupId}
-                        onChange={() => {
-                            writeSidebarTab(value);
+            <div className="flex min-h-0 flex-1 flex-col pt-2">
+                {visibleSections.map((section) => (
+                    <SidebarSectionPanel
+                        collapsed={collapsed.has(section.id)}
+                        key={section.id}
+                        label={section.label}
+                        onToggle={() => {
+                            toggleSidebarSection(section.id);
                         }}
-                        type="radio"
-                    />
+                        sizing={sectionSizing(section.id)}
+                    >
+                        <NavigationTree
+                            containsCurrentIds={section.id === "workspace" ? containsCurrentIds : undefined}
+                            defaultOpenIds={section.defaultOpenIds}
+                            nodes={section.nodes}
+                            onNavigate={onNavigate}
+                            routePath={routePath}
+                        />
+                    </SidebarSectionPanel>
                 ))}
-            </fieldset>
-
-            {/* `overflow-x-clip`, unlike hidden, is no horizontal scroll container, so revealing or
-                focusing a row can never shift the tree sideways even if a row overflows. */}
-            <nav aria-label={tabLabels[tab]} className="min-h-0 flex-1 overflow-x-clip overflow-y-auto pt-1">
-                {nodes.length > 0 ? (
-                    <NavigationTree
-                        containsCurrentIds={tab === "workspace" ? containsCurrentIds : undefined}
-                        defaultOpenIds={
-                            tab === "workspace" ? workspaceDefaultOpenIds(nodes) : filesDefaultOpenIds(nodes)
-                        }
-                        // A fresh tree on switching reveals the current page in the newly shown view.
-                        key={tab}
-                        nodes={nodes}
-                        onNavigate={onNavigate}
-                        routePath={routePath}
-                    />
-                ) : (
-                    <p className="p-4 text-sm text-base-content/60">{emptyLabels[tab]}</p>
-                )}
-            </nav>
+            </div>
 
             <nav aria-label="Workspace status" className="shrink-0 border-t border-base-300">
                 <ul className="menu w-full">
@@ -149,11 +156,55 @@ export function WorkspaceSidebar({
     );
 }
 
-const tabLabels = { files: "Files", workspace: "Workspace" } satisfies Record<SidebarTab, string>;
-const emptyLabels = {
-    files: "No pages are indexed.",
-    workspace: "No taxonomies or Views are configured.",
-} satisfies Record<SidebarTab, string>;
+/** A collapsible sidebar section with its own scroll area; `sizing` sets its share of the height. */
+function SidebarSectionPanel({
+    children,
+    collapsed,
+    label,
+    onToggle,
+    sizing,
+}: {
+    children: ReactNode;
+    collapsed: boolean;
+    label: string;
+    onToggle: () => void;
+    sizing: string;
+}) {
+    const bodyId = useId();
+
+    return (
+        <section className={cn("flex min-h-0 flex-col border-t border-base-300 first:border-t-0", sizing)}>
+            <h2 className="shrink-0">
+                <button
+                    aria-controls={collapsed ? undefined : bodyId}
+                    aria-expanded={!collapsed}
+                    className="flex w-full cursor-pointer items-center gap-1 px-3 py-1.5 text-xs font-semibold tracking-wide text-base-content/70 uppercase outline-none hover:text-base-content focus-visible:ring-2 focus-visible:ring-base-content/30 focus-visible:ring-inset"
+                    onClick={onToggle}
+                    type="button"
+                >
+                    <ChevronRight
+                        aria-hidden="true"
+                        className={cn("size-3.5 shrink-0 motion-safe:transition-transform", !collapsed && "rotate-90")}
+                    />
+                    {label}
+                </button>
+            </h2>
+            {collapsed ? null : (
+                // `overflow-x-clip`, unlike hidden, is no horizontal scroll container, so revealing or
+                // focusing a row can never shift the tree sideways even if a row overflows. The vertical
+                // margin insets the scroll area itself, so rows never scroll flush against the section's
+                // edges; scroll padding keeps a revealed row the same distance away.
+                <nav
+                    aria-label={label}
+                    className="my-1.5 min-h-0 flex-1 scroll-py-2 overflow-x-clip overflow-y-auto"
+                    id={bodyId}
+                >
+                    {children}
+                </nav>
+            )}
+        </section>
+    );
+}
 
 function SidebarLink({
     active,

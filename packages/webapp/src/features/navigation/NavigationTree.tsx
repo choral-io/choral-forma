@@ -72,7 +72,7 @@ export function NavigationTree({
         // daisyUI lays a menu and each item out as a wrapping flex column, which grows to its widest
         // row; without wrapping, a long label truncates inside the tree instead of widening it.
         // The tree's container labels it, so the list carries no name of its own.
-        <ul className="menu w-full flex-nowrap [&_li]:flex-nowrap" ref={rootRef}>
+        <ul className="menu w-full flex-nowrap py-1 [&_li]:flex-nowrap" ref={rootRef}>
             {nodes.map((node) => (
                 <NavigationRow
                     containsCurrentIds={containsCurrentIds}

@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { workspaceDesktopDrawerId, workspaceDrawerId } from "@/app/App";
+import { headerIconButtonClassName, headerIconClassName } from "@/features/workspace/header-controls";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { ThemeDropdown } from "@/features/workspace/ThemeDropdown";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
@@ -60,7 +61,7 @@ export function WorkspaceRouteFrame({
                 <button
                     aria-controls={workspaceDrawerId}
                     aria-label="Open workspace navigation"
-                    className="btn btn-square btn-ghost lg:hidden"
+                    className={cn(headerIconButtonClassName, "lg:hidden")}
                     type="button"
                     onClick={() => {
                         const dialog = document.getElementById(workspaceDrawerId);
@@ -76,11 +77,11 @@ export function WorkspaceRouteFrame({
                         }
                     }}
                 >
-                    <Menu aria-hidden="true" />
+                    <Menu aria-hidden="true" className={headerIconClassName} />
                 </button>
                 <button
                     aria-label="Show workspace sidebar"
-                    className={cn("btn btn-square btn-ghost max-lg:hidden", sidebarHiddenOnly)}
+                    className={cn(headerIconButtonClassName, "max-lg:hidden", sidebarHiddenOnly)}
                     data-sidebar-expand
                     onClick={() => {
                         const toggle = document.getElementById(workspaceDesktopDrawerId);
@@ -89,7 +90,7 @@ export function WorkspaceRouteFrame({
                     title="Show workspace sidebar"
                     type="button"
                 >
-                    <PanelLeftOpen aria-hidden="true" />
+                    <PanelLeftOpen aria-hidden="true" className={headerIconClassName} />
                 </button>
                 <nav aria-label="Breadcrumb" className="breadcrumbs min-w-0 flex-1 scrollbar-none px-2 text-sm">
                     <ul>

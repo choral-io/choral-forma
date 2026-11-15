@@ -68,16 +68,16 @@ The sidebar contains, top to bottom:
 
 - workspace identity, which links to Home;
 - Quick Open;
-- two tabs, `Files` and `Workspace`, and the tree of the selected tab;
+- two stacked sections, `Files` and then `Workspace`;
 - a fixed footer with Health.
 
 Health shows a count only when findings require attention.
 
-`Files` shows the source tree and `Workspace` the configuration-derived tree, as an editor's explorer and the editor extension's Forma tree do. The tabs are two views of the same workspace, not navigation strategies: the breadcrumb, adjacent documents, and routes never depend on the selected tab, and every document has exactly one place in the sidebar.
+`Files` shows the source tree and `Workspace` the configuration-derived tree below it, as an editor's explorer stacks its own views. Both stay visible together, so the current page always has its row in `Files` while `Workspace` shows where that page is classified. The breadcrumb, adjacent documents, and routes depend on `Files` alone, and every document has exactly one place in the sidebar.
 
-### Tabs
+### Sections
 
-`Files` is selected by default. The selection persists in browser-local presentation state and is not business state. The selected tree uses the full height of the sidebar and scrolls on its own. Navigating never switches tabs, so browsing taxonomies in `Workspace` is not interrupted by opening a document; switching tabs reveals the current page in the newly shown tree when it has a row there.
+Each section has a heading row that collapses and expands it. Collapse state persists in browser-local presentation state and is not business state, and the desktop sidebar and the mobile drawer share it. Each expanded section scrolls on its own. While `Files` is expanded it fills the remaining height, and `Workspace` is as tall as its content up to a bounded share of the sidebar, so expanding directories never moves it and a long page tree never pushes it out of reach. While `Files` is collapsed, `Workspace` grows with its content into the freed space. A section with nothing to show is omitted.
 
 **Files** derives a directory tree from each entry's source path, starting at the workspace root: the directory that contains `.forma.md`, against which every configured path resolves.
 
@@ -96,12 +96,12 @@ Health shows a count only when findings require attention.
 - Terms do not list their entries. The term page does, so a document's sidebar location stays unique.
 - The `Views` group opens the Views index and lists the configured Views in the read model's order. Each View shows its renderer kind and opens its projection route. The group is omitted when no View is configured.
 
-No tab hard-codes a taxonomy name, a directory name, or an example-domain concept.
+No section hard-codes a taxonomy name, a directory name, or an example-domain concept.
 
 ### Shared Tree Behavior
 
 - Navigation and disclosure are separate controls. Activating one never performs the other.
-- Exactly one row in the sidebar is the current page, and it is marked without relying on color alone. The branches above it expand and it scrolls into view. A current row that is itself a branch, such as a directory, a taxonomy, or `Views`, keeps the reader's disclosure state: following its link never expands or collapses it. `Workspace` starts with every root expanded, so taxonomies show their terms and the `Views` group its Views. `Files` starts with its root folders collapsed, except that a root holding a single folder and nothing else but Home starts with that folder expanded, since it adds a level without a choice. Other branches start collapsed. Expansion state is component-local and does not persist; switching tabs starts the shown tree from these defaults again.
+- Exactly one row in the sidebar is the current page, and it is marked without relying on color alone. The branches above it expand and it scrolls into view. A current row that is itself a branch, such as a directory, a taxonomy, or `Views`, keeps the reader's disclosure state: following its link never expands or collapses it. `Workspace` starts with every root expanded, so taxonomies show their terms and the `Views` group its Views. `Files` starts with its root folders collapsed, except that a root holding a single folder and nothing else but Home starts with that folder expanded, since it adds a level without a choice. Other branches start collapsed. Expansion state is component-local and does not persist; collapsing and expanding a section starts its tree from these defaults again.
 - On a document route, each taxonomy and term row in `Workspace` whose term includes the document carries a secondary "contains the current page" marker. The marker does not expand anything and is not the current page.
 - Children render only while their branch is expanded.
 - Titles may repeat. When siblings share a label, compared as sorting compares it, each shows a secondary description that tells them apart: the file name for a document, the directory name for a titled directory, and the configured id for a taxonomy, term, or View. Titles themselves are unchanged, and rows under different parents are told apart by position. Adjacent-document links show the same description.
@@ -113,7 +113,7 @@ Existing routes keep their meaning and precedence so that static export URLs and
 
 Directory pages share the page namespace, because directories and documents come from the same source paths:
 
-- `/pages` is the workspace root's directory page, titled `Files` like the tab that shows the same tree. It replaces the flat page index; every indexed page remains reachable from it, from the `Files` tree, and from Quick Open.
+- `/pages` is the workspace root's directory page, titled `Files` like the sidebar section that shows the same tree. It replaces the flat page index; every indexed page remains reachable from it, from the `Files` tree, and from Quick Open.
 - `/pages/<directory path>` is a directory's page. A route resolves to a document first; when no document owns it, it resolves to the directory; otherwise it reaches the not-found page.
 - When a document owns a directory's route, through Core's existing rule that `x/index.md` is served at `/pages/x` or through a `x.md` beside `x/`, the document page shows the document and then the directory's listing. The WebApp adds no filename convention of its own, and the listing stays reachable.
 - A path that holds no indexed document is not a directory.
@@ -132,14 +132,14 @@ Directory pages share the page namespace, because directories and documents come
 
 ### Home
 
-Home renders the workspace entry document, `.forma.md`, as an ordinary document in the reading layout. A short recently updated list follows the document body. Configured View entry rows are no longer a Home section; the `Workspace` tab owns them. Health still appears on Home only when a finding requires attention.
+Home renders the workspace entry document, `.forma.md`, as an ordinary document in the reading layout. A short recently updated list follows the document body. Configured View entry rows are no longer a Home section; the `Workspace` section owns them. Health still appears on Home only when a finding requires attention.
 
 ## Reader
 
 A document route presents, top to bottom:
 
 1. **Breadcrumb**, in the page header: `Files` and each containing directory, each opening its directory page. It does not repeat the document title. Taxonomy and term pages show `Collections` and the taxonomy.
-2. **Document header**: the title as the only `h1`, the summary, and one line of metadata with the updated time, language variants, a status label when the entry is not healthy, and the source path followed by an icon that copies it. View pages show their source path the same way.
+2. **Document header**: the title as the only `h1`, the summary, and one line of metadata with the updated time, language variants, the terms that classify it, grouped under each taxonomy's name with each term linked to its term page, a status label when the entry is not healthy, and the source path followed by an icon that copies it. View pages show their source path the same way.
 3. **Body**, typeset as described under [Typography](#typography).
 4. **Related documents**, expanded by default: backlinks first, then outgoing references, as row lists. Unresolved references keep a non-color warning treatment. Diagnostics appear only when present and stay in a closed disclosure.
 5. **Adjacent documents**: previous and next documents in the same directory of the `Files` tree. The control is omitted when there are no siblings.
@@ -200,11 +200,11 @@ The acceptance matrix in [[design/webapp-review-surface-design]] still applies t
 
 ### Navigation Acceptance
 
-- Every indexed document and every directory that holds one is reachable from the `Files` tab, and every configured taxonomy, term, and View from the `Workspace` tab.
+- Every indexed document and every directory that holds one is reachable from the `Files` section, and every configured taxonomy, term, and View from the `Workspace` section.
 - Exactly one sidebar row is marked as the current page, without relying on color alone, and it is revealed. Terms that include the current document carry a secondary marker.
 - Taxonomies, terms, and Views follow configured display order; configured icons and colors apply where supported.
 - Navigation and disclosure work independently by pointer and by keyboard.
-- The selected tab and sidebar collapse state survive reload without a layout flash.
+- Section and sidebar collapse state survive reload without a layout flash.
 - No taxonomy title, directory name, or filename is treated as a built-in assumption.
 - Long titles, deep directory chains, and large terms remain usable at every target width.
 
@@ -230,7 +230,7 @@ The acceptance matrix in [[design/webapp-review-surface-design]] still applies t
 This document replaces the following parts of [[design/webapp-review-surface-design]]:
 
 - `Product Position`: the WebApp is a knowledge-base reader first; workspace review is one of its jobs rather than its identity.
-- `Expanded Desktop Navigation`: the sidebar now persistently presents documents, taxonomies and terms, and Views in two tabs.
+- `Expanded Desktop Navigation`: the sidebar now persistently presents documents, taxonomies and terms, and Views in two stacked sections.
 - `Collapsed Desktop Navigation`: the icon rail is replaced by full collapse.
 - `Home` under `Page Layout Modes`, and `Home Acceptance`.
 - `Reader` under `Page Layout Modes`, and `Reader Acceptance`: the outline and related documents are no longer closed by default, and a persistent outline region is allowed.

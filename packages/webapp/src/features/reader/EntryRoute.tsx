@@ -10,14 +10,17 @@ import { workspaceClient } from "@/data/workspace-client-source";
 import { DirectoryContents, DirectoryPage } from "@/features/browse/DirectoryPage";
 import { PagesList } from "@/features/browse/PagesList";
 import { recentlyUpdatedEntries } from "@/features/browse/recent-entries";
+import { entryClassifications } from "@/features/navigation/collection-tree";
 import { directoryListing, listingCounts } from "@/features/navigation/directory-listing";
 import { directoryOwners } from "@/features/navigation/directory-owners";
 import { navigationSiblings } from "@/features/navigation/navigation-tree";
 import { useNavigationTrees } from "@/features/navigation/use-navigation-trees";
+import { headerIconButtonClassName, headerIconClassName } from "@/features/workspace/header-controls";
 import { EmptyPage } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
-import { canonicalEntries, canonicalEntryRoutePath } from "@/lib/entry-languages";
+import { canonicalEntries, canonicalEntryFor, canonicalEntryRoutePath } from "@/lib/entry-languages";
+import { cn } from "@/lib/utils";
 import { directoryPathFromRoutePath } from "@/lib/workspace-routes";
 
 import { entryDirectoryBreadcrumb } from "./entry-breadcrumb";
@@ -164,13 +167,13 @@ function EntryRouteContent({
                         <button
                             aria-controls={outlineDialogId}
                             aria-label="Open outline"
-                            className="btn btn-square btn-ghost xl:hidden"
+                            className={cn(headerIconButtonClassName, "xl:hidden")}
                             onClick={(event) => {
                                 openOutlineDialog(event.currentTarget);
                             }}
                             type="button"
                         >
-                            <ListTree aria-hidden="true" />
+                            <ListTree aria-hidden="true" className={headerIconClassName} />
                         </button>
                     ) : null}
                 </>
@@ -194,6 +197,11 @@ function EntryRouteContent({
                     ) : undefined
                 }
                 canonicalLanguage={dashboard.canonicalLanguage}
+                classifications={entryClassifications(
+                    dashboard.taxonomies,
+                    // A language variant is classified through the document it belongs to.
+                    canonicalEntryFor(dashboard.entries, entry.path)?.path ?? entry.path,
+                )}
                 entry={entry}
                 entries={dashboard.entries}
                 isLoadingDetail={isEntryDetailLoading}

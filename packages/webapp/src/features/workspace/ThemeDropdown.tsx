@@ -1,5 +1,6 @@
 import { Check, Moon, Sun, SunMoon } from "lucide-react";
 
+import { headerIconButtonClassName, headerIconClassName } from "@/features/workspace/header-controls";
 import type { ThemePreference } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
 
@@ -32,13 +33,13 @@ export function ThemeDropdown({
         <>
             <button
                 aria-label={`Theme: ${currentOption.label}`}
-                className={cn("btn btn-square btn-ghost", className)}
+                className={cn(headerIconButtonClassName, className)}
                 popoverTarget={themePopoverId}
                 style={{ anchorName: themePopoverAnchor }}
                 title={`Theme: ${currentOption.label}`}
                 type="button"
             >
-                <CurrentIcon aria-hidden="true" />
+                <CurrentIcon aria-hidden="true" className={headerIconClassName} />
             </button>
             <ul
                 aria-label="Theme"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCollectionTree, buildViewTree, collectionIdsContaining } from "./collection-tree";
+import { buildCollectionTree, buildViewTree, collectionIdsContaining, entryClassifications } from "./collection-tree";
 import { buildFileTree } from "./file-tree";
 import {
     describeDuplicateSiblings,
@@ -218,6 +218,35 @@ describe("buildCollectionTree", () => {
 
         expect(tree[0]?.description).toBeUndefined();
         expect(tree[0]?.children?.map((node) => node.description)).toEqual(["design", "design-ops", undefined]);
+    });
+
+    it("groups the terms that classify a document by taxonomy, in configured order", () => {
+        const several = [
+            {
+                id: "areas",
+                title: "Areas",
+                terms: [
+                    { id: "design", title: "Design", entries: [entry("a.md", "A")] },
+                    { id: "ops", title: "Ops", entries: [] },
+                    { id: "build", title: "Build", entries: [entry("a.md", "A")] },
+                ],
+            },
+            { id: "status", title: "Status", terms: [{ id: "draft", title: "Draft", entries: [] }] },
+            { id: "tags", title: "Tags", terms: [{ id: "shared", title: "Shared", entries: [entry("a.md", "A")] }] },
+        ] as unknown as Parameters<typeof entryClassifications>[0];
+
+        expect(entryClassifications(several, "a.md")).toEqual([
+            {
+                key: "areas",
+                taxonomyTitle: "Areas",
+                terms: [
+                    { key: "design", title: "Design", to: "/areas/design" },
+                    { key: "build", title: "Build", to: "/areas/build" },
+                ],
+            },
+            { key: "tags", taxonomyTitle: "Tags", terms: [{ key: "shared", title: "Shared", to: "/tags/shared" }] },
+        ]);
+        expect(entryClassifications(several, "c.md")).toEqual([]);
     });
 
     it("finds every row that classifies a document", () => {

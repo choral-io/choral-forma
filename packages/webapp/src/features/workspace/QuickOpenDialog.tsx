@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import type { WorkspaceDashboard } from "@/data/workspace-client";
+import { headerIconButtonClassName, headerIconClassName } from "@/features/workspace/header-controls";
 import { cn } from "@/lib/utils";
 import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 
@@ -87,7 +88,7 @@ export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpen
             className={cn(
                 isSidebarTrigger
                     ? "gap-3 leading-5 outline-none focus-visible:ring-2 focus-visible:ring-base-content/30"
-                    : "btn btn-square btn-ghost",
+                    : headerIconButtonClassName,
                 className,
             )}
             onClick={(event) => {
@@ -96,7 +97,7 @@ export function QuickOpenTrigger({ className, onBeforeOpen, trigger }: QuickOpen
             title={trigger === "header" ? "Quick open (Ctrl/⌘ K)" : undefined}
             type="button"
         >
-            <Search aria-hidden="true" className={isSidebarTrigger ? "size-5 shrink-0" : undefined} />
+            <Search aria-hidden="true" className={isSidebarTrigger ? "size-5 shrink-0" : headerIconClassName} />
             {isSidebarTrigger ? (
                 <>
                     <span className="min-w-0 flex-1 truncate">Quick open</span>

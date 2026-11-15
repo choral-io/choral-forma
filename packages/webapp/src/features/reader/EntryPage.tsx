@@ -4,6 +4,7 @@ import { Link } from "react-router";
 
 import type { DashboardDiagnostic, DashboardEntry, WorkspaceHealth } from "@/data/workspace-client";
 import { DiagnosticsPanel } from "@/features/diagnostics/DiagnosticsPanel";
+import type { EntryClassification } from "@/features/navigation/collection-tree";
 import type { NavigationNode } from "@/features/navigation/navigation-tree";
 import { SourcePath } from "@/features/workspace/SourcePath";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
@@ -55,6 +56,7 @@ export function EntryPage({
     adjacent,
     afterBody,
     canonicalLanguage,
+    classifications = [],
     entry,
     entries,
     isLoadingDetail,
@@ -69,6 +71,8 @@ export function EntryPage({
     afterBody?: ReactNode;
     /** The workspace's canonical language, when the read model reports it. */
     canonicalLanguage?: string;
+    /** The configured terms that include the document. */
+    classifications?: EntryClassification[];
     entry: DashboardEntry;
     entries: DashboardEntry[];
     isLoadingDetail: boolean;
@@ -118,6 +122,9 @@ export function EntryPage({
                                 Updated {entry.updatedLabel}
                             </time>
                             {languageVersions.length > 1 ? <EntryLanguageSwitch versions={languageVersions} /> : null}
+                            {classifications.length > 0 ? (
+                                <EntryClassifications classifications={classifications} />
+                            ) : null}
                             {entry.status !== "healthy" ? (
                                 <span className={healthBadgeClass(entry.status)}>{entry.status}</span>
                             ) : null}
@@ -252,6 +259,36 @@ export function EntryPage({
                 </dialog>
             ) : null}
         </div>
+    );
+}
+
+/**
+ * Where the document is classified: each taxonomy once, followed by its terms that include the
+ * document, each linked to its term page. Groups are separated by a middle dot.
+ */
+function EntryClassifications({ classifications }: { classifications: EntryClassification[] }) {
+    return (
+        // An explicit role: Safari drops list semantics from a list whose markers are removed.
+        <ul aria-label="Classifications" className="flex flex-wrap items-center gap-x-2 gap-y-1" role="list">
+            {classifications.map((classification, index) => (
+                <li className="flex flex-wrap items-baseline gap-x-1" key={classification.key}>
+                    {index > 0 ? (
+                        <span aria-hidden="true" className="me-1">
+                            ·
+                        </span>
+                    ) : null}
+                    <span>{classification.taxonomyTitle}:</span>
+                    {classification.terms.map((term, termIndex) => (
+                        <span key={term.key}>
+                            <Link className="link text-base-content/80 link-hover" to={term.to}>
+                                {term.title}
+                            </Link>
+                            {termIndex < classification.terms.length - 1 ? "," : null}
+                        </span>
+                    ))}
+                </li>
+            ))}
+        </ul>
     );
 }
 
