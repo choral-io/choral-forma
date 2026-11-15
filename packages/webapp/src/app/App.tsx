@@ -142,7 +142,12 @@ export function App() {
                 type="checkbox"
             />
             <div className="drawer-side max-lg:hidden lg:group-has-[#workspace-focus-mode:checked]/shell:hidden">
-                <aside className="flex h-full flex-col overflow-hidden bg-base-200 text-base-content is-drawer-close:invisible is-drawer-close:w-0 is-drawer-open:w-72">
+                {/* Clipped rather than hidden: a hidden overflow is still a scroll container that focus or
+                    scrollIntoView can shift, while the sidebar's own trees own all of its scrolling. */}
+                <aside
+                    aria-label="Workspace navigation"
+                    className="flex h-full flex-col overflow-clip bg-base-200 text-base-content is-drawer-close:invisible is-drawer-close:w-0 is-drawer-open:w-sidebar"
+                >
                     <WorkspaceSidebar
                         dashboard={dashboard}
                         onNavigate={closeNavigation}
@@ -156,6 +161,7 @@ export function App() {
                 </Suspense>
             </div>
             <dialog
+                aria-label="Workspace navigation"
                 className="modal modal-start bg-neutral/40 p-0 backdrop-blur-xs outline-none motion-reduce:transition-none lg:hidden"
                 id={workspaceDrawerId}
                 ref={navigationDialogRef}
@@ -167,7 +173,7 @@ export function App() {
                     }
                 }}
             >
-                <div className="modal-box h-svh max-h-none w-72 max-w-[calc(100vw-3rem)] rounded-none bg-base-200 p-0 text-base-content">
+                <div className="modal-box h-svh max-h-none w-sidebar max-w-[calc(100vw-3rem)] rounded-none bg-base-200 p-0 text-base-content">
                     <WorkspaceSidebar
                         collapsible={false}
                         dashboard={dashboard}

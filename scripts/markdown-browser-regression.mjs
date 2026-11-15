@@ -154,6 +154,12 @@ try {
         join(workspace, "notes/raw-source.txt.md"),
         "# Raw source sidecar\n\n[Original source](./raw-source.txt?download=1#part)\n\n[Directory entry](./resource-directory.txt#details)\n",
     );
+    // A deep, long-titled page probes that the sidebar tree truncates instead of widening.
+    await mkdir(join(workspace, "notes/sidebar/nested"), { recursive: true });
+    await writeFile(
+        join(workspace, "notes/sidebar/nested/long-title.md"),
+        "# Sidebar Fit Probe With An Exceptionally Long Title That Must Truncate Inside The Navigation Tree\n\nBody.\n",
+    );
     for (const fixture of disclosureCases) {
         await writeFile(join(workspace, "notes", `fold-${fixture.id}.md`), `# Disclosure case\n\n${fixture.source}\n`);
     }

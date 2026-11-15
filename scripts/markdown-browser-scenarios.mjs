@@ -33,7 +33,10 @@ export async function markdownBrowserScenarios(page, options) {
     const rawSource = async (current, host, noScript = false) => {
         await current.goto(`${host.origin}${host.root}/pages/notes/raw-source.txt/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
-        const directory = current.getByRole("link", { name: "Directory entry", exact: true });
+        // Scoped to the document: the sidebar titles that directory with the same "Directory entry" heading.
+        const directory = current
+            .locator('[data-reader="markdown"]')
+            .getByRole("link", { name: "Directory entry", exact: true });
         const directoryHref = `${host.root}/pages/notes/resource-directory.txt#details`;
         assert(
             (await directory.getAttribute("href")) === directoryHref,
@@ -55,7 +58,9 @@ export async function markdownBrowserScenarios(page, options) {
         );
         await current.goto(`${host.origin}${host.root}/pages/notes/raw-source.txt/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
-        const original = current.getByRole("link", { name: "Original source", exact: true });
+        const original = current
+            .locator('[data-reader="markdown"]')
+            .getByRole("link", { name: "Original source", exact: true });
         const href = `${host.root}/raw/notes/raw-source.txt?download=1#part`;
         assert((await original.getAttribute("href")) === href, "static: raw source shadowed by sidecar");
         const responseReady = current.waitForResponse(
@@ -340,6 +345,30 @@ export async function markdownBrowserScenarios(page, options) {
         await current.setViewportSize({ width: 1280, height: 900 });
         await current.emulateMedia({ colorScheme: "light" });
         return completed;
+    };
+    // daisyUI menus wrap as flex columns that grow to their widest row, and a hidden overflow
+    // is still scrollable; either lets a long title shift or clip the sidebar tree.
+    const sidebarTreeFit = async (current, host) => {
+        await current.setViewportSize({ width: 1280, height: 900 });
+        await current.goto(`${host.origin}${host.root}/pages/notes/sidebar/nested/long-title/`);
+        await current.locator("[data-enhancement-ready]").waitFor();
+        const tree = current.locator('.drawer-side nav[aria-label="Files"]');
+        await tree.locator('[aria-current="page"]').waitFor();
+        const fit = await tree.evaluate((nav) => {
+            const right = nav.getBoundingClientRect().right;
+            const label = nav.querySelector('[aria-current="page"] .truncate');
+            return {
+                scroll: [nav.scrollWidth, nav.clientWidth, nav.scrollLeft],
+                overflowingRows: [...nav.querySelectorAll("li")].filter(
+                    (row) => row.getBoundingClientRect().right > right + 1,
+                ).length,
+                truncated: label ? label.scrollWidth > label.clientWidth : undefined,
+            };
+        });
+        assert(
+            fit.scroll[0] <= fit.scroll[1] + 1 && fit.scroll[2] === 0 && fit.overflowingRows === 0 && fit.truncated,
+            `${host.name}: sidebar tree does not fit ${JSON.stringify(fit)}`,
+        );
     };
     const calloutSourceCases = async (current, host, noScript = false) => {
         assert(
@@ -823,6 +852,8 @@ export async function markdownBrowserScenarios(page, options) {
                 await rawSource(current, host);
                 results.push("static: raw source navigation beside sidecar");
             }
+            await sidebarTreeFit(current, host);
+            results.push(`${host.name}: long sidebar titles truncate without shifting the tree`);
             sourceCases.reading = await readingSyntax(current, host);
             results.push(`${host.name}: P1 syntax ${sourceCases.reading.length} cases, combined reading and themes`);
             sourceCases.callouts = await calloutSourceCases(current, host);

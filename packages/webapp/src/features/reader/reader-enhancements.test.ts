@@ -8,7 +8,7 @@ const source = [
     "<h3>No anchor</h3>",
     "<pre><code>plain\ncode</code></pre>",
     '<pre><code class="language-mermaid">flowchart TD</code></pre>',
-    '<div class="relative my-5"><pre class="shiki"><code><span class="line">let a = 1;</span></code></pre><span>ts</span></div>',
+    '<div class="relative my-5" data-code-block=""><pre class="shiki"><code><span class="line">let a = 1;</span></code></pre><span>ts</span></div>',
 ].join("");
 
 describe("enhanceReader", () => {

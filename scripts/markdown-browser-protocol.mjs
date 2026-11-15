@@ -30,6 +30,7 @@ export function markdownBrowserPhases(hosts, sourceIds) {
         `${host.name}: ordinary images and authored fragment link`,
         `${host.name}: authored page and external image links`,
         ...(host.name === "static" ? ["static: raw source navigation beside sidecar"] : []),
+        `${host.name}: long sidebar titles truncate without shifting the tree`,
         `${host.name}: P1 syntax ${readingCount} cases, combined reading and themes`,
         `${host.name}: formatted callout samples and ${calloutCount} exact source cases`,
         `${host.name}: callout disclosure, rich header, navigation, focus and responsive themes`,

@@ -120,52 +120,59 @@ function TaxonomyTermPage({ term }: { term: DashboardTaxonomyTerm }) {
     );
 }
 
+// Index lists are labelled lists, not navigation landmarks; the explicit role survives removed list markers in Safari.
 function TaxonomiesGrid({ taxonomies }: { taxonomies: DashboardTaxonomy[] }) {
     return (
-        <nav aria-label="Configured taxonomies" className="divide-y divide-base-300 border-y border-base-300">
+        <ul aria-label="Taxonomies" className="divide-y divide-base-300 border-y border-base-300" role="list">
             {taxonomies.map((taxonomy) => (
-                <Link
-                    className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
-                    key={taxonomy.id}
-                    to={taxonomyRoutePath(taxonomy.id)}
-                >
-                    <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium">{taxonomy.title}</span>
-                            <span className="badge badge-outline badge-sm">{taxonomy.mode}</span>
+                <li key={taxonomy.id}>
+                    <Link
+                        className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+                        to={taxonomyRoutePath(taxonomy.id)}
+                    >
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium">{taxonomy.title}</span>
+                                <span className="badge badge-outline badge-sm">{taxonomy.mode}</span>
+                            </div>
+                            <p className="mt-1 truncate text-sm text-base-content/60">{taxonomy.description}</p>
                         </div>
-                        <p className="mt-1 truncate text-sm text-base-content/60">{taxonomy.description}</p>
-                    </div>
-                    <div className="hidden gap-4 text-sm text-base-content/60 sm:flex">
-                        <span>{taxonomy.terms.length} terms</span>
-                        <span>{taxonomy.terms.reduce((total, term) => total + term.entryCount, 0)} entries</span>
-                    </div>
-                    <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-base-content/50" />
-                </Link>
+                        <div className="hidden gap-4 text-sm text-base-content/60 sm:flex">
+                            <span>{taxonomy.terms.length} terms</span>
+                            <span>{taxonomy.terms.reduce((total, term) => total + term.entryCount, 0)} entries</span>
+                        </div>
+                        <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-base-content/50" />
+                    </Link>
+                </li>
             ))}
-        </nav>
+        </ul>
     );
 }
 
 function TaxonomyTermsGrid({ taxonomy }: { taxonomy: DashboardTaxonomy }) {
     return (
-        <nav aria-label={`${taxonomy.title} terms`} className="divide-y divide-base-300 border-y border-base-300">
+        <ul
+            aria-label={`${taxonomy.title} terms`}
+            className="divide-y divide-base-300 border-y border-base-300"
+            role="list"
+        >
             {taxonomy.terms.map((term) => (
-                <Link
-                    className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
-                    key={term.id}
-                    to={taxonomyTermRoutePath(taxonomy.id, term.id)}
-                >
-                    <div className="min-w-0">
-                        <span className="font-medium">{term.title}</span>
-                        <p className="mt-1 truncate text-sm text-base-content/60">{term.description}</p>
-                    </div>
-                    <span className="hidden text-sm text-base-content/60 tabular-nums sm:block">
-                        {term.entryCount} {term.entryCount === 1 ? "entry" : "entries"}
-                    </span>
-                    <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-base-content/50" />
-                </Link>
+                <li key={term.id}>
+                    <Link
+                        className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+                        to={taxonomyTermRoutePath(taxonomy.id, term.id)}
+                    >
+                        <div className="min-w-0">
+                            <span className="font-medium">{term.title}</span>
+                            <p className="mt-1 truncate text-sm text-base-content/60">{term.description}</p>
+                        </div>
+                        <span className="hidden text-sm text-base-content/60 tabular-nums sm:block">
+                            {term.entryCount} {term.entryCount === 1 ? "entry" : "entries"}
+                        </span>
+                        <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-base-content/50" />
+                    </Link>
+                </li>
             ))}
-        </nav>
+        </ul>
     );
 }

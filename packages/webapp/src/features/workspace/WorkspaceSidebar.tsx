@@ -51,7 +51,14 @@ export function WorkspaceSidebar({
     const healthFindingCount = dashboard.health.findings.filter((finding) => finding.severity !== "info").length;
 
     return (
-        <div className="flex h-full min-h-0 w-72 max-w-full flex-col">
+        <div
+            className={cn(
+                "flex h-full min-h-0 flex-col",
+                // The collapsible drawer animates its own width; content keeps the full width meanwhile and
+                // is clipped rather than squeezed. The dialog can be narrower than that, so content fills it.
+                collapsible ? "w-sidebar" : "w-full",
+            )}
+        >
             <div className="flex h-16 shrink-0 items-center gap-1 border-b border-base-300 px-2">
                 <Link
                     className="flex min-w-0 flex-1 items-center gap-2 rounded-field px-2 py-1.5 outline-none hover:bg-base-300/60 focus-visible:ring-2 focus-visible:ring-base-content/30"
@@ -106,10 +113,11 @@ export function WorkspaceSidebar({
                 ))}
             </fieldset>
 
-            <nav aria-label={tabLabels[tab]} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto pt-1">
+            {/* `overflow-x-clip`, unlike hidden, is no horizontal scroll container, so revealing or
+                focusing a row can never shift the tree sideways even if a row overflows. */}
+            <nav aria-label={tabLabels[tab]} className="min-h-0 flex-1 overflow-x-clip overflow-y-auto pt-1">
                 {nodes.length > 0 ? (
                     <NavigationTree
-                        ariaLabel={tabLabels[tab]}
                         containsCurrentIds={tab === "workspace" ? containsCurrentIds : undefined}
                         defaultOpenIds={
                             tab === "workspace" ? workspaceDefaultOpenIds(nodes) : filesDefaultOpenIds(nodes)

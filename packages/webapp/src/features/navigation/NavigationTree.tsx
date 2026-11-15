@@ -19,7 +19,6 @@ const viewIconIds = {
 } satisfies Record<DashboardView["kind"], string>;
 
 interface NavigationTreeProps {
-    ariaLabel: string;
     /** Rows that hold the current page somewhere other than as the current row, such as its terms. */
     containsCurrentIds?: ReadonlySet<string>;
     /** Branches that start expanded, in addition to those that reveal the current page. */
@@ -38,7 +37,6 @@ const noIds: ReadonlySet<string> = new Set();
  * no rows.
  */
 export function NavigationTree({
-    ariaLabel,
     containsCurrentIds = noIds,
     defaultOpenIds = [],
     nodes,
@@ -71,7 +69,10 @@ export function NavigationTree({
     }
 
     return (
-        <ul aria-label={ariaLabel} className="menu w-full" ref={rootRef}>
+        // daisyUI lays a menu and each item out as a wrapping flex column, which grows to its widest
+        // row; without wrapping, a long label truncates inside the tree instead of widening it.
+        // The tree's container labels it, so the list carries no name of its own.
+        <ul className="menu w-full flex-nowrap [&_li]:flex-nowrap" ref={rootRef}>
             {nodes.map((node) => (
                 <NavigationRow
                     containsCurrentIds={containsCurrentIds}
@@ -121,8 +122,8 @@ function NavigationRow({
             ) : null}
         </>
     );
-    // daisyUI lays a menu item out as a column grid whose later tracks never shrink,
-    // so each item holds one shrinkable child that owns the row's own layout.
+    // daisyUI lays a menu item's children out on a content-sized grid. Every row container is a
+    // flex row instead, so its label can shrink to the tree's width and end markers reach the edge.
     const rowClassName = "flex w-full min-w-0 items-center gap-2";
     const chevron = (
         <ChevronRight
@@ -136,7 +137,6 @@ function NavigationRow({
             {!isBranch && node.to ? (
                 <Link
                     aria-current={isCurrent ? "page" : undefined}
-                    // A flex row, rather than daisyUI's content-sized grid, so the row's end markers reach the edge.
                     className={cn("flex min-w-0", isCurrent && "menu-active font-medium")}
                     onClick={onNavigate}
                     title={node.title ?? node.label}
@@ -149,9 +149,10 @@ function NavigationRow({
                     </span>
                 </Link>
             ) : node.to ? (
-                <div className={cn("min-w-0 gap-2", isCurrent && "menu-active font-medium")}>
+                <div className={cn("flex min-w-0 items-center gap-2", isCurrent && "menu-active font-medium")}>
                     <button
-                        aria-controls={listId}
+                        // A collapsed branch renders no list, so there is nothing to reference until it opens.
+                        aria-controls={isOpen ? listId : undefined}
                         aria-expanded={isOpen}
                         // Names the branch's contents, so it never reads like a page control such as "Expand graph".
                         aria-label={`${isOpen ? "Hide" : "Show"} contents of ${node.label}`}
@@ -212,9 +213,9 @@ function NavigationRow({
                 </div>
             ) : (
                 <button
-                    aria-controls={listId}
+                    aria-controls={isOpen ? listId : undefined}
                     aria-expanded={isOpen}
-                    className="min-w-0"
+                    className="flex min-w-0"
                     onClick={() => {
                         onToggle(node.id);
                     }}

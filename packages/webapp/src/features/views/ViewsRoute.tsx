@@ -35,30 +35,32 @@ function ViewsPage({ dashboard }: { dashboard: WorkspaceDashboard }) {
 
 function ViewsGrid({ views }: { views: WorkspaceDashboard["views"] }) {
     return (
-        <nav aria-label="Configured views" className="divide-y divide-base-300 border-y border-base-300">
+        // A labelled list, not a navigation landmark; the explicit role survives removed list markers in Safari.
+        <ul aria-label="Views" className="divide-y divide-base-300 border-y border-base-300" role="list">
             {views.map((view) => (
-                <Link
-                    className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
-                    key={view.id}
-                    to={viewRoutePath(view.id)}
-                >
-                    <div className="min-w-0">
-                        <div className="truncate font-medium" title={view.title}>
-                            {view.title}
+                <li key={view.id}>
+                    <Link
+                        className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
+                        to={viewRoutePath(view.id)}
+                    >
+                        <div className="min-w-0">
+                            <div className="truncate font-medium" title={view.title}>
+                                {view.title}
+                            </div>
+                            <div className="mt-1 line-clamp-1 text-sm text-base-content/60" title={view.description}>
+                                {view.description}
+                            </div>
                         </div>
-                        <div className="mt-1 line-clamp-1 text-sm text-base-content/60" title={view.description}>
-                            {view.description}
-                        </div>
-                    </div>
-                    <span className="badge hidden justify-self-start badge-outline badge-sm sm:inline-flex">
-                        {view.kind}
-                    </span>
-                    <span className="hidden truncate text-sm text-base-content/60 sm:block">
-                        {view.space ?? "workspace"}
-                    </span>
-                    <ChevronRight aria-hidden="true" className="size-5 justify-self-end text-base-content/50" />
-                </Link>
+                        <span className="badge hidden justify-self-start badge-outline badge-sm sm:inline-flex">
+                            {view.kind}
+                        </span>
+                        <span className="hidden truncate text-sm text-base-content/60 sm:block">
+                            {view.space ?? "workspace"}
+                        </span>
+                        <ChevronRight aria-hidden="true" className="size-5 justify-self-end text-base-content/50" />
+                    </Link>
+                </li>
             ))}
-        </nav>
+        </ul>
     );
 }

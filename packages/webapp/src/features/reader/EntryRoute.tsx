@@ -239,6 +239,7 @@ function OwnedDirectory({
     entries: DashboardEntry[];
     entryPath: string;
 }) {
+    const headingId = useId();
     const listing = directoryListing(
         canonicalEntries(entries).filter((candidate) => candidate.path !== entryPath),
         directoryPath,
@@ -246,12 +247,9 @@ function OwnedDirectory({
     if (!listing || (listing.directories.length === 0 && listing.entries.length === 0)) return null;
 
     return (
-        <section
-            aria-labelledby="owned-directory-heading"
-            className="flex flex-col gap-3 border-t border-base-300 pt-8"
-        >
+        <section aria-labelledby={headingId} className="flex flex-col gap-3 border-t border-base-300 pt-8">
             <div className="flex items-baseline justify-between gap-4">
-                <h2 className="text-xl font-semibold" id="owned-directory-heading">
+                <h2 className="text-xl font-semibold" id={headingId}>
                     In this folder
                 </h2>
                 <span className="text-sm text-base-content/60">{listingCounts(listing)}</span>
@@ -270,7 +268,7 @@ function RecentlyUpdated({ entries, homePath }: { entries: DashboardEntry[]; hom
     return (
         <section className="flex flex-col gap-3 border-t border-base-300 pt-8">
             <h2 className="text-xl font-semibold">Recently updated</h2>
-            <PagesList entries={recent} />
+            <PagesList entries={recent} label="Recently updated" />
         </section>
     );
 }

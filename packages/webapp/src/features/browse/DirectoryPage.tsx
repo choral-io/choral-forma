@@ -72,26 +72,28 @@ export function DirectoryContents({ listing }: { listing: DirectoryListing<Dashb
 
 function FolderList({ folders }: { folders: DirectoryListingFolder[] }) {
     return (
-        <nav aria-label="Folders" className="divide-y divide-base-300 border-y border-base-300">
+        // A labelled list, not a navigation landmark; the explicit role survives removed list markers in Safari.
+        <ul aria-label="Folders" className="divide-y divide-base-300 border-y border-base-300" role="list">
             {folders.map((folder) => (
-                <Link
-                    className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-3 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50"
-                    key={folder.path}
-                    to={directoryRoutePath(folder.path)}
-                >
-                    <Folder aria-hidden="true" className="size-5 text-base-content/60" />
-                    <span className="flex min-w-0 flex-col" title={folder.path}>
-                        <span className="truncate font-medium">{folder.title ?? folder.name}</span>
-                        {folder.title ? (
-                            <span className="truncate text-xs text-base-content/60">{folder.name}/</span>
-                        ) : null}
-                    </span>
-                    <span className="text-sm text-base-content/60 tabular-nums">
-                        {pluralCount(folder.documentCount, "page")}
-                    </span>
-                    <ChevronRight aria-hidden="true" className="size-5 text-base-content/50" />
-                </Link>
+                <li key={folder.path}>
+                    <Link
+                        className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-3 outline-none hover:bg-base-200/50 focus-visible:bg-base-200/50"
+                        to={directoryRoutePath(folder.path)}
+                    >
+                        <Folder aria-hidden="true" className="size-5 text-base-content/60" />
+                        <span className="flex min-w-0 flex-col" title={folder.path}>
+                            <span className="truncate font-medium">{folder.title ?? folder.name}</span>
+                            {folder.title ? (
+                                <span className="truncate text-xs text-base-content/60">{folder.name}/</span>
+                            ) : null}
+                        </span>
+                        <span className="text-sm text-base-content/60 tabular-nums">
+                            {pluralCount(folder.documentCount, "page")}
+                        </span>
+                        <ChevronRight aria-hidden="true" className="size-5 text-base-content/50" />
+                    </Link>
+                </li>
             ))}
-        </nav>
+        </ul>
     );
 }

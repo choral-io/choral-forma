@@ -3,6 +3,11 @@
 
 @plugin "@tailwindcss/typography";
 
+/* The workspace sidebar's width, owned once for the desktop drawer, the mobile dialog, and their content. */
+@theme {
+    --container-sidebar: 18rem;
+}
+
 @plugin "daisyui" {
     logs: false;
     themes: false;

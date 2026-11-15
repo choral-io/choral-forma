@@ -3,13 +3,20 @@ import { Link } from "react-router";
 import type { DashboardEntry } from "@/data/workspace-client";
 import { formatAbsoluteDateTime } from "@/lib/date-time";
 
-export function PagesList({ entries }: { entries: DashboardEntry[] }) {
+/**
+ * Pages as part of a page's content: a labelled list rather than a navigation landmark, which
+ * stays reserved for the sidebar, breadcrumb, outline, and adjacent documents.
+ */
+export function PagesList({ entries, label = "Pages" }: { entries: DashboardEntry[]; label?: string }) {
     return (
-        <nav aria-label="Matching content" className="divide-y divide-base-300 border-y border-base-300">
+        // An explicit role: Safari drops list semantics from a list whose markers are removed.
+        <ul aria-label={label} className="divide-y divide-base-300 border-y border-base-300" role="list">
             {entries.map((entry) => (
-                <EntryRow entry={entry} key={entry.path} />
+                <li key={entry.path}>
+                    <EntryRow entry={entry} />
+                </li>
             ))}
-        </nav>
+        </ul>
     );
 }
 

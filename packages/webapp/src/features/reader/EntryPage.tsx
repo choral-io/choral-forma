@@ -177,7 +177,10 @@ export function EntryPage({
                         <div className="h-3 w-11/12 skeleton" />
                     </div>
                 ) : hasOutline ? (
-                    <aside className="hidden xl:block xl:group-has-[#workspace-focus-mode:checked]/shell:hidden">
+                    <aside
+                        aria-label="On this page"
+                        className="hidden xl:block xl:group-has-[#workspace-focus-mode:checked]/shell:hidden"
+                    >
                         <div
                             aria-hidden="true"
                             className="hidden flex-col gap-4 py-4 group-has-data-reader-loading/entry:flex"
@@ -200,6 +203,7 @@ export function EntryPage({
             </div>
             {hasOutline ? (
                 <dialog
+                    aria-labelledby={`${outlineDialogId}-title`}
                     className="modal modal-end bg-neutral/40 p-0 backdrop-blur-xs outline-none motion-reduce:transition-none xl:hidden"
                     id={outlineDialogId}
                     onCancel={(event) => {
@@ -209,9 +213,14 @@ export function EntryPage({
                     onClose={onOutlineDialogClose}
                     ref={outlineDialogRef}
                 >
-                    <aside className="modal-box flex h-svh max-h-none w-80 max-w-[calc(100vw-3rem)] flex-col rounded-none bg-base-100 p-0 text-base-content">
+                    <aside
+                        aria-labelledby={`${outlineDialogId}-title`}
+                        className="modal-box flex h-svh max-h-none w-80 max-w-[calc(100vw-3rem)] flex-col rounded-none bg-base-100 p-0 text-base-content"
+                    >
                         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-base-300 p-4">
-                            <h2 className="font-semibold">Outline</h2>
+                            <h2 className="font-semibold" id={`${outlineDialogId}-title`}>
+                                Outline
+                            </h2>
                             <button
                                 aria-label="Close outline"
                                 className="btn btn-square btn-ghost"

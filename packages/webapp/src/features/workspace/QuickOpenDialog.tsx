@@ -282,7 +282,7 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-2">
                     {filteredItems.length > 0 ? (
-                        <ul className="menu w-full gap-1 p-0" id={listId} role="listbox">
+                        <ul className="menu w-full flex-nowrap gap-1 p-0 [&_li]:flex-nowrap" id={listId} role="listbox">
                             {filteredItems.map((item, index) => (
                                 <li key={item.href} role="presentation">
                                     {index === 0 || filteredItems[index - 1]?.group !== item.group ? (

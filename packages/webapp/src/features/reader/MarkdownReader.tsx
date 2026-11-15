@@ -508,6 +508,8 @@ export function postProcessMarkdownHtml(
 
         const wrapper = document.createElement("div");
         wrapper.className = "relative my-5";
+        // Reader enhancements find this positioned wrapper by its role, not by a style class.
+        wrapper.dataset.codeBlock = "";
         const label = document.createElement("span");
         label.className =
             "bg-base-100 text-base-content/60 border-base-300 pointer-events-none absolute inset-e-3 top-0 -translate-y-1/2 rounded-full border px-2.5 py-0.5 text-xs font-medium shadow-sm";

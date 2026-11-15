@@ -65,7 +65,7 @@ export function OutlineNav({
 
     return (
         <nav aria-label="Page outline" ref={navRef}>
-            <ul className="menu w-full p-0">
+            <ul className="menu w-full flex-nowrap p-0 [&_li]:flex-nowrap">
                 {tree.map((node) => (
                     <li key={node.id}>
                         <EntryOutlineLink
@@ -100,7 +100,7 @@ export function OutlineFooterNav({ backlinkCount, onNavigate, routePath, showBac
 
     return (
         <nav aria-label="Page outline footer" className="shrink-0 border-t border-base-300 pt-2">
-            <ul className="menu w-full p-0">
+            <ul className="menu w-full flex-nowrap p-0 [&_li]:flex-nowrap">
                 {backlinkCount === undefined ? null : (
                     <li>
                         <a href={rootAwareHref(`${routePath}#${relatedDocumentsId}`)} onClick={onNavigate}>

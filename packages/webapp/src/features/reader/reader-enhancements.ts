@@ -13,6 +13,10 @@ const failedIconPaths = ["M18 6 6 18", "m6 6 12 12"] as const;
 const copiedDuration = 1800;
 const codeCopyLabel = "Copy code";
 const headingSelector = "h1, h2, h3, h4, h5, h6";
+// Class constants, rather than inline `.className` strings, so the style lint checks them.
+const codeCopyHostClassName = "relative";
+const codeCopyButtonClassName =
+    "btn btn-square btn-ghost btn-xs bg-base-100/80 absolute inset-e-2 top-3 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 data-copy-failed:text-error";
 let headingLabelCount = 0;
 
 export function enhanceReader(reader: HTMLElement): () => void {
@@ -25,9 +29,9 @@ export function enhanceReader(reader: HTMLElement): () => void {
         if (pre.querySelector(":scope > code.language-mermaid")) continue;
         // A highlighted block already sits in a positioned wrapper that carries its language label.
         let host = pre.parentElement;
-        if (!host?.classList.contains("relative") || host === reader) {
+        if (!host?.hasAttribute("data-code-block") || host === reader) {
             const wrapper = document.createElement("div");
-            wrapper.className = "relative";
+            wrapper.className = codeCopyHostClassName;
             pre.replaceWith(wrapper);
             wrapper.append(pre);
             host = wrapper;
@@ -39,8 +43,7 @@ export function enhanceReader(reader: HTMLElement): () => void {
         owner.classList.add("group/code");
         const button = document.createElement("button");
         button.type = "button";
-        button.className =
-            "btn btn-square btn-ghost btn-xs bg-base-100/80 absolute end-2 top-3 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 data-copy-failed:text-error";
+        button.className = codeCopyButtonClassName;
         button.dataset.readerCopyCode = "";
         button.ariaLabel = codeCopyLabel;
         button.title = codeCopyLabel;
