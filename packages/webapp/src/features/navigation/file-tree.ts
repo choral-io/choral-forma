@@ -2,8 +2,10 @@ import type { DashboardEntry } from "@/data/workspace-client";
 import { directoryRoutePath } from "@/lib/workspace-routes";
 
 import { compareText } from "./directory-listing";
+import { directoryOwners } from "./directory-owners";
+import { describeDuplicateSiblings, type NavigationNode } from "./navigation-tree";
 
-import type { NavigationNode } from "./navigation-tree";
+type FileTreeEntry = Pick<DashboardEntry, "path" | "routePath" | "title">;
 
 interface DirectoryDraft {
     directories: Map<string, DirectoryDraft>;
@@ -12,14 +14,26 @@ interface DirectoryDraft {
 }
 
 /**
- * Groups entries by the directories in their source paths, from the workspace root. A
- * directory opens its page. A document served at a directory row's route, such as its
- * `index` file or a same-named file beside it, is represented by that row alone.
+ * Groups entries by the directories in their source paths, from the workspace root.
+ *
+ * - A directory opens its page. A document served at its route, such as its `index` file or
+ *   a same-named file beside it, stands for the directory: the row takes the document's
+ *   title and the document is not listed again.
+ * - A chain of directories that each hold nothing but one directory reads as one row whose
+ *   segments still open their own pages. A directory a document stands for never joins a
+ *   chain, so a row shows either path segments or a title, not both.
+ * - Siblings that share a label carry their file or directory name as a description.
+ * - The workspace entry document, served at `/`, is the root's own document. It leads the
+ *   tree ahead of every folder and takes no part in adjacent-document order.
  */
-export function buildFileTree(entries: readonly Pick<DashboardEntry, "path" | "routePath" | "title">[]) {
+export function buildFileTree(entries: readonly FileTreeEntry[]): NavigationNode[] {
+    const owners = directoryOwners(entries);
+    const ownerPaths = new Set([...owners.values()].map((owner) => owner.path));
     const root: DirectoryDraft = { directories: new Map(), entries: [], path: "" };
+    const home = entries.find((entry) => entry.routePath === "/");
 
     for (const entry of entries) {
+        if (entry === home) continue;
         const segments = entry.path.split("/").filter((segment) => segment.length > 0);
         let directory = root;
         for (const segment of segments.slice(0, -1)) {
@@ -34,65 +48,63 @@ export function buildFileTree(entries: readonly Pick<DashboardEntry, "path" | "r
             }
             directory = child;
         }
+        if (ownerPaths.has(entry.path)) continue;
         directory.entries.push({
             id: `entry:${entry.path}`,
             kind: "entry",
             label: entry.title,
+            name: segments.at(-1) ?? entry.path,
             title: entry.path,
             to: entry.routePath,
+            documentPath: entry.path,
         });
     }
 
-    const tree = directoryChildren(root);
-    return withoutDirectoryRoutes(tree, new Set(directoryRoutes(tree)));
+    const homeNode: NavigationNode[] = home
+        ? [{ id: "home", kind: "home", label: home.title, title: home.path, to: "/" }]
+        : [];
+    return describeDuplicateSiblings([...homeNode, ...directoryChildren(root, owners)]);
 }
 
-function directoryRoutes(nodes: readonly NavigationNode[]): string[] {
-    return nodes.flatMap((node) =>
-        node.kind === "directory" && node.to ? [node.to, ...directoryRoutes(node.children ?? [])] : [],
-    );
+function directoryChildren(directory: DirectoryDraft, owners: ReadonlyMap<string, FileTreeEntry>): NavigationNode[] {
+    const directories = [...directory.directories].map(([name, child]) => directoryNode(name, child, owners));
+    return [...directories.sort(compareNodes), ...directory.entries.sort(compareNodes)];
 }
 
-/**
- * Drops documents that a directory row already stands for. A directory left with nothing
- * else, such as one holding only its `index` file, becomes a plain link with no disclosure.
- */
-function withoutDirectoryRoutes(nodes: readonly NavigationNode[], routes: ReadonlySet<string>): NavigationNode[] {
-    return nodes
-        .filter((node) => node.kind !== "entry" || !node.to || !routes.has(node.to))
-        .map((node) => {
-            if (!node.children) return node;
-            const children = withoutDirectoryRoutes(node.children, routes);
-            if (children.length > 0) return { ...node, children };
-            const { children: _omitted, ...leaf } = node;
-            return leaf;
-        });
-}
-
-function directoryChildren(directory: DirectoryDraft): NavigationNode[] {
-    const directories = [...directory.directories].map(([name, child]) => directoryNode(name, child));
-    return [...directories.sort(compareLabels), ...directory.entries.sort(compareLabels)];
-}
-
-function directoryNode(name: string, directory: DirectoryDraft): NavigationNode {
-    // A directory that holds nothing but one directory adds a level without a choice, so the chain reads as one row.
-    let label = name;
+function directoryNode(
+    name: string,
+    directory: DirectoryDraft,
+    owners: ReadonlyMap<string, FileTreeEntry>,
+): NavigationNode {
+    const segments = [{ label: name, path: directory.path }];
     let current = directory;
-    while (current.entries.length === 0 && current.directories.size === 1) {
+    while (!owners.has(current.path) && current.entries.length === 0 && current.directories.size === 1) {
         const [[childName, child]] = [...current.directories] as [[string, DirectoryDraft]];
-        label = `${label}/${childName}`;
+        if (owners.has(child.path)) break;
+        segments.push({ label: childName, path: child.path });
         current = child;
     }
+
+    const owner = owners.get(current.path);
+    const relativePath = segments.map((segment) => segment.label).join("/");
+    const children = directoryChildren(current, owners);
     return {
         id: `directory:${current.path}`,
         kind: "directory",
-        label,
+        label: owner?.title ?? relativePath,
+        name: `${relativePath}/`,
         title: current.path,
         to: directoryRoutePath(current.path),
-        children: directoryChildren(current),
+        ...(owner ? { documentPath: owner.path } : {}),
+        ...(segments.length > 1
+            ? { segments: segments.map((segment) => ({ ...segment, to: directoryRoutePath(segment.path) })) }
+            : {}),
+        // A directory whose document is all it holds is a plain link with no disclosure.
+        ...(children.length > 0 ? { children } : {}),
     };
 }
 
-function compareLabels(left: NavigationNode, right: NavigationNode) {
-    return compareText(left.label, right.label);
+/** Siblings sort by displayed text; equal labels fall back to their names, so the order is stable. */
+function compareNodes(left: NavigationNode, right: NavigationNode) {
+    return compareText(left.label, right.label) || compareText(left.name ?? "", right.name ?? "");
 }

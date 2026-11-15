@@ -300,6 +300,7 @@ function EntryPager({ adjacent }: { adjacent?: AdjacentEntries }) {
                     <span className="truncate font-medium" title={adjacent.previous.label}>
                         {adjacent.previous.label}
                     </span>
+                    <AdjacentDescription node={adjacent.previous} />
                 </Link>
             ) : null}
             {adjacent.next?.to ? (
@@ -311,9 +312,21 @@ function EntryPager({ adjacent }: { adjacent?: AdjacentEntries }) {
                     <span className="max-w-full truncate font-medium" title={adjacent.next.label}>
                         {adjacent.next.label}
                     </span>
+                    <AdjacentDescription node={adjacent.next} />
                 </Link>
             ) : null}
         </nav>
+    );
+}
+
+/** Shown when the adjacent document shares its title with a sibling, as the Files tree does. */
+function AdjacentDescription({ node }: { node: { description?: string } }) {
+    if (!node.description) return null;
+    return (
+        <span className="max-w-full truncate text-xs text-base-content/60">
+            <span className="sr-only">, </span>
+            {node.description}
+        </span>
     );
 }
 

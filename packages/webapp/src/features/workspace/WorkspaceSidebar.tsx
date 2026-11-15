@@ -1,21 +1,24 @@
-import { ChevronRight, HeartPulse, PanelLeftClose } from "lucide-react";
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { HeartPulse, PanelLeftClose } from "lucide-react";
+import { useId, useMemo, useSyncExternalStore } from "react";
 import { Link, useLocation } from "react-router";
 
 import { canonicalRoutePathFromLocation } from "@/data/static-route-target";
 
 import type { WorkspaceDashboard } from "@/data/workspace-client";
 import { collectionIdsContaining } from "@/features/navigation/collection-tree";
+import { filesDefaultOpenIds, workspaceDefaultOpenIds } from "@/features/navigation/navigation-tree";
 import { NavigationTree } from "@/features/navigation/NavigationTree";
 import { useNavigationTrees } from "@/features/navigation/use-navigation-trees";
 import { FormaBrandIcon } from "@/features/workspace/FormaBrandIcon";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { canonicalEntryRoutePath } from "@/lib/entry-languages";
 import {
-    readCollapsedSidebarSections,
-    writeCollapsedSidebarSections,
-    type SidebarSection,
-} from "@/lib/sidebar-sections-preference";
+    readSidebarTab,
+    sidebarTabs,
+    subscribeSidebarTab,
+    writeSidebarTab,
+    type SidebarTab,
+} from "@/lib/sidebar-tab-preference";
 import { cn } from "@/lib/utils";
 
 interface WorkspaceSidebarProps {
@@ -42,26 +45,15 @@ export function WorkspaceSidebar({
         () => (currentEntryPath ? collectionIdsContaining(dashboard.taxonomies, currentEntryPath) : undefined),
         [currentEntryPath, dashboard.taxonomies],
     );
-    const [collapsed, setCollapsed] = useState(readCollapsedSidebarSections);
-
-    function toggleSection(section: SidebarSection) {
-        const next = new Set(collapsed);
-        if (!next.delete(section)) next.add(section);
-        writeCollapsedSidebarSections(next);
-        setCollapsed(next);
-    }
-
-    const sections = [
-        { id: "pages", label: "Pages", nodes: trees.pages },
-        { id: "workspace", label: "Workspace", nodes: trees.workspace },
-    ] satisfies { id: SidebarSection; label: string; nodes: unknown[] }[];
+    const tabGroupId = useId();
+    const tab = useSyncExternalStore(subscribeSidebarTab, readSidebarTab);
+    const nodes = tab === "files" ? trees.files : trees.workspace;
     const healthFindingCount = dashboard.health.findings.filter((finding) => finding.severity !== "info").length;
 
     return (
         <div className="flex h-full min-h-0 w-72 max-w-full flex-col">
             <div className="flex h-16 shrink-0 items-center gap-1 border-b border-base-300 px-2">
                 <Link
-                    aria-current={pathname === "/" ? "page" : undefined}
                     className="flex min-w-0 flex-1 items-center gap-2 rounded-field px-2 py-1.5 outline-none hover:bg-base-300/60 focus-visible:ring-2 focus-visible:ring-base-content/30"
                     data-sidebar-link
                     onClick={onNavigate}
@@ -96,29 +88,42 @@ export function WorkspaceSidebar({
                 </ul>
             ) : null}
 
-            <div className="flex min-h-0 flex-1 flex-col pt-2">
-                {sections
-                    .filter((section) => section.nodes.length > 0)
-                    .map((section) => (
-                        <SidebarSectionPanel
-                            collapsed={collapsed.has(section.id)}
-                            key={section.id}
-                            label={section.label}
-                            onToggle={() => {
-                                toggleSection(section.id);
-                            }}
-                            primary={section.id === "pages"}
-                        >
-                            <NavigationTree
-                                ariaLabel={section.label}
-                                containsCurrentIds={section.id === "workspace" ? containsCurrentIds : undefined}
-                                nodes={section.nodes}
-                                onNavigate={onNavigate}
-                                routePath={routePath}
-                            />
-                        </SidebarSectionPanel>
-                    ))}
-            </div>
+            {/* Two views of the workspace; switching never changes the route. */}
+            <fieldset className="tabs-box mx-2 mt-2 tabs grid shrink-0 grid-cols-2 tabs-sm">
+                <legend className="sr-only">Sidebar view</legend>
+                {sidebarTabs.map((value) => (
+                    <input
+                        aria-label={tabLabels[value]}
+                        checked={tab === value}
+                        className="tab"
+                        key={value}
+                        name={tabGroupId}
+                        onChange={() => {
+                            writeSidebarTab(value);
+                        }}
+                        type="radio"
+                    />
+                ))}
+            </fieldset>
+
+            <nav aria-label={tabLabels[tab]} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto pt-1">
+                {nodes.length > 0 ? (
+                    <NavigationTree
+                        ariaLabel={tabLabels[tab]}
+                        containsCurrentIds={tab === "workspace" ? containsCurrentIds : undefined}
+                        defaultOpenIds={
+                            tab === "workspace" ? workspaceDefaultOpenIds(nodes) : filesDefaultOpenIds(nodes)
+                        }
+                        // A fresh tree on switching reveals the current page in the newly shown view.
+                        key={tab}
+                        nodes={nodes}
+                        onNavigate={onNavigate}
+                        routePath={routePath}
+                    />
+                ) : (
+                    <p className="p-4 text-sm text-base-content/60">{emptyLabels[tab]}</p>
+                )}
+            </nav>
 
             <nav aria-label="Workspace status" className="shrink-0 border-t border-base-300">
                 <ul className="menu w-full">
@@ -136,55 +141,11 @@ export function WorkspaceSidebar({
     );
 }
 
-/**
- * A collapsible sidebar section with its own scroll area. The primary section takes the
- * remaining height; the others grow with their content up to a bounded share.
- */
-function SidebarSectionPanel({
-    children,
-    collapsed,
-    label,
-    onToggle,
-    primary,
-}: {
-    children: ReactNode;
-    collapsed: boolean;
-    label: string;
-    onToggle: () => void;
-    primary: boolean;
-}) {
-    const bodyId = useId();
-
-    return (
-        <section
-            className={cn(
-                "flex min-h-0 flex-col border-t border-base-300 first:border-t-0",
-                collapsed ? "shrink-0" : primary ? "flex-1" : "max-h-[45%] shrink-0",
-            )}
-        >
-            <h2 className="shrink-0">
-                <button
-                    aria-controls={bodyId}
-                    aria-expanded={!collapsed}
-                    className="flex w-full cursor-pointer items-center gap-1 px-3 py-1.5 text-xs font-semibold tracking-wide text-base-content/70 uppercase outline-none hover:text-base-content focus-visible:ring-2 focus-visible:ring-base-content/30 focus-visible:ring-inset"
-                    onClick={onToggle}
-                    type="button"
-                >
-                    <ChevronRight
-                        aria-hidden="true"
-                        className={cn("size-3.5 shrink-0 motion-safe:transition-transform", !collapsed && "rotate-90")}
-                    />
-                    {label}
-                </button>
-            </h2>
-            {collapsed ? null : (
-                <nav aria-label={label} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto" id={bodyId}>
-                    {children}
-                </nav>
-            )}
-        </section>
-    );
-}
+const tabLabels = { files: "Files", workspace: "Workspace" } satisfies Record<SidebarTab, string>;
+const emptyLabels = {
+    files: "No pages are indexed.",
+    workspace: "No taxonomies or Views are configured.",
+} satisfies Record<SidebarTab, string>;
 
 function SidebarLink({
     active,

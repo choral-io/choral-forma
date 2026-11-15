@@ -21,7 +21,7 @@ export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pat
     }
 
     if (canonicalPath === "/pages") {
-        return { canonicalPath, description: "Published workspace entries.", title: "Pages" };
+        return { canonicalPath, description: "Pages the workspace includes, by directory.", title: "Files" };
     }
     if (canonicalPath === "/views") {
         return { canonicalPath, description: "Configured workspace projections.", title: "Views" };

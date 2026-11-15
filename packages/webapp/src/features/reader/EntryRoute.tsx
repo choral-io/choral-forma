@@ -11,6 +11,7 @@ import { DirectoryContents, DirectoryPage } from "@/features/browse/DirectoryPag
 import { PagesList } from "@/features/browse/PagesList";
 import { recentlyUpdatedEntries } from "@/features/browse/recent-entries";
 import { directoryListing, listingCounts } from "@/features/navigation/directory-listing";
+import { directoryOwners } from "@/features/navigation/directory-owners";
 import { navigationSiblings } from "@/features/navigation/navigation-tree";
 import { useNavigationTrees } from "@/features/navigation/use-navigation-trees";
 import { EmptyPage } from "@/features/workspace/RouteContent";
@@ -45,7 +46,8 @@ function EntryRouteContent({
 }) {
     const dashboard = useWorkspaceDashboard();
     const dashboardContext = useMemo(() => createWorkspaceDashboardContext(dashboard), [dashboard]);
-    const { pages: pagesTree } = useNavigationTrees(dashboard);
+    const { files: filesTree } = useNavigationTrees(dashboard);
+    const owners = useMemo(() => directoryOwners(canonicalEntries(dashboard.entries)), [dashboard.entries]);
     const outlineDialogId = useId();
     const outlineDialogRef = useRef<HTMLDialogElement>(null);
     const outlineTriggerRef = useRef<HTMLElement>(null);
@@ -188,10 +190,11 @@ function EntryRouteContent({
             }
             reading
             // Home is the workspace crumb itself, so it has no ancestors to show.
-            breadcrumb={routePath === "/" ? [] : entryDirectoryBreadcrumb(entry.path)}
+            breadcrumb={routePath === "/" ? [] : entryDirectoryBreadcrumb(entry, owners)}
         >
             <EntryPage
-                adjacent={navigationSiblings(pagesTree, treeRoutePath)}
+                // Home leads the Files tree but is not part of any reading sequence.
+                adjacent={routePath === "/" ? undefined : navigationSiblings(filesTree, treeRoutePath)}
                 afterBody={
                     routePath === "/" ? (
                         <RecentlyUpdated entries={dashboard.entries} homePath={entry.path} />

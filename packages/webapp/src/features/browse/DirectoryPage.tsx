@@ -9,6 +9,7 @@ import {
     type DirectoryListing,
     type DirectoryListingFolder,
 } from "@/features/navigation/directory-listing";
+import { directoryOwners } from "@/features/navigation/directory-owners";
 import { directoryBreadcrumb } from "@/features/reader/entry-breadcrumb";
 import { EmptyPage, RouteBodySection } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
@@ -18,7 +19,7 @@ import { directoryRoutePath } from "@/lib/workspace-routes";
 
 import { PagesList } from "./PagesList";
 
-/** `/pages`: the workspace root's directory page. */
+/** `/pages`: the workspace root's directory page, titled Files like the sidebar tab that shows the same tree. */
 export function PagesRoute() {
     return <DirectoryPage path="" />;
 }
@@ -29,7 +30,8 @@ export function PagesRoute() {
  */
 export function DirectoryPage({ path }: { path: string }) {
     const dashboard = useWorkspaceDashboard();
-    const listing = directoryListing(canonicalEntries(dashboard.entries), path);
+    const entries = canonicalEntries(dashboard.entries);
+    const listing = directoryListing(entries, path);
 
     if (!listing) {
         return (
@@ -42,14 +44,14 @@ export function DirectoryPage({ path }: { path: string }) {
     const isRoot = listing.path === "";
     return (
         <WorkspaceRouteFrame
-            breadcrumb={isRoot ? [] : directoryBreadcrumb(listing.path, false)}
+            breadcrumb={isRoot ? [] : directoryBreadcrumb(listing.path, false, directoryOwners(entries))}
             contentWidth="narrow"
             description={
                 isRoot
                     ? "Pages the workspace includes, grouped by the directories of their source paths."
                     : `Pages the workspace includes under ${listing.path}/.`
             }
-            title={isRoot ? "Pages" : (listing.path.split("/").at(-1) ?? listing.path)}
+            title={isRoot ? "Files" : (listing.path.split("/").at(-1) ?? listing.path)}
         >
             <RouteBodySection meta={listingCounts(listing)}>
                 <DirectoryContents listing={listing} />
@@ -78,8 +80,11 @@ function FolderList({ folders }: { folders: DirectoryListingFolder[] }) {
                     to={directoryRoutePath(folder.path)}
                 >
                     <Folder aria-hidden="true" className="size-5 text-base-content/60" />
-                    <span className="truncate font-medium" title={folder.path}>
-                        {folder.name}
+                    <span className="flex min-w-0 flex-col" title={folder.path}>
+                        <span className="truncate font-medium">{folder.title ?? folder.name}</span>
+                        {folder.title ? (
+                            <span className="truncate text-xs text-base-content/60">{folder.name}/</span>
+                        ) : null}
                     </span>
                     <span className="text-sm text-base-content/60 tabular-nums">
                         {pluralCount(folder.documentCount, "page")}

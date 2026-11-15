@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, House } from "lucide-react";
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router";
 
@@ -6,7 +6,7 @@ import type { DashboardView } from "@/data/workspace-client";
 import { displayColor, displayIconId, displayIcons } from "@/lib/display-icons";
 import { cn } from "@/lib/utils";
 
-import { navigationRevealIds, type NavigationNode } from "./navigation-tree";
+import { navigationNodeMatches, navigationRevealIds, type NavigationNode } from "./navigation-tree";
 
 /** Renderer kinds use the same registry icons as the editor extension's workspace tree. */
 const viewIconIds = {
@@ -22,6 +22,8 @@ interface NavigationTreeProps {
     ariaLabel: string;
     /** Rows that hold the current page somewhere other than as the current row, such as its terms. */
     containsCurrentIds?: ReadonlySet<string>;
+    /** Branches that start expanded, in addition to those that reveal the current page. */
+    defaultOpenIds?: readonly string[];
     nodes: NavigationNode[];
     onNavigate: () => void;
     /** Canonical route of the current page. */
@@ -38,13 +40,14 @@ const noIds: ReadonlySet<string> = new Set();
 export function NavigationTree({
     ariaLabel,
     containsCurrentIds = noIds,
+    defaultOpenIds = [],
     nodes,
     onNavigate,
     routePath,
 }: NavigationTreeProps) {
     const rootRef = useRef<HTMLUListElement>(null);
     const [disclosure, setDisclosure] = useState(() => ({
-        open: new Set(navigationRevealIds(nodes, routePath)),
+        open: new Set([...defaultOpenIds, ...navigationRevealIds(nodes, routePath)]),
         revealedRoute: routePath,
     }));
 
@@ -102,14 +105,16 @@ function NavigationRow({
     const listId = useId();
     const isBranch = node.children !== undefined;
     const isOpen = isBranch && open.has(node.id);
-    const isCurrent = node.to === routePath;
+    // A compacted row is current when any directory it spans is; only that segment is the current link.
+    const isCurrent = navigationNodeMatches(node, routePath);
     const containsCurrent = !isCurrent && containsCurrentIds.has(node.id);
     const label = (
         <>
             <NavigationNodeIcon node={node} />
-            <span className="min-w-0 flex-1 truncate">{node.label}</span>
+            <span className="min-w-0 truncate">{node.label}</span>
+            <NavigationDescription node={node} />
             {containsCurrent ? (
-                <span className="flex shrink-0 items-center" data-contains-current>
+                <span className="ms-auto flex shrink-0 items-center ps-1" data-contains-current>
                     <span aria-hidden="true" className="size-1.5 rounded-full bg-current opacity-70" />
                     <span className="sr-only"> (includes the current page)</span>
                 </span>
@@ -118,7 +123,7 @@ function NavigationRow({
     );
     // daisyUI lays a menu item out as a column grid whose later tracks never shrink,
     // so each item holds one shrinkable child that owns the row's own layout.
-    const rowClassName = "flex min-w-0 items-center gap-2";
+    const rowClassName = "flex w-full min-w-0 items-center gap-2";
     const chevron = (
         <ChevronRight
             aria-hidden="true"
@@ -131,7 +136,8 @@ function NavigationRow({
             {!isBranch && node.to ? (
                 <Link
                     aria-current={isCurrent ? "page" : undefined}
-                    className={cn("min-w-0", isCurrent && "menu-active font-medium")}
+                    // A flex row, rather than daisyUI's content-sized grid, so the row's end markers reach the edge.
+                    className={cn("flex min-w-0", isCurrent && "menu-active font-medium")}
                     onClick={onNavigate}
                     title={node.title ?? node.label}
                     to={node.to}
@@ -157,15 +163,52 @@ function NavigationRow({
                     >
                         {chevron}
                     </button>
-                    <Link
-                        aria-current={isCurrent ? "page" : undefined}
-                        className={cn(rowClassName, "outline-none focus-visible:underline")}
-                        onClick={onNavigate}
-                        title={node.title ?? node.label}
-                        to={node.to}
-                    >
-                        {label}
-                    </Link>
+                    {node.segments ? (
+                        <span className={cn(rowClassName, "gap-1")} title={node.title}>
+                            <NavigationNodeIcon node={node} />
+                            {node.segments.map((segment, index) => {
+                                const isLast = index === (node.segments?.length ?? 0) - 1;
+                                const isSegmentCurrent = segment.to === routePath;
+                                return (
+                                    <span
+                                        className={cn("flex min-w-0 items-center gap-1", isLast ? "flex-1" : "shrink")}
+                                        key={segment.path}
+                                    >
+                                        {index > 0 ? (
+                                            <span aria-hidden="true" className="shrink-0 opacity-50">
+                                                /
+                                            </span>
+                                        ) : null}
+                                        <Link
+                                            aria-current={isSegmentCurrent ? "page" : undefined}
+                                            // The path names the directory on its own; it still contains the visible segment.
+                                            aria-label={segment.path}
+                                            className={cn(
+                                                "min-w-0 truncate rounded-sm outline-none hover:underline focus-visible:underline",
+                                                !isLast && "max-w-24",
+                                                isCurrent && !isSegmentCurrent && "font-normal opacity-75",
+                                            )}
+                                            onClick={onNavigate}
+                                            title={segment.path}
+                                            to={segment.to}
+                                        >
+                                            {segment.label}
+                                        </Link>
+                                    </span>
+                                );
+                            })}
+                        </span>
+                    ) : (
+                        <Link
+                            aria-current={isCurrent ? "page" : undefined}
+                            className={cn(rowClassName, "outline-none focus-visible:underline")}
+                            onClick={onNavigate}
+                            title={node.title ?? node.label}
+                            to={node.to}
+                        >
+                            {label}
+                        </Link>
+                    )}
                 </div>
             ) : (
                 <button
@@ -207,7 +250,22 @@ function NavigationRow({
     );
 }
 
+/**
+ * What tells a node apart from siblings with the same label. It is visible text, so it also
+ * becomes part of the link's accessible name; the label truncates before it does.
+ */
+function NavigationDescription({ node }: { node: NavigationNode }) {
+    if (!node.description) return null;
+    return (
+        <span className="max-w-[45%] shrink-0 truncate text-xs font-normal opacity-60">
+            <span className="sr-only">, </span>
+            {node.description}
+        </span>
+    );
+}
+
 function NavigationNodeIcon({ node }: { node: NavigationNode }) {
+    if (node.kind === "home") return <House aria-hidden="true" className="size-4 shrink-0" />;
     const iconId = nodeIconId(node);
     const Icon = iconId ? displayIcons[iconId] : undefined;
     if (!Icon) return null;
