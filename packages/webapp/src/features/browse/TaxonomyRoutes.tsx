@@ -9,7 +9,7 @@ import { taxonomyRoutePath, taxonomyTermRoutePath } from "@/lib/workspace-routes
 
 import { PagesList } from "./PagesList";
 
-const browseBreadcrumb = [{ label: "Browse", to: "/browse" }];
+const collectionsBreadcrumb = [{ label: "Collections", to: "/browse" }];
 
 export function TaxonomiesRoute() {
     const dashboard = useWorkspaceDashboard();
@@ -18,7 +18,7 @@ export function TaxonomiesRoute() {
         <WorkspaceRouteFrame
             contentWidth="narrow"
             description="Taxonomies and terms declared by workspace configuration."
-            title="Browse"
+            title="Collections"
         >
             <TaxonomiesPage dashboard={dashboard} />
         </WorkspaceRouteFrame>
@@ -32,7 +32,7 @@ export function TaxonomyRoute() {
 
     if (!taxonomy) {
         return (
-            <WorkspaceRouteFrame contentWidth="narrow" breadcrumb={browseBreadcrumb} title="Not found">
+            <WorkspaceRouteFrame contentWidth="narrow" breadcrumb={collectionsBreadcrumb} title="Not found">
                 <EmptyPage />
             </WorkspaceRouteFrame>
         );
@@ -41,7 +41,7 @@ export function TaxonomyRoute() {
     return (
         <WorkspaceRouteFrame
             contentWidth="narrow"
-            breadcrumb={browseBreadcrumb}
+            breadcrumb={collectionsBreadcrumb}
             description={taxonomy.description}
             title={taxonomy.title}
         >
@@ -58,7 +58,7 @@ export function TaxonomyTermRoute() {
 
     if (!taxonomy || !term) {
         return (
-            <WorkspaceRouteFrame contentWidth="narrow" breadcrumb={browseBreadcrumb} title="Not found">
+            <WorkspaceRouteFrame contentWidth="narrow" breadcrumb={collectionsBreadcrumb} title="Not found">
                 <EmptyPage />
             </WorkspaceRouteFrame>
         );
@@ -67,7 +67,7 @@ export function TaxonomyTermRoute() {
     return (
         <WorkspaceRouteFrame
             contentWidth="narrow"
-            breadcrumb={[...browseBreadcrumb, { label: taxonomy.title, to: taxonomyRoutePath(taxonomy.id) }]}
+            breadcrumb={[...collectionsBreadcrumb, { label: taxonomy.title, to: taxonomyRoutePath(taxonomy.id) }]}
             description={term.description}
             title={term.title}
         >

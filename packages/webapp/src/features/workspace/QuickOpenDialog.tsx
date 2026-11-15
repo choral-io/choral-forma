@@ -118,8 +118,9 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
     const [query, setQuery] = useState("");
     const routeItems = [
         { group: "Navigate", href: "/", label: "Home", meta: "route" },
+        { group: "Navigate", href: "/pages", label: "Pages", meta: "route" },
         { group: "Navigate", href: "/views", label: "Views", meta: "route" },
-        { group: "Navigate", href: "/browse", label: "Browse", meta: "route" },
+        { group: "Navigate", href: "/browse", label: "Collections", meta: "route" },
         { group: "Navigate", href: "/health", label: "Health", meta: "route" },
     ];
     const viewItems = dashboard.views.map((view) => ({

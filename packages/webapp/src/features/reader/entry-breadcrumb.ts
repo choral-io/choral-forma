@@ -1,34 +1,20 @@
-import type { DashboardTaxonomy } from "@/data/workspace-client";
 import type { WorkspaceBreadcrumb } from "@/features/workspace/WorkspaceRouteFrame";
-import { taxonomyRoutePath, taxonomyTermRoutePath } from "@/lib/workspace-routes";
+import { directoryRoutePath } from "@/lib/workspace-routes";
 
-/**
- * The directories that contain an entry, outermost first. Directories only group
- * entries, so none of them is a destination.
- */
+/** `Pages` and the directories that contain an entry, outermost first, each opening its directory page. */
 export function entryDirectoryBreadcrumb(path: string): WorkspaceBreadcrumb[] {
-    return path
-        .split("/")
-        .slice(0, -1)
-        .filter((segment) => segment.length > 0)
-        .map((label) => ({ label }));
+    return directoryBreadcrumb(path.split("/").slice(0, -1).join("/"), true);
 }
 
 /**
- * The first configured taxonomy and term that contain an entry, matching the branch
- * the Collections tree reveals for it. An entry outside every term has no crumbs.
+ * `Pages` and each directory down to `path`. `includeSelf` adds `path` itself, which a
+ * document's breadcrumb needs and a directory's own page does not.
  */
-export function entryCollectionBreadcrumb(
-    taxonomies: readonly DashboardTaxonomy[],
-    entryPath: string,
-): WorkspaceBreadcrumb[] {
-    for (const taxonomy of taxonomies) {
-        const term = taxonomy.terms.find((candidate) => candidate.entries.some((entry) => entry.path === entryPath));
-        if (!term) continue;
-        return [
-            { label: taxonomy.title, to: taxonomyRoutePath(taxonomy.id) },
-            { label: term.title, to: taxonomyTermRoutePath(taxonomy.id, term.id) },
-        ];
-    }
-    return [];
+export function directoryBreadcrumb(path: string, includeSelf: boolean): WorkspaceBreadcrumb[] {
+    const segments = path.split("/").filter((segment) => segment.length > 0);
+    const ancestors = includeSelf ? segments : segments.slice(0, -1);
+    return [
+        { label: "Pages", to: directoryRoutePath("") },
+        ...ancestors.map((label, index) => ({ label, to: directoryRoutePath(segments.slice(0, index + 1).join("/")) })),
+    ];
 }

@@ -1,48 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import type { DashboardTaxonomy } from "@/data/workspace-client";
-
-import { entryCollectionBreadcrumb, entryDirectoryBreadcrumb } from "./entry-breadcrumb";
+import { directoryBreadcrumb, entryDirectoryBreadcrumb } from "./entry-breadcrumb";
 
 describe("entryDirectoryBreadcrumb", () => {
-    it("lists containing directories without the file itself", () => {
+    it("leads from Pages through each containing directory to its page", () => {
         expect(entryDirectoryBreadcrumb("knowledge/design/reader.md")).toEqual([
-            { label: "knowledge" },
-            { label: "design" },
+            { label: "Pages", to: "/pages" },
+            { label: "knowledge", to: "/pages/knowledge" },
+            { label: "design", to: "/pages/knowledge/design" },
         ]);
     });
 
-    it("is empty for a root-level entry", () => {
-        expect(entryDirectoryBreadcrumb(".forma.md")).toEqual([]);
-        expect(entryDirectoryBreadcrumb("/notes.md")).toEqual([]);
-    });
-});
-
-describe("entryCollectionBreadcrumb", () => {
-    const taxonomies = [
-        { id: "areas", title: "Areas", terms: [{ id: "design", title: "Design", entries: [{ path: "a.md" }] }] },
-        {
-            id: "tags",
-            title: "Tags",
-            terms: [
-                { id: "draft", title: "Draft", entries: [{ path: "b.md" }] },
-                { id: "shared", title: "Shared", entries: [{ path: "a.md" }, { path: "b.md" }] },
-            ],
-        },
-    ] as unknown as DashboardTaxonomy[];
-
-    it("links the first taxonomy and term that contain the entry", () => {
-        expect(entryCollectionBreadcrumb(taxonomies, "a.md")).toEqual([
-            { label: "Areas", to: "/areas" },
-            { label: "Design", to: "/areas/design" },
-        ]);
-        expect(entryCollectionBreadcrumb(taxonomies, "b.md")).toEqual([
-            { label: "Tags", to: "/tags" },
-            { label: "Draft", to: "/tags/draft" },
-        ]);
+    it("leads only to Pages for a root-level entry", () => {
+        expect(entryDirectoryBreadcrumb("README.md")).toEqual([{ label: "Pages", to: "/pages" }]);
+        expect(entryDirectoryBreadcrumb("/notes.md")).toEqual([{ label: "Pages", to: "/pages" }]);
     });
 
-    it("is empty for an entry outside every term", () => {
-        expect(entryCollectionBreadcrumb(taxonomies, "c.md")).toEqual([]);
+    it("leaves a directory's own name out of its page's breadcrumb", () => {
+        expect(directoryBreadcrumb("a b/c", false)).toEqual([
+            { label: "Pages", to: "/pages" },
+            { label: "a b", to: "/pages/a%20b" },
+        ]);
     });
 });

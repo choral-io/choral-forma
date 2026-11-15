@@ -68,66 +68,79 @@ The sidebar contains, top to bottom:
 
 - workspace identity, which links to Home;
 - Quick Open;
-- a two-option strategy switch;
-- the navigation tree for the selected strategy;
+- two sections: `Pages` and `Workspace`;
 - a fixed footer with Health.
 
 Health shows a count only when findings require attention.
 
-### Navigation Strategies
+The arrangement follows an editor's explorer: the source tree is primary, and the configuration-derived tree sits below it, as the editor extension's Forma tree does. There is no strategy switch, so every document has exactly one place in the sidebar.
 
-The reader chooses between two strategies. The default is `Files`. The choice persists in browser-local presentation state and is not business state.
+### Sections
 
-**Files** derives a directory tree from each entry's source path.
+Each section has a heading row that collapses and expands it. Collapse state persists in browser-local presentation state and is not business state. Each expanded section scrolls on its own. `Pages` takes the remaining height; `Workspace` grows with its content up to a bounded share of the sidebar, so a long page tree never pushes it out of reach. A section with nothing to show is omitted.
 
-- Directory nodes group their children and are not navigable. The WebApp does not treat any filename, such as an index or README file, as a directory landing page.
-- Document nodes show the entry title and expose the full source path as a tooltip. Directory nodes show the directory name.
-- Directories sort before documents; siblings sort by displayed text using locale comparison. The read model carries no file-level order, and the WebApp does not invent one.
+**Pages** derives a directory tree from each entry's source path, starting at the workspace root: the directory that contains `.forma.md`, against which every configured path resolves.
+
+- It lists indexed documents only. Files that no content selection includes never appear, so a directory row stands for the indexed documents below it, not for the directory's full contents.
+- Directory nodes open their directory page. Document nodes show the entry title and expose the full source path as a tooltip; directory nodes show the directory name and expose the directory path.
+- A document whose route equals a directory's route, such as `notes/index.md` or a `notes.md` beside `notes/`, is represented by that directory row and is not listed again, so the tree never marks two rows for one page.
+- Directories sort before documents; siblings sort by displayed text using locale comparison. The read model carries no page-level order, and the WebApp does not invent one.
 - A chain of directories that each contain only one directory collapses into a single row.
 
-**Collections** follows configuration, using the same node model as the editor extension's workspace tree.
+**Workspace** lists configured taxonomies and their terms, followed by a `Views` group, matching the editor extension's tree.
 
-- Roots are the configured taxonomies in display order. Each taxonomy contains its terms, and each term contains its entries.
-- A final `Views` group lists the configured Views. Each View shows its renderer kind and opens its projection route.
-- A term row navigates to the term route. Disclosure is a separate control on the same row.
+- Taxonomies and terms keep the read model's order, which follows `display.order` and then title.
+- A row uses its configured `display.icon` when the icon is supported and its `display.color` for that icon, adapted to the active theme. Without them a taxonomy uses a tags icon, a term uses a folder icon, and both use the theme's text color.
+- A taxonomy row navigates to the taxonomy route; disclosure is a separate control on the same row. A term row navigates to the term route.
+- Terms do not list their entries. The term page does, so a document's sidebar location stays unique.
+- The `Views` group opens the Views index and lists the configured Views in the read model's order. Each View shows its renderer kind and opens its projection route. The group is omitted when no View is configured.
 
-Neither strategy hard-codes a taxonomy name, a directory name, or an example-domain concept.
+No section hard-codes a taxonomy name, a directory name, or an example-domain concept.
 
 ### Shared Tree Behavior
 
 - Navigation and disclosure are separate controls. Activating one never performs the other.
-- The branch containing the current route expands and scrolls into view. Other branches start collapsed. Expansion state is component-local and does not persist.
+- Exactly one row in the sidebar is the current page, and it is marked without relying on color alone. The branches above it expand and it scrolls into view. A current row that is itself a branch, such as a directory, a taxonomy, or `Views`, keeps the reader's disclosure state: following its link never expands or collapses it. Other branches start collapsed. Expansion state is component-local and does not persist.
+- On a document route, each taxonomy and term row in `Workspace` whose term includes the document carries a secondary "contains the current page" marker. The marker does not expand anything and is not the current page.
 - Children render only while their branch is expanded.
-- An entry that belongs to several terms appears under each. Every occurrence of the current entry is marked as current; only the first is expanded automatically.
-- The tree lists canonical-language entries only. Language variants are switched from the document header.
-- Switching strategy keeps the current route and reveals it in the newly selected tree.
+- Trees list canonical-language entries only. Language variants are switched from the document header.
 
 ### Routes
 
-Routes do not change. `/pages`, `/browse`, `/views`, `/health`, `/:taxonomyId`, and `/:taxonomyId/:termId` keep their meaning and precedence so that static export URLs and existing links remain stable. `/pages`, `/browse`, and `/views` are no longer first-level navigation destinations; the tree and the breadcrumb reach them.
+Existing routes keep their meaning and precedence so that static export URLs and existing links remain stable: `/pages/<entry path>`, `/browse`, `/views`, `/views/<id>`, `/health`, `/:taxonomyId`, and `/:taxonomyId/:termId`.
+
+Directory pages share the page namespace, because directories and documents come from the same source paths:
+
+- `/pages` is the workspace root's directory page. It replaces the flat page index; every indexed page remains reachable from it, from the `Pages` tree, and from Quick Open.
+- `/pages/<directory path>` is a directory's page. A route resolves to a document first; when no document owns it, it resolves to the directory; otherwise it reaches the not-found page.
+- When a document owns a directory's route, through Core's existing rule that `x/index.md` is served at `/pages/x` or through a `x.md` beside `x/`, the document page shows the document and then the directory's listing. The WebApp adds no filename convention of its own, and the listing stays reachable.
+- A path that holds no indexed document is not a directory.
+- Directory pages reserve no name outside `/pages`, so they cannot collide with a taxonomy.
+
+`/browse` is titled `Collections` in the WebApp and in static export fallback pages. Static export does not yet generate directory pages, so a directory URL opened directly on a static host reaches the not-found page before enhancement; see [Deferred](#deferred).
 
 ## Page Layout Modes
 
-| Route                                  | Layout                                                                                           |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Document and Home                      | Reading layout: document column plus page outline                                                |
-| View                                   | Full-width projection; the View document's Markdown description uses reading typography above it |
-| Taxonomy, term, Pages, and Views index | Narrow row list                                                                                  |
-| Health                                 | Narrow row list, unchanged                                                                       |
+| Route                                      | Layout                                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Document and Home                          | Reading layout: document column plus page outline                                                |
+| View                                       | Full-width projection; the View document's Markdown description uses reading typography above it |
+| Taxonomy, term, directory, and Views index | Narrow row list                                                                                  |
+| Health                                     | Narrow row list, unchanged                                                                       |
 
 ### Home
 
-Home renders the workspace entry document as an ordinary document in the reading layout. A short recently updated list follows the document body. Configured View entry rows are no longer a Home section; the Collections tree owns them. Health still appears on Home only when a finding requires attention.
+Home renders the workspace entry document, `.forma.md`, as an ordinary document in the reading layout. A short recently updated list follows the document body. Configured View entry rows are no longer a Home section; the `Workspace` section owns them. Health still appears on Home only when a finding requires attention.
 
 ## Reader
 
 A document route presents, top to bottom:
 
-1. **Breadcrumb**, in the page header. It follows the selected strategy: path segments under Files, taxonomy and term under Collections. It does not repeat the document title.
+1. **Breadcrumb**, in the page header: `Pages` and each containing directory, each opening its directory page. It does not repeat the document title. Taxonomy and term pages show `Collections` and the taxonomy.
 2. **Document header**: the title as the only `h1`, the summary, and one line of metadata with the updated time, language variants, and a status label when the entry is not healthy. The source path moves into a secondary page action that copies it.
 3. **Body**, typeset as described under [Typography](#typography).
 4. **Related documents**, expanded by default: backlinks first, then outgoing references, as row lists. Unresolved references keep a non-color warning treatment. Diagnostics appear only when present and stay in a closed disclosure.
-5. **Adjacent documents**: previous and next siblings in the selected strategy, meaning the same directory under Files and the same term under Collections. The control is omitted when there are no siblings.
+5. **Adjacent documents**: previous and next documents in the same directory of the `Pages` tree. The control is omitted when there are no siblings.
 
 ### Page Outline
 
@@ -175,7 +188,9 @@ These are outside this design and need their own decision before implementation:
 - reading preferences such as font size, measure, or typeface;
 - full-text search in the WebApp;
 - a Core-provided navigation projection shared by the WebApp, static export, and editor integrations;
-- link hover previews and transclusion.
+- link hover previews and transclusion;
+- a configurable directory landing document beyond Core's `index` route rule, such as a README file, which needs a configuration-model decision shared by every surface;
+- static export generation for directory pages.
 
 ## Acceptance
 
@@ -183,10 +198,11 @@ The acceptance matrix in [[design/webapp-review-surface-design]] still applies t
 
 ### Navigation Acceptance
 
-- Every indexed document is reachable from the Files tree, and every configured taxonomy, term, entry, and View is reachable from the Collections tree.
-- The current route is revealed and marked as current in the selected strategy without relying on color alone.
+- Every indexed document and every directory that holds one is reachable from the `Pages` section, and every configured taxonomy, term, and View from the `Workspace` section.
+- Exactly one sidebar row is marked as the current page, without relying on color alone, and it is revealed. Terms that include the current document carry a secondary marker.
+- Taxonomies, terms, and Views follow configured display order; configured icons and colors apply where supported.
 - Navigation and disclosure work independently by pointer and by keyboard.
-- The selected strategy and sidebar collapse state survive reload without a layout flash.
+- Section and sidebar collapse state survive reload without a layout flash.
 - No taxonomy title, directory name, or filename is treated as a built-in assumption.
 - Long titles, deep directory chains, and large terms remain usable at every target width.
 
@@ -203,7 +219,7 @@ The acceptance matrix in [[design/webapp-review-surface-design]] still applies t
 - Metadata is one compact line; the source path is reachable but not in the reading flow.
 - Backlinks and outgoing references are visible without opening a disclosure.
 - The outline is persistent at 80rem and wider, reachable by keyboard at every width, and highlights the current section.
-- Adjacent-document controls match the selected strategy's sibling order.
+- Adjacent-document controls match the `Pages` tree's sibling order.
 - Long-form Markdown, headings, code, tables, links, Mermaid, callouts, disclosures, math, and both themes remain readable.
 - Static export fallback pages render the same body typography before enhancement.
 
@@ -212,9 +228,9 @@ The acceptance matrix in [[design/webapp-review-surface-design]] still applies t
 This document replaces the following parts of [[design/webapp-review-surface-design]]:
 
 - `Product Position`: the WebApp is a knowledge-base reader first; workspace review is one of its jobs rather than its identity.
-- `Expanded Desktop Navigation`: the sidebar now persistently presents documents, taxonomy terms, and Views through the navigation tree.
+- `Expanded Desktop Navigation`: the sidebar now persistently presents documents, taxonomies and terms, and Views in two sections.
 - `Collapsed Desktop Navigation`: the icon rail is replaced by full collapse.
 - `Home` under `Page Layout Modes`, and `Home Acceptance`.
 - `Reader` under `Page Layout Modes`, and `Reader Acceptance`: the outline and related documents are no longer closed by default, and a persistent outline region is allowed.
 
-The `Projection` layout rules are not superseded. Their breadcrumb now follows the selected navigation strategy.
+The `Projection` layout rules are not superseded.

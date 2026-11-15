@@ -29,8 +29,8 @@ export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pat
     if (canonicalPath === "/browse") {
         return {
             canonicalPath,
-            description: "Browse configured workspace taxonomies.",
-            title: "Browse",
+            description: "Configured workspace taxonomies and terms.",
+            title: "Collections",
         };
     }
 

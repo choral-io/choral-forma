@@ -7,17 +7,20 @@ import { canonicalRoutePathFromLocation, resolveDashboardEntryTarget } from "@/d
 import type { DashboardEntry } from "@/data/workspace-client";
 import { createWorkspaceDashboardContext } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
+import { DirectoryContents, DirectoryPage } from "@/features/browse/DirectoryPage";
 import { PagesList } from "@/features/browse/PagesList";
 import { recentlyUpdatedEntries } from "@/features/browse/recent-entries";
+import { directoryListing, listingCounts } from "@/features/navigation/directory-listing";
 import { navigationSiblings } from "@/features/navigation/navigation-tree";
-import { useNavigationTree } from "@/features/navigation/use-navigation-tree";
+import { useNavigationTrees } from "@/features/navigation/use-navigation-trees";
 import { EmptyPage } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
 import { copySourcePath } from "@/lib/copy-source-path";
-import { canonicalEntries, canonicalEntryFor, canonicalEntryRoutePath } from "@/lib/entry-languages";
+import { canonicalEntries, canonicalEntryRoutePath } from "@/lib/entry-languages";
+import { directoryPathFromRoutePath } from "@/lib/workspace-routes";
 
-import { entryCollectionBreadcrumb, entryDirectoryBreadcrumb } from "./entry-breadcrumb";
+import { entryDirectoryBreadcrumb } from "./entry-breadcrumb";
 import { getEntryOutline } from "./entry-outline";
 import { EntryPage } from "./EntryPage";
 import { prewarmMarkdownHighlighter } from "./markdown-shiki";
@@ -42,7 +45,7 @@ function EntryRouteContent({
 }) {
     const dashboard = useWorkspaceDashboard();
     const dashboardContext = useMemo(() => createWorkspaceDashboardContext(dashboard), [dashboard]);
-    const { strategy: navigationStrategy, tree: navigationTree } = useNavigationTree(dashboard);
+    const { pages: pagesTree } = useNavigationTrees(dashboard);
     const outlineDialogId = useId();
     const outlineDialogRef = useRef<HTMLDialogElement>(null);
     const outlineTriggerRef = useRef<HTMLElement>(null);
@@ -141,7 +144,10 @@ function EntryRouteContent({
         }
     }, [routePath]);
 
+    // A page route that no document owns names a directory, or nothing.
+    const directoryPath = directoryPathFromRoutePath(routePath);
     if (!entry) {
+        if (directoryPath !== undefined) return <DirectoryPage path={directoryPath} />;
         return (
             <WorkspaceRouteFrame title="Not found">
                 <EmptyPage />
@@ -181,20 +187,20 @@ function EntryRouteContent({
                 </>
             }
             reading
-            breadcrumb={
-                navigationStrategy === "files"
-                    ? entryDirectoryBreadcrumb(entry.path)
-                    : entryCollectionBreadcrumb(
-                          dashboard.taxonomies,
-                          canonicalEntryFor(dashboard.entries, entry.path)?.path ?? entry.path,
-                      )
-            }
+            // Home is the workspace crumb itself, so it has no ancestors to show.
+            breadcrumb={routePath === "/" ? [] : entryDirectoryBreadcrumb(entry.path)}
         >
             <EntryPage
-                adjacent={navigationSiblings(navigationTree, treeRoutePath)}
+                adjacent={navigationSiblings(pagesTree, treeRoutePath)}
                 afterBody={
                     routePath === "/" ? (
                         <RecentlyUpdated entries={dashboard.entries} homePath={entry.path} />
+                    ) : directoryPath ? (
+                        <OwnedDirectory
+                            directoryPath={directoryPath}
+                            entries={dashboard.entries}
+                            entryPath={entry.path}
+                        />
                     ) : undefined
                 }
                 canonicalLanguage={dashboard.canonicalLanguage}
@@ -214,6 +220,41 @@ function EntryRouteContent({
                 routePath={routePath}
             />
         </WorkspaceRouteFrame>
+    );
+}
+
+/**
+ * A document served at a directory's route, such as its `index` file, keeps the directory's
+ * listing reachable below the document itself.
+ */
+function OwnedDirectory({
+    directoryPath,
+    entries,
+    entryPath,
+}: {
+    directoryPath: string;
+    entries: DashboardEntry[];
+    entryPath: string;
+}) {
+    const listing = directoryListing(
+        canonicalEntries(entries).filter((candidate) => candidate.path !== entryPath),
+        directoryPath,
+    );
+    if (!listing || (listing.directories.length === 0 && listing.entries.length === 0)) return null;
+
+    return (
+        <section
+            aria-labelledby="owned-directory-heading"
+            className="flex flex-col gap-3 border-t border-base-300 pt-8"
+        >
+            <div className="flex items-baseline justify-between gap-4">
+                <h2 className="text-xl font-semibold" id="owned-directory-heading">
+                    In this folder
+                </h2>
+                <span className="text-sm text-base-content/60">{listingCounts(listing)}</span>
+            </div>
+            <DirectoryContents listing={listing} />
+        </section>
     );
 }
 

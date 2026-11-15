@@ -1,16 +1,21 @@
-import { HeartPulse, PanelLeftClose } from "lucide-react";
-import { useId } from "react";
+import { ChevronRight, HeartPulse, PanelLeftClose } from "lucide-react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 
 import { canonicalRoutePathFromLocation } from "@/data/static-route-target";
 
 import type { WorkspaceDashboard } from "@/data/workspace-client";
+import { collectionIdsContaining } from "@/features/navigation/collection-tree";
 import { NavigationTree } from "@/features/navigation/NavigationTree";
-import { useNavigationTree } from "@/features/navigation/use-navigation-tree";
+import { useNavigationTrees } from "@/features/navigation/use-navigation-trees";
 import { FormaBrandIcon } from "@/features/workspace/FormaBrandIcon";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { canonicalEntryRoutePath } from "@/lib/entry-languages";
-import { navigationStrategies, type NavigationStrategy } from "@/lib/navigation-preference";
+import {
+    readCollapsedSidebarSections,
+    writeCollapsedSidebarSections,
+    type SidebarSection,
+} from "@/lib/sidebar-sections-preference";
 import { cn } from "@/lib/utils";
 
 interface WorkspaceSidebarProps {
@@ -31,8 +36,25 @@ export function WorkspaceSidebar({
     const { pathname } = useLocation();
     // A language variant is not in the tree, so its page reveals the document it belongs to.
     const routePath = canonicalEntryRoutePath(dashboard.entries, canonicalRoutePathFromLocation(pathname));
-    const strategyGroupId = useId();
-    const { setStrategy, strategy, tree } = useNavigationTree(dashboard);
+    const trees = useNavigationTrees(dashboard);
+    const currentEntryPath = dashboard.entries.find((entry) => entry.routePath === routePath)?.path;
+    const containsCurrentIds = useMemo(
+        () => (currentEntryPath ? collectionIdsContaining(dashboard.taxonomies, currentEntryPath) : undefined),
+        [currentEntryPath, dashboard.taxonomies],
+    );
+    const [collapsed, setCollapsed] = useState(readCollapsedSidebarSections);
+
+    function toggleSection(section: SidebarSection) {
+        const next = new Set(collapsed);
+        if (!next.delete(section)) next.add(section);
+        writeCollapsedSidebarSections(next);
+        setCollapsed(next);
+    }
+
+    const sections = [
+        { id: "pages", label: "Pages", nodes: trees.pages },
+        { id: "workspace", label: "Workspace", nodes: trees.workspace },
+    ] satisfies { id: SidebarSection; label: string; nodes: unknown[] }[];
     const healthFindingCount = dashboard.health.findings.filter((finding) => finding.severity !== "info").length;
 
     return (
@@ -74,36 +96,29 @@ export function WorkspaceSidebar({
                 </ul>
             ) : null}
 
-            <fieldset className="tabs-box mx-2 mt-2 tabs grid shrink-0 grid-cols-2 tabs-sm">
-                <legend className="sr-only">Navigation strategy</legend>
-                {navigationStrategies.map((value) => (
-                    <input
-                        aria-label={strategyLabels[value]}
-                        checked={strategy === value}
-                        className="tab"
-                        key={value}
-                        name={strategyGroupId}
-                        onChange={() => {
-                            setStrategy(value);
-                        }}
-                        type="radio"
-                    />
-                ))}
-            </fieldset>
-
-            <nav aria-label={strategyLabels[strategy]} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-                {tree.length > 0 ? (
-                    <NavigationTree
-                        ariaLabel={strategyLabels[strategy]}
-                        key={strategy}
-                        nodes={tree}
-                        onNavigate={onNavigate}
-                        routePath={routePath}
-                    />
-                ) : (
-                    <p className="p-4 text-sm text-base-content/60">{emptyLabels[strategy]}</p>
-                )}
-            </nav>
+            <div className="flex min-h-0 flex-1 flex-col pt-2">
+                {sections
+                    .filter((section) => section.nodes.length > 0)
+                    .map((section) => (
+                        <SidebarSectionPanel
+                            collapsed={collapsed.has(section.id)}
+                            key={section.id}
+                            label={section.label}
+                            onToggle={() => {
+                                toggleSection(section.id);
+                            }}
+                            primary={section.id === "pages"}
+                        >
+                            <NavigationTree
+                                ariaLabel={section.label}
+                                containsCurrentIds={section.id === "workspace" ? containsCurrentIds : undefined}
+                                nodes={section.nodes}
+                                onNavigate={onNavigate}
+                                routePath={routePath}
+                            />
+                        </SidebarSectionPanel>
+                    ))}
+            </div>
 
             <nav aria-label="Workspace status" className="shrink-0 border-t border-base-300">
                 <ul className="menu w-full">
@@ -121,11 +136,55 @@ export function WorkspaceSidebar({
     );
 }
 
-const strategyLabels = { collections: "Collections", files: "Files" } satisfies Record<NavigationStrategy, string>;
-const emptyLabels = {
-    collections: "No taxonomies or Views are configured.",
-    files: "No documents are indexed.",
-} satisfies Record<NavigationStrategy, string>;
+/**
+ * A collapsible sidebar section with its own scroll area. The primary section takes the
+ * remaining height; the others grow with their content up to a bounded share.
+ */
+function SidebarSectionPanel({
+    children,
+    collapsed,
+    label,
+    onToggle,
+    primary,
+}: {
+    children: ReactNode;
+    collapsed: boolean;
+    label: string;
+    onToggle: () => void;
+    primary: boolean;
+}) {
+    const bodyId = useId();
+
+    return (
+        <section
+            className={cn(
+                "flex min-h-0 flex-col border-t border-base-300 first:border-t-0",
+                collapsed ? "shrink-0" : primary ? "flex-1" : "max-h-[45%] shrink-0",
+            )}
+        >
+            <h2 className="shrink-0">
+                <button
+                    aria-controls={bodyId}
+                    aria-expanded={!collapsed}
+                    className="flex w-full cursor-pointer items-center gap-1 px-3 py-1.5 text-xs font-semibold tracking-wide text-base-content/70 uppercase outline-none hover:text-base-content focus-visible:ring-2 focus-visible:ring-base-content/30 focus-visible:ring-inset"
+                    onClick={onToggle}
+                    type="button"
+                >
+                    <ChevronRight
+                        aria-hidden="true"
+                        className={cn("size-3.5 shrink-0 motion-safe:transition-transform", !collapsed && "rotate-90")}
+                    />
+                    {label}
+                </button>
+            </h2>
+            {collapsed ? null : (
+                <nav aria-label={label} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto" id={bodyId}>
+                    {children}
+                </nav>
+            )}
+        </section>
+    );
+}
 
 function SidebarLink({
     active,

@@ -1,4 +1,4 @@
-import type { DashboardView } from "@/data/workspace-client";
+import type { DashboardView, DisplayOptions } from "@/data/workspace-client";
 
 export type NavigationNodeKind = "directory" | "entry" | "taxonomy" | "term" | "views" | "view";
 
@@ -12,13 +12,12 @@ export interface NavigationNode {
     /** Route this node navigates to. A node without one only groups its children. */
     to?: string;
     viewKind?: DashboardView["kind"];
+    /** Configured icon and color hints, for nodes that come from configuration. */
+    display?: DisplayOptions;
     children?: NavigationNode[];
 }
 
-/**
- * Ids of the branches that contain the first node routed to `routePath`, outermost
- * first. A document can appear under several branches; only the first is revealed.
- */
+/** Ids of the branches that contain the first node routed to `routePath`, outermost first. */
 export function navigationAncestorIds(nodes: readonly NavigationNode[], routePath: string): string[] | undefined {
     for (const node of nodes) {
         if (node.to === routePath) return [];
@@ -27,6 +26,15 @@ export function navigationAncestorIds(nodes: readonly NavigationNode[], routePat
         if (nested) return [node.id, ...nested];
     }
     return undefined;
+}
+
+/**
+ * Ids of the branches to open on arriving at `routePath`: only those that contain its node.
+ * A destination that is itself a branch, such as a directory or a taxonomy, stays as the
+ * reader left it, so following a link never also expands or collapses it.
+ */
+export function navigationRevealIds(nodes: readonly NavigationNode[], routePath: string): string[] {
+    return navigationAncestorIds(nodes, routePath) ?? [];
 }
 
 /** The siblings that precede and follow the first node routed to `routePath`. */

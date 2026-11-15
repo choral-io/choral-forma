@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCollectionTree } from "./collection-tree";
+import { buildCollectionTree, buildViewTree, collectionIdsContaining } from "./collection-tree";
 import { buildFileTree } from "./file-tree";
-import { navigationAncestorIds, navigationSiblings, type NavigationNode } from "./navigation-tree";
+import { navigationAncestorIds, navigationRevealIds, navigationSiblings, type NavigationNode } from "./navigation-tree";
 
 const entry = (path: string, title: string) => ({ path, routePath: `/pages/${path.replace(/\.md$/u, "")}`, title });
 
@@ -38,104 +38,180 @@ describe("buildFileTree", () => {
     });
 
     it("collapses a chain of single-directory levels into one row", () => {
-        const tree = buildFileTree([entry("knowledge/workspace/member/index.md", "Member"), entry("top.md", "Top")]);
+        const tree = buildFileTree([entry("knowledge/workspace/member/note.md", "Member"), entry("top.md", "Top")]);
 
         expect(outline(tree)).toEqual(["directory:knowledge/workspace/member", "  entry:Member", "entry:Top"]);
         expect(tree[0]?.id).toBe("directory:knowledge/workspace/member");
+        expect(tree[0]?.to).toBe("/pages/knowledge/workspace/member");
     });
 
-    it("keeps directories as groupings and never promotes an index file", () => {
-        const [directory] = buildFileTree([entry("guide/index.md", "Guide"), entry("guide/README.md", "Read me")]);
-
-        expect(directory?.to).toBeUndefined();
-        expect(directory?.children?.map((node) => [node.label, node.title, node.to])).toEqual([
-            ["Guide", "guide/index.md", "/pages/guide/index"],
-            ["Read me", "guide/README.md", "/pages/guide/README"],
+    it("lets a directory row stand for the document served at its route", () => {
+        const tree = buildFileTree([
+            { path: "guide/index.md", routePath: "/pages/guide", title: "Guide" },
+            entry("guide/README.md", "Read me"),
+            entry("notes.md", "Notes overview"),
+            entry("notes/a.md", "A"),
+            entry("other.md", "Other"),
         ]);
+
+        expect(outline(tree)).toEqual([
+            "directory:guide",
+            "  entry:Read me",
+            "directory:notes",
+            "  entry:A",
+            "entry:Other",
+        ]);
+        expect(tree.map((node) => node.to)).toEqual(["/pages/guide", "/pages/notes", "/pages/other"]);
+    });
+
+    it("turns a directory that holds only its own document into a plain link", () => {
+        const [member] = buildFileTree([
+            { path: "members/tiscs/index.md", routePath: "/pages/members/tiscs", title: "Tiscs" },
+        ]);
+
+        expect(member).toEqual({
+            id: "directory:members/tiscs",
+            kind: "directory",
+            label: "members/tiscs",
+            title: "members/tiscs",
+            to: "/pages/members/tiscs",
+        });
+    });
+
+    it("keeps a same-named document whose directory row is merged into a chain", () => {
+        const tree = buildFileTree([entry("a.md", "A overview"), entry("a/b/c.md", "C")]);
+
+        expect(outline(tree)).toEqual(["directory:a/b", "  entry:C", "entry:A overview"]);
     });
 });
 
-describe("buildCollectionTree", () => {
-    const term = (id: string, entries: ReturnType<typeof entry>[]) => ({ id, title: id.toUpperCase(), entries });
-    const dashboard = {
-        taxonomies: [
-            { id: "areas", title: "Areas", terms: [term("design", [entry("a.md", "A")]), term("build", [])] },
-            { id: "tags", title: "Tags", terms: [term("shared", [entry("a.md", "A"), entry("b.md", "B")])] },
+const taxonomies = [
+    {
+        id: "areas",
+        title: "Areas",
+        description: "Where work lives",
+        display: { icon: "shapes", color: "#64748B" },
+        terms: [
+            {
+                id: "design",
+                title: "Design",
+                description: "",
+                display: { icon: "lightbulb" },
+                entries: [entry("a.md", "A")],
+            },
+            { id: "build", title: "Build", description: "", entries: [] },
         ],
-        views: [{ id: ".forma/views/board", title: "Board", description: "", kind: "kanban" as const }],
-    } as unknown as Parameters<typeof buildCollectionTree>[0];
+    },
+    {
+        id: "tags",
+        title: "Tags",
+        description: "",
+        terms: [{ id: "shared", title: "Shared", description: "", entries: [entry("a.md", "A"), entry("b.md", "B")] }],
+    },
+] as unknown as Parameters<typeof buildCollectionTree>[0];
 
-    it("keeps configured order and appends a Views group", () => {
-        expect(outline(buildCollectionTree(dashboard))).toEqual([
+describe("buildCollectionTree", () => {
+    it("keeps the read model's order and lists terms without their entries", () => {
+        expect(outline(buildCollectionTree(taxonomies))).toEqual([
             "taxonomy:Areas",
-            "  term:DESIGN",
-            "    entry:A",
-            "  term:BUILD",
+            "  term:Design",
+            "  term:Build",
             "taxonomy:Tags",
-            "  term:SHARED",
-            "    entry:A",
-            "    entry:B",
-            "views:Views",
-            "  view:Board",
+            "  term:Shared",
         ]);
     });
 
-    it("leaves out omitted entries, such as language variants", () => {
-        expect(outline(buildCollectionTree(dashboard, new Set(["b.md"])))).toContain("  term:SHARED");
-        expect(outline(buildCollectionTree(dashboard, new Set(["b.md"])))).not.toContain("    entry:B");
+    it("routes taxonomies and terms and carries their display hints", () => {
+        const [areas] = buildCollectionTree(taxonomies);
+
+        expect(areas).toMatchObject({
+            display: { color: "#64748B", icon: "shapes" },
+            title: "Where work lives",
+            to: "/areas",
+        });
+        expect(areas?.children?.[0]).toMatchObject({
+            display: { icon: "lightbulb" },
+            title: undefined,
+            to: "/areas/design",
+        });
+        expect(areas?.children?.[0]?.children).toBeUndefined();
     });
 
-    it("routes taxonomies, terms, and views and gives repeated entries distinct ids", () => {
-        const tree = buildCollectionTree(dashboard);
-        const ids = new Set<string>();
-        const visit = (nodes: NavigationNode[]) => {
-            for (const node of nodes) {
-                expect(ids.has(node.id), node.id).toBe(false);
-                ids.add(node.id);
-                visit(node.children ?? []);
-            }
-        };
-        visit(tree);
-
-        expect(tree[0]?.to).toBe("/areas");
-        expect(tree[0]?.children?.[0]?.to).toBe("/areas/design");
-        expect(tree[2]?.children?.[0]).toMatchObject({ to: "/views/.forma/views/board", viewKind: "kanban" });
+    it("finds every row that classifies a document", () => {
+        expect(collectionIdsContaining(taxonomies, "a.md")).toEqual(
+            new Set(["taxonomy:areas", "term:areas/design", "taxonomy:tags", "term:tags/shared"]),
+        );
+        expect(collectionIdsContaining(taxonomies, "b.md")).toEqual(new Set(["taxonomy:tags", "term:tags/shared"]));
+        expect(collectionIdsContaining(taxonomies, "c.md")).toEqual(new Set());
     });
+});
 
-    it("omits the Views group when no View is configured", () => {
-        expect(buildCollectionTree({ ...dashboard, views: [] }).map((node) => node.kind)).toEqual([
-            "taxonomy",
-            "taxonomy",
+describe("buildViewTree", () => {
+    it("groups the Views under one routed node and keeps each renderer kind", () => {
+        const [group] = buildViewTree([
+            { id: ".forma/views/board", path: "", title: "Board", description: "Work", kind: "kanban" },
+        ] as Parameters<typeof buildViewTree>[0]);
+
+        expect(group).toMatchObject({ id: "views", kind: "views", label: "Views", to: "/views" });
+        expect(group?.children).toEqual([
+            {
+                id: "view:.forma/views/board",
+                kind: "view",
+                label: "Board",
+                title: "Work",
+                to: "/views/.forma/views/board",
+                viewKind: "kanban",
+            },
         ]);
+    });
+
+    it("adds nothing when no View is configured", () => {
+        expect(buildViewTree([])).toEqual([]);
     });
 });
 
 describe("navigation lookups", () => {
-    const tree = buildCollectionTree({
-        taxonomies: [
-            {
-                id: "areas",
-                title: "Areas",
-                terms: [
-                    { id: "one", title: "One", entries: [entry("a.md", "A"), entry("b.md", "B"), entry("c.md", "C")] },
-                    { id: "two", title: "Two", entries: [entry("b.md", "B")] },
-                ],
-            },
-        ],
-        views: [],
-    } as unknown as Parameters<typeof buildCollectionTree>[0]);
+    const tree = buildFileTree([
+        entry("notes/a.md", "A"),
+        entry("notes/b.md", "B"),
+        entry("notes/c.md", "C"),
+        entry("notes/drafts/idea.md", "Idea"),
+    ]);
 
-    it("reveals only the first branch that contains the route", () => {
-        expect(navigationAncestorIds(tree, "/pages/b")).toEqual(["taxonomy:areas", "term:areas/one"]);
-        expect(navigationAncestorIds(tree, "/areas/two")).toEqual(["taxonomy:areas"]);
-        expect(navigationAncestorIds(tree, "/areas")).toEqual([]);
+    it("finds the branches above a route", () => {
+        expect(navigationAncestorIds(tree, "/pages/notes/b")).toEqual(["directory:notes"]);
+        expect(navigationAncestorIds(tree, "/pages/notes")).toEqual([]);
         expect(navigationAncestorIds(tree, "/pages/missing")).toBeUndefined();
     });
 
     it("finds adjacent documents among siblings and skips branches", () => {
-        expect(navigationSiblings(tree, "/pages/b")).toMatchObject({ previous: { label: "A" }, next: { label: "C" } });
-        expect(navigationSiblings(tree, "/pages/a")).toMatchObject({ previous: undefined, next: { label: "B" } });
-        expect(navigationSiblings(tree, "/areas/one")).toEqual({ previous: undefined, next: undefined });
+        expect(navigationSiblings(tree, "/pages/notes/b")).toMatchObject({
+            previous: { label: "A" },
+            next: { label: "C" },
+        });
+        expect(navigationSiblings(tree, "/pages/notes/a")).toMatchObject({ previous: undefined, next: { label: "B" } });
+        expect(navigationSiblings(tree, "/pages/notes/drafts/idea")).toEqual({ previous: undefined, next: undefined });
         expect(navigationSiblings(tree, "/pages/missing")).toBeUndefined();
+    });
+});
+
+describe("navigationRevealIds", () => {
+    const tree = buildFileTree([entry("notes/drafts/idea.md", "Idea"), entry("notes/a.md", "A")]);
+
+    it("opens the branches above a document", () => {
+        expect(navigationRevealIds(tree, "/pages/notes/drafts/idea")).toEqual([
+            "directory:notes",
+            "directory:notes/drafts",
+        ]);
+    });
+
+    it("leaves a destination that is itself a branch as it was", () => {
+        expect(navigationRevealIds(tree, "/pages/notes")).toEqual([]);
+        expect(navigationRevealIds(tree, "/pages/notes/drafts")).toEqual(["directory:notes"]);
+    });
+
+    it("opens nothing for a route outside the tree", () => {
+        expect(navigationRevealIds(tree, "/health")).toEqual([]);
+        expect(navigationAncestorIds(tree, "/health")).toBeUndefined();
     });
 });

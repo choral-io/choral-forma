@@ -1,4 +1,7 @@
 import type { DashboardEntry } from "@/data/workspace-client";
+import { directoryRoutePath } from "@/lib/workspace-routes";
+
+import { compareText } from "./directory-listing";
 
 import type { NavigationNode } from "./navigation-tree";
 
@@ -9,8 +12,9 @@ interface DirectoryDraft {
 }
 
 /**
- * Groups entries by the directories in their source paths. Directories only group:
- * none is a destination, and no filename is treated as a directory landing page.
+ * Groups entries by the directories in their source paths, from the workspace root. A
+ * directory opens its page. A document served at a directory row's route, such as its
+ * `index` file or a same-named file beside it, is represented by that row alone.
  */
 export function buildFileTree(entries: readonly Pick<DashboardEntry, "path" | "routePath" | "title">[]) {
     const root: DirectoryDraft = { directories: new Map(), entries: [], path: "" };
@@ -39,7 +43,30 @@ export function buildFileTree(entries: readonly Pick<DashboardEntry, "path" | "r
         });
     }
 
-    return directoryChildren(root);
+    const tree = directoryChildren(root);
+    return withoutDirectoryRoutes(tree, new Set(directoryRoutes(tree)));
+}
+
+function directoryRoutes(nodes: readonly NavigationNode[]): string[] {
+    return nodes.flatMap((node) =>
+        node.kind === "directory" && node.to ? [node.to, ...directoryRoutes(node.children ?? [])] : [],
+    );
+}
+
+/**
+ * Drops documents that a directory row already stands for. A directory left with nothing
+ * else, such as one holding only its `index` file, becomes a plain link with no disclosure.
+ */
+function withoutDirectoryRoutes(nodes: readonly NavigationNode[], routes: ReadonlySet<string>): NavigationNode[] {
+    return nodes
+        .filter((node) => node.kind !== "entry" || !node.to || !routes.has(node.to))
+        .map((node) => {
+            if (!node.children) return node;
+            const children = withoutDirectoryRoutes(node.children, routes);
+            if (children.length > 0) return { ...node, children };
+            const { children: _omitted, ...leaf } = node;
+            return leaf;
+        });
 }
 
 function directoryChildren(directory: DirectoryDraft): NavigationNode[] {
@@ -60,10 +87,12 @@ function directoryNode(name: string, directory: DirectoryDraft): NavigationNode 
         id: `directory:${current.path}`,
         kind: "directory",
         label,
+        title: current.path,
+        to: directoryRoutePath(current.path),
         children: directoryChildren(current),
     };
 }
 
 function compareLabels(left: NavigationNode, right: NavigationNode) {
-    return left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: "base" });
+    return compareText(left.label, right.label);
 }

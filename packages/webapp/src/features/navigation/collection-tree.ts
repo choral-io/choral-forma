@@ -1,48 +1,45 @@
-import type { WorkspaceDashboard } from "@/data/workspace-client";
+import type { DashboardTaxonomy, DashboardView } from "@/data/workspace-client";
 import { taxonomyRoutePath, taxonomyTermRoutePath, viewRoutePath } from "@/lib/workspace-routes";
 
 import type { NavigationNode } from "./navigation-tree";
 
 /**
- * Configured taxonomies, their terms, and each term's entries, followed by the
- * configured Views. Order and titles come from configuration as the read model reports them.
- * Entries whose paths are in `omittedPaths`, such as language variants, are left out.
+ * Configured taxonomies and their terms, in the read model's order, which follows each
+ * node's display order and then its title. Terms list no entries: the term page does, so
+ * a document keeps a single place in the sidebar.
  */
-export function buildCollectionTree(
-    dashboard: Pick<WorkspaceDashboard, "taxonomies" | "views">,
-    omittedPaths: ReadonlySet<string> = new Set(),
-): NavigationNode[] {
-    const taxonomies = dashboard.taxonomies.map((taxonomy): NavigationNode => ({
+export function buildCollectionTree(taxonomies: readonly DashboardTaxonomy[]): NavigationNode[] {
+    return taxonomies.map((taxonomy) => ({
         id: `taxonomy:${taxonomy.id}`,
         kind: "taxonomy",
         label: taxonomy.title,
+        title: taxonomy.description || undefined,
         to: taxonomyRoutePath(taxonomy.id),
-        children: taxonomy.terms.map((term): NavigationNode => ({
+        display: taxonomy.display,
+        children: taxonomy.terms.map((term) => ({
             id: `term:${taxonomy.id}/${term.id}`,
             kind: "term",
             label: term.title,
+            title: term.description || undefined,
             to: taxonomyTermRoutePath(taxonomy.id, term.id),
-            children: term.entries
-                .filter((entry) => !omittedPaths.has(entry.path))
-                .map((entry): NavigationNode => ({
-                    id: `term-entry:${taxonomy.id}/${term.id}/${entry.path}`,
-                    kind: "entry",
-                    label: entry.title,
-                    title: entry.path,
-                    to: entry.routePath,
-                })),
+            display: term.display,
         })),
     }));
-    if (dashboard.views.length === 0) return taxonomies;
+}
 
+/**
+ * A `Views` group of the configured Views, in the read model's display order, or nothing
+ * when no View is configured. It follows the taxonomies, as in the editor extension's tree.
+ */
+export function buildViewTree(views: readonly DashboardView[]): NavigationNode[] {
+    if (views.length === 0) return [];
     return [
-        ...taxonomies,
         {
             id: "views",
             kind: "views",
             label: "Views",
             to: "/views",
-            children: dashboard.views.map((view): NavigationNode => ({
+            children: views.map((view) => ({
                 id: `view:${view.id}`,
                 kind: "view",
                 label: view.title,
@@ -52,4 +49,20 @@ export function buildCollectionTree(
             })),
         },
     ];
+}
+
+/**
+ * Ids of the taxonomy and term rows whose terms include `entryPath`, so the sidebar can
+ * point at where a document is classified without marking another row as the current page.
+ */
+export function collectionIdsContaining(taxonomies: readonly DashboardTaxonomy[], entryPath: string): Set<string> {
+    const ids = new Set<string>();
+    for (const taxonomy of taxonomies) {
+        for (const term of taxonomy.terms) {
+            if (!term.entries.some((entry) => entry.path === entryPath)) continue;
+            ids.add(`taxonomy:${taxonomy.id}`);
+            ids.add(`term:${taxonomy.id}/${term.id}`);
+        }
+    }
+    return ids;
 }

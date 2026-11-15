@@ -165,8 +165,8 @@ fn route_page(
         )),
         StaticSiteRouteKind::Taxonomies => Ok(page(
             route,
-            "Browse".to_string(),
-            "Browse configured workspace taxonomies.".to_string(),
+            "Collections".to_string(),
+            "Configured workspace taxonomies and terms.".to_string(),
             taxonomy_list(&snapshot.taxonomies, root_path),
             canonical_language.to_string(),
         )),
@@ -367,7 +367,7 @@ fn taxonomy_list(taxonomies: &[StaticSiteTaxonomy], root_path: &str) -> String {
         })
         .collect::<String>();
     format!(
-        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Workspace</p><h1 class=\"text-3xl font-semibold\">Browse</h1></header><ul class=\"list mt-8\">{items}</ul>"
+        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Workspace</p><h1 class=\"text-3xl font-semibold\">Collections</h1></header><ul class=\"list mt-8\">{items}</ul>"
     )
 }
 
@@ -386,7 +386,7 @@ fn taxonomy_body(taxonomy: &StaticSiteTaxonomy, root_path: &str) -> String {
         })
         .collect::<String>();
     format!(
-        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Browse</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header><ul class=\"list mt-8\">{items}</ul>",
+        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Collections</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header><ul class=\"list mt-8\">{items}</ul>",
         escape_html(&taxonomy.title),
         optional_summary(taxonomy.description.as_deref()),
     )
@@ -402,7 +402,7 @@ fn term_body(
         .iter()
         .filter_map(|id| entries_by_id.get(id.as_str()).copied());
     format!(
-        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Browse</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header>{}",
+        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Collections</p><h1 class=\"text-3xl font-semibold\">{}</h1>{}</header>{}",
         escape_html(&term.title),
         optional_summary(term.description.as_deref()),
         entry_list(entries, root_path),
@@ -676,7 +676,7 @@ pub(crate) fn page_shell(options: PageShellOptions<'_>) -> String {
         ""
     };
     format!(
-        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script id=\"forma-static-workspace\" type=\"application/json\">{config}</script></head><body><div id=\"root\"><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{pages_href}\">Pages</a><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Browse</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
+        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /><title>{title_text}</title><meta name=\"description\" content=\"{description}\" /><link rel=\"canonical\" href=\"{canonical}\" /><meta property=\"og:type\" content=\"website\" /><meta property=\"og:title\" content=\"{title_attribute}\" /><meta property=\"og:description\" content=\"{description}\" /><meta property=\"og:url\" content=\"{canonical}\" /><meta name=\"twitter:card\" content=\"summary\" /><meta name=\"twitter:title\" content=\"{title_attribute}\" /><meta name=\"twitter:description\" content=\"{description}\" />{robots}{assets}<script id=\"forma-static-workspace\" type=\"application/json\">{config}</script></head><body><div id=\"root\"><div class=\"bg-base-100 text-base-content min-h-screen\" data-static-fallback><header class=\"border-base-300 bg-base-100 border-b\"><nav aria-label=\"Primary\" class=\"navbar mx-auto max-w-6xl gap-3 px-4\"><a class=\"navbar-start min-w-0 gap-2 font-semibold\" href=\"{root_href}\">{logo}<span class=\"truncate\">{workspace}</span></a><div class=\"navbar-end gap-1\"><a class=\"btn btn-ghost btn-sm\" href=\"{pages_href}\">Pages</a><a class=\"btn btn-ghost btn-sm\" href=\"{views_href}\">Views</a><a class=\"btn btn-ghost btn-sm\" href=\"{browse_href}\">Collections</a></div></nav></header><main class=\"mx-auto w-full max-w-6xl px-4 py-10\">{body}</main></div></div></body></html>",
         language = escape_attribute(&options.page.language),
         title_text = escape_html(&document_title),
         title_attribute = escape_attribute(&document_title),
