@@ -1,8 +1,8 @@
-import { Maximize2, Menu, Minimize2, PanelLeftOpen } from "lucide-react";
+import { Menu, PanelLeftOpen } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
-import { workspaceDesktopDrawerId, workspaceDrawerId, workspaceFocusModeId } from "@/app/App";
+import { workspaceDesktopDrawerId, workspaceDrawerId } from "@/app/App";
 import { QuickOpenTrigger } from "@/features/workspace/QuickOpenDialog";
 import { ThemeDropdown } from "@/features/workspace/ThemeDropdown";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
@@ -22,7 +22,7 @@ interface WorkspaceRouteFrameProps {
     children: ReactNode;
     contentWidth?: "default" | "fluid" | "narrow" | "readable";
     description?: string;
-    /** Offers focus mode and shows reading progress; set by routes whose content is a document. */
+    /** Shows reading progress; set by routes whose content is a document. */
     reading?: boolean;
     /** Omitted by routes that render their own page heading, such as a document. */
     title?: string;
@@ -52,11 +52,6 @@ export function WorkspaceRouteFrame({
     const changeThemePreference = (preference: ThemePreference) => {
         setThemePreference(preference);
         applyThemePreference(preference);
-    };
-
-    const toggleFocusMode = () => {
-        const toggle = document.getElementById(workspaceFocusModeId);
-        if (toggle instanceof HTMLInputElement) toggle.click();
     };
 
     return (
@@ -117,29 +112,6 @@ export function WorkspaceRouteFrame({
                 <div className="flex shrink-0 items-center gap-1">
                     <QuickOpenTrigger className={sidebarHiddenOnly} trigger="header" />
                     {actions}
-                    {reading ? (
-                        <button
-                            aria-label="Enter focus mode"
-                            className="btn btn-square btn-ghost max-lg:hidden lg:group-has-[#workspace-focus-mode:checked]/shell:hidden"
-                            data-focus-mode-enter
-                            onClick={toggleFocusMode}
-                            title="Enter focus mode"
-                            type="button"
-                        >
-                            <Maximize2 aria-hidden="true" />
-                        </button>
-                    ) : null}
-                    {/* Leaving focus mode is offered on every route, because the mode outlives the page it began on. */}
-                    <button
-                        aria-label="Exit focus mode"
-                        className="btn hidden btn-square btn-ghost lg:group-has-[#workspace-focus-mode:checked]/shell:inline-flex"
-                        data-focus-mode-exit
-                        onClick={toggleFocusMode}
-                        title="Exit focus mode"
-                        type="button"
-                    >
-                        <Minimize2 aria-hidden="true" />
-                    </button>
                     <ThemeDropdown onPreferenceChange={changeThemePreference} preference={themePreference} />
                 </div>
             </header>

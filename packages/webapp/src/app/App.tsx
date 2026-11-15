@@ -13,7 +13,6 @@ import { readSidebarOpenPreference, writeSidebarOpenPreference } from "@/lib/sid
 
 export const workspaceDrawerId = "workspace-navigation";
 export const workspaceDesktopDrawerId = "workspace-sidebar";
-export const workspaceFocusModeId = "workspace-focus-mode";
 
 export function App() {
     const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(
@@ -125,23 +124,7 @@ export function App() {
                 }}
                 type="checkbox"
             />
-            {/* Focus mode is a second browser-owned toggle; styles read it through the shell group. */}
-            <input
-                aria-hidden="true"
-                className="hidden"
-                id={workspaceFocusModeId}
-                onChange={(event) => {
-                    const entering = event.currentTarget.checked;
-                    requestAnimationFrame(() => {
-                        document
-                            .querySelector<HTMLElement>(entering ? "[data-focus-mode-exit]" : "[data-focus-mode-enter]")
-                            ?.focus();
-                    });
-                }}
-                tabIndex={-1}
-                type="checkbox"
-            />
-            <div className="drawer-side max-lg:hidden lg:group-has-[#workspace-focus-mode:checked]/shell:hidden">
+            <div className="drawer-side max-lg:hidden">
                 {/* Clipped rather than hidden: a hidden overflow is still a scroll container that focus or
                     scrollIntoView can shift, while the sidebar's own trees own all of its scrolling. */}
                 <aside

@@ -1,4 +1,3 @@
-import { Copy } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 
@@ -7,9 +6,9 @@ import type { DashboardViewProjection, DashboardViewRender, WorkspaceDashboard }
 import { createWorkspaceDashboardContext } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
 import { EmptyPage } from "@/features/workspace/RouteContent";
+import { SourcePath } from "@/features/workspace/SourcePath";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
-import { copySourcePath } from "@/lib/copy-source-path";
 
 import { ProjectionLoadingState, ViewProjectionRenderer } from "./ViewProjectionRenderer";
 
@@ -137,20 +136,7 @@ function ViewPage({
                 <span className="badge badge-outline badge-sm">{view.kind}</span>
                 <span>{view.space ?? "workspace"}</span>
                 <span>{itemCount} items</span>
-                <span className="flex min-w-0 basis-full items-center gap-1">
-                    <code className="min-w-0 break-all">{view.path}</code>
-                    <button
-                        aria-label={`Copy source path ${view.path}`}
-                        className="btn shrink-0 btn-ghost btn-xs"
-                        onClick={(event) => {
-                            void copySourcePath(event.currentTarget, view.path);
-                        }}
-                        type="button"
-                    >
-                        <Copy aria-hidden="true" className="size-3.5" />
-                        <span data-source-action-label>Copy path</span>
-                    </button>
-                </span>
+                <SourcePath path={view.path} />
             </div>
             {hasDocumentMarkdown && render ? (
                 <Suspense fallback={<ProjectionLoadingState />}>

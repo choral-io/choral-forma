@@ -139,7 +139,7 @@ Home renders the workspace entry document, `.forma.md`, as an ordinary document 
 A document route presents, top to bottom:
 
 1. **Breadcrumb**, in the page header: `Files` and each containing directory, each opening its directory page. It does not repeat the document title. Taxonomy and term pages show `Collections` and the taxonomy.
-2. **Document header**: the title as the only `h1`, the summary, and one line of metadata with the updated time, language variants, and a status label when the entry is not healthy. The source path moves into a secondary page action that copies it.
+2. **Document header**: the title as the only `h1`, the summary, and one line of metadata with the updated time, language variants, a status label when the entry is not healthy, and the source path followed by an icon that copies it. View pages show their source path the same way.
 3. **Body**, typeset as described under [Typography](#typography).
 4. **Related documents**, expanded by default: backlinks first, then outgoing references, as row lists. Unresolved references keep a non-color warning treatment. Diagnostics appear only when present and stay in a closed disclosure.
 5. **Adjacent documents**: previous and next documents in the same directory of the `Files` tree. The control is omitted when there are no siblings.
@@ -156,7 +156,6 @@ A document route presents, top to bottom:
 - Code samples offer a copy control that is visible on hover and on keyboard focus. Diagram source blocks are left as rendered.
 - Headings offer an anchor control that copies a link to that heading.
 - A reading-progress indicator sits under the page header. It is a progressive enhancement and may be absent where the browser lacks the required capability.
-- Focus mode hides the navigation sidebar and the page outline together and restores both. It toggles existing browser-owned state rather than adding a state layer.
 - Every enhancement is keyboard reachable and respects reduced-motion preferences.
 
 ## Typography
@@ -189,6 +188,7 @@ These are outside this design and need their own decision before implementation:
 
 - reading preferences such as font size, measure, or typeface;
 - full-text search in the WebApp;
+- a focus or full-screen reading mode, withdrawn from the first version;
 - a Core-provided navigation projection shared by the WebApp, static export, and editor integrations;
 - link hover previews and transclusion;
 - a configurable directory landing document beyond Core's `index` route rule, such as a README file, which needs a configuration-model decision shared by every surface;
@@ -218,7 +218,7 @@ The acceptance matrix in [[design/webapp-review-surface-design]] still applies t
 
 - The title appears once, as the only `h1`, and receives focus after route navigation.
 - The Markdown body is the primary visual surface at a comfortable measure.
-- Metadata is one compact line; the source path is reachable but not in the reading flow.
+- Metadata is one compact line that includes the source path and its copy control.
 - Backlinks and outgoing references are visible without opening a disclosure.
 - The outline is persistent at 80rem and wider, reachable by keyboard at every width, and highlights the current section.
 - Adjacent-document controls match the `Files` tree's sibling order.

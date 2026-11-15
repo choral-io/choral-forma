@@ -1,4 +1,4 @@
-import { Check, Copy, ListTree } from "lucide-react";
+import { ListTree } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
 
@@ -17,7 +17,6 @@ import { useNavigationTrees } from "@/features/navigation/use-navigation-trees";
 import { EmptyPage } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
-import { copySourcePath } from "@/lib/copy-source-path";
 import { canonicalEntries, canonicalEntryRoutePath } from "@/lib/entry-languages";
 import { directoryPathFromRoutePath } from "@/lib/workspace-routes";
 
@@ -161,18 +160,6 @@ function EntryRouteContent({
         <WorkspaceRouteFrame
             actions={
                 <>
-                    <button
-                        aria-label={`Copy source path ${entry.path}`}
-                        className="btn btn-square btn-ghost"
-                        onClick={(event) => {
-                            void copySourcePath(event.currentTarget, entry.path);
-                        }}
-                        title={`Copy source path ${entry.path}`}
-                        type="button"
-                    >
-                        <Copy aria-hidden="true" data-copy-icon />
-                        <Check aria-hidden="true" className="hidden" data-copied-icon />
-                    </button>
                     {outline.length > 0 ? (
                         <button
                             aria-controls={outlineDialogId}
