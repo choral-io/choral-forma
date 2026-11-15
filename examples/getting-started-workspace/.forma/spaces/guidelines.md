@@ -5,6 +5,8 @@ taxonomy: spaces
 title: Guidelines
 display:
   order: 60
+  icon: lightbulb
+  color: "#9333EA"
 description: Operating guidance for running and extending the workspace.
 schema:
   type: object

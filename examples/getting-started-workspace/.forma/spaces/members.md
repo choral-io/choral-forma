@@ -5,6 +5,8 @@ taxonomy: spaces
 title: Members
 display:
   order: 30
+  icon: users
+  color: "#D97706"
 description: Team members referenced by tasks and shared notes.
 schema:
   type: object

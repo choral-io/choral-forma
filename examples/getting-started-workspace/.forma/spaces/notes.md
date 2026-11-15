@@ -5,6 +5,8 @@ taxonomy: spaces
 title: Notes
 display:
   order: 10
+  icon: book-open
+  color: "#2563EB"
 description: Guides, feature demos, and getting-started knowledge pages.
 schema:
   type: object

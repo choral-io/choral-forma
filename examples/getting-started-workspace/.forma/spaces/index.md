@@ -7,6 +7,8 @@ title: Spaces
 mode: primary
 display:
   order: 30
+  icon: folder-tree
+  color: "#64748B"
 description: Primary workspace sections for the getting-started pages.
 ---
 

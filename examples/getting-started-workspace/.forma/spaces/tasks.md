@@ -5,6 +5,8 @@ taxonomy: spaces
 title: Tasks
 display:
   order: 20
+  icon: list-checks
+  color: "#16A34A"
 description: Delivery tasks tracked as ordinary Markdown pages.
 schema:
   type: object
