@@ -1,4 +1,4 @@
-import { Marked } from "marked";
+import { Lexer, Marked, type Links } from "marked";
 import markedFootnote from "marked-footnote";
 
 import { createMermaidRenderScope, type MermaidRenderScope } from "@/lib/mermaid";
@@ -12,7 +12,14 @@ import { markedShiki } from "./markdown-shiki";
 
 export interface MarkdownRenderOptions {
     mermaidScope?: MermaidRenderScope;
+    linkDefinitions?: Links;
     signal?: AbortSignal;
+}
+
+export function collectMarkdownLinkDefinitions(markdown: string): Links {
+    const parser = new Marked({ gfm: true });
+    parser.use(markedFootnote(), markedCallouts, markedDisclosureSafety);
+    return parser.lexer(prepareDisclosures(markdown).source).links;
 }
 
 /**
@@ -20,7 +27,10 @@ export interface MarkdownRenderOptions {
  * budget the first attempt has already consumed, so every diagram would silently
  * degrade to a code block on the second pass.
  */
-export async function renderMarkdown(markdown: string, { mermaidScope, signal }: MarkdownRenderOptions = {}) {
+export async function renderMarkdown(
+    markdown: string,
+    { mermaidScope, signal, linkDefinitions }: MarkdownRenderOptions = {},
+) {
     const scope = mermaidScope ?? createMermaidRenderScope("standalone-reader");
     const ownedScope = mermaidScope ? undefined : scope;
 
@@ -36,6 +46,20 @@ export async function renderMarkdown(markdown: string, { mermaidScope, signal }:
             createMarkedMermaid({ scope, signal }),
             markedShiki,
         );
+        if (linkDefinitions) {
+            parser.use({
+                hooks: {
+                    provideLexer() {
+                        return (source, options) => {
+                            const lexer = new Lexer(options);
+                            // Seed the document's first definitions before lexing either View section.
+                            Object.assign(lexer.tokens.links, linkDefinitions);
+                            return lexer.lex(source);
+                        };
+                    },
+                },
+            });
+        }
         const html = await Promise.resolve(parser.parse(disclosure.source, { async: true }));
         // Match Core's existing footnote targets in static HTML.
         return restoreDisclosures(html, disclosure.replacements)

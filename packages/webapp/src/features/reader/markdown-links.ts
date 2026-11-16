@@ -1,4 +1,4 @@
-import { isExternalHref, normalizeWorkspacePath } from "@/lib/workspace-links";
+import { isExternalHref, normalizeWorkspacePath, splitWorkspaceUri } from "@/lib/workspace-links";
 
 interface ReaderLinkTarget {
     path: string;
@@ -62,25 +62,14 @@ export function resolveReaderLink(
         return { href, kind: "internal", opensInNewTab: false };
     }
 
-    const hashIndex = href.indexOf("#");
-    const withoutHash = hashIndex < 0 ? href : href.slice(0, hashIndex);
-    const hash = hashIndex < 0 ? "" : href.slice(hashIndex);
-    const queryIndex = withoutHash.indexOf("?");
-    const rawPath = queryIndex < 0 ? withoutHash : withoutHash.slice(0, queryIndex);
-    const query = queryIndex < 0 ? "" : withoutHash.slice(queryIndex);
-    let decodedPath = rawPath;
-    try {
-        decodedPath = decodeURIComponent(rawPath);
-    } catch {
-        // Preserve malformed percent escapes as authored filename characters.
-    }
+    const { path, query, hash } = splitWorkspaceUri(href);
     const targets = linkTargets(entries);
-    const targetPath = rawPath === "" ? currentPath : normalizeWorkspacePath(decodedPath, currentPath, targets);
+    const targetPath = path === "" ? currentPath : normalizeWorkspacePath(path, currentPath, targets);
     const targetEntry = targets.find((entry) => entry.path === targetPath);
 
     return {
         href: targetEntry
-            ? `${rawPath === "" && currentRoutePath ? currentRoutePath : targetEntry.routePath}${query}${hash}`
+            ? `${path === "" && currentRoutePath ? currentRoutePath : targetEntry.routePath}${query}${hash}`
             : href,
         kind: "internal",
         opensInNewTab: false,

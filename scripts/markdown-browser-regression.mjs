@@ -161,6 +161,7 @@ try {
     for (const [name, title] of [
         ["route space", "Encoded space target"],
         ["literal%20", "Literal escape target"],
+        ["hash #中文!", "Punctuation target"],
         ["target", "Single extension"],
         ["target.md", "Double extension"],
     ]) {
@@ -168,7 +169,7 @@ try {
     }
     await writeFile(
         join(workspace, "notes/route-links.md"),
-        "# Route links\n\n[Encoded space](./route%20space.md)\n\n[Literal escape](./literal%2520.md)\n\n[Double extension](./target.md.md)\n",
+        "# Route links\n\n[Encoded space](./route%20space.md)\n\n[Literal escape](./literal%2520.md)\n\n[Punctuation](./hash%20%23%E4%B8%AD%E6%96%87!.md)\n\n[Double extension](./target.md.md)\n",
     );
     await writeFile(
         join(workspace, "notes/contract-target.md"),
@@ -180,13 +181,17 @@ try {
         "---\ntitle: Localized target\n---\n\n# Localized target\n",
     );
     await writeFile(join(workspace, "notes/contract-raw.txt"), "CONTRACT_RAW_RESOURCE\n");
+    await cp(
+        join(root, "fixtures/forma-validation/samples/markdown/image-viewer.svg"),
+        join(workspace, "notes/contract #%.svg"),
+    );
     await writeFile(
         join(workspace, "notes/link-contracts.md"),
-        "# Link contracts\n\n[Encoded entry](./contract-target%2Emd#hello%2Dworld)\n\n[Reference destination][entry-ref]\n\n[entry-ref]: /notes/contract-target.md\n\n[[#Local heading|Wiki jump]]\n\n## Local heading\n\n[Encoded resource](./contract-raw.txt?name=a%20b&literal=%2520&value=a%26b&plus=a+b#part%20one)\n",
+        "# Link contracts\n\n[Encoded entry](./contract-target%2Emd#hello%2Dworld)\n\n[Reference destination][entry-ref]\n\n[entry-ref]: /notes/contract-target.md\n\n[[#Local heading|Wiki jump]]\n\n## Local heading\n\n![Encoded image](./contract%20%23%25.svg?value=a%26b)\n\n[Encoded resource](./contract-raw.txt?name=a%20b&literal=%2520&value=a%26b&plus=a+b#part%20one)\n",
     );
     await writeFile(
         join(workspace, ".forma/views/link-contracts.md"),
-        "---\nschemaVersion: 1\nkind: view\ntitle: Link contracts View\nmode: list\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]\n---\n\n# forma-heading-repeat\n\n[Root source](/notes/contract-target.md#hello-world)\n\n[Encoded source](../../notes/contract-target%2Emd#hello%2Dworld)\n\n[Localized source](/notes/contract-target.zh-hans.md)\n\n[Second heading](#repeat-2)\n\n## Repeat\n\nFirst section.\n\n<!-- forma:content -->\n\n## Repeat\n\nSecond section.\n",
+        "---\nschemaVersion: 1\nkind: view\ntitle: Link contracts View\nmode: list\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]\n---\n\n# forma-heading-repeat\n\n[Root source](/notes/contract-target.md#hello-world)\n\n[Encoded source](../../notes/contract-target%2Emd#hello%2Dworld)\n\n[Localized source](/notes/contract-target.zh-hans.md)\n\n[Second heading](#repeat-2)\n\n[Across projection][projection-target]\n\n## Repeat\n\nFirst section.\n\n<!-- forma:content -->\n\n## Repeat\n\nSecond section.\n\n[projection-target]: /notes/contract-target.md\n",
     );
     await writeFile(join(workspace, "preview/index.md"), "# Folder landing\n");
     await writeFile(

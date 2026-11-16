@@ -12,6 +12,23 @@ export function normalizeWorkspaceHref(href: string, currentPath: string, entrie
     return { hash, path: normalizeWorkspacePath(pathPart, currentPath, entries) };
 }
 
+/** Split URI delimiters before decoding the workspace filename once. */
+export function splitWorkspaceUri(href: string) {
+    const hashIndex = href.indexOf("#");
+    const withoutHash = hashIndex < 0 ? href : href.slice(0, hashIndex);
+    const hash = hashIndex < 0 ? "" : href.slice(hashIndex);
+    const queryIndex = withoutHash.indexOf("?");
+    const rawPath = queryIndex < 0 ? withoutHash : withoutHash.slice(0, queryIndex);
+    const query = queryIndex < 0 ? "" : withoutHash.slice(queryIndex);
+    let decodedPath = rawPath;
+    try {
+        decodedPath = decodeURIComponent(rawPath);
+    } catch {
+        // Preserve malformed percent escapes as authored filename characters.
+    }
+    return { path: decodedPath, query, hash };
+}
+
 /** Resolve an already parsed path without interpreting filename characters as URI syntax. */
 export function normalizeWorkspacePath(pathPart: string, currentPath: string, entries: WorkspaceLinkEntry[]) {
     const relativePath = resolvePathSegments(pathPart, currentPath);

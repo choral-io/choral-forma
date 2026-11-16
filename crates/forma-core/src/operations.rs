@@ -1898,8 +1898,8 @@ fn dashboard_entry_summary(
     DashboardEntrySummary {
         id: document_id_for_path(&entry.path),
         path: entry.path.clone(),
-        route_path: entry_route_path_for_path(&entry.path),
-        raw_path: entry_raw_path_for_path(&entry.path),
+        route_path: crate::routes::entry_route_path(&entry.path),
+        raw_path: crate::routes::raw_route_path(&entry.path),
         space: Some(entry.space.clone()),
         kind: entry.kind.clone(),
         title: entry.title.clone(),
@@ -1911,8 +1911,8 @@ fn dashboard_entry_summary(
             .map(|variant| DashboardEntryVariant {
                 language: variant.language.clone(),
                 path: variant.path.clone(),
-                route_path: entry_route_path_for_path(&variant.path),
-                raw_path: entry_raw_path_for_path(&variant.path),
+                route_path: crate::routes::entry_route_path(&variant.path),
+                raw_path: crate::routes::raw_route_path(&variant.path),
                 kind: variant.kind.clone(),
                 title: variant.title.clone(),
                 omit_leading_title: variant.omit_leading_title,
@@ -1950,8 +1950,8 @@ fn dashboard_entry_summary_from_file(
     DashboardEntrySummary {
         id: document_id_for_path(&file.path),
         path: file.path.clone(),
-        route_path: entry_route_path_for_path(&file.path),
-        raw_path: entry_raw_path_for_path(&file.path),
+        route_path: crate::routes::entry_route_path(&file.path),
+        raw_path: crate::routes::raw_route_path(&file.path),
         space: title_space.map(|_| term_id.to_string()),
         kind: file
             .frontmatter
@@ -2038,7 +2038,7 @@ fn workspace_logo_summary(
     }
 
     Some(WorkspaceLogoSummary {
-        url: entry_raw_path_for_path(path),
+        url: crate::routes::raw_route_path(path),
         alt: logo.alt.clone().unwrap_or_else(|| workspace.name.clone()),
     })
 }
@@ -3457,14 +3457,6 @@ pub(crate) fn document_id_for_path(path: &str) -> String {
     } else {
         id
     }
-}
-
-pub(crate) fn entry_route_path_for_path(path: &str) -> String {
-    format!("/{}", crate::routes::entry_page_path(path))
-}
-
-fn entry_raw_path_for_path(path: &str) -> String {
-    format!("{}/{path}", crate::routes::RAW_ROUTE_PREFIX)
 }
 
 fn file_modified_at(root: &Path, path: &str) -> Option<DateTime<Utc>> {
@@ -5802,6 +5794,8 @@ imports:
         )
         .unwrap();
 
+        fs::write(root.join("notes/space %20 #中文!.md"), "# Encoded\n").unwrap();
+
         let result = workspace_dashboard(&root).unwrap();
         let topic = result
             .entries
@@ -5818,6 +5812,19 @@ imports:
         assert_eq!(topic.raw_path, "/-/raw/notes/topic.md");
         assert_eq!(nested.route_path, "/notes/nested");
         assert_eq!(nested.raw_path, "/-/raw/notes/nested/index.md");
+        let encoded = result
+            .entries
+            .iter()
+            .find(|entry| entry.path == "notes/space %20 #中文!.md")
+            .unwrap();
+        assert_eq!(
+            encoded.route_path,
+            "/notes/space%20%2520%20%23%E4%B8%AD%E6%96%87%21"
+        );
+        assert_eq!(
+            encoded.raw_path,
+            "/-/raw/notes/space%20%2520%20%23%E4%B8%AD%E6%96%87%21.md"
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

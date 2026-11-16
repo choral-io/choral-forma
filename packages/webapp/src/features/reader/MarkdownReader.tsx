@@ -7,8 +7,8 @@ import { isStaticRawHref, logicalHref, rootAwareHref } from "@/data/static-runti
 import type { DashboardEntry } from "@/data/workspace-client";
 import type { MermaidRenderScope } from "@/lib/mermaid";
 import { restoreReaderFragment, scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
-import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
-import { rawRoutePrefix } from "@/lib/workspace-routes";
+import { isExternalHref, normalizeWorkspacePath, splitWorkspaceUri } from "@/lib/workspace-links";
+import { encodeRouteSegment, rawRoutePrefix } from "@/lib/workspace-routes";
 
 import {
     createProjectionStickyBoundaryController,
@@ -16,7 +16,7 @@ import {
 } from "@/lib/projection-sticky-boundary";
 import { resolveReaderLink, type MarkdownLinkSource } from "./markdown-links";
 import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
-import { renderMarkdown } from "./markdown-renderer";
+import { renderMarkdown, type MarkdownRenderOptions } from "./markdown-renderer";
 import { enhanceReader } from "./reader-enhancements";
 import { resolveReaderLinkNavigation } from "./reader-link-navigation";
 
@@ -34,6 +34,7 @@ export interface MarkdownReaderProps {
     headings: MarkdownHeading[];
     markdown: string;
     linkSource?: MarkdownLinkSource;
+    linkDefinitions?: MarkdownRenderOptions["linkDefinitions"];
     mermaidScope?: MermaidRenderScope;
     omitLeadingTitle?: boolean;
 }
@@ -47,6 +48,7 @@ interface MarkdownRenderState {
     html?: string;
     markdown: string;
     linkSource: MarkdownLinkSource;
+    linkDefinitions?: MarkdownRenderOptions["linkDefinitions"];
     omitLeadingTitle: boolean;
     status: "error" | "ready";
 }
@@ -59,6 +61,7 @@ export function MarkdownReader({
     markdown,
     mermaidScope,
     linkSource = "workspace",
+    linkDefinitions,
     omitLeadingTitle = false,
 }: MarkdownReaderProps) {
     const navigate = useNavigate();
@@ -72,13 +75,14 @@ export function MarkdownReader({
         renderState.headings === headings &&
         renderState.markdown === markdown &&
         renderState.linkSource === linkSource &&
+        renderState.linkDefinitions === linkDefinitions &&
         renderState.omitLeadingTitle === omitLeadingTitle;
 
     useEffect(() => {
         let cancelled = false;
         const abortController = new AbortController();
 
-        void renderMarkdown(markdown, { mermaidScope, signal: abortController.signal })
+        void renderMarkdown(markdown, { mermaidScope, linkDefinitions, signal: abortController.signal })
             .then((rendered) => {
                 if (cancelled) {
                     return;
@@ -100,6 +104,7 @@ export function MarkdownReader({
                     ),
                     markdown,
                     linkSource,
+                    linkDefinitions,
                     omitLeadingTitle,
                     status: "ready",
                 });
@@ -115,6 +120,7 @@ export function MarkdownReader({
                         headings,
                         markdown,
                         linkSource,
+                        linkDefinitions,
                         omitLeadingTitle,
                         status: "error",
                     });
@@ -133,6 +139,7 @@ export function MarkdownReader({
         markdown,
         mermaidScope,
         linkSource,
+        linkDefinitions,
         omitLeadingTitle,
         retryKey,
     ]);
@@ -492,8 +499,9 @@ export function postProcessMarkdownHtml(
             continue;
         }
 
-        const targetPath = normalizeWorkspaceHref(source, currentPath, entries);
-        image.setAttribute("src", rootAwareHref(`${rawRoutePrefix}/${encodeURI(targetPath.path)}`));
+        const { path, query, hash } = splitWorkspaceUri(source);
+        const target = normalizeWorkspacePath(path, currentPath, entries).split("/").map(encodeRouteSegment).join("/");
+        image.setAttribute("src", rootAwareHref(`${rawRoutePrefix}/${target}${query}${hash}`));
     }
 
     for (const table of document.body.querySelectorAll("table")) {

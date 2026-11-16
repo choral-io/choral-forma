@@ -11,7 +11,7 @@ import edgeCases from "../../../../../fixtures/forma-validation/samples/markdown
 import images from "../../../../../fixtures/forma-validation/samples/markdown/images.md?raw";
 import source from "../../../../../fixtures/forma-validation/samples/markdown/reader.md?raw";
 import reviewCases from "../../../../../fixtures/forma-validation/samples/markdown/review-regressions.md?raw";
-import { renderMarkdown } from "./markdown-renderer";
+import { collectMarkdownLinkDefinitions, renderMarkdown } from "./markdown-renderer";
 import { postProcessMarkdownHtml } from "./MarkdownReader";
 
 describe("Markdown reader contract", () => {
@@ -38,6 +38,30 @@ describe("Markdown reader contract", () => {
         );
         expect(remote).toContain('src="//example.test/image.png"');
         expect(remote).not.toContain("<a ");
+    });
+
+    it("preserves encoded filenames and URI suffixes on workspace images", async () => {
+        const html = postProcessMarkdownHtml(
+            await renderMarkdown("![Local](./literal%2520%20%23.svg?value=a%26b#layer%20one)"),
+            [],
+            "notes/source.md",
+            [],
+            false,
+        );
+        const image = new DOMParser().parseFromString(html, "text/html").querySelector("img");
+        expect(image?.getAttribute("src")).toBe("/-/raw/notes/literal%2520%20%23.svg?value=a%26b#layer%20one");
+    });
+
+    it("shares document link definitions between View projection sections with first-definition precedence", async () => {
+        const before = "[Cross-section][remote]\n\n[local]: /notes/first.md\n\n";
+        const after = "\n\n[Local][local]\n\n[remote]: /notes/target.md\n[local]: /notes/second.md";
+        const linkDefinitions = collectMarkdownLinkDefinitions(`${before}<!-- forma:content -->${after}`);
+        const [first, second] = await Promise.all([
+            renderMarkdown(before, { linkDefinitions }),
+            renderMarkdown(after, { linkDefinitions }),
+        ]);
+        expect(first).toContain('<a href="/notes/target.md">Cross-section</a>');
+        expect(second).toContain('<a href="/notes/first.md">Local</a>');
     });
 
     it("supports case-insensitive titles, title-only and native foldable callouts", async () => {

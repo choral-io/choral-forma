@@ -507,16 +507,20 @@ export async function markdownBrowserScenarios(page, options) {
         }
     };
     const routeLinks = async (current, host, noScript = false) => {
+        const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
         for (const [label, path, title] of [
             ["Encoded space", "/notes/route%20space", "Encoded space target"],
             ["Literal escape", "/notes/literal%2520", "Literal escape target"],
+            ["Punctuation", "/notes/hash%20%23%E4%B8%AD%E6%96%87%21", "Punctuation target"],
             ["Double extension", "/notes/target.md", "Double extension"],
         ]) {
             await current.goto(`${host.origin}${host.root}/notes/route-links/`);
-            const main = current.locator(noScript ? "main" : "[data-enhancement-ready] main");
             const link = main.getByRole("link", { name: label, exact: true });
             await link.waitFor();
-            assert((await link.getAttribute("href")) === `${host.root}${path}`, "static: resolved source link URL");
+            assert(
+                (await link.getAttribute("href")) === `${host.root}${path}`,
+                `${host.name}: resolved source link URL`,
+            );
             await link.click();
             await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}${path}`);
             await main.getByRole("heading", { level: 1, name: title, exact: true }).waitFor();
@@ -562,6 +566,15 @@ export async function markdownBrowserScenarios(page, options) {
                 url.hash === "#local-heading",
         );
 
+        const image = main.getByRole("img", { name: "Encoded image", exact: true });
+        await image.waitFor();
+        const imageUrl = new URL(await image.getAttribute("src"), current.url());
+        assert(
+            imageUrl.pathname === `${host.root}/-/raw/notes/contract%20%23%25.svg`,
+            `${host.name}: encoded raw image path`,
+        );
+        assert(imageUrl.searchParams.get("value") === "a&b", `${host.name}: encoded image query`);
+        assert((await current.request.get(imageUrl.href)).ok(), `${host.name}: encoded raw image response`);
         await main.getByRole("link", { name: "Reference destination", exact: true }).click();
         await main.getByRole("heading", { level: 1, name: "Contract target", exact: true }).waitFor();
         assert(
@@ -584,8 +597,15 @@ export async function markdownBrowserScenarios(page, options) {
             .locator("a[href]")
             .filter({ hasText: /^Second heading$/u })
             .click();
-        await current.waitForURL((url) => url.hash === "#repeat-2");
+        await current.waitForURL(
+            (url) =>
+                url.pathname.replace(/\/$/u, "") === `${host.root}${view.replace(/\/$/u, "")}` &&
+                url.hash === "#repeat-2",
+        );
+        await main.getByRole("link", { name: "Across projection", exact: true }).click();
+        await main.getByRole("heading", { level: 1, name: "Contract target", exact: true }).waitFor();
         if (isStatic) {
+            await current.goto(`${base}${view}`);
             await main.getByRole("link", { name: "Localized source", exact: true }).click();
             await main.getByRole("heading", { level: 1, name: "Localized target", exact: true }).waitFor();
             assert(
@@ -1107,9 +1127,9 @@ export async function markdownBrowserScenarios(page, options) {
                 results.push("static: encoded canonical term URL enhances on direct load");
                 await canonicalView(current, host);
                 results.push("static: encoded canonical View URL enhances and navigates on direct load");
-                await routeLinks(current, host);
-                results.push("static: encoded source links and public routes retain their targets");
             }
+            await routeLinks(current, host);
+            results.push(`${host.name}: encoded source links and public routes retain their targets`);
             await crossSurfaceLinks(current, host);
             results.push(`${host.name}: reference links, wiki fragments and View anchors`);
             await markdownLinkContracts(current, host);

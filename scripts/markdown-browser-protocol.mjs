@@ -38,9 +38,9 @@ export function markdownBrowserPhases(hosts, sourceIds) {
                   "static: direct Health and reserved segment routes",
                   "static: encoded canonical term URL enhances on direct load",
                   "static: encoded canonical View URL enhances and navigates on direct load",
-                  "static: encoded source links and public routes retain their targets",
               ]
             : []),
+        `${host.name}: encoded source links and public routes retain their targets`,
         `${host.name}: reference links, wiki fragments and View anchors`,
         `${host.name}: Markdown link origins and encoded heading fragments`,
         ...(host.name === "static" ? ["static: resource query and fragment preserve URI semantics"] : []),
