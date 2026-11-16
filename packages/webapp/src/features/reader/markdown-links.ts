@@ -1,4 +1,5 @@
 import { isExternalHref, normalizeWorkspacePath, splitWorkspaceUri } from "@/lib/workspace-links";
+import { directoryRoutePath } from "@/lib/workspace-routes";
 
 interface ReaderLinkTarget {
     path: string;
@@ -63,14 +64,17 @@ export function resolveReaderLink(
     }
 
     const { path, query, hash } = splitWorkspaceUri(href);
+    if (path === "" && currentRoutePath) {
+        return { href: `${currentRoutePath}${query}${hash}`, kind: "internal", opensInNewTab: false };
+    }
     const targets = linkTargets(entries);
     const targetPath = path === "" ? currentPath : normalizeWorkspacePath(path, currentPath, targets);
-    const targetEntry = targets.find((entry) => entry.path === targetPath);
+    const routePath = directoryRoutePath(targetPath);
+    const targetEntry =
+        targets.find((entry) => entry.path === targetPath) ?? targets.find((entry) => entry.routePath === routePath);
 
     return {
-        href: targetEntry
-            ? `${path === "" && currentRoutePath ? currentRoutePath : targetEntry.routePath}${query}${hash}`
-            : href,
+        href: targetEntry ? `${targetEntry.routePath}${query}${hash}` : href,
         kind: "internal",
         opensInNewTab: false,
     };

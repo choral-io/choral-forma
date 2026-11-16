@@ -25,7 +25,10 @@ export function scrollReaderAnchor(anchor: HTMLAnchorElement) {
     }
 
     if (window.location.hash !== anchor.hash) {
-        window.history.pushState(window.history.state, "", anchor.href);
+        // An in-page jump must keep the current pathname spelling and query.
+        const address = new URL(window.location.href);
+        address.hash = anchor.hash;
+        window.history.pushState(window.history.state, "", address);
     }
     return true;
 }

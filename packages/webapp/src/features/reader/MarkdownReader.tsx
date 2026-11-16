@@ -212,7 +212,7 @@ export function MarkdownReader({
 }
 
 function MarkdownReaderBody({ html }: { html: string }) {
-    const { pathname, search } = useLocation();
+    const { hash, pathname, search } = useLocation();
     const navigate = useNavigate();
     const readerRef = useRef<HTMLDivElement>(null);
 
@@ -236,6 +236,7 @@ function MarkdownReaderBody({ html }: { html: string }) {
         const restore = () => {
             if (readerRef.current) restoreReaderFragment(readerRef.current);
         };
+        // A router navigation can change the query or fragment without a native history event.
         restore();
         window.addEventListener("hashchange", restore);
         window.addEventListener("popstate", restore);
@@ -243,7 +244,7 @@ function MarkdownReaderBody({ html }: { html: string }) {
             window.removeEventListener("hashchange", restore);
             window.removeEventListener("popstate", restore);
         };
-    }, [html]);
+    }, [hash, html, pathname, search]);
 
     function navigateReaderLink(event: React.MouseEvent<HTMLDivElement>) {
         if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {

@@ -42,11 +42,15 @@ export function resolveReaderLinkNavigation(
         return undefined;
     }
     const destinationPath = logicalHref(destination.pathname);
+    const currentPath = logicalHref(current.pathname);
+    const samePath = destinationPath.replace(/\/$/u, "") === currentPath.replace(/\/$/u, "");
+    const hasFragment = destination.hash.length > 0;
+    const sameQuery = destination.search === current.search;
+    // A query transition with a fragment still belongs to the current reader, even when
+    // the static host serves a trailing slash and the generated link uses a canonical path.
+    const routerPath = samePath && hasFragment && !sameQuery ? currentPath : destinationPath;
     return {
-        href: `${destinationPath}${destination.search}${destination.hash}`,
-        samePageFragment:
-            destinationPath.replace(/\/$/u, "") === logicalHref(current.pathname).replace(/\/$/u, "") &&
-            destination.search === current.search &&
-            destination.hash.length > 0,
+        href: `${routerPath}${destination.search}${destination.hash}`,
+        samePageFragment: samePath && sameQuery && hasFragment,
     };
 }

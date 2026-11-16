@@ -369,6 +369,7 @@ try {
             "# Forma heading foo",
             "See a note[^body].",
             "[Heading within note](#footnote-detail)",
+            "[Change View query](?mode=detail&tag=one&tag=two#footnote-detail)",
             "[[guides/navigation-target#第二节|View MDX wiki]]",
             "[[deep-basename#Deep section|View deep MDX]]",
             "[[guides/nested/deeper/dotted.v2#Dotted section|View dotted MDX]]",
@@ -509,12 +510,28 @@ try {
             "",
         ].join("\n\n"),
     );
+    await writeFile(
+        join(workspace, "notes/query-fragment-navigation.md"),
+        [
+            "# Query and fragment navigation",
+            "[Keep query and jump](?mode=source&value=a%2Fb&tag=one&tag=two#user-content-fnref-review)",
+            "[Change query and jump](?mode=next&value=a%3Fb&tag=one&tag=two#user-content-fnref-review)",
+            "[Exact entry query](./contract-target.md?value=a%2Fb&tag=one&tag=two#hello-world)",
+            "[Alias entry query](./contract-target?value=a%2Fb&tag=one&tag=two#hello-world)",
+            "[Index entry query](./resource-directory.txt?value=a%2Fb&tag=one&tag=two#details)",
+            "[Sidecar entry query](../guides/query-sidecar.txt?value=a%2Fb&tag=one&tag=two#details)",
+            "> [!note]- Folded review target\n>\n> See the footnote[^review].",
+            "[^review]: Back to the review target.",
+            "",
+        ].join("\n\n"),
+    );
     await mkdir(join(workspace, "notes/resource-directory.txt"));
     await writeFile(
         join(workspace, "notes/resource-directory.txt/index.md"),
         "# Directory entry\n\n## Details\n\nDirectory alias content.\n",
     );
     await writeFile(join(workspace, "notes/raw-source.txt"), "FORMA_RAW_SOURCE_BROWSER_PROBE\n");
+    await writeFile(join(workspace, "guides/query-sidecar.txt.mdx"), "# Sidecar entry\n\n## Details\n");
     await writeFile(
         join(workspace, "notes/raw-source.txt.md"),
         "# Raw source sidecar\n\n[Original source](./raw-source.txt?download=1#part)\n\n[Directory entry](./resource-directory.txt#details)\n",

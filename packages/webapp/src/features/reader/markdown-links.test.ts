@@ -95,6 +95,28 @@ describe("resolveReaderLink", () => {
         expect(resolveReaderLink("?mode=reader#scope", currentPath, entries, "/").href).toBe("/?mode=reader#scope");
     });
 
+    it("keeps a query-only link on the displayed View route", () => {
+        expect(
+            resolveReaderLink("?mode=reader#scope", ".forma/views/catalog.md", entries, "/-/views/catalog").href,
+        ).toBe("/-/views/catalog?mode=reader#scope");
+    });
+
+    it.each([
+        ["./target", "/notes/target"],
+        ["./folder", "/notes/folder"],
+        ["/notes/folder", "/notes/folder"],
+        ["./literal%2520", "/notes/literal%2520"],
+    ])("uses the published Entry route when %s names no exact source file", (href, expected) => {
+        const suffix = "?value=a%2Fb&tag=one&tag=two#target";
+        expect(
+            resolveReaderLink(href + suffix, "notes/source.md", [
+                { path: "notes/target.md", routePath: "/notes/target" },
+                { path: "notes/folder/index.md", routePath: "/notes/folder" },
+                { path: "notes/literal%20.md", routePath: "/notes/literal%2520" },
+            ]).href,
+        ).toBe(expected + suffix);
+    });
+
     it("marks HTTP links as external links that open in a new tab", () => {
         expect(resolveReaderLink("https://example.com/docs", currentPath, entries)).toEqual({
             href: "https://example.com/docs",

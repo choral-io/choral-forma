@@ -176,13 +176,19 @@ describe("static Markdown root paths", () => {
             href: "/notes/one#details",
             samePageFragment: true,
         });
+
+        anchor.href = "/preview/notes/one?mode=reader#details";
+        expect(resolveReaderLinkNavigation(anchor, "https://example.test/preview/notes/one/?mode=source")).toEqual({
+            href: "/notes/one/?mode=reader#details",
+            samePageFragment: false,
+        });
     });
 
     it.each([
         { rootPath: "/", linkSource: "workspace" },
         { rootPath: "/preview", linkSource: "published" },
     ] as const)(
-        "preserves the current query when opening a folded footnote under $rootPath",
+        "restores folded footnotes after inheriting or changing the query under $rootPath",
         async ({ rootPath, linkSource }) => {
             const route = "/notes/article";
             const prefix = rootPath === "/" ? "" : rootPath;
@@ -213,7 +219,13 @@ describe("static Markdown root paths", () => {
                                 entries: [{ path: "notes/article.md", routePath: route }] as DashboardEntry[],
                                 headings: [],
                                 linkSource,
-                                markdown: `[Change query](${updatedQuery})\n\n> [!note]- Context\n>\n> Target[^body].\n\n[^body]: The note.\n`,
+                                markdown: [
+                                    `[Change query](${updatedQuery})`,
+                                    `[Jump with original query](${currentQuery}#${targetId})`,
+                                    `[Jump with updated query](${updatedQuery}#${targetId})`,
+                                    "> [!note]- Context\n>\n> Target[^body].",
+                                    "[^body]: The note.",
+                                ].join("\n\n"),
                             }),
                         ),
                     );
@@ -243,6 +255,23 @@ describe("static Markdown root paths", () => {
                     act(() => {
                         queryLink.click();
                     });
+                }
+
+                for (const query of [currentQuery, updatedQuery]) {
+                    const destination = `${path}${query}#${targetId}`;
+                    const jump = Array.from(
+                        container.querySelectorAll<HTMLAnchorElement>('a[data-link-kind="internal"]'),
+                    ).find((link) => link.getAttribute("href") === destination);
+                    if (!jump) throw new Error(`Expected an explicit link to ${destination}`);
+                    expect(fold.open).toBe(false);
+                    act(() => {
+                        jump.click();
+                    });
+                    expect(window.location.search).toBe(query);
+                    expect(window.location.hash).toBe(`#${targetId}`);
+                    expect(fold.open).toBe(true);
+                    expect(document.activeElement).toBe(reference);
+                    fold.open = false;
                 }
             } finally {
                 act(() => {

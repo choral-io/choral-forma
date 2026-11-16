@@ -1057,6 +1057,74 @@ export async function markdownBrowserScenarios(page, options) {
             );
         }
     };
+    const queryAndFootnoteNavigation = async (current, host, noScript) => {
+        const pathname = `${host.root}/notes/query-fragment-navigation`;
+        const pageUrl = `${host.origin}${pathname}/`;
+        const initialSearch = "?mode=source&value=a%2Fb&tag=one&tag=two";
+        const id = "user-content-fnref-review";
+        const hash = `#${id}`;
+        const main = current.locator(noScript ? "main" : "[data-enhancement-ready] main");
+        await current.goto("about:blank");
+        await current.goto(pageUrl + initialSearch);
+        await main.locator("details[data-callout-fold]:not([open])").waitFor({ state: "attached" });
+        const initialPathname = new URL(current.url()).pathname;
+        const changedSearch = "?mode=next&value=a%3Fb&tag=one&tag=two";
+        const expectLanding = async (label, search) => {
+            await current.waitForURL(
+                (url) =>
+                    (noScript ? url.pathname.replace(/\/$/u, "") === pathname : url.pathname === initialPathname) &&
+                    url.search === search &&
+                    url.hash === hash,
+            );
+            if (noScript) {
+                await current.locator(`a[id="${id}"]:target`).waitFor({ state: "attached" });
+            } else {
+                await expectFootnoteLanding(current, `${host.name}: ${label}`, { id, search, foldCount: 1 });
+            }
+        };
+        for (const [label, search] of [
+            ["Keep query and jump", initialSearch],
+            ["Change query and jump", changedSearch],
+        ]) {
+            const link = main.locator("a[href]").filter({ hasText: new RegExp(`^${label}$`, "u") });
+            const matchesTarget = (url) =>
+                url.pathname.replace(/\/$/u, "") === pathname && url.search === search && url.hash === hash;
+            const destination = new URL(await link.evaluate((anchor) => anchor.href));
+            assert(matchesTarget(destination), `${host.name}: ${label} emits the authored query and fragment`);
+            await link.click();
+            await expectLanding(label, search);
+        }
+        await current.goBack();
+        await expectLanding("restore the original query on back", initialSearch);
+        await current.goForward();
+        await expectLanding("restore the changed query on forward", changedSearch);
+
+        const entrySearch = "?value=a%2Fb&tag=one&tag=two";
+        for (const [label, route, id] of [
+            ["Exact entry query", "/notes/contract-target", "hello-world"],
+            ["Alias entry query", "/notes/contract-target", "hello-world"],
+            ["Index entry query", "/notes/resource-directory.txt", "details"],
+            ["Sidecar entry query", "/guides/query-sidecar.txt", "details"],
+            ["Change View query", "/-/views/view-navigation-split", "footnote-detail"],
+        ]) {
+            const view = label === "Change View query";
+            const search = view ? "?mode=detail&tag=one&tag=two" : entrySearch;
+            const from = view ? `${host.origin}${host.root}${route}/?mode=source` : pageUrl;
+            await current.goto(from);
+            const link = main.getByRole("link", { name: label, exact: true });
+            const matchesTarget = (url) =>
+                url.pathname.replace(/\/$/u, "") === host.root + route &&
+                url.search === search &&
+                url.hash === `#${id}`;
+            assert(matchesTarget(new URL(await link.evaluate((anchor) => anchor.href))), host.name + ": " + label);
+            await link.click();
+            await current.waitForURL(matchesTarget);
+            await current.waitForFunction(
+                ({ id, native }) => (native ? document.querySelector(":target") : document.activeElement)?.id === id,
+                { id, native: noScript },
+            );
+        }
+    };
     const resourceLinkClicks = async (current, host, noScript) => {
         const base = host.origin + host.root;
         const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
@@ -1577,6 +1645,7 @@ export async function markdownBrowserScenarios(page, options) {
                     `${options.noScript ? "static noscript" : host.name}: published anchors and authored heading links reach their targets`,
                 );
                 await viewAndFootnoteNavigation(current, host, options.noScript);
+                await queryAndFootnoteNavigation(current, host, options.noScript);
                 assertCleanPage();
                 results.push(
                     `${options.noScript ? "static noscript" : host.name}: View projection and footnotes retain their fragment targets`,

@@ -1163,6 +1163,15 @@ fn static_reference_href(
     };
     let normalized = normalized_static_target(source_path, &path)?;
 
+    let entry_href = |target_path: &str, route: &str| {
+        let mut href = public_url(root_path, route);
+        append_url_query(&mut href, query, markdown_uri);
+        if let Some(fragment) = resolve_fragment(&heading_fragment, target_path) {
+            href.push('#');
+            href.push_str(&fragment);
+        }
+        href
+    };
     let resolved_entry = entry_routes_by_path.get_key_value(&normalized).or_else(|| {
         let workspace_style_target = path.trim_start_matches('/');
         (workspace_style_target != normalized)
@@ -1170,12 +1179,7 @@ fn static_reference_href(
             .flatten()
     });
     if let Some((target_path, route)) = resolved_entry {
-        let mut href = public_url(root_path, route);
-        if let Some(fragment) = resolve_fragment(&heading_fragment, target_path) {
-            href.push('#');
-            href.push_str(&fragment);
-        }
-        return Some(href);
+        return Some(entry_href(target_path, route));
     }
 
     let allow_suffix = !path.starts_with('/');
@@ -1203,12 +1207,7 @@ fn static_reference_href(
     }
 
     let (target_path, route) = alias?;
-    let mut href = public_url(root_path, route);
-    if let Some(fragment) = resolve_fragment(&heading_fragment, target_path) {
-        href.push('#');
-        href.push_str(&fragment);
-    }
-    Some(href)
+    Some(entry_href(target_path, route))
 }
 
 fn normalized_static_target(source_path: &str, target: &str) -> Option<String> {
@@ -1410,16 +1409,20 @@ fn encode_url_suffix(value: &str, markdown_uri: bool) -> String {
     encoded
 }
 
+fn append_url_query(href: &mut String, query: &str, markdown_uri: bool) {
+    if !query.is_empty() {
+        href.push('?');
+        href.push_str(&encode_url_suffix(query, markdown_uri));
+    }
+}
+
 fn with_resource_suffix(
     mut href: String,
     query: &str,
     fragment: &str,
     markdown_uri: bool,
 ) -> String {
-    if !query.is_empty() {
-        href.push('?');
-        href.push_str(&encode_url_suffix(query, markdown_uri));
-    }
+    append_url_query(&mut href, query, markdown_uri);
     if !fragment.is_empty() {
         href.push('#');
         href.push_str(&encode_url_suffix(fragment, markdown_uri));
@@ -1765,11 +1768,11 @@ pub(crate) fn workspace_resource_href(
                 .map(|source| source.path.as_str()),
         )
         || runtime.has_entries_beneath(&path)
-        || (target.starts_with('/') && runtime.has_entry_route_alias(&path))
+        || (runtime.has_entry_route_alias(&path) && !workspace.root.join(&path).is_file())
     {
         return None;
     }
-    // A reference to a resource has a stable URL even before the file exists.
+    // A resource keeps its URL before it exists unless an entry owns the alias.
     // The raw handler validates and reads the actual file on each request.
     let (without_fragment, fragment) = target.split_once('#').unwrap_or((target, ""));
     let query = without_fragment
@@ -2417,6 +2420,13 @@ mod tests {
             "/preview/-/raw/content/guides/foo.txt"
         );
         assert_eq!(resource.referenced_by, vec!["/content/guides/intro"]);
+        let rpc_markdown = crate::render::render_file(&root, "content/guides/intro.md", "markdown")
+            .unwrap()
+            .render
+            .markdown
+            .unwrap();
+        assert!(rpc_markdown.contains("[Raw](/-/raw/content/guides/foo.txt?download=1#part)"));
+        assert!(rpc_markdown.contains("[Root raw](/-/raw/content/guides/foo.txt)"));
 
         // Without a real raw file the historical sidecar alias must still resolve.
         fs::remove_file(root.join("content/guides/foo.txt")).unwrap();
@@ -2429,7 +2439,7 @@ mod tests {
         assert!(
             intro
                 .markdown
-                .contains("[Raw](/preview/content/guides/foo.txt#part)"),
+                .contains("[Raw](/preview/content/guides/foo.txt?download=1#part)"),
             "{}",
             intro.markdown
         );
@@ -2439,6 +2449,16 @@ mod tests {
                 .iter()
                 .all(|resource| resource.path != "content/guides/foo.txt")
         );
+        let rpc_markdown = crate::render::render_file(&root, "content/guides/intro.md", "markdown")
+            .unwrap()
+            .render
+            .markdown
+            .unwrap();
+        assert!(
+            rpc_markdown.contains("[Raw](./foo.txt?download=1#part)"),
+            "{rpc_markdown}"
+        );
+        assert!(rpc_markdown.contains("[Root raw](/content/guides/foo.txt)"));
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -3104,6 +3124,57 @@ mod tests {
             !after.contains("href=\"#user-content-fnref-b:2\""),
             "{after}"
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_preserves_explicit_queries_on_entry_routes() {
+        let root = copy_fixture("site-snapshot-entry-uri-query");
+        let query = "name=a%20b&literal=%2520&embedded=%26x%3Dy&plus=a+b&tag=one&tag=two";
+        fs::write(
+            root.join("content/guides/intro.md"),
+            format!(
+                "# Source\n\n## Local target\n\n[Same entry](?{query}#Local%20target)\n\n\
+                 [Exact entry](./query-target.md?{query}#Named%20target)\n\n\
+                 [Entry alias](./query-target?{query}#Named%20target)\n"
+            ),
+        )
+        .unwrap();
+        fs::write(
+            root.join("content/guides/query-target.md"),
+            "# Target\n\n## Named target\n",
+        )
+        .unwrap();
+
+        for root_path in ["/", "/preview"] {
+            let snapshot = build_static_site_snapshot_with_root_path(&root, root_path).unwrap();
+            let entry = snapshot
+                .entries
+                .iter()
+                .find(|entry| entry.path == "content/guides/intro.md")
+                .unwrap();
+            for (label, route, fragment) in [
+                ("Same entry", "intro", "local-target"),
+                ("Exact entry", "query-target", "named-target"),
+                ("Entry alias", "query-target", "named-target"),
+            ] {
+                let href = format!(
+                    "{}/content/guides/{route}?{query}#{fragment}",
+                    root_path.trim_end_matches('/')
+                );
+                assert!(
+                    entry.markdown.contains(&format!("[{label}]({href})")),
+                    "{root_path}: {}",
+                    entry.markdown
+                );
+                let html = &entry.html;
+                let html_href = href.replace('&', "&amp;");
+                assert!(
+                    html.contains(&format!("href=\"{html_href}\">{label}</a>")),
+                    "{root_path}: {html}"
+                );
+            }
+        }
         fs::remove_dir_all(root).unwrap();
     }
 

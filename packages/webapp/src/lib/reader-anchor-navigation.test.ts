@@ -313,7 +313,7 @@ describe("scrollReaderAnchor", () => {
         },
     );
 
-    it("keeps desktop outline navigation inside the reader scroll container", () => {
+    it.each(["", "/preview"])("keeps desktop fragment navigation on the current document under %s", (root) => {
         const main = document.createElement("main");
         const target = document.createElement("h2");
         target.id = "diagrams";
@@ -329,11 +329,15 @@ describe("scrollReaderAnchor", () => {
         const scrollTo = vi.fn();
         main.scrollTo = scrollTo;
         const anchor = document.createElement("a");
-        anchor.href = `${window.location.origin}/example#diagrams`;
+        const query = "?mode=source&tag=one&tag=two";
+        window.history.replaceState(null, "", `${root}/example/${query}`);
+        anchor.href = `${root}/example${query}#diagrams`;
 
         expect(scrollReaderAnchor(anchor)).toBe(true);
         expect(scrollTo).toHaveBeenCalledWith({ behavior: "auto", top: 280 });
-        expect(window.location.pathname + window.location.hash).toBe("/example#diagrams");
+        expect(window.location.pathname + window.location.search + window.location.hash).toBe(
+            `${root}/example/${query}#diagrams`,
+        );
     });
 
     it("leaves the target's scroll margin above it", () => {
