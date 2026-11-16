@@ -258,7 +258,7 @@ The follow-up review retained the implemented scope and added no runtime depende
 
 ### Remaining Validation Boundaries
 
-This is local implementation evidence, not release acceptance. Real screen-reader announcements and installed Safari/mobile browser behavior remain unverified. VS Code extension-host integration passed on minimum supported 1.123.2 and stable 1.139.0, including the restricted-mode test; see [[tasks/validate-lightweight-gantt-view#VS-Code-Host-Integration-—-2026-09-24]]. Keyboard checks cover representative navigation and both extremes, not exhaustive traversal of every row. The earlier spike's latency numbers are not production performance claims; a production median/p95 benchmark has not been established. Browser scripts, screenshots, and synthetic workspace data remain local-only.
+This is local implementation evidence, not release acceptance. Real screen-reader announcements and installed Safari/mobile browser behavior remain unverified. VS Code extension-host integration passed on minimum supported 1.123.2 and stable 1.139.0, including the restricted-mode test; see [[tasks/validate-lightweight-gantt-view#earlier-vs-code-host-integration-snapshot-2026-09-24]]. Keyboard checks cover representative navigation and both extremes, not exhaustive traversal of every row. The earlier spike's latency numbers are not production performance claims; a production median/p95 benchmark has not been established. Browser scripts, screenshots, and synthetic workspace data remain local-only.
 
 ## Follow-On Delivery — 2026-09-22
 
