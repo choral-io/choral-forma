@@ -278,15 +278,13 @@ function EntryClassifications({ classifications }: { classifications: EntryClass
                             <Link className="link text-base-content/80 link-hover" to={term.to}>
                                 {term.title}
                             </Link>
-                            {termIndex < classification.terms.length - 1 ? "," : null}
+                            {termIndex < classification.terms.length - 1 ? (
+                                ","
+                            ) : index < classifications.length - 1 ? (
+                                <span aria-hidden="true">{"\u00a0·"}</span>
+                            ) : null}
                         </span>
                     ))}
-                    {/* The separator trails its group, so a wrapped line never starts with it. */}
-                    {index < classifications.length - 1 ? (
-                        <span aria-hidden="true" className="ms-1">
-                            ·
-                        </span>
-                    ) : null}
                 </li>
             ))}
         </ul>

@@ -32,6 +32,7 @@ export function markdownBrowserPhases(hosts, sourceIds) {
         ...(host.name === "static" ? ["static: raw source navigation beside sidecar"] : []),
         `${host.name}: long sidebar titles truncate without shifting the tree`,
         `${host.name}: directory page opened directly`,
+        `${host.name}: narrow classifications keep the separator with the final term`,
         ...(host.name === "static"
             ? [
                   "static: mounted document retains identity, selection and links",

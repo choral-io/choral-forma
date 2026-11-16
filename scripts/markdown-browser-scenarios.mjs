@@ -551,6 +551,28 @@ export async function markdownBrowserScenarios(page, options) {
             assert((await current.locator('[id="hello-world"]').count()) === 1, `${host.name}: fragment target exists`);
         }
     };
+    const classificationLayout = async (current, host) => {
+        const viewport = current.viewportSize();
+        const selector = host.name === "static" ? "[data-enhancement-ready] main" : "main";
+        try {
+            await current.setViewportSize({ width: 390, height: 720 });
+            await current.goto(`${host.origin}${host.root}/classification-layout/`);
+            const groups = current.locator(selector).getByRole("list", { name: "Classifications" });
+            const term = groups.getByRole("link", { name: "Deployment and workspace configuration documentation" });
+            await term.waitFor();
+            const sameLine = await term.evaluate((link) => {
+                const item = link.closest("li");
+                const separator = item?.querySelector('span[aria-hidden="true"]');
+                const lastLine = Array.from(link.getClientRects()).at(-1);
+                const dot = separator?.getBoundingClientRect();
+                return lastLine && dot && lastLine.top < dot.bottom && dot.top < lastLine.bottom - 2;
+            });
+            assert(sameLine, `${host.name}: narrow classification keeps the separator with its last term`);
+        } finally {
+            if (viewport) await current.setViewportSize(viewport);
+        }
+    };
+
     const crossSurfaceLinks = async (current, host, noScript = false) => {
         const base = `${host.origin}${host.root}`;
         const source = `${base}/notes/link-contracts/`;
@@ -581,6 +603,22 @@ export async function markdownBrowserScenarios(page, options) {
             new URL(current.url()).pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target`,
             "reference link opens canonical target",
         );
+
+        await current.goto(source);
+        const missing = main.getByRole("link", { name: "Missing named section", exact: true });
+        await missing.waitFor();
+        const missingUrl = new URL(await missing.getAttribute("href"), current.url());
+        assert(decodeURIComponent(missingUrl.hash) === "#不存在", `${host.name}: unknown heading keeps its fragment`);
+        await main.getByRole("link", { name: "Second named section", exact: true }).click();
+        await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target`);
+        const named = main.getByRole("heading", { level: 2, name: "第二节", exact: true });
+        await named.waitFor();
+        assert((await named.getAttribute("id")) === "section-2", `${host.name}: second non-ASCII heading owns its id`);
+        if (noScript) {
+            assert(new URL(current.url()).hash === "#section-2", "static: resolved non-ASCII heading link");
+        } else {
+            await current.waitForFunction(() => document.activeElement?.id === "section-2");
+        }
 
         const view = isStatic ? "/-/views/link-contracts/" : "/-/views/link-contracts";
         await current.goto(`${base}${view}`);
@@ -1118,6 +1156,8 @@ export async function markdownBrowserScenarios(page, options) {
             results.push(`${host.name}: long sidebar titles truncate without shifting the tree`);
             await directoryPage(current, host);
             results.push(`${host.name}: directory page opened directly`);
+            await classificationLayout(current, host);
+            results.push(`${host.name}: narrow classifications keep the separator with the final term`);
             if (host.name === "static") {
                 await mountedDocument(current, host);
                 results.push("static: mounted document retains identity, selection and links");

@@ -1180,16 +1180,25 @@ fn resolve_heading_fragment(
     if fragment.starts_with("forma-heading-") || fragment.starts_with("user-content-fn") {
         return Some(fragment.to_string());
     }
-    let normalized = slugify_heading(fragment);
-    headings
-        .into_iter()
-        .flatten()
-        .find(|heading| {
-            heading.id.eq_ignore_ascii_case(fragment)
-                || heading.text.trim().eq_ignore_ascii_case(fragment)
-        })
-        .map(|heading| heading.id.clone())
-        .or(Some(normalized))
+    let headings = headings.map_or(&[][..], Vec::as_slice);
+    let matched = headings
+        .iter()
+        .find(|heading| heading.id == fragment)
+        .or_else(|| {
+            headings
+                .iter()
+                .find(|heading| heading.text.trim().eq_ignore_ascii_case(fragment))
+        });
+    if let Some(heading) = matched {
+        return Some(heading.id.clone());
+    }
+    // The default "section" id is for allocating headings, not resolving unknown ones.
+    let fallback_id = if fragment.bytes().any(|byte| byte.is_ascii_alphanumeric()) {
+        slugify_heading(fragment)
+    } else {
+        crate::routes::percent_encode_segment(fragment)
+    };
+    Some(fallback_id)
 }
 
 fn markdown_label(value: &str) -> String {
@@ -2502,12 +2511,12 @@ mod tests {
         let root = copy_fixture("site-snapshot-encoded-fragments");
         fs::write(
             root.join("content/guides/suffix-target.md"),
-            "# Target\n\n## Hello world\n\n## literal%2Dworld\n\n## literal-world\n",
+            "# Target\n\n## Hello world\n\n## literal%2Dworld\n\n## literal-world\n\n## 第一节\n\n## 第二节\n",
         )
         .unwrap();
         fs::write(
             root.join("content/guides/intro.md"),
-            "# Source\n\n## Local heading\n\n[Local](#local%2Dheading)\n[Id](./suffix-target.md#hello%2Dworld)\n[Title](./suffix-target.md#Hello%20world)\n[Percent](./suffix-target.md#literal%252Dworld)\n[[suffix-target#literal%2Dworld|Wiki percent]]\n",
+            "# Source\n\n## Local heading\n\n[Local](#local%2Dheading)\n[Id](./suffix-target.md#hello%2Dworld)\n[Title](./suffix-target.md#Hello%20world)\n[Percent](./suffix-target.md#literal%252Dworld)\n[[suffix-target#literal%2Dworld|Wiki percent]]\n[[suffix-target#第二节|Second named heading]]\n[[suffix-target#不存在|Missing named heading]]\n",
         ).unwrap();
         let snapshot = build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
         let intro = snapshot
@@ -2521,6 +2530,8 @@ mod tests {
             "[Title](/preview/content/guides/suffix-target#hello-world)",
             "[Percent](/preview/content/guides/suffix-target#literal-2dworld)",
             "[Wiki percent](</preview/content/guides/suffix-target#literal-2dworld>)",
+            "[Second named heading](</preview/content/guides/suffix-target#section-2>)",
+            "[Missing named heading](</preview/content/guides/suffix-target#%E4%B8%8D%E5%AD%98%E5%9C%A8>)",
         ] {
             assert!(intro.markdown.contains(expected), "{}", intro.markdown);
         }

@@ -351,12 +351,12 @@ export function postProcessMarkdownHtml(
     const elements = Array.from(document.body.querySelectorAll(headingSelector)).filter(
         (heading) => !heading.matches("[data-footnotes] > h2"),
     );
-    const projectedAliases = new Map<Element, string | null>();
+    const projectedHeadings = new Map<Element, MarkdownHeading>();
     for (const [index, element] of elements.entries()) {
         const heading = headings[index];
         if (heading) {
             element.id = heading.id;
-            if (heading.aliasId !== undefined) projectedAliases.set(element, heading.aliasId);
+            projectedHeadings.set(element, heading);
         }
     }
 
@@ -429,7 +429,7 @@ export function postProcessMarkdownHtml(
             .filter((element) => !omitTitle || element !== leadingTitle)
             .map((element) => element.id),
     );
-    for (const heading of document.body.querySelectorAll("h1, h2, h3, h4, h5, h6")) {
+    for (const heading of document.body.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")) {
         if (heading === footnoteLabel) continue;
         const semanticHeading = heading.cloneNode(true) as HTMLElement;
         for (const reference of semanticHeading.querySelectorAll("[data-user-content-fn-ref]")) {
@@ -440,7 +440,9 @@ export function postProcessMarkdownHtml(
             if (source) formula.replaceWith(document.createTextNode(source.textContent));
         }
         for (const image of semanticHeading.querySelectorAll("img, script, style")) image.remove();
-        const aliasId = projectedAliases.get(heading);
+        const projectedHeading = projectedHeadings.get(heading);
+        heading.dataset.readerHeadingText = projectedHeading?.text ?? semanticHeading.textContent;
+        const aliasId = projectedHeading?.aliasId;
         const id = aliasId === undefined ? headingAnchor(semanticHeading.textContent) : aliasId;
         if (id === null || occupiedIds.has(id)) continue;
         const alias = document.createElement("span");
@@ -453,9 +455,10 @@ export function postProcessMarkdownHtml(
 
     if (omitTitle && document.body.firstElementChild?.tagName === "H1") {
         const title = document.body.firstElementChild;
-        const alias = title.querySelector("[data-forma-heading-anchor]");
+        const alias = title.querySelector<HTMLElement>("[data-forma-heading-anchor]");
         if (alias) {
             alias.setAttribute("aria-label", title.textContent);
+            alias.dataset.readerHeadingText = title.getAttribute("data-reader-heading-text") ?? title.textContent;
             title.replaceWith(alias);
         } else title.remove();
     }

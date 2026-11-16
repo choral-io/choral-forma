@@ -127,13 +127,32 @@ try {
     await mkdir(join(workspace, "notes"));
     const configPath = join(workspace, ".forma.md");
     const config = await readFile(configPath, "utf8");
-    await writeFile(configPath, config.replace('    - "en"\n', '    - "en"\n    - "zh-Hans"\n'));
+    await writeFile(
+        configPath,
+        config
+            .replace('    - "en"\n', '    - "en"\n    - "zh-Hans"\n')
+            .replace('  - ".forma/spaces/*.md"\n', '  - ".forma/spaces/*.md"\n  - ".forma/topics/*.md"\n'),
+    );
+    await mkdir(join(workspace, ".forma/topics"));
+    await writeFile(
+        join(workspace, ".forma/topics/index.md"),
+        "---\nschemaVersion: 1\nkind: taxonomy\nid: topics\ntitle: Topics\nmode: secondary\n---\n",
+    );
+    await writeFile(
+        join(workspace, ".forma/topics/reference.md"),
+        "---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Reference\ninclude: [classification-layout.md]\n---\n",
+    );
     await mkdir(join(workspace, "graph"));
     await mkdir(join(workspace, "preview"));
     await writeFile(
         join(workspace, ".forma/spaces/mount-probe.md"),
         '---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Deployment path fixture\ninclude:\n  - "preview/**/*.md"\n  - "same.md"\n  - "contract-target.md"\n---\n',
     );
+    await writeFile(
+        join(workspace, ".forma/spaces/classification-layout.md"),
+        "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Deployment and workspace configuration documentation\ninclude: [classification-layout.md]\n---\n",
+    );
+    await writeFile(join(workspace, "classification-layout.md"), "# Classification layout\n");
     await writeFile(
         join(workspace, ".forma/spaces/punctuation.md"),
         "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\nid: wow!\ntitle: Punctuation term\n---\n",
@@ -173,7 +192,7 @@ try {
     );
     await writeFile(
         join(workspace, "notes/contract-target.md"),
-        "---\ntitle: Contract target\n---\n\n# Contract target\n\n## Hello world\n\nFragment target.\n",
+        "---\ntitle: Contract target\n---\n\n# Contract target\n\n## Hello world\n\nFragment target.\n\n## 第一节\n\nFirst heading.\n\n## 第二节\n\nSecond heading.\n",
     );
     await writeFile(join(workspace, "contract-target.md"), "# Wrong root target\n");
     await writeFile(
@@ -187,7 +206,7 @@ try {
     );
     await writeFile(
         join(workspace, "notes/link-contracts.md"),
-        "# Link contracts\n\n[Encoded entry](./contract-target%2Emd#hello%2Dworld)\n\n[Reference destination][entry-ref]\n\n[entry-ref]: /notes/contract-target.md\n\n[[#Local heading|Wiki jump]]\n\n## Local heading\n\n![Encoded image](./contract%20%23%25.svg?value=a%26b)\n\n[Encoded resource](./contract-raw.txt?name=a%20b&literal=%2520&value=a%26b&plus=a+b#part%20one)\n",
+        "# Link contracts\n\n[Encoded entry](./contract-target%2Emd#hello%2Dworld)\n\n[Reference destination][entry-ref]\n\n[[notes/contract-target#第二节|Second named section]]\n\n[[notes/contract-target#不存在|Missing named section]]\n\n[entry-ref]: /notes/contract-target.md\n\n[[#Local heading|Wiki jump]]\n\n## Local heading\n\n![Encoded image](./contract%20%23%25.svg?value=a%26b)\n\n[Encoded resource](./contract-raw.txt?name=a%20b&literal=%2520&value=a%26b&plus=a+b#part%20one)\n",
     );
     await writeFile(
         join(workspace, ".forma/views/link-contracts.md"),

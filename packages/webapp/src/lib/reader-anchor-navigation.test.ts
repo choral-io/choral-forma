@@ -26,7 +26,7 @@ describe("scrollReaderAnchor", () => {
             return 1;
         });
         const reader = document.createElement("div");
-        reader.innerHTML = `<details ${attribute}><summary>Context</summary><h2 id="deferred">Target</h2></details><button>Other</button>`;
+        reader.innerHTML = `<details ${attribute}><summary>Context</summary><h2 id="deferred" data-reader-heading-text="Deferred target">Deferred target</h2></details><button>Other</button>`;
         document.body.append(reader);
         const target = reader.querySelector<HTMLElement>("h2");
         const other = reader.querySelector("button");
@@ -35,7 +35,7 @@ describe("scrollReaderAnchor", () => {
         const focus = vi.spyOn(target, "focus").mockImplementationOnce(() => {
             /* Native disclosure descendants can reject focus before paint. */
         });
-        window.history.replaceState(null, "", "/#deferred");
+        window.history.replaceState(null, "", "/#Deferred%20target");
         restoreReaderFragment(reader);
         expect(callbacks).toHaveLength(1);
         if (change === "focus moved") other.focus();
@@ -53,7 +53,7 @@ describe("scrollReaderAnchor", () => {
         const reader = document.createElement("main");
         // Reader controls inside a heading do not change which heading the text names.
         reader.innerHTML =
-            '<h2 id="lists"><span id="forma-heading-lists" data-forma-heading-anchor></span>Lists<button>#</button></h2><h2 id="next-steps-2-0">Next steps: 2.0</h2>';
+            '<h2 id="lists" data-reader-heading-text="Lists"><span id="forma-heading-lists" data-forma-heading-anchor></span>Lists<button>#</button></h2><h2 id="next-steps-2-0" data-reader-heading-text="Next steps: 2.0">Next steps: 2.0</h2>';
         document.body.append(reader);
         const heading = document.getElementById("lists");
         if (!heading) throw new Error("Missing heading");
@@ -70,6 +70,17 @@ describe("scrollReaderAnchor", () => {
         restoreReaderFragment(reader);
         expect(scrollIntoView).toHaveBeenCalled();
         expect(document.activeElement).toBe(heading);
+    });
+
+    it("uses exact heading text instead of guessing a colliding legacy id", () => {
+        const reader = document.createElement("main");
+        reader.innerHTML =
+            '<h2 id="section" data-reader-heading-text="安装">安装</h2><h2 id="section-2" data-reader-heading-text="配置">配置<button>#</button></h2>';
+        document.body.append(reader);
+
+        expect(findFragmentTarget(reader, "配置")?.id).toBe("section-2");
+        expect(findFragmentTarget(reader, "示例")).toBeNull();
+        expect(findFragmentTarget(reader, "section")?.textContent).toBe("安装");
     });
 
     it("restores a nested heading after native fragment navigation clears link focus", () => {

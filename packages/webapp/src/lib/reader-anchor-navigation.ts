@@ -9,7 +9,7 @@ export function scrollReaderAnchor(anchor: HTMLAnchorElement) {
 
     const target = findFragmentTarget(document, targetId, anchor.hash.slice(1));
     if (!target) return false;
-    focusReaderTarget(target);
+    focusReaderTarget(target, anchor.hash);
     if (!scrollReaderTarget(target)) {
         // Static directory hosts add a trailing slash. Following the canonical
         // href natively would reload the document instead of moving its fragment.
@@ -44,32 +44,28 @@ function scrollReaderTarget(target: HTMLElement) {
     return true;
 }
 
-/**
- * The element a fragment names: an element with that id, or else the heading whose text it names.
- * A wiki link to another page keeps the heading text it was written with, such as
- * `[[guide#Setup]]`; Core gives that heading the id it derives from the text, and resolves such
- * a fragment to it the same way when it exports a static site.
- */
+/** Resolve exact ids and heading text before trying a historical ASCII heading id. */
 export function findFragmentTarget(root: Document | HTMLElement, id: string, rawId = id) {
-    for (const candidate of [id, rawId, coreHeadingId(id)]) {
-        const target =
-            root instanceof Document
-                ? root.getElementById(candidate)
-                : root.querySelector<HTMLElement>(`[id="${CSS.escape(candidate)}"]`);
+    const byId = (candidate: string) =>
+        root instanceof Document
+            ? root.getElementById(candidate)
+            : root.querySelector<HTMLElement>(`[id="${CSS.escape(candidate)}"]`);
+    for (const candidate of [id, rawId]) {
+        const target = byId(candidate);
         if (target) return target;
     }
-    return null;
+    // Match Core's case-insensitive ASCII comparison without folding different
+    // headings into the same slug (for example, two Chinese headings into "section").
+    const headingText = normalizeHeadingText(id);
+    for (const heading of root.querySelectorAll<HTMLElement>("[data-reader-heading-text]")) {
+        if (normalizeHeadingText(heading.dataset.readerHeadingText ?? "") === headingText) return heading;
+    }
+    const legacyId = headingText.match(/[a-z0-9]+/gu)?.join("-");
+    return legacyId ? byId(legacyId) : null;
 }
 
-/** Core's heading id for heading text: ASCII letters and digits, lowercased, joined by `-`. */
-function coreHeadingId(text: string) {
-    const slug = text
-        .trim()
-        .replace(/[A-Z]/gu, (letter) => letter.toLowerCase())
-        .split(/[^a-z0-9]+/u)
-        .filter((segment) => segment.length > 0)
-        .join("-");
-    return slug || "section";
+function normalizeHeadingText(text: string) {
+    return text.trim().replace(/[A-Z]/gu, (letter) => letter.toLowerCase());
 }
 
 function decodeFragment(hash: string) {
@@ -87,11 +83,11 @@ export function restoreReaderFragment(reader: HTMLElement) {
     if (!id) return;
     const target = document.getElementById(id) ?? findFragmentTarget(reader, id, window.location.hash.slice(1));
     if (!target || !reader.contains(target)) return;
-    focusReaderTarget(target);
+    focusReaderTarget(target, window.location.hash);
     if (!scrollReaderTarget(target)) target.scrollIntoView({ block: "start" });
 }
 
-function focusReaderTarget(target: HTMLElement) {
+function focusReaderTarget(target: HTMLElement, expectedHash: string) {
     // Reveal only reader-owned disclosure ancestors; targeting the disclosure itself never toggles it.
     let revealed = false;
     let ancestor = target.parentElement?.closest<HTMLDetailsElement>(
@@ -117,7 +113,7 @@ function focusReaderTarget(target: HTMLElement) {
         // Native disclosure descendants can become focusable after the first expanded paint.
         window.requestAnimationFrame(() => {
             window.requestAnimationFrame(() => {
-                if (!target.isConnected || decodeFragment(window.location.hash) !== target.id) return;
+                if (!target.isConnected || window.location.hash !== expectedHash) return;
                 if (
                     target.parentElement?.closest(
                         "details[data-callout-fold]:not([open]), details[data-markdown-disclosure]:not([open])",
