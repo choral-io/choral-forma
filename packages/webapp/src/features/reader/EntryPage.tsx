@@ -272,11 +272,6 @@ function EntryClassifications({ classifications }: { classifications: EntryClass
         <ul aria-label="Classifications" className="flex flex-wrap items-center gap-x-2 gap-y-1" role="list">
             {classifications.map((classification, index) => (
                 <li className="flex flex-wrap items-baseline gap-x-1" key={classification.key}>
-                    {index > 0 ? (
-                        <span aria-hidden="true" className="me-1">
-                            ·
-                        </span>
-                    ) : null}
                     <span>{classification.taxonomyTitle}:</span>
                     {classification.terms.map((term, termIndex) => (
                         <span key={term.key}>
@@ -286,6 +281,12 @@ function EntryClassifications({ classifications }: { classifications: EntryClass
                             {termIndex < classification.terms.length - 1 ? "," : null}
                         </span>
                     ))}
+                    {/* The separator trails its group, so a wrapped line never starts with it. */}
+                    {index < classifications.length - 1 ? (
+                        <span aria-hidden="true" className="ms-1">
+                            ·
+                        </span>
+                    ) : null}
                 </li>
             ))}
         </ul>
