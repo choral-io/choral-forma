@@ -79,6 +79,93 @@ describe("scrollReaderAnchor", () => {
         expect(callbacks).toHaveLength(0);
     });
 
+    it.each([false, true])("discards a queued focus attempt after its deadline (subsequent retry: %s)", (retry) => {
+        const callbacks: FrameRequestCallback[] = [];
+        vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => callbacks.push(callback));
+        const clock = vi.spyOn(performance, "now").mockReturnValue(0);
+        const disclosure = document.createElement("details");
+        disclosure.dataset.calloutFold = "";
+        const reference = document.createElement("a");
+        reference.id = "reference";
+        reference.href = "#note";
+        const scroll = vi.fn();
+        reference.scrollIntoView = scroll;
+        disclosure.append(reference);
+        document.body.append(disclosure);
+        const nativeFocus = reference.focus.bind(reference);
+        const focus = vi.spyOn(reference, "focus").mockImplementation(() => undefined);
+
+        window.history.replaceState(null, "", "/#reference");
+        restoreReaderFragment(document.body);
+        callbacks.shift()?.(0);
+        if (retry) {
+            clock.mockReturnValue(32);
+            callbacks.shift()?.(32);
+        }
+        expect(callbacks).toHaveLength(1);
+        focus.mockImplementation(nativeFocus);
+        clock.mockReturnValue(1200);
+        callbacks.shift()?.(1200);
+
+        expect(focus).toHaveBeenCalledTimes(retry ? 2 : 1);
+        expect(document.activeElement).toBe(document.body);
+        expect(scroll).toHaveBeenCalledTimes(1);
+        expect(callbacks).toHaveLength(0);
+    });
+
+    it("corrects the scroll position after a disclosure finishes expanding even if focus succeeded immediately", () => {
+        const callbacks: FrameRequestCallback[] = [];
+        vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => callbacks.push(callback));
+        const disclosure = document.createElement("details");
+        disclosure.dataset.calloutFold = "";
+        let expansionActive = true;
+        disclosure.getAnimations = vi.fn(() => (expansionActive ? [{ playState: "running" } as Animation] : []));
+        const reference = document.createElement("a");
+        reference.id = "reference";
+        reference.href = "#note";
+        const scroll = vi.fn();
+        reference.scrollIntoView = scroll;
+        disclosure.append(reference);
+        document.body.append(disclosure);
+
+        window.history.replaceState(null, "", "/#reference");
+        restoreReaderFragment(document.body);
+        expect(document.activeElement).toBe(reference);
+        expect(scroll).toHaveBeenCalledTimes(1);
+        callbacks.shift()?.(16);
+        callbacks.shift()?.(32);
+        expect(scroll).toHaveBeenCalledTimes(1);
+
+        expansionActive = false;
+        callbacks.shift()?.(240);
+        expect(scroll).toHaveBeenCalledTimes(2);
+        expect(document.activeElement).toBe(reference);
+        expect(callbacks).toHaveLength(0);
+    });
+
+    it("restores a legacy footnote URL to its actionable reference without changing its keyboard order", () => {
+        const alias = document.createElement("span");
+        alias.id = "user-content-fnref-body-2";
+        alias.dataset.formaFootnoteAlias = "";
+        alias.tabIndex = -1;
+        alias.scrollIntoView = vi.fn();
+        const reference = document.createElement("a");
+        reference.id = "user-content-fnref-body:1";
+        reference.href = "#user-content-fn-body";
+        reference.dataset.userContentFnRef = "";
+        const scroll = vi.fn();
+        reference.scrollIntoView = scroll;
+        document.body.append(alias, reference);
+
+        window.history.replaceState(null, "", `/#${alias.id}`);
+        restoreReaderFragment(document.body);
+
+        expect(document.activeElement).toBe(reference);
+        expect(scroll).toHaveBeenCalled();
+        expect(reference.tabIndex).toBe(0);
+        expect(window.location.hash).toBe(`#${alias.id}`);
+    });
+
     it("finds a heading by the text a wiki fragment names when no id matches", () => {
         const reader = document.createElement("main");
         // Reader controls inside a heading do not change which heading the text names.

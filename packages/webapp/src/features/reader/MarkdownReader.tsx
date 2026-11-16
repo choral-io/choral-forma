@@ -1,7 +1,7 @@
 import { createMarkdownHeadingAnchor, markdownFootnoteLabelId } from "@choral-forma/shared";
 import DOMPurify from "dompurify";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router";
 
 import { isStaticRawHref, logicalHref, rootAwareHref } from "@/data/static-runtime";
 import type { DashboardEntry } from "@/data/workspace-client";
@@ -18,7 +18,7 @@ import { resolveReaderLink, type MarkdownLinkSource } from "./markdown-links";
 import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
 import { renderMarkdown } from "./markdown-renderer";
 import { enhanceReader } from "./reader-enhancements";
-import { resolveReaderLinkNavigation } from "./reader-link-navigation";
+import { resolveReaderLinkNavigation, updateReaderFragmentHrefs } from "./reader-link-navigation";
 
 interface MarkdownHeading {
     id: string;
@@ -212,8 +212,13 @@ export function MarkdownReader({
 }
 
 function MarkdownReaderBody({ html }: { html: string }) {
+    const { pathname, search } = useLocation();
     const navigate = useNavigate();
     const readerRef = useRef<HTMLDivElement>(null);
+
+    useLayoutEffect(() => {
+        if (readerRef.current) updateReaderFragmentHrefs(readerRef.current, rootAwareHref(pathname), search);
+    }, [html, pathname, search]);
 
     useEffect(() => {
         if (readerRef.current) return createMarkdownTableStickyHeaders(readerRef.current);
@@ -725,6 +730,7 @@ function normalizeFootnotes(
         if (!originalId || occupied.has(originalId) || counts.get(originalId) !== 1) continue;
         const alias = document.createElement("span");
         alias.id = originalId;
+        alias.dataset.formaFootnoteAlias = "";
         alias.tabIndex = -1;
         alias.setAttribute("aria-label", "Footnote reference");
         element.before(alias);

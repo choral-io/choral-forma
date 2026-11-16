@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from "vitest";
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { clearStaticRuntimeConfig, setStaticRuntimeConfig } from "@/data/static-runtime.test-support";
 import type { DashboardEntry } from "@/data/workspace-client";
 
-import { postProcessMarkdownHtml } from "./MarkdownReader";
+import { MarkdownReader, postProcessMarkdownHtml } from "./MarkdownReader";
 import { resolveReaderLinkNavigation } from "./reader-link-navigation";
 
 describe("static Markdown root paths", () => {
@@ -174,6 +177,83 @@ describe("static Markdown root paths", () => {
             samePageFragment: true,
         });
     });
+
+    it.each([
+        { rootPath: "/", linkSource: "workspace" },
+        { rootPath: "/preview", linkSource: "published" },
+    ] as const)(
+        "preserves the current query when opening a folded footnote under $rootPath",
+        async ({ rootPath, linkSource }) => {
+            const route = "/notes/article";
+            const prefix = rootPath === "/" ? "" : rootPath;
+            const path = `${prefix}${route}`;
+            const currentQuery = "?filter=a%2Fb&tag=one&tag=two";
+            const updatedQuery = "?filter=c%3Fd";
+            const targetId = "user-content-fnref-body";
+            const previousLocation = window.location.href;
+            const previousHistoryState: unknown = window.history.state;
+
+            vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+            setStaticRuntimeConfig({ baseUrl: window.location.origin, dataBaseUrl: `${prefix}/-/data`, rootPath });
+            window.history.replaceState(null, "", `${path}${prefix ? "/" : ""}${currentQuery}`);
+            const container = document.createElement("main");
+            Object.defineProperties(container, { scrollHeight: { value: 1000 }, clientHeight: { value: 400 } });
+            container.scrollTo = vi.fn();
+            document.body.append(container);
+            const root = createRoot(container);
+            try {
+                await act(async () => {
+                    root.render(
+                        createElement(
+                            BrowserRouter,
+                            { basename: rootPath },
+                            createElement(MarkdownReader, {
+                                currentPath: "notes/article.md",
+                                currentRoutePath: route,
+                                entries: [{ path: "notes/article.md", routePath: route }] as DashboardEntry[],
+                                headings: [],
+                                linkSource,
+                                markdown: `[Change query](${updatedQuery})\n\n> [!note]- Context\n>\n> Target[^body].\n\n[^body]: The note.\n`,
+                            }),
+                        ),
+                    );
+                    await Promise.resolve();
+                });
+                const backref = container.querySelector<HTMLAnchorElement>("a[data-footnote-backref]");
+                const fold = container.querySelector<HTMLDetailsElement>("details");
+                const reference = container.querySelector<HTMLAnchorElement>(`#${targetId}`);
+                const queryLink = container.querySelector<HTMLAnchorElement>('a[data-link-kind="internal"]');
+                if (!backref || !fold || !reference || !queryLink)
+                    throw new Error("Expected a folded footnote and query link");
+
+                for (const query of [currentQuery, updatedQuery]) {
+                    expect(backref.getAttribute("href")).toBe(`${path}${query}#${targetId}`);
+                    expect(queryLink.getAttribute("href")).toBe(`${path}${updatedQuery}`);
+                    expect(fold.open).toBe(false);
+                    backref.focus();
+                    act(() => {
+                        backref.click();
+                    });
+                    expect(window.location.search).toBe(query);
+                    expect(window.location.hash).toBe(`#${targetId}`);
+                    expect(fold.open).toBe(true);
+                    expect(document.activeElement).toBe(reference);
+
+                    fold.open = false;
+                    act(() => {
+                        queryLink.click();
+                    });
+                }
+            } finally {
+                act(() => {
+                    root.unmount();
+                });
+                container.remove();
+                window.history.replaceState(previousHistoryState, "", previousLocation);
+                vi.unstubAllGlobals();
+            }
+        },
+    );
 
     it("leaves raw resource links to browser navigation", () => {
         setStaticRuntimeConfig({

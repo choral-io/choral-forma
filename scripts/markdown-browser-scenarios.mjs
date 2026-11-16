@@ -30,6 +30,64 @@ export async function markdownBrowserScenarios(page, options) {
             `${error.stack ?? error}\nDiagnostics: ${JSON.stringify({ url: current.url(), ...diagnostics, screenshotError, navigation })}`,
         );
     };
+    const footnoteBackref = (current, id) =>
+        current.locator(`a[data-footnote-backref][href$="#${encodeURIComponent(id)}"]`);
+    const expectFootnoteLanding = async (current, label, { id, fragment = id, search = "", foldCount }) => {
+        try {
+            await current.locator("[data-enhancement-ready]").waitFor();
+            await current.waitForFunction(
+                ({ id, fragment, search, foldCount }) => {
+                    const reference = document.getElementById(id);
+                    if (
+                        !(reference === document.activeElement && reference?.matches("a[data-user-content-fn-ref]")) ||
+                        decodeURIComponent(location.hash.slice(1)) !== fragment ||
+                        location.search !== search ||
+                        matchMedia("(prefers-reduced-motion: reduce)").matches
+                    ) {
+                        return false;
+                    }
+                    let count = 0;
+                    for (let ancestor = reference.parentElement; ancestor; ancestor = ancestor.parentElement) {
+                        if (!ancestor.matches("details[data-callout-fold], details[data-markdown-disclosure]"))
+                            continue;
+                        if (
+                            !ancestor.open ||
+                            ancestor
+                                .getAnimations({ subtree: true })
+                                .some((animation) => animation.pending || animation.playState === "running")
+                        ) {
+                            return false;
+                        }
+                        count++;
+                    }
+                    const bounds = reference.getBoundingClientRect();
+                    const reader = reference.closest("main")?.getBoundingClientRect();
+                    return (
+                        count === foldCount &&
+                        reference.closest("[data-workspace-shell]")?.scrollTop === 0 &&
+                        reader &&
+                        bounds.height > 0 &&
+                        bounds.top >= Math.max(reader.top, 0) - 1 &&
+                        bounds.bottom <= Math.min(reader.bottom, innerHeight) + 1
+                    );
+                },
+                { id, fragment, search, foldCount },
+                { timeout: 3000 },
+            );
+        } catch (error) {
+            const position = await current
+                .evaluate((id) => {
+                    const reference = document.getElementById(id);
+                    return {
+                        reference: reference?.getBoundingClientRect().toJSON(),
+                        reader: reference?.closest("main")?.getBoundingClientRect().toJSON(),
+                        shellScrollTop: reference?.closest("[data-workspace-shell]")?.scrollTop,
+                    };
+                }, id)
+                .catch(() => undefined);
+            throw new Error(`${label}: ${error.message} ${JSON.stringify(position)}`, { cause: error });
+        }
+    };
     const rawSource = async (current, host, noScript = false) => {
         await current.goto(`${host.origin}${host.root}/notes/raw-source.txt/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
@@ -125,7 +183,8 @@ export async function markdownBrowserScenarios(page, options) {
                 assert((await reader.textContent()).includes(literal), `${host.name}: ${fixture.id} missing literal`);
             completed.push(fixture.id);
         }
-        await current.goto(`${host.origin}${host.root}/notes/disclosures/`);
+        const pageUrl = `${host.origin}${host.root}/notes/disclosures/`;
+        await current.goto(pageUrl);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();
         if (noScript) {
             assert(
@@ -173,21 +232,23 @@ export async function markdownBrowserScenarios(page, options) {
                 `${host.name}: unrelated callout changed`,
             );
             const returnId = await inner.locator(".collapse-content sup a").first().getAttribute("id");
-            assert(returnId, `${host.name}: footnote reference ID`);
+            assert(returnId === "user-content-fnref-folded:1", `${host.name}: encoded second footnote reference ID`);
+            const landing = { id: returnId, foldCount: 2 };
             await outer.evaluate((fold) => {
                 fold.open = false;
                 for (const child of fold.querySelectorAll("details[data-markdown-disclosure]")) child.open = false;
             });
-            await current.locator(`a[href$="#${returnId}"]`).click();
-            await current.waitForFunction((id) => document.activeElement?.id === id, returnId);
-            assert((await open(outer)) && (await open(inner)), `${host.name}: footnote return did not reveal`);
-            await current.reload();
-            await current.waitForFunction(() =>
-                [...document.querySelectorAll("details[data-markdown-disclosure]")]
-                    .slice(0, 2)
-                    .every((fold) => fold.open),
-            );
-            await current.goto(`${host.origin}${host.root}/notes/disclosures/#forma-heading-hidden-fold-heading`);
+            await footnoteBackref(current, returnId).click();
+            await expectFootnoteLanding(current, `${host.name}: second nested footnote return`, landing);
+            for (const fragment of [returnId, "user-content-fnref-folded-2"]) {
+                await current.goto("about:blank");
+                await current.goto(`${pageUrl}#${encodeURIComponent(fragment)}`);
+                const target = { ...landing, fragment };
+                await expectFootnoteLanding(current, `${host.name}: nested footnote direct ${fragment}`, target);
+                await current.reload();
+                await expectFootnoteLanding(current, `${host.name}: nested footnote refresh ${fragment}`, target);
+            }
+            await current.goto(`${pageUrl}#forma-heading-hidden-fold-heading`);
             await current.waitForFunction(() => document.activeElement?.tagName === "H2");
             await outer.evaluate((fold) => {
                 fold.open = false;
@@ -1171,32 +1232,50 @@ export async function markdownBrowserScenarios(page, options) {
             await state(false);
             const returnId = await collapsed.locator(".collapse-content sup a").getAttribute("id");
             assert(returnId, `${host.name}: body reference ID missing`);
-            const returnHash = `#${returnId}`;
-            const expectFootnoteFocus = async () => {
-                if (host.name === "static") await current.locator("[data-enhancement-ready]").waitFor();
-                await state(true);
-                await current.waitForURL((url) => url.hash === returnHash);
-                await current.waitForFunction(
-                    (id) => {
-                        const active = document.activeElement;
-                        return active?.id === id && active.matches("a[data-user-content-fn-ref]");
-                    },
-                    returnId,
-                    { timeout: 3000 },
-                );
-            };
-            await current.locator(`a[data-footnote-backref][href$="${returnHash}"]`).click();
-            await expectFootnoteFocus();
+            const landing = { id: returnId, foldCount: 1 };
+            await footnoteBackref(current, returnId).click();
+            await expectFootnoteLanding(current, `${host.name}: callout footnote return`, landing);
             await current.reload();
-            await expectFootnoteFocus();
+            await expectFootnoteLanding(current, `${host.name}: callout footnote refresh`, landing);
             await toggle();
             await state(false);
             await titleLink.click();
             await current.goBack();
-            await expectFootnoteFocus();
+            await expectFootnoteLanding(current, `${host.name}: callout footnote history`, landing);
             await current.goto("about:blank");
-            await current.goto(pageUrl + returnHash);
-            await expectFootnoteFocus();
+            await current.goto(`${pageUrl}#${encodeURIComponent(returnId)}`);
+            await expectFootnoteLanding(current, `${host.name}: callout footnote direct`, landing);
+
+            const longPage = `${host.origin}${host.root}/notes/folded-footnote-navigation/`;
+            const longId = "user-content-fnref-tail";
+            const longLanding = { id: longId, foldCount: 1 };
+            for (const [width, search] of [
+                [1280, ""],
+                [390, "?keep=1"],
+            ]) {
+                await current.setViewportSize({ width, height: 900 });
+                await current.goto(`${longPage}${search}`);
+                await current.locator("[data-enhancement-ready] details[data-callout-fold]:not([open])").waitFor();
+                await footnoteBackref(current, longId).click();
+                await expectFootnoteLanding(current, `${host.name}: long callout footnote return at ${width}`, {
+                    ...longLanding,
+                    search,
+                });
+            }
+            await current.reload();
+            await expectFootnoteLanding(current, `${host.name}: long callout footnote refresh`, {
+                ...longLanding,
+                search: "?keep=1",
+            });
+            await current.goto("about:blank");
+            await current.goto(`${longPage}#${longId}`);
+            await expectFootnoteLanding(current, `${host.name}: long callout footnote direct`, longLanding);
+            await current
+                .locator('[data-reader="markdown"] a[href]')
+                .filter({ hasText: /^Before the footnote$/u })
+                .focus();
+            await current.keyboard.press("Tab");
+            await expectFootnoteLanding(current, `${host.name}: footnote retains its Tab stop`, longLanding);
         }
         await current.goto(`${host.origin}${host.root}/notes/callout-layout/`);
         if (!noScript) await current.locator("[data-enhancement-ready]").waitFor();

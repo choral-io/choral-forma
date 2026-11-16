@@ -486,6 +486,29 @@ try {
     ]) {
         await cp(join(root, "fixtures/forma-validation/samples/markdown", name), join(workspace, "notes", name));
     }
+    const disclosuresPath = join(workspace, "notes/disclosures.md");
+    const disclosuresSample = await readFile(disclosuresPath, "utf8");
+    await writeFile(
+        disclosuresPath,
+        disclosuresSample.replace(
+            "[Jump to hidden heading]",
+            "The first footnote reference is outside the disclosures[^folded].\n\n[Jump to hidden heading]",
+        ),
+    );
+    const longCallout = Array.from(
+        { length: 43 },
+        (_, index) => `> Context ${index + 1}. This paragraph takes space above the final footnote reference.`,
+    ).join("\n>\n");
+    await writeFile(
+        join(workspace, "notes/folded-footnote-navigation.md"),
+        [
+            "# Folded footnote navigation",
+            "## Reading context",
+            `> [!note]- A long folded section\n>\n${longCallout}\n>\n> [Before the footnote](#reading-context) note[^tail] [After the footnote](#reading-context).`,
+            "[^tail]: The reference near the end of the folded section.",
+            "",
+        ].join("\n\n"),
+    );
     await mkdir(join(workspace, "notes/resource-directory.txt"));
     await writeFile(
         join(workspace, "notes/resource-directory.txt/index.md"),

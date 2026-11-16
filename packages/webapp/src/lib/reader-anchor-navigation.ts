@@ -7,8 +7,9 @@ export function scrollReaderAnchor(anchor: HTMLAnchorElement) {
     const targetId = decodeFragment(anchor.hash);
     if (!targetId) return false;
 
-    const target = findFragmentTarget(document, targetId, anchor.hash.slice(1));
-    if (!target) return false;
+    const fragmentTarget = findFragmentTarget(document, targetId, anchor.hash.slice(1));
+    if (!fragmentTarget) return false;
+    const target = footnoteReferenceTarget(fragmentTarget);
     focusReaderTarget(target, anchor.hash);
     if (!scrollReaderTarget(target)) {
         // Static directory hosts add a trailing slash. Following the canonical
@@ -99,24 +100,40 @@ function decodeFragment(hash: string) {
     }
 }
 
+function footnoteReferenceTarget(target: HTMLElement) {
+    if (!target.hasAttribute("data-forma-footnote-alias")) return target;
+    const reference = target.nextElementSibling;
+    return reference instanceof HTMLAnchorElement && reference.matches("a[href][data-user-content-fn-ref]")
+        ? reference
+        : target;
+}
+
 /** Restore deep links after asynchronous reader rendering and history traversal. */
 export function restoreReaderFragment(reader: HTMLElement) {
     const id = decodeFragment(window.location.hash);
     if (!id) return;
-    const target = document.getElementById(id) ?? findFragmentTarget(reader, id, window.location.hash.slice(1));
-    if (!target || !reader.contains(target)) return;
+    const fragmentTarget = document.getElementById(id) ?? findFragmentTarget(reader, id, window.location.hash.slice(1));
+    if (!fragmentTarget || !reader.contains(fragmentTarget)) return;
+    const target = footnoteReferenceTarget(fragmentTarget);
     focusReaderTarget(target, window.location.hash);
     if (!scrollReaderTarget(target)) target.scrollIntoView({ block: "start" });
 }
 
 function focusReaderTarget(target: HTMLElement, expectedHash: string) {
     // Reveal only reader-owned disclosure ancestors; targeting the disclosure itself never toggles it.
+    const disclosureParts: HTMLElement[] = [];
+    let revealed = false;
     let ancestor = target.parentElement?.closest<HTMLDetailsElement>(
         "details[data-callout-fold], details[data-markdown-disclosure]",
     );
-    const insideDisclosure = Boolean(ancestor);
     while (ancestor) {
-        if (!ancestor.open) ancestor.open = true;
+        if (!ancestor.open) {
+            ancestor.open = true;
+            revealed = true;
+        }
+        disclosureParts.push(ancestor);
+        const content = ancestor.querySelector<HTMLElement>(":scope > .collapse-content");
+        if (content) disclosureParts.push(content);
         ancestor = ancestor.parentElement?.closest<HTMLDetailsElement>(
             "details[data-callout-fold], details[data-markdown-disclosure]",
         );
@@ -125,15 +142,23 @@ function focusReaderTarget(target: HTMLElement, expectedHash: string) {
         target.hasAttribute("data-forma-heading-anchor") && target.parentElement?.matches("h1,h2,h3,h4,h5,h6")
             ? target.parentElement
             : target;
-    if (!focusTarget.hasAttribute("tabindex")) focusTarget.tabIndex = -1;
+    if (focusTarget.tabIndex < 0 && !focusTarget.hasAttribute("tabindex")) focusTarget.tabIndex = -1;
     focusTarget.focus({ preventScroll: true });
-    if (!insideDisclosure || document.activeElement === focusTarget) return;
+    const disclosureIsAnimating = () =>
+        disclosureParts.some(
+            (part) =>
+                typeof part.getAnimations === "function" &&
+                part.getAnimations().some((animation) => animation.pending || animation.playState === "running"),
+        );
+    if (!disclosureParts.length || (!revealed && document.activeElement === focusTarget && !disclosureIsAnimating())) {
+        return;
+    }
 
     const previousFocus = document.activeElement;
-    // An open disclosure can still hide its descendants during its CSS transition.
+    // An opening disclosure can keep its descendants hidden or constrain scrolling until it settles.
     const retryUntil = performance.now() + 500;
     function restoreFocus() {
-        if (!target.isConnected || window.location.hash !== expectedHash) return;
+        if (performance.now() >= retryUntil || !target.isConnected || window.location.hash !== expectedHash) return;
         if (
             target.parentElement?.closest(
                 "details[data-callout-fold]:not([open]), details[data-markdown-disclosure]:not([open])",
@@ -148,9 +173,9 @@ function focusReaderTarget(target: HTMLElement, expectedHash: string) {
             return;
         }
         if (active !== focusTarget) focusTarget.focus({ preventScroll: true });
-        if (document.activeElement === focusTarget) {
+        if (document.activeElement === focusTarget && !disclosureIsAnimating()) {
             if (!scrollReaderTarget(target)) target.scrollIntoView({ block: "start" });
-        } else if (performance.now() < retryUntil) {
+        } else {
             window.requestAnimationFrame(restoreFocus);
         }
     }

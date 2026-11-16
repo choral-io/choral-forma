@@ -105,9 +105,10 @@ export function App() {
         );
     }
 
+    // Let the route and sidebar own scrolling, including browser-driven fragment jumps.
     return (
         <div
-            className="group/shell drawer h-svh min-w-0 overflow-hidden lg:drawer-open"
+            className="group/shell drawer h-svh min-w-0 overflow-clip lg:drawer-open"
             data-enhancement-ready
             data-workspace-shell
         >

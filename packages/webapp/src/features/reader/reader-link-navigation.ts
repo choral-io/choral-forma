@@ -5,6 +5,19 @@ export interface ReaderLinkNavigation {
     samePageFragment: boolean;
 }
 
+export function updateReaderFragmentHrefs(reader: HTMLElement, pathname: string, search: string) {
+    // Fragment-only links inherit the document query even when a deployment
+    // base requires their href to name the document path explicitly.
+    for (const anchor of reader.querySelectorAll<HTMLAnchorElement>('a[data-link-kind="anchor"][href]')) {
+        const href = anchor.getAttribute("href") ?? "";
+        const fragmentIndex = href.indexOf("#");
+        if (fragmentIndex < 0) continue;
+        const path = href.slice(0, fragmentIndex).replace(/\?.*/su, "");
+        const destination = `${path === "" ? pathname : path}${search}${href.slice(fragmentIndex)}`;
+        if (href !== destination) anchor.setAttribute("href", destination);
+    }
+}
+
 export function resolveReaderLinkNavigation(
     anchor: HTMLAnchorElement,
     currentHref = window.location.href,
