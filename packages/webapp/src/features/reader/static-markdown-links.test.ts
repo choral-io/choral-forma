@@ -36,6 +36,8 @@ describe("static Markdown root paths", () => {
             "notes/one.md",
             entries as DashboardEntry[],
             false,
+            undefined,
+            "published",
         );
 
         expect(html).toContain('href="/preview/notes/two#scope"');
@@ -67,6 +69,8 @@ describe("static Markdown root paths", () => {
             "notes/links.md",
             entries as DashboardEntry[],
             false,
+            undefined,
+            "published",
         );
         const document = new DOMParser().parseFromString(html, "text/html");
 
@@ -76,6 +80,30 @@ describe("static Markdown root paths", () => {
             `${root}/notes/target.md?mode=reader#details`,
             `${root}/notes/target`,
             "./missing.md",
+        ]);
+    });
+
+    it("resolves static View source Markdown instead of treating it as published routes", () => {
+        setStaticRuntimeConfig({
+            baseUrl: "https://example.test",
+            dataBaseUrl: "/preview/-/data",
+            rootPath: "/preview",
+        });
+        const entries = [
+            { path: "notes/target.md", routePath: "/notes/target" },
+            { path: "notes/target.md.md", routePath: "/notes/target.md" },
+        ];
+        const html = postProcessMarkdownHtml(
+            '<a href="/notes/target.md">Root source</a><a href="../../notes/target%2Emd">Encoded source</a>',
+            [],
+            ".forma/views/notes.md",
+            entries as DashboardEntry[],
+            false,
+        );
+        const parsed = new DOMParser().parseFromString(html, "text/html");
+        expect(Array.from(parsed.querySelectorAll("a"), (link) => link.getAttribute("href"))).toEqual([
+            "/preview/notes/target",
+            "/preview/notes/target",
         ]);
     });
 

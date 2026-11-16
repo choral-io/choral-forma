@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
-import { isStaticRawHref, logicalHref, readStaticRuntimeConfig, rootAwareHref } from "@/data/static-runtime";
+import { isStaticRawHref, logicalHref, rootAwareHref } from "@/data/static-runtime";
 import type { DashboardEntry } from "@/data/workspace-client";
 import type { MermaidRenderScope } from "@/lib/mermaid";
 import { restoreReaderFragment, scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
@@ -14,7 +14,7 @@ import {
     createProjectionStickyBoundaryController,
     projectionStickyHeaderClassName,
 } from "@/lib/projection-sticky-boundary";
-import { resolveReaderLink } from "./markdown-links";
+import { resolveReaderLink, type MarkdownLinkSource } from "./markdown-links";
 import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
 import { renderMarkdown } from "./markdown-renderer";
 import { enhanceReader } from "./reader-enhancements";
@@ -32,6 +32,7 @@ export interface MarkdownReaderProps {
     entries: DashboardEntry[];
     headings: MarkdownHeading[];
     markdown: string;
+    linkSource?: MarkdownLinkSource;
     mermaidScope?: MermaidRenderScope;
     omitLeadingTitle?: boolean;
 }
@@ -44,6 +45,7 @@ interface MarkdownRenderState {
     headings: MarkdownHeading[];
     html?: string;
     markdown: string;
+    linkSource: MarkdownLinkSource;
     omitLeadingTitle: boolean;
     status: "error" | "ready";
 }
@@ -55,6 +57,7 @@ export function MarkdownReader({
     headings,
     markdown,
     mermaidScope,
+    linkSource = "workspace",
     omitLeadingTitle = false,
 }: MarkdownReaderProps) {
     const navigate = useNavigate();
@@ -67,6 +70,7 @@ export function MarkdownReader({
         renderState.entries === entries &&
         renderState.headings === headings &&
         renderState.markdown === markdown &&
+        renderState.linkSource === linkSource &&
         renderState.omitLeadingTitle === omitLeadingTitle;
 
     useEffect(() => {
@@ -91,8 +95,10 @@ export function MarkdownReader({
                         entries,
                         omitLeadingTitle,
                         currentRoutePath,
+                        linkSource,
                     ),
                     markdown,
+                    linkSource,
                     omitLeadingTitle,
                     status: "ready",
                 });
@@ -107,6 +113,7 @@ export function MarkdownReader({
                         error: error instanceof Error ? error.message : "Unknown rendering error",
                         headings,
                         markdown,
+                        linkSource,
                         omitLeadingTitle,
                         status: "error",
                     });
@@ -117,7 +124,17 @@ export function MarkdownReader({
             cancelled = true;
             abortController.abort();
         };
-    }, [currentPath, currentRoutePath, entries, headings, markdown, mermaidScope, omitLeadingTitle, retryKey]);
+    }, [
+        currentPath,
+        currentRoutePath,
+        entries,
+        headings,
+        markdown,
+        mermaidScope,
+        linkSource,
+        omitLeadingTitle,
+        retryKey,
+    ]);
 
     useEffect(() => {
         if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) return;
@@ -313,6 +330,7 @@ export function postProcessMarkdownHtml(
     entries: DashboardEntry[],
     omitLeadingTitle: boolean,
     currentRoutePath?: string,
+    linkSource: MarkdownLinkSource = "workspace",
 ) {
     const parser = new DOMParser();
     const document = parser.parseFromString(html, "text/html");
@@ -429,14 +447,19 @@ export function postProcessMarkdownHtml(
         } else title.remove();
     }
 
-    const linkSource = readStaticRuntimeConfig() ? "published" : "workspace";
     for (const anchor of document.body.querySelectorAll<HTMLAnchorElement>("a[href]")) {
         const href = anchor.getAttribute("href");
         if (!href) {
             continue;
         }
 
-        const resolvedLink = resolveReaderLink(logicalHref(href), currentPath, entries, currentRoutePath, linkSource);
+        const resolvedLink = resolveReaderLink(
+            linkSource === "published" ? logicalHref(href) : href,
+            currentPath,
+            entries,
+            currentRoutePath,
+            linkSource,
+        );
         anchor.classList.add("link");
         anchor.dataset.linkKind = resolvedLink.kind;
         anchor.setAttribute("href", rootAwareHref(resolvedLink.href));

@@ -1,4 +1,5 @@
 import type { DashboardEntry, DashboardEntryBlock } from "@/data/workspace-client";
+import { isStaticWorkspaceClient } from "@/data/workspace-client-source";
 import type { MermaidRenderScope } from "@/lib/mermaid";
 
 import type { EntryOutlineItem } from "./entry-outline";
@@ -71,6 +72,7 @@ function EntryBlockView({
                 entries={entries}
                 headings={block.anchors ?? block.outline}
                 markdown={block.markdown}
+                linkSource={isStaticWorkspaceClient ? "published" : "workspace"}
                 mermaidScope={mermaidScope}
                 omitLeadingTitle={omitLeadingTitle}
             />

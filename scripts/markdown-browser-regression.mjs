@@ -167,6 +167,19 @@ try {
         join(workspace, "notes/route-links.md"),
         "# Route links\n\n[Encoded space](./route%20space.md)\n\n[Literal escape](./literal%2520.md)\n\n[Double extension](./target.md.md)\n",
     );
+    await writeFile(
+        join(workspace, "notes/contract-target.md"),
+        "---\ntitle: Contract target\n---\n\n# Contract target\n\n## Hello world\n\nFragment target.\n",
+    );
+    await writeFile(join(workspace, "notes/contract-raw.txt"), "CONTRACT_RAW_RESOURCE\n");
+    await writeFile(
+        join(workspace, "notes/link-contracts.md"),
+        "# Link contracts\n\n[Encoded entry](./contract-target%2Emd#hello%2Dworld)\n\n[Encoded resource](./contract-raw.txt?name=a%20b&literal=%2520&value=a%26b&plus=a+b#part%20one)\n",
+    );
+    await writeFile(
+        join(workspace, ".forma/views/link-contracts.md"),
+        "---\nschemaVersion: 1\nkind: view\ntitle: Link contracts View\nmode: list\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]\n---\n\n[Root source](/notes/contract-target.md#hello-world)\n\n[Encoded source](../../notes/contract-target%2Emd#hello%2Dworld)\n\n<!-- forma:content -->\n",
+    );
     await writeFile(join(workspace, "preview/index.md"), "# Folder landing\n");
     await writeFile(
         join(workspace, "preview/same.md"),

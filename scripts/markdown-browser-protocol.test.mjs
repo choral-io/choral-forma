@@ -45,9 +45,9 @@ test("plans isolated disclosure and existing regression coverage for every host"
             ["webapp-disclosures", "disclosures", 1],
             ["static-disclosures", "disclosures", 1],
             ["noscript-disclosures", "disclosures", 1],
-            ["webapp", "enhanced", 9],
-            ["static", "enhanced", 15],
-            ["noscript", "noscript", 9],
+            ["webapp", "enhanced", 10],
+            ["static", "enhanced", 17],
+            ["noscript", "noscript", 11],
         ],
     );
     assert.deepEqual(
@@ -63,8 +63,8 @@ test("plans isolated disclosure and existing regression coverage for every host"
         [false, false, true],
     );
     const coverage = phases.flatMap((p) => p.expectedResults);
-    assert.equal(coverage.length, 44);
-    assert.equal(new Set(coverage).size, 44);
+    assert.equal(coverage.length, 49);
+    assert.equal(new Set(coverage).size, 49);
     for (const phase of phases) {
         assert.deepEqual(
             validateMarkdownBrowserPhase(

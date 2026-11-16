@@ -52,6 +52,28 @@ describe("resolveReaderLink", () => {
         });
     });
 
+    it.each([
+        ["./target%2Emd", "/notes/target"],
+        ["./literal%2520.md", "/notes/literal%2520"],
+        ["./hash%23.md?name=a%20b#section", "/notes/hash%23?name=a%20b#section"],
+        ["./query%3F.md", "/notes/query%3F"],
+        ["?mode=reader#details", "/notes/source?mode=reader#details"],
+    ])("resolves the Markdown URI %s once while preserving its suffix", (href, expected) => {
+        expect(
+            resolveReaderLink(href, "notes/source.md", [
+                { path: "notes/source.md", routePath: "/notes/source" },
+                { path: "notes/target.md", routePath: "/notes/target" },
+                { path: "notes/literal%20.md", routePath: "/notes/literal%2520" },
+                { path: "notes/hash#.md", routePath: "/notes/hash%23" },
+                { path: "notes/query?.md", routePath: "/notes/query%3F" },
+            ]).href,
+        ).toBe(expected);
+    });
+
+    it("keeps a query-only link on the displayed homepage route", () => {
+        expect(resolveReaderLink("?mode=reader#scope", currentPath, entries, "/").href).toBe("/?mode=reader#scope");
+    });
+
     it("marks HTTP links as external links that open in a new tab", () => {
         expect(resolveReaderLink("https://example.com/docs", currentPath, entries)).toEqual({
             href: "https://example.com/docs",

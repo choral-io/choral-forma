@@ -1,9 +1,11 @@
-import { isExternalHref, normalizeWorkspaceHref } from "@/lib/workspace-links";
+import { isExternalHref, normalizeWorkspacePath } from "@/lib/workspace-links";
 
 interface ReaderLinkEntry {
     path: string;
     routePath: string;
 }
+
+export type MarkdownLinkSource = "workspace" | "published";
 
 export interface ResolvedReaderLink {
     href: string;
@@ -16,7 +18,7 @@ export function resolveReaderLink(
     currentPath: string,
     entries: ReaderLinkEntry[],
     currentRoutePath?: string,
-    linkSource: "workspace" | "published" = "workspace",
+    linkSource: MarkdownLinkSource = "workspace",
 ): ResolvedReaderLink {
     if (href.startsWith("#")) {
         const currentEntry = entries.find((entry) => entry.path === currentPath);
@@ -54,11 +56,25 @@ export function resolveReaderLink(
         return { href, kind: "internal", opensInNewTab: false };
     }
 
-    const targetPath = normalizeWorkspaceHref(href, currentPath, entries);
-    const targetEntry = entries.find((entry) => entry.path === targetPath.path);
+    const hashIndex = href.indexOf("#");
+    const withoutHash = hashIndex < 0 ? href : href.slice(0, hashIndex);
+    const hash = hashIndex < 0 ? "" : href.slice(hashIndex);
+    const queryIndex = withoutHash.indexOf("?");
+    const rawPath = queryIndex < 0 ? withoutHash : withoutHash.slice(0, queryIndex);
+    const query = queryIndex < 0 ? "" : withoutHash.slice(queryIndex);
+    let decodedPath = rawPath;
+    try {
+        decodedPath = decodeURIComponent(rawPath);
+    } catch {
+        // Preserve malformed percent escapes as authored filename characters.
+    }
+    const targetPath = rawPath === "" ? currentPath : normalizeWorkspacePath(decodedPath, currentPath, entries);
+    const targetEntry = entries.find((entry) => entry.path === targetPath);
 
     return {
-        href: targetEntry ? `${targetEntry.routePath}${targetPath.hash}` : href,
+        href: targetEntry
+            ? `${rawPath === "" && currentRoutePath ? currentRoutePath : targetEntry.routePath}${query}${hash}`
+            : href,
         kind: "internal",
         opensInNewTab: false,
     };

@@ -41,6 +41,8 @@ export function markdownBrowserPhases(hosts, sourceIds) {
                   "static: encoded source links and public routes retain their targets",
               ]
             : []),
+        `${host.name}: Markdown link origins and encoded heading fragments`,
+        ...(host.name === "static" ? ["static: resource query and fragment preserve URI semantics"] : []),
         `${host.name}: P1 syntax ${readingCount} cases, combined reading and themes`,
         `${host.name}: formatted callout samples and ${calloutCount} exact source cases`,
         `${host.name}: callout disclosure, rich header, navigation, focus and responsive themes`,
@@ -72,6 +74,8 @@ export function markdownBrowserPhases(hosts, sourceIds) {
             "static noscript: directory landing document links to children",
             "static noscript: direct Health and reserved segment routes",
             "static noscript: encoded source links and public routes retain their targets",
+            "static noscript: Markdown link origins and encoded heading fragments",
+            "static noscript: resource query and fragment preserve URI semantics",
         ],
     });
     const disclosures = ["webapp", "static", "noscript"].map((name) => ({

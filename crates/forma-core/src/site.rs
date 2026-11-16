@@ -1024,8 +1024,18 @@ fn static_reference_href(
     {
         return None;
     }
+    let markdown_uri = matches!(
+        reference.syntax,
+        crate::markdown::FormaReferenceSyntax::MarkdownLink
+            | crate::markdown::FormaReferenceSyntax::MarkdownImage
+    );
     if let Some(fragment) = target.strip_prefix('#') {
-        return resolve_heading_fragment(fragment, entry_headings_by_path.get(source_path))
+        let fragment = if markdown_uri {
+            crate::routes::decode_public_path_once(fragment)
+        } else {
+            fragment.to_string()
+        };
+        return resolve_heading_fragment(&fragment, entry_headings_by_path.get(source_path))
             .map(|fragment| format!("#{fragment}"));
     }
     if is_external_target(target) {
@@ -1035,11 +1045,12 @@ fn static_reference_href(
     let (path, query) = without_fragment
         .split_once('?')
         .map_or((without_fragment, ""), |(path, query)| (path, query));
-    let path = if matches!(
-        reference.syntax,
-        crate::markdown::FormaReferenceSyntax::MarkdownLink
-            | crate::markdown::FormaReferenceSyntax::MarkdownImage
-    ) {
+    let heading_fragment = if markdown_uri {
+        crate::routes::decode_public_path_once(fragment)
+    } else {
+        fragment.to_string()
+    };
+    let path = if markdown_uri {
         crate::routes::decode_public_path_once(path)
     } else {
         path.to_string()
@@ -1057,8 +1068,11 @@ fn static_reference_href(
         if !fragment.is_empty() {
             href.push('#');
             href.push_str(
-                &resolve_heading_fragment(fragment, entry_headings_by_path.get(target_path))
-                    .unwrap_or_else(|| slugify_heading(fragment)),
+                &resolve_heading_fragment(
+                    &heading_fragment,
+                    entry_headings_by_path.get(target_path),
+                )
+                .unwrap_or_else(|| slugify_heading(&heading_fragment)),
             );
         }
         return Some(href);
@@ -1079,11 +1093,11 @@ fn static_reference_href(
         let mut href = candidate.public_path;
         if !query.is_empty() {
             href.push('?');
-            href.push_str(&encode_url_suffix(query));
+            href.push_str(&encode_url_suffix(query, markdown_uri));
         }
         if !fragment.is_empty() {
             href.push('#');
-            href.push_str(&encode_url_suffix(fragment));
+            href.push_str(&encode_url_suffix(fragment, markdown_uri));
         }
         return Some(href);
     }
@@ -1093,8 +1107,8 @@ fn static_reference_href(
     if !fragment.is_empty() {
         href.push('#');
         href.push_str(
-            &resolve_heading_fragment(fragment, entry_headings_by_path.get(target_path))
-                .unwrap_or_else(|| slugify_heading(fragment)),
+            &resolve_heading_fragment(&heading_fragment, entry_headings_by_path.get(target_path))
+                .unwrap_or_else(|| slugify_heading(&heading_fragment)),
         );
     }
     Some(href)
@@ -1210,14 +1224,33 @@ fn is_external_target(target: &str) -> bool {
         })
 }
 
-fn encode_url_suffix(value: &str) -> String {
+fn encode_url_suffix(value: &str, markdown_uri: bool) -> String {
+    let bytes = value.as_bytes();
     let mut encoded = String::new();
-    for byte in value.bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~' | b'=' | b'&') {
+    let mut index = 0;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        // Markdown destinations are already URIs: decoding here would turn an
+        // encoded `&` into a new query parameter, while encoding `%` again loses
+        // the original value. Wiki suffixes remain literal text.
+        if markdown_uri
+            && byte == b'%'
+            && bytes.get(index + 1).is_some_and(u8::is_ascii_hexdigit)
+            && bytes.get(index + 2).is_some_and(u8::is_ascii_hexdigit)
+        {
+            encoded.push_str(&value[index..index + 3]);
+            index += 3;
+            continue;
+        }
+        if byte.is_ascii_alphanumeric()
+            || matches!(byte, b'-' | b'.' | b'_' | b'~' | b'=' | b'&')
+            || (markdown_uri && b":/?@!$'*+,;".contains(&byte))
+        {
             encoded.push(char::from(byte));
         } else {
             encoded.push_str(&format!("%{byte:02X}"));
         }
+        index += 1;
     }
     encoded
 }
@@ -2452,6 +2485,87 @@ mod tests {
                 .iter()
                 .any(|r| r.path == "assets/image space.svg")
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_resolves_encoded_heading_fragments_once() {
+        let root = copy_fixture("site-snapshot-encoded-fragments");
+        fs::write(
+            root.join("content/guides/suffix-target.md"),
+            "# Target\n\n## Hello world\n\n## literal%2Dworld\n\n## literal-world\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("content/guides/intro.md"),
+            "# Source\n\n## Local heading\n\n[Local](#local%2Dheading)\n[Id](./suffix-target.md#hello%2Dworld)\n[Title](./suffix-target.md#Hello%20world)\n[Percent](./suffix-target.md#literal%252Dworld)\n[[suffix-target#literal%2Dworld|Wiki percent]]\n",
+        ).unwrap();
+        let snapshot = build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
+        let intro = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/intro.md")
+            .unwrap();
+        for expected in [
+            "[Local](#local-heading)",
+            "[Id](/preview/content/guides/suffix-target#hello-world)",
+            "[Title](/preview/content/guides/suffix-target#hello-world)",
+            "[Percent](/preview/content/guides/suffix-target#literal-2dworld)",
+            "[Wiki percent](</preview/content/guides/suffix-target#literal-2dworld>)",
+        ] {
+            assert!(intro.markdown.contains(expected), "{}", intro.markdown);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_preserves_resource_uri_suffix_semantics() {
+        let root = copy_fixture("site-snapshot-resource-uri-suffix");
+        fs::write(root.join("assets/file.txt"), "Resource").unwrap();
+        fs::write(
+            root.join("content/guides/intro.md"),
+            "# Source\n\n[Resource](../../assets/file.txt?name=a%20b&literal=%2520&embedded=%26x%3Dy&plus=a+b#some%20anchor)\n[Unicode](<../../assets/file.txt?name=中文 value#中文 anchor>)\n[Malformed](../../assets/file.txt?bad=%oops#bad%escape)\n[[../../assets/file.txt?name=a%20b+literal#some%20anchor|Wiki suffix]]\n",
+        ).unwrap();
+        let snapshot = build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
+        let intro = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/intro.md")
+            .unwrap();
+        let expected = "/preview/-/raw/assets/file.txt?name=a%20b&literal=%2520&embedded=%26x%3Dy&plus=a+b#some%20anchor";
+        let href = intro
+            .markdown
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("[Resource](")
+                    .and_then(|href| href.strip_suffix(')'))
+            })
+            .unwrap();
+        assert_eq!(href, expected);
+        let url = url::Url::parse(&format!("https://example.test{href}")).unwrap();
+        let pairs = url.query_pairs().into_owned().collect::<Vec<_>>();
+        assert_eq!(
+            pairs,
+            vec![
+                ("name".into(), "a b".into()),
+                ("literal".into(), "%20".into()),
+                ("embedded".into(), "&x=y".into()),
+                ("plus".into(), "a b".into())
+            ]
+        );
+        assert!(
+            intro
+                .markdown
+                .contains("?name=%E4%B8%AD%E6%96%87%20value#%E4%B8%AD%E6%96%87%20anchor"),
+            "{}",
+            intro.markdown
+        );
+        assert!(
+            intro.markdown.contains("?bad=%25oops#bad%25escape"),
+            "{}",
+            intro.markdown
+        );
+        assert!(intro.markdown.contains("[Wiki suffix](</preview/-/raw/assets/file.txt?name=a%2520b%2Bliteral#some%2520anchor>)"), "{}", intro.markdown);
         fs::remove_dir_all(root).unwrap();
     }
 

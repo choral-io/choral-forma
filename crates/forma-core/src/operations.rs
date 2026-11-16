@@ -2871,7 +2871,20 @@ fn resolve_reference_in_snapshot(
         return Err(OperationError::EntryNotFound);
     }
 
-    let (target_text, inline_fragment) = split_resolve_target(raw_target);
+    let (target_text, inline_fragment) = if markdown_uri {
+        // Document analysis has already removed Markdown syntax. Filename `!` and
+        // `|` characters must not be interpreted as wiki/embed markup again.
+        let (path, fragment) = raw_target
+            .trim()
+            .split_once('#')
+            .unwrap_or((raw_target.trim(), ""));
+        (
+            path.to_string(),
+            (!fragment.is_empty()).then(|| fragment.to_string()),
+        )
+    } else {
+        split_resolve_target(raw_target)
+    };
     let target_text = if markdown_uri {
         let path = target_text
             .split_once('?')
@@ -2880,7 +2893,13 @@ fn resolve_reference_in_snapshot(
     } else {
         target_text
     };
-    let fragment = explicit_fragment.or(inline_fragment);
+    let fragment = explicit_fragment.or(inline_fragment).map(|fragment| {
+        if markdown_uri {
+            crate::routes::decode_public_path_once(&fragment)
+        } else {
+            fragment
+        }
+    });
     let fragment_kind = fragment.as_deref().map(|value| {
         if value.starts_with('^') {
             crate::index::ReferenceFragmentKind::Block
@@ -6957,6 +6976,69 @@ conventions:
         assert_eq!(target.path, "notes/guides/target.md");
         assert_eq!(target.fragment.as_deref(), Some("Getting Started"));
         assert!(target.fragment_location.is_some());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn document_reference_resolve_preserves_markdown_filename_syntax() {
+        let root = fixture_root("document-reference-filename-syntax");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        for name in [
+            "!bang.md",
+            "pipe|name.md",
+            "hash#.md",
+            "query?.md",
+            "literal%21.md",
+            "target.md",
+        ] {
+            fs::write(root.join("notes").join(name), "# Target\n\n## Bang title\n").unwrap();
+        }
+        let source = "# Source\n\n[Bang](!bang.md#bang-title)\n[Encoded bang](%21bang.md#bang-title)\n[Pipe](./pipe|name.md#bang-title)\n[Encoded pipe](./pipe%7Cname.md#bang-title)\n[Hash](./hash%23.md#bang-title)\n[Query](./query%3F.md?download=1#bang-title)\n[Percent](./literal%2521.md#bang-title)\n[[target#Bang title|Alias]]\n![[target#Bang title]]\n";
+        fs::write(root.join("notes/source.md"), source).unwrap();
+        let snapshot = WorkspaceSnapshot::load(&root).unwrap();
+        let analysis = snapshot.analyze_document("notes/source.md", source);
+        let expected_paths = [
+            "!bang.md",
+            "!bang.md",
+            "pipe|name.md",
+            "pipe|name.md",
+            "hash#.md",
+            "query?.md",
+            "literal%21.md",
+            "target.md",
+            "target.md",
+        ];
+        assert_eq!(analysis.references.len(), expected_paths.len());
+        for (reference, path) in analysis.references.iter().zip(expected_paths) {
+            let result = snapshot
+                .resolve_document_reference("notes/source.md", reference)
+                .unwrap();
+            assert_eq!(
+                result.status,
+                OperationStatus::Passed,
+                "{}: {:?}",
+                reference.raw_target,
+                result.diagnostics
+            );
+            let target = result.target.unwrap();
+            assert_eq!(target.path, format!("notes/{path}"));
+            assert!(
+                target.fragment_location.is_some(),
+                "{}",
+                reference.raw_target
+            );
+        }
+        for raw in [
+            "[[target#Bang title|Alias]]",
+            "![[target#Bang title|Alias]]",
+        ] {
+            let result = snapshot
+                .resolve_reference("notes/source.md", raw, ReferenceIntent::Link, None)
+                .unwrap();
+            assert_eq!(result.status, OperationStatus::Passed);
+            assert_eq!(result.target.unwrap().path, "notes/target.md");
+        }
         fs::remove_dir_all(root).unwrap();
     }
 

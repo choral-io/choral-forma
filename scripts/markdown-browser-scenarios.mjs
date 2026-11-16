@@ -522,6 +522,49 @@ export async function markdownBrowserScenarios(page, options) {
             await main.getByRole("heading", { level: 1, name: title, exact: true }).waitFor();
         }
     };
+    const markdownLinkContracts = async (current, host, noScript = false) => {
+        const viewPath = host.name === "static" ? "/-/views/link-contracts/" : "/-/views/.forma/views/link-contracts";
+        for (const [sourcePath, label] of [
+            ["/notes/link-contracts/", "Encoded entry"],
+            [viewPath, "Root source"],
+            [viewPath, "Encoded source"],
+        ]) {
+            await current.goto(`${host.origin}${host.root}${sourcePath}`);
+            const main = current.locator(
+                host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main",
+            );
+            const link = main.getByRole("link", { name: label, exact: true });
+            await link.waitFor();
+            const destination = new URL(await link.getAttribute("href"), current.url());
+            assert(destination.pathname === `${host.root}/notes/contract-target`, `${host.name}: source link target`);
+            assert(decodeURIComponent(destination.hash) === "#hello-world", `${host.name}: encoded source fragment`);
+            await link.click();
+            await current.waitForURL(
+                (url) => url.pathname.replace(/\/$/u, "") === `${host.root}/notes/contract-target`,
+            );
+            await main.getByRole("heading", { level: 1, name: "Contract target", exact: true }).waitFor();
+            await main.getByRole("heading", { level: 2, name: "Hello world", exact: true }).waitFor();
+            assert((await current.locator('[id="hello-world"]').count()) === 1, `${host.name}: fragment target exists`);
+        }
+    };
+    const resourceSuffix = async (current, host, noScript = false) => {
+        await current.goto(`${host.origin}${host.root}/notes/link-contracts/`);
+        const main = current.locator(noScript ? "main" : "[data-enhancement-ready] main");
+        const link = main.getByRole("link", { name: "Encoded resource", exact: true });
+        await link.waitFor();
+        const destination = new URL(await link.getAttribute("href"), current.url());
+        assert(destination.pathname === `${host.root}/-/raw/notes/contract-raw.txt`, "static: resource route");
+        assert(destination.searchParams.get("name") === "a b", "static: resource encoded space");
+        assert(destination.searchParams.get("literal") === "%20", "static: resource literal escape");
+        assert(destination.searchParams.get("value") === "a&b", "static: encoded query separator");
+        assert(destination.searchParams.get("plus") === "a b", "static: plus query semantics");
+        assert(decodeURIComponent(destination.hash) === "#part one", "static: resource encoded fragment");
+        const response = await current.request.get(destination.href);
+        assert(
+            response.ok() && (await response.text()).includes("CONTRACT_RAW_RESOURCE"),
+            "static: resource available",
+        );
+    };
     const calloutSourceCases = async (current, host, noScript = false) => {
         assert(
             Array.isArray(options.calloutBoundaries) && options.calloutBoundaries.length > 0,
@@ -1020,6 +1063,12 @@ export async function markdownBrowserScenarios(page, options) {
                 await routeLinks(current, host);
                 results.push("static: encoded source links and public routes retain their targets");
             }
+            await markdownLinkContracts(current, host);
+            results.push(`${host.name}: Markdown link origins and encoded heading fragments`);
+            if (host.name === "static") {
+                await resourceSuffix(current, host);
+                results.push("static: resource query and fragment preserve URI semantics");
+            }
             sourceCases.reading = await readingSyntax(current, host);
             results.push(`${host.name}: P1 syntax ${sourceCases.reading.length} cases, combined reading and themes`);
             sourceCases.callouts = await calloutSourceCases(current, host);
@@ -1162,6 +1211,10 @@ export async function markdownBrowserScenarios(page, options) {
         results.push("static noscript: direct Health and reserved segment routes");
         await routeLinks(current, host, true);
         results.push("static noscript: encoded source links and public routes retain their targets");
+        await markdownLinkContracts(current, host, true);
+        results.push("static noscript: Markdown link origins and encoded heading fragments");
+        await resourceSuffix(current, host, true);
+        results.push("static noscript: resource query and fragment preserve URI semantics");
     } catch (error) {
         await failure(current, "noscript", error);
     } finally {

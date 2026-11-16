@@ -9,23 +9,22 @@ export function isExternalHref(href: string) {
 export function normalizeWorkspaceHref(href: string, currentPath: string, entries: WorkspaceLinkEntry[]) {
     const [pathPart = "", hashPart] = href.split("#", 2);
     const hash = hashPart ? `#${hashPart}` : "";
+    return { hash, path: normalizeWorkspacePath(pathPart, currentPath, entries) };
+}
+
+/** Resolve an already parsed path without interpreting filename characters as URI syntax. */
+export function normalizeWorkspacePath(pathPart: string, currentPath: string, entries: WorkspaceLinkEntry[]) {
     const directPath = pathPart.replace(/^\.\//, "").replace(/^\//, "");
 
     if (entries.some((entry) => entry.path === directPath)) {
-        return {
-            hash,
-            path: directPath,
-        };
+        return directPath;
     }
 
     if (!directPath.includes("/")) {
         const basenameMatches = entries.filter((entry) => entry.path.split("/").at(-1) === directPath);
         const [basenameMatch] = basenameMatches;
         if (basenameMatch && basenameMatches.length === 1) {
-            return {
-                hash,
-                path: basenameMatch.path,
-            };
+            return basenameMatch.path;
         }
     }
 
@@ -44,8 +43,5 @@ export function normalizeWorkspaceHref(href: string, currentPath: string, entrie
         pathSegments.push(segment);
     }
 
-    return {
-        hash,
-        path: pathSegments.join("/"),
-    };
+    return pathSegments.join("/");
 }

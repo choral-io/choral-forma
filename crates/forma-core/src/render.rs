@@ -2833,9 +2833,11 @@ fn reference_fallback_href(target: &str) -> String {
     if !path.ends_with(".md") {
         path.push_str(".md");
     }
+    let path = crate::routes::encode_path(&path);
     if fragment.is_empty() {
         format!("./{path}")
     } else {
+        let fragment = crate::routes::percent_encode_segment(fragment);
         format!("./{path}#{fragment}")
     }
 }
@@ -3402,6 +3404,56 @@ mod tests {
         assert!(html.contains(r#"<a href="./members/alex-chen.md">Alex Chen</a>"#));
         assert!(!html.contains(r#"href="members/alex-chen""#));
 
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rendered_wikilinks_encode_literal_paths_and_fragments_as_markdown_uris() {
+        let root = fixture_root("file-render-wikilink-uri");
+        fs::create_dir_all(&root).unwrap();
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/source.md"),
+            "# Source\n\n[[notes/literal%20#Percent %20|Percent]]\n![[notes/query?#Bang!|Query]]\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("notes/literal%20.md"),
+            "# Target\n\n## Percent %20\n",
+        )
+        .unwrap();
+        fs::write(root.join("notes/query?.md"), "# Target\n\n## Bang!\n").unwrap();
+        let result = render_file(&root, "notes/source.md", "markdown").unwrap();
+        let markdown = result.render.markdown.unwrap();
+        assert!(
+            markdown.contains("[Percent](<./notes/literal%2520.md#Percent%20%2520>)"),
+            "{markdown}"
+        );
+        assert!(
+            markdown.contains("[Query](<./notes/query%3F.md#Bang%21>)"),
+            "{markdown}"
+        );
+        let snapshot = crate::WorkspaceSnapshot::load(&root).unwrap();
+        let analysis = snapshot.analyze_document("notes/source.md", &markdown);
+        assert_eq!(analysis.references.len(), 2);
+        for (reference, expected) in analysis
+            .references
+            .iter()
+            .zip(["notes/literal%20.md", "notes/query?.md"])
+        {
+            let resolved = snapshot
+                .resolve_document_reference("notes/source.md", reference)
+                .unwrap();
+            assert_eq!(
+                resolved.status,
+                crate::OperationStatus::Passed,
+                "{:?}",
+                resolved.diagnostics
+            );
+            let target = resolved.target.unwrap();
+            assert_eq!(target.path, expected);
+            assert!(target.fragment_location.is_some());
+        }
         fs::remove_dir_all(root).unwrap();
     }
 
