@@ -571,7 +571,16 @@ fn view_body(
     entries_by_id: &BTreeMap<&str, &StaticSiteEntry>,
     root_path: &str,
 ) -> String {
-    let prose = view.html.as_deref().unwrap_or("");
+    let (before, after) = view.prose_around_projection();
+    let render_prose = |html: &str| {
+        if html.trim().is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<div class=\"mt-6 flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{html}</div>"
+            )
+        }
+    };
     let projection = view
         .projection
         .as_ref()
@@ -579,11 +588,12 @@ fn view_body(
             projection_html(projection, entries_by_id, root_path)
         });
     format!(
-        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Views · {}</p><h1 class=\"text-3xl font-semibold\">{}</h1></header><div class=\"mt-6 flex min-w-0 flex-col gap-5\" data-reader=\"markdown\">{}</div><section class=\"mt-8\" aria-label=\"View projection\">{}</section>",
+        "<header class=\"flex flex-col gap-2\"><p class=\"text-base-content/60 text-sm\">Views · {}</p><h1 class=\"text-3xl font-semibold\">{}</h1></header>{}<section class=\"mt-8\" aria-label=\"View projection\">{}</section>{}",
         escape_html(&view.mode),
         escape_html(view.title.as_deref().unwrap_or(&view.id)),
-        prose,
+        render_prose(before),
         projection,
+        render_prose(after),
     )
 }
 

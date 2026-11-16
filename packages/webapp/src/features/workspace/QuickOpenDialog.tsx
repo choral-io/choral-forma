@@ -21,7 +21,7 @@ interface QuickOpenTriggerProps {
     trigger: "header" | "sidebar";
 }
 
-export const quickOpenDialogId = "workspace-quick-open";
+export const quickOpenDialogId = "forma:workspace-quick-open";
 
 export interface QuickOpenItem {
     group: string;

@@ -60,7 +60,9 @@ export function enhanceReader(reader: HTMLElement): () => void {
         if (!id) continue;
         // The heading keeps naming itself from its own content, so the control does not become part of its name.
         const label = document.createElement("span");
-        label.id = `reader-heading-label-${String((headingLabelCount += 1))}`;
+        do {
+            label.id = `forma:reader-heading-label-${String((headingLabelCount += 1))}`;
+        } while (reader.ownerDocument.getElementById(label.id));
         // Anchors stay direct children: fragment navigation focuses the heading that owns one.
         label.append(
             ...[...heading.childNodes].filter(

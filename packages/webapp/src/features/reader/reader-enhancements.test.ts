@@ -30,6 +30,26 @@ describe("enhanceReader", () => {
         document.body.replaceChildren();
     });
 
+    it("keeps authored heading IDs available after assigning label IDs", () => {
+        reader.innerHTML += [
+            '<h2 id="reader-heading-label-1"><span id="other-heading" data-forma-heading-anchor=""></span>Other heading</h2>',
+            '<h2 id="forma:reader-heading-label-2"><span id="explicit-heading" data-forma-heading-anchor=""></span>Explicit heading</h2>',
+        ].join("");
+        const authored = Array.from(reader.querySelectorAll("h2[id]"));
+        const cleanup = enhanceReader(reader);
+
+        for (const heading of authored) {
+            expect(document.getElementById(heading.id)).toBe(heading);
+            expect([...reader.querySelectorAll("[id]")].filter((node) => node.id === heading.id)).toEqual([heading]);
+        }
+        for (const heading of reader.querySelectorAll("h2")) {
+            const label = document.getElementById(heading.getAttribute("aria-labelledby") ?? "");
+            expect(label?.parentElement).toBe(heading);
+        }
+
+        cleanup();
+    });
+
     it("adds a copy control to code samples, reuses a highlighted block's wrapper, and leaves diagram source alone", () => {
         enhanceReader(reader);
 

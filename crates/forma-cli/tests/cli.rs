@@ -266,6 +266,10 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
         .unwrap();
     }
     std::fs::write(root.join("assets/decoy.svg"), "<svg/>").unwrap();
+    let view = root.join(".forma/views/notes.md");
+    let mut view_source = std::fs::read_to_string(&view).unwrap();
+    view_source.push_str("\n\n## After the projection\n");
+    std::fs::write(view, view_source).unwrap();
 
     let output = forma(&root)
         .args([
@@ -407,6 +411,13 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     let table_html =
         std::fs::read_to_string(root.join("dist/site/-/views/notes/index.html")).unwrap();
     assert!(table_html.contains("<table"));
+    let before = table_html
+        .find("Browse guide and feature demonstration pages as a structured table.")
+        .unwrap();
+    let projection = table_html.find("aria-label=\"View projection\"").unwrap();
+    let after = table_html.find("<h2 id=\"after-the-projection\">").unwrap();
+    assert!(before < projection && projection < after, "{table_html}");
+    assert!(!table_html.contains("&lt;!-- forma:content --&gt;"));
     let kanban_html =
         std::fs::read_to_string(root.join("dist/site/-/views/tasks/index.html")).unwrap();
     assert!(kanban_html.contains(r#"aria-label="View projection""#));

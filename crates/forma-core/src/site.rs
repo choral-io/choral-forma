@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
-use crate::config::DisplayOptions;
+use crate::config::{DisplayOptions, FormaWorkspace};
 use crate::diagnostics::{
     Diagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSummary, OperationStatus,
 };
@@ -24,8 +24,9 @@ use crate::operations::{
 };
 use crate::path::{FORMA_CONFIG_PATH, WorkspacePath};
 use crate::render::{
-    RenderedHeading, ViewRenderDocument, ViewRenderOutput, render_all_headings,
-    render_indexed_view_from_loaded, render_markdown_source_html, slugify_heading,
+    RenderedHeading, ViewRenderDocument, ViewRenderOutput, hyphenate_heading_text,
+    markdown_link_label, render_all_headings, render_indexed_view_from_loaded,
+    render_markdown_source_html, slugify_heading,
 };
 use crate::routes::{
     BROWSE_ROUTE_PATH, HEALTH_ROUTE_PATH, RAW_ROUTE_PREFIX, ROUTE_STATIC_OUTPUT_CONFLICT_CODE,
@@ -222,6 +223,17 @@ pub struct StaticSiteView {
     pub status: OperationStatus,
 }
 
+const STATIC_VIEW_PROJECTION_SLOT: &str = "<!-- forma:static-view-projection-slot -->";
+
+impl StaticSiteView {
+    /// Return prose on either side of the configured projection.
+    pub fn prose_around_projection(&self) -> (&str, &str) {
+        let html = self.html.as_deref().unwrap_or_default();
+        html.split_once(STATIC_VIEW_PROJECTION_SLOT)
+            .unwrap_or((html, ""))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StaticSiteResourceCandidate {
@@ -293,6 +305,41 @@ impl StaticHeadingTargets {
             return projection.html.clone();
         }
         render_static_markdown_html(markdown, &self.headings, self.omit_leading_title)
+    }
+
+    fn render_view(&self, markdown: &str) -> String {
+        use markdown::mdast::Node;
+
+        const MARKER: &str = "<!-- forma:content -->";
+        if let Some(mount) = markdown.find(MARKER)
+            && let Ok(Node::Root(root)) =
+                markdown::to_mdast(markdown, &markdown::ParseOptions::gfm())
+            && root.children.iter().any(|node| {
+                let is_mount = |node: &Node| {
+                    matches!(node, Node::Html(html)
+                        if html.value.trim() == MARKER
+                            && html.position.as_ref().is_some_and(|span| span.start.offset == mount))
+                };
+                is_mount(node) || matches!(node, Node::Paragraph(paragraph) if paragraph.children.iter().any(is_mount))
+            })
+        {
+            // Keep parsing the whole document so definitions on either side
+            // remain shared. The compiler escapes HTML comments by default.
+            let mut name = "forma-generated-view-slot".to_string();
+            while markdown.contains(&name) {
+                name.push('-');
+            }
+            let source = format!(
+                "{}\n\n<!-- {name} -->\n\n{}",
+                &markdown[..mount],
+                &markdown[mount + MARKER.len()..],
+            );
+            return self.render(&source).replace(
+                &format!("&lt;!-- {name} --&gt;"),
+                STATIC_VIEW_PROJECTION_SLOT,
+            );
+        }
+        self.render(markdown)
     }
 }
 
@@ -513,7 +560,11 @@ fn build_static_site_snapshot_from_loaded(
         let view_document = read_document(workspace.root.as_path(), &view.path)?;
         entry_headings_by_path.insert(
             view.path.clone(),
-            StaticHeadingTargets::new(&view_document, true),
+            StaticHeadingTargets {
+                headings: crate::render::render_static_view_headings(&view_document),
+                omit_leading_title: true,
+                projection: OnceCell::new(),
+            },
         );
         collect_document_resources(
             workspace.root.as_path(),
@@ -535,7 +586,7 @@ fn build_static_site_snapshot_from_loaded(
             root_path,
         );
         let targets = &entry_headings_by_path[&view.path];
-        let view_html = targets.render(&view_markdown);
+        let view_html = targets.render_view(&view_markdown);
         let view_headings = targets.headings.clone();
         merge_diagnostics(
             &mut diagnostics,
@@ -998,7 +1049,7 @@ fn static_markdown(
                     let span = reference.span?;
                     let href =
                         href.unwrap_or_else(|| unresolved_reference_fallback(&reference.target));
-                    let label = markdown_label(
+                    let label = markdown_link_label(
                         reference
                             .label
                             .as_deref()
@@ -1143,16 +1194,12 @@ fn static_reference_href(
     if let Some(candidate) = resource_candidate(&normalized, ".", false, config_paths, root_path)
         && (alias.is_none() || root.join(&normalized).is_file())
     {
-        let mut href = candidate.public_path;
-        if !query.is_empty() {
-            href.push('?');
-            href.push_str(&encode_url_suffix(query, markdown_uri));
-        }
-        if !fragment.is_empty() {
-            href.push('#');
-            href.push_str(&encode_url_suffix(fragment, markdown_uri));
-        }
-        return Some(href);
+        return Some(with_resource_suffix(
+            candidate.public_path,
+            query,
+            fragment,
+            markdown_uri,
+        ));
     }
 
     let (target_path, route) = alias?;
@@ -1280,10 +1327,6 @@ fn resolve_heading_fragment(
     Some(legacy_id.unwrap_or_else(|| percent_encode_segment(fragment)))
 }
 
-fn hyphenate_heading_text(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join("-")
-}
-
 fn has_generated_fragment_prefix(fragment: &str) -> bool {
     fragment.starts_with("forma-heading-")
         || fragment.starts_with("user-content-fn")
@@ -1305,10 +1348,6 @@ fn leading_heading_anchor(html: &str) -> Option<&str> {
     attributes
         .starts_with(" data-forma-heading-anchor=\"\"")
         .then_some(id)
-}
-
-fn markdown_label(value: &str) -> String {
-    value.replace('\\', "\\\\").replace(']', "\\]")
 }
 
 fn unresolved_reference_fallback(target: &str) -> String {
@@ -1369,6 +1408,23 @@ fn encode_url_suffix(value: &str, markdown_uri: bool) -> String {
         index += 1;
     }
     encoded
+}
+
+fn with_resource_suffix(
+    mut href: String,
+    query: &str,
+    fragment: &str,
+    markdown_uri: bool,
+) -> String {
+    if !query.is_empty() {
+        href.push('?');
+        href.push_str(&encode_url_suffix(query, markdown_uri));
+    }
+    if !fragment.is_empty() {
+        href.push('#');
+        href.push_str(&encode_url_suffix(fragment, markdown_uri));
+    }
+    href
 }
 
 fn public_url(root_path: &str, logical_path: &str) -> String {
@@ -1658,16 +1714,10 @@ fn resource_candidate(
     config_paths: &BTreeSet<&str>,
     root_path: &str,
 ) -> Option<StaticSiteResourceCandidate> {
-    if !resource_path_is_publishable(path, config_paths) {
+    if !resource_path_is_publishable(path, config_paths.iter().copied()) {
         return None;
     }
-    let media_type = media_type_for_workspace_path(path)?;
-    if matches!(
-        media_type,
-        "text/markdown" | "application/yaml" | "application/json"
-    ) {
-        return None;
-    }
+    let media_type = published_resource_media_type(path)?;
     Some(StaticSiteResourceCandidate {
         path: path.to_string(),
         public_path: public_url(root_path, &raw_route_path(path)),
@@ -1682,8 +1732,64 @@ fn resource_candidate(
     })
 }
 
-fn resource_path_is_publishable(path: &str, config_paths: &BTreeSet<&str>) -> bool {
-    if config_paths.contains(path) {
+fn published_resource_media_type(path: &str) -> Option<&'static str> {
+    let media_type = media_type_for_workspace_path(path)?;
+    (!matches!(
+        media_type,
+        "text/markdown" | "application/yaml" | "application/json"
+    ))
+    .then_some(media_type)
+}
+
+pub(crate) fn workspace_resource_href(
+    workspace: &FormaWorkspace,
+    runtime: &crate::index::DiscoveryRuntime,
+    source_path: &str,
+    reference: &crate::markdown::FormaReference,
+) -> Option<String> {
+    let target = reference.target.trim();
+    if target
+        .chars()
+        .any(|character| character.is_control() || character == '>')
+    {
+        return None;
+    }
+    let path = normalized_resource_path(source_path, reference)?;
+    published_resource_media_type(&path)?;
+    if path.starts_with("-/")
+        || !resource_path_is_publishable(
+            &path,
+            workspace
+                .config_sources
+                .iter()
+                .map(|source| source.path.as_str()),
+        )
+        || runtime.has_entries_beneath(&path)
+        || (target.starts_with('/') && runtime.has_entry_route_alias(&path))
+    {
+        return None;
+    }
+    // A reference to a resource has a stable URL even before the file exists.
+    // The raw handler validates and reads the actual file on each request.
+    let (without_fragment, fragment) = target.split_once('#').unwrap_or((target, ""));
+    let query = without_fragment
+        .split_once('?')
+        .map_or("", |(_, query)| query);
+    Some(
+        with_resource_suffix(raw_route_path(&path), query, fragment, true)
+            .replace('(', "%28")
+            .replace(')', "%29"),
+    )
+}
+
+fn resource_path_is_publishable<'a>(
+    path: &str,
+    config_paths: impl IntoIterator<Item = &'a str>,
+) -> bool {
+    if config_paths
+        .into_iter()
+        .any(|source| source.eq_ignore_ascii_case(path))
+    {
         return false;
     }
     let blocked_roots = [
@@ -2948,6 +3054,60 @@ mod tests {
     }
 
     #[test]
+    fn static_view_keeps_reachable_nested_footnotes_in_heading_order() {
+        let root = copy_fixture("site-snapshot-nested-footnotes");
+        let view_path = root.join(".forma/views/guide-table.md");
+        let source = fs::read_to_string(&view_path).unwrap();
+        let (frontmatter, _) = source[4..].split_once("\n---").unwrap();
+        fs::write(
+            view_path,
+            format!(
+                "---\n{frontmatter}\n---\n\n[^unused]: References [^b] but should be hidden.\n\n    ## Unused note heading\n\n\
+                [^a]: First note references [^b].\n\n    ## First note heading\n\n\
+                Body calls [^a].\n\n<!-- forma:content -->\n\nBody calls [^b].\n\n\
+                [^b]: Second note.\n\n    ## Second note heading\n"
+            ),
+        )
+        .unwrap();
+        let snapshot = build_static_site_snapshot(&root).unwrap();
+        let view = snapshot
+            .views
+            .iter()
+            .find(|view| view.id == "guide-table")
+            .unwrap();
+        let (before, after) = view.prose_around_projection();
+        assert!(before.contains("user-content-fnref-a"), "{before}");
+        assert!(!before.contains("user-content-fnref-b"), "{before}");
+        assert!(!before.contains("forma:content"), "{before}");
+        assert!(!after.contains("Unused note heading"), "{after}");
+        let (first, second) = after.split_once("<li id=\"user-content-fn-b\">").unwrap();
+        assert!(first.contains("<li id=\"user-content-fn-a\">"), "{first}");
+        assert!(first.contains("<h2 id=\"first-note-heading\">"), "{first}");
+        assert!(
+            second.contains("<h2 id=\"second-note-heading\">"),
+            "{second}"
+        );
+        assert!(
+            first.contains("aria-describedby=\"footnote-label\">2</a>"),
+            "{first}"
+        );
+        assert!(
+            before.contains("aria-describedby=\"footnote-label\">1</a>"),
+            "{before}"
+        );
+        assert_eq!(after.matches("data-footnote-backref=\"\"").count(), 3);
+        assert!(
+            second.contains("href=\"#user-content-fnref-b:1\""),
+            "{second}"
+        );
+        assert!(
+            !after.contains("href=\"#user-content-fnref-b:2\""),
+            "{after}"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn site_snapshot_preserves_resource_uri_suffix_semantics() {
         let root = copy_fixture("site-snapshot-resource-uri-suffix");
         fs::write(root.join("assets/file.txt"), "Resource").unwrap();
@@ -2995,6 +3155,83 @@ mod tests {
             intro.markdown
         );
         assert!(intro.markdown.contains("[Wiki suffix](</preview/-/raw/assets/file.txt?name=a%2520b%2Bliteral#some%2520anchor>)"), "{}", intro.markdown);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn static_view_mount_splits_inline_prose_and_keeps_code_literal() {
+        let source = "Before <!-- forma:content --> after.\n";
+        let document = crate::markdown::parse_markdown(source);
+        let html = super::StaticHeadingTargets::new(&document, true).render_view(source);
+        let (before, after) = html.split_once(super::STATIC_VIEW_PROJECTION_SLOT).unwrap();
+        assert!(before.contains("<p>Before</p>"), "{html}");
+        assert!(after.contains("<p>after.</p>"), "{html}");
+
+        let source = "~~~html\n<!-- forma:content -->\n~~~\n";
+        let document = crate::markdown::parse_markdown(source);
+        let html = super::StaticHeadingTargets::new(&document, true).render_view(source);
+        assert!(!html.contains(super::STATIC_VIEW_PROJECTION_SLOT), "{html}");
+        assert!(html.contains("&lt;!-- forma:content --&gt;"), "{html}");
+    }
+
+    #[test]
+    fn workspace_readers_project_authored_resource_destinations() {
+        let root = copy_fixture("reader-resource-links");
+        let source_path = "content/guides/resource-reader.md";
+        let suffix = "?name=a%20b&literal=%2520&embedded=a%26b&plus=a+b#part%20one";
+        let href = format!("/-/raw/assets/report%20%25.txt{suffix}");
+        fs::write(root.join("assets/report %.txt"), "Report bytes").unwrap();
+        fs::write(
+            root.join("content/guides/sidecar.txt.md"),
+            "# An indexed sidecar",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("content/guides/folder.txt")).unwrap();
+        fs::write(
+            root.join("content/guides/folder.txt/index.md"),
+            "# A directory entry",
+        )
+        .unwrap();
+        let source = format!(
+            "# Resource reader\n\n[Report](../../assets/report%20%25.txt{suffix})\n\n[One][file] [Two][file]\n\n[file]: </assets/report%20%25.txt{suffix}> \"Report title\"\n\n[Explicit]({href})\n\n[Directory](./folder.txt)\n\n[Sidecar](/content/guides/sidecar.txt)\n\n[Page](./related.md)\n\n[Protected](/.forma/local/secret.txt)\n\n[External](https://example.test/report.txt)\n"
+        );
+        fs::write(root.join(source_path), source).unwrap();
+        for path in [".forma.md", ".forma/views/guide-table.md"] {
+            let path = root.join(path);
+            let content = fs::read_to_string(&path).unwrap();
+            fs::write(
+                path,
+                format!("{content}\n\n[Report](/assets/report%20%25.txt{suffix})\n"),
+            )
+            .unwrap();
+        }
+
+        let rendered = crate::render::render_file(&root, source_path, "markdown").unwrap();
+        let markdown = rendered.render.markdown.unwrap();
+        assert!(
+            markdown.contains(&format!("[Report]({href})")),
+            "{markdown}"
+        );
+        assert!(
+            markdown.contains(&format!("[file]: <{href}> \"Report title\"")),
+            "{markdown}"
+        );
+        for unchanged in [
+            format!("[Explicit]({href})"),
+            "[Directory](./folder.txt)".into(),
+            "[Sidecar](/content/guides/sidecar.txt)".into(),
+            "[Page](./related.md)".into(),
+            "[Protected](/.forma/local/secret.txt)".into(),
+            "[External](https://example.test/report.txt)".into(),
+        ] {
+            assert!(markdown.contains(&unchanged), "{markdown}");
+        }
+        let dashboard = crate::operations::workspace_dashboard(&root).unwrap();
+        assert!(dashboard.home.markdown.contains(&href));
+        let view =
+            crate::render::render_view(&root, "guide-table", std::collections::BTreeMap::new())
+                .unwrap();
+        assert!(view.document.unwrap().body_source.contains(&href));
         fs::remove_dir_all(root).unwrap();
     }
 

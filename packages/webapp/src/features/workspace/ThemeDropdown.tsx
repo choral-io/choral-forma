@@ -4,7 +4,7 @@ import { headerIconButtonClassName, headerIconClassName } from "@/features/works
 import type { ThemePreference } from "@/lib/theme-preference";
 import { cn } from "@/lib/utils";
 
-const themePopoverId = "workspace-theme-menu";
+const themePopoverId = "forma:workspace-theme-menu";
 const themePopoverAnchor = "--workspace-theme-menu";
 
 const options = [

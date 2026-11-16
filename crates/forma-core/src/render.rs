@@ -785,22 +785,29 @@ pub fn render_file(
             source,
         })?;
     let document = FormaMarkdownDocument::parse(&source);
-    let markdown = markdown_with_reference_fallbacks(&document, &path, &runtime);
+    let markdown = markdown_with_reference_fallbacks(&workspace, &document, &path, &runtime);
     let (markdown, html) = if format == "markdown" {
         (Some(markdown), None)
     } else {
-        let markdown = if document.references.iter().any(|reference| {
+        let html = render_markdown_source_html(&markdown);
+        let html = if document.references.iter().any(|reference| {
             matches!(
                 reference.syntax,
                 FormaReferenceSyntax::Wikilink | FormaReferenceSyntax::ObsidianEmbed
             ) && reference.target.trim().starts_with('#')
         }) {
-            let headings = HtmlWikilinkHeadings::new(&markdown);
-            lower_wikilinks(&document, &path, &runtime, Some(&headings))
+            let targets = HtmlWikilinkTargets::new(&markdown, &html);
+            let resolved =
+                lower_reader_references(&workspace, &document, &path, &runtime, Some(&targets));
+            if resolved == markdown {
+                html
+            } else {
+                render_markdown_source_html(&resolved)
+            }
         } else {
-            markdown
+            html
         };
-        (None, Some(render_markdown_source_html(&markdown)))
+        (None, Some(html))
     };
     let mut diagnostics = diagnostics_for_workspace_path(discovery.diagnostics, &path);
     diagnostics.extend(
@@ -989,7 +996,7 @@ fn render_view_from_loaded(
         });
     let view_document = view_render_document(
         &document.body,
-        markdown_with_reference_fallbacks(&document, &view_path, runtime),
+        markdown_with_reference_fallbacks(workspace, &document, &view_path, runtime),
         body_line_offset,
     );
     let has_legacy_mount = document.references.iter().any(|reference| {
@@ -1134,7 +1141,7 @@ fn view_document_headings(
     }
     // Allocate IDs in whole-document render order, then assign them to the
     // reader sections by source position so projection boundaries never reset IDs.
-    let headings = render_all_heading_ids(body_source, &visible, true);
+    let headings = render_view_heading_ids(body_source, &visible);
     let mut reserved = headings
         .iter()
         .map(|heading| heading.id.clone())
@@ -2658,11 +2665,6 @@ fn render_callouts(html: &str, marker: &str) -> String {
 
 /// Keep return IDs distinct from labels such as `a-2` when `a` is cited twice.
 fn normalize_footnote_reference_ids(html: &str) -> String {
-    fn attribute<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
-        let prefix = format!("{name}=\"");
-        let start = tag.find(&prefix)? + prefix.len();
-        Some(&tag[start..start + tag[start..].find('"')?])
-    }
     fn reference_id(label: &str, count: usize) -> String {
         let suffix = if count == 0 {
             String::new()
@@ -2671,6 +2673,9 @@ fn normalize_footnote_reference_ids(html: &str) -> String {
         };
         format!("user-content-fnref-{}{suffix}", label.replace(':', "%3A"))
     }
+    let Some((html, notes)) = order_rendered_footnotes(html) else {
+        return html.to_string();
+    };
     let mut output = String::with_capacity(html.len());
     let mut cursor = 0;
     let mut legacy = Vec::new();
@@ -2683,9 +2688,13 @@ fn normalize_footnote_reference_ids(html: &str) -> String {
         };
         let tag = &html[start..end];
         let mut replacement = tag.to_string();
-        if tag.contains("data-footnote-ref=") {
-            if let (Some(href), Some(id)) = (attribute(tag, "href"), attribute(tag, "id"))
-                && let Some(label) = href.strip_prefix("#user-content-fn-")
+        let mut next = end;
+        if let Some(label) = rendered_footnote_call(tag) {
+            if let (Some(href), Some(id)) = (
+                footnote_tag_attribute(tag, "href=\""),
+                footnote_tag_attribute(tag, "id=\""),
+            ) && let Some(&(number, _)) = notes.get(label)
+                && let Some(close) = html[end..].find("</a>")
             {
                 let count = calls.entry(label.to_string()).or_default();
                 replacement = tag.replace(
@@ -2701,29 +2710,37 @@ fn normalize_footnote_reference_ids(html: &str) -> String {
                     legacy.push((id.to_string(), new_id));
                 }
                 *count += 1;
+                replacement.push_str(&number.to_string());
+                next += close;
             }
         } else if tag.contains("data-footnote-backref=") {
             let prefix = "<li id=\"user-content-fn-";
             if let Some(note) = html[..start].rfind(prefix) {
                 let label_start = note + prefix.len();
                 if let Some(label_end) = html[label_start..].find('"')
-                    && let Some(href) = attribute(tag, "href")
+                    && let Some(href) = footnote_tag_attribute(tag, "href=\"")
                 {
                     let label = &html[label_start..label_start + label_end];
                     let count = returns.entry(label.to_string()).or_default();
-                    replacement = tag.replace(
-                        &format!("href=\"{href}\""),
-                        &format!(
-                            "href=\"#{}\"",
-                            reference_id(label, *count).replace('%', "%25")
-                        ),
-                    );
+                    if notes.get(label).is_some_and(|&(_, calls)| *count < calls) {
+                        replacement = tag.replace(
+                            &format!("href=\"{href}\""),
+                            &format!(
+                                "href=\"#{}\"",
+                                reference_id(label, *count).replace('%', "%25")
+                            ),
+                        );
+                    } else if let Some(close) = html[end..].find("</a>") {
+                        // The compiler counts calls in definitions that are not rendered.
+                        replacement.clear();
+                        next += close + "</a>".len();
+                    }
                     *count += 1;
                 }
             }
         }
         output.push_str(&replacement);
-        cursor = end;
+        cursor = next;
     }
     output.push_str(&html[cursor..]);
     for (old, new) in legacy {
@@ -2744,6 +2761,77 @@ fn normalize_footnote_reference_ids(html: &str) -> String {
         }
     }
     output
+}
+
+fn footnote_tag_attribute<'a>(tag: &'a str, prefix: &str) -> Option<&'a str> {
+    tag.split_once(prefix)?
+        .1
+        .split_once('"')
+        .map(|(value, _)| value)
+}
+
+fn rendered_footnote_call(tag: &str) -> Option<&str> {
+    tag.contains(" data-footnote-ref=\"\"")
+        .then(|| footnote_tag_attribute(tag, "href=\"#user-content-fn-"))
+        .flatten()
+}
+
+/// Markdown definitions can contain calls before any body call. Reorder the
+/// compiler's generated notes by reachable, rendered calls instead.
+fn order_rendered_footnotes(html: &str) -> Option<(String, BTreeMap<String, (usize, usize)>)> {
+    const SECTION: &str = "<section data-footnotes=\"\" class=\"footnotes\">";
+    const NOTE: &str = "<li id=\"user-content-fn-";
+    let (body, section) = html.split_once(SECTION)?;
+    let (label, list) = section.split_once("<ol>")?;
+    let (items, tail) = list.rsplit_once("</ol>")?;
+    let mut blocks = items.split(NOTE);
+    let leading = blocks.next()?;
+    let definitions = blocks
+        .filter_map(|block| block.split_once('"').map(|(id, _)| (id, block)))
+        .collect::<BTreeMap<_, _>>();
+    let mut order = Vec::new();
+    let mut notes = BTreeMap::new();
+    let collect =
+        |source: &str, order: &mut Vec<String>, notes: &mut BTreeMap<String, (usize, usize)>| {
+            for id in source
+                .split("<a ")
+                .skip(1)
+                .filter_map(|anchor| rendered_footnote_call(anchor.split_once('>')?.0))
+            {
+                if !definitions.contains_key(id) {
+                    continue;
+                }
+                let counter = notes.entry(id.to_string()).or_insert_with(|| {
+                    order.push(id.to_string());
+                    (order.len(), 0)
+                });
+                counter.1 += 1;
+            }
+        };
+    collect(body, &mut order, &mut notes);
+    let mut index = 0;
+    while let Some(id) = order.get(index) {
+        let definition = definitions[id.as_str()];
+        collect(definition, &mut order, &mut notes);
+        index += 1;
+    }
+    let mut output = String::with_capacity(html.len());
+    output.push_str(body);
+    if order.is_empty() {
+        output.push_str(tail.split_once("</section>")?.1);
+    } else {
+        output.push_str(SECTION);
+        output.push_str(label);
+        output.push_str("<ol>");
+        output.push_str(leading);
+        for id in order {
+            output.push_str(NOTE);
+            output.push_str(definitions[id.as_str()]);
+        }
+        output.push_str("</ol>");
+        output.push_str(tail);
+    }
+    Some((output, notes))
 }
 
 pub(crate) fn readable_heading_anchor(
@@ -2844,6 +2932,37 @@ pub(crate) fn render_all_headings(
         &rendered_markdown_headings(&document.body),
         omit_leading_title,
     )
+}
+
+pub(crate) fn render_static_view_headings(
+    document: &FormaMarkdownDocument,
+) -> Vec<RenderedHeading> {
+    render_view_heading_ids(&document.body, &rendered_markdown_headings(&document.body))
+}
+
+fn render_view_heading_ids(body: &str, visible: &[FormaHeading]) -> Vec<RenderedHeading> {
+    // Legacy View IDs come from authored headings. A cancelled or reordered
+    // footnote definition must not reassign its ID to a different heading.
+    let authored = crate::markdown::all_markdown_headings(body);
+    let ids = authored
+        .iter()
+        .zip(rendered_headings(&authored))
+        .filter_map(|(source, heading)| Some((source.span?.start_byte, heading.id)))
+        .collect::<BTreeMap<_, _>>();
+    rendered_headings(visible)
+        .into_iter()
+        .zip(visible)
+        .map(|(mut heading, source)| {
+            if let Some(id) = source
+                .span
+                .as_ref()
+                .and_then(|span| ids.get(&span.start_byte))
+            {
+                heading.id.clone_from(id);
+            }
+            heading
+        })
+        .collect()
 }
 
 fn render_all_heading_ids(
@@ -2947,92 +3066,143 @@ pub(crate) fn slugify_heading(text: &str) -> String {
     }
 }
 
-struct HtmlWikilinkHeadings(Vec<(RenderedHeading, String)>);
+pub(crate) fn hyphenate_heading_text(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join("-")
+}
 
-impl HtmlWikilinkHeadings {
-    fn new(markdown: &str) -> Self {
+pub(crate) fn markdown_link_label(label: &str) -> String {
+    label
+        .replace('\\', "\\\\")
+        .replace('[', "\\[")
+        .replace(']', "\\]")
+}
+
+struct HtmlWikilinkTargets<'a> {
+    emitted_ids: BTreeSet<&'a str>,
+    headings: Vec<(RenderedHeading, String)>,
+}
+
+impl<'a> HtmlWikilinkTargets<'a> {
+    fn new(markdown: &str, html: &'a str) -> Self {
         let visible = rendered_markdown_headings(markdown);
         let mut used = BTreeSet::new();
-        Self(
-            render_all_heading_ids(markdown, &visible, false)
-                .into_iter()
-                .map(|heading| {
-                    let alias = readable_heading_anchor(&heading.text, &mut used);
-                    (heading, alias)
-                })
-                .collect(),
-        )
+        let emitted_ids = html
+            .split('<')
+            .skip(1)
+            .filter_map(|element| element.split_once('>'))
+            .filter_map(|(tag, _)| tag.split_once(" id=\""))
+            .filter_map(|(_, value)| value.split_once('"').map(|(id, _)| id))
+            .collect();
+        let headings = render_all_heading_ids(markdown, &visible, false)
+            .into_iter()
+            .map(|heading| {
+                let alias = readable_heading_anchor(&heading.text, &mut used);
+                (heading, alias)
+            })
+            .collect();
+        Self {
+            emitted_ids,
+            headings,
+        }
     }
 
     fn resolve(&self, fragment: &str) -> Option<&str> {
+        if let Some(id) = self.emitted_ids.get(fragment) {
+            return Some(id);
+        }
         let text = fragment.trim();
-        self.0
+        self.headings
             .iter()
-            .find(|(_, alias)| alias == fragment)
-            .or_else(|| self.0.iter().find(|(heading, _)| heading.id == fragment))
+            .find(|(heading, _)| heading.id == fragment)
             .or_else(|| {
-                self.0
+                self.headings
                     .iter()
                     .find(|(heading, _)| heading.text.trim().eq_ignore_ascii_case(text))
+            })
+            .or_else(|| {
+                if text.is_ascii() {
+                    return None;
+                }
+                let hyphenated = hyphenate_heading_text(text);
+                self.headings.iter().find(|(heading, _)| {
+                    hyphenate_heading_text(&heading.text).eq_ignore_ascii_case(&hyphenated)
+                })
             })
             .or_else(|| {
                 let slug = (text.is_ascii()
                     && text.bytes().any(|byte| byte.is_ascii_alphanumeric()))
                 .then(|| slugify_heading(text))?;
-                self.0.iter().find(|(heading, _)| heading.id == slug)
+                self.headings.iter().find(|(heading, _)| heading.id == slug)
             })
             .map(|(_, alias)| alias.as_str())
+            .filter(|alias| self.emitted_ids.contains(alias))
     }
 }
 
 pub(crate) fn markdown_with_reference_fallbacks(
+    workspace: &FormaWorkspace,
     document: &FormaMarkdownDocument,
     source_path: &str,
     runtime: &DiscoveryRuntime,
 ) -> String {
-    lower_wikilinks(document, source_path, runtime, None)
+    lower_reader_references(workspace, document, source_path, runtime, None)
 }
 
-fn lower_wikilinks(
+fn lower_reader_references(
+    workspace: &FormaWorkspace,
     document: &FormaMarkdownDocument,
     source_path: &str,
     runtime: &DiscoveryRuntime,
-    html_headings: Option<&HtmlWikilinkHeadings>,
+    html_headings: Option<&HtmlWikilinkTargets<'_>>,
 ) -> String {
     let mut output = document.body.clone();
     let mut replacements = document
         .references
         .iter()
-        .filter(|reference| {
-            matches!(
-                reference.syntax,
-                FormaReferenceSyntax::Wikilink | FormaReferenceSyntax::ObsidianEmbed
-            )
+        .filter_map(|reference| match reference.syntax {
+            FormaReferenceSyntax::MarkdownLink => {
+                let span = reference.target_span?;
+                let end = reference
+                    .fragment_span
+                    .map_or(span.end_byte, |span| span.end_byte);
+                let href = crate::site::workspace_resource_href(
+                    workspace,
+                    runtime,
+                    source_path,
+                    reference,
+                )?;
+                Some((span.start_byte, end, href))
+            }
+            FormaReferenceSyntax::Wikilink | FormaReferenceSyntax::ObsidianEmbed => {
+                let span = reference.span?;
+                let label =
+                    markdown_link_label(reference.label.as_deref().unwrap_or(&reference.target));
+                let href = if let Some(fragment) = reference.target.trim().strip_prefix('#') {
+                    // HTML needs the published ID. The Markdown reader resolves authored fragments.
+                    let fragment = html_headings
+                        .and_then(|headings| headings.resolve(fragment))
+                        .unwrap_or(fragment);
+                    format!("#{}", crate::routes::percent_encode_segment(fragment))
+                } else if is_external_target(reference.target.trim()) {
+                    reference.target.trim().to_string()
+                } else {
+                    let destination = runtime.resolve_wikilink_mdx(source_path, &reference.target);
+                    reference_fallback_href(&reference.target, destination.as_deref())
+                };
+                Some((
+                    span.start_byte,
+                    span.end_byte,
+                    format!("[{label}](<{href}>)"),
+                ))
+            }
+            _ => None,
         })
-        .filter_map(|reference| reference.span.map(|span| (span, reference)))
         .collect::<Vec<_>>();
-    replacements.sort_by_key(|(span, _)| span.start_byte);
+    replacements.sort_by_key(|(start, end, _)| (*start, *end));
+    replacements.dedup_by(|left, right| left.0 == right.0 && left.1 == right.1);
 
-    for (span, reference) in replacements.into_iter().rev() {
-        let label = reference
-            .label
-            .as_deref()
-            .unwrap_or(reference.target.as_str());
-        let href = if let Some(fragment) = reference.target.trim().strip_prefix('#') {
-            // The Markdown client resolves the authored fragment itself. HTML links
-            // need to use the ID actually emitted by the compatibility renderer.
-            let fragment = html_headings
-                .and_then(|headings| headings.resolve(fragment))
-                .unwrap_or(fragment);
-            format!("#{}", crate::routes::percent_encode_segment(fragment))
-        } else if is_external_target(reference.target.trim()) {
-            reference.target.trim().to_string()
-        } else {
-            let destination = runtime.resolve_wikilink_mdx(source_path, &reference.target);
-            reference_fallback_href(&reference.target, destination.as_deref())
-        };
-        let replacement = format!("[{label}](<{href}>)");
-        output.replace_range(span.start_byte..span.end_byte, &replacement);
+    for (start, end, replacement) in replacements.into_iter().rev() {
+        output.replace_range(start..end, &replacement);
     }
     output
 }
@@ -3672,6 +3842,54 @@ mod tests {
                 html.contains(&format!(r#"<{element}><span id="{id}""#)),
                 "{html}"
             );
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn compatibility_html_targets_emitted_ids_and_unicode_heading_text() {
+        let root = fixture_root("compatibility-html-wiki-fragments");
+        copy_starter_workspace(&root);
+        fs::write(
+            root.join("notes/source.md"),
+            concat!(
+                "# Source\n\n",
+                "[[#Heading-with-Chinese-标题|Mixed heading]]\n\n",
+                "[[#Missing-标题|Unknown heading]]\n\n",
+                "[[#user-content-fn-body|Exact note]]\n\n",
+                "[[#user-content-fnref-body|Exact reference]]\n\n",
+                "## Heading with Chinese 标题\n\n## Missing\n\n",
+                "## User content fn body\n\n## User content fnref body\n\n",
+                "Body[^body].\n\n[^body]: Footnote.\n",
+            ),
+        )
+        .unwrap();
+
+        let html = render_file(&root, "notes/source.md", "html")
+            .unwrap()
+            .render
+            .html
+            .unwrap();
+        for (fragment, label) in [
+            (
+                "forma-heading-heading-with-chinese-%E6%A0%87%E9%A2%98",
+                "Mixed heading",
+            ),
+            ("Missing-%E6%A0%87%E9%A2%98", "Unknown heading"),
+            ("user-content-fn-body", "Exact note"),
+            ("user-content-fnref-body", "Exact reference"),
+        ] {
+            assert!(
+                html.contains(&format!(r##"href="#{fragment}">{label}</a>"##)),
+                "{html}"
+            );
+        }
+        for anchor in [
+            r#"<h2><span id="forma-heading-heading-with-chinese-标题""#,
+            r#"<li id="user-content-fn-body""#,
+            r#"id="user-content-fnref-body" data-footnote-ref"#,
+        ] {
+            assert!(html.contains(anchor), "{html}");
         }
         fs::remove_dir_all(root).unwrap();
     }
@@ -5034,26 +5252,37 @@ mod tests {
             ),
         )
         .unwrap();
-        fs::create_dir_all(root.join("guides")).unwrap();
-        fs::write(root.join("guides/target.mdx"), "# Guide\n\n## 第二节\n").unwrap();
+        let nested = "guides/nested/deeper";
+        fs::create_dir_all(root.join(nested)).unwrap();
+        for name in ["target.mdx", "dotted.v2.mdx"] {
+            fs::write(root.join(nested).join(name), "# Guide\n\n## 第二节\n").unwrap();
+        }
+        fs::create_dir_all(root.join("archive")).unwrap();
+        fs::write(root.join("archive/target.mdx"), "# Not configured\n").unwrap();
         let home_path = root.join(".forma.md");
         let config = fs::read_to_string(&home_path).unwrap();
         fs::write(
             home_path,
             format!(
-                "{config}\n\n[[guides/target#第二节|By path]]\n\n[[target#第二节|By basename]]\n"
+                "{config}\n\n[[{nested}/target#第二节|By path]]\n\n[[target#第二节|By basename]]\n\n[[{nested}/dotted.v2#第二节|Left [ bracket]]\n"
             ),
         )
         .unwrap();
         let home = crate::workspace_dashboard(&root).unwrap().home;
         for label in ["By path", "By basename"] {
-            let link = format!("[{label}](</guides/target.mdx#%E7%AC%AC%E4%BA%8C%E8%8A%82>)");
+            let link = format!("[{label}](</{nested}/target.mdx#%E7%AC%AC%E4%BA%8C%E8%8A%82>)");
             assert!(home.markdown.contains(&link), "{}", home.markdown);
         }
+        assert!(home.markdown.contains(&format!(
+            r"[Left \[ bracket](</{nested}/dotted.v2.mdx#%E7%AC%AC%E4%BA%8C%E8%8A%82>)"
+        )));
+        assert!(super::render_markdown_source_html(&home.markdown).contains(">Left [ bracket</a>"));
 
         fs::write(
             root.join(".forma/views/notes.md"),
-            "---\nkind: view\nmode: list\ntitle: Notes\nsource:\n  type: pages\n---\n\n# Notes\n\n🧭 [[../../guides/target#第二节|Guide]]\n\n<!-- forma:content -->\n\n## Details\n\n[[#Details|Details link]]\n\n[[https://example.test/a%20b#note|External]]\n",
+            format!(
+                "---\nkind: view\nmode: list\ntitle: Notes\nsource:\n  type: pages\n---\n\n# Notes\n\n🧭 [[../../{nested}/target#第二节|Guide]]\n\n<!-- forma:content -->\n\n## Details\n\n[[#Details|Details link]]\n\n[[https://example.test/a%20b#note|External]]\n\n[[target#第二节|View basename]]\n\n[[{nested}/dotted.v2#第二节|Right ] bracket]]\n"
+            ),
         )
         .unwrap();
         let rendered = render_view(&root, "notes", BTreeMap::new()).unwrap();
@@ -5062,9 +5291,18 @@ mod tests {
         let body = document.body_source;
         let marker = "<!-- forma:content -->";
         let (before, after) = body.split_once(marker).unwrap();
-        assert!(before.contains("🧭 [Guide](</guides/target.mdx#%E7%AC%AC%E4%BA%8C%E8%8A%82>)"));
+        assert!(before.contains(&format!(
+            "🧭 [Guide](</{nested}/target.mdx#%E7%AC%AC%E4%BA%8C%E8%8A%82>)"
+        )));
         assert!(after.contains("[Details link](<#Details>)"));
         assert!(after.contains("[External](<https://example.test/a%20b#note>)"));
+        assert!(after.contains(&format!(
+            "[View basename](</{nested}/target.mdx#%E7%AC%AC%E4%BA%8C%E8%8A%82>)"
+        )));
+        assert!(after.contains(&format!(
+            r"[Right \] bracket](</{nested}/dotted.v2.mdx#%E7%AC%AC%E4%BA%8C%E8%8A%82>)"
+        )));
+        assert!(super::render_markdown_source_html(&body).contains(">Right ] bracket</a>"));
         assert_eq!(
             document.mounts[0].start_offset,
             before.encode_utf16().count()
@@ -5083,6 +5321,24 @@ mod tests {
         assert_eq!(
             document.headings.unwrap().after_projection[0].heading.id,
             "details"
+        );
+
+        fs::write(
+            root.join("notes/source.md"),
+            format!("# Source\n\n[[{nested}/dotted.v2#第二节|Dotted]]\n"),
+        )
+        .unwrap();
+        let result = render_file(&root, "notes/source.md", "markdown").unwrap();
+        assert_eq!(
+            result.render.refs[0].target_path,
+            format!("{nested}/dotted.v2.mdx")
+        );
+        let (_, runtime) =
+            super::discover_loaded_workspace_with_runtime(&super::load_workspace(&root).unwrap());
+        assert!(
+            runtime
+                .resolve_wikilink_mdx(".forma.md", "target.md")
+                .is_none()
         );
         fs::remove_dir_all(root).unwrap();
     }

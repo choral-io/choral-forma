@@ -571,6 +571,7 @@ export async function markdownBrowserScenarios(page, options) {
                 ["classification-mixed-space-layout", `${label}\u200f`, ","],
                 ["classification-mixed-bidi-layout", `${label}\u200f`],
                 ["classification-cjk-bidi-layout", "日常プロジェクト運営資料と構成変更の詳細\u200f"],
+                ["classification-figure-layout", "Lifecycle Owner" + "\u2007".repeat(52)],
             ]) {
                 await current.setViewportSize({ width: 320, height: 720 });
                 await current.goto(`${host.origin}${host.root}/${route}/`);
@@ -618,7 +619,10 @@ export async function markdownBrowserScenarios(page, options) {
                         punctuation,
                     );
                     assert(displayedTitle === title, `${host.name}: ${route} retains the display name`);
-                    if (width === 320 && route !== "classification-cjk-bidi-layout") {
+                    if (
+                        width === 320 &&
+                        !["classification-cjk-bidi-layout", "classification-figure-layout"].includes(route)
+                    ) {
                         assert(wrapped, `${host.name}: ${route} title wraps at narrow width`);
                     }
                     assert(sameLine, `${host.name}: ${route} punctuation stays with the term at ${width}px`);
@@ -655,6 +659,9 @@ export async function markdownBrowserScenarios(page, options) {
             ["/notes/shell-heading-links/", "Navigation title link", "h2#workspace-navigation"],
             ["/notes/shell-heading-links/", "Sidebar title link", "h2#workspace-sidebar"],
             ["/notes/shell-heading-links/", "Related title link", "h2#related-documents"],
+            ["/notes/shell-heading-links/", "Theme heading", "h2#workspace-theme-menu"],
+            ["/notes/shell-heading-links/", "Quick open heading", "h2#workspace-quick-open"],
+            ["/notes/shell-heading-links/", "Reader label heading", "h2#reader-heading-label-1"],
             ["/-/views/view-heading-intro/", "Setup", "h2#setup"],
             ["/-/views/view-heading-intro/", "Deploy", "h2#deploy"],
         ];
@@ -689,6 +696,16 @@ export async function markdownBrowserScenarios(page, options) {
             await skipLink.focus();
             await skipLink.press("Enter");
             await current.waitForFunction(() => document.activeElement?.matches("main h1"));
+            await current.getByRole("button", { name: "Quick open", exact: true }).first().click();
+            await current.locator('dialog[id="forma:workspace-quick-open"][open]').waitFor();
+            await current.keyboard.press("Escape");
+            await current.locator('dialog[id="forma:workspace-quick-open"][open]').waitFor({ state: "hidden" });
+            await current
+                .getByRole("button", { name: /^Theme:/u })
+                .first()
+                .click();
+            await current.locator('[id="forma:workspace-theme-menu"]:popover-open').waitFor();
+            await current.keyboard.press("Escape");
         }
     };
 
@@ -851,12 +868,29 @@ export async function markdownBrowserScenarios(page, options) {
             [source, "Ordinary MDX link", mdx, "第二节", 2],
             ["", "Home MDX wiki", mdx, "第二节", 2],
             ["/-/views/view-navigation-split", "View MDX wiki", mdx, "第二节", 2],
+            ["", "Home deep MDX", "/guides/nested/deeper/deep-basename", "Deep section", 2],
+            ["", "Home dotted MDX", "/guides/nested/deeper/dotted.v2", "Dotted section", 2],
+            [
+                "/-/views/view-navigation-split",
+                "View deep MDX",
+                "/guides/nested/deeper/deep-basename",
+                "Deep section",
+                2,
+            ],
+            [
+                "/-/views/view-navigation-split",
+                "View dotted MDX",
+                "/guides/nested/deeper/dotted.v2",
+                "Dotted section",
+                2,
+            ],
+            ["/-/views/view-navigation-split", "Guide ] beta", mdx, "第二节", 2],
         ];
         for (const [from, label, target, title, level] of cases) {
             await current.goto(`${base}${from}/`);
             await main
                 .locator("a[href]")
-                .filter({ hasText: new RegExp(`^${label}$`, "u") })
+                .filter({ hasText: new RegExp(`^${RegExp.escape(label)}$`, "u") })
                 .click();
             await current.waitForURL(
                 (url) => url.pathname.replace(/\/$/u, "") === `${host.root}${target}` && url.hash !== "",
@@ -917,6 +951,77 @@ export async function markdownBrowserScenarios(page, options) {
             assert((await main.locator('[id="' + id + '"]').count()) === 1, host.name + ": unique authored ID " + id);
         }
         await expectFootnote("user-content-fn-note-", "user-content-fnref-note-");
+        const auditedView = base + "/-/views/view-audited-headings/";
+        for (const [id, title, level] of [
+            ["title", "Title 🌟", 1],
+            ["after", "After 💡", 2],
+        ]) {
+            await current.goto(auditedView + "#" + id);
+            await main.getByRole("heading", { name: title, level, exact: true }).waitFor();
+            assert((await main.locator('[id="' + id + '"]').count()) === 1, host.name + ": preserves " + id);
+            await waitForTarget("h" + level + "#" + id);
+        }
+        const projectionLink = main.locator('a[href="' + host.root + '/graph/selected"]').first();
+        await projectionLink.waitFor();
+        assert(
+            await projectionLink.evaluate((link) =>
+                Boolean(
+                    link.compareDocumentPosition(document.getElementById("after")) & Node.DOCUMENT_POSITION_FOLLOWING,
+                ),
+            ),
+            host.name + ": projection precedes the prose after its mount",
+        );
+        assert(!(await main.innerText()).includes("<!-- forma:content -->"), host.name + ": mount marker stays hidden");
+        for (const [variant, count] of [
+            ["nested", 3],
+            ["unused", 2],
+        ]) {
+            await current.goto(base + "/-/views/view-" + variant + "-footnotes/");
+            const noteLink = main
+                .locator('a[href$="#heading-in-first-note"]')
+                .filter({ hasText: /^First note heading$/u });
+            await noteLink.click();
+            await waitForTarget("h2#heading-in-first-note");
+            const expected = main.locator('li[id="user-content-fn-a"] h2#heading-in-first-note');
+            assert((await expected.count()) === 1, host.name + ": first note owns its heading in " + variant);
+            const returns = await main.locator("[data-footnote-backref]").evaluateAll((links) =>
+                links.map((link) => {
+                    const id = decodeURIComponent(link.hash.slice(1));
+                    return document.getElementById(id)?.tagName === "A";
+                }),
+            );
+            assert(
+                returns.length === count && returns.every(Boolean),
+                host.name + ": every " + variant + " return has a reference",
+            );
+        }
+    };
+    const resourceLinkClicks = async (current, host, noScript) => {
+        const base = host.origin + host.root;
+        const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
+        for (const [route, label] of [
+            ["/", "Home resource"],
+            ["/notes/link-contracts/", "Encoded resource"],
+            ["/-/views/view-navigation-split/", "View resource"],
+        ]) {
+            await current.goto(base + route);
+            const link = main.getByRole("link", { name: label, exact: true });
+            const href = await link.getAttribute("href");
+            const destination = new URL(href, current.url());
+            assert(destination.pathname === host.root + "/-/raw/notes/contract-raw.txt", host.name + ": raw route");
+            assert(
+                JSON.stringify(Object.fromEntries(destination.searchParams)) ===
+                    JSON.stringify({ name: "a b", literal: "%20", value: "a&b", plus: "a b" }) &&
+                    decodeURIComponent(destination.hash) === "#part one",
+                host.name + ": preserves the resource query and fragment from " + route,
+            );
+            await link.click();
+            await current.waitForURL((url) => url.href === destination.href);
+            assert(
+                (await current.locator("body").innerText()).includes("CONTRACT_RAW_RESOURCE"),
+                host.name + ": raw navigation",
+            );
+        }
     };
     const resourceSuffix = async (current, host, noScript = false) => {
         await current.goto(`${host.origin}${host.root}/notes/link-contracts/`);
@@ -1383,6 +1488,11 @@ export async function markdownBrowserScenarios(page, options) {
                 assertCleanPage();
                 results.push(
                     `${options.noScript ? "static noscript" : host.name}: View projection and footnotes retain their fragment targets`,
+                );
+                await resourceLinkClicks(current, host, options.noScript);
+                assertCleanPage();
+                results.push(
+                    `${options.noScript ? "static noscript" : host.name}: author links open raw resources with URI suffixes`,
                 );
                 continue;
             }

@@ -409,6 +409,9 @@ export function postProcessMarkdownSections(
         while (tail.firstChild) document.body.append(tail.firstChild);
     }
 
+    const footnoteLabel = document.body.querySelector<HTMLElement>("[data-footnotes] > h2");
+    const notes = footnoteLabel ? orderFootnotes(document.body, footnoteLabel) : [];
+
     const headingSelector = headings.some(
         (heading) => heading.aliasId !== undefined || (heading.level !== 2 && heading.level !== 3),
     )
@@ -426,8 +429,8 @@ export function postProcessMarkdownSections(
         }
     }
 
-    const footnoteLabel = document.body.querySelector<HTMLElement>("[data-footnotes] > h2");
-    if (footnoteLabel) normalizeFootnotes(document, footnoteLabel, omitTitle ? leadingTitle : null);
+    if (footnoteLabel && notes.length)
+        normalizeFootnotes(document, footnoteLabel, notes, omitTitle ? leadingTitle : null);
 
     const headingAnchor = createMarkdownHeadingAnchor();
     const occupiedIds = new Set(
@@ -584,11 +587,20 @@ export function postProcessMarkdownSections(
         wrapper.append(label);
     }
 
-    const sanitize = (body: HTMLElement) =>
-        DOMPurify.sanitize(body.innerHTML, {
+    const sanitize = (body: HTMLElement) => {
+        DOMPurify.sanitize(body, {
             ADD_ATTR: ["encoding", "target"],
             ADD_TAGS: ["annotation", "semantics"],
+            IN_PLACE: true,
         });
+        // Core's generated heading slugs are published fragments. DOMPurify
+        // removes names such as "title" and "after" from arbitrary author HTML.
+        // Restore only surviving headings that received a slug from Core.
+        for (const [heading, { id }] of projectedHeadings) {
+            if (!heading.id && /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(id) && body.contains(heading)) heading.id = id;
+        }
+        return body.innerHTML;
+    };
     if (!separator) return [sanitize(document.body)];
 
     const tail = document.createElement("div");
@@ -603,32 +615,61 @@ interface FootnoteReference {
     originalId: string;
 }
 
-function normalizeFootnotes(document: Document, label: HTMLElement, omittedTitle: Element | null) {
-    const generated = new Set<Element>([label]);
-    const notes = new Map<string, { element: HTMLElement; id: string; references: FootnoteReference[] }>();
-    for (const note of document.body.querySelectorAll<HTMLElement>("[data-footnotes] > ol > li[id]")) {
+interface ReaderFootnote {
+    element: HTMLElement;
+    id: string;
+    references: FootnoteReference[];
+}
+
+function orderFootnotes(body: HTMLElement, label: HTMLElement): ReaderFootnote[] {
+    const definitions = new Map<string, ReaderFootnote>();
+    const list = label.parentElement?.querySelector<HTMLOListElement>(":scope > ol");
+    if (!list) return [];
+    for (const note of list.querySelectorAll<HTMLElement>(":scope > li[id]")) {
         const original = note.id;
         try {
             const normalized = markdownFootnoteLabelId(decodeURIComponent(original.slice("user-content-fn-".length)));
-            notes.set(original, { element: note, id: `user-content-fn-${normalized}`, references: [] });
-            generated.add(note);
+            definitions.set(original, { element: note, id: `user-content-fn-${normalized}`, references: [] });
         } catch {
             continue;
         }
     }
-    for (const reference of document.body.querySelectorAll<HTMLAnchorElement>("[data-user-content-fn-ref]")) {
-        const note = notes.get(reference.getAttribute("href")?.slice(1) ?? "");
-        if (!note) continue;
-        const label = note.id.slice("user-content-fn-".length).replaceAll(":", "%3A");
-        const suffix = note.references.length ? `:${String(note.references.length)}` : "";
-        note.references.push({
-            element: reference,
-            id: `user-content-fnref-${label}${suffix}`,
-            originalId: reference.id,
-        });
-        generated.add(reference);
+    const ordered = new Set<ReaderFootnote>();
+    function collect(scope: HTMLElement) {
+        for (const reference of scope.querySelectorAll<HTMLAnchorElement>("[data-user-content-fn-ref]")) {
+            if (scope === body && list?.contains(reference)) continue;
+            const note = definitions.get(reference.getAttribute("href")?.slice(1) ?? "");
+            if (!note) continue;
+            ordered.add(note);
+            const labelSlug = note.id.slice("user-content-fn-".length).replaceAll(":", "%3A");
+            const suffix = note.references.length ? `:${String(note.references.length)}` : "";
+            note.references.push({
+                element: reference,
+                id: `user-content-fnref-${labelSlug}${suffix}`,
+                originalId: reference.id,
+            });
+        }
     }
+    // Match Core's heading order: body calls first, then calls in reached notes.
+    collect(body);
+    for (const note of ordered) collect(note.element);
+    for (const note of definitions.values()) if (!ordered.has(note)) note.element.remove();
+    for (const note of ordered) list.append(note.element);
+    if (!ordered.size) label.parentElement?.remove();
+    return [...ordered];
+}
 
+function normalizeFootnotes(
+    document: Document,
+    label: HTMLElement,
+    notes: ReaderFootnote[],
+    omittedTitle: Element | null,
+) {
+    const generated = new Set<Element>([label]);
+    for (const note of notes) {
+        generated.add(note.element);
+        for (const reference of note.references) generated.add(reference.element);
+    }
     const counts = new Map<string, number>();
     const occupied = new Set<string>();
     for (const element of document.body.querySelectorAll<HTMLElement>("[id]")) {
@@ -638,7 +679,7 @@ function normalizeFootnotes(document: Document, label: HTMLElement, omittedTitle
     }
     // A colliding generated anchor must not consume another footnote's ordinary ID.
     const reserved = new Set<string>();
-    for (const note of notes.values()) {
+    for (const note of notes) {
         reserved.add(note.id);
         for (const reference of note.references) {
             reserved.add(reference.id);
@@ -657,11 +698,12 @@ function normalizeFootnotes(document: Document, label: HTMLElement, omittedTitle
     const labelId = assign(label, "footnote-label", "footnote-label-2");
     const aliases: FootnoteReference[] = [];
     let backrefIndex = 0;
-    for (const note of notes.values()) {
+    for (const [noteIndex, note] of notes.entries()) {
         const target = assign(note.element, note.id);
         const referenceIds = note.references.map((reference) => {
             reference.element.setAttribute("href", `#${encodeURIComponent(target)}`);
             reference.element.setAttribute("aria-describedby", labelId);
+            reference.element.textContent = String(noteIndex + 1);
             const id = assign(reference.element, reference.id);
             if (reference.originalId !== id) aliases.push(reference);
             return id;
@@ -669,10 +711,14 @@ function normalizeFootnotes(document: Document, label: HTMLElement, omittedTitle
         for (const [index, backref] of Array.from(
             note.element.querySelectorAll("[data-user-content-fn-backref]"),
         ).entries()) {
+            const id = referenceIds[index];
+            if (!id) {
+                backref.remove();
+                continue;
+            }
             backref.setAttribute("data-footnote-backref", "");
             backref.setAttribute("aria-label", `Back to reference ${String(++backrefIndex)}`);
-            const id = referenceIds[index];
-            if (id) backref.setAttribute("href", `#${encodeURIComponent(id)}`);
+            backref.setAttribute("href", `#${encodeURIComponent(id)}`);
         }
     }
     for (const { element, originalId } of aliases) {

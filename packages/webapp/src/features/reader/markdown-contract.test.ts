@@ -97,6 +97,60 @@ describe("Markdown reader contract", () => {
         ).not.toBeNull();
     });
 
+    it("preserves published heading IDs without restoring the same names from authored HTML", async () => {
+        const [before, after] = await renderViewSections(
+            "<!-- ordinary comment -->\n\n# Title 🌟\n\n",
+            '\n\n## After 💡\n\n<span id="title">Other element</span>',
+            [
+                { id: "title", level: 1, text: "Title 🌟", aliasId: "forma-heading-title" },
+                { id: "after", level: 2, text: "After 💡", aliasId: "forma-heading-after" },
+            ],
+        );
+        const body = new DOMParser().parseFromString(before + (after ?? ""), "text/html").body;
+        expect(body.querySelector("h1#title")?.textContent).toBe("Title 🌟");
+        expect(body.querySelector("h2#after")?.textContent).toBe("After 💡");
+        expect(body.querySelectorAll("#title")).toHaveLength(1);
+    });
+
+    it.each([true, false])("labels only reachable nested footnotes in body-call order (%s)", async (nested) => {
+        const early = nested ? "Expected first note references [^b]." : "Expected first note.";
+        const [before, after] = await renderViewSections(
+            "[^unused]: Not displayed but references [^b].\n\n    ## Unused heading\n\n" +
+                "[^a]: " +
+                early +
+                "\n\n    ## First note heading\n\nBody calls [^a].\n\n",
+            "\n\nBody calls [^b].\n\n[^b]: Expected second note.\n\n    ## Second note heading",
+            [
+                {
+                    id: "first-note-heading",
+                    level: 2,
+                    text: "First note heading",
+                    aliasId: "forma-heading-first-note-heading",
+                },
+                {
+                    id: "second-note-heading",
+                    level: 2,
+                    text: "Second note heading",
+                    aliasId: "forma-heading-second-note-heading",
+                },
+            ],
+        );
+        const body = new DOMParser().parseFromString(before + (after ?? ""), "text/html").body;
+        const notes = [...body.querySelectorAll("[data-footnotes] > ol > li")];
+        expect(notes.map((note) => note.id)).toEqual(["user-content-fn-a", "user-content-fn-b"]);
+        expect(notes[0]?.querySelector("#first-note-heading")?.textContent).toBe("First note heading");
+        expect(notes[1]?.querySelector("#second-note-heading")?.textContent).toBe("Second note heading");
+        expect([...body.querySelectorAll("sup a")].map((call) => call.textContent)).toEqual(
+            nested ? ["1", "2", "2"] : ["1", "2"],
+        );
+        const returns = [...body.querySelectorAll<HTMLAnchorElement>("[data-footnote-backref]")];
+        expect(returns.map((link) => decodeURIComponent(link.hash))).toEqual(
+            nested
+                ? ["#user-content-fnref-a", "#user-content-fnref-b", "#user-content-fnref-b:1"]
+                : ["#user-content-fnref-a", "#user-content-fnref-b"],
+        );
+    });
+
     it("shares footnote definitions and references across both sides of a View projection", async () => {
         const [before, after] = await renderViewSections(
             "# Release guide[^later]\n\n[^earlier]: Early note.\n\n    ## Inside an early note\n\n",

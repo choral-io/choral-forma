@@ -1510,7 +1510,7 @@ pub fn workspace_dashboard(
     entries.sort_by(|left, right| left.path.cmp(&right.path));
 
     let views = dashboard_view_summaries(&discovery.index.views, &workspace.model);
-    let home = workspace_home_document(root.as_ref(), &runtime)?;
+    let home = workspace_home_document(&workspace, &runtime)?;
 
     Ok(WorkspaceDashboardResult {
         schema_version: 1,
@@ -1532,9 +1532,10 @@ pub fn workspace_dashboard(
 }
 
 fn workspace_home_document(
-    root: &Path,
+    workspace: &FormaWorkspace,
     runtime: &DiscoveryRuntime,
 ) -> Result<WorkspaceHomeDocument, OperationError> {
+    let root = &workspace.root;
     let source =
         fs::read_to_string(root.join(FORMA_CONFIG_PATH)).map_err(|source| OperationError::Io {
             path: FORMA_CONFIG_PATH.to_string(),
@@ -1551,7 +1552,12 @@ fn workspace_home_document(
         // returned by `file.render --format markdown`: wikilinks and embeds
         // first become ordinary Markdown links, then the reader resolves them
         // to workspace routes.
-        markdown: markdown_with_reference_fallbacks(&document, FORMA_CONFIG_PATH, runtime),
+        markdown: markdown_with_reference_fallbacks(
+            workspace,
+            &document,
+            FORMA_CONFIG_PATH,
+            runtime,
+        ),
         headings: render_home_headings(&document),
     })
 }

@@ -319,6 +319,8 @@ function ClassificationTermLabel({ punctuation, title }: { punctuation: string; 
     const suffix = /[\p{White_Space}\p{Cf}]+$/u.exec(title);
     const text = title.slice(0, suffix?.index ?? title.length);
     const trailing = suffix?.[0].replace(/(?:(?![\u00a0\u2007\u202f])\p{White_Space}|\u200b)/gu, "") ?? "";
+    // Keep repeated no-break spaces in the label while limiting their visual gap before punctuation.
+    const repeatedSpaces = /[\u00a0\u2007\u202f].*[\u00a0\u2007\u202f]/u.test(trailing);
     const end =
         classificationGraphemes?.segment(text).containing(text.length - 1)?.index ??
         text.length - (Array.from(text).at(-1)?.length ?? 0);
@@ -328,7 +330,7 @@ function ClassificationTermLabel({ punctuation, title }: { punctuation: string; 
             {text.slice(0, end)}
             <span className="whitespace-nowrap">
                 {text.slice(end)}
-                {trailing}
+                {repeatedSpaces ? <span className="inline-block max-w-[1em] overflow-clip">{trailing}</span> : trailing}
                 <span aria-hidden="true" className="inline-block">
                     {punctuation}
                 </span>

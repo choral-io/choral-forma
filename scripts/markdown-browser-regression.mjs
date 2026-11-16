@@ -149,6 +149,7 @@ try {
         ["classification-mixed-space-layout", `${classificationLabel}\\u2028\\u00a0`],
         ["classification-mixed-bidi-layout", `${classificationLabel}\\u2028\\u200f`],
         ["classification-cjk-bidi-layout", "日常プロジェクト運営資料と構成変更の詳細\\u3000\\u200f"],
+        ["classification-figure-layout", "Lifecycle Owner" + "\\u2007".repeat(52)],
     ];
     await writeFile(
         join(workspace, ".forma/topics/index.md"),
@@ -239,11 +240,27 @@ try {
         notesTermPath,
         notesTermConfig.replace('  - "notes/**/*.md"\n', '  - "notes/**/*.md"\n  - "guides/**/*.mdx"\n'),
     );
-    await mkdir(join(workspace, "guides"));
+    await mkdir(join(workspace, "guides/nested/deeper"), { recursive: true });
     await writeFile(join(workspace, "guides/navigation-target.mdx"), "# Alternate format\n\n## 第二节\n");
     await writeFile(
+        join(workspace, "guides/nested/deeper/deep-basename.mdx"),
+        "# Deep configured target\n\n## Deep section\n",
+    );
+    await writeFile(
+        join(workspace, "guides/nested/deeper/dotted.v2.mdx"),
+        "# Dotted configured target\n\n## Dotted section\n",
+    );
+    const resourceQuery = "?name=a%20b&literal=%2520&value=a%26b&plus=a+b#part%20one";
+    await writeFile(
         configPath,
-        (await readFile(configPath, "utf8")) + "\n\n[[guides/navigation-target#第二节|Home MDX wiki]]\n",
+        [
+            await readFile(configPath, "utf8"),
+            "[[guides/navigation-target#第二节|Home MDX wiki]]",
+            "[[deep-basename#Deep section|Home deep MDX]]",
+            "[[guides/nested/deeper/dotted.v2#Dotted section|Home dotted MDX]]",
+            "[Home resource](./notes/contract-raw.txt" + resourceQuery + ")",
+            "",
+        ].join("\n\n"),
     );
     await writeFile(
         join(workspace, "notes/navigation-source.md"),
@@ -300,6 +317,9 @@ try {
             "[Navigation title link](#Workspace%20navigation)",
             "[Sidebar title link](#Workspace%20sidebar)",
             "[Related title link](#Related%20documents)",
+            "[Theme heading](#workspace-theme-menu)",
+            "[Quick open heading](#workspace-quick-open)",
+            "[Reader label heading](#reader-heading-label-1)",
             "[Related entry](./navigation-anchors.md)",
             "## Root",
             "## Entry top",
@@ -308,6 +328,9 @@ try {
             "## Workspace navigation",
             "## Workspace sidebar",
             "## Related documents",
+            "## Workspace theme menu",
+            "## Workspace quick open",
+            "## Reader heading label 1",
             "",
         ].join("\n\n"),
     );
@@ -347,6 +370,10 @@ try {
             "See a note[^body].",
             "[Heading within note](#footnote-detail)",
             "[[guides/navigation-target#第二节|View MDX wiki]]",
+            "[[deep-basename#Deep section|View deep MDX]]",
+            "[[guides/nested/deeper/dotted.v2#Dotted section|View dotted MDX]]",
+            "[[guides/navigation-target#第二节|Guide ] beta]]",
+            "[View resource](../../notes/contract-raw.txt" + resourceQuery + ")",
             "<!-- forma:content -->",
             "## Foo",
             "## Forma heading forma heading foo",
@@ -354,6 +381,39 @@ try {
             "",
         ].join("\n\n"),
     );
+    await writeFile(
+        join(workspace, ".forma/views/view-audited-headings.md"),
+        [
+            "---\ntitle: Audited heading View\n" + navigationViewConfig + "\n---",
+            "<!-- ordinary comment -->",
+            "# Title 🌟",
+            "[Jump to subtitle](#title)",
+            "Before projection <!-- forma:content --> After inline projection.",
+            "## After 💡",
+            "[Jump to second title](#after)",
+            "",
+        ].join("\n\n"),
+    );
+    for (const [id, definition] of [
+        ["nested", "[^a]: First note calls [^b].\n\n    ## Heading in first note"],
+        ["unused", "[^unused]: Unused note calls [^b].\n\n    ## Heading in unused note"],
+    ]) {
+        await writeFile(
+            join(workspace, ".forma/views/view-" + id + "-footnotes.md"),
+            [
+                "---\ntitle: Audited footnote View\n" + navigationViewConfig + "\n---",
+                "# Footnote title",
+                definition,
+                "Call first note[^a].",
+                "[First note heading](#heading-in-first-note)",
+                "<!-- forma:content -->",
+                "Call second note[^b].",
+                ...(id === "unused" ? ["[^a]: First note.\n\n    ## Heading in first note"] : []),
+                "[^b]: Second note.\n\n    ## Heading in second note",
+                "",
+            ].join("\n\n"),
+        );
+    }
     await writeFile(
         join(workspace, ".forma/views/view-navigation-comment.md"),
         [
@@ -491,6 +551,12 @@ try {
     staticServer = createServer(async (request, response) => {
         try {
             const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+            // A raw document has no HTML head, so Chromium requests its default icon at the origin.
+            if (pathname === "/favicon.ico") {
+                response.writeHead(204);
+                response.end();
+                return;
+            }
             if (!pathname.startsWith("/preview/")) throw new Error("Outside root");
             let file = resolve(site, pathname.slice("/preview/".length));
             if (file !== site && !file.startsWith(site + sep)) throw new Error("Outside site");

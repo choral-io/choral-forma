@@ -189,11 +189,25 @@ pub(crate) struct DiscoveryRuntime {
 }
 
 impl DiscoveryRuntime {
+    pub(crate) fn has_entry_route_alias(&self, path: &str) -> bool {
+        [".md", ".mdx"].into_iter().any(|extension| {
+            self.path_index
+                .all_paths
+                .contains(&format!("{path}{extension}"))
+        })
+    }
+
+    pub(crate) fn has_entries_beneath(&self, path: &str) -> bool {
+        let prefix = format!("{path}/");
+        self.path_index
+            .all_paths
+            .range(prefix.clone()..)
+            .next()
+            .is_some_and(|path| path.starts_with(&prefix))
+    }
+
     pub(crate) fn resolve_wikilink_mdx(&self, source_path: &str, target: &str) -> Option<String> {
         let target = split_reference_target(target, source_path, false);
-        if is_non_markdown_resource_target(&target.path) {
-            return None;
-        }
         match self
             .path_index
             .resolve_from(&target.path, source_path, None)
@@ -1143,10 +1157,24 @@ fn resolve_body_refs(
                 FormaReferenceSyntax::MarkdownLink | FormaReferenceSyntax::MarkdownImage
             ),
         );
-        if is_non_markdown_resource_target(&target.path) {
-            continue;
-        }
-        match path_index.resolve_from(&target.path, source_path, None) {
+        let resolved = if is_non_markdown_resource_target(&target.path) {
+            if !matches!(
+                reference.syntax,
+                FormaReferenceSyntax::Wikilink | FormaReferenceSyntax::ObsidianEmbed
+            ) {
+                continue;
+            }
+            // A dotted wiki name may still refer to a configured MDX entry.
+            match path_index.resolve_from(&target.path, source_path, None) {
+                ResolveResult::Resolved(path) if path.ends_with(".mdx") => {
+                    ResolveResult::Resolved(path)
+                }
+                _ => continue,
+            }
+        } else {
+            path_index.resolve_from(&target.path, source_path, None)
+        };
+        match resolved {
             ResolveResult::Resolved(target_path) => {
                 refs.push(IndexReference {
                     source: ReferenceSource::Body,
@@ -1394,7 +1422,11 @@ impl PathIndex {
             .get(strip_markdown_extension(&candidates[0]))
             .into_iter()
             .flatten()
-            .filter(|path| self.path_allowed(path, space))
+            .filter(|path| {
+                let basename = path.rsplit('/').next().unwrap_or(path.as_str());
+                candidates.iter().any(|candidate| candidate == basename)
+                    && self.path_allowed(path, space)
+            })
             .cloned()
             .collect::<Vec<_>>();
 
@@ -1462,12 +1494,7 @@ fn normalize_posix_path(path: &str) -> Option<String> {
 }
 
 fn basename_id(path: &str) -> String {
-    path.rsplit('/')
-        .next()
-        .unwrap_or(path)
-        .strip_suffix(".md")
-        .unwrap_or(path)
-        .to_string()
+    strip_markdown_extension(path.rsplit('/').next().unwrap_or(path)).to_string()
 }
 
 pub(crate) fn title_for_entry(
