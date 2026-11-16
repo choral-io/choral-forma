@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { restoreReaderFragment, scrollReaderAnchor } from "./reader-anchor-navigation";
+import { findFragmentTarget, restoreReaderFragment, scrollReaderAnchor } from "./reader-anchor-navigation";
 
 describe("scrollReaderAnchor", () => {
     afterEach(() => {
@@ -47,6 +47,29 @@ describe("scrollReaderAnchor", () => {
         expect(focus).toHaveBeenCalledTimes(change === "unchanged" ? 2 : 1);
         if (change === "unchanged") expect(document.activeElement).toBe(target);
         if (change === "focus moved") expect(document.activeElement).toBe(other);
+    });
+
+    it("finds a heading by the text a wiki fragment names when no id matches", () => {
+        const reader = document.createElement("main");
+        // Reader controls inside a heading do not change which heading the text names.
+        reader.innerHTML =
+            '<h2 id="lists"><span id="forma-heading-lists" data-forma-heading-anchor></span>Lists<button>#</button></h2><h2 id="next-steps-2-0">Next steps: 2.0</h2>';
+        document.body.append(reader);
+        const heading = document.getElementById("lists");
+        if (!heading) throw new Error("Missing heading");
+        const scrollIntoView = vi.fn();
+        heading.scrollIntoView = scrollIntoView;
+
+        expect(findFragmentTarget(document, "Lists")).toBe(heading);
+        expect(findFragmentTarget(reader, "LISTS")).toBe(heading);
+        expect(findFragmentTarget(document, "Next steps: 2.0")?.id).toBe("next-steps-2-0");
+        expect(findFragmentTarget(document, "forma-heading-lists")?.id).toBe("forma-heading-lists");
+        expect(findFragmentTarget(document, "Missing")).toBeNull();
+
+        window.history.replaceState(null, "", "/#Lists");
+        restoreReaderFragment(reader);
+        expect(scrollIntoView).toHaveBeenCalled();
+        expect(document.activeElement).toBe(heading);
     });
 
     it("restores a nested heading after native fragment navigation clears link focus", () => {

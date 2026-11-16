@@ -7,7 +7,7 @@ export function scrollReaderAnchor(anchor: HTMLAnchorElement) {
     const targetId = decodeFragment(anchor.hash);
     if (!targetId) return false;
 
-    const target = document.getElementById(targetId) ?? document.getElementById(anchor.hash.slice(1));
+    const target = findFragmentTarget(document, targetId, anchor.hash.slice(1));
     if (!target) return false;
     focusReaderTarget(target);
     if (!scrollReaderTarget(target)) {
@@ -44,6 +44,34 @@ function scrollReaderTarget(target: HTMLElement) {
     return true;
 }
 
+/**
+ * The element a fragment names: an element with that id, or else the heading whose text it names.
+ * A wiki link to another page keeps the heading text it was written with, such as
+ * `[[guide#Setup]]`; Core gives that heading the id it derives from the text, and resolves such
+ * a fragment to it the same way when it exports a static site.
+ */
+export function findFragmentTarget(root: Document | HTMLElement, id: string, rawId = id) {
+    for (const candidate of [id, rawId, coreHeadingId(id)]) {
+        const target =
+            root instanceof Document
+                ? root.getElementById(candidate)
+                : root.querySelector<HTMLElement>(`[id="${CSS.escape(candidate)}"]`);
+        if (target) return target;
+    }
+    return null;
+}
+
+/** Core's heading id for heading text: ASCII letters and digits, lowercased, joined by `-`. */
+function coreHeadingId(text: string) {
+    const slug = text
+        .trim()
+        .replace(/[A-Z]/gu, (letter) => letter.toLowerCase())
+        .split(/[^a-z0-9]+/u)
+        .filter((segment) => segment.length > 0)
+        .join("-");
+    return slug || "section";
+}
+
 function decodeFragment(hash: string) {
     if (!hash.startsWith("#") || hash.length === 1) return undefined;
     try {
@@ -57,7 +85,7 @@ function decodeFragment(hash: string) {
 export function restoreReaderFragment(reader: HTMLElement) {
     const id = decodeFragment(window.location.hash);
     if (!id) return;
-    const target = document.getElementById(id) ?? document.getElementById(window.location.hash.slice(1));
+    const target = document.getElementById(id) ?? findFragmentTarget(reader, id, window.location.hash.slice(1));
     if (!target || !reader.contains(target)) return;
     focusReaderTarget(target);
     if (!scrollReaderTarget(target)) target.scrollIntoView({ block: "start" });
