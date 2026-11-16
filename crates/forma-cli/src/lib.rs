@@ -2857,7 +2857,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::GET)
-                    .uri("/forma/pages/notes/getting-started")
+                    .uri("/forma/notes/getting-started")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -3090,13 +3090,15 @@ mod tests {
         )
         .unwrap();
 
-        for uri in ["/forma/raw/.FORMA/local/secret.png"] {
+        for uri in ["/forma/-/raw/.FORMA/local/secret.png"] {
             let response = app
                 .clone()
                 .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
                 .await
                 .unwrap();
             assert_eq!(response.status(), StatusCode::OK);
+            // Content paths load the reader with the same status, so the type tells them apart.
+            assert_eq!(response.headers().get("content-type").unwrap(), "image/png");
         }
 
         fs::remove_dir_all(root).unwrap();

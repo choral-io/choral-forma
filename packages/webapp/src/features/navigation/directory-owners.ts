@@ -5,7 +5,7 @@ type OwnerCandidate = Pick<DashboardEntry, "path" | "routePath" | "title">;
 
 /**
  * The documents served at a directory's route, keyed by directory path. Core serves
- * `x/index.md` at `/pages/x`, and a `x.md` beside `x/` has that route too; such a document
+ * `x/index.md` at `/x`, and a `x.md` beside `x/` has that route too; such a document
  * stands for the directory wherever the directory is shown.
  */
 export function directoryOwners<T extends OwnerCandidate>(entries: readonly T[]): Map<string, T> {

@@ -129,7 +129,7 @@ Core reports content that cannot be served as named, in workspace checks and the
 | `route.collision`            | Two sources at one route, such as `x.md` and `x/index.md`                                                | Error   | Error         |
 | `route.staticOutputConflict` | Routes an artifact cannot hold apart: case-only differences, a page named `index.html`, a root file name | Warning | Error         |
 
-A failed static build lists these diagnostics. Content is not escaped into another route to avoid a conflict, since every surface would have to share that mapping for a case that rarely occurs; renaming or excluding a source resolves it.
+A failed static build lists these diagnostics. A document inside the reserved segment cannot be opened, so the `Files` tree, Quick Open, and the recently updated list leave it out; the diagnostic is how it surfaces. Content is not escaped into another route to avoid a conflict, since every surface would have to share that mapping for a case that rarely occurs; renaming or excluding a source resolves it.
 
 Static export generates a page for each directory that no document serves, so a directory URL opened directly on a static host shows its listing before enhancement and without JavaScript, and its Home fallback also lists the root folders. Core decides which directories get pages; the WebApp, the static fallback, and Core share one route encoding.
 

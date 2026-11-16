@@ -1018,15 +1018,18 @@ mod tests {
             escape_html("<Forma & Friends>"),
             "&lt;Forma &amp; Friends&gt;"
         );
-        assert_eq!(public_href("/", "/pages"), "/pages");
+        assert_eq!(public_href("/", "/notes"), "/notes");
         assert_eq!(public_href("/preview", "/"), "/preview/");
-        assert_eq!(public_href("/preview", "/raw/a.png"), "/preview/raw/a.png");
+        assert_eq!(
+            public_href("/preview", "/-/raw/a.png"),
+            "/preview/-/raw/a.png"
+        );
         assert_eq!(
             root_embedded_url(
-                r#"<script type="module" src="./assets/app.js"></script>"#,
+                r#"<script type="module" src="./-/assets/app.js"></script>"#,
                 "/preview"
             ),
-            r#"<script type="module" src="/preview/assets/app.js"></script>"#
+            r#"<script type="module" src="/preview/-/assets/app.js"></script>"#
         );
     }
 

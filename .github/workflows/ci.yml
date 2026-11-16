@@ -69,7 +69,7 @@ jobs:
           set -euo pipefail
           site="${GITHUB_WORKSPACE}/dist/site"
           result="${RUNNER_TEMP}/site-build.json"
-          for file in index.html 404.html sitemap.xml robots.txt _headers .forma-site-artifact data/dashboard.json; do
+          for file in index.html 404.html sitemap.xml robots.txt _headers .forma-site-artifact -/data/dashboard.json; do
             test -f "${site}/${file}"
           done
           node --input-type=module - "${result}" <<'NODE'
@@ -85,7 +85,7 @@ jobs:
           if (result.counts.warnings !== 0) throw new Error(`site build emitted warnings: ${result.counts.warnings}`);
           console.log(JSON.stringify(result.counts));
           NODE
-          if find "${site}/assets" -type f \( -name '*.js' -o -name '*.mjs' \) -exec grep -F -l '/rpc' {} + | grep -q .; then
+          if find "${site}/-/assets" -type f \( -name '*.js' -o -name '*.mjs' \) -exec grep -F -l '/rpc' {} + | grep -q .; then
             echo "static runtime assets must not contain an RPC endpoint" >&2
             exit 1
           fi
@@ -428,7 +428,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in index.html 404.html sitemap.xml robots.txt _headers .forma-site-artifact .forma-source-sha data/dashboard.json; do
+          for file in index.html 404.html sitemap.xml robots.txt _headers .forma-site-artifact .forma-source-sha -/data/dashboard.json; do
             test -f "dist/site/${file}"
           done
           test "$(tr -d '\r\n' < dist/site/.forma-source-sha)" = "${GITHUB_SHA}"
