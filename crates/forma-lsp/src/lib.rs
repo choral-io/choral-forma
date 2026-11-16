@@ -1139,7 +1139,7 @@ impl Server {
         }
         let relative = target.strip_prefix(&self.root).ok()?;
         let url = Url::from_file_path(self.editor_root.join(relative)).ok()?;
-        Uri::from_str(url.as_str()).ok()
+        lsp_uri(url.as_str())
     }
 
     fn editor_reference_uri(
@@ -1167,9 +1167,9 @@ impl Server {
         if let Some(location) = target.fragment_location {
             url.set_fragment(Some(&format!("L{}:{}", location.line, location.column)));
         } else if self.client_profile.uses_zed_file_urls() {
-            return Ok(Uri::from_str(&format!("zed://file{}", url.path())).ok());
+            return Ok(lsp_uri(&format!("zed://file{}", url.path())));
         }
-        Ok(Uri::from_str(url.as_str()).ok())
+        Ok(lsp_uri(url.as_str()))
     }
 
     fn source_for_path(&self, path: &str) -> Result<String, LspError> {
@@ -1207,9 +1207,26 @@ impl Server {
         let path = self.editor_root.join(path);
         let url = Url::from_file_path(&path)
             .map_err(|_| LspError::InvalidFileUri(path.display().to_string()))?;
-        Uri::from_str(url.as_str())
-            .map_err(|_| LspError::InvalidFileUri(path.display().to_string()))
+        lsp_uri(url.as_str()).ok_or_else(|| LspError::InvalidFileUri(path.display().to_string()))
     }
+}
+
+/// A URL as an LSP URI. `Url` leaves a few file name characters, such as `|` and `^`, as they
+/// are, but RFC 3986 does not allow them in a path, so they are percent-encoded when the URL
+/// does not parse as written. The file it names stays the same.
+fn lsp_uri(url: &str) -> Option<Uri> {
+    if let Ok(uri) = Uri::from_str(url) {
+        return Some(uri);
+    }
+    let mut encoded = String::with_capacity(url.len());
+    for character in url.chars() {
+        if matches!(character, '|' | '^' | '[' | ']' | '\\' | '`' | '{' | '}') {
+            encoded.push_str(&format!("%{:02X}", u32::from(character)));
+        } else {
+            encoded.push(character);
+        }
+    }
+    Uri::from_str(&encoded).ok()
 }
 
 fn absolute_path(path: &Path) -> Result<PathBuf, std::io::Error> {
@@ -3800,6 +3817,29 @@ mod tests {
                 fs::copy(source_path, target_path).unwrap();
             }
         }
+    }
+
+    #[test]
+    fn file_names_outside_the_uri_path_grammar_still_get_a_uri() {
+        for name in [
+            "pipe|name.md",
+            "caret^name.md",
+            "bracket[1].md",
+            "brace{a}.md",
+        ] {
+            let path = std::env::temp_dir().join("forma-lsp-uri").join(name);
+            let url = url::Url::from_file_path(&path).unwrap();
+            let uri = super::lsp_uri(url.as_str()).unwrap_or_else(|| panic!("no URI for {name}"));
+            let decoded = url::Url::parse(uri.as_str())
+                .unwrap()
+                .to_file_path()
+                .unwrap();
+            assert_eq!(decoded, path, "{name}");
+        }
+        // The plain conversion is what fails for these names.
+        assert!("file:///notes/pipe|name.md".parse::<Uri>().is_err());
+        let zed = super::lsp_uri("zed://file/notes/pipe|name.md").unwrap();
+        assert_eq!(zed.as_str(), "zed://file/notes/pipe%7Cname.md");
     }
 
     fn file_uri(path: PathBuf) -> Uri {
