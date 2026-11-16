@@ -1,4 +1,5 @@
 import { formatRelativeDateTime } from "@/lib/date-time";
+import { encodeRouteSegment } from "@/lib/workspace-routes";
 import type { CalendarProjection, GanttProjection } from "@choral-forma/shared";
 
 import { stringifyStaticFieldValue } from "./static-field-value";
@@ -262,7 +263,8 @@ export class StaticWorkspaceClient implements WorkspaceClient {
     }
 
     private async readJson<T>(relativePath: string): Promise<T> {
-        const path = `${this.dataBaseUrl.replace(/\/$/, "")}/${relativePath}`;
+        const encodedPath = relativePath.split("/").map(encodeRouteSegment).join("/");
+        const path = `${this.dataBaseUrl.replace(/\/$/, "")}/${encodedPath}`;
         let response: Response;
         try {
             response = await fetch(path);

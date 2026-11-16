@@ -44,6 +44,41 @@ describe("static Markdown root paths", () => {
         expect(html).toContain('src="/preview/-/raw/notes/relative.png"');
     });
 
+    it.each(["/", "/preview"])("preserves published routes that also name source files under %s", (rootPath) => {
+        setStaticRuntimeConfig({
+            baseUrl: "https://example.test",
+            dataBaseUrl: `${rootPath === "/" ? "" : rootPath}/-/data`,
+            rootPath,
+        });
+        const root = rootPath === "/" ? "" : rootPath;
+        const entries = [
+            { path: "notes/target.md", routePath: "/notes/target" },
+            { path: "notes/target.md.md", routePath: "/notes/target.md" },
+        ];
+        const html = postProcessMarkdownHtml(
+            [
+                `<a href="${root}/notes/target.md">Published</a>`,
+                `<a href="${root}/notes/target.md#details">Fragment</a>`,
+                `<a href="${root}/notes/target.md?mode=reader#details">Query</a>`,
+                '<a href="./target.md">Source</a>',
+                '<a href="./missing.md">Unresolved</a>',
+            ].join(""),
+            [],
+            "notes/links.md",
+            entries as DashboardEntry[],
+            false,
+        );
+        const document = new DOMParser().parseFromString(html, "text/html");
+
+        expect(Array.from(document.querySelectorAll("a"), (anchor) => anchor.getAttribute("href"))).toEqual([
+            `${root}/notes/target.md`,
+            `${root}/notes/target.md#details`,
+            `${root}/notes/target.md?mode=reader#details`,
+            `${root}/notes/target`,
+            "./missing.md",
+        ]);
+    });
+
     it("keeps a homepage entry fragment on the displayed homepage route", () => {
         setStaticRuntimeConfig({
             baseUrl: "https://example.test",

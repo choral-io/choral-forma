@@ -39,6 +39,19 @@ describe("resolveReaderLink", () => {
         });
     });
 
+    it("resolves workspace source paths even when a different entry has the same public route", () => {
+        expect(
+            resolveReaderLink("/notes/target.md#details", "notes/links.md", [
+                { path: "notes/target.md", routePath: "/notes/target" },
+                { path: "notes/target.md.md", routePath: "/notes/target.md" },
+            ]),
+        ).toEqual({
+            href: "/notes/target#details",
+            kind: "internal",
+            opensInNewTab: false,
+        });
+    });
+
     it("marks HTTP links as external links that open in a new tab", () => {
         expect(resolveReaderLink("https://example.com/docs", currentPath, entries)).toEqual({
             href: "https://example.com/docs",

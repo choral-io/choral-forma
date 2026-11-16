@@ -1117,10 +1117,17 @@ fn resolve_body_refs(
             });
             continue;
         }
-        if is_non_markdown_resource_target(&reference.target) {
+        let target = split_reference_target(
+            &reference.target,
+            source_path,
+            matches!(
+                reference.syntax,
+                FormaReferenceSyntax::MarkdownLink | FormaReferenceSyntax::MarkdownImage
+            ),
+        );
+        if is_non_markdown_resource_target(&target.path) {
             continue;
         }
-        let target = split_reference_target(&reference.target, source_path);
         match path_index.resolve_from(&target.path, source_path, None) {
             ResolveResult::Resolved(target_path) => {
                 refs.push(IndexReference {
@@ -1227,11 +1234,22 @@ struct SplitReferenceTarget {
     fragment_kind: Option<ReferenceFragmentKind>,
 }
 
-fn split_reference_target(raw_target: &str, source_path: &str) -> SplitReferenceTarget {
+fn split_reference_target(
+    raw_target: &str,
+    source_path: &str,
+    markdown_uri: bool,
+) -> SplitReferenceTarget {
     let trimmed = raw_target.trim();
     let (raw_path, raw_fragment) = trimmed.split_once('#').unwrap_or((trimmed, ""));
+    let raw_path = if markdown_uri {
+        raw_path.split_once('?').map_or(raw_path, |(path, _)| path)
+    } else {
+        raw_path
+    };
     let path = if raw_path.is_empty() {
         source_path.to_string()
+    } else if markdown_uri {
+        crate::routes::decode_public_path_once(raw_path)
     } else {
         raw_path.to_string()
     };
@@ -1308,20 +1326,16 @@ impl PathIndex {
         self.resolve_candidates(candidate_paths(raw_target), space)
     }
 
-    fn resolve_from(
-        &self,
-        raw_target: &str,
-        source_path: &str,
-        space: Option<&str>,
-    ) -> ResolveResult {
-        let target = strip_reference_markup(raw_target);
-        if let Some(relative) = relative_reference_path(&target, source_path) {
+    fn resolve_from(&self, target: &str, source_path: &str, space: Option<&str>) -> ResolveResult {
+        // Body references have already been parsed; decoded filename characters
+        // must not be interpreted as wiki markup a second time.
+        if let Some(relative) = relative_reference_path(target, source_path) {
             let result = self.resolve_candidates(candidate_paths(&relative), space);
             if !matches!(result, ResolveResult::Unresolved) {
                 return result;
             }
         }
-        self.resolve_candidates(candidate_paths(&target), space)
+        self.resolve_candidates(candidate_paths(target), space)
     }
 
     fn resolve_candidates(&self, candidates: Vec<String>, space: Option<&str>) -> ResolveResult {
@@ -1557,21 +1571,6 @@ fn string_sequence(value: &Value, field: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn strip_reference_markup(value: &str) -> String {
-    let mut value = value.trim();
-    if let Some(stripped) = value.strip_prefix("![[") {
-        value = stripped.strip_suffix("]]").unwrap_or(stripped);
-    } else if let Some(stripped) = value.strip_prefix("[[") {
-        value = stripped.strip_suffix("]]").unwrap_or(stripped);
-    }
-    value
-        .split_once('|')
-        .map(|(target, _)| target)
-        .unwrap_or(value)
-        .trim()
-        .to_string()
-}
-
 fn non_empty_string(value: Option<String>) -> Option<String> {
     value.filter(|value| !value.trim().is_empty())
 }
@@ -1580,12 +1579,7 @@ fn is_external_target(target: &str) -> bool {
     target.starts_with("http://") || target.starts_with("https://") || target.starts_with("mailto:")
 }
 
-fn is_non_markdown_resource_target(target: &str) -> bool {
-    let path = target
-        .trim()
-        .split_once('#')
-        .map(|(path, _)| path)
-        .unwrap_or(target);
+fn is_non_markdown_resource_target(path: &str) -> bool {
     Path::new(path)
         .extension()
         .and_then(|extension| extension.to_str())

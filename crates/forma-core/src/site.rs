@@ -947,7 +947,7 @@ fn static_markdown(
         .filter_map(|reference| {
             let href = static_reference_href(
                 root,
-                &reference.target,
+                reference,
                 source_path,
                 entry_routes_by_path,
                 entry_headings_by_path,
@@ -1009,14 +1009,14 @@ fn static_markdown(
 
 fn static_reference_href(
     root: &Path,
-    raw_target: &str,
+    reference: &crate::markdown::FormaReference,
     source_path: &str,
     entry_routes_by_path: &BTreeMap<String, String>,
     entry_headings_by_path: &BTreeMap<String, Vec<RenderedHeading>>,
     config_paths: &BTreeSet<&str>,
     root_path: &str,
 ) -> Option<String> {
-    let target = raw_target.trim();
+    let target = reference.target.trim();
     if target.is_empty()
         || target
             .chars()
@@ -1035,7 +1035,16 @@ fn static_reference_href(
     let (path, query) = without_fragment
         .split_once('?')
         .map_or((without_fragment, ""), |(path, query)| (path, query));
-    let normalized = normalized_static_target(source_path, path)?;
+    let path = if matches!(
+        reference.syntax,
+        crate::markdown::FormaReferenceSyntax::MarkdownLink
+            | crate::markdown::FormaReferenceSyntax::MarkdownImage
+    ) {
+        crate::routes::decode_public_path_once(path)
+    } else {
+        path.to_string()
+    };
+    let normalized = normalized_static_target(source_path, &path)?;
 
     let resolved_entry = entry_routes_by_path.get_key_value(&normalized).or_else(|| {
         let workspace_style_target = path.trim_start_matches('/');
@@ -1348,7 +1357,7 @@ fn collect_document_resources(
         ) {
             continue;
         }
-        let Some(path) = normalized_resource_path(source_path, &reference.target) else {
+        let Some(path) = normalized_resource_path(source_path, reference) else {
             continue;
         };
         let Some(candidate) =
@@ -1360,7 +1369,7 @@ fn collect_document_resources(
         // resources. Entry aliases must not leave phantom files in the export.
         let href = static_reference_href(
             root,
-            &reference.target,
+            reference,
             source_path,
             entry_routes_by_path,
             &BTreeMap::new(),
@@ -1386,8 +1395,11 @@ fn collect_document_resources(
     }
 }
 
-fn normalized_resource_path(source_path: &str, target: &str) -> Option<String> {
-    let target = target.trim();
+fn normalized_resource_path(
+    source_path: &str,
+    reference: &crate::markdown::FormaReference,
+) -> Option<String> {
+    let target = reference.target.trim();
     if target.is_empty()
         || target.starts_with('~')
         || target.starts_with('#')
@@ -1398,7 +1410,16 @@ fn normalized_resource_path(source_path: &str, target: &str) -> Option<String> {
     }
     let end = target.find(['?', '#']).unwrap_or(target.len());
     let target = &target[..end];
-    let normalized = normalized_static_target(source_path, target)?;
+    let target = if matches!(
+        reference.syntax,
+        crate::markdown::FormaReferenceSyntax::MarkdownLink
+            | crate::markdown::FormaReferenceSyntax::MarkdownImage
+    ) {
+        crate::routes::decode_public_path_once(target)
+    } else {
+        target.to_string()
+    };
+    let normalized = normalized_static_target(source_path, &target)?;
     WorkspacePath::parse_config(&normalized)
         .ok()
         .map(|path| path.as_str().to_string())
@@ -1962,9 +1983,11 @@ mod tests {
                 ("./config.txt", false),
                 ("./missing.txt", true),
             ] {
+                let document =
+                    crate::markdown::FormaMarkdownDocument::parse(&format!("[link]({target})"));
                 let href = super::static_reference_href(
                     &root,
-                    target,
+                    &document.references[0],
                     "content/guides/intro.md",
                     &routes,
                     &BTreeMap::new(),
@@ -2335,6 +2358,130 @@ mod tests {
                     && diagnostic.severity == DiagnosticSeverity::Error
                     && diagnostic.path.as_deref() == Some(path)
             }));
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_decodes_markdown_uri_paths_once_without_changing_wikilinks() {
+        let root = copy_fixture("site-snapshot-encoded-links");
+        let targets = [
+            "a b.md",
+            "a%20b.md",
+            "hash#.md",
+            "query?.md",
+            "pipe|name.md",
+        ];
+        for target in targets {
+            fs::write(
+                root.join("content/guides").join(target),
+                "# Target\n\n[Self](#target)\n[Query self](?download=1#target)\n",
+            )
+            .unwrap();
+        }
+        fs::write(root.join("assets/image space.svg"), "<svg/>").unwrap();
+        let source = "# Source\n\n[Space](./a%20b%2Emd)\n[Percent](./a%2520b.md)\n[Hash](./hash%23.md)\n[Query](./query%3F.md)\n[[a%20b.md|Literal wiki]]\n[Pipe](./pipe%7Cname.md)\n![Image](../../assets/image%20space.svg)\n";
+        fs::write(root.join("content/guides/intro.md"), source).unwrap();
+        let check = check_workspace(&root);
+        assert!(
+            !check
+                .diagnostics
+                .iter()
+                .any(|d| d.code == "entryRef.unresolved"
+                    && d.path.as_deref() == Some("content/guides/intro.md")),
+            "{:?}",
+            check.diagnostics
+        );
+        let workspace = WorkspaceSnapshot::load(&root).unwrap();
+        let indexed = workspace
+            .discovery()
+            .index
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/intro.md")
+            .unwrap();
+        assert_eq!(indexed.refs.len(), 6);
+        for target in targets {
+            let path = format!("content/guides/{target}");
+            let entry = workspace
+                .discovery()
+                .index
+                .entries
+                .iter()
+                .find(|entry| entry.path == path)
+                .unwrap();
+            assert_eq!(entry.refs[0].target_path, path);
+            assert_eq!(entry.refs[1].target_path, path);
+        }
+        let analysis = workspace.analyze_document("content/guides/intro.md", source);
+        for (reference, expected) in analysis.references.iter().take(5).zip([
+            "a b.md",
+            "a%20b.md",
+            "hash#.md",
+            "query?.md",
+            "a%20b.md",
+        ]) {
+            let resolved = workspace
+                .resolve_document_reference("content/guides/intro.md", reference)
+                .unwrap();
+            assert_eq!(
+                resolved.target.unwrap().path,
+                format!("content/guides/{expected}")
+            );
+        }
+        let snapshot = build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
+        let intro = snapshot
+            .entries
+            .iter()
+            .find(|e| e.path == "content/guides/intro.md")
+            .unwrap();
+        for expected in [
+            "[Space](/preview/content/guides/a%20b)",
+            "[Percent](/preview/content/guides/a%2520b)",
+            "[Hash](/preview/content/guides/hash%23)",
+            "[Query](/preview/content/guides/query%3F)",
+            "[Literal wiki](</preview/content/guides/a%2520b>)",
+            "[Pipe](/preview/content/guides/pipe%7Cname)",
+            "![Image](/preview/-/raw/assets/image%20space.svg)",
+        ] {
+            assert!(intro.markdown.contains(expected), "{}", intro.markdown);
+        }
+        assert!(
+            snapshot
+                .resources
+                .iter()
+                .any(|r| r.path == "assets/image space.svg")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_reports_view_routes_with_invalid_segments() {
+        let root = copy_fixture("site-snapshot-invalid-view-segments");
+        for name in ["..md", "...md"] {
+            fs::write(
+                root.join(".forma/views").join(name),
+                "---\nkind: view\nmode: list\nsource:\n  type: pages\n---\n",
+            )
+            .unwrap();
+        }
+        let check = check_workspace(&root);
+        let snapshot = build_static_site_snapshot(&root).unwrap();
+        assert_eq!(check.status, OperationStatus::Failed);
+        assert_eq!(snapshot.status, OperationStatus::Failed);
+        for name in ["..md", "...md"] {
+            let path = format!(".forma/views/{name}");
+            assert!(
+                check.diagnostics.iter().any(|diagnostic| diagnostic.code
+                    == crate::routes::ROUTE_INVALID_SEGMENT_CODE
+                    && diagnostic.path.as_deref() == Some(&path)),
+                "{name}: {:?}",
+                check.diagnostics
+            );
+            let route = crate::routes::view_route_path(name.strip_suffix(".md").unwrap());
+            assert!(snapshot.diagnostics.iter().any(|diagnostic| diagnostic.code
+                == crate::routes::ROUTE_INVALID_SEGMENT_CODE
+                && diagnostic.route_path.as_deref() == Some(&route)));
         }
         fs::remove_dir_all(root).unwrap();
     }

@@ -1,6 +1,7 @@
 import { ArrowRight, FileText, Layers3 } from "lucide-react";
-import { Link, useParams } from "react-router";
+import { Link, useLocation } from "react-router";
 
+import { canonicalRoutePath } from "@/data/static-route-target";
 import type { DashboardTaxonomy, DashboardTaxonomyTerm, WorkspaceDashboard } from "@/data/workspace-client";
 import { EmptyPage, EmptyState, RouteBodySection } from "@/features/workspace/RouteContent";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
@@ -27,8 +28,9 @@ export function TaxonomiesRoute() {
 
 export function TaxonomyRoute() {
     const dashboard = useWorkspaceDashboard();
-    const { taxonomyId } = useParams();
-    const taxonomy = dashboard.taxonomies.find((item) => item.id === taxonomyId);
+    const { pathname } = useLocation();
+    const routePath = canonicalRoutePath(pathname);
+    const taxonomy = dashboard.taxonomies.find((item) => taxonomyRoutePath(item.id) === routePath);
 
     if (!taxonomy) {
         return (
@@ -52,9 +54,11 @@ export function TaxonomyRoute() {
 
 export function TaxonomyTermRoute() {
     const dashboard = useWorkspaceDashboard();
-    const { taxonomyId, termId } = useParams();
-    const taxonomy = dashboard.taxonomies.find((item) => item.id === taxonomyId);
-    const term = taxonomy?.terms.find((item) => item.id === termId);
+    const { pathname } = useLocation();
+    const routePath = canonicalRoutePath(pathname);
+    // Router params collapse a literal `%2F` into `/`; compare encoded paths instead.
+    const taxonomy = dashboard.taxonomies.find((item) => routePath.startsWith(`${taxonomyRoutePath(item.id)}/`));
+    const term = taxonomy?.terms.find((item) => taxonomyTermRoutePath(taxonomy.id, item.id) === routePath);
 
     if (!taxonomy || !term) {
         return (

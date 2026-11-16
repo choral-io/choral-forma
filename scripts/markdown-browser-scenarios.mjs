@@ -424,61 +424,102 @@ export async function markdownBrowserScenarios(page, options) {
         await current.waitForURL(`${host.origin}${host.root}/`);
     };
     const canonicalTerm = async (current, host) => {
-        const path = `${host.root}/-/browse/spaces/wow%21`;
-        const canonical = `${host.origin}${path}`;
-        const sitemap = await current.request.get(`${host.origin}${host.root}/sitemap.xml`);
-        assert(
-            sitemap.ok() && (await sitemap.text()).includes(`<loc>${canonical}</loc>`),
-            "static: canonical term URL",
-        );
-        const response = await current.goto(canonical);
-        assert(response?.ok(), "static: direct canonical term response");
-        const enhanced = current.locator("[data-enhancement-ready]");
-        await enhanced
-            .locator("main")
-            .getByRole("heading", { level: 1, name: "Punctuation term", exact: true })
-            .waitFor();
-        const currentTerm = enhanced.locator('aside a[aria-current="page"]', { hasText: "Punctuation term" });
-        assert((await currentTerm.getAttribute("href")) === path, "static: encoded term sidebar selection");
-        assert(
-            (await current.locator('link[rel="canonical"]').getAttribute("href")) === canonical,
-            "static: canonical term URL after enhancement",
-        );
-    };
-    const canonicalView = async (current, host) => {
-        const path = `${host.root}/-/views/wow%21`;
-        const canonical = `${host.origin}${path}`;
-        const sitemap = await current.request.get(`${host.origin}${host.root}/sitemap.xml`);
-        assert(
-            sitemap.ok() && (await sitemap.text()).includes(`<loc>${canonical}</loc>`),
-            "static: canonical View URL",
-        );
-        for (const url of [canonical, `${host.origin}${host.root}/-/views/wow!`]) {
-            const response = await current.goto(url);
-            assert(response?.ok(), "static: direct View response");
+        for (const [encoded, title] of [
+            ["wow%21", "Punctuation term"],
+            ["literal%252F", "Literal slash term"],
+        ]) {
+            const path = `${host.root}/-/browse/spaces/${encoded}`;
+            const canonical = `${host.origin}${path}`;
+            const sitemap = await current.request.get(`${host.origin}${host.root}/sitemap.xml`);
+            assert(
+                sitemap.ok() && (await sitemap.text()).includes(`<loc>${canonical}</loc>`),
+                "static: canonical term URL",
+            );
+            const response = await current.goto(canonical);
+            assert(response?.ok(), "static: direct canonical term response");
             const enhanced = current.locator("[data-enhancement-ready]");
-            await enhanced
-                .locator("main")
-                .getByRole("heading", { level: 1, name: "Punctuation View", exact: true })
-                .waitFor();
-            assert((await current.locator("[data-static-fallback]").count()) === 0, "static: View fallback remains");
-            const selected = enhanced.locator('aside a[aria-current="page"]', { hasText: "Punctuation View" });
-            assert((await selected.getAttribute("href")) === path, "static: View sidebar selection");
+            await enhanced.locator("main").getByRole("heading", { level: 1, name: title, exact: true }).waitFor();
+            const selected = enhanced.locator('aside a[aria-current="page"]', { hasText: title });
+            assert((await selected.getAttribute("href")) === path, "static: encoded term sidebar selection");
             assert(
                 (await current.locator('link[rel="canonical"]').getAttribute("href")) === canonical,
-                "static: View canonical metadata",
+                "static: canonical term URL after enhancement",
             );
-            await enhanced
-                .locator("main table")
-                .getByRole("link", { name: "Open source entry Selected node", exact: true })
-                .click();
-            await current.waitForURL(
-                (destination) => destination.pathname.replace(/\/$/u, "") === `${host.root}/graph/selected`,
+        }
+    };
+    const canonicalView = async (current, host) => {
+        for (const [encoded, title] of [
+            ["wow%21", "Punctuation View"],
+            ["hash%23", "Hash View"],
+            ["query%3F", "Query View"],
+            ["literal%252F", "Literal slash View"],
+            ["literal%2525", "Literal percent View"],
+        ]) {
+            const path = `${host.root}/-/views/${encoded}`;
+            const canonical = `${host.origin}${path}`;
+            const sitemap = await current.request.get(`${host.origin}${host.root}/sitemap.xml`);
+            assert(
+                sitemap.ok() && (await sitemap.text()).includes(`<loc>${canonical}</loc>`),
+                "static: canonical View URL",
             );
-            await current
-                .locator("[data-enhancement-ready] main")
-                .getByRole("heading", { level: 1, name: "Selected node", exact: true })
-                .waitFor();
+            const urls = encoded === "wow%21" ? [canonical, `${host.origin}${host.root}/-/views/wow!`] : [canonical];
+            for (const url of urls) {
+                const response = await current.goto(url);
+                assert(response?.ok(), "static: direct View response");
+                const enhanced = current.locator("[data-enhancement-ready]");
+                await enhanced.locator("main").getByRole("heading", { level: 1, name: title, exact: true }).waitFor();
+                assert(
+                    (await current.locator("[data-static-fallback]").count()) === 0,
+                    "static: View fallback remains",
+                );
+                const selected = enhanced.locator('aside a[aria-current="page"]', { hasText: title });
+                assert((await selected.getAttribute("href")) === path, "static: View sidebar selection");
+                assert(
+                    (await current.locator('link[rel="canonical"]').getAttribute("href")) === canonical,
+                    "static: View canonical metadata",
+                );
+                await enhanced
+                    .locator("main table")
+                    .getByRole("link", { name: "Open source entry Selected node", exact: true })
+                    .click();
+                await current.waitForURL(
+                    (destination) => destination.pathname.replace(/\/$/u, "") === `${host.root}/graph/selected`,
+                );
+                await current
+                    .locator("[data-enhancement-ready] main")
+                    .getByRole("heading", { level: 1, name: "Selected node", exact: true })
+                    .waitFor();
+                // A different View cannot reuse the startup projection prepared for this URL.
+                const nextTitle = title === "Hash View" ? "Query View" : "Hash View";
+                await current
+                    .locator("[data-enhancement-ready] aside")
+                    .getByRole("link", { name: nextTitle, exact: true })
+                    .click();
+                await current
+                    .locator("[data-enhancement-ready] main")
+                    .getByRole("heading", { level: 1, name: nextTitle, exact: true })
+                    .waitFor();
+                await current
+                    .locator("[data-enhancement-ready] main table")
+                    .getByRole("link", { name: "Open source entry Selected node", exact: true })
+                    .waitFor();
+            }
+        }
+    };
+    const routeLinks = async (current, host, noScript = false) => {
+        for (const [label, path, title] of [
+            ["Encoded space", "/notes/route%20space", "Encoded space target"],
+            ["Literal escape", "/notes/literal%2520", "Literal escape target"],
+            ["Double extension", "/notes/target.md", "Double extension"],
+        ]) {
+            await current.goto(`${host.origin}${host.root}/notes/route-links/`);
+            const main = current.locator(noScript ? "main" : "[data-enhancement-ready] main");
+            const link = main.getByRole("link", { name: label, exact: true });
+            await link.waitFor();
+            assert((await link.getAttribute("href")) === `${host.root}${path}`, "static: resolved source link URL");
+            await link.click();
+            await current.waitForURL((url) => url.pathname.replace(/\/$/u, "") === `${host.root}${path}`);
+            await main.getByRole("heading", { level: 1, name: title, exact: true }).waitFor();
         }
     };
     const calloutSourceCases = async (current, host, noScript = false) => {
@@ -976,6 +1017,8 @@ export async function markdownBrowserScenarios(page, options) {
                 results.push("static: encoded canonical term URL enhances on direct load");
                 await canonicalView(current, host);
                 results.push("static: encoded canonical View URL enhances and navigates on direct load");
+                await routeLinks(current, host);
+                results.push("static: encoded source links and public routes retain their targets");
             }
             sourceCases.reading = await readingSyntax(current, host);
             results.push(`${host.name}: P1 syntax ${sourceCases.reading.length} cases, combined reading and themes`);
@@ -1117,6 +1160,8 @@ export async function markdownBrowserScenarios(page, options) {
         results.push("static noscript: directory landing document links to children");
         await staticSystemRoutes(current, host, true);
         results.push("static noscript: direct Health and reserved segment routes");
+        await routeLinks(current, host, true);
+        results.push("static noscript: encoded source links and public routes retain their targets");
     } catch (error) {
         await failure(current, "noscript", error);
     } finally {

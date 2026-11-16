@@ -16,6 +16,7 @@ export function resolveReaderLink(
     currentPath: string,
     entries: ReaderLinkEntry[],
     currentRoutePath?: string,
+    linkSource: "workspace" | "published" = "workspace",
 ): ResolvedReaderLink {
     if (href.startsWith("#")) {
         const currentEntry = entries.find((entry) => entry.path === currentPath);
@@ -45,6 +46,12 @@ export function resolveReaderLink(
             kind: "external",
             opensInNewTab: false,
         };
+    }
+
+    // Static Markdown already contains Core's public routes. A route can also be a
+    // different entry's source path (target.md.md -> /target.md), so do not resolve it again.
+    if (linkSource === "published" && href.startsWith("/")) {
+        return { href, kind: "internal", opensInNewTab: false };
     }
 
     const targetPath = normalizeWorkspaceHref(href, currentPath, entries);

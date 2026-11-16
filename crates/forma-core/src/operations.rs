@@ -2212,6 +2212,7 @@ impl WorkspaceSnapshot {
             explicit_fragment,
             None,
             true,
+            false,
         )
     }
 
@@ -2228,6 +2229,11 @@ impl WorkspaceSnapshot {
             reference.fragment.clone(),
             reference.target_space.as_deref(),
             false,
+            matches!(
+                reference.syntax,
+                crate::document::DocumentReferenceSyntax::MarkdownLink
+                    | crate::document::DocumentReferenceSyntax::MarkdownImage
+            ),
         )
     }
 }
@@ -2466,6 +2472,7 @@ impl WorkspaceSession {
                         ReferenceIntent::Link,
                         None,
                         None,
+                        false,
                         false,
                     )?
                     .target
@@ -2842,6 +2849,7 @@ pub fn resolve_reference(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn resolve_reference_in_snapshot(
     snapshot: &WorkspaceSnapshot,
     source_path: &str,
@@ -2850,6 +2858,7 @@ fn resolve_reference_in_snapshot(
     explicit_fragment: Option<String>,
     target_space: Option<&str>,
     require_source_entry: bool,
+    markdown_uri: bool,
 ) -> Result<ReferenceResolveResult, OperationError> {
     let source_path = normalize_entry_path(source_path)?;
     let source_entry = snapshot
@@ -2863,6 +2872,14 @@ fn resolve_reference_in_snapshot(
     }
 
     let (target_text, inline_fragment) = split_resolve_target(raw_target);
+    let target_text = if markdown_uri {
+        let path = target_text
+            .split_once('?')
+            .map_or(target_text.as_str(), |(path, _)| path);
+        crate::routes::decode_public_path_once(path)
+    } else {
+        target_text
+    };
     let fragment = explicit_fragment.or(inline_fragment);
     let fragment_kind = fragment.as_deref().map(|value| {
         if value.starts_with('^') {

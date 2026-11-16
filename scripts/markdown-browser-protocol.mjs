@@ -38,6 +38,7 @@ export function markdownBrowserPhases(hosts, sourceIds) {
                   "static: direct Health and reserved segment routes",
                   "static: encoded canonical term URL enhances on direct load",
                   "static: encoded canonical View URL enhances and navigates on direct load",
+                  "static: encoded source links and public routes retain their targets",
               ]
             : []),
         `${host.name}: P1 syntax ${readingCount} cases, combined reading and themes`,
@@ -70,6 +71,7 @@ export function markdownBrowserPhases(hosts, sourceIds) {
             "static noscript: directory page listing",
             "static noscript: directory landing document links to children",
             "static noscript: direct Health and reserved segment routes",
+            "static noscript: encoded source links and public routes retain their targets",
         ],
     });
     const disclosures = ["webapp", "static", "noscript"].map((name) => ({

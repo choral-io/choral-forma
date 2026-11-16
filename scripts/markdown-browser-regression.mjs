@@ -140,6 +140,33 @@ try {
         join(workspace, ".forma/views/wow!.md"),
         "---\nschemaVersion: 1\nkind: view\ntitle: Punctuation View\nmode: table\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n      link:\n        target: entry\n---\n",
     );
+    for (const [id, title] of [
+        ["hash#", "Hash View"],
+        ["query?", "Query View"],
+        ["literal%2F", "Literal slash View"],
+        ["literal%25", "Literal percent View"],
+    ]) {
+        await writeFile(
+            join(workspace, `.forma/views/${id}.md`),
+            `---\nschemaVersion: 1\nkind: view\ntitle: ${title}\nmode: table\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n      link:\n        target: entry\n---\n`,
+        );
+    }
+    await writeFile(
+        join(workspace, ".forma/spaces/literal-percent.md"),
+        "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\nid: literal%2F\ntitle: Literal slash term\n---\n",
+    );
+    for (const [name, title] of [
+        ["route space", "Encoded space target"],
+        ["literal%20", "Literal escape target"],
+        ["target", "Single extension"],
+        ["target.md", "Double extension"],
+    ]) {
+        await writeFile(join(workspace, `notes/${name}.md`), `---\ntitle: ${title}\n---\n\n# ${title}\n`);
+    }
+    await writeFile(
+        join(workspace, "notes/route-links.md"),
+        "# Route links\n\n[Encoded space](./route%20space.md)\n\n[Literal escape](./literal%2520.md)\n\n[Double extension](./target.md.md)\n",
+    );
     await writeFile(join(workspace, "preview/index.md"), "# Folder landing\n");
     await writeFile(
         join(workspace, "preview/same.md"),

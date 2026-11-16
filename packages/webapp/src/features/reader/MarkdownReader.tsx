@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
-import { isStaticRawHref, logicalHref, rootAwareHref } from "@/data/static-runtime";
+import { isStaticRawHref, logicalHref, readStaticRuntimeConfig, rootAwareHref } from "@/data/static-runtime";
 import type { DashboardEntry } from "@/data/workspace-client";
 import type { MermaidRenderScope } from "@/lib/mermaid";
 import { restoreReaderFragment, scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
@@ -429,13 +429,14 @@ export function postProcessMarkdownHtml(
         } else title.remove();
     }
 
+    const linkSource = readStaticRuntimeConfig() ? "published" : "workspace";
     for (const anchor of document.body.querySelectorAll<HTMLAnchorElement>("a[href]")) {
         const href = anchor.getAttribute("href");
         if (!href) {
             continue;
         }
 
-        const resolvedLink = resolveReaderLink(logicalHref(href), currentPath, entries, currentRoutePath);
+        const resolvedLink = resolveReaderLink(logicalHref(href), currentPath, entries, currentRoutePath, linkSource);
         anchor.classList.add("link");
         anchor.dataset.linkKind = resolvedLink.kind;
         anchor.setAttribute("href", rootAwareHref(resolvedLink.href));

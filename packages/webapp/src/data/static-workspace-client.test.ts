@@ -184,6 +184,29 @@ describe("StaticWorkspaceClient", () => {
         expect(fetch).toHaveBeenCalledWith("/preview/data/views/notes.json");
     });
 
+    it.each([
+        ["hash#", "hash%23"],
+        ["query?", "query%3F"],
+        ["literal%2F", "literal%252F"],
+        ["literal%25", "literal%2525"],
+        ["folder/a b!'()*", "folder/a%20b%21%27%28%29%2A"],
+    ])("loads the exact static View artifact for %s", async (id, encoded) => {
+        const view = { ...dashboard.views[0], id };
+        const fetch = vi.fn((path: string) => {
+            if (path === "/preview/-/data/dashboard.json") return json({ ...dashboard, views: [view] });
+            if (path === `/preview/-/data/views/${encoded}.json`) {
+                return json({ ...view, document: { bodySource: "" }, projection: { kind: "list", items: [] } });
+            }
+            return new Response(null, { status: 404 });
+        });
+        vi.stubGlobal("fetch", fetch);
+        const client = new StaticWorkspaceClient("/preview/-/data");
+        await expect(client.getViewRender(id, await contextFor(client))).resolves.toMatchObject({
+            projection: { kind: "list", items: [] },
+        });
+        expect(fetch).toHaveBeenCalledWith(`/preview/-/data/views/${encoded}.json`);
+    });
+
     it("reports missing artifact data without an RPC fallback", async () => {
         vi.stubGlobal(
             "fetch",

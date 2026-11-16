@@ -170,7 +170,7 @@ pub(crate) fn public_view_id(view: &IndexView) -> String {
 
 /// Diagnostic code for a document whose route lands in the reserved `-` segment.
 pub const ROUTE_RESERVED_CODE: &str = "route.reserved";
-/// Diagnostic code for a document route segment or taxonomy or term id that cannot be a URL segment.
+/// Diagnostic code for a document route segment or View, taxonomy, or term id that cannot be a URL segment.
 pub const ROUTE_INVALID_SEGMENT_CODE: &str = "route.invalidSegment";
 /// Diagnostic code for two sources served at the same route.
 pub const ROUTE_COLLISION_CODE: &str = "route.collision";
@@ -270,8 +270,13 @@ pub(crate) fn route_diagnostics(
     }
 
     for view in views {
+        let id = public_view_id(view);
+        if invalid_route_segment(&id) {
+            diagnostics.push(invalid_segment_diagnostic("View", &id).with_path(view.path.clone()));
+            continue;
+        }
         routes.push(RouteSource {
-            path: view_route_path(&public_view_id(view)),
+            path: view_route_path(&id),
             source: Some(view.path.clone()),
             label: format!("view {}", view.path),
         });
@@ -579,6 +584,23 @@ mod tests {
         );
         assert_eq!(diagnostics[0].actual.as_deref(), Some("id `.`"));
         assert_eq!(diagnostics[1].actual.as_deref(), Some("id `areas/..`"));
+    }
+
+    #[test]
+    fn reports_invalid_view_segments_with_source_paths() {
+        let paths = [
+            ".forma/views/.md",
+            ".forma/views/..md",
+            ".forma/views/...md",
+        ];
+        let diagnostics = diagnose(&[], &paths, &[]);
+        for path in paths {
+            assert!(
+                diagnostics.iter().any(
+                    |d| d.code == ROUTE_INVALID_SEGMENT_CODE && d.path.as_deref() == Some(path)
+                )
+            );
+        }
     }
 
     #[test]

@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router";
+import { useLocation } from "react-router";
 
 import { readPreparedStaticEnhancement } from "@/data/static-enhancement";
+import { canonicalRoutePath } from "@/data/static-route-target";
 import type { DashboardViewProjection, DashboardViewRender, WorkspaceDashboard } from "@/data/workspace-client";
 import { createWorkspaceDashboardContext } from "@/data/workspace-client";
 import { workspaceClient } from "@/data/workspace-client-source";
@@ -9,7 +10,7 @@ import { EmptyPage } from "@/features/workspace/RouteContent";
 import { SourcePath } from "@/features/workspace/SourcePath";
 import { useWorkspaceDashboard } from "@/features/workspace/use-workspace-dashboard";
 import { WorkspaceRouteFrame } from "@/features/workspace/WorkspaceRouteFrame";
-import { viewsRoutePath } from "@/lib/workspace-routes";
+import { viewRoutePath, viewsRoutePath } from "@/lib/workspace-routes";
 
 import { ProjectionLoadingState, ViewProjectionRenderer } from "./ViewProjectionRenderer";
 
@@ -23,9 +24,10 @@ const viewsBreadcrumb = [{ label: "Views", to: viewsRoutePath }];
 export function ViewRoute() {
     const dashboard = useWorkspaceDashboard();
     const dashboardContext = useMemo(() => createWorkspaceDashboardContext(dashboard), [dashboard]);
-    const params = useParams();
-    const viewId = params["*"]?.replace(/\/+$/u, "");
-    const view = dashboard.views.find((item) => item.id === viewId);
+    const { pathname } = useLocation();
+    const routePath = canonicalRoutePath(pathname);
+    const view = dashboard.views.find((item) => viewRoutePath(item.id) === routePath);
+    const viewId = view?.id;
     const [renderRequestVersion, setRenderRequestVersion] = useState(0);
     const preparedView = readPreparedStaticEnhancement()?.view;
     const [renderState, setRenderState] = useState<
