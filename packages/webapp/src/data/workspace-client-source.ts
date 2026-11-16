@@ -1,5 +1,7 @@
+import { rpcEndpointPath } from "@/lib/workspace-routes";
+
 import { RpcWorkspaceClient } from "./rpc-workspace-client";
-import { readStaticRuntimeConfig } from "./static-runtime";
+import { readStaticRuntimeConfig, rootAwareHref } from "./static-runtime";
 import { StaticWorkspaceClient } from "./static-workspace-client";
 import type { WorkspaceClient } from "./workspace-client";
 
@@ -22,4 +24,4 @@ export const isStaticWorkspaceClient = __FORMA_WORKSPACE_CLIENT__ === "static";
 
 export const workspaceClient: WorkspaceClient = isStaticWorkspaceClient
     ? new StaticWorkspaceClient(readStaticDataBaseUrl())
-    : new RpcWorkspaceClient(rpcEndpoint);
+    : new RpcWorkspaceClient(rpcEndpoint ?? rootAwareHref(rpcEndpointPath));

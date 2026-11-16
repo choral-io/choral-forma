@@ -38,8 +38,20 @@ export function readStaticRuntimeConfig() {
     return readStaticRuntimeConfigDocument();
 }
 
+/**
+ * The deployment root the app is served under, such as `/forma`, or `/` at the origin root. A
+ * static artifact states it in its runtime configuration; `forma serve --root-path` states it in
+ * the `<base href>` it injects into the app's index. Every app-relative href is resolved below it.
+ */
 export function staticRouterBasename() {
-    return readStaticRuntimeConfig()?.rootPath ?? "/";
+    return readStaticRuntimeConfig()?.rootPath ?? readBaseElementRootPath() ?? "/";
+}
+
+function readBaseElementRootPath() {
+    if (typeof document === "undefined") return undefined;
+    const href = document.querySelector("base[href]")?.getAttribute("href");
+    if (!href?.startsWith("/") || href.startsWith("//")) return undefined;
+    return trimRoutePathname(href);
 }
 
 /** Convert an app-relative href to a public href under the deployment root. */

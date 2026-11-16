@@ -49,6 +49,23 @@ describe("static runtime URL helpers", () => {
         expect(isStaticRawHref("/preview/-/raw/notes/image.png")).toBe(true);
     });
 
+    it("takes the root path from the base href a local server injects", () => {
+        const base = document.createElement("base");
+        base.setAttribute("href", "/forma/");
+        document.head.append(base);
+        try {
+            expect(staticRouterBasename()).toBe("/forma");
+            expect(rootAwareHref("/-/rpc")).toBe("/forma/-/rpc");
+            expect(logicalPathname("/forma/notes/one/")).toBe("/notes/one");
+            base.setAttribute("href", "/");
+            expect(staticRouterBasename()).toBe("/");
+            expect(rootAwareHref("/-/rpc")).toBe("/-/rpc");
+        } finally {
+            base.remove();
+        }
+        expect(staticRouterBasename()).toBe("/");
+    });
+
     it("does not rewrite external, protocol, fragment, or rootless targets", () => {
         setStaticRuntimeConfig({
             baseUrl: "https://example.test",
