@@ -135,6 +135,7 @@ try {
     );
     await mkdir(join(workspace, ".forma/topics"));
     const classificationLabel = "Deployment and workspace configuration documentation";
+    const longClassificationLabel = "Deployment ConfigurationManagementDocumentationProductionRelease";
     const classificationEntries = [
         ["classification-layout", `${classificationLabel}-`],
         ["classification-space-layout", `${classificationLabel} `],
@@ -143,6 +144,11 @@ try {
         ["classification-paragraph-layout", `${classificationLabel}\\u2029`],
         ["classification-long-layout", "ProductionConfigurationDeploymentManagementDocumentation"],
         ["classification-comma-layout", "Primary"],
+        ["classification-long-mark-layout", longClassificationLabel],
+        ["classification-long-comma-layout", "Primary"],
+        ["classification-mixed-space-layout", `${classificationLabel}\\u2028\\u00a0`],
+        ["classification-mixed-bidi-layout", `${classificationLabel}\\u2028\\u200f`],
+        ["classification-cjk-bidi-layout", "日常プロジェクト運営資料と構成変更の詳細\\u3000\\u200f"],
     ];
     await writeFile(
         join(workspace, ".forma/topics/index.md"),
@@ -152,10 +158,16 @@ try {
         join(workspace, ".forma/topics/reference.md"),
         `---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Reference\ninclude: [${classificationEntries.map(([name]) => `${name}.md`).join(", ")}]\n---\n`,
     );
-    await writeFile(
-        join(workspace, ".forma/topics/classification-comma.md"),
-        `---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: "${classificationLabel} "\ndisplay:\n  order: 1\ninclude: [classification-comma-layout.md]\n---\n`,
-    );
+    for (const [name, title, document] of [
+        ["classification-comma", `${classificationLabel} `, "classification-comma-layout"],
+        ["classification-long-comma", longClassificationLabel, "classification-long-comma-layout"],
+        ["classification-bidi-comma", `${classificationLabel}\\u2028\\u200f`, "classification-mixed-space-layout"],
+    ]) {
+        await writeFile(
+            join(workspace, `.forma/topics/${name}.md`),
+            `---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: "${title}"\ndisplay:\n  order: 1\ninclude: [${document}.md]\n---\n`,
+        );
+    }
     await mkdir(join(workspace, "graph"));
     await mkdir(join(workspace, "preview"));
     await writeFile(
@@ -230,6 +242,10 @@ try {
     await mkdir(join(workspace, "guides"));
     await writeFile(join(workspace, "guides/navigation-target.mdx"), "# Alternate format\n\n## 第二节\n");
     await writeFile(
+        configPath,
+        (await readFile(configPath, "utf8")) + "\n\n[[guides/navigation-target#第二节|Home MDX wiki]]\n",
+    );
+    await writeFile(
         join(workspace, "notes/navigation-source.md"),
         [
             "# Navigation source",
@@ -275,7 +291,37 @@ try {
     );
     await writeFile(
         join(workspace, "notes/shell-heading-links.md"),
-        "# Shell heading links\n\n[Root title link](#Root)\n\n[Entry top title link](#Entry%20top)\n\n## Root\n\n## Entry top\n",
+        [
+            "# Shell heading links",
+            "[Root title link](#Root)",
+            "[Entry top title link](#Entry%20top)",
+            "[Config title link](#Forma%20static%20workspace)",
+            "[Main title link](#Main%20content)",
+            "[Navigation title link](#Workspace%20navigation)",
+            "[Sidebar title link](#Workspace%20sidebar)",
+            "[Related title link](#Related%20documents)",
+            "[Related entry](./navigation-anchors.md)",
+            "## Root",
+            "## Entry top",
+            "## Forma static workspace",
+            "## Main content",
+            "## Workspace navigation",
+            "## Workspace sidebar",
+            "## Related documents",
+            "",
+        ].join("\n\n"),
+    );
+    await writeFile(
+        join(workspace, "notes/footnote-heading-links.md"),
+        [
+            "# Footnote heading links",
+            "[Authored heading](#user-content-fn-note)",
+            "## User content fn note",
+            "## User content fnref note",
+            "Real note[^note].",
+            "[^note]: Note body.",
+            "",
+        ].join("\n\n"),
     );
     await writeFile(
         join(workspace, ".forma/views/view-heading-intro.md"),
@@ -288,6 +334,35 @@ try {
             "[Deploy](#deploy)",
             "<!-- forma:content -->",
             "## Deploy",
+            "",
+        ].join("\n\n"),
+    );
+    const navigationViewConfig =
+        "schemaVersion: 1\nkind: view\nmode: list\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]";
+    await writeFile(
+        join(workspace, ".forma/views/view-navigation-split.md"),
+        [
+            "---\ntitle: Split navigation View\n" + navigationViewConfig + "\n---",
+            "# Forma heading foo",
+            "See a note[^body].",
+            "[Heading within note](#footnote-detail)",
+            "[[guides/navigation-target#第二节|View MDX wiki]]",
+            "<!-- forma:content -->",
+            "## Foo",
+            "## Forma heading forma heading foo",
+            "[^body]: Note intro.\n\n    ## Footnote detail",
+            "",
+        ].join("\n\n"),
+    );
+    await writeFile(
+        join(workspace, ".forma/views/view-navigation-comment.md"),
+        [
+            "---\ntitle: Comment navigation View\n" + navigationViewConfig + "\n---",
+            "<!-- ordinary comment -->",
+            "# 中文副标题",
+            "[Legacy title id](#section)",
+            "<!-- forma:content -->",
+            "## Setup",
             "",
         ].join("\n\n"),
     );

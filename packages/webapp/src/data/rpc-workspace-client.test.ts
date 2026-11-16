@@ -66,6 +66,7 @@ describe("RpcWorkspaceClient View rendering", () => {
                 afterProjection: "\n\nAfter projection.\n",
                 beforeProjection:
                     "\n# Release Scope\n\nRelease records and the validation material linked from them.\n\n",
+                hasProjectionMount: true,
                 path: ".forma/views/release-scope.md",
             },
             projection: {

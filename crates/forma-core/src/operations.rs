@@ -26,7 +26,7 @@ use crate::document::{
     analyze_document_references_from_document, frontmatter_reference_completion_context,
 };
 use crate::index::{
-    Discovery, IndexEntry, IndexReference, ReferenceIntent, ReferenceSource,
+    Discovery, DiscoveryRuntime, IndexEntry, IndexReference, ReferenceIntent, ReferenceSource,
     config_error_diagnostic, discover_loaded_workspace, discover_loaded_workspace_with_runtime,
     resolve_space_entry_path, title_for_entry,
 };
@@ -682,8 +682,7 @@ pub struct WorkspaceSnapshot {
     configuration_paths: BTreeSet<String>,
     control_paths: BTreeSet<String>,
     view_paths: BTreeSet<String>,
-    references_by_target: BTreeMap<String, Vec<ReferenceOccurrence>>,
-    fragment_projections: BTreeMap<String, MarkdownFragmentProjection>,
+    runtime: DiscoveryRuntime,
 }
 
 #[derive(Debug, Clone)]
@@ -1447,7 +1446,7 @@ pub fn workspace_dashboard(
     root: impl AsRef<Path>,
 ) -> Result<WorkspaceDashboardResult, OperationError> {
     let workspace = load_workspace(root.as_ref())?;
-    let discovery = discover_loaded_workspace(&workspace);
+    let (discovery, runtime) = discover_loaded_workspace_with_runtime(&workspace);
     let mut diagnostics = read_operation_diagnostics(discovery.diagnostics);
     diagnostics.sort_by_key(|diagnostic| {
         (
@@ -1511,7 +1510,7 @@ pub fn workspace_dashboard(
     entries.sort_by(|left, right| left.path.cmp(&right.path));
 
     let views = dashboard_view_summaries(&discovery.index.views, &workspace.model);
-    let home = workspace_home_document(root.as_ref())?;
+    let home = workspace_home_document(root.as_ref(), &runtime)?;
 
     Ok(WorkspaceDashboardResult {
         schema_version: 1,
@@ -1532,7 +1531,10 @@ pub fn workspace_dashboard(
     })
 }
 
-fn workspace_home_document(root: &Path) -> Result<WorkspaceHomeDocument, OperationError> {
+fn workspace_home_document(
+    root: &Path,
+    runtime: &DiscoveryRuntime,
+) -> Result<WorkspaceHomeDocument, OperationError> {
     let source =
         fs::read_to_string(root.join(FORMA_CONFIG_PATH)).map_err(|source| OperationError::Io {
             path: FORMA_CONFIG_PATH.to_string(),
@@ -1549,7 +1551,7 @@ fn workspace_home_document(root: &Path) -> Result<WorkspaceHomeDocument, Operati
         // returned by `file.render --format markdown`: wikilinks and embeds
         // first become ordinary Markdown links, then the reader resolves them
         // to workspace routes.
-        markdown: markdown_with_reference_fallbacks(&document),
+        markdown: markdown_with_reference_fallbacks(&document, FORMA_CONFIG_PATH, runtime),
         headings: render_home_headings(&document),
     })
 }
@@ -2134,8 +2136,7 @@ impl WorkspaceSnapshot {
             configuration_paths,
             control_paths,
             view_paths,
-            references_by_target: runtime.references_by_target,
-            fragment_projections: runtime.fragment_projections,
+            runtime,
         })
     }
 
@@ -2149,6 +2150,10 @@ impl WorkspaceSnapshot {
 
     pub fn discovery(&self) -> &Discovery {
         &self.discovery
+    }
+
+    pub(crate) fn runtime(&self) -> &DiscoveryRuntime {
+        &self.runtime
     }
 
     pub fn document_kind(&self, source_path: &str) -> Result<ManagedDocumentKind, OperationError> {
@@ -2511,7 +2516,12 @@ impl WorkspaceSession {
                     .open_documents
                     .get(&target_path)
                     .map(|document| &document.fragments)
-                    .or_else(|| self.snapshot.fragment_projections.get(&target_path));
+                    .or_else(|| {
+                        self.snapshot
+                            .runtime()
+                            .fragment_projections
+                            .get(&target_path)
+                    });
                 DocumentCompletion {
                     replace_span,
                     candidates: target_document.map_or_else(Vec::new, |document| {
@@ -2545,6 +2555,7 @@ impl WorkspaceSession {
         let open_paths = self.open_documents.keys().cloned().collect::<BTreeSet<_>>();
         let mut occurrences = self
             .snapshot
+            .runtime()
             .references_by_target
             .get(&target_path)
             .into_iter()

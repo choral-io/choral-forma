@@ -106,6 +106,7 @@ export function markdownBrowserPhases(hosts, sourceIds) {
                     ? []
                     : [`${host.name}: narrow classifications keep punctuation with the term and fit the reader`]),
                 `${noScript ? "static noscript" : host.name}: published anchors and authored heading links reach their targets`,
+                `${noScript ? "static noscript" : host.name}: View projection and footnotes retain their fragment targets`,
             ],
         };
     });

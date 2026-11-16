@@ -503,8 +503,13 @@ fn build_static_site_snapshot_from_loaded(
         let id = public_view_id(view);
         let route_path = view_route_path(&id);
         view_source_routes.insert(view.path.clone(), route_path.clone());
-        let rendered =
-            render_indexed_view_from_loaded(workspace, discovery, &view.id, BTreeMap::new())?;
+        let rendered = render_indexed_view_from_loaded(
+            workspace,
+            discovery,
+            source.runtime(),
+            &view.id,
+            BTreeMap::new(),
+        )?;
         let view_document = read_document(workspace.root.as_path(), &view.path)?;
         entry_headings_by_path.insert(
             view.path.clone(),
@@ -1440,6 +1445,7 @@ fn render_static_markdown_html(
         .filter(|(index, heading)| !(omit_leading_title && *index == 0 && heading.level == 1))
         .map(|(_, heading)| heading)
         .collect::<Vec<_>>();
+    html = avoid_footnote_heading_collisions(html, &rendered_headings);
     let mut output = String::with_capacity(html.len() + headings.len() * 24);
     let mut cursor = 0;
     let mut heading_index = 0;
@@ -1492,6 +1498,72 @@ fn render_static_markdown_html(
             );
     }
     output
+}
+
+fn avoid_footnote_heading_collisions(mut html: String, headings: &[&RenderedHeading]) -> String {
+    let mut assigned = BTreeSet::new();
+    let mut remapped = BTreeMap::new();
+    for heading in headings {
+        let id = heading.id.as_str();
+        if !id.starts_with("user-content-fn") || !has_static_anchor(&html, id) {
+            continue;
+        }
+        let legacy_alias =
+            format!("<span id=\"{id}\" tabindex=\"-1\" aria-label=\"Footnote reference\"></span>");
+        if html.contains(&legacy_alias) {
+            html = html.replace(&legacy_alias, "");
+            continue;
+        }
+        let mut target = format!("{id}-");
+        while has_static_anchor(&html, &target)
+            || headings.iter().any(|heading| heading.id == target)
+            || assigned.contains(&target)
+        {
+            target.push('-');
+        }
+        assigned.insert(target.clone());
+        remapped.insert(id, target);
+    }
+    if remapped.is_empty() {
+        return html;
+    }
+
+    // Only retarget the parser-generated footnote links. An authored link to
+    // the original ID still points at the heading that owns it.
+    let mut output = String::with_capacity(html.len());
+    for part in html.split_inclusive('>') {
+        let Some((text, tag)) = part.rsplit_once('<') else {
+            output.push_str(part);
+            continue;
+        };
+        output.push_str(text);
+        output.push('<');
+        let reference = tag.starts_with("a ") && tag.contains(" data-footnote-ref=");
+        let backref = tag.starts_with("a ") && tag.contains(" data-footnote-backref=");
+        let note = tag.starts_with("li id=\"user-content-fn-");
+        if !(reference || backref || note) {
+            output.push_str(tag);
+            continue;
+        }
+        let mut tag = tag.to_string();
+        if reference || note {
+            rewrite_footnote_attribute(&mut tag, " id=\"", &remapped);
+        }
+        if reference || backref {
+            rewrite_footnote_attribute(&mut tag, " href=\"#", &remapped);
+        }
+        output.push_str(&tag);
+    }
+    output
+}
+
+fn rewrite_footnote_attribute(tag: &mut String, prefix: &str, remapped: &BTreeMap<&str, String>) {
+    if let Some(start) = tag.find(prefix).map(|index| index + prefix.len())
+        && let Some(end) = tag[start..].find('"').map(|index| start + index)
+        && let Some(target) = remapped.get(&tag[start..end])
+    {
+        tag.replace_range(start..end, target);
+    }
 }
 
 fn collect_document_resources(
@@ -3192,5 +3264,58 @@ mod tests {
         assert!(html.contains("id=\"user-content-fnref-n\""));
         assert!(html.contains("href=\"#user-content-fnref-n\""));
         assert!(html.contains("<h2 id=\"body\">"));
+    }
+
+    #[test]
+    fn authored_headings_keep_ids_when_generated_footnotes_collide() {
+        let source = "\
+## User content fn note
+
+## User content fnref note
+
+## User content fnref note 2
+
+Text[^note] and again[^note]. Another note[^note-].
+
+[Authored heading](#user-content-fn-note)
+
+[^note]: Note body.
+[^note-]: Another note.
+";
+        let document = crate::markdown::parse_markdown(source);
+        let html = super::render_static_markdown_html(
+            source,
+            &crate::render::render_all_headings(&document, false),
+            false,
+        );
+        for id in [
+            "user-content-fn-note",
+            "user-content-fnref-note",
+            "user-content-fnref-note-2",
+            "user-content-fn-note-",
+            "user-content-fnref-note-",
+        ] {
+            assert_eq!(html.matches(&format!("id=\"{id}\"")).count(), 1, "{html}");
+        }
+        assert!(
+            html.contains("<li id=\"user-content-fn-note--\">"),
+            "{html}"
+        );
+        assert!(
+            html.contains("href=\"#user-content-fn-note--\" id=\"user-content-fnref-note--\" data-footnote-ref"),
+            "{html}"
+        );
+        assert!(
+            html.contains("href=\"#user-content-fnref-note--\" data-footnote-backref"),
+            "{html}"
+        );
+        assert!(
+            html.contains("href=\"#user-content-fnref-note:1\" data-footnote-backref"),
+            "{html}"
+        );
+        assert!(
+            html.contains("href=\"#user-content-fn-note\">Authored heading</a>"),
+            "{html}"
+        );
     }
 }

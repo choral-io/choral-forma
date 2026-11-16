@@ -131,6 +131,7 @@ describe("StaticWorkspaceClient", () => {
         expect(result.document).toEqual({
             beforeProjection,
             afterProjection,
+            hasProjectionMount: true,
             headings,
             path: "config/notes.md",
         });

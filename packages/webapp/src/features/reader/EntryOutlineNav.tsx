@@ -18,6 +18,7 @@ interface OutlineProps {
 interface OutlineFooterProps extends Omit<OutlineProps, "activeHeadingId"> {
     /** Present when the document has a related-documents section to jump to. */
     backlinkCount?: number;
+    relatedId: string;
     showBackToTop: boolean;
     topId: string;
 }
@@ -26,6 +27,7 @@ export function EntryOutlineSection({
     activeHeadingId,
     backlinkCount,
     onNavigate,
+    relatedId,
     routePath,
     showBackToTop,
     topId,
@@ -45,6 +47,7 @@ export function EntryOutlineSection({
             <OutlineFooterNav
                 backlinkCount={backlinkCount}
                 onNavigate={onNavigate}
+                relatedId={relatedId}
                 routePath={routePath}
                 showBackToTop={showBackToTop}
                 topId={topId}
@@ -98,7 +101,14 @@ export function OutlineNav({
     );
 }
 
-export function OutlineFooterNav({ backlinkCount, onNavigate, routePath, showBackToTop, topId }: OutlineFooterProps) {
+export function OutlineFooterNav({
+    backlinkCount,
+    onNavigate,
+    relatedId,
+    routePath,
+    showBackToTop,
+    topId,
+}: OutlineFooterProps) {
     if (backlinkCount === undefined && !showBackToTop) return null;
 
     return (
@@ -106,7 +116,7 @@ export function OutlineFooterNav({ backlinkCount, onNavigate, routePath, showBac
             <ul className="menu w-full flex-nowrap p-0 [&_li]:flex-nowrap">
                 {backlinkCount === undefined ? null : (
                     <li>
-                        <a href={rootAwareHref(`${routePath}#${relatedDocumentsId}`)} onClick={onNavigate}>
+                        <a href={rootAwareHref(`${routePath}#${relatedId}`)} onClick={onNavigate}>
                             <span className="min-w-0 flex-1 truncate">Related documents</span>
                             {/* A document with only outgoing references still has a section here, but no count to show. */}
                             {backlinkCount > 0 ? (

@@ -13,8 +13,8 @@ use crate::config::{
 };
 use crate::diagnostics::{Diagnostic, DiagnosticLocation, DiagnosticSummary, OperationStatus};
 use crate::index::{
-    Discovery, IndexEntry, IndexReference, IndexView, ReferenceIntent, ReferenceSource,
-    discover_loaded_workspace, discover_loaded_workspace_with_runtime,
+    Discovery, DiscoveryRuntime, IndexEntry, IndexReference, IndexView, ReferenceIntent,
+    ReferenceSource, discover_loaded_workspace_with_runtime, is_external_target,
 };
 use crate::markdown::{
     FormaHeading, FormaMarkdownDocument, FormaReferenceIntent, FormaReferenceSyntax,
@@ -785,33 +785,21 @@ pub fn render_file(
             source,
         })?;
     let document = FormaMarkdownDocument::parse(&source);
-    let body_offset = source.len() - document.body.len();
-    let mdx_destinations = runtime
-        .references_by_target
-        .iter()
-        .filter(|(target, _)| target.ends_with(".mdx"))
-        .flat_map(|(_, occurrences)| occurrences)
-        .filter_map(|reference| {
-            (reference.source_path == path
-                && matches!(
-                    reference.syntax,
-                    crate::document::DocumentReferenceSyntax::Wikilink
-                        | crate::document::DocumentReferenceSyntax::ObsidianEmbed
-                ))
-            .then(|| {
-                reference
-                    .span
-                    .start_byte
-                    .checked_sub(body_offset)
-                    .map(|offset| (offset, reference.target_path.as_str()))
-            })
-            .flatten()
-        })
-        .collect::<BTreeMap<_, _>>();
-    let markdown = lower_wikilinks(&document, &mdx_destinations, format == "html");
+    let markdown = markdown_with_reference_fallbacks(&document, &path, &runtime);
     let (markdown, html) = if format == "markdown" {
         (Some(markdown), None)
     } else {
+        let markdown = if document.references.iter().any(|reference| {
+            matches!(
+                reference.syntax,
+                FormaReferenceSyntax::Wikilink | FormaReferenceSyntax::ObsidianEmbed
+            ) && reference.target.trim().starts_with('#')
+        }) {
+            let headings = HtmlWikilinkHeadings::new(&markdown);
+            lower_wikilinks(&document, &path, &runtime, Some(&headings))
+        } else {
+            markdown
+        };
         (None, Some(render_markdown_source_html(&markdown)))
     };
     let mut diagnostics = diagnostics_for_workspace_path(discovery.diagnostics, &path);
@@ -902,19 +890,26 @@ pub fn render_view(
     params: BTreeMap<String, Value>,
 ) -> Result<ViewRenderResult, OperationError> {
     let workspace = load_workspace(root.as_ref())?;
-    let discovery = discover_loaded_workspace(&workspace);
-    render_view_from_loaded(&workspace, &discovery, view, params, true)
+    let (discovery, runtime) = discover_loaded_workspace_with_runtime(&workspace);
+    render_view_from_loaded(&workspace, &discovery, &runtime, view, params, true)
 }
 
 pub fn render_all_views(root: impl AsRef<Path>) -> Result<ViewRenderAllResult, OperationError> {
     let workspace = load_workspace(root.as_ref())?;
-    let discovery = discover_loaded_workspace(&workspace);
+    let (discovery, runtime) = discover_loaded_workspace_with_runtime(&workspace);
     let views = discovery
         .index
         .views
         .iter()
         .map(|view| {
-            render_view_from_loaded(&workspace, &discovery, &view.id, BTreeMap::new(), false)
+            render_view_from_loaded(
+                &workspace,
+                &discovery,
+                &runtime,
+                &view.id,
+                BTreeMap::new(),
+                false,
+            )
         })
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -941,15 +936,17 @@ pub fn render_all_views(root: impl AsRef<Path>) -> Result<ViewRenderAllResult, O
 pub(crate) fn render_indexed_view_from_loaded(
     workspace: &FormaWorkspace,
     discovery: &Discovery,
+    runtime: &DiscoveryRuntime,
     view: &str,
     params: BTreeMap<String, Value>,
 ) -> Result<ViewRenderResult, OperationError> {
-    render_view_from_loaded(workspace, discovery, view, params, false)
+    render_view_from_loaded(workspace, discovery, runtime, view, params, false)
 }
 
 fn render_view_from_loaded(
     workspace: &FormaWorkspace,
     discovery: &Discovery,
+    runtime: &DiscoveryRuntime,
     view: &str,
     params: BTreeMap<String, Value>,
     allow_unindexed: bool,
@@ -990,7 +987,11 @@ fn render_view_from_loaded(
         .map_or(0, |prefix| {
             prefix.bytes().filter(|byte| *byte == b'\n').count()
         });
-    let view_document = view_render_document(&document.body, body_line_offset);
+    let view_document = view_render_document(
+        &document.body,
+        markdown_with_reference_fallbacks(&document, &view_path, runtime),
+        body_line_offset,
+    );
     let has_legacy_mount = document.references.iter().any(|reference| {
         reference.intent == FormaReferenceIntent::View && reference.target.is_empty()
     });
@@ -1078,13 +1079,26 @@ fn render_view_from_loaded(
     })
 }
 
-fn view_render_document(body_source: &str, body_line_offset: usize) -> ViewRenderDocument {
+fn view_render_document(
+    source_body: &str,
+    body_source: String,
+    body_line_offset: usize,
+) -> ViewRenderDocument {
     const MARKER: &str = "<!-- forma:content -->";
+    // Preserve mount diagnostics even for occurrence(s) inside a wiki label or
+    // target. Ordinary standalone mounts always survive wikilink lowering.
+    let body_source = if body_source.matches(MARKER).count() == source_body.matches(MARKER).count()
+    {
+        body_source
+    } else {
+        source_body.to_string()
+    };
     let mounts = body_source
         .match_indices(MARKER)
-        .map(|(start_byte, marker)| {
-            let prefix = &body_source[..start_byte];
-            let start_offset = prefix.encode_utf16().count();
+        .zip(source_body.match_indices(MARKER))
+        .map(|((start_byte, marker), (source_start, _))| {
+            let start_offset = body_source[..start_byte].encode_utf16().count();
+            let prefix = &source_body[..source_start];
             let line = body_line_offset + prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
             let column = prefix
                 .rsplit_once('\n')
@@ -1103,9 +1117,9 @@ fn view_render_document(body_source: &str, body_line_offset: usize) -> ViewRende
         })
         .collect();
     ViewRenderDocument {
-        body_source: body_source.to_string(),
+        body_source,
         mounts,
-        headings: view_document_headings(body_source, body_source.find(MARKER)),
+        headings: view_document_headings(source_body, source_body.find(MARKER)),
     }
 }
 
@@ -1113,7 +1127,8 @@ fn view_document_headings(
     body_source: &str,
     mount_byte: Option<usize>,
 ) -> Option<ViewDocumentHeadings> {
-    let visible = rendered_markdown_headings(body_source);
+    let (visible, body_len) =
+        crate::markdown::rendered_markdown_headings_with_body_len(body_source);
     if visible.is_empty() {
         return None;
     }
@@ -1134,8 +1149,7 @@ fn view_document_headings(
     {
         // The leading title is represented by its alias when omitted. Its
         // legacy ID only occupies a slot if the title itself stays visible.
-        let before_mount = mount_byte.map_or(body_source, |mount| &body_source[..mount]);
-        if render_markdown_source_html(before_mount)
+        if render_markdown_source_html(body_source)
             .strip_prefix("<h1>")
             .and_then(|html| html.split_once("</h1>"))
             .is_some_and(|(title, _)| !title.contains("data-footnote-ref="))
@@ -1145,9 +1159,13 @@ fn view_document_headings(
     }
     let mut before_projection = Vec::new();
     let mut after_projection = Vec::new();
-    for ((source, heading), alias) in visible.into_iter().zip(headings).zip(aliases) {
+    for (index, ((source, heading), alias)) in
+        visible.into_iter().zip(headings).zip(aliases).enumerate()
+    {
         let alias_id = (!reserved.contains(&alias)).then_some(alias);
         let section = match (mount_byte, source.span) {
+            // Definitions can be authored on either side, but footnotes render at the end.
+            (Some(_), _) if index >= body_len => &mut after_projection,
             (Some(mount), Some(span)) if span.start_byte >= mount => &mut after_projection,
             _ => &mut before_projection,
         };
@@ -1157,6 +1175,31 @@ fn view_document_headings(
         before_projection,
         after_projection,
     })
+}
+
+#[cfg(test)]
+#[test]
+fn view_heading_metadata_places_notes_after_the_projection() {
+    let marker = "<!-- forma:content -->";
+    let source = format!(
+        "# Release guide[^later]\n\n[^earlier]: Early.\n\n    ## Inside an early note\n\n{marker}\n\n## After projection\n\nSee this[^earlier].\n\n[^later]: Late.\n\n    ## Inside a late note\n"
+    );
+    let headings = view_document_headings(&source, source.find(marker)).unwrap();
+    let texts = |headings: Vec<ViewHeading>| {
+        headings
+            .into_iter()
+            .map(|heading| heading.heading.text)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(texts(headings.before_projection), ["Release guide"]);
+    assert_eq!(
+        texts(headings.after_projection),
+        [
+            "After projection",
+            "Inside a late note",
+            "Inside an early note"
+        ]
+    );
 }
 
 fn parse_view_definition(
@@ -2904,14 +2947,57 @@ pub(crate) fn slugify_heading(text: &str) -> String {
     }
 }
 
-pub(crate) fn markdown_with_reference_fallbacks(document: &FormaMarkdownDocument) -> String {
-    lower_wikilinks(document, &BTreeMap::new(), false)
+struct HtmlWikilinkHeadings(Vec<(RenderedHeading, String)>);
+
+impl HtmlWikilinkHeadings {
+    fn new(markdown: &str) -> Self {
+        let visible = rendered_markdown_headings(markdown);
+        let mut used = BTreeSet::new();
+        Self(
+            render_all_heading_ids(markdown, &visible, false)
+                .into_iter()
+                .map(|heading| {
+                    let alias = readable_heading_anchor(&heading.text, &mut used);
+                    (heading, alias)
+                })
+                .collect(),
+        )
+    }
+
+    fn resolve(&self, fragment: &str) -> Option<&str> {
+        let text = fragment.trim();
+        self.0
+            .iter()
+            .find(|(_, alias)| alias == fragment)
+            .or_else(|| self.0.iter().find(|(heading, _)| heading.id == fragment))
+            .or_else(|| {
+                self.0
+                    .iter()
+                    .find(|(heading, _)| heading.text.trim().eq_ignore_ascii_case(text))
+            })
+            .or_else(|| {
+                let slug = (text.is_ascii()
+                    && text.bytes().any(|byte| byte.is_ascii_alphanumeric()))
+                .then(|| slugify_heading(text))?;
+                self.0.iter().find(|(heading, _)| heading.id == slug)
+            })
+            .map(|(_, alias)| alias.as_str())
+    }
+}
+
+pub(crate) fn markdown_with_reference_fallbacks(
+    document: &FormaMarkdownDocument,
+    source_path: &str,
+    runtime: &DiscoveryRuntime,
+) -> String {
+    lower_wikilinks(document, source_path, runtime, None)
 }
 
 fn lower_wikilinks(
     document: &FormaMarkdownDocument,
-    mdx_destinations: &BTreeMap<usize, &str>,
-    use_legacy_local_heading_ids: bool,
+    source_path: &str,
+    runtime: &DiscoveryRuntime,
+    html_headings: Option<&HtmlWikilinkHeadings>,
 ) -> String {
     let mut output = document.body.clone();
     let mut replacements = document
@@ -2927,33 +3013,23 @@ fn lower_wikilinks(
         .collect::<Vec<_>>();
     replacements.sort_by_key(|(span, _)| span.start_byte);
 
-    let mut local_headings = None;
     for (span, reference) in replacements.into_iter().rev() {
         let label = reference
             .label
             .as_deref()
             .unwrap_or(reference.target.as_str());
         let href = if let Some(fragment) = reference.target.trim().strip_prefix('#') {
-            // The client resolves the authored fragment against all rendered headings
-            // and their aliases. Keep the historical ID mapping for the HTML API.
-            let fragment = if use_legacy_local_heading_ids {
-                let headings = local_headings.get_or_insert_with(|| render_headings(document));
-                headings
-                    .iter()
-                    .find(|heading| {
-                        heading.id == fragment || heading.text.eq_ignore_ascii_case(fragment)
-                    })
-                    .map_or(fragment, |heading| heading.id.as_str())
-            } else {
-                fragment
-            };
+            // The Markdown client resolves the authored fragment itself. HTML links
+            // need to use the ID actually emitted by the compatibility renderer.
+            let fragment = html_headings
+                .and_then(|headings| headings.resolve(fragment))
+                .unwrap_or(fragment);
             format!("#{}", crate::routes::percent_encode_segment(fragment))
+        } else if is_external_target(reference.target.trim()) {
+            reference.target.trim().to_string()
         } else {
-            let destination = reference
-                .target_span
-                .or(reference.syntax_span)
-                .and_then(|span| mdx_destinations.get(&span.start_byte).copied());
-            reference_fallback_href(&reference.target, destination)
+            let destination = runtime.resolve_wikilink_mdx(source_path, &reference.target);
+            reference_fallback_href(&reference.target, destination.as_deref())
         };
         let replacement = format!("[{label}](<{href}>)");
         output.replace_range(span.start_byte..span.end_byte, &replacement);
@@ -3556,6 +3632,46 @@ mod tests {
             "[First match](<#Duplicate>)",
         ] {
             assert!(markdown.contains(link), "{link}: {markdown}");
+        }
+        let html = render_file(&root, "notes/source.md", "html")
+            .unwrap()
+            .render
+            .html
+            .unwrap();
+        for (href, label, id, element) in [
+            (
+                "forma-heading-hello-world",
+                "Jump",
+                "forma-heading-hello-world",
+                "h2",
+            ),
+            (
+                "forma-heading-percent-20",
+                "Percent",
+                "forma-heading-percent-20",
+                "h2",
+            ),
+            (
+                "forma-heading-%E5%89%8D%E7%BC%80",
+                "Alias",
+                "forma-heading-前缀",
+                "h2",
+            ),
+            (
+                "forma-heading-duplicate",
+                "First match",
+                "forma-heading-duplicate",
+                "h4",
+            ),
+        ] {
+            assert!(
+                html.contains(&format!(r##"href="#{href}">{label}</a>"##)),
+                "{html}"
+            );
+            assert!(
+                html.contains(&format!(r#"<{element}><span id="{id}""#)),
+                "{html}"
+            );
         }
         fs::remove_dir_all(root).unwrap();
     }
@@ -4900,6 +5016,73 @@ mod tests {
         assert_eq!(
             headings.after_projection[0].alias_id.as_deref(),
             Some("forma-heading-repeat-2"),
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn home_and_view_lower_wikilinks_to_configured_mdx_and_keep_view_source_locations() {
+        let root = fixture_root("home-and-view-wikilink-targets");
+        copy_starter_workspace(&root);
+        let notes_term = root.join(".forma/spaces/notes.md");
+        let config = fs::read_to_string(&notes_term).unwrap();
+        fs::write(
+            notes_term,
+            config.replace(
+                "  - \"notes/**/*.md\"",
+                "  - \"notes/**/*.md\"\n  - \"guides/**/*.mdx\"",
+            ),
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("guides")).unwrap();
+        fs::write(root.join("guides/target.mdx"), "# Guide\n\n## 第二节\n").unwrap();
+        let home_path = root.join(".forma.md");
+        let config = fs::read_to_string(&home_path).unwrap();
+        fs::write(
+            home_path,
+            format!(
+                "{config}\n\n[[guides/target#第二节|By path]]\n\n[[target#第二节|By basename]]\n"
+            ),
+        )
+        .unwrap();
+        let home = crate::workspace_dashboard(&root).unwrap().home;
+        for label in ["By path", "By basename"] {
+            let link = format!("[{label}](</guides/target.mdx#%E7%AC%AC%E4%BA%8C%E8%8A%82>)");
+            assert!(home.markdown.contains(&link), "{}", home.markdown);
+        }
+
+        fs::write(
+            root.join(".forma/views/notes.md"),
+            "---\nkind: view\nmode: list\ntitle: Notes\nsource:\n  type: pages\n---\n\n# Notes\n\n🧭 [[../../guides/target#第二节|Guide]]\n\n<!-- forma:content -->\n\n## Details\n\n[[#Details|Details link]]\n\n[[https://example.test/a%20b#note|External]]\n",
+        )
+        .unwrap();
+        let rendered = render_view(&root, "notes", BTreeMap::new()).unwrap();
+        assert_eq!(rendered.status, OperationStatus::Passed);
+        let document = rendered.document.unwrap();
+        let body = document.body_source;
+        let marker = "<!-- forma:content -->";
+        let (before, after) = body.split_once(marker).unwrap();
+        assert!(before.contains("🧭 [Guide](</guides/target.mdx#%E7%AC%AC%E4%BA%8C%E8%8A%82>)"));
+        assert!(after.contains("[Details link](<#Details>)"));
+        assert!(after.contains("[External](<https://example.test/a%20b#note>)"));
+        assert_eq!(
+            document.mounts[0].start_offset,
+            before.encode_utf16().count()
+        );
+        assert_eq!(
+            document.mounts[0].end_offset,
+            before.encode_utf16().count() + marker.len()
+        );
+        assert_eq!(
+            document.mounts[0].location,
+            crate::DiagnosticLocation::Body {
+                line: Some(13),
+                column: Some(1),
+            },
+        );
+        assert_eq!(
+            document.headings.unwrap().after_projection[0].heading.id,
+            "details"
         );
         fs::remove_dir_all(root).unwrap();
     }

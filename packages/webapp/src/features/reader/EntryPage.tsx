@@ -13,7 +13,7 @@ import { scrollReaderAnchor } from "@/lib/reader-anchor-navigation";
 import { useRouteContentFocusTarget } from "@/lib/route-focus";
 
 import { getEntryOutlineTree, type EntryOutlineItem } from "./entry-outline";
-import { EntryOutlineSection, entryTopId, OutlineFooterNav, OutlineNav } from "./EntryOutlineNav";
+import { EntryOutlineSection, entryTopId, OutlineFooterNav, OutlineNav, relatedDocumentsId } from "./EntryOutlineNav";
 import { EntryRelatedSection, hasRelatedDocuments } from "./EntryRelated";
 import { useReadingPosition } from "./reading-position";
 
@@ -94,6 +94,8 @@ export function EntryPage({
     }
     let topId = entryTopId;
     while (bodyIds.has(topId)) topId += "-";
+    let relatedId = relatedDocumentsId;
+    while (bodyIds.has(relatedId)) relatedId += "-";
     const contentRef = useRef<HTMLDivElement>(null);
     const { activeHeadingId, pastFirstViewport } = useReadingPosition(
         contentRef,
@@ -159,7 +161,7 @@ export function EntryPage({
                                 </Suspense>
                                 <div className="flex flex-col gap-8 group-has-data-reader-loading/entry:hidden">
                                     {afterBody}
-                                    <EntryRelatedSection entry={entry} />
+                                    <EntryRelatedSection entry={entry} sectionId={relatedId} />
                                     {diagnostics.length > 0 ? (
                                         <details className="collapse-arrow collapse border border-base-300">
                                             <summary className="collapse-title font-medium">
@@ -207,6 +209,7 @@ export function EntryPage({
                             activeHeadingId={activeHeadingId}
                             backlinkCount={backlinkCount}
                             onNavigate={navigateOutline}
+                            relatedId={relatedId}
                             routePath={routePath}
                             showBackToTop={pastFirstViewport}
                             topId={topId}
@@ -256,6 +259,7 @@ export function EntryPage({
                             <OutlineFooterNav
                                 backlinkCount={backlinkCount}
                                 onNavigate={navigateOutline}
+                                relatedId={relatedId}
                                 routePath={routePath}
                                 showBackToTop={pastFirstViewport}
                                 topId={topId}
@@ -289,24 +293,47 @@ function EntryClassifications({ classifications }: { classifications: EntryClass
                     {classification.terms.map((term, termIndex) => {
                         const lastTerm = termIndex === classification.terms.length - 1;
                         const punctuation = lastTerm ? (index < classifications.length - 1 ? "\u00a0·" : null) : ",";
-                        // Trim breakable whitespace while retaining the three Unicode no-break spaces.
-                        const title = punctuation
-                            ? term.title.replace(/(?:(?![\u00a0\u2007\u202f])\p{White_Space}|\u200b)+$/u, "")
-                            : term.title;
                         return (
                             <span key={term.key}>
                                 <Link className="link text-base-content/80 link-hover" to={term.to}>
-                                    {title}
+                                    {punctuation ? (
+                                        <ClassificationTermLabel punctuation={punctuation} title={term.title} />
+                                    ) : (
+                                        term.title
+                                    )}
                                 </Link>
-                                {punctuation ? (
-                                    <span aria-hidden={lastTerm || undefined}>{"\u2060" + punctuation}</span>
-                                ) : null}
                             </span>
                         );
                     })}
                 </li>
             ))}
         </ul>
+    );
+}
+
+const classificationGraphemes =
+    typeof Intl.Segmenter === "function" ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : undefined;
+
+function ClassificationTermLabel({ punctuation, title }: { punctuation: string; title: string }) {
+    // Ignore break opportunities even when a directional mark or no-break space follows them.
+    const suffix = /[\p{White_Space}\p{Cf}]+$/u.exec(title);
+    const text = title.slice(0, suffix?.index ?? title.length);
+    const trailing = suffix?.[0].replace(/(?:(?![\u00a0\u2007\u202f])\p{White_Space}|\u200b)/gu, "") ?? "";
+    const end =
+        classificationGraphemes?.segment(text).containing(text.length - 1)?.index ??
+        text.length - (Array.from(text).at(-1)?.length ?? 0);
+    // Keep the final grapheme and the mark together even when the label needs an emergency wrap.
+    return (
+        <>
+            {text.slice(0, end)}
+            <span className="whitespace-nowrap">
+                {text.slice(end)}
+                {trailing}
+                <span aria-hidden="true" className="inline-block">
+                    {punctuation}
+                </span>
+            </span>
+        </>
     );
 }
 

@@ -11,8 +11,8 @@ import edgeCases from "../../../../../fixtures/forma-validation/samples/markdown
 import images from "../../../../../fixtures/forma-validation/samples/markdown/images.md?raw";
 import source from "../../../../../fixtures/forma-validation/samples/markdown/reader.md?raw";
 import reviewCases from "../../../../../fixtures/forma-validation/samples/markdown/review-regressions.md?raw";
-import { collectMarkdownLinkDefinitions, renderMarkdown } from "./markdown-renderer";
-import { postProcessMarkdownHtml } from "./MarkdownReader";
+import { markdownAroundProjection, renderMarkdown } from "./markdown-renderer";
+import { postProcessMarkdownHtml, postProcessMarkdownSections } from "./MarkdownReader";
 
 describe("Markdown reader contract", () => {
     it("renders ordinary images while preserving authored image links and code", async () => {
@@ -55,13 +55,97 @@ describe("Markdown reader contract", () => {
     it("shares document link definitions between View projection sections with first-definition precedence", async () => {
         const before = "[Cross-section][remote]\n\n[local]: /notes/first.md\n\n";
         const after = "\n\n[Local][local]\n\n[remote]: /notes/target.md\n[local]: /notes/second.md";
-        const linkDefinitions = collectMarkdownLinkDefinitions(`${before}<!-- forma:content -->${after}`);
-        const [first, second] = await Promise.all([
-            renderMarkdown(before, { linkDefinitions }),
-            renderMarkdown(after, { linkDefinitions }),
-        ]);
+        const source = markdownAroundProjection(before, after);
+        const [first, second] = (await renderMarkdown(source.markdown, { projectionBoundary: source.boundary })).split(
+            source.boundary,
+        );
         expect(first).toContain('<a href="/notes/target.md">Cross-section</a>');
         expect(second).toContain('<a href="/notes/first.md">Local</a>');
+    });
+
+    it("retains document-wide heading anchors around a View projection", async () => {
+        const [before, after] = await renderViewSections(
+            "# Forma heading foo\n\n",
+            "\n\n## Foo\n\n## Forma heading forma heading foo",
+            [
+                { id: "forma-heading-foo", level: 1, text: "Forma heading foo", aliasId: null },
+                { id: "foo", level: 2, text: "Foo", aliasId: "forma-heading-foo" },
+                {
+                    id: "forma-heading-forma-heading-foo",
+                    level: 2,
+                    text: "Forma heading forma heading foo",
+                    aliasId: "forma-heading-forma-heading-forma-heading-foo",
+                },
+            ],
+        );
+        expect(before).toContain('id="forma-omitted-title"');
+        expect(before).not.toContain('id="forma-heading-foo"');
+        const body = new DOMParser().parseFromString(after ?? "", "text/html").body;
+        expect(body.querySelector("#foo > #forma-heading-foo")).not.toBeNull();
+        expect(body.querySelectorAll("#forma-heading-foo")).toHaveLength(1);
+    });
+
+    it.each([
+        { before: "<!-- ordinary comment -->\n\n# 中文副标题\n\n", after: "", index: 0 },
+        { before: "", after: "\n\n# 中文副标题", index: 1 },
+    ])("retains a View title after an authored comment or the projection", async ({ before, after, index }) => {
+        const sections = await renderViewSections(before, after, [
+            { id: "section", level: 1, text: "中文副标题", aliasId: "forma-heading-中文副标题" },
+        ]);
+        expect(
+            new DOMParser().parseFromString(sections[index] ?? "", "text/html").querySelector("h1#section"),
+        ).not.toBeNull();
+    });
+
+    it("shares footnote definitions and references across both sides of a View projection", async () => {
+        const [before, after] = await renderViewSections(
+            "# Release guide[^later]\n\n[^earlier]: Early note.\n\n    ## Inside an early note\n\n",
+            "\n\n## After projection\n\nRead this[^earlier].\n\n[^later]: Late note.\n\n    ## Inside a late note",
+            [
+                { id: "release-guide", level: 1, text: "Release guide", aliasId: "forma-heading-release-guide" },
+                {
+                    id: "after-projection",
+                    level: 2,
+                    text: "After projection",
+                    aliasId: "forma-heading-after-projection",
+                },
+                {
+                    id: "inside-a-late-note",
+                    level: 2,
+                    text: "Inside a late note",
+                    aliasId: "forma-heading-inside-a-late-note",
+                },
+                {
+                    id: "inside-an-early-note",
+                    level: 2,
+                    text: "Inside an early note",
+                    aliasId: "forma-heading-inside-an-early-note",
+                },
+            ],
+        );
+        const first = new DOMParser().parseFromString(before, "text/html").body;
+        const second = new DOMParser().parseFromString(after ?? "", "text/html").body;
+        expect(first.querySelector("h1#release-guide sup a")?.id).toBe("user-content-fnref-later");
+        expect(first.querySelector("[data-footnotes]")).toBeNull();
+        expect(second.querySelector("h2#after-projection")).not.toBeNull();
+        expect(second.querySelector("#user-content-fn-later > #inside-a-late-note")).not.toBeNull();
+        expect(second.querySelector("#user-content-fn-earlier > #inside-an-early-note")).not.toBeNull();
+        expect(second.querySelector("#user-content-fn-later [data-footnote-backref]")?.getAttribute("href")).toContain(
+            "#user-content-fnref-later",
+        );
+        expect(
+            second.querySelector("#user-content-fn-earlier [data-footnote-backref]")?.getAttribute("href"),
+        ).toContain("#user-content-fnref-earlier");
+    });
+
+    it.each([
+        ["", "\n\nA note[^n].\n\n[^n]: Text."],
+        ["A note[^n].\n\n[^n]: Text.\n\n", ""],
+    ])("renders definitions after a projection at either end of the View", async (sourceBefore, sourceAfter) => {
+        const [before, after] = await renderViewSections(sourceBefore, sourceAfter, []);
+        expect(before).not.toContain("data-footnotes");
+        expect(after).toContain('id="user-content-fn-n"');
+        expect(after).toContain('href="/-/views/view#user-content-fnref-n"');
     });
 
     it("supports case-insensitive titles, title-only and native foldable callouts", async () => {
@@ -416,6 +500,43 @@ describe("Markdown reader contract", () => {
         expect(label).not.toBe("footnote-label");
         expect(body.querySelector(`[id="${label}"]`)?.textContent).toBe("Footnotes");
     });
+
+    it("keeps headings and ordinary footnote IDs while retargeting colliding calls and returns", async () => {
+        const html = postProcessMarkdownHtml(
+            await renderMarkdown(
+                "## User content fn note\n\n## User content fnref note\n\n" +
+                    "First[^note], second[^note], dash[^note-].\n\n[^note]: Note\n[^note-]: Dash note",
+            ),
+            [
+                { id: "user-content-fn-note", level: 2, text: "User content fn note" },
+                { id: "user-content-fnref-note", level: 2, text: "User content fnref note" },
+            ],
+            "reader.md",
+            [],
+            false,
+        );
+        const body = new DOMParser().parseFromString(html, "text/html").body;
+        expect(body.querySelector("h2#user-content-fn-note")).not.toBeNull();
+        expect(body.querySelector("h2#user-content-fnref-note")).not.toBeNull();
+        const ids = Array.from(body.querySelectorAll("[id]"), (element) => element.id);
+        expect(new Set(ids).size).toBe(ids.length);
+        const references = [...body.querySelectorAll<HTMLAnchorElement>("sup a")];
+        expect(references.map((reference) => reference.id)).toEqual([
+            "user-content-fnref-note--",
+            "user-content-fnref-note:1",
+            "user-content-fnref-note-",
+        ]);
+        expect(references.map((reference) => reference.getAttribute("href"))).toEqual([
+            "#user-content-fn-note--",
+            "#user-content-fn-note--",
+            "#user-content-fn-note-",
+        ]);
+        expect(
+            [...body.querySelectorAll("[data-footnote-backref]")].map((backref) =>
+                decodeURIComponent(backref.getAttribute("href") ?? ""),
+            ),
+        ).toEqual(references.map((reference) => `#${reference.id}`));
+    });
     it("does not discard note calls when hiding a matching leading title", async () => {
         const html = postProcessMarkdownHtml(
             await renderMarkdown("# Title[^n]\n\n## Body\n\n[^n]: Note"),
@@ -432,3 +553,24 @@ describe("Markdown reader contract", () => {
         expect(body.querySelector("[data-footnote-backref]")?.getAttribute("href")).toContain("#user-content-fnref-n");
     });
 });
+
+async function renderViewSections(
+    before: string,
+    after: string,
+    headings: Parameters<typeof postProcessMarkdownSections>[1],
+) {
+    const source = markdownAroundProjection(before, after);
+    const html = await renderMarkdown(source.markdown, { projectionBoundary: source.boundary });
+    const [first = "", second] = html.split(source.boundary);
+    expect(second).toBeDefined();
+    return postProcessMarkdownSections(
+        [first, second],
+        headings,
+        "config/view.md",
+        [],
+        true,
+        "/-/views/view",
+        "workspace",
+        true,
+    );
+}

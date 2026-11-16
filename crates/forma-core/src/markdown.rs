@@ -586,6 +586,10 @@ pub(crate) fn all_markdown_headings(body: &str) -> Vec<FormaHeading> {
 /// Heading order in rendered HTML: body first, then referenced notes in call order.
 /// Definitions can precede their calls, and unused definitions are not rendered.
 pub(crate) fn rendered_markdown_headings(body: &str) -> Vec<FormaHeading> {
+    rendered_markdown_headings_with_body_len(body).0
+}
+
+pub(crate) fn rendered_markdown_headings_with_body_len(body: &str) -> (Vec<FormaHeading>, usize) {
     fn definitions<'a>(
         node: &'a mdast::Node,
         result: &mut std::collections::BTreeMap<String, &'a mdast::Node>,
@@ -626,7 +630,7 @@ pub(crate) fn rendered_markdown_headings(body: &str) -> Vec<FormaHeading> {
         }
     }
     let Ok(ast) = to_mdast(body, &ParseOptions::gfm()) else {
-        return Vec::new();
+        return (Vec::new(), 0);
     };
     let mut definitions_by_id = std::collections::BTreeMap::new();
     definitions(&ast, &mut definitions_by_id);
@@ -634,6 +638,7 @@ pub(crate) fn rendered_markdown_headings(body: &str) -> Vec<FormaHeading> {
     let mut notes = Vec::new();
     let mut seen = std::collections::BTreeSet::new();
     visible(&ast, body, &mut headings, &mut notes, &mut seen);
+    let body_len = headings.len();
     let mut index = 0;
     while index < notes.len() {
         if let Some(definition) = definitions_by_id.get(&notes[index])
@@ -645,7 +650,7 @@ pub(crate) fn rendered_markdown_headings(body: &str) -> Vec<FormaHeading> {
         }
         index += 1;
     }
-    headings
+    (headings, body_len)
 }
 
 pub(crate) fn top_level_markdown_headings(body: &str) -> Vec<FormaHeading> {

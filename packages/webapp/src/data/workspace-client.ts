@@ -282,6 +282,7 @@ export interface DashboardViewRender {
     document: {
         afterProjection: string;
         beforeProjection: string;
+        hasProjectionMount?: boolean;
         headings?: ViewDocumentHeadings;
         path: string;
     };

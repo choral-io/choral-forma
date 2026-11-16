@@ -3,15 +3,13 @@ import { Link } from "react-router";
 
 import type { DashboardEntry, DashboardEntryLink } from "@/data/workspace-client";
 
-import { relatedDocumentsId } from "./EntryOutlineNav";
-
 /** Whether an entry has any relation to list; the section is omitted otherwise. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function hasRelatedDocuments(entry: DashboardEntry) {
     return entry.relations.backlinks.length > 0 || entry.relations.outgoing.length > 0;
 }
 
-export function EntryRelatedSection({ entry }: { entry: DashboardEntry }) {
+export function EntryRelatedSection({ entry, sectionId }: { entry: DashboardEntry; sectionId: string }) {
     const headingId = useId();
     if (!hasRelatedDocuments(entry)) return null;
 
@@ -19,7 +17,7 @@ export function EntryRelatedSection({ entry }: { entry: DashboardEntry }) {
         <section
             aria-labelledby={headingId}
             className="flex scroll-m-8 flex-col gap-6 border-t border-base-300 pt-8"
-            id={relatedDocumentsId}
+            id={sectionId}
             tabIndex={-1}
         >
             <h2 className="text-xl font-semibold" id={headingId}>

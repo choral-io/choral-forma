@@ -360,7 +360,7 @@ fn site_build_writes_deterministic_static_data_without_mutating_sources() {
     assert!(!dashboard.contains(root.to_string_lossy().as_ref()));
     assert!(!dashboard.contains("/rpc"));
     let index = std::fs::read_to_string(root.join("dist/site/index.html")).unwrap();
-    assert!(index.contains(r#"<script id="forma-static-workspace" type="application/json">"#));
+    assert!(index.contains(r#"<script data-forma-static-workspace type="application/json">"#));
     assert!(!index.contains("window.__FORMA_STATIC_WORKSPACE__"));
     assert!(index.contains(r#""dataBaseUrl":"/preview/-/data""#));
     assert!(index.contains(r#""baseUrl":"https://example.test""#));

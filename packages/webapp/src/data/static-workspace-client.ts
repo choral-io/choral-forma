@@ -413,6 +413,7 @@ function mapViewDocument(data: StaticViewData, viewId: string): DashboardViewRen
     return {
         beforeProjection: source.slice(0, mount.startOffset),
         afterProjection: source.slice(mount.endOffset),
+        hasProjectionMount: true,
         headings,
         path,
     };

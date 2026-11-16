@@ -185,6 +185,23 @@ pub struct Discovery {
 pub(crate) struct DiscoveryRuntime {
     pub(crate) references_by_target: BTreeMap<String, Vec<ReferenceOccurrence>>,
     pub(crate) fragment_projections: BTreeMap<String, MarkdownFragmentProjection>,
+    path_index: PathIndex,
+}
+
+impl DiscoveryRuntime {
+    pub(crate) fn resolve_wikilink_mdx(&self, source_path: &str, target: &str) -> Option<String> {
+        let target = split_reference_target(target, source_path, false);
+        if is_non_markdown_resource_target(&target.path) {
+            return None;
+        }
+        match self
+            .path_index
+            .resolve_from(&target.path, source_path, None)
+        {
+            ResolveResult::Resolved(path) if path.ends_with(".mdx") => Some(path),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -424,6 +441,7 @@ pub(crate) fn discover_loaded_workspace_with_runtime(
         DiscoveryRuntime {
             references_by_target,
             fragment_projections,
+            path_index,
         },
     )
 }
@@ -1582,7 +1600,7 @@ fn non_empty_string(value: Option<String>) -> Option<String> {
     value.filter(|value| !value.trim().is_empty())
 }
 
-fn is_external_target(target: &str) -> bool {
+pub(crate) fn is_external_target(target: &str) -> bool {
     target.starts_with("http://")
         || target.starts_with("https://")
         || target.starts_with("mailto:")

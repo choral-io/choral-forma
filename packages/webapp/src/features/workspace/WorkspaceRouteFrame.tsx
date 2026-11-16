@@ -30,7 +30,7 @@ interface WorkspaceRouteFrameProps {
 }
 
 // The sidebar carries these controls while it is shown, so the header only offers them when it is not.
-const sidebarHiddenOnly = "lg:group-has-[#workspace-sidebar:checked]/shell:hidden";
+const sidebarHiddenOnly = "lg:group-has-[[data-workspace-sidebar-toggle]:checked]/shell:hidden";
 
 export function WorkspaceRouteFrame({
     actions,

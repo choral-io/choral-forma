@@ -33,6 +33,30 @@ describe("static runtime URL helpers", () => {
         expect(readStaticRuntimeConfig()).toBeUndefined();
     });
 
+    it("accepts the legacy config script without interpreting a heading as runtime configuration", () => {
+        const heading = document.createElement("h2");
+        const config = {
+            baseUrl: "https://example.test",
+            dataBaseUrl: "/preview/data",
+            rootPath: "/preview",
+        };
+        heading.id = "forma-static-workspace";
+        heading.textContent = JSON.stringify(config);
+        document.body.append(heading);
+        const legacyConfig = document.createElement("script");
+        legacyConfig.id = heading.id;
+        legacyConfig.type = "application/json";
+        legacyConfig.textContent = JSON.stringify(config);
+        try {
+            expect(readStaticRuntimeConfig()).toBeUndefined();
+            document.head.append(legacyConfig);
+            expect(readStaticRuntimeConfig()).toEqual(config);
+        } finally {
+            heading.remove();
+            legacyConfig.remove();
+        }
+    });
+
     it("uses the generated root path as the router basename", () => {
         setStaticRuntimeConfig({
             baseUrl: "https://example.test",

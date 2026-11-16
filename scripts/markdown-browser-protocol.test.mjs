@@ -45,9 +45,9 @@ test("plans isolated disclosure, navigation, and existing regression coverage fo
             ["webapp-disclosures", "disclosures", 1],
             ["static-disclosures", "disclosures", 1],
             ["noscript-disclosures", "disclosures", 1],
-            ["webapp-navigation", "navigation", 2],
-            ["static-navigation", "navigation", 2],
-            ["noscript-navigation", "navigation", 1],
+            ["webapp-navigation", "navigation", 3],
+            ["static-navigation", "navigation", 3],
+            ["noscript-navigation", "navigation", 2],
             ["webapp", "enhanced", 12],
             ["static", "enhanced", 18],
             ["noscript", "noscript", 12],
@@ -70,8 +70,8 @@ test("plans isolated disclosure, navigation, and existing regression coverage fo
         [false, false, true],
     );
     const coverage = phases.flatMap((p) => p.expectedResults);
-    assert.equal(coverage.length, 58);
-    assert.equal(new Set(coverage).size, 58);
+    assert.equal(coverage.length, 61);
+    assert.equal(new Set(coverage).size, 61);
     for (const phase of phases) {
         assert.deepEqual(
             validateMarkdownBrowserPhase(

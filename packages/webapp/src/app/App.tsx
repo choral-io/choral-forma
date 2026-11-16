@@ -11,10 +11,11 @@ import { WorkspaceSidebar } from "@/features/workspace/WorkspaceSidebar";
 import { requestRouteContentFocus } from "@/lib/route-focus";
 import { readSidebarOpenPreference, writeSidebarOpenPreference } from "@/lib/sidebar-preference";
 
-export const workspaceDrawerId = "workspace-navigation";
+// Shell controls use IDs outside the Markdown heading slug alphabet.
+export const workspaceDrawerId = "forma:workspace-navigation";
 /** The page content region, the target of the shell skip link. */
-export const mainContentId = "main-content";
-export const workspaceDesktopDrawerId = "workspace-sidebar";
+export const mainContentId = "forma:main-content";
+export const workspaceDesktopDrawerId = "forma:workspace-sidebar";
 
 export function App() {
     const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(
@@ -125,6 +126,7 @@ export function App() {
             </a>
             <input
                 className="drawer-toggle"
+                data-workspace-sidebar-toggle
                 defaultChecked={desktopDrawerInitiallyOpen}
                 id={workspaceDesktopDrawerId}
                 onChange={(event) => {

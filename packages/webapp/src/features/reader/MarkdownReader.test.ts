@@ -1,3 +1,4 @@
+import type * as MarkedModule from "marked";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const markedMocks = vi.hoisted(() => ({
@@ -5,7 +6,8 @@ const markedMocks = vi.hoisted(() => ({
     use: vi.fn(),
 }));
 
-vi.mock("marked", () => ({
+vi.mock("marked", async (importOriginal) => ({
+    Lexer: (await importOriginal<typeof MarkedModule>()).Lexer,
     Marked: class {
         parse = markedMocks.parse;
         use = markedMocks.use;

@@ -556,6 +556,7 @@ export async function markdownBrowserScenarios(page, options) {
         const selector = host.name === "static" ? "[data-enhancement-ready] main" : "main";
         try {
             const label = "Deployment and workspace configuration documentation";
+            const longLabel = "Deployment ConfigurationManagementDocumentationProductionRelease";
             for (const [route, title, punctuation = "·"] of [
                 ["classification-layout", "Deployment and workspace configuration documentation-"],
                 ["classification-space-layout", label],
@@ -564,29 +565,62 @@ export async function markdownBrowserScenarios(page, options) {
                 ["classification-paragraph-layout", label],
                 ["classification-long-layout", "ProductionConfigurationDeploymentManagementDocumentation"],
                 ["classification-comma-layout", label, ","],
+                ["classification-long-mark-layout", longLabel],
+                ["classification-long-comma-layout", longLabel, ","],
+                ["classification-mixed-space-layout", `${label}\u00a0`],
+                ["classification-mixed-space-layout", `${label}\u200f`, ","],
+                ["classification-mixed-bidi-layout", `${label}\u200f`],
+                ["classification-cjk-bidi-layout", "日常プロジェクト運営資料と構成変更の詳細\u200f"],
             ]) {
                 await current.setViewportSize({ width: 320, height: 720 });
                 await current.goto(`${host.origin}${host.root}/${route}/`);
                 const groups = current.locator(selector).getByRole("list", { name: "Classifications" });
-                const term = groups.getByRole("link", { name: title, exact: true });
+                const term = groups.getByRole("link", { name: title.trim(), exact: true });
                 await term.waitFor();
-                for (const width of [320, 390, 402, 408, 412]) {
+                for (const width of [320, 390, 402, 408, 412, 424, 426, 430]) {
                     await current.setViewportSize({ width, height: 720 });
-                    const { wrapped, sameLine, fitsReader } = await term.evaluate((link, punctuation) => {
-                        const lines = Array.from(link.getClientRects()).filter((line) => line.width > 0);
-                        const lastLine = lines.at(-1);
-                        const following = link.nextSibling;
-                        const markRange = document.createRange();
-                        if (following?.textContent?.endsWith(punctuation)) markRange.selectNode(following);
-                        const mark = markRange.getBoundingClientRect();
-                        const reader = link.closest("main");
-                        return {
-                            wrapped: lines.length > 1,
-                            sameLine: lastLine && lastLine.top < mark.bottom && mark.top < lastLine.bottom - 2,
-                            fitsReader: reader && reader.scrollWidth <= reader.clientWidth + 1,
-                        };
-                    }, punctuation);
-                    if (width === 320) assert(wrapped, `${host.name}: ${route} title wraps at narrow width`);
+                    const { displayedTitle, wrapped, sameLine, fitsReader } = await term.evaluate(
+                        (link, punctuation) => {
+                            const marker = link.querySelector('span[aria-hidden="true"]');
+                            const walker = document.createTreeWalker(link, NodeFilter.SHOW_TEXT);
+                            const lines = new Set();
+                            let displayedTitle = "";
+                            let lastGlyph;
+                            while (walker.nextNode()) {
+                                const text = walker.currentNode;
+                                if (marker?.contains(text)) continue;
+                                displayedTitle += text.textContent;
+                                const textRange = document.createRange();
+                                textRange.selectNodeContents(text);
+                                for (const rect of textRange.getClientRects()) {
+                                    if (rect.width > 0) lines.add(Math.round(rect.top));
+                                }
+                                const finalCharacter = Array.from(
+                                    text.textContent.matchAll(/[^\p{White_Space}\p{Cf}]/gu),
+                                ).at(-1);
+                                if (finalCharacter) {
+                                    textRange.setStart(text, finalCharacter.index);
+                                    textRange.setEnd(text, finalCharacter.index + finalCharacter[0].length);
+                                    lastGlyph = textRange.getBoundingClientRect();
+                                }
+                            }
+                            const markRange = document.createRange();
+                            if (marker?.textContent?.endsWith(punctuation)) markRange.selectNodeContents(marker);
+                            const mark = markRange.getBoundingClientRect();
+                            const reader = link.closest("main");
+                            return {
+                                displayedTitle,
+                                wrapped: lines.size > 1,
+                                sameLine: lastGlyph && lastGlyph.top < mark.bottom && mark.top < lastGlyph.bottom - 2,
+                                fitsReader: reader && reader.scrollWidth <= reader.clientWidth + 1,
+                            };
+                        },
+                        punctuation,
+                    );
+                    assert(displayedTitle === title, `${host.name}: ${route} retains the display name`);
+                    if (width === 320 && route !== "classification-cjk-bidi-layout") {
+                        assert(wrapped, `${host.name}: ${route} title wraps at narrow width`);
+                    }
                     assert(sameLine, `${host.name}: ${route} punctuation stays with the term at ${width}px`);
                     assert(fitsReader, `${host.name}: ${route} fits the reader at ${width}px`);
                 }
@@ -616,6 +650,11 @@ export async function markdownBrowserScenarios(page, options) {
             ["/notes/published-heading-links/", "Body alias after collision", "h2#foo"],
             ["/notes/shell-heading-links/", "Root title link", "h2#root"],
             ["/notes/shell-heading-links/", "Entry top title link", "h2#entry-top"],
+            ["/notes/shell-heading-links/", "Config title link", "h2#forma-static-workspace"],
+            ["/notes/shell-heading-links/", "Main title link", "h2#main-content"],
+            ["/notes/shell-heading-links/", "Navigation title link", "h2#workspace-navigation"],
+            ["/notes/shell-heading-links/", "Sidebar title link", "h2#workspace-sidebar"],
+            ["/notes/shell-heading-links/", "Related title link", "h2#related-documents"],
             ["/-/views/view-heading-intro/", "Setup", "h2#setup"],
             ["/-/views/view-heading-intro/", "Deploy", "h2#deploy"],
         ];
@@ -638,6 +677,18 @@ export async function markdownBrowserScenarios(page, options) {
                     `${host.name}: entry header keeps a separate ID`,
                 );
             }
+        }
+        if (!noScript) {
+            await current.goto(base + "/notes/shell-heading-links/");
+            const footerLink = main.getByRole("navigation", { name: "Page outline footer" }).getByRole("link", {
+                name: /Related documents/u,
+            });
+            await footerLink.click();
+            await current.waitForFunction(() => document.activeElement?.matches("section#related-documents-"));
+            const skipLink = current.getByRole("link", { name: "Skip to content", exact: true });
+            await skipLink.focus();
+            await skipLink.press("Enter");
+            await current.waitForFunction(() => document.activeElement?.matches("main h1"));
         }
     };
 
@@ -798,6 +849,8 @@ export async function markdownBrowserScenarios(page, options) {
             [source, "Explicit MDX wiki", mdx, "第二节", 2],
             [source, "Extensionless MDX wiki", mdx, "第二节", 2],
             [source, "Ordinary MDX link", mdx, "第二节", 2],
+            ["", "Home MDX wiki", mdx, "第二节", 2],
+            ["/-/views/view-navigation-split", "View MDX wiki", mdx, "第二节", 2],
         ];
         for (const [from, label, target, title, level] of cases) {
             await current.goto(`${base}${from}/`);
@@ -821,6 +874,49 @@ export async function markdownBrowserScenarios(page, options) {
                 { title, level, native: noScript },
             );
         }
+    };
+    const viewAndFootnoteNavigation = async (current, host, noScript) => {
+        const base = host.origin + host.root;
+        const main = current.locator(host.name === "static" && !noScript ? "[data-enhancement-ready] main" : "main");
+        const waitForTarget = (selector) =>
+            current.waitForFunction(
+                ({ selector, native }) =>
+                    Boolean((native ? document.querySelector(":target") : document.activeElement)?.closest(selector)),
+                { selector, native: noScript },
+            );
+        for (const [route, fragment, target, ready] of [
+            ["/-/views/view-navigation-split/", "forma-omitted-title", "#forma-omitted-title", "Foo"],
+            ["/-/views/view-navigation-split/", "forma-heading-foo", "h2#foo", "Foo"],
+            ["/-/views/view-navigation-comment/", "section", "h1#section", "中文副标题"],
+            ["/-/views/view-navigation-split/", "footnote-detail", "h2#footnote-detail", "Footnote detail"],
+        ]) {
+            await current.goto(base + route + "#" + fragment);
+            await main.getByRole("heading", { name: ready, exact: true }).waitFor();
+            const ids = current.locator('[id="' + fragment + '"]');
+            assert((await ids.count()) === 1, host.name + ": unique View fragment " + fragment);
+            await waitForTarget(target);
+        }
+        const expectFootnote = async (noteId, refId) => {
+            const reference = main.locator('a[id="' + refId + '"]');
+            const note = main.locator('li[id="' + noteId + '"]');
+            await reference.click();
+            await current.waitForURL((url) => url.hash === "#" + noteId);
+            await waitForTarget('li[id="' + noteId + '"]');
+            await note.locator("[data-footnote-backref]").click();
+            await current.waitForURL((url) => url.hash === "#" + refId);
+            await waitForTarget('a[id="' + refId + '"]');
+        };
+        await expectFootnote("user-content-fn-body", "user-content-fnref-body");
+        await current.goto(base + "/notes/footnote-heading-links/");
+        await main
+            .locator("a[href]")
+            .filter({ hasText: /^Authored heading$/u })
+            .click();
+        await waitForTarget("h2#user-content-fn-note");
+        for (const id of ["user-content-fn-note", "user-content-fnref-note"]) {
+            assert((await main.locator('[id="' + id + '"]').count()) === 1, host.name + ": unique authored ID " + id);
+        }
+        await expectFootnote("user-content-fn-note-", "user-content-fnref-note-");
     };
     const resourceSuffix = async (current, host, noScript = false) => {
         await current.goto(`${host.origin}${host.root}/notes/link-contracts/`);
@@ -1282,6 +1378,11 @@ export async function markdownBrowserScenarios(page, options) {
                 assertCleanPage();
                 results.push(
                     `${options.noScript ? "static noscript" : host.name}: published anchors and authored heading links reach their targets`,
+                );
+                await viewAndFootnoteNavigation(current, host, options.noScript);
+                assertCleanPage();
+                results.push(
+                    `${options.noScript ? "static noscript" : host.name}: View projection and footnotes retain their fragment targets`,
                 );
                 continue;
             }

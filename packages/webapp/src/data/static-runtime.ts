@@ -6,7 +6,7 @@ export interface StaticRuntimeConfig {
     rootPath: string;
 }
 
-export const staticRuntimeConfigId = "forma-static-workspace";
+export const staticRuntimeConfigSelector = 'script[type="application/json"][data-forma-static-workspace]';
 
 function isStaticRuntimeConfig(value: unknown): value is StaticRuntimeConfig {
     if (typeof value !== "object" || value === null) return false;
@@ -29,8 +29,10 @@ export function parseStaticRuntimeConfig(value: string): StaticRuntimeConfig | u
 
 function readStaticRuntimeConfigDocument(): StaticRuntimeConfig | undefined {
     if (typeof document === "undefined") return undefined;
-    const element = document.getElementById(staticRuntimeConfigId);
-    if (!(element instanceof HTMLScriptElement) || element.type !== "application/json") return undefined;
+    const element =
+        document.head.querySelector(staticRuntimeConfigSelector) ??
+        document.head.querySelector('script[type="application/json"]#forma-static-workspace');
+    if (!element) return undefined;
     return parseStaticRuntimeConfig(element.textContent);
 }
 

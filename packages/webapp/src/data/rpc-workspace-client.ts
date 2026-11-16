@@ -117,6 +117,7 @@ function mapViewDocument(result: ViewRenderResult, viewId: string): DashboardVie
     return {
         afterProjection: bodySource.slice(endOffset),
         beforeProjection: bodySource.slice(0, startOffset),
+        hasProjectionMount: true,
         headings,
         path,
     };

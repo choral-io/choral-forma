@@ -1,6 +1,6 @@
 import { createMarkdownHeadingAnchor, markdownFootnoteLabelId } from "@choral-forma/shared";
 import DOMPurify from "dompurify";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 
 import { isStaticRawHref, logicalHref, rootAwareHref } from "@/data/static-runtime";
@@ -16,7 +16,7 @@ import {
 } from "@/lib/projection-sticky-boundary";
 import { resolveReaderLink, type MarkdownLinkSource } from "./markdown-links";
 import { enhanceMermaidDiagrams } from "./markdown-mermaid-viewer";
-import { renderMarkdown, type MarkdownRenderOptions } from "./markdown-renderer";
+import { renderMarkdown } from "./markdown-renderer";
 import { enhanceReader } from "./reader-enhancements";
 import { resolveReaderLinkNavigation } from "./reader-link-navigation";
 
@@ -34,9 +34,9 @@ export interface MarkdownReaderProps {
     headings: MarkdownHeading[];
     markdown: string;
     linkSource?: MarkdownLinkSource;
-    linkDefinitions?: MarkdownRenderOptions["linkDefinitions"];
     mermaidScope?: MermaidRenderScope;
     omitLeadingTitle?: boolean;
+    projection?: { boundary?: string; content: ReactNode };
 }
 
 interface MarkdownRenderState {
@@ -45,11 +45,12 @@ interface MarkdownRenderState {
     entries: DashboardEntry[];
     error?: string;
     headings: MarkdownHeading[];
-    html?: string;
+    sections?: [string, string?];
     markdown: string;
     linkSource: MarkdownLinkSource;
-    linkDefinitions?: MarkdownRenderOptions["linkDefinitions"];
     omitLeadingTitle: boolean;
+    hasProjection: boolean;
+    projectionBoundary?: string;
     status: "error" | "ready";
 }
 
@@ -61,11 +62,11 @@ export function MarkdownReader({
     markdown,
     mermaidScope,
     linkSource = "workspace",
-    linkDefinitions,
     omitLeadingTitle = false,
+    projection,
 }: MarkdownReaderProps) {
-    const navigate = useNavigate();
-    const readerRef = useRef<HTMLDivElement>(null);
+    const hasProjection = Boolean(projection);
+    const projectionBoundary = projection?.boundary;
     const [renderState, setRenderState] = useState<MarkdownRenderState>();
     const [retryKey, setRetryKey] = useState(0);
     const isCurrentRender =
@@ -75,14 +76,15 @@ export function MarkdownReader({
         renderState.headings === headings &&
         renderState.markdown === markdown &&
         renderState.linkSource === linkSource &&
-        renderState.linkDefinitions === linkDefinitions &&
+        renderState.hasProjection === hasProjection &&
+        renderState.projectionBoundary === projectionBoundary &&
         renderState.omitLeadingTitle === omitLeadingTitle;
 
     useEffect(() => {
         let cancelled = false;
         const abortController = new AbortController();
 
-        void renderMarkdown(markdown, { mermaidScope, linkDefinitions, signal: abortController.signal })
+        void renderMarkdown(markdown, { mermaidScope, projectionBoundary, signal: abortController.signal })
             .then((rendered) => {
                 if (cancelled) {
                     return;
@@ -93,19 +95,21 @@ export function MarkdownReader({
                     currentRoutePath,
                     entries,
                     headings,
-                    html: postProcessMarkdownHtml(
-                        rendered,
+                    sections: postProcessMarkdownSections(
+                        splitMarkdownSections(rendered, projectionBoundary),
                         headings,
                         currentPath,
                         entries,
                         omitLeadingTitle,
                         currentRoutePath,
                         linkSource,
+                        hasProjection,
                     ),
                     markdown,
                     linkSource,
-                    linkDefinitions,
                     omitLeadingTitle,
+                    hasProjection,
+                    projectionBoundary,
                     status: "ready",
                 });
             })
@@ -120,8 +124,9 @@ export function MarkdownReader({
                         headings,
                         markdown,
                         linkSource,
-                        linkDefinitions,
                         omitLeadingTitle,
+                        hasProjection,
+                        projectionBoundary,
                         status: "error",
                     });
                 }
@@ -139,31 +144,90 @@ export function MarkdownReader({
         markdown,
         mermaidScope,
         linkSource,
-        linkDefinitions,
         omitLeadingTitle,
+        hasProjection,
+        projectionBoundary,
         retryKey,
     ]);
 
-    useEffect(() => {
-        if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) return;
+    if (!isCurrentRender) {
+        const loading = (
+            <div
+                aria-busy="true"
+                aria-label="Rendering page content"
+                className="flex flex-col gap-5"
+                data-reader="markdown"
+                data-reader-loading
+                role="status"
+            >
+                <div className="h-4 w-full skeleton" />
+                <div className="h-4 w-11/12 skeleton" />
+                <div className="mt-4 h-7 w-2/5 skeleton" />
+                <div className="h-4 w-full skeleton" />
+                <div className="h-4 w-4/5 skeleton" />
+            </div>
+        );
+        const [before, after] = splitMarkdownSections(markdown, projectionBoundary);
+        return (
+            <>
+                {(!projection || before.trim()) && loading}
+                {projection?.content}
+                {after?.trim() && loading}
+            </>
+        );
+    }
 
-        return createMarkdownTableStickyHeaders(readerRef.current);
-    }, [isCurrentRender, renderState]);
+    if (renderState.status === "error") {
+        return (
+            <>
+                <div className="alert alert-soft alert-error sm:alert-horizontal" data-reader="markdown" role="alert">
+                    <div className="min-w-0">
+                        <p className="font-medium">This page could not be rendered.</p>
+                        <p className="text-sm opacity-80">{renderState.error}</p>
+                    </div>
+                    <button
+                        className="btn btn-sm"
+                        onClick={() => {
+                            setRenderState(undefined);
+                            setRetryKey((value) => value + 1);
+                        }}
+                        type="button"
+                    >
+                        Retry
+                    </button>
+                </div>
+                {projection?.content}
+            </>
+        );
+    }
+
+    const [before, after] = renderState.sections ?? [""];
+    return (
+        <>
+            {(!projection || before.trim()) && <MarkdownReaderBody html={before} />}
+            {projection?.content}
+            {after?.trim() && <MarkdownReaderBody html={after} />}
+        </>
+    );
+}
+
+function MarkdownReaderBody({ html }: { html: string }) {
+    const navigate = useNavigate();
+    const readerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) {
-            return;
-        }
-        return enhanceMermaidDiagrams(readerRef.current);
-    }, [isCurrentRender, renderState?.html, renderState?.status]);
+        if (readerRef.current) return createMarkdownTableStickyHeaders(readerRef.current);
+    }, [html]);
 
     useEffect(() => {
-        if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) return;
-        return enhanceReader(readerRef.current);
-    }, [isCurrentRender, renderState?.html, renderState?.status]);
+        if (readerRef.current) return enhanceMermaidDiagrams(readerRef.current);
+    }, [html]);
 
     useEffect(() => {
-        if (!isCurrentRender || renderState.status !== "ready" || !readerRef.current) return;
+        if (readerRef.current) return enhanceReader(readerRef.current);
+    }, [html]);
+
+    useEffect(() => {
         const restore = () => {
             if (readerRef.current) restoreReaderFragment(readerRef.current);
         };
@@ -174,7 +238,7 @@ export function MarkdownReader({
             window.removeEventListener("hashchange", restore);
             window.removeEventListener("popstate", restore);
         };
-    }, [isCurrentRender, renderState]);
+    }, [html]);
 
     function navigateReaderLink(event: React.MouseEvent<HTMLDivElement>) {
         if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
@@ -204,53 +268,13 @@ export function MarkdownReader({
         void navigate(navigation.href);
     }
 
-    if (!isCurrentRender) {
-        return (
-            <div
-                aria-busy="true"
-                aria-label="Rendering page content"
-                className="flex flex-col gap-5"
-                data-reader="markdown"
-                data-reader-loading
-                role="status"
-            >
-                <div className="h-4 w-full skeleton" />
-                <div className="h-4 w-11/12 skeleton" />
-                <div className="mt-4 h-7 w-2/5 skeleton" />
-                <div className="h-4 w-full skeleton" />
-                <div className="h-4 w-4/5 skeleton" />
-            </div>
-        );
-    }
-
-    if (renderState.status === "error") {
-        return (
-            <div className="alert alert-soft alert-error sm:alert-horizontal" data-reader="markdown" role="alert">
-                <div className="min-w-0">
-                    <p className="font-medium">This page could not be rendered.</p>
-                    <p className="text-sm opacity-80">{renderState.error}</p>
-                </div>
-                <button
-                    className="btn btn-sm"
-                    onClick={() => {
-                        setRenderState(undefined);
-                        setRetryKey((value) => value + 1);
-                    }}
-                    type="button"
-                >
-                    Retry
-                </button>
-            </div>
-        );
-    }
-
     return (
         <div
             data-reader="markdown"
             onClick={navigateReaderLink}
             ref={readerRef}
             // eslint-disable-next-line @eslint-react/dom-no-dangerously-set-innerhtml
-            dangerouslySetInnerHTML={{ __html: renderState.html ?? "" }}
+            dangerouslySetInnerHTML={{ __html: html }}
         />
     );
 }
@@ -340,8 +364,50 @@ export function postProcessMarkdownHtml(
     currentRoutePath?: string,
     linkSource: MarkdownLinkSource = "workspace",
 ) {
+    return postProcessMarkdownSections(
+        [html],
+        headings,
+        currentPath,
+        entries,
+        omitLeadingTitle,
+        currentRoutePath,
+        linkSource,
+    )[0];
+}
+
+function splitMarkdownSections(value: string, boundary?: string): [string, string?] {
+    const offset = boundary ? value.indexOf(boundary) : -1;
+    if (boundary && offset >= 0) return [value.slice(0, offset), value.slice(offset + boundary.length)];
+    return [value];
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function postProcessMarkdownSections(
+    [before, after]: [string, string?],
+    headings: MarkdownHeading[],
+    currentPath: string,
+    entries: DashboardEntry[],
+    omitLeadingTitle: boolean,
+    currentRoutePath?: string,
+    linkSource: MarkdownLinkSource = "workspace",
+    viewDocument = false,
+): [string, string?] {
     const parser = new DOMParser();
-    const document = parser.parseFromString(html, "text/html");
+    const document = parser.parseFromString(before, "text/html");
+    const leadingTitle = document.body.firstElementChild;
+    // Static publication keeps an H1 after a leading comment and after a View mount.
+    const omitTitle =
+        omitLeadingTitle &&
+        (!viewDocument || before.trimStart().startsWith("<h1>")) &&
+        leadingTitle?.tagName === "H1" &&
+        !leadingTitle.querySelector("[data-user-content-fn-ref]");
+
+    const separator = after === undefined ? undefined : document.createComment("");
+    if (separator && after !== undefined) {
+        const tail = parser.parseFromString(after, "text/html").body;
+        document.body.append(separator);
+        while (tail.firstChild) document.body.append(tail.firstChild);
+    }
 
     const headingSelector = headings.some(
         (heading) => heading.aliasId !== undefined || (heading.level !== 2 && heading.level !== 3),
@@ -360,69 +426,9 @@ export function postProcessMarkdownHtml(
         }
     }
 
-    const noteTargets = new Map<string, string>();
     const footnoteLabel = document.body.querySelector<HTMLElement>("[data-footnotes] > h2");
-    let labelId = "footnote-label";
-    let labelSuffix = 2;
-    while (
-        Array.from(document.body.querySelectorAll("[id]")).some(
-            (element) => element !== footnoteLabel && element.id === labelId,
-        )
-    ) {
-        labelId = `footnote-label-${String(labelSuffix++)}`;
-    }
-    if (footnoteLabel) footnoteLabel.id = labelId;
-    for (const note of document.body.querySelectorAll<HTMLElement>("[data-footnotes] > ol > li[id]")) {
-        const original = note.id;
-        let sourceLabel: string;
-        try {
-            sourceLabel = decodeURIComponent(original.slice("user-content-fn-".length));
-        } catch {
-            continue;
-        }
-        note.id = `user-content-fn-${markdownFootnoteLabelId(sourceLabel)}`;
-        noteTargets.set(original, note.id);
-    }
-    const footnoteReferences = new Map<string, string[]>();
-    const legacyReferences: { id: string; reference: HTMLAnchorElement }[] = [];
-    const originalIds = Array.from(document.body.querySelectorAll("[id]"), (element) => element.id);
-    for (const reference of document.body.querySelectorAll<HTMLAnchorElement>("[data-user-content-fn-ref]")) {
-        const originalTarget = reference.getAttribute("href")?.slice(1);
-        if (!originalTarget) continue;
-        const target = noteTargets.get(originalTarget) ?? originalTarget;
-        reference.setAttribute("href", `#${encodeURIComponent(target)}`);
-        reference.setAttribute("aria-describedby", labelId);
-        const references = footnoteReferences.get(target) ?? [];
-        const label = target.slice("user-content-fn-".length).replaceAll(":", "%3A");
-        const id = `user-content-fnref-${label}${references.length ? `:${String(references.length)}` : ""}`;
-        if (reference.id !== id) legacyReferences.push({ id: reference.id, reference });
-        reference.id = id;
-        references.push(id);
-        footnoteReferences.set(target, references);
-    }
-    const referenceIds = new Set(Array.from(document.body.querySelectorAll("[id]"), (element) => element.id));
-    for (const { id, reference } of legacyReferences) {
-        if (referenceIds.has(id) || originalIds.filter((candidate) => candidate === id).length !== 1) continue;
-        const alias = document.createElement("span");
-        alias.id = id;
-        alias.tabIndex = -1;
-        alias.setAttribute("aria-label", "Footnote reference");
-        reference.before(alias);
-        referenceIds.add(id);
-    }
-    let backrefIndex = 0;
-    for (const note of document.body.querySelectorAll<HTMLElement>("li[id^='user-content-fn-']")) {
-        const references = footnoteReferences.get(note.id) ?? [];
-        for (const [index, backref] of Array.from(note.querySelectorAll("[data-user-content-fn-backref]")).entries()) {
-            backref.setAttribute("data-footnote-backref", "");
-            backref.setAttribute("aria-label", `Back to reference ${String(++backrefIndex)}`);
-            if (references[index]) backref.setAttribute("href", `#${encodeURIComponent(references[index] ?? "")}`);
-        }
-    }
+    if (footnoteLabel) normalizeFootnotes(document, footnoteLabel, omitTitle ? leadingTitle : null);
 
-    const leadingTitle = document.body.firstElementChild;
-    const omitTitle =
-        omitLeadingTitle && leadingTitle?.tagName === "H1" && !leadingTitle.querySelector("[data-user-content-fn-ref]");
     const headingAnchor = createMarkdownHeadingAnchor();
     const occupiedIds = new Set(
         Array.from(document.body.querySelectorAll("[id]"))
@@ -469,8 +475,8 @@ export function postProcessMarkdownHtml(
         occupiedIds.add(id);
     }
 
-    if (omitTitle && document.body.firstElementChild?.tagName === "H1") {
-        const title = document.body.firstElementChild;
+    if (omitTitle) {
+        const title = leadingTitle;
         const alias = title.querySelector<HTMLElement>("[data-forma-heading-anchor]");
         if (alias) {
             alias.setAttribute("aria-label", title.textContent);
@@ -578,8 +584,104 @@ export function postProcessMarkdownHtml(
         wrapper.append(label);
     }
 
-    return DOMPurify.sanitize(document.body.innerHTML, {
-        ADD_ATTR: ["encoding", "target"],
-        ADD_TAGS: ["annotation", "semantics"],
-    });
+    const sanitize = (body: HTMLElement) =>
+        DOMPurify.sanitize(body.innerHTML, {
+            ADD_ATTR: ["encoding", "target"],
+            ADD_TAGS: ["annotation", "semantics"],
+        });
+    if (!separator) return [sanitize(document.body)];
+
+    const tail = document.createElement("div");
+    while (separator.nextSibling) tail.append(separator.nextSibling);
+    separator.remove();
+    return [sanitize(document.body), sanitize(tail)];
+}
+
+interface FootnoteReference {
+    element: HTMLAnchorElement;
+    id: string;
+    originalId: string;
+}
+
+function normalizeFootnotes(document: Document, label: HTMLElement, omittedTitle: Element | null) {
+    const generated = new Set<Element>([label]);
+    const notes = new Map<string, { element: HTMLElement; id: string; references: FootnoteReference[] }>();
+    for (const note of document.body.querySelectorAll<HTMLElement>("[data-footnotes] > ol > li[id]")) {
+        const original = note.id;
+        try {
+            const normalized = markdownFootnoteLabelId(decodeURIComponent(original.slice("user-content-fn-".length)));
+            notes.set(original, { element: note, id: `user-content-fn-${normalized}`, references: [] });
+            generated.add(note);
+        } catch {
+            continue;
+        }
+    }
+    for (const reference of document.body.querySelectorAll<HTMLAnchorElement>("[data-user-content-fn-ref]")) {
+        const note = notes.get(reference.getAttribute("href")?.slice(1) ?? "");
+        if (!note) continue;
+        const label = note.id.slice("user-content-fn-".length).replaceAll(":", "%3A");
+        const suffix = note.references.length ? `:${String(note.references.length)}` : "";
+        note.references.push({
+            element: reference,
+            id: `user-content-fnref-${label}${suffix}`,
+            originalId: reference.id,
+        });
+        generated.add(reference);
+    }
+
+    const counts = new Map<string, number>();
+    const occupied = new Set<string>();
+    for (const element of document.body.querySelectorAll<HTMLElement>("[id]")) {
+        if (element === omittedTitle) continue;
+        counts.set(element.id, (counts.get(element.id) ?? 0) + 1);
+        if (!generated.has(element)) occupied.add(element.id);
+    }
+    // A colliding generated anchor must not consume another footnote's ordinary ID.
+    const reserved = new Set<string>();
+    for (const note of notes.values()) {
+        reserved.add(note.id);
+        for (const reference of note.references) {
+            reserved.add(reference.id);
+            if (counts.get(reference.originalId) === 1) reserved.add(reference.originalId);
+        }
+    }
+    function assign(element: HTMLElement, id: string, fallback = id) {
+        if (occupied.has(id)) {
+            id = fallback;
+            while (occupied.has(id) || reserved.has(id)) id += "-";
+        }
+        occupied.add(id);
+        element.id = id;
+        return id;
+    }
+    const labelId = assign(label, "footnote-label", "footnote-label-2");
+    const aliases: FootnoteReference[] = [];
+    let backrefIndex = 0;
+    for (const note of notes.values()) {
+        const target = assign(note.element, note.id);
+        const referenceIds = note.references.map((reference) => {
+            reference.element.setAttribute("href", `#${encodeURIComponent(target)}`);
+            reference.element.setAttribute("aria-describedby", labelId);
+            const id = assign(reference.element, reference.id);
+            if (reference.originalId !== id) aliases.push(reference);
+            return id;
+        });
+        for (const [index, backref] of Array.from(
+            note.element.querySelectorAll("[data-user-content-fn-backref]"),
+        ).entries()) {
+            backref.setAttribute("data-footnote-backref", "");
+            backref.setAttribute("aria-label", `Back to reference ${String(++backrefIndex)}`);
+            const id = referenceIds[index];
+            if (id) backref.setAttribute("href", `#${encodeURIComponent(id)}`);
+        }
+    }
+    for (const { element, originalId } of aliases) {
+        if (!originalId || occupied.has(originalId) || counts.get(originalId) !== 1) continue;
+        const alias = document.createElement("span");
+        alias.id = originalId;
+        alias.tabIndex = -1;
+        alias.setAttribute("aria-label", "Footnote reference");
+        element.before(alias);
+        occupied.add(originalId);
+    }
 }
