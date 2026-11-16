@@ -136,6 +136,10 @@ try {
         "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\nid: wow!\ntitle: Punctuation term\n---\n",
     );
     await writeFile(join(workspace, "same.md"), "# Root document\n");
+    await writeFile(
+        join(workspace, ".forma/views/wow!.md"),
+        "---\nschemaVersion: 1\nkind: view\ntitle: Punctuation View\nmode: table\nsource:\n  type: pages\n  taxonomy:\n    spaces: [graph]\ntable:\n  columns:\n    - field: fields.title\n      label: Title\n      link:\n        target: entry\n---\n",
+    );
     await writeFile(join(workspace, "preview/index.md"), "# Folder landing\n");
     await writeFile(
         join(workspace, "preview/same.md"),

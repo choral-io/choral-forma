@@ -52,10 +52,10 @@ export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pat
         };
     }
 
-    const view = dashboard.views.find((candidate) => viewRoutePath(candidate.id) === canonicalPath);
+    const view = dashboard.views.find((candidate) => viewRoutePath(candidate.id) === normalizedPath);
     if (view) {
         return {
-            canonicalPath,
+            canonicalPath: normalizedPath,
             description: `${view.kind} workspace View.`,
             title: view.title || view.id,
         };

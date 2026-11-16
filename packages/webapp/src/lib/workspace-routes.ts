@@ -16,10 +16,7 @@ export function isSystemRoutePath(routePath: string) {
 }
 
 export function viewRoutePath(viewId: string) {
-    return `${viewsRoutePath}/${viewId
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/")}`;
+    return `${viewsRoutePath}/${viewId.split("/").map(encodeRouteSegment).join("/")}`;
 }
 
 /**

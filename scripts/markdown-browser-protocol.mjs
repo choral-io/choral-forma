@@ -37,6 +37,7 @@ export function markdownBrowserPhases(hosts, sourceIds) {
                   "static: mounted document retains identity, selection and links",
                   "static: direct Health and reserved segment routes",
                   "static: encoded canonical term URL enhances on direct load",
+                  "static: encoded canonical View URL enhances and navigates on direct load",
               ]
             : []),
         `${host.name}: P1 syntax ${readingCount} cases, combined reading and themes`,

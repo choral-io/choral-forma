@@ -44,6 +44,7 @@ const dashboard = {
     ],
     taxonomies: [{ id: "topics", title: "Topics", terms: [{ id: "wow!", title: "Punctuation term" }] }],
     views: [
+        { id: "wow!", title: "Punctuation View", description: "", kind: "table" },
         {
             id: "notes",
             title: "Notes",
@@ -54,6 +55,12 @@ const dashboard = {
 } as unknown as WorkspaceDashboard;
 
 describe("static document metadata", () => {
+    it.each(["/-/views/wow%21/", "/-/views/wow!"])("resolves canonical View metadata from %s", (pathname) => {
+        expect(resolveStaticDocumentMetadata(dashboard, pathname)).toMatchObject({
+            canonicalPath: "/-/views/wow%21",
+            title: "Punctuation View",
+        });
+    });
     afterEach(() => {
         clearStaticRuntimeConfig();
         document.head.innerHTML = "";

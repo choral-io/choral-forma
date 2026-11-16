@@ -46,7 +46,8 @@ export async function prepareStaticEnhancement(pathname: string) {
     } else if (isContentRoute && !directory) {
         throw new Error(`Static artifact route was not listed: ${routePath}`);
     } else if (routePath.startsWith(`${viewsRoutePath}/`)) {
-        const view = dashboard.views.find((candidate) => viewRoutePath(candidate.id) === routePath);
+        const viewPath = canonicalRoutePath(routePath);
+        const view = dashboard.views.find((candidate) => viewRoutePath(candidate.id) === viewPath);
         if (!view) throw new Error(`Static artifact View route was not listed: ${routePath}`);
         seed.view = {
             render: await workspaceClient.getViewRender(view.id, dashboardContext),

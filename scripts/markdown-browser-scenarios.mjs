@@ -445,6 +445,42 @@ export async function markdownBrowserScenarios(page, options) {
             "static: canonical term URL after enhancement",
         );
     };
+    const canonicalView = async (current, host) => {
+        const path = `${host.root}/-/views/wow%21`;
+        const canonical = `${host.origin}${path}`;
+        const sitemap = await current.request.get(`${host.origin}${host.root}/sitemap.xml`);
+        assert(
+            sitemap.ok() && (await sitemap.text()).includes(`<loc>${canonical}</loc>`),
+            "static: canonical View URL",
+        );
+        for (const url of [canonical, `${host.origin}${host.root}/-/views/wow!`]) {
+            const response = await current.goto(url);
+            assert(response?.ok(), "static: direct View response");
+            const enhanced = current.locator("[data-enhancement-ready]");
+            await enhanced
+                .locator("main")
+                .getByRole("heading", { level: 1, name: "Punctuation View", exact: true })
+                .waitFor();
+            assert((await current.locator("[data-static-fallback]").count()) === 0, "static: View fallback remains");
+            const selected = enhanced.locator('aside a[aria-current="page"]', { hasText: "Punctuation View" });
+            assert((await selected.getAttribute("href")) === path, "static: View sidebar selection");
+            assert(
+                (await current.locator('link[rel="canonical"]').getAttribute("href")) === canonical,
+                "static: View canonical metadata",
+            );
+            await enhanced
+                .locator("main table")
+                .getByRole("link", { name: "Open source entry Selected node", exact: true })
+                .click();
+            await current.waitForURL(
+                (destination) => destination.pathname.replace(/\/$/u, "") === `${host.root}/graph/selected`,
+            );
+            await current
+                .locator("[data-enhancement-ready] main")
+                .getByRole("heading", { level: 1, name: "Selected node", exact: true })
+                .waitFor();
+        }
+    };
     const calloutSourceCases = async (current, host, noScript = false) => {
         assert(
             Array.isArray(options.calloutBoundaries) && options.calloutBoundaries.length > 0,
@@ -938,6 +974,8 @@ export async function markdownBrowserScenarios(page, options) {
                 results.push("static: direct Health and reserved segment routes");
                 await canonicalTerm(current, host);
                 results.push("static: encoded canonical term URL enhances on direct load");
+                await canonicalView(current, host);
+                results.push("static: encoded canonical View URL enhances and navigates on direct load");
             }
             sourceCases.reading = await readingSyntax(current, host);
             results.push(`${host.name}: P1 syntax ${sourceCases.reading.length} cases, combined reading and themes`);

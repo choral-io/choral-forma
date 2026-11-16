@@ -13,6 +13,8 @@ import {
 describe("workspace route paths", () => {
     it("keeps configured view path segments while encoding each segment", () => {
         expect(viewRoutePath("planning/release scope")).toBe("/-/views/planning/release%20scope");
+        expect(viewRoutePath("wow!'()*")).toBe("/-/views/wow%21%27%28%29%2A");
+        expect(viewRoutePath(".forma/views/wow!")).toBe("/-/views/.forma/views/wow%21");
     });
 
     it("places taxonomies and terms below browse, encoding each identifier", () => {
