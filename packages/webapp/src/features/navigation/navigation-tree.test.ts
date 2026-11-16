@@ -282,7 +282,7 @@ describe("buildViewTree", () => {
                 label: "Board",
                 name: ".forma/views/board",
                 title: "Work",
-                to: "/-/views/.forma/views/board",
+                to: "/-/views/board",
                 viewKind: "kanban",
             },
         ]);

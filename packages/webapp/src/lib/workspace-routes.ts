@@ -15,8 +15,13 @@ export function isSystemRoutePath(routePath: string) {
     return routePath === `/${systemRouteSegment}` || routePath.startsWith(`/${systemRouteSegment}/`);
 }
 
+/**
+ * A View's route, as Core defines it: its public id, the last segment of its path id, below
+ * `/-/views`. A local server names a View by its full path id and a static artifact by its
+ * public id; both resolve to the same route, so a View link works on either.
+ */
 export function viewRoutePath(viewId: string) {
-    return `${viewsRoutePath}/${viewId.split("/").map(encodeRouteSegment).join("/")}`;
+    return `${viewsRoutePath}/${encodeRouteSegment(viewId.split("/").at(-1) ?? viewId)}`;
 }
 
 /**

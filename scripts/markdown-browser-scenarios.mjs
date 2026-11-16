@@ -527,7 +527,7 @@ export async function markdownBrowserScenarios(page, options) {
         }
     };
     const markdownLinkContracts = async (current, host, noScript = false) => {
-        const viewPath = host.name === "static" ? "/-/views/link-contracts/" : "/-/views/.forma/views/link-contracts";
+        const viewPath = host.name === "static" ? "/-/views/link-contracts/" : "/-/views/link-contracts";
         for (const [sourcePath, label] of [
             ["/notes/link-contracts/", "Encoded entry"],
             [viewPath, "Root source"],
@@ -582,7 +582,7 @@ export async function markdownBrowserScenarios(page, options) {
             "reference link opens canonical target",
         );
 
-        const view = isStatic ? "/-/views/link-contracts/" : "/-/views/.forma/views/link-contracts";
+        const view = isStatic ? "/-/views/link-contracts/" : "/-/views/link-contracts";
         await current.goto(`${base}${view}`);
         const repeat = main.getByRole("heading", { level: 2, name: "Repeat", exact: true });
         await repeat.nth(1).waitFor();

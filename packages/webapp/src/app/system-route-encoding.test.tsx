@@ -117,8 +117,8 @@ it.each([
 
 it.each([
     ["literal%2F", "/-/views/literal%252F/"],
-    [".forma/views/literal%2F", "/-/views/.forma/views/literal%252F"],
-    ["planning/with space", "/-/views/planning/with%20space/"],
+    [".forma/views/literal%2F", "/-/views/literal%252F"],
+    ["planning/with space", "/-/views/with%20space/"],
 ])("opens View %s and loads its original id", async (id, pathname) => {
     const fixture: WorkspaceDashboard = {
         ...dashboard,
