@@ -555,19 +555,33 @@ export async function markdownBrowserScenarios(page, options) {
         const viewport = current.viewportSize();
         const selector = host.name === "static" ? "[data-enhancement-ready] main" : "main";
         try {
-            await current.setViewportSize({ width: 390, height: 720 });
-            await current.goto(`${host.origin}${host.root}/classification-layout/`);
-            const groups = current.locator(selector).getByRole("list", { name: "Classifications" });
-            const term = groups.getByRole("link", { name: "Deployment and workspace configuration documentation" });
-            await term.waitFor();
-            const sameLine = await term.evaluate((link) => {
-                const item = link.closest("li");
-                const separator = item?.querySelector('span[aria-hidden="true"]');
-                const lastLine = Array.from(link.getClientRects()).at(-1);
-                const dot = separator?.getBoundingClientRect();
-                return lastLine && dot && lastLine.top < dot.bottom && dot.top < lastLine.bottom - 2;
-            });
-            assert(sameLine, `${host.name}: narrow classification keeps the separator with its last term`);
+            for (const [route, title] of [
+                ["classification-layout", "Deployment and workspace configuration documentation-"],
+                ["classification-space-layout", "Deployment and workspace configuration documentation"],
+            ]) {
+                await current.setViewportSize({ width: 320, height: 720 });
+                await current.goto(`${host.origin}${host.root}/${route}/`);
+                const groups = current.locator(selector).getByRole("list", { name: "Classifications" });
+                const term = groups.getByRole("link", { name: title, exact: true });
+                await term.waitFor();
+                for (const width of [320, 390, 408, 412]) {
+                    await current.setViewportSize({ width, height: 720 });
+                    const { wrapped, sameLine } = await term.evaluate((link) => {
+                        const lines = Array.from(link.getClientRects());
+                        const lastLine = lines.at(-1);
+                        const dot = link
+                            .closest("li")
+                            ?.querySelector('span[aria-hidden="true"]')
+                            ?.getBoundingClientRect();
+                        return {
+                            wrapped: lines.length > 1,
+                            sameLine: lastLine && dot && lastLine.top < dot.bottom && dot.top < lastLine.bottom - 2,
+                        };
+                    });
+                    if (width === 320) assert(wrapped, `${host.name}: ${route} title wraps at narrow width`);
+                    assert(sameLine, `${host.name}: ${route} separator follows its last term at ${width}px`);
+                }
+            }
         } finally {
             if (viewport) await current.setViewportSize(viewport);
         }
@@ -618,6 +632,65 @@ export async function markdownBrowserScenarios(page, options) {
             assert(new URL(current.url()).hash === "#section-2", "static: resolved non-ASCII heading link");
         } else {
             await current.waitForFunction(() => document.activeElement?.id === "section-2");
+        }
+
+        const titleAlias = "forma-heading-总览";
+        const fragmentCases = [
+            { label: "Missing mixed heading", fragment: "缺失版本 v2", heading: "第二节", wrongId: "v2" },
+            { label: "Encoded blank fragment", fragment: " ", heading: "第二节", wrongId: "section" },
+            {
+                label: "Reserved prefix heading",
+                fragment: isStatic ? "forma-heading" : "forma-heading-前缀",
+                heading: "forma-heading-前缀",
+                targetId: "forma-heading",
+            },
+            {
+                label: "Hyphenated heading with punctuation",
+                fragment: isStatic ? "host-visual-2026-09-24" : "Host-Visual-—-2026-09-24",
+                heading: "Host Visual — 2026-09-24",
+                targetId: "host-visual-2026-09-24",
+            },
+            {
+                label: "Omitted named title",
+                fragment: isStatic ? titleAlias : "总览",
+                heading: "正文",
+                targetId: titleAlias,
+            },
+            { label: "Explicit title alias", fragment: titleAlias, heading: "正文", targetId: titleAlias },
+            {
+                label: "Omitted title with alias collision",
+                fragment: isStatic ? "alias-owner" : "Alias owner",
+                heading: "Forma heading alias owner",
+                targetId: isStatic ? "alias-owner" : "forma-omitted-title",
+            },
+        ];
+        for (const { label, fragment, heading, targetId, wrongId } of fragmentCases) {
+            await current.goto(source);
+            const link = main.getByRole("link", { name: label, exact: true });
+            const href = new URL(await link.getAttribute("href"), current.url());
+            assert(
+                decodeURIComponent(href.hash) === `#${fragment}`,
+                `${host.name}: ${label} retains the correct fragment`,
+            );
+            await link.click();
+            await main.getByRole("heading", { level: 2, name: heading, exact: true }).waitFor();
+            assert(
+                decodeURIComponent(new URL(current.url()).hash) === `#${fragment}`,
+                `${host.name}: ${label} after click`,
+            );
+            if (targetId) {
+                await current.waitForFunction(
+                    ({ id, native }) =>
+                        (native ? document.querySelector(":target") : document.activeElement)?.id === id,
+                    { id: targetId, native: noScript },
+                );
+            } else {
+                const hasWrongTarget = await current.evaluate(
+                    (id) => document.activeElement?.id === id || document.querySelector(":target")?.id === id,
+                    wrongId,
+                );
+                assert(!hasWrongTarget, `${host.name}: ${label} does not jump to ${wrongId}`);
+            }
         }
 
         const view = isStatic ? "/-/views/link-contracts/" : "/-/views/link-contracts";

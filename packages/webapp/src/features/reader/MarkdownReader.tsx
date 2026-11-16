@@ -443,8 +443,15 @@ export function postProcessMarkdownHtml(
         const projectedHeading = projectedHeadings.get(heading);
         heading.dataset.readerHeadingText = projectedHeading?.text ?? semanticHeading.textContent;
         const aliasId = projectedHeading?.aliasId;
-        const id = aliasId === undefined ? headingAnchor(semanticHeading.textContent) : aliasId;
-        if (id === null || occupiedIds.has(id)) continue;
+        let id = aliasId === undefined ? headingAnchor(semanticHeading.textContent) : aliasId;
+        if (omitTitle && heading === leadingTitle && (id === null || occupiedIds.has(id))) {
+            id = heading.id;
+            if (!id || occupiedIds.has(id)) {
+                id = "forma-omitted-title";
+                while (occupiedIds.has(id)) id += "-";
+            }
+        }
+        if (!id || occupiedIds.has(id)) continue;
         const alias = document.createElement("span");
         alias.id = id;
         alias.dataset.formaHeadingAnchor = "";

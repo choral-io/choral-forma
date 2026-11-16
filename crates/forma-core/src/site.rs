@@ -3,6 +3,7 @@
 //! This module freezes logical routes and artifact paths, but it does not write
 //! files, copy resource candidates, or rewrite rendered HTML URLs.
 
+use std::cell::OnceCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -28,9 +29,9 @@ use crate::render::{
 };
 use crate::routes::{
     BROWSE_ROUTE_PATH, HEALTH_ROUTE_PATH, RAW_ROUTE_PREFIX, ROUTE_STATIC_OUTPUT_CONFLICT_CODE,
-    VIEWS_ROUTE_PATH, directory_paths, directory_route_path, entry_route_path, public_view_id,
-    raw_route_path, route_output_path, taxonomy_route_path, taxonomy_term_route_path,
-    view_route_path,
+    VIEWS_ROUTE_PATH, directory_paths, directory_route_path, entry_route_path,
+    percent_encode_segment, public_view_id, raw_route_path, route_output_path, taxonomy_route_path,
+    taxonomy_term_route_path, view_route_path,
 };
 use crate::{media_type_for_workspace_path, version};
 
@@ -265,6 +266,36 @@ pub struct StaticSiteSnapshotSummary {
     pub diagnostics: DiagnosticSummary,
 }
 
+struct StaticHeadingTargets {
+    headings: Vec<RenderedHeading>,
+    omit_leading_title: bool,
+    projection: OnceCell<Option<StaticHeadingProjection>>,
+}
+
+struct StaticHeadingProjection {
+    markdown: String,
+    html: String,
+}
+
+impl StaticHeadingTargets {
+    fn new(document: &FormaMarkdownDocument, omit_leading_title: bool) -> Self {
+        Self {
+            headings: render_all_headings(document, omit_leading_title),
+            omit_leading_title,
+            projection: OnceCell::new(),
+        }
+    }
+
+    fn render(&self, markdown: &str) -> String {
+        if let Some(Some(projection)) = self.projection.get()
+            && projection.markdown == markdown
+        {
+            return projection.html.clone();
+        }
+        render_static_markdown_html(markdown, &self.headings, self.omit_leading_title)
+    }
+}
+
 /// Builds one static snapshot from the workspace's effective configuration and discovery.
 pub fn build_static_site_snapshot(
     root: impl AsRef<Path>,
@@ -335,7 +366,7 @@ fn build_static_site_snapshot_from_loaded(
             read_document(workspace.root.as_path(), path).map(|document| {
                 (
                     path.clone(),
-                    render_all_headings(
+                    StaticHeadingTargets::new(
                         &document,
                         omitted_titles.get(path).copied().unwrap_or(false),
                     ),
@@ -355,12 +386,9 @@ fn build_static_site_snapshot_from_loaded(
             .map(|diagnostic| diagnostic.with_path(FORMA_CONFIG_PATH.to_string()))
             .collect(),
     );
-    let workspace_home_headings =
-        render_all_headings(&workspace_home_document, workspace_home_omit_leading_title);
-    entry_headings_by_path.insert(
-        FORMA_CONFIG_PATH.to_string(),
-        workspace_home_headings.clone(),
-    );
+    let workspace_home_targets =
+        StaticHeadingTargets::new(&workspace_home_document, workspace_home_omit_leading_title);
+    entry_headings_by_path.insert(FORMA_CONFIG_PATH.to_string(), workspace_home_targets);
     collect_document_resources(
         workspace.root.as_path(),
         &entry_routes_by_path,
@@ -380,11 +408,9 @@ fn build_static_site_snapshot_from_loaded(
         &config_paths,
         root_path,
     );
-    let workspace_home_html = render_static_markdown_html(
-        &workspace_home_markdown,
-        &workspace_home_headings,
-        workspace_home_omit_leading_title,
-    );
+    let workspace_home_targets = &entry_headings_by_path[FORMA_CONFIG_PATH];
+    let workspace_home_html = workspace_home_targets.render(&workspace_home_markdown);
+    let workspace_home_headings = workspace_home_targets.headings.clone();
 
     for entry in &discovery.index.entries {
         let route_path = entry_route_path(&entry.path);
@@ -417,8 +443,9 @@ fn build_static_site_snapshot_from_loaded(
             &config_paths,
             root_path,
         );
-        let headings = render_all_headings(&document, entry.omit_leading_title);
-        let html = render_static_markdown_html(&markdown, &headings, entry.omit_leading_title);
+        let targets = &entry_headings_by_path[&entry.path];
+        let html = targets.render(&markdown);
+        let headings = targets.headings.clone();
 
         let outgoing = unique_references_by_target(entry.refs.iter())
             .into_iter()
@@ -479,6 +506,10 @@ fn build_static_site_snapshot_from_loaded(
         let rendered =
             render_indexed_view_from_loaded(workspace, discovery, &view.id, BTreeMap::new())?;
         let view_document = read_document(workspace.root.as_path(), &view.path)?;
+        entry_headings_by_path.insert(
+            view.path.clone(),
+            StaticHeadingTargets::new(&view_document, true),
+        );
         collect_document_resources(
             workspace.root.as_path(),
             &entry_routes_by_path,
@@ -498,8 +529,9 @@ fn build_static_site_snapshot_from_loaded(
             &config_paths,
             root_path,
         );
-        let view_headings = render_all_headings(&view_document, true);
-        let view_html = render_static_markdown_html(&view_markdown, &view_headings, true);
+        let targets = &entry_headings_by_path[&view.path];
+        let view_html = targets.render(&view_markdown);
+        let view_headings = targets.headings.clone();
         merge_diagnostics(
             &mut diagnostics,
             read_operation_diagnostics(rendered.diagnostics),
@@ -712,7 +744,7 @@ fn render_variant(
     resources: &mut BTreeMap<String, StaticSiteResourceCandidate>,
     variant: &IndexEntryVariant,
     entry_routes_by_path: &BTreeMap<String, String>,
-    entry_headings_by_path: &BTreeMap<String, Vec<RenderedHeading>>,
+    entry_headings_by_path: &BTreeMap<String, StaticHeadingTargets>,
     root_path: &str,
 ) -> Result<(StaticSiteEntryVariant, Vec<Diagnostic>), OperationError> {
     let document = read_document(root, &variant.path)?;
@@ -742,8 +774,9 @@ fn render_variant(
         config_paths,
         root_path,
     );
-    let headings = render_all_headings(&document, variant.omit_leading_title);
-    let html = render_static_markdown_html(&markdown, &headings, variant.omit_leading_title);
+    let targets = &entry_headings_by_path[&variant.path];
+    let html = targets.render(&markdown);
+    let headings = targets.headings.clone();
     Ok((
         StaticSiteEntryVariant {
             id: document_id_for_path(&variant.path),
@@ -936,7 +969,7 @@ fn static_markdown(
     document: &FormaMarkdownDocument,
     source_path: &str,
     entry_routes_by_path: &BTreeMap<String, String>,
-    entry_headings_by_path: &BTreeMap<String, Vec<RenderedHeading>>,
+    entry_headings_by_path: &BTreeMap<String, StaticHeadingTargets>,
     config_paths: &BTreeSet<&str>,
     root_path: &str,
 ) -> String {
@@ -1012,7 +1045,7 @@ fn static_reference_href(
     reference: &crate::markdown::FormaReference,
     source_path: &str,
     entry_routes_by_path: &BTreeMap<String, String>,
-    entry_headings_by_path: &BTreeMap<String, Vec<RenderedHeading>>,
+    entry_headings_by_path: &BTreeMap<String, StaticHeadingTargets>,
     config_paths: &BTreeSet<&str>,
     root_path: &str,
 ) -> Option<String> {
@@ -1029,14 +1062,31 @@ fn static_reference_href(
         crate::markdown::FormaReferenceSyntax::MarkdownLink
             | crate::markdown::FormaReferenceSyntax::MarkdownImage
     );
+    let resolve_fragment = |fragment: &str, path: &str| {
+        resolve_heading_fragment(fragment, entry_headings_by_path.get(path), |targets| {
+            let document = read_document(root, path).ok()?;
+            // Route rewrites affect the labels of wiki links inside headings. Render
+            // the same labels without consulting target heading metadata recursively.
+            let markdown = static_markdown(
+                root,
+                &document,
+                path,
+                entry_routes_by_path,
+                &BTreeMap::new(),
+                config_paths,
+                root_path,
+            );
+            let html = targets.render(&markdown);
+            Some(StaticHeadingProjection { markdown, html })
+        })
+    };
     if let Some(fragment) = target.strip_prefix('#') {
         let fragment = if markdown_uri {
             crate::routes::decode_public_path_once(fragment)
         } else {
             fragment.to_string()
         };
-        return resolve_heading_fragment(&fragment, entry_headings_by_path.get(source_path))
-            .map(|fragment| format!("#{fragment}"));
+        return resolve_fragment(&fragment, source_path).map(|fragment| format!("#{fragment}"));
     }
     if is_external_target(target) {
         return None;
@@ -1065,15 +1115,9 @@ fn static_reference_href(
     });
     if let Some((target_path, route)) = resolved_entry {
         let mut href = public_url(root_path, route);
-        if !fragment.is_empty() {
+        if let Some(fragment) = resolve_fragment(&heading_fragment, target_path) {
             href.push('#');
-            href.push_str(
-                &resolve_heading_fragment(
-                    &heading_fragment,
-                    entry_headings_by_path.get(target_path),
-                )
-                .unwrap_or_else(|| slugify_heading(&heading_fragment)),
-            );
+            href.push_str(&fragment);
         }
         return Some(href);
     }
@@ -1108,12 +1152,9 @@ fn static_reference_href(
 
     let (target_path, route) = alias?;
     let mut href = public_url(root_path, route);
-    if !fragment.is_empty() {
+    if let Some(fragment) = resolve_fragment(&heading_fragment, target_path) {
         href.push('#');
-        href.push_str(
-            &resolve_heading_fragment(&heading_fragment, entry_headings_by_path.get(target_path))
-                .unwrap_or_else(|| slugify_heading(&heading_fragment)),
-        );
+        href.push_str(&fragment);
     }
     Some(href)
 }
@@ -1171,34 +1212,85 @@ fn resolve_entry_route<'a>(
 
 fn resolve_heading_fragment(
     fragment: &str,
-    headings: Option<&Vec<RenderedHeading>>,
+    targets: Option<&StaticHeadingTargets>,
+    project: impl FnOnce(&StaticHeadingTargets) -> Option<StaticHeadingProjection>,
 ) -> Option<String> {
-    let fragment = fragment.trim();
     if fragment.is_empty() {
         return None;
     }
-    if fragment.starts_with("forma-heading-") || fragment.starts_with("user-content-fn") {
-        return Some(fragment.to_string());
-    }
-    let headings = headings.map_or(&[][..], Vec::as_slice);
-    let matched = headings
-        .iter()
-        .find(|heading| heading.id == fragment)
-        .or_else(|| {
-            headings
-                .iter()
-                .find(|heading| heading.text.trim().eq_ignore_ascii_case(fragment))
-        });
-    if let Some(heading) = matched {
+    let normalized = fragment.trim();
+    if let Some(targets) = targets
+        && let Some((index, heading)) = targets
+            .headings
+            .iter()
+            .enumerate()
+            .find(|(_, heading)| heading.id == fragment)
+            .or_else(|| {
+                targets
+                    .headings
+                    .iter()
+                    .enumerate()
+                    .find(|(_, heading)| heading.text.trim().eq_ignore_ascii_case(normalized))
+            })
+            .or_else(|| {
+                if normalized.is_ascii() {
+                    return None;
+                }
+                // Accept hyphenated titles without discarding any Unicode text.
+                let hyphenated = hyphenate_heading_text(normalized);
+                targets.headings.iter().enumerate().find(|(_, heading)| {
+                    hyphenate_heading_text(&heading.text).eq_ignore_ascii_case(&hyphenated)
+                })
+            })
+    {
+        let might_omit_title = index == 0 && heading.level == 1 && targets.omit_leading_title;
+        // Real IDs keep precedence over literal titles that look like readable aliases
+        // or footnotes. The rendered title also determines whether its historical ID exists.
+        if (might_omit_title || has_generated_fragment_prefix(fragment))
+            && let Some(projection) = targets.projection.get_or_init(|| project(targets))
+        {
+            if has_static_anchor(&projection.html, fragment) {
+                return Some(percent_encode_segment(fragment));
+            }
+            if might_omit_title && let Some(id) = leading_heading_anchor(&projection.html) {
+                return Some(percent_encode_segment(id));
+            }
+        }
         return Some(heading.id.clone());
     }
-    // The default "section" id is for allocating headings, not resolving unknown ones.
-    let fallback_id = if fragment.bytes().any(|byte| byte.is_ascii_alphanumeric()) {
-        slugify_heading(fragment)
+    // Slug guesses are for historical ASCII IDs. Dropping all or part of a
+    // Unicode name can turn an unknown heading into an unrelated target.
+    if !has_generated_fragment_prefix(fragment)
+        && normalized.is_ascii()
+        && normalized.bytes().any(|byte| byte.is_ascii_alphanumeric())
+    {
+        Some(slugify_heading(normalized))
     } else {
-        crate::routes::percent_encode_segment(fragment)
-    };
-    Some(fallback_id)
+        Some(percent_encode_segment(fragment))
+    }
+}
+
+fn hyphenate_heading_text(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join("-")
+}
+
+fn has_generated_fragment_prefix(fragment: &str) -> bool {
+    fragment.starts_with("forma-heading-") || fragment.starts_with("user-content-fn")
+}
+
+fn has_static_anchor(html: &str, id: &str) -> bool {
+    let attribute = format!(" id=\"{id}\"");
+    html.split('<')
+        .skip(1)
+        .filter_map(|element| element.split_once('>'))
+        .any(|(tag, _)| tag.contains(&attribute))
+}
+
+fn leading_heading_anchor(html: &str) -> Option<&str> {
+    let (id, attributes) = html.strip_prefix("<span id=\"")?.split_once('"')?;
+    attributes
+        .starts_with(" data-forma-heading-anchor=\"\"")
+        .then_some(id)
 }
 
 fn markdown_label(value: &str) -> String {
@@ -1214,17 +1306,9 @@ fn unresolved_reference_fallback(target: &str) -> String {
     if !path.ends_with(".md") && !path.ends_with(".mdx") {
         path.push_str(".md");
     }
-    if fragment.is_empty() {
-        format!("./{path}")
-    } else {
-        format!(
-            "./{path}#{}",
-            if fragment.starts_with("forma-heading-") {
-                fragment.to_string()
-            } else {
-                slugify_heading(fragment)
-            }
-        )
+    match resolve_heading_fragment(fragment, None, |_| None) {
+        Some(fragment) => format!("./{path}#{fragment}"),
+        None => format!("./{path}"),
     }
 }
 
@@ -1318,10 +1402,25 @@ fn render_static_markdown_html(
         && let Some(rest) = html.strip_prefix("<h1>")
         && let Some(end) = rest.find("</h1>")
     {
-        let alias = rest
+        let mut alias = rest
             .find("</span>")
             .map(|end| &rest[..end + "</span>".len()])
-            .unwrap_or("");
+            .unwrap_or("")
+            .to_string();
+        if let Some((title, body)) = headings.split_first()
+            && title.level == 1
+            && let Some(id) = leading_heading_anchor(&alias)
+            && body.iter().any(|heading| heading.id == id)
+            && body.iter().all(|heading| heading.id != title.id)
+            && !has_static_anchor(&html, &title.id)
+        {
+            // A body heading may already own the title's readable alias.
+            // Keep the omitted title reachable through its free historical ID.
+            alias.replace_range(
+                "<span id=\"".len().."<span id=\"".len() + id.len(),
+                &title.id,
+            );
+        }
         html = format!(
             "{}{}",
             alias,
@@ -2539,6 +2638,113 @@ mod tests {
     }
 
     #[test]
+    fn site_snapshot_rewrites_fragments_to_published_heading_targets() {
+        let root = copy_fixture("site-snapshot-published-heading-fragments");
+        fs::write(
+            root.join("content/guides/target.md"),
+            "# 总览\n\n## 第一节\n\n## 版本 v2\n\n## forma-heading-前缀\n\n## 实际别名\n\n## forma-heading-实际别名\n\n## user-content-fn-脚注\n\n## Host Visual — 2026-09-24\n\nText[^脚注].\n\n[^脚注]: Note.\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("content/guides/intro.md"),
+            "# Source\n\n[[target#总览|Omitted title]]\n\n[Title ID](./target.md#section)\n\n[Readable title](./target.md#forma-heading-%E6%80%BB%E8%A7%88)\n\n[[target#缺失版本 v2|Missing mixed]]\n\n[Exact path space](./target.md#%20)\n\n[Alias path space](./target#%20)\n\n[[target#forma-heading-前缀|Prefixed title]]\n\n[[target#forma-heading-实际别名|Existing alias]]\n\n[[target#Host-Visual-—-2026-09-24|Hyphenated title]]\n\n[Footnote](./target.md#user-content-fn-%25E8%2584%259A%25E6%25B3%25A8)\n",
+        ).unwrap();
+        let snapshot = build_static_site_snapshot_with_root_path(&root, "/preview").unwrap();
+        let entry = |path: &str| {
+            snapshot
+                .entries
+                .iter()
+                .find(|entry| entry.path == path)
+                .unwrap()
+        };
+        let intro = entry("content/guides/intro.md");
+        let target = entry("content/guides/target.md");
+        let url = "/preview/content/guides/target";
+        for (label, fragment) in [
+            ("Omitted title", "forma-heading-%E6%80%BB%E8%A7%88"),
+            ("Title ID", "forma-heading-%E6%80%BB%E8%A7%88"),
+            ("Readable title", "forma-heading-%E6%80%BB%E8%A7%88"),
+            ("Missing mixed", "%E7%BC%BA%E5%A4%B1%E7%89%88%E6%9C%AC%20v2"),
+            ("Exact path space", "%20"),
+            ("Alias path space", "%20"),
+            ("Prefixed title", "forma-heading"),
+            (
+                "Existing alias",
+                "forma-heading-%E5%AE%9E%E9%99%85%E5%88%AB%E5%90%8D",
+            ),
+            ("Hyphenated title", "host-visual-2026-09-24"),
+            ("Footnote", "user-content-fn-%25E8%2584%259A%25E6%25B3%25A8"),
+        ] {
+            assert!(
+                intro
+                    .html
+                    .contains(&format!(r#"<a href="{url}#{fragment}">{label}</a>"#)),
+                "{label}: {}",
+                intro.html
+            );
+        }
+        for id in [
+            "forma-heading-总览",
+            "forma-heading",
+            "forma-heading-实际别名",
+            "host-visual-2026-09-24",
+            "user-content-fn-%E8%84%9A%E6%B3%A8",
+        ] {
+            assert!(
+                target.html.contains(&format!(r#"id="{id}""#)),
+                "{}",
+                target.html
+            );
+        }
+        assert!(!target.html.contains(r#"id="section""#), "{}", target.html);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn site_snapshot_keeps_omitted_title_reachable_when_body_claims_alias() {
+        let root = copy_fixture("site-snapshot-omitted-title-alias-collision");
+        fs::write(
+            root.join("content/guides/target.md"),
+            "# Foo\n\n## Forma heading foo\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("content/guides/intro.md"),
+            "# Source\n\n[[target#Foo|Omitted title]]\n\n[[target#forma-heading-foo|Body ID]]\n",
+        )
+        .unwrap();
+        let snapshot = build_static_site_snapshot(&root).unwrap();
+        let intro = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/intro.md")
+            .unwrap();
+        let target = snapshot
+            .entries
+            .iter()
+            .find(|entry| entry.path == "content/guides/target.md")
+            .unwrap();
+        assert!(
+            intro
+                .html
+                .contains(r#"href="/content/guides/target#foo">Omitted title</a>"#)
+        );
+        assert!(
+            intro
+                .html
+                .contains(r#"href="/content/guides/target#forma-heading-foo">Body ID</a>"#)
+        );
+        assert!(
+            target
+                .html
+                .starts_with(r#"<span id="foo" data-forma-heading-anchor=""#)
+        );
+        assert!(target.html.contains(r#"<h2 id="forma-heading-foo">"#));
+        assert_eq!(target.html.matches(r#"id="forma-heading-foo""#).count(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn site_snapshot_preserves_resource_uri_suffix_semantics() {
         let root = copy_fixture("site-snapshot-resource-uri-suffix");
         fs::write(root.join("assets/file.txt"), "Resource").unwrap();
@@ -2798,11 +3004,11 @@ mod tests {
     #[test]
     fn readable_fragments_are_not_reslugified() {
         assert_eq!(
-            super::resolve_heading_fragment("forma-heading-中文标题", None),
-            Some("forma-heading-中文标题".into())
+            super::resolve_heading_fragment("forma-heading-中文标题", None, |_| None),
+            Some("forma-heading-%E4%B8%AD%E6%96%87%E6%A0%87%E9%A2%98".into())
         );
         assert_eq!(
-            super::resolve_heading_fragment("user-content-fn-translator", None),
+            super::resolve_heading_fragment("user-content-fn-translator", None, |_| None),
             Some("user-content-fn-translator".into())
         );
     }

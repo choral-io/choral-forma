@@ -83,6 +83,18 @@ describe("scrollReaderAnchor", () => {
         expect(findFragmentTarget(reader, "section")?.textContent).toBe("安装");
     });
 
+    it("keeps the ASCII legacy fallback from redirecting a missing mixed-language title", () => {
+        const reader = document.createElement("main");
+        reader.innerHTML =
+            '<h2 id="v2" data-reader-heading-text="版本 v2">版本 v2</h2><h2 id="host-visual-2026-09-24" data-reader-heading-text="Host Visual — 2026-09-24">Host Visual — 2026-09-24</h2>';
+        document.body.append(reader);
+
+        expect(findFragmentTarget(reader, "缺失版本 v2")).toBeNull();
+        expect(findFragmentTarget(reader, "版本 v2")?.id).toBe("v2");
+        expect(findFragmentTarget(reader, "V2!")?.id).toBe("v2");
+        expect(findFragmentTarget(reader, "Host-Visual-—-2026-09-24")?.id).toBe("host-visual-2026-09-24");
+    });
+
     it("restores a nested heading after native fragment navigation clears link focus", () => {
         const callbacks: FrameRequestCallback[] = [];
         vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {

@@ -140,7 +140,7 @@ try {
     );
     await writeFile(
         join(workspace, ".forma/topics/reference.md"),
-        "---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Reference\ninclude: [classification-layout.md]\n---\n",
+        "---\nschemaVersion: 1\nkind: term\ntaxonomy: topics\ntitle: Reference\ninclude: [classification-layout.md, classification-space-layout.md]\n---\n",
     );
     await mkdir(join(workspace, "graph"));
     await mkdir(join(workspace, "preview"));
@@ -150,9 +150,14 @@ try {
     );
     await writeFile(
         join(workspace, ".forma/spaces/classification-layout.md"),
-        "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Deployment and workspace configuration documentation\ninclude: [classification-layout.md]\n---\n",
+        "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: Deployment and workspace configuration documentation-\ninclude: [classification-layout.md]\n---\n",
     );
     await writeFile(join(workspace, "classification-layout.md"), "# Classification layout\n");
+    await writeFile(
+        join(workspace, ".forma/spaces/classification-space-layout.md"),
+        '---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\ntitle: "Deployment and workspace configuration documentation "\ninclude: [classification-space-layout.md]\n---\n',
+    );
+    await writeFile(join(workspace, "classification-space-layout.md"), "# Classification space layout\n");
     await writeFile(
         join(workspace, ".forma/spaces/punctuation.md"),
         "---\nschemaVersion: 1\nkind: term\ntaxonomy: spaces\nid: wow!\ntitle: Punctuation term\n---\n",
@@ -192,8 +197,20 @@ try {
     );
     await writeFile(
         join(workspace, "notes/contract-target.md"),
-        "---\ntitle: Contract target\n---\n\n# Contract target\n\n## Hello world\n\nFragment target.\n\n## 第一节\n\nFirst heading.\n\n## 第二节\n\nSecond heading.\n",
+        [
+            "---\ntitle: Contract target\n---",
+            "# Contract target",
+            "## Hello world\n\nFragment target.",
+            "## 第一节\n\nFirst heading.",
+            "## 第二节\n\nSecond heading.",
+            "## 版本 v2",
+            "## forma-heading-前缀",
+            "## Host Visual — 2026-09-24",
+            "",
+        ].join("\n\n"),
     );
+    await writeFile(join(workspace, "notes/omitted-title.md"), "# 总览\n\n## 正文\n");
+    await writeFile(join(workspace, "notes/omitted-collision.md"), "# Alias owner\n\n## Forma heading alias owner\n");
     await writeFile(join(workspace, "contract-target.md"), "# Wrong root target\n");
     await writeFile(
         join(workspace, "notes/contract-target.zh-hans.md"),
@@ -206,7 +223,26 @@ try {
     );
     await writeFile(
         join(workspace, "notes/link-contracts.md"),
-        "# Link contracts\n\n[Encoded entry](./contract-target%2Emd#hello%2Dworld)\n\n[Reference destination][entry-ref]\n\n[[notes/contract-target#第二节|Second named section]]\n\n[[notes/contract-target#不存在|Missing named section]]\n\n[entry-ref]: /notes/contract-target.md\n\n[[#Local heading|Wiki jump]]\n\n## Local heading\n\n![Encoded image](./contract%20%23%25.svg?value=a%26b)\n\n[Encoded resource](./contract-raw.txt?name=a%20b&literal=%2520&value=a%26b&plus=a+b#part%20one)\n",
+        [
+            "# Link contracts",
+            "[Encoded entry](./contract-target%2Emd#hello%2Dworld)",
+            "[Reference destination][entry-ref]",
+            "[[notes/contract-target#第二节|Second named section]]",
+            "[[notes/contract-target#不存在|Missing named section]]",
+            "[[notes/contract-target#缺失版本 v2|Missing mixed heading]]",
+            "[Encoded blank fragment](./contract-target.md#%20)",
+            "[[notes/contract-target#forma-heading-前缀|Reserved prefix heading]]",
+            "[[notes/contract-target#Host-Visual-—-2026-09-24|Hyphenated heading with punctuation]]",
+            "[[notes/omitted-title#总览|Omitted named title]]",
+            "[Explicit title alias](./omitted-title.md#forma-heading-%E6%80%BB%E8%A7%88)",
+            "[[notes/omitted-collision#Alias owner|Omitted title with alias collision]]",
+            "[entry-ref]: /notes/contract-target.md",
+            "[[#Local heading|Wiki jump]]",
+            "## Local heading",
+            "![Encoded image](./contract%20%23%25.svg?value=a%26b)",
+            "[Encoded resource](./contract-raw.txt?name=a%20b&literal=%2520&value=a%26b&plus=a+b#part%20one)",
+            "",
+        ].join("\n\n"),
     );
     await writeFile(
         join(workspace, ".forma/views/link-contracts.md"),

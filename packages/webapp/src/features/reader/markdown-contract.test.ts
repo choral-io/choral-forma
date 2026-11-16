@@ -347,6 +347,40 @@ describe("Markdown reader contract", () => {
         expect(body.querySelector('[id="forma-heading-foo"]')?.textContent).toBe("Forma heading foo");
     });
 
+    it.each([
+        {
+            source: "static",
+            headings: [
+                { id: "foo", level: 1, text: "Foo" },
+                { id: "forma-heading-foo", level: 2, text: "Forma heading foo" },
+            ],
+            id: "foo",
+        },
+        {
+            source: "RPC",
+            headings: [
+                { id: "forma-heading-foo", level: 2, text: "Forma heading foo" },
+                { id: "forma-omitted-title", level: 2, text: "Forma omitted title" },
+            ],
+            id: "forma-omitted-title-",
+        },
+    ])("retains the $source omitted title target when its readable alias is occupied", async ({ headings, id }) => {
+        const html = postProcessMarkdownHtml(
+            await renderMarkdown("# Foo\n\n## Forma heading foo\n\n## Forma omitted title"),
+            headings,
+            "reader.md",
+            [],
+            true,
+        );
+        const body = new DOMParser().parseFromString(html, "text/html").body;
+        expect(body.querySelector("h1")).toBeNull();
+        expect(body.querySelector(`#${id}[data-forma-heading-anchor]`)?.getAttribute("data-reader-heading-text")).toBe(
+            "Foo",
+        );
+        expect(body.querySelectorAll("#forma-heading-foo")).toHaveLength(1);
+        expect(body.querySelector("h2#forma-heading-foo")?.textContent).toBe("Forma heading foo");
+    });
+
     it("does not confuse an authored heading with the generated footnote label", async () => {
         const html = postProcessMarkdownHtml(
             await renderMarkdown("## Footnote label\n\nBody[^label]\n\n[^label]: Note"),

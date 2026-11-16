@@ -273,18 +273,21 @@ function EntryClassifications({ classifications }: { classifications: EntryClass
             {classifications.map((classification, index) => (
                 <li className="flex flex-wrap items-baseline gap-x-1" key={classification.key}>
                     <span>{classification.taxonomyTitle}:</span>
-                    {classification.terms.map((term, termIndex) => (
-                        <span key={term.key}>
-                            <Link className="link text-base-content/80 link-hover" to={term.to}>
-                                {term.title}
-                            </Link>
-                            {termIndex < classification.terms.length - 1 ? (
-                                ","
-                            ) : index < classifications.length - 1 ? (
-                                <span aria-hidden="true">{"\u00a0·"}</span>
-                            ) : null}
-                        </span>
-                    ))}
+                    {classification.terms.map((term, termIndex) => {
+                        const lastTerm = termIndex === classification.terms.length - 1;
+                        const hasSeparator = lastTerm && index < classifications.length - 1;
+                        // Remove invisible trailing break opportunities, then join across punctuation.
+                        const title = hasSeparator ? term.title.replace(/[ \t\n\r\f\u200b]+$/u, "") : term.title;
+                        return (
+                            <span key={term.key}>
+                                <Link className="link text-base-content/80 link-hover" to={term.to}>
+                                    {title}
+                                </Link>
+                                {!lastTerm ? "," : null}
+                                {hasSeparator ? <span aria-hidden="true">{"\u2060\u00a0·"}</span> : null}
+                            </span>
+                        );
+                    })}
                 </li>
             ))}
         </ul>

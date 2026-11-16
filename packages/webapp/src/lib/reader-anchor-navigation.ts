@@ -57,8 +57,14 @@ export function findFragmentTarget(root: Document | HTMLElement, id: string, raw
     // Match Core's case-insensitive ASCII comparison without folding different
     // headings into the same slug (for example, two Chinese headings into "section").
     const headingText = normalizeHeadingText(id);
-    for (const heading of root.querySelectorAll<HTMLElement>("[data-reader-heading-text]")) {
-        if (normalizeHeadingText(heading.dataset.readerHeadingText ?? "") === headingText) return heading;
+    const headings = Array.from(root.querySelectorAll<HTMLElement>("[data-reader-heading-text]"));
+    const textOf = (heading: HTMLElement) => normalizeHeadingText(heading.dataset.readerHeadingText ?? "");
+    const exactHeading = headings.find((heading) => textOf(heading) === headingText);
+    if (exactHeading) return exactHeading;
+    if (/\P{ASCII}/u.test(headingText)) {
+        // Also accept a hyphenated spelling when all words and Unicode punctuation still match.
+        const hyphenated = headingText.replace(/\s+/gu, "-");
+        return headings.find((heading) => textOf(heading).replace(/\s+/gu, "-") === hyphenated) ?? null;
     }
     const legacyId = headingText.match(/[a-z0-9]+/gu)?.join("-");
     return legacyId ? byId(legacyId) : null;
