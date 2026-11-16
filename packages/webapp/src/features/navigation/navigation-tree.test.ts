@@ -45,6 +45,12 @@ describe("buildFileTree", () => {
         ]);
     });
 
+    it("leaves out documents inside the reserved route segment, which cannot be opened", () => {
+        const tree = buildFileTree([entry("-/browse.md", "Shadow"), entry("-.md", "Dash"), entry("-notes/a.md", "A")]);
+
+        expect(outline(tree)).toEqual(["directory:-notes", "  entry:A"]);
+    });
+
     it("compacts a chain of single-directory levels into one row whose segments keep their own pages", () => {
         const tree = buildFileTree([entry("knowledge/workspace/member/note.md", "Member"), entry("top.md", "Top")]);
 

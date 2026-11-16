@@ -4,7 +4,8 @@ import type { DashboardEntry } from "@/data/workspace-client";
 
 import { recentlyUpdatedEntries } from "./recent-entries";
 
-const entry = (path: string, updatedAt?: string) => ({ path, updatedAt }) as DashboardEntry;
+const entry = (path: string, updatedAt?: string) =>
+    ({ path, routePath: `/${path.replace(/\.md$/u, "")}`, updatedAt }) as DashboardEntry;
 
 describe("recentlyUpdatedEntries", () => {
     const entries = [
@@ -23,6 +24,14 @@ describe("recentlyUpdatedEntries", () => {
             "tie-b.md",
             "old.md",
         ]);
+    });
+
+    it("leaves out documents inside the reserved route segment", () => {
+        expect(
+            recentlyUpdatedEntries([entry("-/browse.md", "2026-04-01T00:00:00Z"), ...entries], 1).map(
+                (item) => item.path,
+            ),
+        ).toEqual(["newest.md"]);
     });
 
     it("applies the limit after excluding the given path", () => {

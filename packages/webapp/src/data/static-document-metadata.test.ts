@@ -59,6 +59,7 @@ describe("static document metadata", () => {
         });
         expect(resolveStaticDocumentMetadata(dashboard, "/-/notes")).toMatchObject({ title: "Not found" });
         expect(resolveStaticDocumentMetadata(dashboard, "/missing")).toMatchObject({ title: "Not found" });
+        expect(resolveStaticDocumentMetadata(dashboard, "/-/health")).toMatchObject({ title: "Health" });
     });
 
     it("resolves homepage, encoded entry, and View metadata from local dashboard data", () => {

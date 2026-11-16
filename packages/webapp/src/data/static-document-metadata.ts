@@ -1,6 +1,7 @@
 import {
     browseRoutePath,
     directoryForRoutePath,
+    healthRoutePath,
     taxonomyRoutePath,
     taxonomyTermRoutePath,
     viewRoutePath,
@@ -35,6 +36,9 @@ export function resolveStaticDocumentMetadata(dashboard: WorkspaceDashboard, pat
             description: `Pages the workspace includes under ${directory}/.`,
             title: directory.split("/").at(-1) ?? directory,
         };
+    }
+    if (canonicalPath === healthRoutePath) {
+        return { canonicalPath, description: "Workspace health findings.", title: "Health" };
     }
     if (canonicalPath === viewsRoutePath) {
         return { canonicalPath, description: "Configured workspace projections.", title: "Views" };

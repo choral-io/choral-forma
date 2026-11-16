@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
     browseRoutePath,
     healthRoutePath,
+    isSystemRoutePath,
     taxonomyRoutePath,
     taxonomyTermRoutePath,
     viewRoutePath,
@@ -153,7 +154,9 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
             meta: `${String(term.entryCount)} ${term.entryCount === 1 ? "page" : "pages"}`,
         })),
     ]);
-    const entryItems = dashboard.entries.map((entry) => ({
+    // A document inside the reserved route segment cannot be opened; Core reports it instead.
+    const openableEntries = dashboard.entries.filter((entry) => !isSystemRoutePath(entry.routePath));
+    const entryItems = openableEntries.map((entry) => ({
         group: "Content",
         href: entry.routePath,
         keywords: `${entry.kind ?? ""} ${entry.space}`,
@@ -161,7 +164,7 @@ export function QuickOpenDialog({ dashboard }: { dashboard: WorkspaceDashboard }
         meta: entry.path,
     }));
     const items = [...routeItems, ...viewItems, ...taxonomyItems, ...entryItems];
-    const recentEntryItems = [...dashboard.entries]
+    const recentEntryItems = [...openableEntries]
         .sort((left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""))
         .slice(0, 6)
         .map((entry) => ({

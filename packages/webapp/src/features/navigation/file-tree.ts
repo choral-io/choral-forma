@@ -1,5 +1,5 @@
 import type { DashboardEntry } from "@/data/workspace-client";
-import { directoryRoutePath } from "@/lib/workspace-routes";
+import { directoryRoutePath, isSystemRoutePath } from "@/lib/workspace-routes";
 
 import { compareText } from "./directory-listing";
 import { directoryOwners } from "./directory-owners";
@@ -26,7 +26,9 @@ interface DirectoryDraft {
  * - The workspace entry document, served at `/`, is the root's own document. It leads the
  *   tree ahead of every folder and takes no part in adjacent-document order.
  */
-export function buildFileTree(entries: readonly FileTreeEntry[]): NavigationNode[] {
+export function buildFileTree(allEntries: readonly FileTreeEntry[]): NavigationNode[] {
+    // A document inside the reserved segment cannot be opened; Core reports it instead.
+    const entries = allEntries.filter((entry) => !isSystemRoutePath(entry.routePath));
     const owners = directoryOwners(entries);
     const ownerPaths = new Set([...owners.values()].map((owner) => owner.path));
     const root: DirectoryDraft = { directories: new Map(), entries: [], path: "" };

@@ -3,6 +3,7 @@ import {
     directoryForRoutePath,
     healthRoutePath,
     isSystemRoutePath,
+    systemRouteSegment,
     taxonomyRoutePath,
     taxonomyTermRoutePath,
     viewRoutePath,
@@ -63,7 +64,10 @@ export function readPreparedStaticEnhancement() {
 }
 
 function isDashboardOnlyRoute(dashboard: WorkspaceDashboard, routePath: string) {
-    if (["/", viewsRoutePath, browseRoutePath, healthRoutePath].includes(routePath)) return true;
+    // `/-` has no page of its own; the router leads it home.
+    if (["/", `/${systemRouteSegment}`, viewsRoutePath, browseRoutePath, healthRoutePath].includes(routePath)) {
+        return true;
+    }
     return dashboard.taxonomies.some(
         (taxonomy) =>
             routePath === taxonomyRoutePath(taxonomy.id) ||
